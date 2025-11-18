@@ -56,6 +56,8 @@ namespace WebApi.Extensions
                 });
             });
 
+            services.AddHealthChecks();
+            
             return services;
         }
 

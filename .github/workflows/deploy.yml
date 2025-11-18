@@ -1,0 +1,63 @@
+name: Build & deploy pdm-webapi
+
+on:
+  push:
+    branches:
+      - AK/ci-cd          # jeśli używasz innej gałęzi prod, zmień tutaj
+  workflow_dispatch:  # pozwala odpalić ręcznie z UI GitHuba
+
+jobs:
+  deploy:
+    runs-on: self-hosted    # Twój Windows runner
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create .env for docker-compose
+        shell: pwsh
+        working-directory: 03-Deployment
+        run: |
+          @"
+          AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
+          CONNECTIONSTRINGS__DEFAULTCONNECTION=${{ secrets.CONNECTIONSTRINGS__DEFAULTCONNECTION }}
+          "@ | Set-Content -Path .env -Encoding UTF8
+
+      - name: Build & start containers (docker compose)
+        shell: pwsh
+        working-directory: 03-Deployment
+        run: |
+          docker compose -f docker-compose.yml up -d --build
+
+      - name: Health check http://localhost:8080/health
+        shell: pwsh
+        run: |
+          $url = "http://localhost:8080/health"
+          $maxRetries = 10
+          $delay = 5
+          $ok = $false
+
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            Write-Host "Health check attempt $i/$maxRetries..."
+            try {
+              $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5
+              if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+                Write-Host "Health check OK: $($response.StatusCode)"
+                $ok = $true
+                break
+              }
+            }
+            catch {
+              Write-Host "Health check failed: $($_.Exception.Message)"
+            }
+
+            Start-Sleep -Seconds $delay
+          }
+
+          if (-not $ok) {
+            Write-Host "Health check FAILED after $maxRetries attempts. Showing logs..."
+            docker compose -f 03-Deployment/docker-compose.yml logs webapi || $true
+            throw "Deployment failed – service unhealthy."
+          }

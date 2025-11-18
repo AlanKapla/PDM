@@ -1,19 +1,19 @@
-version: "3.9"
-
 services:
   webapi:
-    container_name: pdm-webapi
+    container_name: pdm-webapi-debug
     image: pdm-webapi:${TAG:-latest}
     build:
       context: ../02-ApplicationServices/ProductDataManagementWebAPI
       dockerfile: ../../03-Deployment/Backend/API/Dockerfile
       args:
         BUILD_CONFIGURATION: Release
+    env_file:
+      - ./.env   # tylko na serwerze, generowany z GitHub Secrets / ręcznie
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      DOTNET_EnableDiagnostics: 0
-      ASPNETCORE_THREADPOOL_MINTHREADS: 20
+      DOTNET_EnableDiagnostics: "0"
+      ASPNETCORE_THREADPOOL_MINTHREADS: "20"
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -23,19 +23,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 512M
-        reservations:
-          cpus: "0.25"
-          memory: 256M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -43,4 +30,4 @@ services:
       - /tmp
     labels:
       com.pdm.service: "webapi"
-      com.pdm.env: "production"     
+      com.pdm.env: "production"
