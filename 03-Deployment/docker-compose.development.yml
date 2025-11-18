@@ -16,6 +16,8 @@ services:
       - 8080:8080
     volumes:
       - ../02-ApplicationServices/ProductDataManagementWebAPI:/src
+      - dpkeys:/keys
+    restart: always 
     command:
       - dotnet
       - watch

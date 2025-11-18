@@ -1,6 +1,6 @@
 services:
   webapi:
-    container_name: pdm-webapi
+    container_name: pdm-webapi-production
     image: pdm-webapi:${TAG:-latest}
     build:
       context: ../02-ApplicationServices/ProductDataManagementWebAPI
@@ -33,5 +33,3 @@ services:
     labels:
       com.pdm.service: "webapi"
       com.pdm.env: "production"
-    volumes:
-      dpkeys:  
