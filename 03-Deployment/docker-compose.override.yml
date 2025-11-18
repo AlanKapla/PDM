@@ -1,0 +1,24 @@
+services:
+  webapi:
+    container_name: pdm-webapi
+    build:
+      context: ../02-ApplicationServices/ProductDataManagementWebAPI
+      dockerfile: ../../03-Deployment/Backend/API/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Debug
+    env_file:
+      - ./.env.development
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_USE_POLLING_FILE_WATCHER: "true"
+    ports:
+      - 8080:8080
+    volumes:
+      - ../02-ApplicationServices/ProductDataManagementWebAPI:/src
+    command:
+      - dotnet
+      - watch
+      - run
+      - --urls
+      - http://0.0.0.0:8080

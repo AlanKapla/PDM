@@ -1,0 +1,13 @@
+﻿using Entities.Models.Base;
+
+namespace Entities.Models
+{
+    public class Tenant : BaseEntity
+    {
+        public string Name { get; set; } = default!;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public ICollection<TenantMember> Members { get; set; } = new List<TenantMember>();
+        public ICollection<Project> Projects { get; set; } = new List<Project>();
+    }
+}
