@@ -33,3 +33,5 @@ services:
     labels:
       com.pdm.service: "webapi"
       com.pdm.env: "production"
+volumes:
+  dpkeys: {}      

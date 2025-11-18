@@ -1,6 +1,6 @@
 services:
   webapi:
-    container_name: pdm-webapi-debug
+    container_name: pdm-webapi-development
     build:
       context: ../02-ApplicationServices/ProductDataManagementWebAPI
       dockerfile: ../../03-Deployment/Backend/API/Dockerfile
@@ -24,3 +24,5 @@ services:
       - run
       - --urls
       - http://0.0.0.0:8080
+volumes:
+  dpkeys: {}      
