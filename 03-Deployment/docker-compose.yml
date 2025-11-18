@@ -7,9 +7,6 @@ x-common-env: &common-env
 services:
   webapi:
     # unikalna nazwa kontenera per środowisko
-    # dev  -> pdm-webapi-dev
-    # ppd  -> pdm-webapi-ppd
-    # prd  -> pdm-webapi-prd
     container_name: "pdm-webapi-${ENVIRONMENT}"
 
     image: "pdm-webapi:${TAG:-latest}"
@@ -19,16 +16,14 @@ services:
       args:
         BUILD_CONFIGURATION: Release
 
-    # .env generowany w GitHub Actions – zawiera m.in.:
-    # ENVIRONMENT, HOST_PORT, AZURE_*, CONNECTIONSTRINGS__DEFAULTCONNECTION
+    # .env z workflow: ENVIRONMENT, HOST_PORT, AZURE_*, CONNECTIONSTRINGS__DEFAULTCONNECTION
     env_file:
       - ./.env
 
     environment:
       <<: *common-env
 
-    # port hosta zależny od środowiska:
-    # dev -> 8080, ppd -> 8081, prd -> 8082 (z .env → HOST_PORT)
+    # port hosta zależny od środowiska (dev=8080, ppd=8081, prd=8082)
     ports:
       - "${HOST_PORT:-8080}:8080"
 
@@ -45,8 +40,13 @@ services:
       - no-new-privileges:true
 
     read_only: true
+
     tmpfs:
       - /tmp
+
+    # 🔑 wolumen na klucze dla .PersistKeysToFileSystem("/keys")
+    volumes:
+      - pdm-keys:/keys
 
     labels:
       com.pdm.service: "webapi"
@@ -57,5 +57,10 @@ services:
 
 networks:
   pdm-net:
-    # osobna sieć per środowisko (np. pdm-net-dev, pdm-net-ppd, pdm-net-prd)
+    # tu można użyć ENVIRONMENT w wartości "name"
     name: "pdm-net-${ENVIRONMENT}"
+
+volumes:
+  # klucz MUSI być stały, ale "name" może mieć ${ENVIRONMENT}
+  pdm-keys:
+    name: "pdm-keys-${ENVIRONMENT}"
