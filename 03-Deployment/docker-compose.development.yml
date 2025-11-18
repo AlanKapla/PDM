@@ -10,7 +10,7 @@ services:
       - ./.env.development
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_URLS: http://0.0.0.0:8080
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
     ports:
       - 8080:8080

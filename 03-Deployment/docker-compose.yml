@@ -1,6 +1,6 @@
 services:
   webapi:
-    container_name: pdm-webapi-debug
+    container_name: pdm-webapi
     image: pdm-webapi:${TAG:-latest}
     build:
       context: ../02-ApplicationServices/ProductDataManagementWebAPI
@@ -11,12 +11,14 @@ services:
       - ./.env   # tylko na serwerze, generowany z GitHub Secrets / ręcznie
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_URLS: http://0.0.0.0:8080
       DOTNET_EnableDiagnostics: "0"
       ASPNETCORE_THREADPOOL_MINTHREADS: "20"
     ports:
       - "8080:8080"
-    restart: unless-stopped
+    volumes:
+      - dpkeys:/keys
+    restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -31,3 +33,5 @@ services:
     labels:
       com.pdm.service: "webapi"
       com.pdm.env: "production"
+    volumes:
+      dpkeys:  

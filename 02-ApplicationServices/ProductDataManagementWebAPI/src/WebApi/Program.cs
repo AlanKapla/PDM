@@ -33,7 +33,6 @@ internal class Program
         app.UseGlobalExceptionHandling();
 
         app.UseSwaggerWhenDev();
-        app.UseHttpsRedirection();
 
         app.UseAuthentication();
         app.UseAuthorization();
