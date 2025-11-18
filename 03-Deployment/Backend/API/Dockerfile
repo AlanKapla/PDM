@@ -7,7 +7,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# 1. Kopiujemy same csproj-y (cache restore)
+# 1. Kopiujemy same csproj (cache restore)
 COPY src/Business/Business.csproj src/Business/
 COPY src/CQRS/CQRS.csproj src/CQRS/
 COPY src/Entities/Entities.csproj src/Entities/
@@ -16,7 +16,7 @@ COPY src/WebApi/WebApi.csproj src/WebApi/
 
 RUN dotnet restore "src/WebApi/WebApi.csproj"
 
-# 2. Kopiujemy resztę solution
+# 2. Kopiujemy resztę kodu
 COPY . .
 
 # 3. Build z katalogu WebApi
@@ -31,9 +31,7 @@ RUN dotnet publish "WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:Us
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "WebApi.dll"]
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-RUN apt-get update && apt-get install -y curl
-WORKDIR /app
-EXPOSE 8080
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+
+ENTRYPOINT ["dotnet", "WebApi.dll"]
