@@ -1,4 +1,5 @@
 name: Build & deploy pdm-webapi
+run-name: "Deploy WebAPI → ${{ github.event.inputs.environment }} → branch ${{ github.ref_name }}"
 
 on:
   workflow_dispatch:
