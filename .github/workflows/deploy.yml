@@ -14,19 +14,28 @@ on:
           - dev
           - ppd
           - prd
+      runner:
+        description: 'Self-hosted runner label'
+        required: true
+        type: choice
+        options:
+          - pdm-runner-1
+          - pdm-runner-2
+          - pdm-runner-3
 
 permissions:
   contents: read
 
 jobs:
   deploy:
-    runs-on: self-hosted
-    - ${{ github.event.inputs.runner }}
+    runs-on:
+      - self-hosted
+      - ${{ github.event.inputs.runner }}
 
-    # GitHub Environment: dev / ppd / prd
-    # To samo environment pojawi się w zakładce Deployments
-    environment: ${{ github.event.inputs.environment }}
-    url: ${{ vars.ENVIRONMENT_URL }}
+    # GitHub Environment: dev / ppd / prd + link do aplikacji
+    environment:
+      name: ${{ github.event.inputs.environment }}
+      url: ${{ vars.ENVIRONMENT_URL }}
 
     env:
       # Nazwa środowiska do docker compose / labeli
