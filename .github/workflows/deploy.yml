@@ -18,7 +18,7 @@ on:
 permissions:
   contents: read
   deployments: write
-  
+
 jobs:
   deploy:
     runs-on: self-hosted
@@ -128,6 +128,7 @@ jobs:
             const envName = process.env.ENVIRONMENT_NAME;
             const envUrl  = process.env.ENVIRONMENT_URL || undefined;
             const deploymentId = ${{ steps.create_deployment.outputs.deployment_id }};
+            const actor = process.env.GITHUB_ACTOR;
 
             await github.rest.repos.createDeploymentStatus({
               owner: context.repo.owner,
@@ -137,5 +138,5 @@ jobs:
               environment: envName,
               environment_url: envUrl,
               log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: `Deployment to ${envName} succeeded`
+              description: `Deployment to ${envName} succeeded from ${context.ref} by ${actor}`
             });
