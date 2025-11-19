@@ -17,22 +17,20 @@ on:
 
 permissions:
   contents: read
-  deployments: write
 
 jobs:
   deploy:
     runs-on: self-hosted
 
     # GitHub Environment: dev / ppd / prd
+    # To samo environment pojawi się w zakładce Deployments
     environment: ${{ github.event.inputs.environment }}
 
     env:
       # Nazwa środowiska do docker compose / labeli
       ENVIRONMENT_NAME: ${{ github.event.inputs.environment }}
-      # Port hosta – z GitHub Environment → Variables
+      # Port hosta – z GitHub Environment → Variables (HOST_PORT)
       HOST_PORT: ${{ vars.HOST_PORT }}
-      # URL środowiska – z GitHub Environment → Variables
-      ENVIRONMENT_URL: ${{ vars.ENVIRONMENT_URL }}
 
     steps:
       - name: Checkout repo
@@ -96,47 +94,3 @@ jobs:
             docker compose -p "pdm-$envName" -f 03-Deployment/docker-compose.yml logs webapi || $true
             throw "Deployment failed – service unhealthy."
           }
-
-      # 🔽🔽🔽 NOWE: GitHub Deployments 🔽🔽🔽
-
-      - name: Create GitHub deployment
-        id: create_deployment
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const envName = process.env.ENVIRONMENT_NAME;
-
-            const deployment = await github.rest.repos.createDeployment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: context.sha,
-              environment: envName,
-              auto_merge: false,
-              required_contexts: [], // bez wymaganych checków
-              description: `Deploy pdm-webapi to ${envName} from ${context.ref}`
-            });
-
-            core.setOutput('deployment_id', deployment.data.id);
-
-      - name: Set deployment status (success)
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const envName = process.env.ENVIRONMENT_NAME;
-            const envUrl  = process.env.ENVIRONMENT_URL || undefined;
-            const deploymentId = ${{ steps.create_deployment.outputs.deployment_id }};
-            const actor = process.env.GITHUB_ACTOR;
-
-            await github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: deploymentId,
-              state: 'success',
-              environment: envName,
-              environment_url: envUrl,
-              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: `Deployment to ${envName} succeeded from ${context.ref} by ${actor}`
-            });
