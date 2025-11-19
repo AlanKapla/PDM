@@ -74,8 +74,9 @@ public class UserController : BaseApiController
 
     [Authorize]
     [HttpGet("me")]
-    public async Task<IActionResult> GetUserDetails([FromQuery] UserDetailsQuery request)
+    public async Task<IActionResult> GetUserDetails()
     {
+        UserDetailsQuery request = new();
         return Ok(await Send(request));
     }
 }
