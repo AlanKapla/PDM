@@ -23,6 +23,11 @@ export default function Home() {
   const [user, setUser] = useState<UserDetails | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const cardBg = useColorModeValue("white", "gray.800");
+  const cardTextColor = useColorModeValue("gray.600", "gray.300");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const headingColor = useColorModeValue("black", "white");
+
   useEffect(() => {
     async function loadUser() {
       try {
@@ -37,10 +42,6 @@ export default function Home() {
 
     loadUser();
   }, []);
-
-  const cardBg = useColorModeValue("white", "gray.800");
-  const cardTextColor = useColorModeValue("gray.600", "gray.300");
-  const pageBg = useColorModeValue("gray.50", "gray.900");
 
   if (loading) {
     return (
@@ -65,7 +66,7 @@ export default function Home() {
           mx="auto"
           textAlign="center"
         >
-          <Heading mb={4} color={useColorModeValue("black", "white")}>
+          <Heading mb={4} color={headingColor}>
             Witaj ponownie!
           </Heading>
 

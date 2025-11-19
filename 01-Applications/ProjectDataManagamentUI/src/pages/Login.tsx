@@ -68,8 +68,8 @@ export default function Login() {
       return;
     }
 
-    setToken(result.token);
     localStorage.setItem("token", result.token);
+    setToken(result.token);
 
     toast({
       title: "Zalogowano!",
@@ -78,7 +78,7 @@ export default function Login() {
       isClosable: true,
     });
 
-    navigate("/");
+    navigate("/dashboard");
   };
 
   const cardBg = useColorModeValue("white", "gray.800");
@@ -87,13 +87,7 @@ export default function Login() {
 
   return (
     <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
-      <Box
-        bg={cardBg}
-        p={8}
-        rounded="lg"
-        shadow="lg"
-        width="400px"
-      >
+      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" width="400px">
         <Heading mb={6} textAlign="center" size="lg">
           Logowanie
         </Heading>

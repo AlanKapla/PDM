@@ -1,9 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
-import Home from "../pages/Home";
+import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
+import Profile from "../pages/Profile";
 
 export default function AppRouter() {
   return (
@@ -30,7 +31,16 @@ export default function AppRouter() {
         path="/"
         element={
           <ProtectedRoute>
-            <Home />
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

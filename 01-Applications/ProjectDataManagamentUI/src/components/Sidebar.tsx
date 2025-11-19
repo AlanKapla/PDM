@@ -8,31 +8,33 @@ import {
   useColorMode,
   useColorModeValue,
 } from "@chakra-ui/react";
-import { Home, User, LogOut, Moon, Sun } from "lucide-react";
+import {
+  User,
+  LogOut,
+  Moon,
+  Sun,
+  LayoutDashboard,
+} from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useContext, useMemo } from "react";
+import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 
 export default function Sidebar() {
-  // ➤ wszystkie hooki NA SAMYM POCZĄTKU
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useContext(AuthContext);
+
   const { colorMode, toggleColorMode } = useColorMode();
 
-  const bgColor = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
+  const bg = useColorModeValue("white", "gray.900");
+  const border = useColorModeValue("gray.200", "gray.700");
   const activeBg = useColorModeValue("blue.100", "blue.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
 
-  // ➤ useMemo = stabilna lista, nie zmienia się między renderami
-  const menuItems = useMemo(
-    () => [
-      { label: "Dashboard", icon: <Home size={20} />, path: "/" },
-      { label: "Profil", icon: <User size={20} />, path: "/profile" },
-    ],
-    []
-  );
+  const menuItems = [
+    { label: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/dashboard" },
+    { label: "Profil", icon: <User size={20} />, path: "/profile" },
+  ];
 
   return (
     <Box
@@ -41,9 +43,9 @@ export default function Sidebar() {
       top="0"
       w="250px"
       h="100vh"
-      bg={bgColor}
+      bg={bg}
       borderRight="1px solid"
-      borderColor={borderColor}
+      borderColor={border}
       p={5}
     >
       <VStack align="flex-start" spacing={6} h="100%">
@@ -57,9 +59,10 @@ export default function Sidebar() {
         <VStack align="stretch" w="100%" spacing={2}>
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
+
             return (
               <Button
-                key={item.path}
+                key={item.label}
                 variant="ghost"
                 justifyContent="flex-start"
                 leftIcon={item.icon}
@@ -77,9 +80,7 @@ export default function Sidebar() {
         <Box flex="1" />
 
         <Button
-          leftIcon={
-            colorMode === "light" ? <Moon size={20} /> : <Sun size={20} />
-          }
+          leftIcon={colorMode === "light" ? <Moon size={20} /> : <Sun size={20} />}
           w="100%"
           variant="outline"
           onClick={toggleColorMode}

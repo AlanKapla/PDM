@@ -3,11 +3,11 @@ import Sidebar from "../components/Sidebar";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Box>
-      <Sidebar />
-      <Box ml="250px" p={8}>
-        {children}
-      </Box>
+  <Box>
+    <Sidebar />
+    <Box ml="250px">
+      {children}
     </Box>
-  );
+  </Box>
+);
 }
