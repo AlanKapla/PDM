@@ -21,10 +21,12 @@ permissions:
 jobs:
   deploy:
     runs-on: self-hosted
+    - ${{ github.event.inputs.runner }}
 
     # GitHub Environment: dev / ppd / prd
     # To samo environment pojawi się w zakładce Deployments
     environment: ${{ github.event.inputs.environment }}
+    url: ${{ vars.ENVIRONMENT_URL }}
 
     env:
       # Nazwa środowiska do docker compose / labeli
