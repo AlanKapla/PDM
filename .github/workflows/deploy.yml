@@ -19,10 +19,8 @@ on:
         required: true
         type: choice
         options:
-          - pdm-runner-1
-          - pdm-runner-2
-          - pdm-runner-3
-
+          - ALAN
+          
 permissions:
   contents: read
 
