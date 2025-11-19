@@ -1,5 +1,7 @@
 import { useState, useContext } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
   Box,
   Button,
@@ -11,11 +13,12 @@ import {
   FormLabel,
   FormErrorMessage,
   useToast,
+  useColorModeValue,
+  Text,
 } from "@chakra-ui/react";
 
 import { loginUser } from "../services/authService";
 import { AuthContext } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 
 interface LoginForm {
   email: string;
@@ -53,42 +56,51 @@ export default function Login() {
 
     if (!validate()) return;
 
-    try {
-      const result = await loginUser(form);
+    const result = await loginUser(form);
 
-      setToken(result.token);
-      localStorage.setItem("token", result.token);
-
+    if (!result) {
       toast({
-        title: "Zalogowano!",
-        status: "success",
+        title: "Błąd logowania",
+        status: "error",
         duration: 3000,
         isClosable: true,
       });
-
-      navigate("/");
-    } catch (error) {
-      toast({
-        title: "Błąd logowania",
-        description:
-          error instanceof Error ? error.message : "Wystąpił nieoczekiwany błąd.",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-      });
+      return;
     }
+
+    setToken(result.token);
+    localStorage.setItem("token", result.token);
+
+    toast({
+      title: "Zalogowano!",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+
+    navigate("/");
   };
 
+  const cardBg = useColorModeValue("white", "gray.800");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const labelColor = useColorModeValue("gray.700", "gray.300");
+
   return (
-    <Flex justify="center" align="center" minH="100vh" bg="gray.50">
-      <Box bg="white" p={8} rounded="lg" shadow="lg" width="400px">
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
+      <Box
+        bg={cardBg}
+        p={8}
+        rounded="lg"
+        shadow="lg"
+        width="400px"
+      >
         <Heading mb={6} textAlign="center" size="lg">
           Logowanie
         </Heading>
 
         <VStack spacing={4} as="form" onSubmit={handleLogin}>
           <FormControl isInvalid={!!errors.email}>
-            <FormLabel>Email</FormLabel>
+            <FormLabel color={labelColor}>Email</FormLabel>
             <Input
               type="email"
               name="email"
@@ -100,7 +112,7 @@ export default function Login() {
           </FormControl>
 
           <FormControl isInvalid={!!errors.password}>
-            <FormLabel>Hasło</FormLabel>
+            <FormLabel color={labelColor}>Hasło</FormLabel>
             <Input
               type="password"
               name="password"
@@ -115,7 +127,7 @@ export default function Login() {
             Zaloguj się
           </Button>
 
-          <Box textAlign="center">
+          <Text fontSize="sm">
             Nie masz konta?{" "}
             <Button
               variant="link"
@@ -124,8 +136,7 @@ export default function Login() {
             >
               Zarejestruj się
             </Button>
-          </Box>
-
+          </Text>
         </VStack>
       </Box>
     </Flex>

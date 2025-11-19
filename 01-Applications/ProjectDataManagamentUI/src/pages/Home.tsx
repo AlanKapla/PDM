@@ -1,7 +1,17 @@
 import { useContext, useEffect, useState } from "react";
-import { Box, Button, Heading, Text, Spinner, VStack } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Heading,
+  Text,
+  Spinner,
+  VStack,
+  useColorModeValue,
+} from "@chakra-ui/react";
+
 import { AuthContext } from "../context/AuthContext";
 import { getUserDetails } from "../services/userService";
+import MainLayout from "../layout/MainLayout";
 
 interface UserDetails {
   email: string;
@@ -28,37 +38,48 @@ export default function Home() {
     loadUser();
   }, []);
 
+  const cardBg = useColorModeValue("white", "gray.800");
+  const cardTextColor = useColorModeValue("gray.600", "gray.300");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+
   if (loading) {
     return (
-      <VStack minH="100vh" justify="center">
-        <Spinner size="xl" />
-      </VStack>
+      <MainLayout>
+        <VStack minH="100vh" justify="center">
+          <Spinner size="xl" />
+        </VStack>
+      </MainLayout>
     );
   }
 
   return (
-    <Box p={10} bg="gray.50" minH="100vh">
-      <Box
-        bg="white"
-        p={8}
-        rounded="2xl"
-        shadow="xl"
-        maxW="600px"
-        mx="auto"
-        textAlign="center"
-      >
-        <Heading mb={4}>Witaj ponownie!</Heading>
+    <MainLayout>
+      <Box p={10} bg={pageBg} minH="100vh">
+        <Box
+          bg={cardBg}
+          color={cardTextColor}
+          p={8}
+          rounded="2xl"
+          shadow="xl"
+          maxW="600px"
+          mx="auto"
+          textAlign="center"
+        >
+          <Heading mb={4} color={useColorModeValue("black", "white")}>
+            Witaj ponownie!
+          </Heading>
 
-        <Text fontSize="lg" mb={6} color="gray.600">
-          Jesteś zalogowany jako:
-          <br />
-          <strong>{user?.email}</strong>
-        </Text>
+          <Text fontSize="lg" mb={6}>
+            Jesteś zalogowany jako:
+            <br />
+            <strong>{user?.email}</strong>
+          </Text>
 
-        <Button colorScheme="red" onClick={logout}>
-          Wyloguj się
-        </Button>
+          <Button colorScheme="red" onClick={logout}>
+            Wyloguj się
+          </Button>
+        </Box>
       </Box>
-    </Box>
+    </MainLayout>
   );
 }

@@ -13,6 +13,8 @@ import {
   FormLabel,
   FormErrorMessage,
   useToast,
+  useColorModeValue,
+  Text,
 } from "@chakra-ui/react";
 
 import { registerUser } from "../services/authService";
@@ -26,7 +28,7 @@ interface RegisterForm {
 
 export default function Register() {
   const toast = useToast();
-  const navigate = useNavigate();   
+  const navigate = useNavigate();
 
   const [form, setForm] = useState<RegisterForm>({
     email: "",
@@ -79,16 +81,8 @@ export default function Register() {
         isClosable: true,
       });
 
-      setForm({
-        email: "",
-        password: "",
-        firstName: "",
-        lastName: "",
-      });
-
       navigate("/login");
-
-    } catch (err) {
+    } catch {
       toast({
         title: "Błąd serwera",
         status: "error",
@@ -98,16 +92,20 @@ export default function Register() {
     }
   };
 
+  const cardBg = useColorModeValue("white", "gray.800");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const labelColor = useColorModeValue("gray.700", "gray.300");
+
   return (
-    <Flex justify="center" align="center" minH="100vh" bg="gray.50">
-      <Box bg="white" p={8} rounded="lg" shadow="lg" width="400px">
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
+      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" width="400px">
         <Heading mb={6} textAlign="center" size="lg">
           Rejestracja
         </Heading>
 
         <VStack spacing={4} as="form" onSubmit={handleSubmit}>
           <FormControl isInvalid={!!errors.firstName}>
-            <FormLabel>Imię</FormLabel>
+            <FormLabel color={labelColor}>Imię</FormLabel>
             <Input
               name="firstName"
               value={form.firstName}
@@ -117,7 +115,7 @@ export default function Register() {
           </FormControl>
 
           <FormControl isInvalid={!!errors.lastName}>
-            <FormLabel>Nazwisko</FormLabel>
+            <FormLabel color={labelColor}>Nazwisko</FormLabel>
             <Input
               name="lastName"
               value={form.lastName}
@@ -127,7 +125,7 @@ export default function Register() {
           </FormControl>
 
           <FormControl isInvalid={!!errors.email}>
-            <FormLabel>Email</FormLabel>
+            <FormLabel color={labelColor}>Email</FormLabel>
             <Input
               name="email"
               type="email"
@@ -138,7 +136,7 @@ export default function Register() {
           </FormControl>
 
           <FormControl isInvalid={!!errors.password}>
-            <FormLabel>Hasło</FormLabel>
+            <FormLabel color={labelColor}>Hasło</FormLabel>
             <Input
               name="password"
               type="password"
@@ -152,7 +150,7 @@ export default function Register() {
             Zarejestruj
           </Button>
 
-          <Box textAlign="center">
+          <Text fontSize="sm">
             Masz już konto?{" "}
             <Button
               variant="link"
@@ -161,7 +159,7 @@ export default function Register() {
             >
               Zaloguj się
             </Button>
-          </Box>
+          </Text>
         </VStack>
       </Box>
     </Flex>
