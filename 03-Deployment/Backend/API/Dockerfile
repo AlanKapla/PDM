@@ -2,8 +2,6 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081   # może zostać, nie przeszkadza
 
 # 2. Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
