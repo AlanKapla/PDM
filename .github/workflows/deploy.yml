@@ -19,8 +19,8 @@ on:
         required: true
         type: choice
         options:
-          - ALAN
-          
+          - pdm1
+
 permissions:
   contents: read
 
