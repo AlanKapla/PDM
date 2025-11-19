@@ -41,10 +41,15 @@ public class UserController : BaseApiController
     }
 
     [HttpPost("refresh")]
-    public async Task<IActionResult> RefreshToken([FromBody] UserRefreshQuery request)
+    public async Task<IActionResult> RefreshToken()
     {
+        UserRefreshQuery request = new()
+        {
+            RefreshToken = cookieService.GetRefreshToken() ?? string.Empty
+        };
+
         UserAuthWeb userAuthWeb = await Send(request);
-        
+
         cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
         cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
 
