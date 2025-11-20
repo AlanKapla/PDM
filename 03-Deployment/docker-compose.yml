@@ -6,7 +6,6 @@ x-common-env: &common-env
 
 services:
   webapi:
-    # unikalna nazwa kontenera per środowisko
     container_name: "pdm-webapi-${ENVIRONMENT}"
 
     image: "pdm-webapi:${TAG:-latest}"
@@ -16,16 +15,15 @@ services:
       args:
         BUILD_CONFIGURATION: Release
 
-    # .env z workflow: ENVIRONMENT, HOST_PORT, AZURE_*, CONNECTIONSTRINGS__DEFAULTCONNECTION
     env_file:
       - ./.env
 
     environment:
       <<: *common-env
 
-    # port hosta zależny od środowiska (dev=8080, ppd=8081, prd=8082)
-    ports:
-      - "${HOST_PORT:-8080}:8080"
+    # 🔁 WebAPI widoczne tylko w sieci Dockera, NIE na hoście
+    expose:
+      - "8080"
 
     restart: unless-stopped
 
@@ -44,9 +42,8 @@ services:
     tmpfs:
       - /tmp
 
-    # 🔑 wolumen na klucze dla .PersistKeysToFileSystem("/keys")
     volumes:
-      - pdm-keys:/keys
+      - pdm-keys:/keys    # .PersistKeysToFileSystem("/keys")
 
     labels:
       com.pdm.service: "webapi"
@@ -55,12 +52,68 @@ services:
     networks:
       - pdm-net
 
+
+  ui:
+    # kontener frontendowy (React build + nginx)
+    container_name: "pdm-ui-${ENVIRONMENT}"
+
+    image: "pdm-ui:${TAG:-latest}"
+    build:
+      context: ../01-Applications/ProjectDataManagamentUI
+      dockerfile: ../../03-Deployment/Frontend/UI/Dockerfile
+
+    env_file:
+      - ./.env
+
+    # UI widoczne tylko w sieci Dockera, NIE na hoście
+    expose:
+      - "80"
+
+    restart: unless-stopped
+
+    labels:
+      com.pdm.service: "ui"
+      com.pdm.env: "${ENVIRONMENT:-dev}"
+
+    networks:
+      - pdm-net
+
+
+  nginx:
+    # gateway / reverse proxy
+    container_name: "pdm-nginx-${ENVIRONMENT}"
+
+    image: nginx:alpine
+    depends_on:
+      - webapi
+      - ui
+
+    env_file:
+      - ./.env
+
+    volumes:
+      # główny config reverse proxy (03-Deployment/nginx.conf)
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+    # 🟢 JEDYNY port wystawiony na hosta
+    # dev → 8080, ppd → 8081, prd → 8082 (z .env → HOST_PORT)
+    ports:
+      - "${HOST_PORT:-8080}:80"
+
+    restart: unless-stopped
+
+    labels:
+      com.pdm.service: "gateway"
+      com.pdm.env: "${ENVIRONMENT:-dev}"
+
+    networks:
+      - pdm-net
+
+
 networks:
   pdm-net:
-    # tu można użyć ENVIRONMENT w wartości "name"
     name: "pdm-net-${ENVIRONMENT}"
 
 volumes:
-  # klucz MUSI być stały, ale "name" może mieć ${ENVIRONMENT}
   pdm-keys:
     name: "pdm-keys-${ENVIRONMENT}"

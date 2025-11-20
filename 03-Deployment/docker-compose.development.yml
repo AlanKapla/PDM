@@ -12,17 +12,42 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://0.0.0.0:8080
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
-    ports:
-      - 8080:8080
+    expose:
+      - "8080"              # dostępne tylko wewnątrz sieci Dockera
     volumes:
       - ../02-ApplicationServices/ProductDataManagementWebAPI:/src
       - dpkeys:/keys
-    restart: always 
+    restart: always
     command:
       - dotnet
       - watch
       - run
       - --urls
       - http://0.0.0.0:8080
+
+  ui:
+    container_name: pdm-ui-development
+    build:
+      context: ../01-Applications/ProjectDataManagamentUI
+      dockerfile: ../../03-Deployment/Frontend/UI/Dockerfile
+    expose:
+      - "80"               # dostępne tylko wewnątrz sieci Dockera
+    restart: always
+
+  nginx:
+    container_name: pdm-nginx-development
+    image: nginx:alpine
+    depends_on:
+      - webapi
+      - ui
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8085:80"          # NGINX dostępny lokalnie pod portem 8085
+    restart: always
+
 volumes:
-  dpkeys: {}      
+  dpkeys: {}
+
+# uruchomienie:
+# docker compose -p pdm-development -f docker-compose.development.yml up -d --build
