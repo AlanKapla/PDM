@@ -6,6 +6,8 @@ namespace Business.Interfaces.Model
     public interface ICurrentUser
     {
         Guid Id { get; }
+        string FirstName { get; }
+        string LastName { get; }
         string Email { get; }
         Guid? ActiveTenantId { get; }
         TenantRole? ActiveTenantRole { get; }

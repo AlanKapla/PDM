@@ -30,6 +30,8 @@ namespace Business.Implementation.Services
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimNames.FirstName, user.FirstName),
+                new Claim(ClaimNames.LastName, user.LastName),
                 new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
                 new Claim(ClaimTypes.Role, user.SystemRole.ToString()),
             };

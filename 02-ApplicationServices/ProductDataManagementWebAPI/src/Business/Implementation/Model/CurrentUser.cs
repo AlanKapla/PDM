@@ -24,6 +24,10 @@ namespace Business.Implementation.Model
                 ? value
                 : Guid.Empty;
 
+        public string FirstName => HttpUser.FindFirst(ClaimNames.FirstName)?.Value ?? string.Empty;
+
+        public string LastName => HttpUser.FindFirst(ClaimNames.LastName)?.Value ?? string.Empty;
+
         public string Email =>
             HttpUser.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty;
 
