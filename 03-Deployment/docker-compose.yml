@@ -1,37 +1,117 @@
+x-common-env: &common-env
+  ASPNETCORE_ENVIRONMENT: Production
+  ASPNETCORE_URLS: http://+:8080
+  DOTNET_EnableDiagnostics: "0"
+  ASPNETCORE_THREADPOOL_MINTHREADS: "20"
+
 services:
   webapi:
-    container_name: pdm-webapi-production
-    image: pdm-webapi:${TAG:-latest}
+    container_name: "pdm-webapi-${ENVIRONMENT}"
+
+    image: "pdm-webapi:${TAG:-latest}"
     build:
       context: ../02-ApplicationServices/ProductDataManagementWebAPI
       dockerfile: ../../03-Deployment/Backend/API/Dockerfile
       args:
         BUILD_CONFIGURATION: Release
+
     env_file:
-      - ./.env   # tylko na serwerze, generowany z GitHub Secrets / ręcznie
+      - ./.env
+
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://0.0.0.0:8080
-      DOTNET_EnableDiagnostics: "0"
-      ASPNETCORE_THREADPOOL_MINTHREADS: "20"
-    ports:
-      - "8080:8080"
-    volumes:
-      - dpkeys:/keys
-    restart: always
+      <<: *common-env
+
+    # 🔁 WebAPI widoczne tylko w sieci Dockera, NIE na hoście
+    expose:
+      - "8080"
+
+    restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
+
     security_opt:
       - no-new-privileges:true
-    read_only: true
+
     tmpfs:
       - /tmp
+
+    volumes:
+      - pdm-keys:/keys    # .PersistKeysToFileSystem("/keys")
+
     labels:
       com.pdm.service: "webapi"
-      com.pdm.env: "production"
+      com.pdm.env: "${ENVIRONMENT:-dev}"
+
+    networks:
+      - pdm-net
+
+
+  ui:
+    # kontener frontendowy (React build + nginx)
+    container_name: "pdm-ui-${ENVIRONMENT}"
+
+    image: "pdm-ui:${TAG:-latest}"
+    build:
+      context: ../01-Applications/ProjectDataManagementUI
+      dockerfile: ../../03-Deployment/Frontend/UI/Dockerfile
+
+    env_file:
+      - ./.env
+
+    # UI widoczne tylko w sieci Dockera, NIE na hoście
+    expose:
+      - "80"
+
+    restart: unless-stopped
+
+    labels:
+      com.pdm.service: "ui"
+      com.pdm.env: "${ENVIRONMENT:-dev}"
+
+    networks:
+      - pdm-net
+
+
+  nginx:
+    # gateway / reverse proxy
+    container_name: "pdm-nginx-${ENVIRONMENT}"
+
+    image: nginx:alpine
+    depends_on:
+      - webapi
+      - ui
+
+    env_file:
+      - ./.env
+
+    volumes:
+      # główny config reverse proxy (03-Deployment/nginx.conf)
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+    # 🟢 JEDYNY port wystawiony na hosta
+    # dev → 8080, ppd → 8081, prd → 8082 (z .env → HOST_PORT)
+    ports:
+      - "${HOST_PORT:-8080}:80"
+
+    restart: unless-stopped
+
+    labels:
+      com.pdm.service: "gateway"
+      com.pdm.env: "${ENVIRONMENT:-dev}"
+
+    networks:
+      - pdm-net
+
+
+networks:
+  pdm-net:
+    name: "pdm-net-${ENVIRONMENT}"
+
 volumes:
-  dpkeys: {}      
+  pdm-keys:
+    name: "pdm-keys-${ENVIRONMENT}"

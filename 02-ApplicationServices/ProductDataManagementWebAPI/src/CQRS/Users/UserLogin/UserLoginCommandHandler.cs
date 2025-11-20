@@ -84,7 +84,7 @@ namespace CQRS.Users.UserLogin
 
         private UserAuthWeb PrepareUserLoginWeb(User user, UserSession userSession)
         {
-            TokenDto token = jwt.GenerateToken(user);
+            TokenDto token = jwt.GenerateToken(user, user.ActiveTenantId);
 
             return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
         }

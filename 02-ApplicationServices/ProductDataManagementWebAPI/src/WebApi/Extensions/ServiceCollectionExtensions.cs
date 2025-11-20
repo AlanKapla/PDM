@@ -11,6 +11,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -57,7 +58,11 @@ namespace WebApi.Extensions
             });
 
             services.AddHealthChecks();
-            
+
+            services
+            .AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo("/keys"));
+
             return services;
         }
 
