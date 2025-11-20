@@ -7,7 +7,7 @@ internal class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services
-            .AddApiBasics()
+            .AddApiBasics(builder.Configuration)
             .AddDatabase(builder.Configuration)
             .AddCqrs()
             .AddJwt(builder.Configuration)

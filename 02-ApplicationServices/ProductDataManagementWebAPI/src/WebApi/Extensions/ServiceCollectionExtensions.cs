@@ -28,7 +28,7 @@ namespace WebApi.Extensions
 {
     public static class ServiceCollectionExtensions
     {
-        public static IServiceCollection AddApiBasics(this IServiceCollection services)
+        public static IServiceCollection AddApiBasics(this IServiceCollection services, IConfiguration config)
         {
             services.AddHttpContextAccessor();
             services.AddControllers();
@@ -59,9 +59,28 @@ namespace WebApi.Extensions
 
             services.AddHealthChecks();
 
+            // Konfiguracja Data Protection z walidacją katalogu
+            var keysPath = config.GetValue<string>("DataProtection:KeysPath") ?? "/keys";
+            var keysDirectory = new DirectoryInfo(keysPath);
+            
+            if (!keysDirectory.Exists)
+            {
+                try
+                {
+                    keysDirectory.Create();
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Nie można utworzyć katalogu dla kluczy Data Protection: {keysPath}. " +
+                        $"Upewnij się, że kontener ma uprawnienia zapisu do tej lokalizacji. Błąd: {ex.Message}", ex);
+                }
+            }
+
             services
-            .AddDataProtection()
-            .PersistKeysToFileSystem(new DirectoryInfo("/keys"));
+                .AddDataProtection()
+                .SetApplicationName("PDM-WebAPI")
+                .PersistKeysToFileSystem(keysDirectory);
 
             return services;
         }
