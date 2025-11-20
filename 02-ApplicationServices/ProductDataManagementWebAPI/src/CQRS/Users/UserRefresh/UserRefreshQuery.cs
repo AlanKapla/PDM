@@ -2,6 +2,6 @@
 {
     public sealed record UserRefreshQuery : IRequestQuery<UserAuthWeb>
     {
-        public string RefreshToken { get; set; } = string.Empty;
+        public string RefreshToken { get; init; } = string.Empty;
     }
 }
