@@ -43,7 +43,7 @@ internal class Program
 
         app.MapControllers();
 
-        app.MapHealthChecks("/health");
+        app.MapHealthChecks("api/health");
 
         app.Run();
     }

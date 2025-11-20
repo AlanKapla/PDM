@@ -33,7 +33,7 @@ export default function Login() {
     };
 
     try {
-      const res = await fetch("http://localhost:5121/api/User/login", {
+      const res = await fetch("/api/User/login", {
         method: "POST",
         credentials: "include", 
         headers: {

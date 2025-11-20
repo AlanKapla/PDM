@@ -3,9 +3,9 @@ import { Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 export default function PublicRoute({ children }: { children: ReactNode }) {
-  const { token } = useContext(AuthContext);
+  const { isAuthenticated } = useContext(AuthContext);
 
-  if (token) {
+  if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 

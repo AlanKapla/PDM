@@ -4,7 +4,7 @@ export const getUserDetails = async () => {
   const token = localStorage.getItem("token");
   if (!token) return null;
 
-  const res = await authApi.getProfile(token);
+  const res = await authApi.getProfile();
 
   if (!res.ok) return null;
 
