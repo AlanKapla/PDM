@@ -37,8 +37,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-    #read_only: true
-
     tmpfs:
       - /tmp
 
@@ -59,7 +57,7 @@ services:
 
     image: "pdm-ui:${TAG:-latest}"
     build:
-      context: ../01-Applications/ProjectDataManagamentUI
+      context: ../01-Applications/ProjectDataManagementUI
       dockerfile: ../../03-Deployment/Frontend/UI/Dockerfile
 
     env_file:

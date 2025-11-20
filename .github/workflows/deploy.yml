@@ -68,7 +68,7 @@ jobs:
           $envName = $env:ENVIRONMENT_NAME
           docker compose -p "pdm-$envName" -f docker-compose.yml up -d --build
 
-      - name: Health check http://localhost:{port}/health
+      - name: Health check http://localhost:{port}/api/health
         shell: pwsh
         run: |
           $envName = $env:ENVIRONMENT_NAME

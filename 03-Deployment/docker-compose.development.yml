@@ -30,7 +30,7 @@ services:
   ui:
     container_name: pdm-ui-development
     build:
-      context: ../01-Applications/ProjectDataManagamentUI
+      context: ../01-Applications/ProjectDataManagementUI
       dockerfile: ../../03-Deployment/Frontend/UI/Dockerfile
     expose:
       - "80"               # dostępne tylko wewnątrz sieci Dockera
