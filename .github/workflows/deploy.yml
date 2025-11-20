@@ -1,14 +1,45 @@
 name: Build & deploy pdm-webapi
 
+run-name: "Deploy pdm-webapi → ${{ github.event.inputs.environment }} → branch ${{ github.ref_name }}"
+
 on:
-  push:
-    branches:
-      - AK/ci-cd          # jeśli używasz innej gałęzi prod, zmień tutaj
-  workflow_dispatch:  # pozwala odpalić ręcznie z UI GitHuba
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment (dev/ppd/prd)'
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - ppd
+          - prd
+      runner:
+        description: 'Self-hosted runner label'
+        required: true
+        type: choice
+        options:
+          - pdm1
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
-    runs-on: self-hosted    # Twój Windows runner
+    runs-on:
+      - self-hosted
+      - ${{ github.event.inputs.runner }}
+
+    # GitHub Environment: dev / ppd / prd + link do aplikacji
+    environment:
+      name: ${{ github.event.inputs.environment }}
+      url: ${{ vars.ENVIRONMENT_URL }}
+
+    env:
+      # Nazwa środowiska do docker compose / labeli
+      ENVIRONMENT_NAME: ${{ github.event.inputs.environment }}
+      # Port hosta – z GitHub Environment → Variables (HOST_PORT)
+      HOST_PORT: ${{ vars.HOST_PORT }}
 
     steps:
       - name: Checkout repo
@@ -18,7 +49,12 @@ jobs:
         shell: pwsh
         working-directory: 03-Deployment
         run: |
+          $envName = $env:ENVIRONMENT_NAME
+          $hostPort = $env:HOST_PORT
+
           @"
+          ENVIRONMENT=$envName
+          HOST_PORT=$hostPort
           AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
@@ -29,18 +65,24 @@ jobs:
         shell: pwsh
         working-directory: 03-Deployment
         run: |
-          docker compose -f docker-compose.yml up -d --build
+          $envName = $env:ENVIRONMENT_NAME
+          docker compose -p "pdm-$envName" -f docker-compose.yml up -d --build
 
-      - name: Health check http://localhost:8080/health
+      - name: Health check http://localhost:{port}/api/health
         shell: pwsh
         run: |
-          $url = "http://localhost:8080/health"
+          $envName = $env:ENVIRONMENT_NAME
+          $port    = $env:HOST_PORT
+          $url = "http://localhost:$port/api/health"
           $maxRetries = 10
           $delay = 5
           $ok = $false
 
+          Write-Host "Environment: $envName"
+          Write-Host "Health URL: $url"
+
           for ($i = 1; $i -le $maxRetries; $i++) {
-            Write-Host "Health check attempt $i/$maxRetries..."
+            Write-Host "[$envName] Health check attempt $i/$maxRetries on $url..."
             try {
               $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5
               if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
@@ -58,7 +100,6 @@ jobs:
 
           if (-not $ok) {
             Write-Host "Health check FAILED after $maxRetries attempts. Showing logs..."
-            docker compose -f 03-Deployment/docker-compose.yml logs webapi || $true
+            docker compose -p "pdm-$envName" -f 03-Deployment/docker-compose.yml logs webapi || $true
             throw "Deployment failed – service unhealthy."
           }
-
