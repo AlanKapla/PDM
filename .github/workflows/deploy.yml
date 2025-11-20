@@ -73,7 +73,7 @@ jobs:
         run: |
           $envName = $env:ENVIRONMENT_NAME
           $port    = $env:HOST_PORT
-          $url = "http://localhost:$port/health"
+          $url = "http://localhost:$port/api/health"
           $maxRetries = 10
           $delay = 5
           $ok = $false
