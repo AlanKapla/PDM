@@ -24,6 +24,8 @@ services:
       - run
       - --urls
       - http://0.0.0.0:8080
+    networks:
+      - pdm-net
 
   ui:
     container_name: pdm-ui-development
@@ -33,6 +35,8 @@ services:
     expose:
       - "80"               # dostępne tylko wewnątrz sieci Dockera
     restart: always
+    networks:
+      - pdm-net
 
   nginx:
     container_name: pdm-nginx-development
@@ -45,6 +49,12 @@ services:
     ports:
       - "8085:80"          # NGINX dostępny lokalnie pod portem 8085
     restart: always
+    networks:
+      - pdm-net
+
+networks:
+  pdm-net:
+    name: pdm-net-development
 
 volumes:
   dpkeys: {}
