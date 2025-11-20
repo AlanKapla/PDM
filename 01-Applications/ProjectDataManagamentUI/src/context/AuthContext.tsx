@@ -1,44 +1,114 @@
-import { createContext, useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import { createContext, useEffect, useState, type ReactNode } from "react";
+import { authApi } from "../api/authApi";
+
+export interface User {
+  email: string;
+  firstName: string;
+  lastName: string;
+}
 
 interface AuthContextType {
-  token: string | null;
-  setToken: (token: string | null) => void;
-  logout: () => void;
+  isAuthenticated: boolean;
+  user: User | null;
+  setIsAuthenticated: (value: boolean) => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
-  token: null,
-  setToken: () => {},
-  logout: () => {},
+  isAuthenticated: false,
+  user: null,
+  setIsAuthenticated: () => {},
+  login: async () => false,
+  logout: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [token, setTokenState] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) {
-      setTokenState(savedToken);
-    }
+    const checkSession = async () => {
+      try {
+        const res = await authApi.getProfile();
+
+        if (res.ok) {
+          const json = await res.json();
+
+          setIsAuthenticated(true);
+          setUser({
+            email: json.email,
+            firstName: json.firstName,
+            lastName: json.lastName,
+          });
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } catch {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    };
+
+    checkSession();
   }, []);
 
-  const setToken = (newToken: string | null) => {
-    setTokenState(newToken);
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const payload = {
+      email,
+      password,
+      externalToken: "",
+      provider: 0,
+    };
 
-    if (newToken) {
-      localStorage.setItem("token", newToken);
-    } else {
-      localStorage.removeItem("token");
+    try {
+      const res = await authApi.login(payload);
+
+      if (res.ok) {
+        const profile = await authApi.getProfile();
+
+        if (profile.ok) {
+          const json = await profile.json();
+
+          setIsAuthenticated(true);
+          setUser({
+            email: json.email,
+            firstName: json.firstName,
+            lastName: json.lastName,
+          });
+
+          return true;
+        }
+      }
+
+      return false;
+    } catch {
+      return false;
     }
   };
 
-  const logout = () => {
-    setToken(null);
-  };
+  const logout = async () => {
+  try {
+    await authApi.logout();
+  } catch {}
+
+  setIsAuthenticated(false);
+
+  window.location.href = "/login"; 
+};
+
 
   return (
-    <AuthContext.Provider value={{ token, setToken, logout }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        user,
+        setIsAuthenticated,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

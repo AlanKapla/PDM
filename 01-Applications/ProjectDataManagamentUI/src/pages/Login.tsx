@@ -1,7 +1,4 @@
-import { useState, useContext } from "react";
-import type { ChangeEvent, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { useState } from "react";
 import {
   Box,
   Button,
@@ -11,74 +8,68 @@ import {
   VStack,
   FormControl,
   FormLabel,
-  FormErrorMessage,
   useToast,
   useColorModeValue,
-  Text,
 } from "@chakra-ui/react";
-
-import { loginUser } from "../services/authService";
-import { AuthContext } from "../context/AuthContext";
-
-interface LoginForm {
-  email: string;
-  password: string;
-}
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const toast = useToast();
   const navigate = useNavigate();
-  const { setToken } = useContext(AuthContext);
+  const toast = useToast();
 
-  const [form, setForm] = useState<LoginForm>({
-    email: "",
-    password: "",
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [errors, setErrors] = useState<Partial<LoginForm>>({});
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const validate = () => {
-    const newErrors: Partial<LoginForm> = {};
-
-    if (!form.email.includes("@")) newErrors.email = "Podaj poprawny email";
-    if (form.password.length < 1) newErrors.password = "Podaj hasło";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleLogin = async (e: FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
-    if (!validate()) return;
+    const payload = {
+      email,
+      password,
+      externalToken: "",
+      provider: 0,
+    };
 
-    const result = await loginUser(form);
+    try {
+      const res = await fetch("http://localhost:5121/api/User/login", {
+        method: "POST",
+        credentials: "include", 
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-    if (!result) {
+      if (res.ok) {
+        toast({
+          title: "Zalogowano pomyślnie",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+
+        navigate("/"); 
+      } else {
+        toast({
+          title: "Błędne dane logowania",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (err) {
+      console.error(err);
       toast({
-        title: "Błąd logowania",
+        title: "Błąd połączenia z serwerem",
         status: "error",
         duration: 3000,
         isClosable: true,
       });
-      return;
     }
-
-    localStorage.setItem("token", result.token);
-    setToken(result.token);
-
-    toast({
-      title: "Zalogowano!",
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
-
-    navigate("/dashboard");
+    
+    setLoading(false);
   };
 
   const cardBg = useColorModeValue("white", "gray.800");
@@ -93,44 +84,31 @@ export default function Login() {
         </Heading>
 
         <VStack spacing={4} as="form" onSubmit={handleLogin}>
-          <FormControl isInvalid={!!errors.email}>
+          <FormControl>
             <FormLabel color={labelColor}>Email</FormLabel>
             <Input
               type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="email@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
-            <FormErrorMessage>{errors.email}</FormErrorMessage>
           </FormControl>
 
-          <FormControl isInvalid={!!errors.password}>
+          <FormControl>
             <FormLabel color={labelColor}>Hasło</FormLabel>
             <Input
               type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
-            <FormErrorMessage>{errors.password}</FormErrorMessage>
           </FormControl>
 
-          <Button width="100%" colorScheme="blue" type="submit">
+          <Button width="100%" colorScheme="blue" type="submit" isLoading={loading}>
             Zaloguj się
           </Button>
 
-          <Text fontSize="sm">
-            Nie masz konta?{" "}
-            <Button
-              variant="link"
-              colorScheme="blue"
-              onClick={() => navigate("/register")}
-            >
-              Zarejestruj się
-            </Button>
-          </Text>
+          <Button variant="link" onClick={() => navigate("/register")}>
+            Utwórz konto
+          </Button>
         </VStack>
       </Box>
     </Flex>

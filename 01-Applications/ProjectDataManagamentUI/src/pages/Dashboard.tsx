@@ -10,7 +10,8 @@ import {
 } from "@chakra-ui/react";
 
 import { AuthContext } from "../context/AuthContext";
-import { getUserDetails } from "../services/userService";
+import { useNavigate } from "react-router-dom";
+import { authApi } from "../api/authApi";
 import MainLayout from "../layout/MainLayout";
 
 interface UserDetails {
@@ -18,8 +19,10 @@ interface UserDetails {
   lastTenantId?: string | null;
 }
 
-export default function Home() {
+export default function Dashboard() {
   const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+
   const [user, setUser] = useState<UserDetails | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,17 +34,34 @@ export default function Home() {
   useEffect(() => {
     async function loadUser() {
       try {
-        const data = await getUserDetails();
+        const res = await authApi.getProfile();
+
+        if (!res.ok) {
+          navigate("/login");
+          return;
+        }
+
+        const data = await res.json();
         setUser(data);
       } catch (err) {
         console.error("Błąd pobierania danych użytkownika", err);
+        navigate("/login");
       } finally {
         setLoading(false);
       }
     }
 
     loadUser();
-  }, []);
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch {
+      navigate("/login");
+    }
+  };
 
   if (loading) {
     return (
@@ -56,30 +76,7 @@ export default function Home() {
   return (
     <MainLayout>
       <Box p={10} bg={pageBg} minH="100vh">
-        <Box
-          bg={cardBg}
-          color={cardTextColor}
-          p={8}
-          rounded="2xl"
-          shadow="xl"
-          maxW="600px"
-          mx="auto"
-          textAlign="center"
-        >
-          <Heading mb={4} color={headingColor}>
-            Witaj ponownie!
-          </Heading>
 
-          <Text fontSize="lg" mb={6}>
-            Jesteś zalogowany jako:
-            <br />
-            <strong>{user?.email}</strong>
-          </Text>
-
-          <Button colorScheme="red" onClick={logout}>
-            Wyloguj się
-          </Button>
-        </Box>
       </Box>
     </MainLayout>
   );

@@ -1,33 +1,42 @@
 import { authApi } from "../api/authApi";
 
 export const registerUser = async (form: any) => {
-  try {
-    const res = await authApi.post("/User/register", form);
-    return res.data; 
-  } catch (err) {
-    return null; 
-  }
+  const payload = {
+    email: form.email,
+    password: form.password,
+    externalToken: "",
+    provider: 0
+  };
+
+  const res = await authApi.register(payload);
+
+  return res.ok;
 };
 
 export const loginUser = async (form: any) => {
-  try {
-    const res = await authApi.post("/User/login", form);
+  const payload = {
+    email: form.email,
+    password: form.password,
+    externalToken: "",
+    provider: 0
+  };
 
-    const data = res.data;
+  const res = await authApi.login(payload);
 
-    localStorage.setItem("token", data.token);
+  if (!res.ok) return null;
 
-    return data;
-  } catch (err) {
-    return null;
-  }
+  const json = await res.json();
+
+  return {
+    token: json.accessToken,
+    refreshToken: json.refreshToken
+  };
 };
 
-export const getCurrentUser = async () => {
-  try {
-    const res = await authApi.get("/User/me");
-    return res.data;
-  } catch (err) {
-    return null;
-  }
+export const getUserDetails = async () => {
+  const res = await authApi.getProfile();
+
+  if (!res.ok) return null;
+
+  return res.json();
 };

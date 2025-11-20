@@ -8,21 +8,49 @@ import {
   useColorMode,
   useColorModeValue,
 } from "@chakra-ui/react";
+
 import {
-  User,
+  User as UserIcon,
   LogOut,
   Moon,
   Sun,
   LayoutDashboard,
 } from "lucide-react";
+
 import { useNavigate, useLocation } from "react-router-dom";
-import { useContext } from "react";
+import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { authApi } from "../api/authApi";
+
+export interface User {
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useContext(AuthContext);
+
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const res = await authApi.getProfile();
+        if (res.ok) {
+          const json = await res.json();
+          setUser(json);
+        }
+      } catch {
+        setUser(null);
+      }
+    }
+
+    loadUser();
+  }, []);
 
   const { colorMode, toggleColorMode } = useColorMode();
 
@@ -33,8 +61,12 @@ export default function Sidebar() {
 
   const menuItems = [
     { label: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/dashboard" },
-    { label: "Profil", icon: <User size={20} />, path: "/profile" },
+    { label: "Profil", icon: <UserIcon size={20} />, path: "/profile" },
   ];
+
+  const initials = user
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : "U";
 
   return (
     <Box
@@ -50,7 +82,21 @@ export default function Sidebar() {
     >
       <VStack align="flex-start" spacing={6} h="100%">
         <HStack spacing={3}>
-          <Avatar name="User" size="sm" />
+          <Avatar
+            size="sm"
+            bg="blue.600"
+            color="white"
+            src=""
+            ignoreFallback
+            css={{
+              "& svg": { display: "none" }   // <<< ukrywa domyślną ikonę
+            }}
+          >
+            {initials}
+          </Avatar>
+
+
+
           <Text fontSize="lg" fontWeight="bold">
             Panel użytkownika
           </Text>

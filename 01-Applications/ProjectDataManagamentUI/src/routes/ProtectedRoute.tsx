@@ -1,14 +1,35 @@
-import { useContext } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { token } = useContext(AuthContext);
+  const [loading, setLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  useEffect(() => {
+    async function check() {
+      try {
+        const res = await fetch("http://localhost:5121/api/User/me", {
+          credentials: "include"
+        });
 
-  return <>{children}</>;
+        if (res.ok) {
+          setAuthenticated(true);
+        } else {
+          setAuthenticated(false);
+        }
+      } catch (err) {
+        setAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    check();
+  }, []);
+
+  if (loading) return null; // można dać spinner
+
+  if (!authenticated) return <Navigate to="/login" replace />;
+
+  return children;
 }
