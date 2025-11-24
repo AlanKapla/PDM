@@ -1,7 +1,15 @@
+import type { 
+  LoginRequest, 
+  RegisterRequest, 
+  LogoutRequest,
+  PasswordResetRequest,
+  ResetPasswordRequest
+} from "../types/auth.types";
+
 const API_URL = "/api/User";
 
 export const authApi = {
-  register: async (data: any) => {
+  register: async (data: RegisterRequest) => {
     return fetch(`${API_URL}/register`, {
       method: "POST",
       credentials: "include",
@@ -10,7 +18,7 @@ export const authApi = {
     });
   },
 
-  login: async (data: any) => {
+  login: async (data: LoginRequest) => {
     return fetch(`${API_URL}/login`, {
       method: "POST",
       credentials: "include",
@@ -19,13 +27,12 @@ export const authApi = {
     });
   },
 
-  logout: async () => {
+  logout: async (data: LogoutRequest) => {
     return fetch(`${API_URL}/logout`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-
-      body: JSON.stringify({ refreshToken: "" }),
+      body: JSON.stringify(data),
     });
   },
 
@@ -33,6 +40,33 @@ export const authApi = {
     return fetch(`${API_URL}/me`, {
       method: "GET",
       credentials: "include",
+    });
+  },
+
+  requestPasswordReset: async (data: PasswordResetRequest) => {
+    return fetch(`${API_URL}/reset-password-request`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  },
+
+  resetPassword: async (data: ResetPasswordRequest) => {
+    return fetch(`${API_URL}/reset-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  },
+
+  activateAccount: async (data: { token: string }) => {
+    return fetch(`${API_URL}/activate-account`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     });
   },
 };

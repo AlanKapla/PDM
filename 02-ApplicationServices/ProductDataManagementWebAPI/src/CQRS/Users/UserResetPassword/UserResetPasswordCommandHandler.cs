@@ -4,6 +4,7 @@ using Business.Interfaces.WebModels.Users;
 using Entities.Models;
 using MediatR;
 using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 
 namespace CQRS.Users.UserResetPassword
 {
@@ -11,35 +12,46 @@ namespace CQRS.Users.UserResetPassword
     {
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<UserSession> userSessionRepo;
+        private readonly IRepository<UserPasswordReset> passwordResetRepo;
         private readonly IPasswordHasher passwordHasher;
 
-        public UserResetPasswordCommandHandler(IReadRepository<User> userRepo, IReadRepository<UserSession> userSessionRepo, IPasswordHasher passwordHasher)
+        public UserResetPasswordCommandHandler(
+            IReadRepository<User> userRepo,
+            IReadRepository<UserSession> userSessionRepo,
+            IRepository<UserPasswordReset> passwordResetRepo,
+            IPasswordHasher passwordHasher)
         {
             this.userRepo = userRepo;
             this.passwordHasher = passwordHasher;
             this.userSessionRepo = userSessionRepo;
+            this.passwordResetRepo = passwordResetRepo;
         }
 
         public async Task<UserResetPasswordWeb> Handle(UserResetPasswordCommand request, CancellationToken cancellationToken)
         {
-            User? user = await userRepo.GetFirstBySearch(x => x.Email == request.Email)
-                ?? throw new NotFoundApiException(nameof(User), request.Email);
+            UserPasswordReset? reset = await passwordResetRepo.GetFirstBySearch(r => r.Token == request.Token);
+
+            if (reset == null || reset.ExpiresAt < DateTime.UtcNow || reset.IsUsed)
+            {
+                throw new ValidationApiException("Invalid or expired token.");
+            }
+
+            User? user = await userRepo.GetById(reset.UserId) ?? throw new NotFoundApiException(nameof(User), reset.UserId.ToString());
 
             user.PasswordHash = passwordHasher.Hash(request.Password);
-
-            UserSession[] userSessions = (await userSessionRepo.GetBySearch(x => x.UserId == user.Id)).ToArray();
+            reset.UsedAt = DateTime.UtcNow;
 
             await userRepo.Update(user);
+            await passwordResetRepo.Update(reset);
 
+            UserSession[] userSessions = (await userSessionRepo.GetBySearch(x => x.UserId == user.Id)).ToArray();
             foreach (UserSession session in userSessions)
             {
                 session.IsRevoked = true;
                 await userSessionRepo.Update(session);
             }
 
-            UserResetPasswordWeb userResetPasswordWeb = new(user.Id, user.Email);
-
-            return userResetPasswordWeb;
+            return new UserResetPasswordWeb(user.Id, user.Email);
         }
     }
 }

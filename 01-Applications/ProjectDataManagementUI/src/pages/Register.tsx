@@ -15,42 +15,88 @@ import {
   useToast,
   useColorModeValue,
   Text,
+  InputGroup,
+  InputRightElement,
+  IconButton,
+  List,
+  ListItem,
+  ListIcon,
 } from "@chakra-ui/react";
+import { Eye, EyeOff, Check, X } from "lucide-react";
 
-import { registerUser } from "../services/authService";
+import { registerUser, type RegisterForm } from "../services/authService";
 
-interface RegisterForm {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
+interface FormWithConfirm extends RegisterForm {
+  confirmPassword: string;
 }
 
 export default function Register() {
   const toast = useToast();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState<RegisterForm>({
+  const [form, setForm] = useState<FormWithConfirm>({
     email: "",
     password: "",
+    confirmPassword: "",
     firstName: "",
     lastName: "",
   });
 
-  const [errors, setErrors] = useState<Partial<RegisterForm>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState<Partial<FormWithConfirm>>({});
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const validatePassword = (password: string) => {
+    const errors: string[] = [];
+    
+    if (password.length < 8) {
+      errors.push("Password must be at least 8 characters long");
+    }
+    if (!/[A-Z]/.test(password)) {
+      errors.push("Password must contain at least one uppercase letter");
+    }
+    if (!/[a-z]/.test(password)) {
+      errors.push("Password must contain at least one lowercase letter");
+    }
+    if (!/[0-9]/.test(password)) {
+      errors.push("Password must contain at least one digit");
+    }
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+      errors.push("Password must contain at least one special character");
+    }
+    
+    return errors;
+  };
+
+  const getPasswordChecks = (password: string) => {
+    return [
+      { label: "Co najmniej 8 znaków", valid: password.length >= 8 },
+      { label: "Wielka litera (A-Z)", valid: /[A-Z]/.test(password) },
+      { label: "Mała litera (a-z)", valid: /[a-z]/.test(password) },
+      { label: "Cyfra (0-9)", valid: /[0-9]/.test(password) },
+      { label: "Znak specjalny (!@#$...)", valid: /[^a-zA-Z0-9]/.test(password) },
+    ];
+  };
+
   const validate = () => {
-    const newErrors: Partial<RegisterForm> = {};
+    const newErrors: Partial<FormWithConfirm> = {};
 
     if (!form.email.includes("@")) newErrors.email = "Podaj poprawny email";
-    if (form.password.length < 6)
-      newErrors.password = "Hasło musi mieć minimum 6 znaków";
     if (!form.firstName.trim()) newErrors.firstName = "Podaj imię";
     if (!form.lastName.trim()) newErrors.lastName = "Podaj nazwisko";
+
+    const passwordErrors = validatePassword(form.password);
+    if (passwordErrors.length > 0) {
+      newErrors.password = passwordErrors.join(". ");
+    }
+
+    if (form.password !== form.confirmPassword) {
+      newErrors.confirmPassword = "Hasła muszą być identyczne";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -76,13 +122,15 @@ export default function Register() {
 
       toast({
         title: "Zarejestrowano pomyślnie!",
+        description: "Sprawdź swoją skrzynkę email i aktywuj konto, aby się zalogować.",
         status: "success",
-        duration: 3000,
+        duration: 7000,
         isClosable: true,
       });
 
       navigate("/login");
-    } catch {
+    } catch (error) {
+      console.error("Błąd rejestracji:", error);
       toast({
         title: "Błąd serwera",
         status: "error",
@@ -137,13 +185,56 @@ export default function Register() {
 
           <FormControl isInvalid={!!errors.password}>
             <FormLabel color={labelColor}>Hasło</FormLabel>
-            <Input
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-            />
+            <InputGroup>
+              <Input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={handleChange}
+              />
+              <InputRightElement>
+                <IconButton
+                  aria-label={showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  icon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  onClick={() => setShowPassword(!showPassword)}
+                  variant="ghost"
+                  size="sm"
+                />
+              </InputRightElement>
+            </InputGroup>
+            {form.password && (
+              <List spacing={1} mt={2} fontSize="sm">
+                {getPasswordChecks(form.password).map((check, idx) => (
+                  <ListItem key={idx} color={check.valid ? "green.500" : "gray.500"}>
+                    <ListIcon as={check.valid ? Check : X} />
+                    {check.label}
+                  </ListItem>
+                ))}
+              </List>
+            )}
             <FormErrorMessage>{errors.password}</FormErrorMessage>
+          </FormControl>
+
+          <FormControl isInvalid={!!errors.confirmPassword}>
+            <FormLabel color={labelColor}>Potwierdź hasło</FormLabel>
+            <InputGroup>
+              <Input
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                value={form.confirmPassword}
+                onChange={handleChange}
+              />
+              <InputRightElement>
+                <IconButton
+                  aria-label={showConfirmPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  icon={showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  variant="ghost"
+                  size="sm"
+                />
+              </InputRightElement>
+            </InputGroup>
+            <FormErrorMessage>{errors.confirmPassword}</FormErrorMessage>
           </FormControl>
 
           <Button width="100%" colorScheme="blue" type="submit">

@@ -5,10 +5,14 @@ import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
 import Profile from "../pages/Profile";
+import ForgotPassword from "../pages/ForgotPassword";
+import ResetPassword from "../pages/ResetPassword";
+import ActivateAccount from "../pages/ActivateAccount";
 
 export default function AppRouter() {
   return (
     <Routes>
+      {/* Public pages */}
       <Route
         path="/login"
         element={
@@ -28,6 +32,37 @@ export default function AppRouter() {
       />
 
       <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/reset-password"
+        element={
+          <PublicRoute>
+            <ResetPassword />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/activate"
+        element={
+          <PublicRoute>
+            <ActivateAccount />
+          </PublicRoute>
+        }
+      />
+
+      {/* 🔥 Swagger — publiczny, bez autoryzacji */}
+      <Route path="/swagger" element={<div />} />
+
+      {/* Protected pages */}
+      <Route
         path="/"
         element={
           <ProtectedRoute>
@@ -45,6 +80,7 @@ export default function AppRouter() {
         }
       />
 
+      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

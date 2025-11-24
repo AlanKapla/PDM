@@ -18,33 +18,25 @@ import {
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../context/AuthContext";
-import { authApi } from "../api/authApi";
-
-export interface User {
-  email: string;
-  firstName: string;
-  lastName: string;
-}
-
+import { useEffect, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { getUserProfile } from "../services/authService";
+import type { UserProfile } from "../types/auth.types";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useContext(AuthContext);
+  const { logout } = useAuth();
 
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     async function loadUser() {
       try {
-        const res = await authApi.getProfile();
-        if (res.ok) {
-          const json = await res.json();
-          setUser(json);
-        }
-      } catch {
+        const profile = await getUserProfile();
+        setUser(profile);
+      } catch (error) {
+        console.error("Błąd ładowania użytkownika:", error);
         setUser(null);
       }
     }
@@ -138,7 +130,10 @@ export default function Sidebar() {
           leftIcon={<LogOut size={20} />}
           colorScheme="red"
           w="100%"
-          onClick={logout}
+          onClick={async () => {
+            await logout();
+            navigate("/login");
+          }}
         >
           Wyloguj się
         </Button>

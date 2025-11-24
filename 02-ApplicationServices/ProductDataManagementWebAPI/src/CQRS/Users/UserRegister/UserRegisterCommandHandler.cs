@@ -6,20 +6,30 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Repositiories.Repository.Interfaces;
 using Services.Interfaces;
+using Repositories.Repository.Interfaces;
+using System.Security.Cryptography;
+using Microsoft.Extensions.Options;
+using Business.Interfaces.Configurations;
 
 namespace CQRS.Users.UserRegister
 {
     public class UserRegisterCommandHandler : IRequestHandler<UserRegisterCommand, UserRegisterWeb>
     {
         private readonly IReadRepository<User> userRepo;
+        private readonly IRepository<UserActivation> activationRepo;
         private readonly IJwtService jwt;
         private readonly IPasswordHasher passwordHasher;
+        private readonly IEmailSender emailSender;
+        private readonly FrontendSettings frontend;
 
-        public UserRegisterCommandHandler(IReadRepository<User> userRepo, IJwtService jwt, IPasswordHasher passwordHasher)
+        public UserRegisterCommandHandler(IReadRepository<User> userRepo, IRepository<UserActivation> activationRepo, IJwtService jwt, IPasswordHasher passwordHasher, IEmailSender emailSender, IOptions<FrontendSettings> frontendOptions)
         {
             this.userRepo = userRepo;
+            this.activationRepo = activationRepo;
             this.jwt = jwt;
             this.passwordHasher = passwordHasher;
+            this.emailSender = emailSender;
+            this.frontend = frontendOptions.Value;
         }
 
         public async Task<UserRegisterWeb> Handle(UserRegisterCommand request, CancellationToken cancellationToken)
@@ -33,6 +43,26 @@ namespace CQRS.Users.UserRegister
             await InsertUserAsync(user).ConfigureAwait(false);
 
             _ = jwt.GenerateToken(user);
+
+            // Create activation token
+            string token = GenerateActivationToken();
+            UserActivation activation = new()
+            {
+                UserId = user.Id,
+                Token = token,
+                ExpiresAt = DateTime.UtcNow.AddHours(24)
+            };
+            await activationRepo.Insert(activation);
+
+
+            string activationLink = $"{frontend.BaseUrl.TrimEnd('/')}{frontend.ActivationPath}?token={Uri.EscapeDataString(token)}";
+            await emailSender.SendEmailAsync(new EmailMessage
+            {
+                To = user.Email,
+                Subject = "Activate your account",
+                TextBody = $"Welcome {user.FirstName}! Activate your account: {activationLink}",
+                HtmlBody = $"<p>Welcome {user.FirstName}!</p><p>Click the link to activate your account:</p><p><a href=\"{activationLink}\">Activate Account</a></p><p>This link expires in 24 hours.</p>"
+            }, cancellationToken);
 
             return new UserRegisterWeb(user.Id, user.Email);
         }
@@ -65,6 +95,13 @@ namespace CQRS.Users.UserRegister
         private async Task InsertUserAsync(User user)
         {
             await userRepo.Insert(user).ConfigureAwait(false);
+        }
+
+        private static string GenerateActivationToken()
+        {
+            Span<byte> bytes = stackalloc byte[32];
+            RandomNumberGenerator.Fill(bytes);
+            return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").TrimEnd('=');
         }
     }
 }

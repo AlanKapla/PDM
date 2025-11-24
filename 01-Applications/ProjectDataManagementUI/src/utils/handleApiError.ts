@@ -1,11 +1,19 @@
 import { exceptionMessages, defaultErrorMessage } from "./errorMessages";
 
-export const handleApiError = async (response: Response) => {
-  let data: any = null;
+interface ApiErrorResponse {
+  type?: string;
+  message?: string;
+  errorType?: string;
+  errors?: Record<string, string[]>;
+}
+
+export const handleApiError = async (response: Response): Promise<string> => {
+  let data: ApiErrorResponse | null = null;
 
   try {
     data = await response.json();
   } catch {
+    // Response nie zawierał JSON
   }
 
   if (data?.type && exceptionMessages[data.type]) {

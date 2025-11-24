@@ -1,9 +1,9 @@
-import { useContext, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 export default function PublicRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useContext(AuthContext);
+  const { isAuthenticated } = useAuth();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;

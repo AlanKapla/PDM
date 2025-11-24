@@ -10,66 +10,58 @@ import {
   FormLabel,
   useToast,
   useColorModeValue,
+  InputGroup,
+  InputRightElement,
+  IconButton,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const payload = {
-      email,
-      password,
-      externalToken: "",
-      provider: 0,
-    };
-
     try {
-      const res = await fetch("/api/User/login", {
-        method: "POST",
-        credentials: "include", 
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const result = await login(email, password);
 
-      if (res.ok) {
+      if (result.success) {
         toast({
           title: "Zalogowano pomyślnie",
           status: "success",
           duration: 3000,
           isClosable: true,
         });
-
-        navigate("/"); 
+        navigate("/");
       } else {
         toast({
-          title: "Błędne dane logowania",
+          title: result.message || "Błędne dane logowania",
           status: "error",
-          duration: 3000,
+          duration: 5000,
           isClosable: true,
         });
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error("Błąd logowania:", error);
       toast({
         title: "Błąd połączenia z serwerem",
         status: "error",
         duration: 3000,
         isClosable: true,
       });
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const cardBg = useColorModeValue("white", "gray.800");
@@ -95,15 +87,34 @@ export default function Login() {
 
           <FormControl>
             <FormLabel color={labelColor}>Hasło</FormLabel>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <InputGroup>
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <InputRightElement>
+                <IconButton
+                  aria-label={showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  icon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  onClick={() => setShowPassword(!showPassword)}
+                  variant="ghost"
+                  size="sm"
+                />
+              </InputRightElement>
+            </InputGroup>
           </FormControl>
 
           <Button width="100%" colorScheme="blue" type="submit" isLoading={loading}>
             Zaloguj się
+          </Button>
+
+          <Button 
+            variant="link" 
+            size="sm"
+            onClick={() => navigate("/forgot-password")}
+          >
+            Nie pamiętam hasła
           </Button>
 
           <Button variant="link" onClick={() => navigate("/register")}>

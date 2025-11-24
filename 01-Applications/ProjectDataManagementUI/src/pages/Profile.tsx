@@ -10,14 +10,10 @@ import {
 } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
 import { getUserDetails } from "../services/userService";
-
-interface UserDetails {
-  email: string;
-  lastTenantId?: string | null;
-}
+import type { UserProfile } from "../types/auth.types";
 
 export default function Profile() {
-  const [user, setUser] = useState<UserDetails | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const cardBg = useColorModeValue("white", "gray.800");
@@ -29,8 +25,8 @@ export default function Profile() {
       try {
         const data = await getUserDetails();
         setUser(data);
-      } catch (e) {
-        console.error("Błąd ładowania profilu:", e);
+      } catch (error) {
+        console.error("Błąd ładowania profilu:", error);
       } finally {
         setLoading(false);
       }
