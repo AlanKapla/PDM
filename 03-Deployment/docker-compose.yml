@@ -21,14 +21,15 @@ services:
     environment:
       <<: *common-env
 
-    # 🔁 WebAPI widoczne tylko w sieci Dockera, NIE na hoście
+    # WebAPI widoczne tylko w sieci Dockera, NIE na hoście
     expose:
       - "8080"
 
     restart: unless-stopped
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      # ⬇️ ważne: ścieżka zgodna z Program.cs i nginx (/api/health)
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -93,7 +94,7 @@ services:
       # główny config reverse proxy (03-Deployment/nginx.conf)
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
-    # 🟢 JEDYNY port wystawiony na hosta
+    # JEDYNY port wystawiony na hosta
     # dev → 8080, ppd → 8081, prd → 8082 (z .env → HOST_PORT)
     ports:
       - "${HOST_PORT:-8080}:80"

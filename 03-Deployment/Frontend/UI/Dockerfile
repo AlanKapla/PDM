@@ -1,37 +1,23 @@
-# 1. Stage build – budowanie aplikacji React
+# 1. Stage build – Vite
 FROM node:20-alpine AS build
 
-# Katalog roboczy wewnątrz kontenera
 WORKDIR /app
 
-# Najpierw kopiujemy pliki z zależnościami,
-# żeby cache builda lepiej działał
 COPY package*.json ./
-
-# Jeśli używasz npm:
 RUN npm ci
 
-# Jeśli używasz yarn, zamień powyższe na:
-# COPY yarn.lock ./
-# RUN yarn install --frozen-lockfile
-
-# Kopiujemy resztę źródeł
 COPY . .
 
-# Build produkcyjny
+# Vite build -> /app/dist
 RUN npm run build
-# albo przy yarn:
-# RUN yarn build
 
 
-# 2. Stage runtime – serwowanie statycznych plików przez nginx
+# 2. Stage runtime – nginx
 FROM nginx:alpine AS runtime
 
-# Usuwamy defaultową konfigurację (opcjonalnie)
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Prosta konfiguracja nginx do serwowania SPA
-# (obsługa routingu client-side: zawsze index.html)
+# Prosty config dla SPA – tylko dla UI
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
     listen 80;
@@ -41,15 +27,12 @@ server {
     index index.html;
 
     location / {
-        try_files \$uri /index.html;
+        try_files \$uri \$uri/ /index.html;
     }
 }
 EOF
 
-# Kopiujemy zbudowany frontend z pierwszego stage
-COPY --from=build /app/build /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# nginx nasłuchuje na 80 w kontenerze
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]

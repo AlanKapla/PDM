@@ -49,6 +49,11 @@ namespace CQRS.Users.UserLogin
                 throw new UnauthorizedApiExeption();
             }
 
+            if (!user.IsActive)
+            {
+                throw new ApiException(ApiExceptionReason.InvalidOperation, "Account is not activated. Please check your email for the activation link.");
+            }
+
             bool verifyResult = passwordHasher.Verify(request.Password, user.PasswordHash);
 
             if (verifyResult)
@@ -74,6 +79,11 @@ namespace CQRS.Users.UserLogin
 
             if (user != null)
             {
+                if (!user.IsActive)
+                {
+                    throw new ApiException(ApiExceptionReason.InvalidOperation, "Account is not activated. Please check your email for the activation link.");
+                }
+
                 UserSession userSession = await CreateUserSession(user);
 
                 return PrepareUserLoginWeb(user, userSession);

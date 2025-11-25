@@ -13,17 +13,7 @@ services:
       ASPNETCORE_URLS: http://0.0.0.0:8080
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
     expose:
-      - "8080"              # dostępne tylko wewnątrz sieci Dockera
-    volumes:
-      - ../02-ApplicationServices/ProductDataManagementWebAPI:/src
-      - dpkeys:/keys
-    restart: always
-    command:
-      - dotnet
-      - watch
-      - run
-      - --urls
-      - http://0.0.0.0:8080
+      - "8080"
     networks:
       - pdm-net
 
@@ -33,21 +23,20 @@ services:
       context: ../01-Applications/ProjectDataManagementUI
       dockerfile: ../../03-Deployment/Frontend/UI/Dockerfile
     expose:
-      - "80"               # dostępne tylko wewnątrz sieci Dockera
-    restart: always
+      - "80"
     networks:
       - pdm-net
 
-  nginx:
-    container_name: pdm-nginx-development
-    image: nginx:alpine
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: pdm-gateway-development
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - webapi
       - ui
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      - "8085:80"          # NGINX dostępny lokalnie pod portem 8085
+      - "8085:80"           # <-- tu wisi reverse proxy na hoście
     restart: always
     networks:
       - pdm-net
@@ -58,6 +47,3 @@ networks:
 
 volumes:
   dpkeys: {}
-
-# uruchomienie:
-# docker compose -p pdm-development -f docker-compose.development.yml up -d --build

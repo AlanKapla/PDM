@@ -66,20 +66,39 @@ jobs:
         working-directory: 03-Deployment
         run: |
           $envName = $env:ENVIRONMENT_NAME
+
+          Write-Host "Stopping existing stack (if any) for pdm-$envName..."
+          docker compose -p "pdm-$envName" -f docker-compose.yml down || $true
+
+          Write-Host "Starting stack pdm-$envName..."
           docker compose -p "pdm-$envName" -f docker-compose.yml up -d --build
 
-      - name: Health check http://localhost:{port}/api/health
+      - name: Health check WebAPI (inside container)
         shell: pwsh
         run: |
           $envName = $env:ENVIRONMENT_NAME
+          $containerName = "pdm-webapi-$envName"
+
+          Write-Host "Checking internal health inside WebAPI container: $containerName"
+
+          # Jeżeli kontener nie istnieje / nie działa, docker exec rzuci wyjątek
+          docker exec $containerName curl -sf http://localhost:8080/api/health
+
+          Write-Host "Internal WebAPI health OK."
+
+      - name: Health check via NGINX reverse proxy
+        shell: pwsh
+        working-directory: 03-Deployment
+        run: |
+          $envName = $env:ENVIRONMENT_NAME
           $port    = $env:HOST_PORT
-          $url = "http://localhost:$port/api/health"
+          $url     = "http://localhost:$port/api/health"
           $maxRetries = 10
-          $delay = 5
-          $ok = $false
+          $delay      = 5
+          $ok         = $false
 
           Write-Host "Environment: $envName"
-          Write-Host "Health URL: $url"
+          Write-Host "Health URL (via nginx): $url"
 
           for ($i = 1; $i -le $maxRetries; $i++) {
             Write-Host "[$envName] Health check attempt $i/$maxRetries on $url..."
@@ -89,6 +108,8 @@ jobs:
                 Write-Host "Health check OK: $($response.StatusCode)"
                 $ok = $true
                 break
+              } else {
+                Write-Host "Health check returned non-2xx: $($response.StatusCode)"
               }
             }
             catch {
@@ -99,7 +120,9 @@ jobs:
           }
 
           if (-not $ok) {
-            Write-Host "Health check FAILED after $maxRetries attempts. Showing logs..."
-            docker compose -p "pdm-$envName" -f 03-Deployment/docker-compose.yml logs webapi || $true
-            throw "Deployment failed – service unhealthy."
+            Write-Host "Health check FAILED after $maxRetries attempts. Showing webapi logs..."
+            docker compose -p "pdm-$envName" -f docker-compose.yml logs webapi || $true
+            throw "Deployment failed – service unhealthy (via nginx)."
           }
+
+          Write-Host "External health via nginx OK."

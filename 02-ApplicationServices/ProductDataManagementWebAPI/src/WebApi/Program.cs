@@ -6,26 +6,7 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.Services
-            .AddApiBasics()
-            .AddDatabase(builder.Configuration)
-            .AddCqrs()
-            .AddJwt(builder.Configuration)
-            .AddAppRepositories()
-            .AddAppServices();
-
-        builder.Services.AddCors(options =>
-        {
-            options.AddPolicy("AllowFrontend", policy =>
-            {
-                policy.WithOrigins("http://localhost:5173")
-                      .AllowAnyHeader()
-                      .AllowAnyMethod()
-                      .AllowCredentials();
-            });
-        });
-
-        
+        builder.Services.AddInfrastructure(builder.Configuration);
 
         var app = builder.Build();
 
@@ -37,13 +18,12 @@ internal class Program
         app.UseSwagger();
         app.UseSwaggerUI();
 
-
         app.UseAuthentication();
         app.UseAuthorization();
 
         app.MapControllers();
 
-        app.MapHealthChecks("/health");
+        app.MapHealthChecks("api/health");
 
         app.Run();
     }
