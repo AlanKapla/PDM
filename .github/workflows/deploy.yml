@@ -79,12 +79,34 @@ jobs:
           $envName = $env:ENVIRONMENT_NAME
           $containerName = "pdm-webapi-$envName"
 
+          $maxRetries = 10
+          $delay = 5
+          $ok = $false
+
           Write-Host "Checking internal health inside WebAPI container: $containerName"
 
-          # Jeżeli kontener nie istnieje / nie działa, docker exec rzuci wyjątek
-          docker exec $containerName curl -sf http://localhost:8080/api/health
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            Write-Host "[$envName] Internal health attempt $i/$maxRetries in container $containerName..."
 
-          Write-Host "Internal WebAPI health OK."
+            docker exec $containerName curl -sf http://localhost:8080/api/health
+
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Internal WebAPI health OK."
+              $ok = $true
+              break
+            }
+
+            Write-Host "Internal health check failed (exit code $LASTEXITCODE). Retrying in $delay seconds..."
+            Start-Sleep -Seconds $delay
+          }
+
+          if (-not $ok) {
+            Write-Host "Internal WebAPI health FAILED after $maxRetries attempts. Showing logs..."
+            docker logs $containerName | Select-Object -Last 200 || $true
+            exit 1
+          }
+
+          exit 0
 
       - name: Health check via NGINX reverse proxy
         shell: pwsh
