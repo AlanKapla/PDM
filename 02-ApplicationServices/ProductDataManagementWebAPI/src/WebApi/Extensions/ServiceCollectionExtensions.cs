@@ -11,6 +11,7 @@ using Entities.Models;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,8 @@ using Repositiories.Repository.Repositories;
 using Repositories.Repository.Interfaces;
 using Services.Interfaces;
 using System.Text;
+using System.Linq;
+using WebApi.Authorization;
 
 namespace WebApi.Extensions
 {
@@ -33,6 +36,7 @@ namespace WebApi.Extensions
                 .AddDatabase(config)
                 .AddCqrs()
                 .AddJwt(config)
+                .AddAuthorizationPolicies() // added
                 .AddAppRepositories()
                 .AddAppServices()
                 .AddConfigurations(config)
@@ -173,6 +177,7 @@ namespace WebApi.Extensions
         {
             services.AddScoped<IReadRepository<User>, ReadRepository<User>>();
             services.AddScoped<IReadRepository<Tenant>, ReadRepository<Tenant>>();
+            services.AddScoped<IRepository<Tenant>, Repository<Tenant>>(); 
             services.AddScoped<IReadRepository<Project>, ReadRepository<Project>>();
             services.AddScoped<IReadRepository<ProjectGroup>, ReadRepository<ProjectGroup>>();
             services.AddScoped<IRepository<TenantMember>, Repository<TenantMember>>();
@@ -181,6 +186,9 @@ namespace WebApi.Extensions
             services.AddScoped<IReadRepository<UserSession>, ReadRepository<UserSession>>();
             services.AddScoped<IRepository<UserPasswordReset>, Repository<UserPasswordReset>>();
             services.AddScoped<IRepository<UserActivation>, Repository<UserActivation>>();
+            services.AddScoped<IReadRepository<TenantPreferencesProfile>, ReadRepository<TenantPreferencesProfile>>();
+            services.AddScoped<IRepository<TenantPreferencesProfile>, Repository<TenantPreferencesProfile>>();
+            services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
             return services;
         }
 
@@ -191,6 +199,7 @@ namespace WebApi.Extensions
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
             services.AddScoped<IEmailSender, SendGridEmailSender>();
+            services.AddScoped<ITokenGenerator, TokenGenerator>();
             return services;
         }
 
@@ -199,26 +208,57 @@ namespace WebApi.Extensions
             services.Configure<JwtSettings>(config.GetSection(JwtSettings.SectionName));
             services.Configure<EmailSettings>(config.GetSection(EmailSettings.SectionName));
             services.Configure<FrontendSettings>(config.GetSection(FrontendSettings.SectionName));
+            services.Configure<CorsSettings>(config.GetSection(CorsSettings.SectionName));
             return services;
         }
 
         public static IServiceCollection AddFrontendCors(this IServiceCollection services, IConfiguration config)
         {
-            IConfigurationSection frontendSection = config.GetSection(FrontendSettings.SectionName);
-            string url = frontendSection.GetValue<string>(nameof(FrontendSettings.BaseUrl)) ?? throw new ArgumentNullException(nameof(FrontendSettings.BaseUrl));
+            var corsSettings = config.GetSection(CorsSettings.SectionName).Get<CorsSettings>();
+
+            var origins = corsSettings?.AllowedOrigins?
+                .Where(o => !string.IsNullOrWhiteSpace(o))
+                .Select(o => o.Trim().TrimEnd('/'))
+                .Distinct()
+                .ToArray();
+
+            if (origins == null || origins.Length == 0)
+            {
+                // Backward compatibility: fallback to single FrontendSettings.BaseUrl
+                var frontendSection = config.GetSection(FrontendSettings.SectionName);
+                string? url = frontendSection.GetValue<string>(nameof(FrontendSettings.BaseUrl));
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    origins = new[] { url.Trim().TrimEnd('/') };
+                }
+                else
+                {
+                    throw new ArgumentNullException("No CORS origins configured (CorsSettings.AllowedOrigins or FrontendSettings.BaseUrl).");
+                }
+            }
 
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend", builder =>
                 {
                     builder
-                        .WithOrigins(url)
+                        .WithOrigins(origins)
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
                 });
             });
 
+            return services;
+        }
+
+        public static IServiceCollection AddAuthorizationPolicies(this IServiceCollection services)
+        {
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("TenantAdmin", policy => policy.Requirements.Add(new TenantAdminRequirement()));
+            });
+            services.AddScoped<IAuthorizationHandler, TenantAdminHandler>();
             return services;
         }
     }

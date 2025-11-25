@@ -8,6 +8,7 @@ using CQRS.Users.UserRefresh;
 using CQRS.Users.UserRegister;
 using CQRS.Users.UserResetPassword;
 using CQRS.Users.UserPasswordResetRequest;
+using CQRS.Users.UserUpdate;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -82,6 +83,13 @@ public class UserController : BaseApiController
 
     [HttpPost("activate-account")]
     public async Task<IActionResult> ActivateAccount([FromBody] UserActivateCommand request)
+    {
+        return Ok(await Send(request));
+    }
+
+    [Authorize]
+    [HttpPut("me")]
+    public async Task<IActionResult> UpdateMe([FromBody] UserUpdateCommand request)
     {
         return Ok(await Send(request));
     }

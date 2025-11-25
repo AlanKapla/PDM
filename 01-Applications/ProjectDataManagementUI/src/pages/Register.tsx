@@ -54,19 +54,19 @@ export default function Register() {
     const errors: string[] = [];
     
     if (password.length < 8) {
-      errors.push("Password must be at least 8 characters long");
+      errors.push("Hasło musi mieć co najmniej 8 znaków");
     }
     if (!/[A-Z]/.test(password)) {
-      errors.push("Password must contain at least one uppercase letter");
+      errors.push("Hasło musi zawierać co najmniej jedną wielką literę");
     }
     if (!/[a-z]/.test(password)) {
-      errors.push("Password must contain at least one lowercase letter");
+      errors.push("Hasło musi zawierać co najmniej jedną małą literę");
     }
     if (!/[0-9]/.test(password)) {
-      errors.push("Password must contain at least one digit");
+      errors.push("Hasło musi zawierać co najmniej jedną cyfrę");
     }
     if (!/[^a-zA-Z0-9]/.test(password)) {
-      errors.push("Password must contain at least one special character");
+      errors.push("Hasło musi zawierać co najmniej jeden znak specjalny");
     }
     
     return errors;
@@ -145,8 +145,8 @@ export default function Register() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
 
   return (
-    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
-      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" width="400px">
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
+      <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
         <Heading mb={6} textAlign="center" size="lg">
           Rejestracja
         </Heading>

@@ -21,8 +21,9 @@ namespace CQRS.Users.UserRegister
         private readonly IPasswordHasher passwordHasher;
         private readonly IEmailSender emailSender;
         private readonly FrontendSettings frontend;
+        private readonly ITokenGenerator tokenGenerator;
 
-        public UserRegisterCommandHandler(IReadRepository<User> userRepo, IRepository<UserActivation> activationRepo, IJwtService jwt, IPasswordHasher passwordHasher, IEmailSender emailSender, IOptions<FrontendSettings> frontendOptions)
+        public UserRegisterCommandHandler(IReadRepository<User> userRepo, IRepository<UserActivation> activationRepo, IJwtService jwt, IPasswordHasher passwordHasher, IEmailSender emailSender, IOptions<FrontendSettings> frontendOptions, ITokenGenerator tokenGenerator)
         {
             this.userRepo = userRepo;
             this.activationRepo = activationRepo;
@@ -30,6 +31,7 @@ namespace CQRS.Users.UserRegister
             this.passwordHasher = passwordHasher;
             this.emailSender = emailSender;
             this.frontend = frontendOptions.Value;
+            this.tokenGenerator = tokenGenerator;
         }
 
         public async Task<UserRegisterWeb> Handle(UserRegisterCommand request, CancellationToken cancellationToken)
@@ -45,7 +47,7 @@ namespace CQRS.Users.UserRegister
             _ = jwt.GenerateToken(user);
 
             // Create activation token
-            string token = GenerateActivationToken();
+            string token = tokenGenerator.GenerateToken();
             UserActivation activation = new()
             {
                 UserId = user.Id,
@@ -95,13 +97,6 @@ namespace CQRS.Users.UserRegister
         private async Task InsertUserAsync(User user)
         {
             await userRepo.Insert(user).ConfigureAwait(false);
-        }
-
-        private static string GenerateActivationToken()
-        {
-            Span<byte> bytes = stackalloc byte[32];
-            RandomNumberGenerator.Fill(bytes);
-            return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").TrimEnd('=');
         }
     }
 }

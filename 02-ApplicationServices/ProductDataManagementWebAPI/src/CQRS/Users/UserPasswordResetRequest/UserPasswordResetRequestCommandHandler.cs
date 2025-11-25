@@ -18,17 +18,20 @@ namespace CQRS.Users.UserPasswordResetRequest
         private readonly IRepository<UserPasswordReset> passwordResetRepo;
         private readonly IEmailSender emailSender;
         private readonly FrontendSettings frontend;
+        private readonly ITokenGenerator tokenGenerator;
 
         public UserPasswordResetRequestCommandHandler(
             IReadRepository<User> userReadRepo,
             IRepository<UserPasswordReset> passwordResetRepo,
             IEmailSender emailSender,
-            IOptions<FrontendSettings> frontendOptions)
+            IOptions<FrontendSettings> frontendOptions,
+            ITokenGenerator tokenGenerator)
         {
             this.userReadRepo = userReadRepo;
             this.passwordResetRepo = passwordResetRepo;
             this.emailSender = emailSender;
             this.frontend = frontendOptions.Value;
+            this.tokenGenerator = tokenGenerator;
         }
 
         public async Task<UserPasswordResetRequestWeb> Handle(UserPasswordResetRequestCommand request, CancellationToken cancellationToken)
@@ -40,7 +43,7 @@ namespace CQRS.Users.UserPasswordResetRequest
                 return new UserPasswordResetRequestWeb(request.Email);
             }
 
-            string token = GenerateSecureToken();
+            string token = tokenGenerator.GenerateToken();
             DateTime expires = DateTime.UtcNow.AddHours(1);
 
             UserPasswordReset reset = new()
@@ -66,13 +69,6 @@ namespace CQRS.Users.UserPasswordResetRequest
             }, cancellationToken);
 
             return new UserPasswordResetRequestWeb(user.Email);
-        }
-
-        private static string GenerateSecureToken()
-        {
-            Span<byte> bytes = stackalloc byte[32];
-            RandomNumberGenerator.Fill(bytes);
-            return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").TrimEnd('=');
         }
     }
 }

@@ -1,7 +1,5 @@
-﻿using Business.Implementation.Model;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Enums;
 using Entities.Models;
@@ -58,7 +56,8 @@ namespace CQRS.Tenants.CreateTenant
             {
                 Id = tenant.Id,
                 Name = tenant.Name,
-                CreatedAt = tenant.CreatedAt
+                CreatedAt = tenant.CreatedAt,
+                Role = TenantRole.Admin
             };
         }
     }

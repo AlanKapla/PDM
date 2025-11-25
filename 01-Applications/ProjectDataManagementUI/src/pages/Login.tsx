@@ -14,12 +14,13 @@ import {
   InputRightElement,
   IconButton,
 } from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const { login } = useAuth();
 
@@ -42,7 +43,11 @@ export default function Login() {
           duration: 3000,
           isClosable: true,
         });
-        navigate("/");
+        
+        // Przekieruj do zapisanego URL lub do dashboard
+        const from = (location.state as any)?.from?.pathname || "/dashboard";
+        const search = (location.state as any)?.from?.search || "";
+        navigate(from + search, { replace: true });
       } else {
         toast({
           title: result.message || "Błędne dane logowania",
@@ -69,8 +74,8 @@ export default function Login() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
 
   return (
-    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
-      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" width="400px">
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
+      <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
         <Heading mb={6} textAlign="center" size="lg">
           Logowanie
         </Heading>

@@ -1,6 +1,6 @@
-﻿using Entities.Models;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Entities.Models; 
 
 namespace Entities.Configurations
 {
@@ -26,7 +26,6 @@ namespace Entities.Configurations
             builder.HasKey(us => us.Id);
             builder.Property(us => us.RefreshToken).IsRequired();
             builder.Property(us => us.ExpiresAt).IsRequired();
-
             builder.HasOne(us => us.User)
                    .WithMany(u => u.UserSessions)
                    .HasForeignKey(us => us.UserId)
@@ -43,7 +42,6 @@ namespace Entities.Configurations
             builder.HasIndex(pr => pr.Token).IsUnique();
             builder.Property(pr => pr.ExpiresAt).IsRequired();
             builder.Property(pr => pr.CreatedAt).IsRequired();
-
             builder.HasOne(pr => pr.User)
                    .WithMany(u => u.PasswordResets)
                    .HasForeignKey(pr => pr.UserId)
@@ -60,11 +58,24 @@ namespace Entities.Configurations
             builder.HasIndex(a => a.Token).IsUnique();
             builder.Property(a => a.ExpiresAt).IsRequired();
             builder.Property(a => a.CreatedAt).IsRequired();
-
             builder.HasOne(a => a.User)
                    .WithMany(u => u.Activations)
                    .HasForeignKey(a => a.UserId)
                    .OnDelete(DeleteBehavior.Cascade);
+        }
+    }
+
+    public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfileBase>
+    {
+        public void Configure(EntityTypeBuilder<UserProfileBase> builder)
+        {
+            builder.HasKey(p => p.Id);
+            builder.HasOne(p => p.User)
+                   .WithMany(u => u.Profiles) 
+                   .HasForeignKey(p => p.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+            builder.HasDiscriminator<string>("ProfileType")
+                   .HasValue<TenantPreferencesProfile>("TenantPreferences");
         }
     }
 }

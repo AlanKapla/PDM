@@ -8,3 +8,11 @@ export const getUserDetails = async (): Promise<UserProfile | null> => {
 
   return res.json();
 };
+
+export const updateUserProfile = async (
+  firstName: string,
+  lastName: string
+): Promise<boolean> => {
+  const res = await authApi.updateProfile({ firstName, lastName });
+  return res.ok;
+};

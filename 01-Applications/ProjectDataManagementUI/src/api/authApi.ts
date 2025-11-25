@@ -6,7 +6,8 @@ import type {
   ResetPasswordRequest
 } from "../types/auth.types";
 
-const API_URL = "/api/User";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_URL = `${API_BASE}/api/User`;
 
 export const authApi = {
   register: async (data: RegisterRequest) => {
@@ -64,6 +65,15 @@ export const authApi = {
   activateAccount: async (data: { token: string }) => {
     return fetch(`${API_URL}/activate-account`, {
       method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateProfile: async (data: { firstName: string; lastName: string }) => {
+    return fetch(`${API_URL}/me`, {
+      method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),

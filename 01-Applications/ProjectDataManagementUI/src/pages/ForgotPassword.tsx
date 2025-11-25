@@ -78,8 +78,8 @@ export default function ForgotPassword() {
 
   if (sent) {
     return (
-      <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
-        <Box bg={cardBg} p={8} rounded="lg" shadow="lg" width="400px">
+      <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
+        <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
           <Heading mb={6} textAlign="center" size="lg">
             Email wysłany
           </Heading>
@@ -103,8 +103,8 @@ export default function ForgotPassword() {
   }
 
   return (
-    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
-      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" width="400px">
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
+      <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
         <Heading mb={6} textAlign="center" size="lg">
           Resetowanie hasła
         </Heading>

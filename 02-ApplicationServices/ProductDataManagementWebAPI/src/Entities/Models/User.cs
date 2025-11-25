@@ -18,5 +18,6 @@ namespace Entities.Models
         public ICollection<UserSession> UserSessions { get; set; } = new List<UserSession>();
         public ICollection<UserPasswordReset> PasswordResets { get; set; } = new List<UserPasswordReset>();
         public ICollection<UserActivation> Activations { get; set; } = new List<UserActivation>(); // activation tokens
+        public ICollection<UserProfileBase> Profiles { get; set; } = new List<UserProfileBase>(); // kolekcja profili użytkownika dla relacji odwrotnej TPH
     }
 }

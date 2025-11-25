@@ -30,7 +30,7 @@ export default function ActivateAccount() {
   useEffect(() => {
     if (!token) {
       setLoading(false);
-      setError("Invalid activation link. No token provided.");
+      setError("Nieprawidłowy link aktywacyjny. Brak tokenu.");
       return;
     }
 
@@ -40,10 +40,10 @@ export default function ActivateAccount() {
         if (result) {
           setSuccess(true);
         } else {
-          setError("Activation failed. The link may be invalid or expired.");
+          setError("Aktywacja nie powiodła się. Link może być nieprawidłowy lub wygasły.");
         }
       } catch (err) {
-        setError("An error occurred during activation. Please try again later.");
+        setError("Wystąpił błąd podczas aktywacji. Spróbuj ponownie później.");
       } finally {
         setLoading(false);
       }
@@ -56,15 +56,15 @@ export default function ActivateAccount() {
   const pageBg = useColorModeValue("gray.50", "gray.900");
 
   return (
-    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
-      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" maxW="500px" width="100%">
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
+      <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" maxW="500px" width="100%">
         <VStack spacing={6} textAlign="center">
           {loading && (
             <>
               <Spinner size="xl" color="blue.500" thickness="4px" />
-              <Heading size="lg">Activating your account...</Heading>
+              <Heading size="lg">Aktywowanie konta...</Heading>
               <Text color="gray.600">
-                Please wait while we verify your activation link.
+                Proszę czekać, weryfikujemy link aktywacyjny.
               </Text>
             </>
           )}
@@ -72,9 +72,9 @@ export default function ActivateAccount() {
           {!loading && success && (
             <>
               <Icon as={CheckCircle} boxSize={20} color="green.500" />
-              <Heading size="xl">Account Activated!</Heading>
+              <Heading size="xl">Konto aktywowane!</Heading>
               <Text color="gray.600">
-                Your account has been successfully activated. You can now log in.
+                Twoje konto zostało pomyślnie aktywowane. Możesz się teraz zalogować.
               </Text>
               <Button
                 colorScheme="blue"
@@ -82,7 +82,7 @@ export default function ActivateAccount() {
                 width="100%"
                 onClick={() => navigate("/login")}
               >
-                Go to Login
+                Przejdź do logowania
               </Button>
             </>
           )}
@@ -90,11 +90,11 @@ export default function ActivateAccount() {
           {!loading && error && (
             <>
               <Icon as={XCircle} boxSize={20} color="red.500" />
-              <Heading size="lg">Activation Failed</Heading>
+              <Heading size="lg">Aktywacja nie powiodła się</Heading>
               <Alert status="error" rounded="md">
                 <AlertIcon />
                 <Box>
-                  <AlertTitle>Error</AlertTitle>
+                  <AlertTitle>Błąd</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Box>
               </Alert>
@@ -105,7 +105,7 @@ export default function ActivateAccount() {
                 width="100%"
                 onClick={() => navigate("/login")}
               >
-                Back to Login
+                Powrót do logowania
               </Button>
             </>
           )}
