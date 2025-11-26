@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { ChakraProvider, ColorModeScript } from "@chakra-ui/react";
 import App from "./App.tsx";
 import theme from "./theme.ts";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
@@ -22,10 +23,12 @@ if ('serviceWorker' in navigator) {
 if (!window.location.pathname.startsWith("/swagger")) {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <ChakraProvider theme={theme}>
-        <ColorModeScript initialColorMode={theme.config.initialColorMode} />
-        <App />
-      </ChakraProvider>
+      <GoogleOAuthProvider clientId="644147776869-f671l471e26q29cvnfpcqvkncm8h47m2.apps.googleusercontent.com">
+        <ChakraProvider theme={theme}>
+          <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+          <App />
+        </ChakraProvider>
+      </GoogleOAuthProvider>
     </React.StrictMode>
   );
 }

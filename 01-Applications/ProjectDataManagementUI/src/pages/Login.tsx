@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import {
   Box,
   Button,
@@ -14,59 +14,73 @@ import {
   InputRightElement,
   IconButton,
 } from "@chakra-ui/react";
+
 import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
+import { GoogleLogin } from "@react-oauth/google";
+
+import { AuthContext } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { login } = useAuth();
+
+  const { login, googleLogin } = useContext(AuthContext);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLocalLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    try {
-      const result = await login(email, password);
+    const result = await login(email, password);
 
-      if (result.success) {
-        toast({
-          title: "Zalogowano pomyślnie",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        
-        // Przekieruj do zapisanego URL lub do dashboard
-        const from = (location.state as any)?.from?.pathname || "/dashboard";
-        const search = (location.state as any)?.from?.search || "";
-        navigate(from + search, { replace: true });
-      } else {
-        toast({
-          title: result.message || "Błędne dane logowania",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
-      }
-    } catch (error) {
-      console.error("Błąd logowania:", error);
+    setLoading(false);
+
+    if (!result.success) {
       toast({
-        title: "Błąd połączenia z serwerem",
+        title: result.message || "Błędne dane logowania",
         status: "error",
         duration: 3000,
-        isClosable: true,
       });
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    toast({
+      title: "Zalogowano pomyślnie",
+      status: "success",
+      duration: 2000,
+    });
+
+    const from = (location.state as any)?.from?.pathname || "/dashboard";
+    navigate(from, { replace: true });
+  };
+
+  const handleGoogleLogin = async (credentialResponse: any) => {
+    const token = credentialResponse.credential;
+
+    const result = await googleLogin(token);
+
+    if (!result.success) {
+      toast({
+        title: result.message || "Błąd logowania przez Google",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    toast({
+      title: "Zalogowano przez Google",
+      status: "success",
+      duration: 2000,
+    });
+
+    navigate("/dashboard", { replace: true });
   };
 
   const cardBg = useColorModeValue("white", "gray.800");
@@ -74,19 +88,18 @@ export default function Login() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
 
   return (
-    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
-      <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
-        <Heading mb={6} textAlign="center" size="lg">
-          Logowanie
-        </Heading>
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
+      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" maxW="400px" width="100%">
+        <Heading mb={6} textAlign="center">Logowanie</Heading>
 
-        <VStack spacing={4} as="form" onSubmit={handleLogin}>
+        {/* LOGOWANIE LOKALNE */}
+        <VStack spacing={4} as="form" onSubmit={handleLocalLogin}>
           <FormControl>
             <FormLabel color={labelColor}>Email</FormLabel>
-            <Input
-              type="email"
+            <Input 
+              type="email" 
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)} 
             />
           </FormControl>
 
@@ -100,7 +113,7 @@ export default function Login() {
               />
               <InputRightElement>
                 <IconButton
-                  aria-label={showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  aria-label="toggle password"
                   icon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   onClick={() => setShowPassword(!showPassword)}
                   variant="ghost"
@@ -113,19 +126,24 @@ export default function Login() {
           <Button width="100%" colorScheme="blue" type="submit" isLoading={loading}>
             Zaloguj się
           </Button>
-
-          <Button 
-            variant="link" 
-            size="sm"
-            onClick={() => navigate("/forgot-password")}
-          >
-            Nie pamiętam hasła
-          </Button>
-
-          <Button variant="link" onClick={() => navigate("/register")}>
-            Utwórz konto
-          </Button>
         </VStack>
+
+        {/* GOOGLE LOGIN */}
+        <Box mt={6} textAlign="center">
+          <GoogleLogin
+            onSuccess={handleGoogleLogin}
+            onError={() =>
+              toast({
+                title: "Google login error",
+                status: "error",
+              })
+            }
+          />
+        </Box>
+
+        <Button variant="link" mt={4} width="100%" onClick={() => navigate("/register")}>
+          Utwórz konto
+        </Button>
       </Box>
     </Flex>
   );

@@ -15,6 +15,7 @@
     "@chakra-ui/react-use-safe-layout-effect": "2.1.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@react-oauth/google": "^0.12.2",
     "axios": "^1.13.2",
     "framer-motion": "^12.23.24",
     "i18next": "^25.6.3",
