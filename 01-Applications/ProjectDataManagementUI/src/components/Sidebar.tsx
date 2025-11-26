@@ -23,42 +23,54 @@ import {
   LogOut,
   Moon,
   Sun,
-  LayoutDashboard,
   Menu as MenuIcon,
   Building2,
   ChevronDown,
   ChevronUp,
-  Mail,
+  Settings,
+  FolderKanban,
+  FileText,
+  Calculator,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { getUserProfile } from "../services/authService";
-import type { UserProfile } from "../types/auth.types";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [tenantsExpanded, setTenantsExpanded] = useState(false);
+  // Przywróć stan z localStorage lub ustaw na false
+  const [tenantsExpanded, setTenantsExpanded] = useState(() => {
+    const saved = localStorage.getItem("sidebar_tenants_expanded");
+    return saved === "true";
+  });
+  const [settingsExpanded, setSettingsExpanded] = useState(() => {
+    const saved = localStorage.getItem("sidebar_settings_expanded");
+    return saved === "true";
+  });
+
+  // Automatycznie rozwiń sekcję jeśli użytkownik jest na danej ścieżce
+  useEffect(() => {
+    if (location.pathname.startsWith("/tenants") && !tenantsExpanded) {
+      setTenantsExpanded(true);
+    }
+    if (location.pathname.startsWith("/profile") && !settingsExpanded) {
+      setSettingsExpanded(true);
+    }
+  }, [location.pathname]);
+
+  // Zapisz stan do localStorage przy każdej zmianie
+  useEffect(() => {
+    localStorage.setItem("sidebar_tenants_expanded", String(tenantsExpanded));
+  }, [tenantsExpanded]);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const profile = await getUserProfile();
-        setUser(profile);
-      } catch (error) {
-        console.error("Błąd ładowania użytkownika:", error);
-        setUser(null);
-      }
-    }
-
-    loadUser();
-  }, []);
+    localStorage.setItem("sidebar_settings_expanded", String(settingsExpanded));
+  }, [settingsExpanded]);
 
   const { colorMode, toggleColorMode } = useColorMode();
 
@@ -67,19 +79,49 @@ export default function Sidebar() {
   const activeBg = useColorModeValue("blue.100", "blue.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
 
-  const menuItems = [
-    { label: "Panel główny", icon: <LayoutDashboard size={20} />, path: "/dashboard" },
-    { label: "Profil", icon: <UserIcon size={20} />, path: "/profile" },
-    { label: "Organizacje", icon: <Building2 size={20} />, path: "/tenants" },
-  ];
-
   const initials = user
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : "U";
 
   const SidebarContent = () => (
     <VStack align="flex-start" spacing={6} h="100%" overflow="auto">
-        <HStack spacing={3}>
+        {/* Logo/Nazwa aplikacji */}
+        <Box 
+          w="100%" 
+          py={3} 
+          px={4}
+          bg="linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%)"
+          borderRadius="xl"
+          cursor="pointer"
+          _hover={{ 
+            transform: "translateY(-2px)",
+            boxShadow: "lg"
+          }}
+          transition="all 0.3s"
+          onClick={() => navigate("/")}
+          mb={2}
+          boxShadow="md"
+        >
+          <Text 
+            fontSize="sm" 
+            fontWeight="bold" 
+            color="white"
+            letterSpacing="wide"
+            textAlign="center"
+            whiteSpace="nowrap"
+          >
+            Project Data Management
+          </Text>
+        </Box>
+
+        {/* Profil użytkownika */}
+        <HStack 
+          spacing={3} 
+          cursor="pointer" 
+          _hover={{ opacity: 0.8 }}
+          onClick={() => navigate("/profile")}
+          w="100%"
+        >
           <Avatar
             size="sm"
             bg="blue.600"
@@ -93,37 +135,18 @@ export default function Sidebar() {
             {initials}
           </Avatar>
 
-          <VStack align="flex-start" spacing={0}>
-            <Text fontSize="sm" fontWeight="bold">
+          <VStack align="flex-start" spacing={0} flex="1" minW="0">
+            <Text fontSize="sm" fontWeight="bold" isTruncated w="100%">
               {user?.firstName} {user?.lastName}
             </Text>
-            <Text fontSize="xs" color="gray.500">
+            <Text fontSize="xs" color="gray.500" isTruncated w="100%">
               {user?.email}
             </Text>
           </VStack>
         </HStack>
 
         <VStack align="stretch" w="100%" spacing={2}>
-          {menuItems.filter(item => item.path !== "/tenants").map((item) => {
-            const isActive = location.pathname === item.path;
-
-            return (
-              <Button
-                key={item.label}
-                variant="ghost"
-                justifyContent="flex-start"
-                leftIcon={item.icon}
-                w="100%"
-                bg={isActive ? activeBg : "transparent"}
-                _hover={{ bg: hoverBg }}
-                onClick={() => navigate(item.path)}
-              >
-                {item.label}
-              </Button>
-            );
-          })}
-
-          {/* Przycisk Organizacje z rozwinięciem */}
+          {/* Organizacje na samej górze */}
           <Button
             variant="ghost"
             justifyContent="space-between"
@@ -137,14 +160,13 @@ export default function Sidebar() {
             Organizacje
           </Button>
 
-          {/* Panel rozwijany z trzema opcjami */}
+          {/* Panel rozwijany organizacji */}
           <Collapse in={tenantsExpanded} animateOpacity>
             <VStack align="stretch" w="100%" spacing={2} pl={4} pt={2}>
               <Button
                 variant="ghost"
                 size="sm"
                 justifyContent="flex-start"
-                leftIcon={<Mail size={16} />}
                 w="100%"
                 fontSize="sm"
                 bg={location.pathname === "/tenants/invitations" ? activeBg : "transparent"}
@@ -178,6 +200,78 @@ export default function Sidebar() {
                 onClick={() => navigate("/tenants/managed")}
               >
                 Którymi zarządzasz
+              </Button>
+            </VStack>
+          </Collapse>
+
+          {/* Projekty */}
+          <Button
+            variant="ghost"
+            justifyContent="flex-start"
+            leftIcon={<FolderKanban size={20} />}
+            w="100%"
+            bg={location.pathname.startsWith("/projects") ? activeBg : "transparent"}
+            _hover={{ bg: hoverBg }}
+            onClick={() => navigate("/projects")}
+          >
+            Projekty
+          </Button>
+
+          {/* Pliki */}
+          <Button
+            variant="ghost"
+            justifyContent="flex-start"
+            leftIcon={<FileText size={20} />}
+            w="100%"
+            bg={location.pathname.startsWith("/files") ? activeBg : "transparent"}
+            _hover={{ bg: hoverBg }}
+            onClick={() => navigate("/files")}
+          >
+            Pliki
+          </Button>
+
+          {/* Kosztorysy */}
+          <Button
+            variant="ghost"
+            justifyContent="flex-start"
+            leftIcon={<Calculator size={20} />}
+            w="100%"
+            bg={location.pathname.startsWith("/estimates") ? activeBg : "transparent"}
+            _hover={{ bg: hoverBg }}
+            onClick={() => navigate("/estimates")}
+          >
+            Kosztorysy
+          </Button>
+
+          {/* Sekcja Ustawienia */}
+          <Button
+            variant="ghost"
+            justifyContent="space-between"
+            leftIcon={<Settings size={20} />}
+            rightIcon={settingsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            w="100%"
+            bg={location.pathname.startsWith("/profile") ? activeBg : "transparent"}
+            _hover={{ bg: hoverBg }}
+            onClick={() => setSettingsExpanded(!settingsExpanded)}
+          >
+            Ustawienia
+          </Button>
+
+          {/* Panel rozwijany ustawień */}
+          <Collapse in={settingsExpanded} animateOpacity>
+            <VStack align="stretch" w="100%" spacing={2} pl={4} pt={2}>
+              <Button
+                variant="ghost"
+                size="sm"
+                justifyContent="flex-start"
+                leftIcon={<UserIcon size={16} />}
+                w="100%"
+                fontSize="sm"
+                bg={location.pathname === "/profile" ? activeBg : "transparent"}
+                _hover={{ bg: hoverBg }}
+                onClick={() => navigate("/profile")}
+              >
+                Profil
               </Button>
             </VStack>
           </Collapse>
@@ -231,9 +325,7 @@ export default function Sidebar() {
           <DrawerCloseButton />
           <DrawerHeader>Menu</DrawerHeader>
           <DrawerBody>
-            <Box onClick={onClose}>
-              <SidebarContent />
-            </Box>
+            <SidebarContent />
           </DrawerBody>
         </DrawerContent>
       </Drawer>

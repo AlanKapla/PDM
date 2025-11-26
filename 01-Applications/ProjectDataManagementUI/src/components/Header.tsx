@@ -3,8 +3,10 @@ import {
   Text,
   useColorModeValue,
 } from "@chakra-ui/react";
+import { useNavigate } from "react-router-dom";
 
 export default function Header() {
+  const navigate = useNavigate();
   const bg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
   const textColor = useColorModeValue("gray.700", "gray.200");
@@ -21,7 +23,14 @@ export default function Header() {
       zIndex={10}
     >
       <Box maxW="1400px" mx="auto">
-        <Text fontSize="lg" fontWeight="bold" color={textColor}>
+        <Text 
+          fontSize="lg" 
+          fontWeight="bold" 
+          color={textColor}
+          cursor="pointer"
+          _hover={{ opacity: 0.8 }}
+          onClick={() => navigate("/")}
+        >
           Project Data Management
         </Text>
       </Box>
