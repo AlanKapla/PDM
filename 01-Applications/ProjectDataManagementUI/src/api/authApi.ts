@@ -10,10 +10,16 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 const API_URL = `${API_BASE}/api/User`;
 
 let isRefreshing = false;
+let hasRedirected = false; // Flaga zapobiegająca wielokrotnym przekierowaniom
 
 // Wrapper dla fetch z obsługą wygasłych tokenów i refresh flow
 const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const response = await fetch(url, options);
+  
+  // Jeśli to /me i dostaliśmy 401, nie próbuj refresh - user nie jest zalogowany
+  if (response.status === 401 && url.includes("/me")) {
+    return response;
+  }
   
   if (response.status === 401 && !isRefreshing) {
     isRefreshing = true;
@@ -27,8 +33,12 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
 
       if (refreshResponse.status === 401) {
         // Refresh token też wygasł - sesja całkowicie wygasła
-        console.warn("Sesja wygasła - przekierowanie na login");
-        window.location.href = "/login";
+        if (!hasRedirected) {
+          hasRedirected = true;
+          console.warn("Sesja wygasła - przekierowanie na login");
+          window.location.href = "/login";
+        }
+        isRefreshing = false;
         return response;
       }
 
@@ -38,18 +48,29 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
         return fetch(url, options);
       } else {
         // Inny błąd (500, 503 etc.)
-        console.error("Błąd serwera podczas refresh:", refreshResponse.status);
-        window.location.href = "/login";
+        if (!hasRedirected) {
+          hasRedirected = true;
+          console.error("Błąd serwera podczas refresh:", refreshResponse.status);
+          window.location.href = "/login";
+        }
+        isRefreshing = false;
         return response;
       }
     } catch (error) {
       // Błąd sieciowy
-      console.error("Błąd sieci podczas refresh token:", error);
-      window.location.href = "/login";
-      return response;
-    } finally {
+      if (!hasRedirected) {
+        hasRedirected = true;
+        console.error("Błąd sieci podczas refresh token:", error);
+        window.location.href = "/login";
+      }
       isRefreshing = false;
+      return response;
     }
+  }
+  
+  // Jeśli 401 ale isRefreshing=true (inny request już refreshuje), zwróć 401
+  if (response.status === 401 && isRefreshing) {
+    return response;
   }
   
   return response;
@@ -62,6 +83,15 @@ export const authApi = {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+    });
+  },
+
+  registerGoogle: async (googleToken: string) => {
+    return fetch(`${API_URL}/register/google`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ googleToken }),
     });
   },
 
@@ -130,3 +160,6 @@ export const authApi = {
     });
   },
 };
+
+export { fetchWithAuth };
+

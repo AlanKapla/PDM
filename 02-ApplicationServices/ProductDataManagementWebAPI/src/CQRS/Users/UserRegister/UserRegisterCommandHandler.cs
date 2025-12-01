@@ -10,6 +10,7 @@ using Repositories.Repository.Interfaces;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Options;
 using Business.Interfaces.Configurations;
+using Business.Interfaces.DTO;
 
 namespace CQRS.Users.UserRegister
 {
@@ -58,7 +59,7 @@ namespace CQRS.Users.UserRegister
 
 
             string activationLink = $"{frontend.BaseUrl.TrimEnd('/')}{frontend.ActivationPath}?token={Uri.EscapeDataString(token)}";
-            await emailSender.SendEmailAsync(new EmailMessage
+            await emailSender.SendEmailAsync(new EmailMessageDto
             {
                 To = user.Email,
                 Subject = "Activate your account",

@@ -16,6 +16,7 @@ namespace Entities.Context
         public DbSet<UserProfileBase> UserProfiles => Set<UserProfileBase>();
         public DbSet<TenantPreferencesProfile> TenantPreferencesProfiles => Set<TenantPreferencesProfile>();
         public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
+        public DbSet<Notification> Notifications => Set<Notification>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

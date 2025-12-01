@@ -6,6 +6,7 @@ using Repositories.Repository.Interfaces;
 using Microsoft.Extensions.Options;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
+using Business.Interfaces.DTO;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
@@ -61,13 +62,13 @@ namespace CQRS.Tenants.InviteTenantMember
             string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
             string path = frontendSettings.Value.InvitationAcceptPath.TrimStart('/');
             string acceptUrl = $"{baseUrl}/{path}?token={Uri.EscapeDataString(token)}";
-            await emailSender.SendEmailAsync(new EmailMessage
+            await emailSender.SendEmailAsync(new EmailMessageDto
             {
                 To = request.Email,
                 Subject = "Zaproszenie do tenanta",
                 TextBody = $"Kliknij aby do³¹czyæ: {acceptUrl}",
                 HtmlBody = $"<p>Kliknij aby do³¹czyæ: <a href=\"{acceptUrl}\">Do³¹cz</a></p>"
-            });
+            }, cancellationToken);
 
             return Unit.Value;
         }

@@ -85,4 +85,20 @@ export const tenantApi = {
       credentials: "include",
     });
   },
+
+  getTenantProjects: async (tenantId: string) => {
+    return fetch(`${API_BASE}/api/tenants/${tenantId}/Project`, {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  createProject: async (tenantId: string, name: string) => {
+    return fetch(`${API_BASE}/api/tenants/${tenantId}/Project`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+  },
 };

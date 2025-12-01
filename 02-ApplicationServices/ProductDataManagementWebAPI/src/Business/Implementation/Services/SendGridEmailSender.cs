@@ -11,14 +11,18 @@ using System.Linq;
 using System.Runtime;
 using System.Text;
 using System.Threading.Tasks;
+using Polly;
+using Polly.Retry;
+using Business.Interfaces.DTO;
 
 namespace Business.Implementation.Services
 {
-    public class SendGridEmailSender : IEmailSender
+    public class SendGridEmailSender : IEmailTransport
     {
         private readonly SendGridClient client;
         private readonly SendGridSettings settings;
         private readonly ILogger<SendGridEmailSender> logger;
+        private readonly AsyncRetryPolicy<Response> retryPolicy;
 
         public SendGridEmailSender(
             IOptions<EmailSettings> options,
@@ -27,9 +31,32 @@ namespace Business.Implementation.Services
             this.settings = options.Value.SendGrid;
             this.client = new SendGridClient(options.Value.SendGrid.ApiKey);
             this.logger = logger;
+
+            retryPolicy = Policy
+                .Handle<Exception>()
+                .OrResult<Response>(r => !r.IsSuccessStatusCode)
+                .WaitAndRetryAsync(
+                    retryCount: 3,
+                    sleepDurationProvider: (attempt, ctx) => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+                    onRetry: (outcome, timespan, attempt, ctx) =>
+                    {
+                        if (outcome.Exception != null)
+                        {
+                            logger.LogWarning(outcome.Exception,
+                                "Attempt {Attempt} to send email failed. Retrying in {Delay}s", attempt, timespan.TotalSeconds);
+                        }
+                        else
+                        {
+                            logger.LogWarning(
+                                "Attempt {Attempt} to send email failed with status {StatusCode}. Retrying in {Delay}s",
+                                attempt,
+                                outcome.Result.StatusCode,
+                                timespan.TotalSeconds);
+                        }
+                    });
         }
 
-        public async Task SendEmailAsync(EmailMessage message, CancellationToken cancellationToken = default)
+        public async Task SendEmailAsync(EmailMessageDto message, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(message.To))
             {
@@ -63,7 +90,7 @@ namespace Business.Implementation.Services
                 message.TextBody ?? string.Empty,
                 message.HtmlBody ?? message.TextBody ?? string.Empty);
 
-            Response response = await client.SendEmailAsync(sgMessage, cancellationToken);
+            Response response = await retryPolicy.ExecuteAsync(ct => client.SendEmailAsync(sgMessage, ct), cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {

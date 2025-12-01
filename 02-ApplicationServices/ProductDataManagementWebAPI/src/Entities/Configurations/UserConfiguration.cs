@@ -11,11 +11,18 @@ namespace Entities.Configurations
             builder.HasKey(u => u.Id);
             builder.HasIndex(u => u.Email).IsUnique();
             builder.Property(u => u.Email).IsRequired().HasMaxLength(200);
-            builder.Property(u => u.PasswordHash).IsRequired();
+            builder.Property(u => u.PasswordHash).IsRequired(false); // opcjonalne dla użytkowników Google
             builder.Property(u => u.FirstName).HasMaxLength(100);
             builder.Property(u => u.LastName).HasMaxLength(100);
             builder.Property(u => u.IsActive).HasDefaultValue(false);
             builder.Property(p => p.SystemRole).HasConversion<string>();
+            
+            // Pola dla zewnętrznych providerów
+            builder.Property(u => u.AuthProvider).HasConversion<string>().HasDefaultValue(AuthProvider.Local);
+            builder.Property(u => u.ExternalId).HasMaxLength(200);
+            
+            // Indeks dla kombinacji provider + external ID
+            builder.HasIndex(u => new { u.AuthProvider, u.ExternalId });
         }
     }
 

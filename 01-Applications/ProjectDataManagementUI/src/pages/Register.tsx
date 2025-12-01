@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -21,10 +21,13 @@ import {
   List,
   ListItem,
   ListIcon,
+  Divider,
 } from "@chakra-ui/react";
 import { Eye, EyeOff, Check, X } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 
 import { registerUser, type RegisterForm } from "../services/authService";
+import { AuthContext } from "../context/AuthContext";
 
 interface FormWithConfirm extends RegisterForm {
   confirmPassword: string;
@@ -33,6 +36,7 @@ interface FormWithConfirm extends RegisterForm {
 export default function Register() {
   const toast = useToast();
   const navigate = useNavigate();
+  const { googleRegister } = useContext(AuthContext);
 
   const [form, setForm] = useState<FormWithConfirm>({
     email: "",
@@ -240,6 +244,48 @@ export default function Register() {
           <Button width="100%" colorScheme="blue" type="submit">
             Zarejestruj
           </Button>
+
+          <Divider my={4} />
+
+          {/* GOOGLE REGISTER */}
+          <VStack width="100%" spacing={2}>
+            <Text fontSize="sm" color="gray.600">
+              lub zarejestruj się przez Google
+            </Text>
+            <GoogleLogin
+              onSuccess={async (credentialResponse: any) => {
+                const token = credentialResponse.credential;
+                const result = await googleRegister(token);
+
+                if (!result.success) {
+                  toast({
+                    title: result.message || "Błąd rejestracji przez Google",
+                    status: "error",
+                    duration: 5000,
+                    isClosable: true,
+                  });
+                  return;
+                }
+
+                toast({
+                  title: "Zarejestrowano przez Google",
+                  status: "success",
+                  duration: 3000,
+                  isClosable: true,
+                });
+
+                navigate("/dashboard");
+              }}
+              onError={() => {
+                toast({
+                  title: "Google registration error",
+                  status: "error",
+                  duration: 3000,
+                  isClosable: true,
+                });
+              }}
+            />
+          </VStack>
 
           <Text fontSize="sm">
             Masz już konto?{" "}

@@ -24,9 +24,6 @@ namespace CQRS.Tenants.ChangeActiveTenant
 
         public async Task<ActiveTenantWeb> Handle(ChangeActiveTenantCommand request, CancellationToken cancellationToken)
         {
-            // Walidacja przeniesiona do validatora
-
-            // Pobierz lub utwórz profil preferencji
             var profile = await tenantPreferencesRepo.GetFirstBySearch(p => p.UserId == currentUser.Id);
             if (profile == null)
             {

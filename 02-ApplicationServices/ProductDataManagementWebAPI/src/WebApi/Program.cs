@@ -10,8 +10,9 @@ internal class Program
 
         var app = builder.Build();
 
-        app.UseRouting();
         app.UseCors("AllowFrontend");
+        
+        app.UseRouting();
 
         app.UseGlobalExceptionHandling();
 
@@ -22,6 +23,9 @@ internal class Program
         app.UseAuthorization();
 
         app.MapControllers();
+
+        app.MapHub<WebApi.Hubs.NotificationHub>("api/hubs/notifications")
+            .RequireCors("AllowFrontend");
 
         app.MapHealthChecks("api/health");
 

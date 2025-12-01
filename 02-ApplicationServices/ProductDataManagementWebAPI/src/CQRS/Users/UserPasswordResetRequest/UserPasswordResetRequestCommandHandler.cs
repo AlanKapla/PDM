@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Business.Interfaces.Configurations;
+using Business.Interfaces.DTO;
 
 namespace CQRS.Users.UserPasswordResetRequest
 {
@@ -60,7 +61,7 @@ namespace CQRS.Users.UserPasswordResetRequest
             string textBody = $"If you requested a password reset, use this token: {token}. It expires at {expires:u}.";
             string htmlBody = $"<p>If you requested a password reset, click the link below or use the provided token.</p><p><a href=\"{resetLink}\">Reset Password</a></p><p>Token: <strong>{token}</strong></p><p>Expires at: {expires:u}</p>";
 
-            await emailSender.SendEmailAsync(new EmailMessage
+            await emailSender.SendEmailAsync(new EmailMessageDto
             {
                 To = user.Email,
                 Subject = subject,

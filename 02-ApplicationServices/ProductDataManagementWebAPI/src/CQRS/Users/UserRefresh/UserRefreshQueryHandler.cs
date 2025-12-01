@@ -25,13 +25,13 @@ namespace CQRS.Users.UserRefresh
                 s => s.RefreshToken == request.RefreshToken && s.ExpiresAt > DateTime.UtcNow && !s.IsRevoked,
                 cancellationToken,
                 q => q.Include(s => s.User)
-            ) ?? throw new UnauthorizedApiExeption();
+            ) ?? throw new UnauthorizedApiException();
 
-            User user = session.User ?? throw new UnauthorizedApiExeption();
+            User user = session.User ?? throw new UnauthorizedApiException();
 
             if (!user.IsActive)
             {
-                throw new UnauthorizedApiExeption();
+                throw new UnauthorizedApiException();
             }
 
             TokenDto token = jwtService.GenerateToken(user, user.ActiveTenantId);

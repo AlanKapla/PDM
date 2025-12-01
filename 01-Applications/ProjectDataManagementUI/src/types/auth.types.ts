@@ -24,7 +24,7 @@ export interface UserProfile {
   email: string;
   firstName: string;
   lastName: string;
-  lastTenantId?: string | null;
+  activeTenantId?: string | null;
 }
 
 export interface PasswordResetRequest {

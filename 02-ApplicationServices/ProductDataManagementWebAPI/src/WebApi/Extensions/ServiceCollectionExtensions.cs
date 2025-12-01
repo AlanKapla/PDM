@@ -24,6 +24,7 @@ using Services.Interfaces;
 using System.Text;
 using System.Linq;
 using WebApi.Authorization;
+using WebApi.Constants;
 
 namespace WebApi.Extensions
 {
@@ -57,6 +58,8 @@ namespace WebApi.Extensions
             services
                 .AddDataProtection()
                 .PersistKeysToFileSystem(new DirectoryInfo("/keys"));
+            
+            services.AddSignalR();
 
             return services;
         }
@@ -189,6 +192,7 @@ namespace WebApi.Extensions
             services.AddScoped<IReadRepository<TenantPreferencesProfile>, ReadRepository<TenantPreferencesProfile>>();
             services.AddScoped<IRepository<TenantPreferencesProfile>, Repository<TenantPreferencesProfile>>();
             services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
+            services.AddScoped<IReadRepository<Notification>, ReadRepository<Notification>>();
             return services;
         }
 
@@ -198,8 +202,22 @@ namespace WebApi.Extensions
             services.AddScoped<ICurrentUser, CurrentUser>();
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
-            services.AddScoped<IEmailSender, SendGridEmailSender>();
+            // Application-facing sender enqueues to queue
+            services.AddScoped<IEmailSender, QueuedEmailSender>();
+            // Low-level transport actually sends via provider (singleton-safe)
+            services.AddSingleton<IEmailTransport, SendGridEmailSender>();
             services.AddScoped<ITokenGenerator, TokenGenerator>();
+            services.AddScoped<IBlobStorageService, BlobStorageService>();
+            // Queue storage used by hosted services (singleton-safe)
+            services.AddSingleton<IQueueStorageService, QueueStorageService>();
+            services.AddHostedService<EmailWorker>();
+
+            // Notification dispatcher via SignalR (singleton-safe)
+            services.AddSingleton<INotificationDispatcher, WebApi.Services.SignalRNotificationDispatcher>();
+            // Notification background worker
+            services.AddHostedService<NotificationWorker>();
+            services.AddScoped<INotificationSender, QueuedNotificationSender>();
+
             return services;
         }
 
@@ -209,6 +227,7 @@ namespace WebApi.Extensions
             services.Configure<EmailSettings>(config.GetSection(EmailSettings.SectionName));
             services.Configure<FrontendSettings>(config.GetSection(FrontendSettings.SectionName));
             services.Configure<CorsSettings>(config.GetSection(CorsSettings.SectionName));
+            services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));
             return services;
         }
 
@@ -256,9 +275,11 @@ namespace WebApi.Extensions
         {
             services.AddAuthorization(options =>
             {
-                options.AddPolicy("TenantAdmin", policy => policy.Requirements.Add(new TenantAdminRequirement()));
+                options.AddPolicy(Policies.TenantAdmin, policy => policy.Requirements.Add(new TenantAdminRequirement()));
+                options.AddPolicy(Policies.TenantMember, policy => policy.Requirements.Add(new TenantMemberRequirement()));
             });
             services.AddScoped<IAuthorizationHandler, TenantAdminHandler>();
+            services.AddScoped<IAuthorizationHandler, TenantMemberHandler>();
             return services;
         }
     }

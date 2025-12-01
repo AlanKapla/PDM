@@ -22,7 +22,7 @@ namespace CQRS.Tenants.ActiveTenant
         {
             if (!currentUser.IsAuthenticated || currentUser.Id == Guid.Empty)
             {
-                throw new UnauthorizedApiExeption();
+                throw new UnauthorizedApiException();
             }
 
             var profile = await tenantPreferencesRepo.GetFirstBySearch(p => p.UserId == currentUser.Id);

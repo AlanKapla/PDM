@@ -21,4 +21,9 @@
     <ProjectReference Include="..\Repositiories\Repositiories.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Notifications\GetUserNotifications\" />
+    <Folder Include="Test\TestBlobConnection\" />
+  </ItemGroup>
+
 </Project>

@@ -14,6 +14,8 @@ import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import ActivateAccount from "../pages/ActivateAccount";
 import AcceptInvitation from "../pages/AcceptInvitation";
+import Projects from "../pages/Projects";
+import ProjectDetails from "../pages/ProjectDetails";
 
 export default function AppRouter() {
   return (
@@ -137,6 +139,24 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ManagedTenants />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects"
+        element={
+          <ProtectedRoute>
+            <Projects />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId"
+        element={
+          <ProtectedRoute>
+            <ProjectDetails />
           </ProtectedRoute>
         }
       />

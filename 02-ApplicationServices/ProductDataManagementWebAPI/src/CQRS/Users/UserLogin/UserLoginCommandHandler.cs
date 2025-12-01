@@ -44,9 +44,17 @@ namespace CQRS.Users.UserLogin
         {
             User? user = await userRepo.GetFirstBySearch(x => x.Email == request.Email);
 
-            if (string.IsNullOrEmpty(user?.PasswordHash))
+            // Sprawdzenie czy użytkownik istnieje
+            if (user == null)
             {
-                throw new UnauthorizedApiExeption();
+                throw new UnauthorizedApiException();
+            }
+
+            // HYBRID AUTH: Sprawdzenie czy użytkownik ma ustawione hasło (niezależnie od AuthProvider)
+            if (string.IsNullOrEmpty(user.PasswordHash))
+            {
+                throw new ApiException(ApiExceptionReason.InvalidOperation, 
+                    "Password not set for this account. Please set password or use Google login.");
             }
 
             if (!user.IsActive)
@@ -59,11 +67,10 @@ namespace CQRS.Users.UserLogin
             if (verifyResult)
             {
                 UserSession userSession = await CreateUserSession(user);
-
                 return PrepareUserLoginWeb(user, userSession);
             }
 
-            throw new UnauthorizedApiExeption();
+            throw new UnauthorizedApiException();
         }
 
         private async Task<UserAuthWeb> GoogleLogin(UserLoginCommand request)
@@ -72,31 +79,50 @@ namespace CQRS.Users.UserLogin
 
             if (!payload.EmailVerified)
             {
-                throw new UnauthorizedApiExeption();
+                throw new UnauthorizedApiException();
             }
 
-            User? user = await userRepo.GetFirstBySearch(x => x.Email == payload.Email);
+            // HYBRID AUTH: Sprawdź czy użytkownik istnieje z tym Google ID
+            User? googleUser = await userRepo.GetFirstBySearch(x => x.ExternalId == payload.Subject);
 
-            if (user != null)
+            if (googleUser != null)
             {
-                if (!user.IsActive)
+                if (!googleUser.IsActive)
                 {
                     throw new ApiException(ApiExceptionReason.InvalidOperation, "Account is not activated. Please check your email for the activation link.");
                 }
 
-                UserSession userSession = await CreateUserSession(user);
-
-                return PrepareUserLoginWeb(user, userSession);
+                UserSession userSession = await CreateUserSession(googleUser);
+                return PrepareUserLoginWeb(googleUser, userSession);
             }
 
-            throw new UnauthorizedApiExeption();
-        }
+            // HYBRID AUTH: Sprawdź czy istnieje użytkownik z tym emailem (niezależnie od AuthProvider)
+            User? existingUser = await userRepo.GetFirstBySearch(x => x.Email == payload.Email);
 
-        private UserAuthWeb PrepareUserLoginWeb(User user, UserSession userSession)
-        {
-            TokenDto token = jwt.GenerateToken(user, user.ActiveTenantId);
+            if (existingUser != null)
+            {
+                // Połącz konto Google z istniejącym użytkownikiem
+                existingUser.ExternalId = payload.Subject;
+                
+                // Aktualizuj AuthProvider tylko jeśli to pierwszy external provider
+                if (existingUser.AuthProvider == AuthProvider.Local && string.IsNullOrEmpty(existingUser.ExternalId))
+                {
+                    existingUser.AuthProvider = AuthProvider.Google;
+                }
 
-            return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
+                await userRepo.Update(existingUser);
+
+                if (!existingUser.IsActive)
+                {
+                    throw new ApiException(ApiExceptionReason.InvalidOperation, "Account is not activated. Please check your email for the activation link.");
+                }
+
+                UserSession userSession = await CreateUserSession(existingUser);
+                return PrepareUserLoginWeb(existingUser, userSession);
+            }
+
+            // Jeśli użytkownik nie istnieje, zwróć błąd z informacją o konieczności rejestracji
+            throw new ApiException(ApiExceptionReason.InvalidOperation, "User not found. Please register first using Google sign-up.");
         }
 
         private async Task<UserSession> CreateUserSession(User user)
@@ -113,6 +139,13 @@ namespace CQRS.Users.UserLogin
 
             await userSessionRepo.Insert(userSession);
             return userSession;
+        }
+
+        private UserAuthWeb PrepareUserLoginWeb(User user, UserSession userSession)
+        {
+            TokenDto token = jwt.GenerateToken(user, user.ActiveTenantId);
+
+            return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
         }
     }
 }

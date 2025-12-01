@@ -1,7 +1,10 @@
 ﻿using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Users;
 using CQRS.Users.UserActivate;
+using CQRS.Users.UserAuthStatus;
 using CQRS.Users.UserDetails;
+using CQRS.Users.UserGoogleRegister;
+using CQRS.Users.UserLinkGoogle;
 using CQRS.Users.UserLogin;
 using CQRS.Users.UserLogout;
 using CQRS.Users.UserRefresh;
@@ -30,6 +33,17 @@ public class UserController : BaseApiController
     public async Task<IActionResult> Register([FromBody] UserRegisterCommand request)
     {
         return Ok(await Send(request));
+    }
+
+    [HttpPost("register/google")]
+    public async Task<IActionResult> RegisterGoogle([FromBody] UserGoogleRegisterCommand request)
+    {
+        UserAuthWeb userAuthWeb = await Send(request);
+
+        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
+        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
+
+        return Ok(userAuthWeb);
     }
 
     [HttpPost("login")]
@@ -99,6 +113,26 @@ public class UserController : BaseApiController
     public async Task<IActionResult> GetUserDetails()
     {
         UserDetailsQuery request = new();
+        return Ok(await Send(request));
+    }
+
+    [Authorize]
+    [HttpPost("link-google")]
+    public async Task<IActionResult> LinkGoogle([FromBody] UserLinkGoogleCommand request)
+    {
+        UserAuthWeb userAuthWeb = await Send(request);
+
+        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
+        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
+
+        return Ok(new { message = "Google account linked successfully" });
+    }
+
+    [Authorize]
+    [HttpGet("auth-status")]
+    public async Task<IActionResult> GetAuthStatus()
+    {
+        UserAuthStatusQuery request = new();
         return Ok(await Send(request));
     }
 }

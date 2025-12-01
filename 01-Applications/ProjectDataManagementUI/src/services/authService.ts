@@ -27,6 +27,27 @@ export const registerUser = async (form: RegisterForm): Promise<boolean> => {
   return res.ok;
 };
 
+export const registerGoogleUser = async (googleToken: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const res = await authApi.registerGoogle(googleToken);
+    
+    if (res.ok) {
+      return { success: true };
+    }
+    
+    const errorData = await res.json();
+    return {
+      success: false,
+      message: errorData.message || "Google registration failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Network error during Google registration",
+    };
+  }
+};
+
 export const loginUser = async (form: LoginForm): Promise<{ success: boolean; message?: string }> => {
   const payload = {
     email: form.email,

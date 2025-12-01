@@ -15,7 +15,7 @@
             {
                 await _next(context);
             }
-            catch (UnauthorizedApiExeption)
+            catch (UnauthorizedApiException)
             { 
                 _logger.LogWarning("UnauthorizedUser");
                 context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;

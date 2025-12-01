@@ -22,6 +22,55 @@ namespace Entities.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Entities.Models.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("MetadataJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Readed")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("UserId", "Readed");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Entities.Models.Project", b =>
                 {
                     b.Property<Guid>("Id")
@@ -114,7 +163,7 @@ namespace Entities.Migrations
 
                     b.HasKey("TenantId", "ProjectId", "UserId");
 
-                    b.HasIndex("ProjectId", "UserId");
+                    b.HasIndex("TenantId", "UserId");
 
                     b.ToTable("ProjectMembers");
                 });
@@ -175,6 +224,8 @@ namespace Entities.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InvitedByUserId");
+
                     b.ToTable("TenantInvitations");
                 });
 
@@ -212,11 +263,21 @@ namespace Entities.Migrations
                     b.Property<Guid?>("ActiveTenantId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AuthProvider")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(450)")
+                        .HasDefaultValue("Local");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
                         .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ExternalId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
@@ -236,7 +297,6 @@ namespace Entities.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SystemRole")
@@ -247,6 +307,8 @@ namespace Entities.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("AuthProvider", "ExternalId");
 
                     b.ToTable("Users");
                 });
@@ -446,13 +508,24 @@ namespace Entities.Migrations
 
                     b.HasOne("Entities.Models.TenantMember", "TenantMember")
                         .WithMany("ProjectMembers")
-                        .HasForeignKey("ProjectId", "UserId")
+                        .HasForeignKey("TenantId", "UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Project");
 
                     b.Navigation("TenantMember");
+                });
+
+            modelBuilder.Entity("Entities.Models.TenantInvitation", b =>
+                {
+                    b.HasOne("Entities.Models.User", "InvitedByUser")
+                        .WithMany()
+                        .HasForeignKey("InvitedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InvitedByUser");
                 });
 
             modelBuilder.Entity("Entities.Models.TenantMember", b =>

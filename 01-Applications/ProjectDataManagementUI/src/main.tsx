@@ -23,7 +23,7 @@ if ('serviceWorker' in navigator) {
 if (!window.location.pathname.startsWith("/swagger")) {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <GoogleOAuthProvider clientId="644147776869-f671l471e26q29cvnfpcqvkncm8h47m2.apps.googleusercontent.com">
+      <GoogleOAuthProvider clientId="680142862865-a22j0ka09cr9o8fqe06apeisnmkpcip1.apps.googleusercontent.com">
         <ChakraProvider theme={theme}>
           <ColorModeScript initialColorMode={theme.config.initialColorMode} />
           <App />
