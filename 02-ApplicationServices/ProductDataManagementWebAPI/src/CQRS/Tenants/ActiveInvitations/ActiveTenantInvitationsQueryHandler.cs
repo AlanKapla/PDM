@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Models;
 using MediatR;
@@ -24,7 +24,7 @@ namespace CQRS.Tenants.ActiveInvitations
         {
             string email = currentUser.Email.Trim().ToLowerInvariant();
             IEnumerable<TenantInvitation> invites = await invitationRepo.GetBySearch(
-                i => i.IsActive && i.Email.ToLower() == email && i.Status == InvitationStatus.Pending && (!i.ExpiresAt.HasValue || i.ExpiresAt.Value > DateTime.UtcNow),
+                i => i.IsActive && i.Email.ToLower() == email && i.Status == InvitationStatus.Pending && i.ExpiresAt > DateTime.UtcNow,
                 q => q.Include(x => x.InvitedByUser)
             );
 

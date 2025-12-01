@@ -24,14 +24,25 @@ import {
   Td,
   IconButton,
   Collapse,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
 } from "@chakra-ui/react";
 import { Building2, CheckCircle2, Plus, Edit2, UserPlus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getUserTenants, getActiveTenant, changeActiveTenant, createTenant, updateTenant, inviteTenantMember } from "../services/tenantService";
+import { tenantApi } from "../api/tenantApi";
+import { useAuth } from "../hooks/useAuth";
 import type { TenantDetails } from "../types/auth.types";
 import { TenantRole, getTenantRoleName, getTenantRoleColor } from "../types/auth.types";
 
 export default function Tenants() {
+  const { user } = useAuth();
   const [tenants, setTenants] = useState<TenantDetails[]>([]);
   const [activeTenantId, setActiveTenantId] = useState<string>("");
   const [changingTenant, setChangingTenant] = useState(false);
@@ -50,6 +61,10 @@ export default function Tenants() {
   const [sendingInvite, setSendingInvite] = useState(false);
   
   const [expandedTenants, setExpandedTenants] = useState<Set<string>>(new Set());
+  
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{ tenantId: string; userId: string; name: string } | null>(null);
+  const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   
   const toast = useToast();
 
@@ -204,6 +219,17 @@ export default function Tenants() {
 
     if (!editingTenantId) return;
 
+    if (editingTenantId !== activeTenantId) {
+      toast({
+        title: "Błąd",
+        description: "Możesz edytować tylko aktywną organizację",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setUpdatingTenant(true);
     try {
       const updatedTenant = await updateTenant(editingTenantId, editTenantName);
@@ -268,6 +294,17 @@ export default function Tenants() {
 
     if (!invitingTenantId) return;
 
+    if (invitingTenantId !== activeTenantId) {
+      toast({
+        title: "Błąd",
+        description: "Możesz zapraszać członków tylko do aktywnej organizacji",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setSendingInvite(true);
     try {
       const success = await inviteTenantMember(invitingTenantId, inviteEmail);
@@ -302,6 +339,66 @@ export default function Tenants() {
       });
     } finally {
       setSendingInvite(false);
+    }
+  };
+
+  const handleRemoveMemberClick = (tenantId: string, userId: string, memberName: string) => {
+    setMemberToRemove({ tenantId, userId, name: memberName });
+    onRemoveModalOpen();
+  };
+
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+
+    if (memberToRemove.tenantId !== activeTenantId) {
+      toast({
+        title: "Błąd",
+        description: "Możesz usuwać członków tylko z aktywnej organizacji",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      onRemoveModalClose();
+      setMemberToRemove(null);
+      return;
+    }
+
+    setRemovingMemberId(memberToRemove.userId);
+    try {
+      const response = await tenantApi.removeMember(memberToRemove.tenantId, memberToRemove.userId);
+
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: `Użytkownik ${memberToRemove.name} został usunięty z organizacji`,
+          status: "success",
+          duration: 3000,
+        });
+
+        // Odśwież listę tenantów
+        const tenantsData = await getUserTenants();
+        setTenants(tenantsData);
+      } else {
+        const errorText = await response.text();
+        toast({
+          title: "Błąd",
+          description: errorText || "Nie udało się usunąć członka",
+          status: "error",
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("Błąd usuwania członka:", error);
+      toast({
+        title: "Błąd",
+        description: "Wystąpił błąd podczas usuwania członka",
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setRemovingMemberId(null);
+      setMemberToRemove(null);
+      onRemoveModalClose();
     }
   };
 
@@ -458,7 +555,7 @@ export default function Tenants() {
                   >
                     {/* Header organizacji */}
                     <Box p={4} bg={tenant.id === activeTenantId ? activeBg : "transparent"}>
-                      {editingTenantId === tenant.id ? (
+                      {editingTenantId === tenant.id && tenant.id === activeTenantId ? (
                         <VStack spacing={3} align="stretch">
                           <FormControl>
                             <Input
@@ -496,7 +593,7 @@ export default function Tenants() {
                             </Button>
                           </HStack>
                         </VStack>
-                      ) : invitingTenantId === tenant.id ? (
+                      ) : invitingTenantId === tenant.id && tenant.id === activeTenantId ? (
                         <VStack spacing={3} align="stretch">
                           <FormControl>
                             <FormLabel fontSize="sm">Adres email osoby zapraszanej</FormLabel>
@@ -554,28 +651,32 @@ export default function Tenants() {
                               </Text>
                             </VStack>
                             <HStack spacing={2}>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                leftIcon={<UserPlus size={14} />}
-                                onClick={() => {
-                                  setInvitingTenantId(tenant.id);
-                                  setInviteEmail("");
-                                }}
-                              >
-                                Zaproś
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                leftIcon={<Edit2 size={14} />}
-                                onClick={() => {
-                                  setEditingTenantId(tenant.id);
-                                  setEditTenantName(tenant.name);
-                                }}
-                              >
-                                Edytuj
-                              </Button>
+                              {tenant.id === activeTenantId && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    leftIcon={<UserPlus size={14} />}
+                                    onClick={() => {
+                                      setInvitingTenantId(tenant.id);
+                                      setInviteEmail("");
+                                    }}
+                                  >
+                                    Zaproś
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    leftIcon={<Edit2 size={14} />}
+                                    onClick={() => {
+                                      setEditingTenantId(tenant.id);
+                                      setEditTenantName(tenant.name);
+                                    }}
+                                  >
+                                    Edytuj
+                                  </Button>
+                                </>
+                              )}
                               {tenant.id !== activeTenantId && (
                                 <Button
                                   size="sm"
@@ -617,7 +718,7 @@ export default function Tenants() {
                                 <Th>Email</Th>
                                 <Th>Rola</Th>
                                 <Th>Data dołączenia</Th>
-                                <Th>Akcje</Th>
+                                {tenant.id === activeTenantId && <Th>Akcje</Th>}
                               </Tr>
                             </Thead>
                             <Tbody>
@@ -631,24 +732,26 @@ export default function Tenants() {
                                     </Badge>
                                   </Td>
                                   <Td>{new Date(member.joinedAt).toLocaleDateString('pl-PL')}</Td>
-                                  <Td>
-                                    <IconButton
-                                      aria-label="Usuń członka"
-                                      icon={<Trash2 size={16} />}
-                                      size="sm"
-                                      colorScheme="red"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        // TODO: Implementacja usuwania członka
-                                        toast({
-                                          title: "Funkcja w przygotowaniu",
-                                          description: "Usuwanie członków zostanie wkrótce dodane",
-                                          status: "info",
-                                          duration: 3000,
-                                        });
-                                      }}
-                                    />
-                                  </Td>
+                                  {tenant.id === activeTenantId && (
+                                    <Td>
+                                      {/* Pokaż przycisk tylko jeśli: 1) tenant jest aktywny, 2) jesteś adminem, 3) nie próbujesz usunąć samego siebie */}
+                                      {tenant.role === TenantRole.Admin && user?.email?.toLowerCase() !== member.email.toLowerCase() && (
+                                        <IconButton
+                                          aria-label="Usuń członka"
+                                          icon={<Trash2 size={16} />}
+                                          size="sm"
+                                          colorScheme="red"
+                                          variant="ghost"
+                                          onClick={() => handleRemoveMemberClick(
+                                            tenant.id,
+                                            member.userId,
+                                            `${member.firstName} ${member.lastName}`
+                                          )}
+                                          isLoading={removingMemberId === member.userId}
+                                        />
+                                      )}
+                                    </Td>
+                                  )}
                                 </Tr>
                               ))}
                             </Tbody>
@@ -662,6 +765,43 @@ export default function Tenants() {
             )}
           </Box>
         </VStack>
+
+        {/* Modal potwierdzenia usunięcia członka */}
+        <Modal isOpen={isRemoveModalOpen} onClose={onRemoveModalClose} isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Potwierdź usunięcie</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack align="flex-start" spacing={3}>
+                <Text>
+                  Czy na pewno chcesz usunąć <Text as="span" fontWeight="bold">{memberToRemove?.name}</Text> z organizacji?
+                </Text>
+                <Text fontSize="sm" color="gray.500">
+                  Ta operacja jest nieodwracalna. Użytkownik straci dostęp do wszystkich zasobów organizacji i projektów.
+                </Text>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button 
+                variant="ghost" 
+                mr={3} 
+                onClick={onRemoveModalClose}
+                isDisabled={removingMemberId !== null}
+              >
+                Anuluj
+              </Button>
+              <Button 
+                colorScheme="red" 
+                onClick={handleConfirmRemoveMember}
+                isLoading={removingMemberId !== null}
+                loadingText="Usuwanie..."
+              >
+                Usuń członka
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Box>
     </MainLayout>
   );

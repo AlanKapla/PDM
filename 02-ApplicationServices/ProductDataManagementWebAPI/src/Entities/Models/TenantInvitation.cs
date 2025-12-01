@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 
 namespace Entities.Models
 {
@@ -10,8 +10,8 @@ namespace Entities.Models
         public string Token { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public Guid InvitedByUserId { get; set; }
-        public User InvitedByUser { get; set; } = default!; // nawigacja do uøytkownika ktÛry wys≥a≥ zaproszenie
-        public DateTime? ExpiresAt { get; set; }
+        public User InvitedByUser { get; set; } = default!; // nawigacja do u≈ºytkownika kt√≥ry wys≈Ça≈Ç zaproszenie
+        public DateTime ExpiresAt { get; set; }
         public DateTime? AcceptedAt { get; set; }
         public bool IsActive { get; set; }
         public InvitationStatus Status { get; set; }
