@@ -13,72 +13,42 @@ import {
   AlertIcon,
   Button,
   useColorModeValue,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   useDisclosure,
+  Divider,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus } from "lucide-react";
+import {
+  FolderKanban,
+  User,
+  Calendar,
+  ArrowLeft,
+  Users,
+  UserPlus,
+} from "lucide-react";
+
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { projectApi } from "../api/projectApi";
 import { useAuth } from "../hooks/useAuth";
 import { ProjectRole } from "../types/project.types";
 
-interface ProjectMemberWeb {
-  userId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: number;
-  joinedAt: string;
-}
+/* Helpery UI */
+const getProjectRoleName = (role: number) =>
+  role === ProjectRole.Admin ? "Administrator" : "Członek";
 
-interface ProjectDetailsWeb {
-  id: string;
-  tenantId: string;
-  name: string;
-  isActive: boolean;
-  createdAt: string;
-  createdByUserId: string;
-  createdByUserName: string;
-  userRole: number; // ProjectRole z backendu (0 = Admin, 1 = Member)
-  membersCount: number;
-}
-
-const getProjectRoleName = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin:
-      return 'Administrator';
-    case ProjectRole.Member:
-      return 'Członek';
-    default:
-      return 'Nieznana rola';
-  }
-};
-
-const getProjectRoleColor = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin:
-      return 'blue';
-    case ProjectRole.Member:
-      return 'green';
-    default:
-      return 'gray';
-  }
-};
+const getProjectRoleColor = (role: number) =>
+  role === ProjectRole.Admin ? "blue" : "green";
 
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
-  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
-  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const [project, setProject] = useState<any | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -88,20 +58,26 @@ export default function ProjectDetails() {
 
   const fetchProjectDetails = async () => {
     if (!user?.activeTenantId || !projectId) return;
-    
+
     setLoading(true);
     setError(null);
+
     try {
-      const response = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data: ProjectDetailsWeb = await response.json();
-        setProject(data);
-      } else {
-        setError("Nie udało się pobrać szczegółów projektu");
+      const response = await projectApi.getProjectDetails(
+        user.activeTenantId,
+        projectId
+      );
+
+      if (!response.ok) {
+        setError("Nie udało się pobrać danych projektu");
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error("Błąd pobierania szczegółów projektu:", error);
-      setError("Wystąpił błąd podczas ładowania projektu");
+
+      setProject(await response.json());
+    } catch (err) {
+      console.error(err);
+      setError("Błąd podczas pobierania szczegółów projektu");
     } finally {
       setLoading(false);
     }
@@ -109,16 +85,18 @@ export default function ProjectDetails() {
 
   const fetchMembers = async () => {
     if (!user?.activeTenantId || !projectId) return;
-    
+
     setLoadingMembers(true);
+
     try {
-      const response = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data: ProjectMemberWeb[] = await response.json();
-        setMembers(data);
-      }
-    } catch (error) {
-      console.error("Błąd pobierania członków:", error);
+      const response = await projectApi.getProjectMembers(
+        user.activeTenantId,
+        projectId
+      );
+
+      if (response.ok) setMembers(await response.json());
+    } catch (err) {
+      console.error("Błąd pobierania członków projektu:", err);
     } finally {
       setLoadingMembers(false);
     }
@@ -129,32 +107,19 @@ export default function ProjectDetails() {
     fetchMembers();
   }, [projectId, user?.activeTenantId]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pl-PL", {
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString("pl-PL", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
-  };
 
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
-        {/* Breadcrumbs */}
-        <Breadcrumb mb={6} fontSize="sm">
-          <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/projects")}>
-              Projekty
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbItem isCurrentPage>
-            <BreadcrumbLink>Szczegóły projektu</BreadcrumbLink>
-          </BreadcrumbItem>
-        </Breadcrumb>
-
-        {/* Przycisk powrotu */}
+        {/* BACK BUTTON */}
         <Button
-          leftIcon={<ArrowLeft size={20} />}
+          leftIcon={<ArrowLeft size={18} />}
           variant="ghost"
           mb={6}
           onClick={() => navigate("/projects")}
@@ -163,124 +128,175 @@ export default function ProjectDetails() {
         </Button>
 
         {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minH="200px">
-            <Spinner size="xl" color="blue.500" />
-            <Text ml={4}>Ładowanie szczegółów projektu...</Text>
-          </Box>
+          <HStack justify="center" spacing={4} py={10}>
+            <Spinner size="xl" />
+            <Text>Ładowanie projektu...</Text>
+          </HStack>
         ) : error ? (
-          <Alert status="error" borderRadius="md">
+          <Alert status="error" rounded="md">
             <AlertIcon />
             {error}
           </Alert>
         ) : !project ? (
-          <Alert status="warning" borderRadius="md">
+          <Alert status="warning" rounded="md">
             <AlertIcon />
-            Nie znaleziono projektu
+            Projekt nie istnieje
           </Alert>
         ) : (
-          <VStack spacing={6} align="stretch">
-            {/* Nagłówek projektu */}
-            <Box bg={cardBg} p={6} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-              <HStack justify="space-between" mb={4} flexWrap="wrap" gap={3}>
-                <HStack>
-                  <Icon as={FolderKanban} boxSize={10} color="blue.600" />
-                  <Heading size="lg">{project.name}</Heading>
+          <VStack spacing={8} align="stretch">
+            {/* ====================== PROJECT HEADER ======================= */}
+            <Box
+              bg={cardBg}
+              p={6}
+              rounded="xl"
+              borderWidth="1px"
+              borderColor={borderColor}
+              shadow="md"
+            >
+              <HStack justify="space-between" align="flex-start" mb={4}>
+                <HStack spacing={4}>
+                  <Icon as={FolderKanban} boxSize={10} color="blue.500" />
+                  <VStack align="flex-start" spacing={0}>
+                    <Heading size="lg">{project.name}</Heading>
+                    <Text fontSize="sm" color="gray.500">
+                      Projekt w organizacji {project.tenantId}
+                    </Text>
+                  </VStack>
                 </HStack>
-                <HStack spacing={2}>
+
+                <HStack spacing={3}>
+                  <Badge
+                    colorScheme={project.isActive ? "green" : "gray"}
+                    fontSize="md"
+                    px={3}
+                    py={1}
+                    rounded="md"
+                  >
+                    {project.isActive ? "Aktywny" : "Nieaktywny"}
+                  </Badge>
+
+                  <Badge
+                    colorScheme={getProjectRoleColor(project.userRole)}
+                    fontSize="md"
+                    px={3}
+                    py={1}
+                    rounded="md"
+                  >
+                    {getProjectRoleName(project.userRole)}
+                  </Badge>
+
                   {isProjectAdmin && (
                     <Button
                       leftIcon={<UserPlus size={18} />}
                       colorScheme="blue"
-                      size="sm"
                       onClick={onOpen}
                     >
                       Dodaj członka
                     </Button>
                   )}
-                  <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="md" px={3} py={1}>
-                    {project.isActive ? "Aktywny" : "Nieaktywny"}
-                  </Badge>
-                  <Badge colorScheme={getProjectRoleColor(project.userRole)} fontSize="md" px={3} py={1}>
-                    {getProjectRoleName(project.userRole)}
-                  </Badge>
                 </HStack>
               </HStack>
 
+              <Divider my={4} />
+
               <VStack align="flex-start" spacing={3}>
                 <HStack>
-                  <Icon as={User} boxSize={5} />
-                  <Text><strong>Utworzył:</strong> {project.createdByUserName}</Text>
+                  <Icon as={User} size={18} />
+                  <Text>
+                    <strong>Utworzył:</strong> {project.createdByUserName}
+                  </Text>
                 </HStack>
+
                 <HStack>
-                  <Icon as={Calendar} boxSize={5} />
-                  <Text><strong>Data utworzenia:</strong> {formatDate(project.createdAt)}</Text>
+                  <Icon as={Calendar} size={18} />
+                  <Text>
+                    <strong>Data utworzenia:</strong>{" "}
+                    {formatDate(project.createdAt)}
+                  </Text>
                 </HStack>
+
                 <HStack>
-                  <Icon as={Users} boxSize={5} />
-                  <Text><strong>Liczba członków:</strong> {project.membersCount}</Text>
+                  <Icon as={Users} size={18} />
+                  <Text>
+                    <strong>Liczba członków:</strong> {members.length}
+                  </Text>
                 </HStack>
               </VStack>
             </Box>
 
-            {/* Członkowie projektu */}
-            <Box bg={cardBg} p={6} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-              <HStack justify="space-between" mb={4}>
-                <Heading size="md">Członkowie projektu ({members.length})</Heading>
-              </HStack>
-              
+            {/* ====================== MEMBERS LIST ======================= */}
+            <Box
+              bg={cardBg}
+              p={6}
+              rounded="xl"
+              borderWidth="1px"
+              borderColor={borderColor}
+              shadow="md"
+            >
+              <Heading size="md" mb={4}>
+                Członkowie projektu ({members.length})
+              </Heading>
+
               {loadingMembers ? (
-                <Box textAlign="center" py={6}>
-                  <Spinner size="md" color="blue.500" />
-                </Box>
+                <HStack justify="center" py={6}>
+                  <Spinner size="md" />
+                </HStack>
               ) : members.length === 0 ? (
-                <Text color="gray.500">Brak członków w projekcie</Text>
+                <Text color="gray.500">Brak członków w tym projekcie</Text>
               ) : (
-                <VStack spacing={2} align="stretch">
-                  {members.map((member) => {
-                    const initials = `${member.firstName[0]}${member.lastName[0]}`.toUpperCase();
-                    const roleColor = member.role === ProjectRole.Admin ? "blue" : "green";
-                    const roleName = member.role === ProjectRole.Admin ? "Administrator" : "Członek";
-                    
+                <VStack spacing={3} align="stretch">
+                  {members.map((m) => {
+                    const initials = `${m.firstName[0]}${m.lastName[0]}`;
+
                     return (
                       <Box
-                        key={member.userId}
-                        p={3}
-                        border="1px"
+                        key={m.userId}
+                        p={4}
+                        borderWidth="1px"
                         borderColor={borderColor}
-                        borderRadius="md"
+                        rounded="md"
                         _hover={{ bg: hoverBg }}
-                        transition="background 0.2s"
+                        transition="0.15s"
                       >
                         <HStack justify="space-between">
+                          {/* Left */}
                           <HStack spacing={3}>
                             <Box
-                              w="40px"
-                              h="40px"
-                              borderRadius="full"
+                              w="42px"
+                              h="42px"
+                              rounded="full"
                               bg="blue.600"
                               color="white"
+                              fontWeight="bold"
+                              fontSize="sm"
                               display="flex"
                               alignItems="center"
                               justifyContent="center"
-                              fontWeight="bold"
-                              fontSize="sm"
                             >
                               {initials}
                             </Box>
+
                             <VStack align="flex-start" spacing={0}>
-                              <Text fontWeight="medium" fontSize="sm">
-                                {member.firstName} {member.lastName}
+                              <Text fontWeight="medium">
+                                {m.firstName} {m.lastName}
                               </Text>
                               <Text fontSize="xs" color="gray.500">
-                                {member.email}
+                                {m.email}
                               </Text>
                               <Text fontSize="xs" color="gray.500">
-                                Dołączył: {formatDate(member.joinedAt)}
+                                Dołączył: {formatDate(m.joinedAt)}
                               </Text>
                             </VStack>
                           </HStack>
-                          <Badge colorScheme={roleColor} fontSize="sm" px={3} py={1}>
-                            {roleName}
+
+                          {/* Right */}
+                          <Badge
+                            colorScheme={getProjectRoleColor(m.role)}
+                            fontSize="sm"
+                            px={3}
+                            py={1}
+                          >
+                            {getProjectRoleName(m.role)}
                           </Badge>
                         </HStack>
                       </Box>
@@ -292,7 +308,7 @@ export default function ProjectDetails() {
           </VStack>
         )}
 
-        {/* Modal dodawania członka */}
+        {/* MODAL ADD MEMBER */}
         {project && (
           <AddProjectMemberModal
             isOpen={isOpen}
@@ -300,11 +316,10 @@ export default function ProjectDetails() {
             tenantId={project.tenantId}
             projectId={project.id}
             projectName={project.name}
-            isAdmin={isProjectAdmin || false}
+            isAdmin={isProjectAdmin}
             onMemberAdded={() => {
-              // Odśwież listę członków i szczegóły projektu po dodaniu
-              fetchProjectDetails();
               fetchMembers();
+              fetchProjectDetails();
             }}
           />
         )}

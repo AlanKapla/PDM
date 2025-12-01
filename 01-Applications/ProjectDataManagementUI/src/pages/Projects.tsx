@@ -3,8 +3,6 @@ import {
   Box,
   Heading,
   SimpleGrid,
-  Card,
-  CardBody,
   Text,
   Badge,
   VStack,
@@ -47,121 +45,100 @@ interface ProjectDetailsWeb {
   membersCount: number;
 }
 
-const getProjectRoleName = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin:
-      return 'Administrator';
-    case ProjectRole.Member:
-      return 'Członek';
-    default:
-      return 'Nieznana rola';
-  }
-};
+const getProjectRoleName = (role: number) =>
+  role === ProjectRole.Admin ? "Administrator" : "Członek";
 
-const getProjectRoleColor = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin:
-      return 'blue';
-    case ProjectRole.Member:
-      return 'green';
-    default:
-      return 'gray';
-  }
-};
+const getProjectRoleColor = (role: number) =>
+  role === ProjectRole.Admin ? "blue" : "green";
 
 export default function Projects() {
   const location = useLocation();
   const navigate = useNavigate();
+
   const [projects, setProjects] = useState<ProjectDetailsWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
   const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
+
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
-  
+
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
-  const cardBg = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
+  const cardBg = useColorModeValue("#ffffff", "#0f0f0f");
+  const borderColor = useColorModeValue("#e3e3e3", "#1f1f1f");
 
-  // Pobierz aktywnego tenanta i rolę użytkownika przy każdym wejściu na stronę
+  /** Pobierz aktywnego tenanta */
   useEffect(() => {
-    const fetchActiveTenant = async () => {
-      setLoading(true);
-      setError(null);
-      
+    async function loadTenant() {
       try {
-        const [activeTenantResponse, tenantsResponse] = await Promise.all([
+        const [active, tenants] = await Promise.all([
           tenantApi.getActiveTenant(),
           tenantApi.getUserTenants(),
         ]);
 
-        if (activeTenantResponse.ok) {
-          const activeTenantData = await activeTenantResponse.json();
-          setActiveTenantId(activeTenantData.activeTenantId);
-          
-          // Znajdź rolę użytkownika w aktywnym tenancie
-          if (tenantsResponse.ok && activeTenantData.activeTenantId) {
-            const tenants = await tenantsResponse.json();
-            const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
-            if (activeTenant) {
-              setUserTenantRole(activeTenant.role);
-            }
+        if (active.ok) {
+          const activeData = await active.json();
+          setActiveTenantId(activeData.activeTenantId);
+
+          if (tenants.ok && activeData.activeTenantId) {
+            const t = await tenants.json();
+            const matched = t.find((x: any) => x.id === activeData.activeTenantId);
+            if (matched) setUserTenantRole(matched.role);
           }
-        } else {
-          setError("Nie udało się pobrać aktywnego tenanta");
         }
       } catch (err) {
-        console.error("Błąd pobierania aktywnego tenanta:", err);
-        setError("Błąd połączenia z serwerem");
+        setError("Błąd podczas pobierania aktywnego tenanta");
       }
-    };
+    }
 
-    fetchActiveTenant();
+    loadTenant();
   }, [location.key]);
 
+  /** Pobierz projekty */
   useEffect(() => {
     if (!activeTenantId) return;
 
-    const fetchProjects = async () => {
+    async function loadProjects() {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await tenantApi.getTenantProjects(activeTenantId);
+        if (!activeTenantId) return;
 
-        if (!response.ok) {
-          throw new Error("Nie udało się pobrać projektów");
-        }
+        const res = await tenantApi.getTenantProjects(activeTenantId);
 
-        const data = await response.json();
-        setProjects(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Wystąpił błąd");
+        if (!res.ok) throw new Error("Nie udało się pobrać projektów");
+
+        setProjects(await res.json());
+      } catch (err: any) {
+        setError(err.message || "Wystąpił nieoczekiwany błąd");
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    fetchProjects();
+    loadProjects();
   }, [activeTenantId]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pl-PL", {
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("pl-PL", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
-  };
 
+  const isAdmin = userTenantRole === TenantRole.Admin;
+
+  /** Tworzenie projektu */
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) {
       toast({
-        title: "Nazwa projektu wymagana",
+        title: "Podaj nazwę projektu",
         status: "warning",
-        duration: 3000,
       });
       return;
     }
@@ -170,76 +147,56 @@ export default function Projects() {
       toast({
         title: "Brak aktywnego tenanta",
         status: "error",
-        duration: 3000,
       });
       return;
     }
 
     setCreating(true);
-    try {
-      const response = await tenantApi.createProject(activeTenantId, newProjectName.trim());
 
-      if (response.ok) {
-        toast({
-          title: "Projekt utworzony",
-          status: "success",
-          duration: 3000,
-        });
-        setNewProjectName("");
-        onClose();
-        
-        // Odśwież listę projektów
-        const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
-        if (projectsResponse.ok) {
-          const data = await projectsResponse.json();
-          setProjects(data);
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        toast({
-          title: "Błąd tworzenia projektu",
-          description: errorData.message || "Nie udało się utworzyć projektu",
-          status: "error",
-          duration: 3000,
-        });
+    try {
+      const res = await tenantApi.createProject(activeTenantId, newProjectName.trim());
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.message || "Nie udało się utworzyć projektu");
       }
-    } catch (err) {
+
+      toast({ title: "Projekt utworzony", status: "success" });
+      setNewProjectName("");
+      onClose();
+
+      const refresh = await tenantApi.getTenantProjects(activeTenantId);
+      if (refresh.ok) setProjects(await refresh.json());
+    } catch (err: any) {
       toast({
         title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
+        description: err.message || "Wystąpił problem",
         status: "error",
-        duration: 3000,
       });
     } finally {
       setCreating(false);
     }
   };
 
-  const isAdmin = userTenantRole === TenantRole.Admin;
-
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
+        {/* HEADER */}
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
-          <Heading size={{ base: "lg", md: "xl" }}>
-            Projekty
-          </Heading>
+          <Heading size="lg">Projekty</Heading>
+
           {isAdmin && (
-            <Button
-              leftIcon={<Plus size={20} />}
-              colorScheme="blue"
-              onClick={onOpen}
-              size={{ base: "sm", md: "md" }}
-            >
+            <Button leftIcon={<Plus size={20} />} colorScheme="blue" onClick={onOpen}>
               Nowy projekt
             </Button>
           )}
         </HStack>
 
+        {/* CONTENT */}
         {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minH="200px">
-            <Spinner size="xl" color="blue.500" />
-          </Box>
+          <HStack justify="center" py={20}>
+            <Spinner size="xl" />
+          </HStack>
         ) : error ? (
           <Alert status="error">
             <AlertIcon />
@@ -248,76 +205,83 @@ export default function Projects() {
         ) : projects.length === 0 ? (
           <Alert status="info">
             <AlertIcon />
-            Nie masz jeszcze żadnych projektów
+            Nie masz jeszcze żadnych projektów.
           </Alert>
         ) : (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            {projects.map((project) => (
-              <Card
-                key={project.id}
+            {projects.map((p) => (
+              <Box
+                key={p.id}
                 bg={cardBg}
-                borderWidth="1px"
+                border="1px solid"
                 borderColor={borderColor}
+                rounded="lg"
+                p={6}
                 cursor="pointer"
-                transition="all 0.2s"
+                transition="0.2s"
                 _hover={{
+                  borderColor: "blue.500",
                   transform: "translateY(-4px)",
                   shadow: "xl",
-                  borderColor: "blue.500",
                 }}
-                onClick={() => navigate(`/projects/${project.id}`)}
+                onClick={() => navigate(`/projects/${p.id}`)}
               >
-                <CardBody>
-                  <VStack align="flex-start" spacing={4}>
-                    <HStack justify="space-between" w="100%">
-                      <Icon as={FolderKanban} boxSize={8} color="blue.600" />
-                      <Badge
-                        colorScheme={project.isActive ? "green" : "gray"}
-                        fontSize="xs"
-                      >
-                        {project.isActive ? "Aktywny" : "Nieaktywny"}
-                      </Badge>
+                <VStack align="flex-start" spacing={4}>
+
+                  {/* Icon + status */}
+                  <HStack justify="space-between" w="100%">
+                    <Icon as={FolderKanban} boxSize={8} color="blue.500" />
+                    <Badge
+                      colorScheme={p.isActive ? "green" : "gray"}
+                      fontSize="xs"
+                      px={2}
+                      py={0.5}
+                      rounded="md"
+                    >
+                      {p.isActive ? "Aktywny" : "Nieaktywny"}
+                    </Badge>
+                  </HStack>
+
+                  {/* Project name + role */}
+                  <VStack align="flex-start" spacing={1} w="100%">
+                    <Heading size="md" isTruncated maxW="100%">
+                      {p.name}
+                    </Heading>
+
+                    <Badge colorScheme={getProjectRoleColor(p.userRole)} fontSize="xs">
+                      {getProjectRoleName(p.userRole)}
+                    </Badge>
+                  </VStack>
+
+                  {/* Meta info */}
+                  <VStack align="flex-start" spacing={1} color="gray.500" fontSize="sm">
+                    <HStack>
+                      <Icon as={User} size={16} />
+                      <Text>{p.createdByUserName}</Text>
                     </HStack>
 
-                    <VStack align="flex-start" spacing={2} w="100%">
-                      <Heading size="md" isTruncated w="100%">
-                        {project.name}
-                      </Heading>
+                    <HStack>
+                      <Icon as={Calendar} size={16} />
+                      <Text>{formatDate(p.createdAt)}</Text>
+                    </HStack>
 
-                      <Badge colorScheme={getProjectRoleColor(project.userRole)}>
-                        {getProjectRoleName(project.userRole)}
-                      </Badge>
-                    </VStack>
-
-                    <VStack align="flex-start" spacing={1} w="100%" fontSize="sm" color="gray.600">
-                      <HStack>
-                        <Icon as={User} boxSize={4} />
-                        <Text>{project.createdByUserName}</Text>
-                      </HStack>
-
-                      <HStack>
-                        <Icon as={Calendar} boxSize={4} />
-                        <Text>{formatDate(project.createdAt)}</Text>
-                      </HStack>
-
-                      <Text fontWeight="medium">
-                        Członków: {project.membersCount}
-                      </Text>
-                    </VStack>
+                    <Text>Członków: {p.membersCount}</Text>
                   </VStack>
-                </CardBody>
-              </Card>
+                </VStack>
+              </Box>
             ))}
           </SimpleGrid>
         )}
       </Box>
 
-      {/* Modal tworzenia projektu */}
-      <Modal isOpen={isOpen} onClose={onClose}>
+      {/* MODAL TWORZENIA PROJEKTU */}
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />
+
         <ModalContent>
-          <ModalHeader>Utwórz nowy projekt</ModalHeader>
+          <ModalHeader>Nowy projekt</ModalHeader>
           <ModalCloseButton />
+
           <ModalBody>
             <FormControl>
               <FormLabel>Nazwa projektu</FormLabel>
@@ -325,23 +289,16 @@ export default function Projects() {
                 placeholder="Wprowadź nazwę projektu"
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter" && !creating) {
-                    handleCreateProject();
-                  }
-                }}
+                onKeyDown={(e) => e.key === "Enter" && !creating && handleCreateProject()}
               />
             </FormControl>
           </ModalBody>
+
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose} isDisabled={creating}>
               Anuluj
             </Button>
-            <Button
-              colorScheme="blue"
-              onClick={handleCreateProject}
-              isLoading={creating}
-            >
+            <Button colorScheme="blue" onClick={handleCreateProject} isLoading={creating}>
               Utwórz
             </Button>
           </ModalFooter>

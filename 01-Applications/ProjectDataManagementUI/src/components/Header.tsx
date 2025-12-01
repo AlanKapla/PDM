@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Box,
   Text,
   HStack,
   Avatar,
@@ -11,10 +10,10 @@ import {
   MenuDivider,
   useColorModeValue,
   Icon,
-  VStack,
+  Flex,
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
+import { User as UserIcon, RefreshCw, Building2 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { tenantApi } from "../api/tenantApi";
 import NotificationBell from "./NotificationBell";
@@ -23,140 +22,133 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated } = useAuth();
-  const [activeTenantName, setActiveTenantName] = useState<string | null>(null);
-  
-  const bg = useColorModeValue("white", "gray.800");
-  const border = useColorModeValue("gray.200", "gray.700");
-  const textColor = useColorModeValue("gray.700", "gray.200");
-  const mutedColor = useColorModeValue("gray.600", "gray.400");
-  const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "U";
 
-  // Pobierz nazwę aktywnego tenanta
+  const [activeTenantName, setActiveTenantName] = useState<string | null>(null);
+
+  const bg = useColorModeValue("#0f0f0f", "#0f0f0f");
+  const border = useColorModeValue("#1d1d1d", "#1d1d1d");
+
+  const initials =
+    user?.firstName && user?.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+      : "U";
+
+  const pageTitle = getPageTitle(location.pathname);
+
+  /* Pobranie aktywnego tenanta */
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const fetchActiveTenant = async () => {
+    const loadTenant = async () => {
       try {
-        const [activeTenantResponse, tenantsResponse] = await Promise.all([
-          tenantApi.getActiveTenant(),
-          tenantApi.getUserTenants(),
-        ]);
+        const activeRes = await tenantApi.getActiveTenant();
+        const listRes = await tenantApi.getUserTenants();
 
-        if (activeTenantResponse.ok && tenantsResponse.ok) {
-          const activeTenantData = await activeTenantResponse.json();
-          const tenants = await tenantsResponse.json();
-          
-          if (activeTenantData.activeTenantId) {
-            const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
-            setActiveTenantName(activeTenant?.name || null);
-          } else {
-            setActiveTenantName(null);
-          }
-        }
+        if (!activeRes.ok || !listRes.ok) return;
+
+        const active = await activeRes.json();
+        const tenants = await listRes.json();
+
+        const found = tenants.find((t: any) => t.id === active.activeTenantId);
+        setActiveTenantName(found?.name ?? null);
       } catch (err) {
         console.error("Błąd pobierania aktywnego tenanta:", err);
       }
     };
 
-    fetchActiveTenant();
+    loadTenant();
   }, [isAuthenticated, location.pathname]);
 
   return (
-    <Box
-      bg={bg}
-      borderBottom="1px solid"
-      borderColor={border}
-      px={{ base: 4, md: 6 }}
-      py={3}
+    <Flex
       position="fixed"
-      top={0}
-      left={0}
-      right={0}
-      zIndex={1000}
+      top="0"
+      left="240px"
+      right="0"
+      height="64px"
+      align="center"
+      justify="space-between"
+      px={10}
+      bg={bg}
+      borderBottom={`1px solid ${border}`}
+      zIndex={999}
     >
-      <HStack maxW="100%" mx="auto" justify="space-between">
-        {/* Nazwa aplikacji */}
-        <HStack 
-          spacing={2}
-          cursor="pointer"
-          _hover={{ opacity: 0.8 }}
-          onClick={() => navigate("/dashboard")}
-        >
-          <Icon as={Database} boxSize={5} color="blue.600" />
-          <Text 
-            fontSize="lg" 
-            fontWeight="bold" 
-            color={textColor}
-          >
-            Project Data Management
-          </Text>
-        </HStack>
+      {/* LEWY: tytuł strony */}
+      <Text fontSize="lg" fontWeight="semibold" color="gray.200">
+        {pageTitle}
+      </Text>
 
-        {/* Menu użytkownika */}
-        {isAuthenticated && user ? (
-          <HStack spacing={2}>
-            <VStack 
-              align="flex-end" 
-              spacing={0}
-              display={{ base: "none", md: "flex" }}
-            >
-              <Text 
-                fontSize="sm" 
-                fontWeight="medium" 
-                color={textColor}
-              >
-                {user.firstName} {user.lastName}
+      {/* PRAWY: tenant + powiadomienia + avatar */}
+      {isAuthenticated && user ? (
+        <HStack spacing={6}>
+          <NotificationBell />
+
+          {activeTenantName && (
+            <HStack spacing={1} cursor="pointer">
+              <Icon as={Building2} boxSize={4} color="gray.400" />
+              <Text fontSize="sm" color="gray.300">
+                {activeTenantName}
               </Text>
-              {activeTenantName && (
-                <HStack spacing={1} fontSize="xs" color={mutedColor}>
-                  <Icon as={Building2} boxSize={3} />
-                  <Text>{activeTenantName}</Text>
-                </HStack>
-              )}
-            </VStack>
-            
-            <NotificationBell />
-            
-            <Menu placement="bottom-end" strategy="fixed">
-              <MenuButton cursor="pointer">
-                <Avatar 
-                  size="sm" 
-                  bg="blue.600" 
-                  color="white" 
-                  src=""
-                  ignoreFallback
-                  css={{
-                    "& svg": { display: "none" }
-                  }}
-                >
-                  {initials}
-                </Avatar>
-              </MenuButton>
-            <MenuList zIndex={1001}>
-              <MenuItem icon={<UserIcon size={16} />} onClick={() => navigate("/profile")}>
+            </HStack>
+          )}
+
+          <Menu placement="bottom-end">
+            <MenuButton>
+              <Avatar size="sm" bg="gray.700" color="white">
+                {initials}
+              </Avatar>
+            </MenuButton>
+
+            <MenuList bg="#1a1a1a" borderColor="#2a2a2a" color="gray.200">
+              <MenuItem
+                icon={<UserIcon size={16} />}
+                bg="#1a1a1a"
+                _hover={{ bg: "#222" }}
+                onClick={() => navigate("/profile")}
+              >
                 Ustawienia profilu
               </MenuItem>
+
               <MenuDivider />
-              <MenuItem icon={<RefreshCw size={16} />} onClick={() => navigate("/tenants/collaborating")}>
+
+              <MenuItem
+                icon={<RefreshCw size={16} />}
+                bg="#1a1a1a"
+                _hover={{ bg: "#222" }}
+                onClick={() => navigate("/tenants/collaborating")}
+              >
                 Zmień aktywnego tenanta
               </MenuItem>
+
               <MenuDivider />
-              <MenuItem 
-                color="red.500" 
-                onClick={async () => { 
-                  await logout(); 
-                  navigate("/"); 
+
+              <MenuItem
+                color="red.400"
+                bg="#1a1a1a"
+                _hover={{ bg: "#220000" }}
+                onClick={async () => {
+                  await logout();
+                  navigate("/");
                 }}
               >
                 Wyloguj się
               </MenuItem>
             </MenuList>
-            </Menu>
-          </HStack>
-        ) : (
-          <Text fontSize="sm" color="gray.500">Nie zalogowano</Text>
-        )}
-      </HStack>
-    </Box>
+          </Menu>
+        </HStack>
+      ) : (
+        <Text color="gray.500">Nie zalogowano</Text>
+      )}
+    </Flex>
   );
+}
+
+/* Automatyczne tytuły widoków */
+function getPageTitle(path: string): string {
+  if (path.startsWith("/projects")) return "Projekty";
+  if (path.startsWith("/files")) return "Pliki";
+  if (path.startsWith("/costs")) return "Kosztorysy";
+  if (path.startsWith("/tenants")) return "Organizacje";
+  if (path.includes("profile")) return "Profil użytkownika";
+  return "Project Data Management";
 }

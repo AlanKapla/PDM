@@ -12,36 +12,52 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// SW must NOT touch navigation, API or dynamic requests
+// Intercept fetch
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Do NOT handle:
-  // - navigation requests
-  // - API
-  // - auth redirects
+  // 1) IGNORE chrome-extension:// REQUESTS
+  if (url.protocol === "chrome-extension:") {
+    return; // do not intercept
+  }
+
+  // 2) IGNORE navigation + API requests + auth redirects
   if (
-    req.mode === "navigate" ||
+    req.mode === "navigate" ||      // index.html routing
     url.pathname.startsWith("/api/") ||
     url.pathname.includes("User/")
   ) {
-    return; // do nothing, let browser handle it
+    return; // let the browser handle it normally
   }
 
-  // Cache only static assets
+  // 3) Cache only static assets (GET only)
+  if (req.method !== "GET") {
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
-      return (
-        cached ||
-        fetch(req).then((res) => {
-          if (res.status === 200) {
+      // Found in cache → return cached version
+      if (cached) {
+        return cached;
+      }
+
+      // Not in cache → fetch and optionally cache
+      return fetch(req)
+        .then((res) => {
+          if (res && res.status === 200) {
             const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(req, clone);
+            });
           }
           return res;
         })
-      );
+        .catch(() => {
+          // Offline fallback (optional)
+          return caches.match("/index.html");
+        });
     })
   );
 });

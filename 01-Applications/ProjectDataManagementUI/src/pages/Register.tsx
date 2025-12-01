@@ -23,6 +23,7 @@ import {
   ListIcon,
   Divider,
 } from "@chakra-ui/react";
+
 import { Eye, EyeOff, Check, X } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 
@@ -51,51 +52,37 @@ export default function Register() {
   const [errors, setErrors] = useState<Partial<FormWithConfirm>>({});
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const validatePassword = (password: string) => {
-    const errors: string[] = [];
-    
-    if (password.length < 8) {
-      errors.push("Hasło musi mieć co najmniej 8 znaków");
-    }
-    if (!/[A-Z]/.test(password)) {
-      errors.push("Hasło musi zawierać co najmniej jedną wielką literę");
-    }
-    if (!/[a-z]/.test(password)) {
-      errors.push("Hasło musi zawierać co najmniej jedną małą literę");
-    }
-    if (!/[0-9]/.test(password)) {
-      errors.push("Hasło musi zawierać co najmniej jedną cyfrę");
-    }
-    if (!/[^a-zA-Z0-9]/.test(password)) {
-      errors.push("Hasło musi zawierać co najmniej jeden znak specjalny");
-    }
-    
-    return errors;
+    const rules: string[] = [];
+    if (password.length < 8) rules.push("Co najmniej 8 znaków");
+    if (!/[A-Z]/.test(password)) rules.push("Wielka litera");
+    if (!/[a-z]/.test(password)) rules.push("Mała litera");
+    if (!/[0-9]/.test(password)) rules.push("Cyfra");
+    if (!/[^a-zA-Z0-9]/.test(password)) rules.push("Znak specjalny");
+    return rules;
   };
 
-  const getPasswordChecks = (password: string) => {
-    return [
-      { label: "Co najmniej 8 znaków", valid: password.length >= 8 },
-      { label: "Wielka litera (A-Z)", valid: /[A-Z]/.test(password) },
-      { label: "Mała litera (a-z)", valid: /[a-z]/.test(password) },
-      { label: "Cyfra (0-9)", valid: /[0-9]/.test(password) },
-      { label: "Znak specjalny (!@#$...)", valid: /[^a-zA-Z0-9]/.test(password) },
-    ];
-  };
+  const passwordChecklist = [
+    { label: "Co najmniej 8 znaków", fn: (p: string) => p.length >= 8 },
+    { label: "Wielka litera (A-Z)", fn: (p: string) => /[A-Z]/.test(p) },
+    { label: "Mała litera (a-z)", fn: (p: string) => /[a-z]/.test(p) },
+    { label: "Cyfra (0-9)", fn: (p: string) => /[0-9]/.test(p) },
+    { label: "Znak specjalny (!@#$…)", fn: (p: string) => /[^a-zA-Z0-9]/.test(p) },
+  ];
 
   const validate = () => {
     const newErrors: Partial<FormWithConfirm> = {};
 
-    if (!form.email.includes("@")) newErrors.email = "Podaj poprawny email";
     if (!form.firstName.trim()) newErrors.firstName = "Podaj imię";
     if (!form.lastName.trim()) newErrors.lastName = "Podaj nazwisko";
+    if (!form.email.includes("@")) newErrors.email = "Podaj poprawny email";
 
     const passwordErrors = validatePassword(form.password);
     if (passwordErrors.length > 0) {
-      newErrors.password = passwordErrors.join(". ");
+      newErrors.password = "Hasło nie spełnia wymagań";
     }
 
     if (form.password !== form.confirmPassword) {
@@ -116,30 +103,26 @@ export default function Register() {
       if (!success) {
         toast({
           title: "Błąd rejestracji",
-          description: "Spróbuj ponownie.",
+          description: "Spróbuj ponownie",
           status: "error",
           duration: 3000,
-          isClosable: true,
         });
         return;
       }
 
       toast({
-        title: "Zarejestrowano pomyślnie!",
-        description: "Sprawdź swoją skrzynkę email i aktywuj konto, aby się zalogować.",
+        title: "Konto utworzone",
+        description: "Sprawdź skrzynkę i aktywuj konto",
         status: "success",
-        duration: 7000,
-        isClosable: true,
+        duration: 6000,
       });
 
       navigate("/login");
-    } catch (error) {
-      console.error("Błąd rejestracji:", error);
+    } catch (err) {
       toast({
         title: "Błąd serwera",
         status: "error",
         duration: 3000,
-        isClosable: true,
       });
     }
   };
@@ -149,8 +132,8 @@ export default function Register() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
 
   return (
-    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
-      <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={4}>
+      <Box bg={cardBg} p={8} rounded="xl" shadow="lg" w="100%" maxW="420px">
         <Heading mb={6} textAlign="center" size="lg">
           Rejestracja
         </Heading>
@@ -158,35 +141,23 @@ export default function Register() {
         <VStack spacing={4} as="form" onSubmit={handleSubmit}>
           <FormControl isInvalid={!!errors.firstName}>
             <FormLabel color={labelColor}>Imię</FormLabel>
-            <Input
-              name="firstName"
-              value={form.firstName}
-              onChange={handleChange}
-            />
+            <Input name="firstName" value={form.firstName} onChange={handleChange} />
             <FormErrorMessage>{errors.firstName}</FormErrorMessage>
           </FormControl>
 
           <FormControl isInvalid={!!errors.lastName}>
             <FormLabel color={labelColor}>Nazwisko</FormLabel>
-            <Input
-              name="lastName"
-              value={form.lastName}
-              onChange={handleChange}
-            />
+            <Input name="lastName" value={form.lastName} onChange={handleChange} />
             <FormErrorMessage>{errors.lastName}</FormErrorMessage>
           </FormControl>
 
           <FormControl isInvalid={!!errors.email}>
             <FormLabel color={labelColor}>Email</FormLabel>
-            <Input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-            />
+            <Input name="email" type="email" value={form.email} onChange={handleChange} />
             <FormErrorMessage>{errors.email}</FormErrorMessage>
           </FormControl>
 
+          {/* PASSWORD */}
           <FormControl isInvalid={!!errors.password}>
             <FormLabel color={labelColor}>Hasło</FormLabel>
             <InputGroup>
@@ -198,7 +169,7 @@ export default function Register() {
               />
               <InputRightElement>
                 <IconButton
-                  aria-label={showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  aria-label="Pokaż/ukryj"
                   icon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   onClick={() => setShowPassword(!showPassword)}
                   variant="ghost"
@@ -206,19 +177,24 @@ export default function Register() {
                 />
               </InputRightElement>
             </InputGroup>
+
             {form.password && (
               <List spacing={1} mt={2} fontSize="sm">
-                {getPasswordChecks(form.password).map((check, idx) => (
-                  <ListItem key={idx} color={check.valid ? "green.500" : "gray.500"}>
-                    <ListIcon as={check.valid ? Check : X} />
-                    {check.label}
-                  </ListItem>
-                ))}
+                {passwordChecklist.map((item, idx) => {
+                  const valid = item.fn(form.password);
+                  return (
+                    <ListItem key={idx} color={valid ? "green.500" : "gray.500"}>
+                      <ListIcon as={valid ? Check : X} />
+                      {item.label}
+                    </ListItem>
+                  );
+                })}
               </List>
             )}
             <FormErrorMessage>{errors.password}</FormErrorMessage>
           </FormControl>
 
+          {/* CONFIRM PASSWORD */}
           <FormControl isInvalid={!!errors.confirmPassword}>
             <FormLabel color={labelColor}>Potwierdź hasło</FormLabel>
             <InputGroup>
@@ -230,7 +206,7 @@ export default function Register() {
               />
               <InputRightElement>
                 <IconButton
-                  aria-label={showConfirmPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  aria-label="Pokaż/ukryj"
                   icon={showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   variant="ghost"
@@ -241,59 +217,39 @@ export default function Register() {
             <FormErrorMessage>{errors.confirmPassword}</FormErrorMessage>
           </FormControl>
 
-          <Button width="100%" colorScheme="blue" type="submit">
+          <Button w="100%" colorScheme="blue" type="submit">
             Zarejestruj
           </Button>
 
-          <Divider my={4} />
+          <Divider />
 
-          {/* GOOGLE REGISTER */}
-          <VStack width="100%" spacing={2}>
+          <VStack spacing={2} w="100%">
             <Text fontSize="sm" color="gray.600">
-              lub zarejestruj się przez Google
+              lub użyj konta Google
             </Text>
-            <GoogleLogin
-              onSuccess={async (credentialResponse: any) => {
-                const token = credentialResponse.credential;
-                const result = await googleRegister(token);
 
+            <GoogleLogin
+              onSuccess={async (response: any) => {
+                const result = await googleRegister(response.credential);
                 if (!result.success) {
                   toast({
-                    title: result.message || "Błąd rejestracji przez Google",
+                    title: result.message || "Błąd logowania Google",
                     status: "error",
-                    duration: 5000,
-                    isClosable: true,
                   });
                   return;
                 }
-
-                toast({
-                  title: "Zarejestrowano przez Google",
-                  status: "success",
-                  duration: 3000,
-                  isClosable: true,
-                });
-
+                toast({ title: "Zarejestrowano przez Google", status: "success" });
                 navigate("/dashboard");
               }}
-              onError={() => {
-                toast({
-                  title: "Google registration error",
-                  status: "error",
-                  duration: 3000,
-                  isClosable: true,
-                });
-              }}
+              onError={() =>
+                toast({ title: "Błąd Google", status: "error", duration: 3000 })
+              }
             />
           </VStack>
 
           <Text fontSize="sm">
             Masz już konto?{" "}
-            <Button
-              variant="link"
-              colorScheme="blue"
-              onClick={() => navigate("/login")}
-            >
+            <Button variant="link" onClick={() => navigate("/login")} colorScheme="blue">
               Zaloguj się
             </Button>
           </Text>

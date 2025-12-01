@@ -1,98 +1,110 @@
-import { Box, Button, Container, Heading, HStack, Text, VStack, useColorModeValue } from "@chakra-ui/react";
-import { LogIn, UserPlus, Building2 } from "lucide-react";
+import {
+  Box,
+  Button,
+  Container,
+  Heading,
+  Text,
+  VStack,
+  HStack,
+  Icon,
+} from "@chakra-ui/react";
+import { LogIn, UserPlus, Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Home() {
   const navigate = useNavigate();
 
-  const bg = useColorModeValue("gray.50", "gray.900");
-  const cardBg = useColorModeValue("white", "gray.800");
-  const textColor = useColorModeValue("gray.700", "gray.200");
-  const accentColor = useColorModeValue("blue.600", "blue.400");
-
   return (
-    <Box bg={bg} minH="100vh" py={10} overflowY="auto">
-      <Container maxW="container.md" py={10} pb={40}>
-        <VStack spacing={8} align="center">
-          {/* Logo */}
+    <Box bg="#0f0f0f" minH="100vh" py={20} px={4}>
+      <Container maxW="600px">
+        <VStack spacing={12}>
+
+          {/* LOGO — styl Linear */}
           <Box
-            p={6}
-            bg={accentColor}
-            rounded="2xl"
-            shadow="xl"
-            display="inline-flex"
+            w="90px"
+            h="90px"
+            rounded="xl"
+            bg="#1a1a1a"
+            border="1px solid #2a2a2a"
+            display="flex"
             alignItems="center"
             justifyContent="center"
           >
-            <Building2 size={64} color="white" />
+            <Icon as={Database} boxSize={42} color="gray.200" />
           </Box>
 
-          {/* Heading */}
-          <VStack spacing={6} textAlign="center">
+          {/* TYTUŁ */}
+          <VStack spacing={4}>
             <Heading
               size="2xl"
-              bgGradient="linear(to-r, blue.400, blue.600)"
-              bgClip="text"
-              fontWeight="extrabold"
-              lineHeight="1.3"
-              pb={2}
-              pt={1}
+              fontWeight="bold"
+              color="white"
+              textAlign="center"
+              letterSpacing="-0.5px"
             >
               Project Data Management
             </Heading>
-            <Text fontSize="xl" color={textColor} maxW="600px">
-              Kompleksowe rozwiązanie do zarządzania projektami i danymi w środowisku wielotenantowym
+
+            <Text
+              fontSize="lg"
+              color="gray.400"
+              textAlign="center"
+              maxW="450px"
+              lineHeight="1.6"
+            >
+              Nowoczesna platforma do zarządzania projektami, organizacjami i plikami
+              w środowisku wielotenantowym.
             </Text>
           </VStack>
 
-          {/* Card with buttons */}
+          {/* KARTA — minimalistyczna, bez shadowów */}
           <Box
-            bg={cardBg}
-            p={8}
-            rounded="2xl"
-            shadow="2xl"
             w="100%"
-            maxW="500px"
+            bg="#131313"
+            border="1px solid #1f1f1f"
+            rounded="lg"
+            p={8}
           >
             <VStack spacing={6}>
-              <Text fontSize="lg" color={textColor} textAlign="center" fontWeight="medium">
-                Zaloguj się lub utwórz nowe konto, aby rozpocząć
+              <Text color="gray.300" fontSize="md" textAlign="center">
+                Zaloguj się lub utwórz konto, aby rozpocząć pracę.
               </Text>
 
               <VStack spacing={3} w="100%">
                 <Button
-                  leftIcon={<LogIn size={20} />}
-                  colorScheme="blue"
-                  size="lg"
+                  leftIcon={<LogIn size={18} />}
                   w="100%"
-                  onClick={() => navigate("/login")}
-                  fontSize="md"
+                  size="lg"
+                  bg="blue.600"
+                  _hover={{ bg: "blue.500" }}
+                  color="white"
                   fontWeight="semibold"
+                  onClick={() => navigate("/login")}
                 >
                   Zaloguj się
                 </Button>
 
                 <Button
-                  leftIcon={<UserPlus size={20} />}
-                  variant="outline"
-                  colorScheme="blue"
-                  size="lg"
+                  leftIcon={<UserPlus size={18} />}
                   w="100%"
+                  size="lg"
+                  variant="outline"
+                  color="gray.300"
+                  borderColor="#2a2a2a"
+                  _hover={{ bg: "#1f1f1f", borderColor: "#3a3a3a" }}
                   onClick={() => navigate("/register")}
-                  fontSize="md"
-                  fontWeight="semibold"
                 >
-                  Zarejestruj się
+                  Załóż konto
                 </Button>
               </VStack>
             </VStack>
           </Box>
 
-          {/* Footer info */}
-          <HStack spacing={8} pt={6} color={textColor} fontSize="sm">
-            <Text>✓ Wielotenantowe</Text>
-            <Text>✓ Bezpieczne</Text>
-            <Text>✓ Skalowalne</Text>
+          {/* FOOTER — prosta linia */}
+          <HStack spacing={6} color="gray.500" fontSize="sm" pt={4}>
+            <Text>Wielotenantowe</Text>
+            <Text>Bezpieczne</Text>
+            <Text>Skalowalne</Text>
           </HStack>
         </VStack>
       </Container>

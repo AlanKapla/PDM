@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
 import {
   Box,
-  Heading,
   Text,
-  Spinner,
   VStack,
-  useColorModeValue,
+  Flex,
   HStack,
-  useToast,
-  Badge,
-  Radio,
+  Spinner,
   RadioGroup,
-  Stack,
+  Radio,
+  Badge,
+  Icon,
 } from "@chakra-ui/react";
 import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getUserTenants, getActiveTenant, changeActiveTenant } from "../services/tenantService";
+import { PageHeader } from "../components/PageHeader";
+import {
+  getUserTenants,
+  getActiveTenant,
+  changeActiveTenant,
+} from "../services/tenantService";
 import type { TenantDetails } from "../types/auth.types";
 import { getTenantRoleName, getTenantRoleColor } from "../types/auth.types";
 
@@ -24,74 +27,35 @@ export default function CollaboratingTenants() {
   const [activeTenantId, setActiveTenantId] = useState<string>("");
   const [changingTenant, setChangingTenant] = useState(false);
   const [loading, setLoading] = useState(true);
-  
-  const toast = useToast();
-
-  const cardBg = useColorModeValue("white", "gray.800");
-  const pageBg = useColorModeValue("gray.50", "gray.900");
-  const activeBg = useColorModeValue("blue.50", "blue.900");
-  const borderColor = useColorModeValue("gray.200", "gray.600");
 
   useEffect(() => {
-    async function load() {
+    const load = async () => {
       try {
-        const [tenantsData, activeTenant] = await Promise.all([
+        const [tenantList, active] = await Promise.all([
           getUserTenants(),
           getActiveTenant(),
         ]);
-        
-        setTenants(tenantsData);
-        
-        if (activeTenant?.activeTenantId) {
-          setActiveTenantId(activeTenant.activeTenantId);
-        }
-      } catch (error) {
-        console.error("Błąd ładowania danych:", error);
+
+        setTenants(tenantList);
+        if (active?.activeTenantId) setActiveTenantId(active.activeTenantId);
       } finally {
         setLoading(false);
       }
-    }
+    };
+
     load();
   }, []);
 
-  const handleTenantChange = async (newTenantId: string) => {
-    if (newTenantId === activeTenantId) return;
+  const handleTenantChange = async (newId: string) => {
+    if (newId === activeTenantId) return;
 
     setChangingTenant(true);
     try {
-      const success = await changeActiveTenant(newTenantId);
-      
-      if (success) {
-        setActiveTenantId(newTenantId);
-        toast({
-          title: "Organizacja zmieniona",
-          description: "Aktywna organizacja została zaktualizowana",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        toast({
-          title: "Błąd zmiany organizacji",
-          description: "Nie udało się zmienić aktywnej organizacji",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
+      const ok = await changeActiveTenant(newId);
+      if (ok) {
+        setActiveTenantId(newId);
+        setTimeout(() => window.location.reload(), 500);
       }
-    } catch (error) {
-      console.error("Błąd zmiany tenanta:", error);
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
     } finally {
       setChangingTenant(false);
     }
@@ -100,88 +64,120 @@ export default function CollaboratingTenants() {
   if (loading) {
     return (
       <MainLayout>
-        <VStack spacing={4} align="center" justify="center" minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-          <Text>Ładowanie organizacji...</Text>
-        </VStack>
+        <Flex justify="center" align="center" minH="60vh">
+          <Spinner size="xl" color="gray.300" />
+        </Flex>
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <Box bg={pageBg} minH="100vh" p={{ base: 4, md: 6 }}>
-        <VStack spacing={8} maxW="1200px" mx="auto" align="stretch">
-          {/* Header */}
-          <HStack spacing={3} flexWrap="wrap">
-            <Building2 size={32} />
-            <Heading size={{ base: "md", md: "lg" }}>Organizacje, z którymi współpracujesz</Heading>
-          </HStack>
+      <Box p={10}>
+        <PageHeader
+          title="Organizacje, z którymi współpracujesz"
+          breadcrumb={["Organizacje", "Współpracujesz"]}
+        />
 
-          {/* Lista organizacji */}
-          <Box>
-            {tenants.length === 0 ? (
-              <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
-                <Text color="gray.500" textAlign="center">
-                  Nie współpracujesz jeszcze z żadną organizacją
-                </Text>
-              </Box>
-            ) : (
-              <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
-                <RadioGroup value={activeTenantId} onChange={handleTenantChange}>
-                  <Stack spacing={3}>
-                    {tenants.map((tenant) => (
-                      <Box
-                        key={tenant.id}
-                        p={4}
-                        rounded="lg"
-                        border="1px solid"
-                        borderColor={tenant.id === activeTenantId ? "blue.500" : borderColor}
-                        bg={tenant.id === activeTenantId ? activeBg : "transparent"}
-                        transition="all 0.2s"
-                      >
-                        <Stack direction={{ base: "column", md: "row" }} justify="space-between" spacing={3}>
-                          <HStack spacing={3} flex={1} align="flex-start">
-                            <Radio value={tenant.id} isDisabled={changingTenant} mt={1}>
-                              <VStack align="flex-start" spacing={1}>
-                                <Text fontWeight={tenant.id === activeTenantId ? "bold" : "normal"}>
-                                  {tenant.name}
-                                </Text>
-                                <Stack direction={{ base: "column", sm: "row" }} spacing={2}>
-                                  <Text fontSize="xs" color="gray.500">
-                                    Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
-                                  </Text>
-                                  <Badge colorScheme={getTenantRoleColor(tenant.role)} fontSize="xs">
-                                    {getTenantRoleName(tenant.role)}
-                                  </Badge>
-                                </Stack>
-                              </VStack>
-                            </Radio>
-                          </HStack>
-                          {tenant.id === activeTenantId && (
-                            <Badge colorScheme="blue" display="flex" alignItems="center" gap={1} alignSelf={{ base: "flex-start", md: "center" }} ml={{ base: 6, md: 0 }}>
-                              <CheckCircle2 size={14} />
-                              Aktywny
+        {/* BRAK ORGANIZACJI */}
+        {tenants.length === 0 && (
+          <Flex
+            direction="column"
+            align="center"
+            bg="#131313"
+            border="1px solid #1d1d1d"
+            rounded="md"
+            p={12}
+          >
+            <Icon as={Building2} boxSize={20} color="gray.500" mb={4} />
+            <Text fontSize="lg" color="gray.300" mb={1}>
+              Nie współpracujesz jeszcze z żadną organizacją
+            </Text>
+            <Text color="gray.500" fontSize="sm">
+              Gdy ktoś doda Cię do zespołu, pojawi się tutaj.
+            </Text>
+          </Flex>
+        )}
+
+        {/* LISTA ORGANIZACJI */}
+        {tenants.length > 0 && (
+          <Box
+            bg="#131313"
+            border="1px solid #1d1d1d"
+            rounded="md"
+            mt={4}
+            overflow="hidden"
+          >
+            <RadioGroup value={activeTenantId} onChange={handleTenantChange}>
+              <VStack align="stretch" spacing={0}>
+                {tenants.map((tenant) => {
+                  const isActive = tenant.id === activeTenantId;
+
+                  return (
+                    <Flex
+                      key={tenant.id}
+                      justify="space-between"
+                      align="center"
+                      px={5}
+                      py={4}
+                      borderBottom="1px solid #1d1d1d"
+                      _hover={{ bg: "#1b1b1b" }}
+                      bg={isActive ? "#1a1a1a" : "transparent"}
+                    >
+                      {/* Lewa część */}
+                      <HStack align="flex-start" spacing={4}>
+                        <Radio value={tenant.id} isDisabled={changingTenant} />
+
+                        <Box>
+                          <Text
+                            fontSize="md"
+                            fontWeight={isActive ? "semibold" : "normal"}
+                            color="gray.200"
+                          >
+                            {tenant.name}
+                          </Text>
+
+                          <HStack spacing={2} mt={1}>
+                            <Text fontSize="xs" color="gray.500">
+                              Utworzono:{" "}
+                              {new Date(tenant.createdAt).toLocaleDateString(
+                                "pl-PL"
+                              )}
+                            </Text>
+
+                            <Badge
+                              fontSize="xs"
+                              colorScheme={getTenantRoleColor(tenant.role)}
+                            >
+                              {getTenantRoleName(tenant.role)}
                             </Badge>
-                          )}
-                        </Stack>
-                      </Box>
-                    ))}
-                  </Stack>
-                </RadioGroup>
+                          </HStack>
+                        </Box>
+                      </HStack>
 
-                {changingTenant && (
-                  <HStack mt={4} spacing={2}>
-                    <Spinner size="sm" />
-                    <Text fontSize="sm" color="gray.500">
-                      Zmiana aktywnej organizacji...
-                    </Text>
-                  </HStack>
-                )}
-              </Box>
+                      {/* Prawa część */}
+                      {isActive && (
+                        <HStack spacing={1} color="blue.400">
+                          <CheckCircle2 size={16} />
+                          <Text fontSize="sm">Aktywny</Text>
+                        </HStack>
+                      )}
+                    </Flex>
+                  );
+                })}
+              </VStack>
+            </RadioGroup>
+
+            {changingTenant && (
+              <Flex px={5} py={3} align="center" gap={2}>
+                <Spinner size="sm" />
+                <Text fontSize="sm" color="gray.400">
+                  Zmienianie aktywnej organizacji...
+                </Text>
+              </Flex>
             )}
           </Box>
-        </VStack>
+        )}
       </Box>
     </MainLayout>
   );

@@ -1,110 +1,110 @@
-import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack } from "@chakra-ui/react";
-import { Building2, FolderKanban, Settings, FileText, Calculator } from "lucide-react";
+import {
+  Box,
+  SimpleGrid,
+  VStack,
+  Text,
+  Icon,
+  Flex,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import {
+  Building2,
+  FolderKanban,
+  FileText,
+  Calculator,
+  Settings,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
+  const cardBg = useColorModeValue("#1a1a1a", "#1a1a1a");
+  const cardHover = useColorModeValue("#232323", "#232323");
+  const border = useColorModeValue("#2a2a2a", "#2a2a2a");
+
   const menuCards = [
     {
       title: "Organizacje",
-      description: "Zarządzaj swoimi organizacjami i współpracuj z innymi",
+      desc: "Zarządzaj organizacjami i członkostwem",
       icon: Building2,
-      color: "blue.500",
       path: "/tenants/collaborating",
-      subItems: [
-        { label: "Aktywne zaproszenia", path: "/tenants/invitations" },
-        { label: "Z którymi współpracujesz", path: "/tenants/collaborating" },
-        { label: "Którymi zarządzasz", path: "/tenants/managed" },
-      ]
     },
     {
       title: "Projekty",
-      description: "Przeglądaj i zarządzaj swoimi projektami",
+      desc: "Twórz i przeglądaj projekty",
       icon: FolderKanban,
-      color: "green.500",
       path: "/projects",
     },
     {
       title: "Pliki",
-      description: "Zarządzaj dokumentami i plikami projektów",
+      desc: "Dokumentacja, rysunki i załączniki",
       icon: FileText,
-      color: "purple.500",
       path: "/files",
     },
     {
       title: "Kosztorysy",
-      description: "Twórz i przeglądaj kosztorysy projektów",
+      desc: "Zarządzanie kosztami i wycenami",
       icon: Calculator,
-      color: "orange.500",
       path: "/estimates",
     },
     {
       title: "Ustawienia",
-      description: "Personalizuj swoje konto i preferencje",
+      desc: "Profil oraz preferencje konta",
       icon: Settings,
-      color: "gray.500",
       path: "/profile",
-      subItems: [
-        { label: "Profil", path: "/profile" },
-      ]
     },
   ];
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <Heading mb={8} size={{ base: "lg", md: "xl" }}>
+      <Box px={12} py={10} mt="20px">
+        <Text
+          fontSize="2xl"
+          fontWeight="semibold"
+          mb={8}
+          color="gray.200"
+        >
           Panel główny
-        </Heading>
+        </Text>
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={8}>
           {menuCards.map((card) => (
-            <Card
+            <Flex
               key={card.title}
+              direction="column"
+              bg={cardBg}
+              border="1px solid"
+              borderColor={border}
+              borderRadius="lg"
+              p={6}
               cursor="pointer"
-              transition="all 0.2s"
-              _hover={{ 
-                transform: "translateY(-4px)", 
-                shadow: "xl",
-                borderColor: card.color 
+              transition="0.2s"
+              _hover={{
+                bg: cardHover,
+                borderColor: "#3a3a3a",
+                transform: "translateY(-2px)",
               }}
               onClick={() => navigate(card.path)}
-              borderWidth="2px"
-              borderColor="transparent"
             >
-              <CardBody>
-                <VStack align="flex-start" spacing={4}>
-                  <Icon as={card.icon} boxSize={10} color={card.color} />
-                  <VStack align="flex-start" spacing={2}>
-                    <Heading size="md">{card.title}</Heading>
-                    <Text color="gray.600" fontSize="sm">
-                      {card.description}
-                    </Text>
-                  </VStack>
-                  
-                  {card.subItems && (
-                    <VStack align="flex-start" spacing={1} mt={2} w="100%">
-                      {card.subItems.map((item) => (
-                        <Text
-                          key={item.path}
-                          fontSize="xs"
-                          color="gray.500"
-                          _hover={{ color: card.color }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(item.path);
-                          }}
-                        >
-                          • {item.label}
-                        </Text>
-                      ))}
-                    </VStack>
-                  )}
-                </VStack>
-              </CardBody>
-            </Card>
+              <Icon
+                as={card.icon}
+                color="gray.300"
+                boxSize={7}
+                mb={4}
+              />
+
+              <VStack align="flex-start" spacing={1} flex="1">
+                <Text fontSize="lg" fontWeight="semibold" color="gray.100">
+                  {card.title}
+                </Text>
+
+                <Text fontSize="sm" color="gray.400">
+                  {card.desc}
+                </Text>
+              </VStack>
+            </Flex>
           ))}
         </SimpleGrid>
       </Box>
