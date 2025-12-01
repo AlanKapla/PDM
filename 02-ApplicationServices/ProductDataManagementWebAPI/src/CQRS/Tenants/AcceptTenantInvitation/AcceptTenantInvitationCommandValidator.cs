@@ -1,4 +1,4 @@
-using FluentValidation;
+ï»¿using FluentValidation;
 using Business.Interfaces.Model;
 using Entities.Models;
 using Repositories.Repository.Interfaces;
@@ -26,7 +26,7 @@ namespace CQRS.Tenants.AcceptTenantInvitation
                         return false;
                     }
 
-                    if (invitation.ExpiresAt.HasValue && invitation.ExpiresAt.Value < DateTime.UtcNow)
+                    if (invitation.ExpiresAt < DateTime.UtcNow)
                     {
                         return false;
                     }
@@ -36,7 +36,7 @@ namespace CQRS.Tenants.AcceptTenantInvitation
                         return false;
                     }
 
-                    // Nie pozwalaj akceptowaæ zaproszenia wys³anego przez siebie
+                    // Nie pozwalaj akceptowaÄ‡ zaproszenia wysÅ‚anego przez siebie
                     if (invitation.InvitedByUserId == currentUser.Id)
                     {
                         return false;

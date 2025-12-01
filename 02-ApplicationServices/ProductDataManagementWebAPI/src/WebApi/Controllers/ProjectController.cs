@@ -1,8 +1,9 @@
-using CQRS.Projects.AddProjectMember;
+﻿using CQRS.Projects.AddProjectMember;
 using CQRS.Projects.CreateProject;
 using CQRS.Projects.GetTenantProjects;
 using CQRS.Projects.GetProjectMembers;
 using CQRS.Projects.GetProjectDetails;
+using CQRS.Projects.RemoveProjectMember;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -71,6 +72,18 @@ namespace WebApi.Controllers
                 return BadRequest("ProjectId in URL does not match ProjectId in request body");
             }
 
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpDelete("{projectId}/members/{userId}")]
+        [Authorize(Policy = Policies.ProjectAdmin)]
+        public async Task<IActionResult> RemoveProjectMember(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid userId)
+        {
+            var command = new RemoveProjectMemberCommand(tenantId, projectId, userId);
             await Send(command);
             return NoContent();
         }

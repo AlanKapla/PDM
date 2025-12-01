@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+Ôªøusing Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Enums;
 using Entities.Models;
@@ -23,7 +23,7 @@ namespace CQRS.Tenants.UserTenants
 
         public async Task<IEnumerable<TenantDetailsWeb>> Handle(UserTenantsQuery request, CancellationToken cancellationToken)
         {
-            // Pobranie aktywnych cz≥onkostw uøytkownika z tenantami
+            // Pobranie aktywnych cz≈Çonkostw u≈ºytkownika z tenantami
             IEnumerable<TenantMember> memberships = await tenantMemberRepo.GetBySearch(
                 m => m.UserId == currentUser.Id && m.IsActive,
                 q => q.Include(m => m.Tenant)
@@ -31,7 +31,7 @@ namespace CQRS.Tenants.UserTenants
 
             List<TenantMember> membershipList = memberships.Where(m => m.Tenant != null).ToList();
 
-            // Id tenantÛw gdzie uøytkownik jest Adminem
+            // Id tenant√≥w gdzie u≈ºytkownik jest Adminem
             List<Guid> adminTenantIds = membershipList
                 .Where(m => m.Role == TenantRole.Admin)
                 .Select(m => m.TenantId)
@@ -73,7 +73,7 @@ namespace CQRS.Tenants.UserTenants
                     i => adminTenantIds.Contains(i.TenantId)
                          && i.IsActive
                          && i.Status == InvitationStatus.Pending
-                         && (!i.ExpiresAt.HasValue || i.ExpiresAt.Value > DateTime.UtcNow),
+                         && i.ExpiresAt > DateTime.UtcNow,
                     q => q.Include(x => x.InvitedByUser)
                 );
 
@@ -89,7 +89,7 @@ namespace CQRS.Tenants.UserTenants
                     {
                         InvitationId = invite.Id,
                         TenantId = invite.TenantId,
-                        TenantName = string.Empty, // niepotrzebne wewnπtrz szczegÛ≥Ûw tenanta
+                        TenantName = string.Empty, // niepotrzebne wewnƒÖtrz szczeg√≥≈Ç√≥w tenanta
                         Email = invite.Email,
                         InvitedByUserEmail = invite.InvitedByUser?.Email ?? string.Empty,
                         InvitedByUserName = invite.InvitedByUser == null ? string.Empty : $"{invite.InvitedByUser.FirstName} {invite.InvitedByUser.LastName}",

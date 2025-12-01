@@ -49,6 +49,23 @@ export default function NotificationBell() {
     }
   };
 
+  // Pobierz licznik nieprzeczytanych powiadomień przy montowaniu
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await notificationApi.getUnreadNotifications();
+        if (response.ok) {
+          const data: NotificationWeb[] = await response.json();
+          setUnreadCount(data.filter(n => !n.readed).length);
+        }
+      } catch (error) {
+        console.error("Błąd pobierania licznika powiadomień:", error);
+      }
+    };
+
+    fetchUnreadCount();
+  }, []);
+
   // Połączenie SignalR i nasłuchiwanie na nowe powiadomienia - TYLKO RAZ
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
