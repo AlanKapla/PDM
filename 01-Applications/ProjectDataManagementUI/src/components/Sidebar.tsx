@@ -12,6 +12,7 @@ import {
   useDisclosure,
   IconButton,
   Collapse,
+  Badge,
 } from "@chakra-ui/react";
 
 import {
@@ -26,17 +27,39 @@ import {
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { getActiveInvitations } from "../services/tenantService";
+import { InvitationStatus } from "../types/auth.types";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  const [invitationsCount, setInvitationsCount] = useState(0);
+
   // Przywróć stan z localStorage lub ustaw na false
   const [tenantsExpanded, setTenantsExpanded] = useState(() => {
     const saved = localStorage.getItem("sidebar_tenants_expanded");
     return saved === "true";
   });
+
+  // Pobierz liczbę aktywnych zaproszeń
+  useEffect(() => {
+    const fetchInvitations = async () => {
+      try {
+        const invitations = await getActiveInvitations();
+        const pending = invitations.filter((inv: { status: number }) => inv.status === InvitationStatus.Pending);
+        setInvitationsCount(pending.length);
+      } catch (error) {
+        console.error("Błąd pobierania zaproszeń:", error);
+      }
+    };
+
+    fetchInvitations();
+    // Odświeżaj co 30 sekund
+    const interval = setInterval(fetchInvitations, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Automatycznie rozwiń sekcję jeśli użytkownik jest na danej ścieżce
   useEffect(() => {
@@ -78,7 +101,7 @@ export default function Sidebar() {
               <Button
                 variant="ghost"
                 size="sm"
-                justifyContent="flex-start"
+                justifyContent="space-between"
                 w="100%"
                 fontSize="sm"
                 bg={location.pathname === "/tenants/invitations" ? activeBg : "transparent"}
@@ -86,6 +109,11 @@ export default function Sidebar() {
                 onClick={() => navigate("/tenants/invitations")}
               >
                 Aktywne zaproszenia
+                {invitationsCount > 0 && (
+                  <Badge colorScheme="red" borderRadius="full" fontSize="xs" ml={2}>
+                    {invitationsCount}
+                  </Badge>
+                )}
               </Button>
 
               <Button

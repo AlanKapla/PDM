@@ -13,7 +13,6 @@ import ActiveInvitations from "../pages/ActiveInvitations";
 import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import ActivateAccount from "../pages/ActivateAccount";
-import AcceptInvitation from "../pages/AcceptInvitation";
 import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
 
@@ -63,15 +62,6 @@ export default function AppRouter() {
           <PublicRoute>
             <ActivateAccount />
           </PublicRoute>
-        }
-      />
-
-      <Route
-        path="/tenants/invitations/accept"
-        element={
-          <ProtectedRoute>
-            <AcceptInvitation />
-          </ProtectedRoute>
         }
       />
 
