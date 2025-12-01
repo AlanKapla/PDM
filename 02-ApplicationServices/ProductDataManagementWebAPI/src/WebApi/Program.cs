@@ -10,9 +10,11 @@ internal class Program
 
         var app = builder.Build();
 
-        app.UseCors("AllowFrontend");
-        
         app.UseRouting();
+        
+        app.UseCors("AllowFrontend");
+
+        app.UseWebSockets();
 
         app.UseGlobalExceptionHandling();
 

@@ -10,6 +10,9 @@ using CQRS.Tenants.InviteTenantMember;
 using CQRS.Tenants.AcceptTenantInvitation;
 using CQRS.Tenants.RemoveTenantMember;
 using CQRS.Tenants.ActiveInvitations;
+using CQRS.Tenants.GetTenantMembers;
+using WebApi.Constants;
+using Business.Interfaces.WebModels.Tenants;
 
 namespace WebApi.Controllers
 {
@@ -89,8 +92,18 @@ namespace WebApi.Controllers
             return Ok();
         }
 
+        [HttpGet("{tenantId}/members")]
+        [Authorize(Policy = Policies.TenantAdmin)]
+        public async Task<IActionResult> GetTenantMembers(Guid tenantId)
+        {
+            GetTenantMembersQuery query = new(tenantId);
+            IEnumerable<TenantMemberWeb> result = await Send(query);
+
+            return Ok(result);
+        }
+
         [HttpDelete("{tenantId}/members/{userId}")]
-        [Authorize(Policy = "TenantAdmin")]
+        [Authorize(Policy = Policies.TenantAdmin)]
         public async Task<IActionResult> RemoveTenantMember(Guid tenantId, Guid userId)
         {
             await Send(new RemoveTenantMemberCommand(tenantId, userId));

@@ -24,6 +24,11 @@ namespace WebApi.Authorization
                 return;
             }
 
+            if (!currentUser.ActiveTenantId.HasValue)
+            {
+                return;
+            }
+
             var httpContext = context.Resource as HttpContext;
             Guid tenantId = Guid.Empty;
             if (httpContext != null)
@@ -35,6 +40,11 @@ namespace WebApi.Authorization
             }
 
             if (tenantId == Guid.Empty)
+            {
+                return;
+            }
+
+            if (currentUser.ActiveTenantId != tenantId)
             {
                 return;
             }

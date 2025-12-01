@@ -161,7 +161,16 @@ namespace WebApi.Extensions
                 {
                     OnMessageReceived = context =>
                     {
+                        // Sprawdź token z cookie
                         string? accessToken = context.Request.Cookies[CookieKeys.AccessToken];
+
+                        // Dla SignalR: sprawdź query string (WebSocket nie może przesyłać cookies w nagłówkach)
+                        var path = context.HttpContext.Request.Path;
+                        if (string.IsNullOrEmpty(accessToken) && 
+                            path.StartsWithSegments("/api/hubs"))
+                        {
+                            accessToken = context.Request.Query["access_token"];
+                        }
 
                         if (!string.IsNullOrEmpty(accessToken))
                         {
@@ -193,6 +202,7 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<TenantPreferencesProfile>, Repository<TenantPreferencesProfile>>();
             services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
             services.AddScoped<IReadRepository<Notification>, ReadRepository<Notification>>();
+            services.AddScoped<IRepository<Notification>, Repository<Notification>>();
             return services;
         }
 
@@ -277,9 +287,13 @@ namespace WebApi.Extensions
             {
                 options.AddPolicy(Policies.TenantAdmin, policy => policy.Requirements.Add(new TenantAdminRequirement()));
                 options.AddPolicy(Policies.TenantMember, policy => policy.Requirements.Add(new TenantMemberRequirement()));
+                options.AddPolicy(Policies.ProjectAdmin, policy => policy.Requirements.Add(new ProjectAdminRequirement()));
+                options.AddPolicy(Policies.ProjectMember, policy => policy.Requirements.Add(new ProjectMemberRequirement()));
             });
             services.AddScoped<IAuthorizationHandler, TenantAdminHandler>();
             services.AddScoped<IAuthorizationHandler, TenantMemberHandler>();
+            services.AddScoped<IAuthorizationHandler, ProjectAdminHandler>();
+            services.AddScoped<IAuthorizationHandler, ProjectMemberHandler>();
             return services;
         }
     }

@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+ï»¿using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
@@ -66,8 +66,8 @@ namespace CQRS.Tenants.InviteTenantMember
             {
                 To = request.Email,
                 Subject = "Zaproszenie do tenanta",
-                TextBody = $"Kliknij aby do³¹czyæ: {acceptUrl}",
-                HtmlBody = $"<p>Kliknij aby do³¹czyæ: <a href=\"{acceptUrl}\">Do³¹cz</a></p>"
+                TextBody = $"Kliknij aby doÅ‚Ä…czyÄ‡: {acceptUrl}",
+                HtmlBody = $"<p>Kliknij aby doÅ‚Ä…czyÄ‡: <a href=\"{acceptUrl}\">DoÅ‚Ä…cz</a></p>"
             }, cancellationToken);
 
             return Unit.Value;

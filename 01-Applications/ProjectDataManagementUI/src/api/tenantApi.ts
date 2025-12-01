@@ -101,4 +101,11 @@ export const tenantApi = {
       body: JSON.stringify({ name }),
     });
   },
+
+  getTenantMembers: async (tenantId: string) => {
+    return fetch(`${API_URL}/${tenantId}/members`, {
+      method: "GET",
+      credentials: "include",
+    });
+  },
 };

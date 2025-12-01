@@ -39,17 +39,16 @@ export interface ResetPasswordRequest {
 export const TenantRole = {
   Admin: 0,
   Member: 1,
-  Guest: 2
 } as const;
 
-export type TenantRole = typeof TenantRole[keyof typeof TenantRole];
+export type TenantRoleType = (typeof TenantRole)[keyof typeof TenantRole];
 
 export interface TenantMemberDetails {
   userId: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: TenantRole;
+  role: number;
   joinedAt: string;
 }
 
@@ -57,7 +56,7 @@ export interface TenantDetails {
   id: string;
   name: string;
   createdAt: string;
-  role: TenantRole;
+  role: number;
   members: TenantMemberDetails[];
   invitations: TenantInvitationWeb[];
 }
@@ -122,27 +121,23 @@ export const getInvitationStatusColor = (status: InvitationStatus): string => {
   }
 };
 
-export const getTenantRoleName = (role: TenantRole): string => {
+export const getTenantRoleName = (role: number): string => {
   switch (role) {
     case TenantRole.Admin:
       return 'Administrator';
     case TenantRole.Member:
       return 'Członek';
-    case TenantRole.Guest:
-      return 'Gość';
     default:
       return 'Nieznana rola';
   }
 };
 
-export const getTenantRoleColor = (role: TenantRole): string => {
+export const getTenantRoleColor = (role: number): string => {
   switch (role) {
     case TenantRole.Admin:
       return 'purple';
     case TenantRole.Member:
       return 'blue';
-    case TenantRole.Guest:
-      return 'gray';
     default:
       return 'gray';
   }

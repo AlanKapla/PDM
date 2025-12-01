@@ -18,6 +18,7 @@ import {
 } from "@chakra-ui/react";
 import { Bell, Info, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { notificationApi } from "../api/notificationApi";
+import { notificationHubService } from "../services/notificationHubService";
 import { type NotificationWeb, NotificationType } from "../types/notification.types";
 
 export default function NotificationBell() {
@@ -31,7 +32,7 @@ export default function NotificationBell() {
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const unreadBg = useColorModeValue("blue.50", "blue.900");
 
-  // Pobierz powiadomienia przy otwarciu
+  // Pobierz powiadomienia tylko gdy użytkownik kliknie w dzwoneczek
   const fetchNotifications = async () => {
     setLoading(true);
     try {
@@ -48,12 +49,48 @@ export default function NotificationBell() {
     }
   };
 
-  // Polling co 30 sekund dla licznika nieprzeczytanych
+  // Połączenie SignalR i nasłuchiwanie na nowe powiadomienia - TYLKO RAZ
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    let unsubscribe: (() => void) | null = null;
+
+    const initSignalR = async () => {
+      try {
+        // Uruchom połączenie SignalR
+        await notificationHubService.startConnection();
+
+        // Subskrybuj na nowe powiadomienia
+        unsubscribe = notificationHubService.onNotificationReceived(async (notification) => {
+          console.log("Nowe powiadomienie w dzwoneczku:", notification);
+          
+          // Pobierz świeżą listę nieprzeczytanych powiadomień z API
+          try {
+            const response = await notificationApi.getUnreadNotifications();
+            if (response.ok) {
+              const data: NotificationWeb[] = await response.json();
+              setNotifications(data);
+              setUnreadCount(data.filter(n => !n.readed).length);
+            }
+          } catch (error) {
+            console.error("Błąd odświeżania powiadomień:", error);
+            // Fallback - zwiększ licznik lokalnie
+            setUnreadCount(prev => prev + 1);
+            setNotifications(prev => [notification, ...prev]);
+          }
+        });
+      } catch (error) {
+        console.error("Błąd inicjalizacji SignalR:", error);
+      }
+    };
+
+    initSignalR();
+
+    // Cleanup przy unmount - usuń listener
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []); // ⚠️ Pusta tablica zależności - uruchom TYLKO RAZ przy mount
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -70,6 +107,32 @@ export default function NotificationBell() {
       case NotificationType.Warning: return "orange";
       case NotificationType.Error: return "red";
       default: return "blue";
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    console.log("🔵 Oznaczam jako przeczytane:", notificationId);
+    
+    try {
+      const response = await notificationApi.markAsRead(notificationId);
+      console.log("🔵 Odpowiedź API:", response.status, response.ok);
+      
+      if (response.ok) {
+        console.log("✅ Oznaczono jako przeczytane, odświeżam listę...");
+        // Odśwież listę powiadomień z API
+        const refreshResponse = await notificationApi.getUnreadNotifications();
+        if (refreshResponse.ok) {
+          const data: NotificationWeb[] = await refreshResponse.json();
+          console.log("✅ Pobrano odświeżoną listę:", data.length, "powiadomień");
+          setNotifications(data);
+          setUnreadCount(data.filter(n => !n.readed).length);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Błąd oznaczania jako przeczytane - status:", response.status, errorText);
+      }
+    } catch (error) {
+      console.error("❌ Błąd oznaczania powiadomienia jako przeczytane:", error);
     }
   };
 
@@ -172,6 +235,7 @@ export default function NotificationBell() {
                   _hover={{ bg: hoverBg }}
                   transition="background 0.2s"
                   cursor="pointer"
+                  onClick={() => !notification.readed && handleMarkAsRead(notification.id)}
                 >
                   <HStack align="flex-start" spacing={3}>
                     <Icon
@@ -180,32 +244,35 @@ export default function NotificationBell() {
                       color={`${getNotificationColor(notification.type)}.500`}
                       mt={0.5}
                     />
-                    <VStack align="flex-start" spacing={1} flex={1}>
-                      <HStack justify="space-between" w="full">
-                        <Text fontWeight="semibold" fontSize="sm" noOfLines={2}>
+                    <VStack align="flex-start" spacing={2} flex={1}>
+                      <HStack justify="space-between" w="full" align="flex-start">
+                        <Text fontWeight="600" fontSize="sm" noOfLines={2} flex={1}>
                           {notification.title}
                         </Text>
                         {!notification.readed && (
-                          <Badge colorScheme="blue" fontSize="xs">
+                          <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
                             Nowe
                           </Badge>
                         )}
                       </HStack>
-                      <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                      
+                      <Text fontSize="sm" color={useColorModeValue("gray.700", "gray.300")} noOfLines={2} lineHeight="1.4">
                         {notification.message}
                       </Text>
-                      <HStack justify="space-between" w="full" mt={1}>
-                        <VStack align="flex-start" spacing={0}>
-                          <Text fontSize="xs" color="gray.500">
-                            {formatDate(notification.createdAt)}
-                          </Text>
+                      
+                      <VStack align="flex-start" spacing={0.5} w="full" mt={1}>
+                        <HStack spacing={2} fontSize="xs" color="gray.500">
+                          <Text>{formatDate(notification.createdAt)}</Text>
+                          <Text>•</Text>
+                          <Text fontWeight="500">{notification.tenantName}</Text>
                           {notification.projectName && (
-                            <Text fontSize="xs" color="gray.500" fontWeight="medium">
-                              Projekt: {notification.projectName}
-                            </Text>
+                            <>
+                              <Text>•</Text>
+                              <Text fontWeight="500">{notification.projectName}</Text>
+                            </>
                           )}
-                        </VStack>
-                      </HStack>
+                        </HStack>
+                      </VStack>
                     </VStack>
                   </HStack>
                 </Box>

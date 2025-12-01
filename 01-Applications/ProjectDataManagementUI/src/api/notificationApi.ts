@@ -10,4 +10,12 @@ export const notificationApi = {
       credentials: "include",
     });
   },
+
+  // Oznacz powiadomienie jako przeczytane
+  markAsRead: async (notificationId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/Notification/${notificationId}/mark-as-read`, {
+      method: "PUT",
+      credentials: "include",
+    });
+  },
 };

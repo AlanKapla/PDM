@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Encodings.Web;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
@@ -11,7 +12,11 @@ namespace Business.Implementation.Services
     // High-level service used by CQRS to enqueue notifications
     public class QueuedNotificationSender : INotificationSender
     {
-        private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // Pozwala na polskie znaki bez escape'owania
+        };
 
         private readonly IQueueStorageService queueStorageService;
         private readonly ILogger<QueuedNotificationSender> logger;

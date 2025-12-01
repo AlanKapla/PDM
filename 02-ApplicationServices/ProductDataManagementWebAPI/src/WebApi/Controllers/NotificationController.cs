@@ -1,4 +1,5 @@
 using CQRS.Notifications.GetUnreadNotifications;
+using CQRS.Notifications.MarkNotificationAsRead;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +18,13 @@ namespace WebApi.Controllers
         {
             var result = await Send(new GetUnreadNotificationsQuery());
             return Ok(result);
+        }
+
+        [HttpPut("{notificationId}/mark-as-read")]
+        public async Task<IActionResult> MarkAsRead(Guid notificationId)
+        {
+            await Send(new MarkNotificationAsReadCommand(notificationId));
+            return NoContent();
         }
     }
 }

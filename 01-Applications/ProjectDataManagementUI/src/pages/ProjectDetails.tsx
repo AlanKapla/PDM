@@ -16,18 +16,23 @@ import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
+  useDisclosure,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import AddProjectMemberModal from "../components/AddProjectMemberModal";
+import { projectApi } from "../api/projectApi";
+import { useAuth } from "../hooks/useAuth";
+import { ProjectRole } from "../types/project.types";
 
-const ProjectRole = {
-  Owner: 0,
-  Admin: 1,
-  Member: 2,
-  Viewer: 3
-} as const;
-
-type ProjectRole = typeof ProjectRole[keyof typeof ProjectRole];
+interface ProjectMemberWeb {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: number;
+  joinedAt: string;
+}
 
 interface ProjectDetailsWeb {
   id: string;
@@ -37,35 +42,27 @@ interface ProjectDetailsWeb {
   createdAt: string;
   createdByUserId: string;
   createdByUserName: string;
-  userRole: ProjectRole;
+  userRole: number; // ProjectRole z backendu (0 = Admin, 1 = Member)
   membersCount: number;
 }
 
-const getProjectRoleName = (role: ProjectRole): string => {
+const getProjectRoleName = (role: number): string => {
   switch (role) {
-    case ProjectRole.Owner:
-      return 'Właściciel';
     case ProjectRole.Admin:
       return 'Administrator';
     case ProjectRole.Member:
       return 'Członek';
-    case ProjectRole.Viewer:
-      return 'Przeglądający';
     default:
       return 'Nieznana rola';
   }
 };
 
-const getProjectRoleColor = (role: ProjectRole): string => {
+const getProjectRoleColor = (role: number): string => {
   switch (role) {
-    case ProjectRole.Owner:
-      return 'purple';
     case ProjectRole.Admin:
       return 'blue';
     case ProjectRole.Member:
       return 'green';
-    case ProjectRole.Viewer:
-      return 'gray';
     default:
       return 'gray';
   }
@@ -74,19 +71,63 @@ const getProjectRoleColor = (role: ProjectRole): string => {
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [project] = useState<ProjectDetailsWeb | null>(null);
+  const { user } = useAuth();
+  
+  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
+  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
+
+  const isProjectAdmin = project && project.userRole === ProjectRole.Admin;
+
+  const fetchProjectDetails = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      if (response.ok) {
+        const data: ProjectDetailsWeb = await response.json();
+        setProject(data);
+      } else {
+        setError("Nie udało się pobrać szczegółów projektu");
+      }
+    } catch (error) {
+      console.error("Błąd pobierania szczegółów projektu:", error);
+      setError("Wystąpił błąd podczas ładowania projektu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMembers = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+    
+    setLoadingMembers(true);
+    try {
+      const response = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+      if (response.ok) {
+        const data: ProjectMemberWeb[] = await response.json();
+        setMembers(data);
+      }
+    } catch (error) {
+      console.error("Błąd pobierania członków:", error);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
 
   useEffect(() => {
-    // TODO: Implementacja pobierania szczegółów projektu z API
-    // Placeholder - symulacja ładowania
-    setLoading(false);
-    setError("Endpoint szczegółów projektu nie jest jeszcze zaimplementowany");
-  }, [projectId]);
+    fetchProjectDetails();
+    fetchMembers();
+  }, [projectId, user?.activeTenantId]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pl-PL", {
@@ -124,22 +165,38 @@ export default function ProjectDetails() {
         {loading ? (
           <Box display="flex" justifyContent="center" alignItems="center" minH="200px">
             <Spinner size="xl" color="blue.500" />
+            <Text ml={4}>Ładowanie szczegółów projektu...</Text>
           </Box>
         ) : error ? (
-          <Alert status="error">
+          <Alert status="error" borderRadius="md">
             <AlertIcon />
             {error}
           </Alert>
-        ) : project ? (
+        ) : !project ? (
+          <Alert status="warning" borderRadius="md">
+            <AlertIcon />
+            Nie znaleziono projektu
+          </Alert>
+        ) : (
           <VStack spacing={6} align="stretch">
             {/* Nagłówek projektu */}
             <Box bg={cardBg} p={6} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-              <HStack justify="space-between" mb={4} flexWrap="wrap">
+              <HStack justify="space-between" mb={4} flexWrap="wrap" gap={3}>
                 <HStack>
                   <Icon as={FolderKanban} boxSize={10} color="blue.600" />
                   <Heading size="lg">{project.name}</Heading>
                 </HStack>
-                <HStack>
+                <HStack spacing={2}>
+                  {isProjectAdmin && (
+                    <Button
+                      leftIcon={<UserPlus size={18} />}
+                      colorScheme="blue"
+                      size="sm"
+                      onClick={onOpen}
+                    >
+                      Dodaj członka
+                    </Button>
+                  )}
                   <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="md" px={3} py={1}>
                     {project.isActive ? "Aktywny" : "Nieaktywny"}
                   </Badge>
@@ -165,13 +222,92 @@ export default function ProjectDetails() {
               </VStack>
             </Box>
 
-            {/* Sekcje projektu - do zaimplementowania */}
+            {/* Członkowie projektu */}
             <Box bg={cardBg} p={6} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-              <Heading size="md" mb={4}>Sekcje projektu</Heading>
-              <Text color="gray.500">Funkcje projektu będą dostępne wkrótce...</Text>
+              <HStack justify="space-between" mb={4}>
+                <Heading size="md">Członkowie projektu ({members.length})</Heading>
+              </HStack>
+              
+              {loadingMembers ? (
+                <Box textAlign="center" py={6}>
+                  <Spinner size="md" color="blue.500" />
+                </Box>
+              ) : members.length === 0 ? (
+                <Text color="gray.500">Brak członków w projekcie</Text>
+              ) : (
+                <VStack spacing={2} align="stretch">
+                  {members.map((member) => {
+                    const initials = `${member.firstName[0]}${member.lastName[0]}`.toUpperCase();
+                    const roleColor = member.role === ProjectRole.Admin ? "blue" : "green";
+                    const roleName = member.role === ProjectRole.Admin ? "Administrator" : "Członek";
+                    
+                    return (
+                      <Box
+                        key={member.userId}
+                        p={3}
+                        border="1px"
+                        borderColor={borderColor}
+                        borderRadius="md"
+                        _hover={{ bg: hoverBg }}
+                        transition="background 0.2s"
+                      >
+                        <HStack justify="space-between">
+                          <HStack spacing={3}>
+                            <Box
+                              w="40px"
+                              h="40px"
+                              borderRadius="full"
+                              bg="blue.600"
+                              color="white"
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="center"
+                              fontWeight="bold"
+                              fontSize="sm"
+                            >
+                              {initials}
+                            </Box>
+                            <VStack align="flex-start" spacing={0}>
+                              <Text fontWeight="medium" fontSize="sm">
+                                {member.firstName} {member.lastName}
+                              </Text>
+                              <Text fontSize="xs" color="gray.500">
+                                {member.email}
+                              </Text>
+                              <Text fontSize="xs" color="gray.500">
+                                Dołączył: {formatDate(member.joinedAt)}
+                              </Text>
+                            </VStack>
+                          </HStack>
+                          <Badge colorScheme={roleColor} fontSize="sm" px={3} py={1}>
+                            {roleName}
+                          </Badge>
+                        </HStack>
+                      </Box>
+                    );
+                  })}
+                </VStack>
+              )}
             </Box>
           </VStack>
-        ) : null}
+        )}
+
+        {/* Modal dodawania członka */}
+        {project && (
+          <AddProjectMemberModal
+            isOpen={isOpen}
+            onClose={onClose}
+            tenantId={project.tenantId}
+            projectId={project.id}
+            projectName={project.name}
+            isAdmin={isProjectAdmin || false}
+            onMemberAdded={() => {
+              // Odśwież listę członków i szczegóły projektu po dodaniu
+              fetchProjectDetails();
+              fetchMembers();
+            }}
+          />
+        )}
       </Box>
     </MainLayout>
   );

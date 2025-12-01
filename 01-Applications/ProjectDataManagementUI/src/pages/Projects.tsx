@@ -33,15 +33,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { tenantApi } from "../api/tenantApi";
 import { TenantRole } from "../types/auth.types";
-
-const ProjectRole = {
-  Owner: 0,
-  Admin: 1,
-  Member: 2,
-  Viewer: 3
-} as const;
-
-type ProjectRole = typeof ProjectRole[keyof typeof ProjectRole];
+import { ProjectRole } from "../types/project.types";
 
 interface ProjectDetailsWeb {
   id: string;
@@ -51,35 +43,27 @@ interface ProjectDetailsWeb {
   createdAt: string;
   createdByUserId: string;
   createdByUserName: string;
-  userRole: ProjectRole;
+  userRole: number;
   membersCount: number;
 }
 
-const getProjectRoleName = (role: ProjectRole): string => {
+const getProjectRoleName = (role: number): string => {
   switch (role) {
-    case ProjectRole.Owner:
-      return 'Właściciel';
     case ProjectRole.Admin:
       return 'Administrator';
     case ProjectRole.Member:
       return 'Członek';
-    case ProjectRole.Viewer:
-      return 'Przeglądający';
     default:
       return 'Nieznana rola';
   }
 };
 
-const getProjectRoleColor = (role: ProjectRole): string => {
+const getProjectRoleColor = (role: number): string => {
   switch (role) {
-    case ProjectRole.Owner:
-      return 'purple';
     case ProjectRole.Admin:
       return 'blue';
     case ProjectRole.Member:
       return 'green';
-    case ProjectRole.Viewer:
-      return 'gray';
     default:
       return 'gray';
   }
@@ -92,7 +76,7 @@ export default function Projects() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
-  const [userTenantRole, setUserTenantRole] = useState<TenantRole | null>(null);
+  const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
   

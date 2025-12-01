@@ -1,5 +1,8 @@
+using CQRS.Projects.AddProjectMember;
 using CQRS.Projects.CreateProject;
 using CQRS.Projects.GetTenantProjects;
+using CQRS.Projects.GetProjectMembers;
+using CQRS.Projects.GetProjectDetails;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,10 +12,10 @@ namespace WebApi.Controllers
 {
     [Route("api/tenants/{tenantId}/[controller]")]
     [ApiController]
-    [Authorize(Policy = Policies.TenantMember)]
     public class ProjectController(IMediator mediator) : BaseApiController(mediator)
     {
         [HttpGet]
+        [Authorize(Policy = Policies.TenantMember)]
         public async Task<IActionResult> GetTenantProjects([FromRoute] Guid tenantId)
         {
             var query = new GetTenantProjectsQuery(tenantId);
@@ -26,6 +29,50 @@ namespace WebApi.Controllers
         {
             var result = await Send(command);
             return CreatedAtAction(nameof(GetTenantProjects), new { tenantId }, result);
+        }
+
+        [HttpGet("{projectId}")]
+        [Authorize(Policy = Policies.ProjectMember)]
+        public async Task<IActionResult> GetProjectDetails(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            var query = new GetProjectDetailsQuery(tenantId, projectId);
+            var result = await Send(query);
+            
+            return Ok(result);
+        }
+
+        [HttpGet("{projectId}/members")]
+        [Authorize(Policy = Policies.ProjectMember)]
+        public async Task<IActionResult> GetProjectMembers(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            var query = new GetProjectMembersQuery(tenantId, projectId);
+            var result = await Send(query);
+            return Ok(result);
+        }
+
+        [HttpPost("{projectId}/members")]
+        [Authorize(Policy = Policies.ProjectAdmin)]
+        public async Task<IActionResult> AddProjectMember(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] AddProjectMemberCommand command)
+        {
+            if (command.TenantId != tenantId)
+            {
+                return BadRequest("TenantId in URL does not match TenantId in request body");
+            }
+
+            if (command.ProjectId != projectId)
+            {
+                return BadRequest("ProjectId in URL does not match ProjectId in request body");
+            }
+
+            await Send(command);
+            return NoContent();
         }
     }
 }
