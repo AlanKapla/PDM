@@ -84,8 +84,9 @@ export default function CollaboratingTenants() {
           <Flex
             direction="column"
             align="center"
-            bg="#131313"
-            border="1px solid #1d1d1d"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
             rounded="md"
             p={12}
           >
@@ -102,8 +103,9 @@ export default function CollaboratingTenants() {
         {/* LISTA ORGANIZACJI */}
         {tenants.length > 0 && (
           <Box
-            bg="#131313"
-            border="1px solid #1d1d1d"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
             rounded="md"
             mt={4}
             overflow="hidden"
@@ -120,9 +122,9 @@ export default function CollaboratingTenants() {
                       align="center"
                       px={5}
                       py={4}
-                      borderBottom="1px solid #1d1d1d"
-                      _hover={{ bg: "#1b1b1b" }}
-                      bg={isActive ? "#1a1a1a" : "transparent"}
+                      borderBottom="1px solid #1e1e1e"
+                      _hover={{ bg: "#1a1a1a" }}
+                      bg={isActive ? "#181818" : "transparent"}
                     >
                       {/* Lewa część */}
                       <HStack align="flex-start" spacing={4}>

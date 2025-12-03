@@ -66,12 +66,13 @@ export default function Login() {
       justify="center"
       align="center"
       minH="100vh"
-      bg="#0f0f0f"
+      bg="gray.50"
       px={4}
     >
       <Box
-        bg="#131313"
-        border="1px solid #1d1d1d"
+        bg="white"
+        border="1px solid"
+        borderColor="gray.200"
         rounded="lg"
         p={10}
         maxW="420px"
@@ -92,7 +93,7 @@ export default function Login() {
           {/* Formularz logowania lokalnego */}
           <VStack as="form" onSubmit={handleLocalLogin} spacing={4}>
             <FormControl>
-              <FormLabel color="gray.300" fontSize="sm">
+              <FormLabel color="gray.700" fontSize="sm">
                 Email
               </FormLabel>
               <Input
@@ -100,14 +101,15 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="twoj@email.com"
-                bg="#0f0f0f"
-                border="1px solid #2a2a2a"
+                bg="white"
+                border="1px solid"
+                borderColor="gray.300"
                 _placeholder={{ color: "gray.600" }}
               />
             </FormControl>
 
             <FormControl>
-              <FormLabel color="gray.300" fontSize="sm">
+              <FormLabel color="gray.700" fontSize="sm">
                 Hasło
               </FormLabel>
               <InputGroup>
@@ -115,8 +117,9 @@ export default function Login() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  bg="#0f0f0f"
-                  border="1px solid #2a2a2a"
+                  bg="white"
+                  border="1px solid"
+                  borderColor="gray.300"
                 />
                 <InputRightElement>
                   <IconButton
@@ -139,17 +142,17 @@ export default function Login() {
               Zaloguj się
             </Button>
 
-            <Flex justify="space-between" fontSize="sm" color="gray.400">
+            <Flex justify="space-between" fontSize="sm" color="gray.600">
               <Button
                 variant="link"
-                color="gray.400"
+                color="gray.600"
                 onClick={() => navigate("/register")}
               >
                 Utwórz konto
               </Button>
               <Button
                 variant="link"
-                color="gray.400"
+                color="gray.600"
                 onClick={() => navigate("/forgot-password")}
               >
                 Zapomniałeś hasła?
@@ -159,11 +162,11 @@ export default function Login() {
 
           {/* Separator */}
           <HStack align="center" spacing={3}>
-            <Divider borderColor="#2a2a2a" />
+            <Divider borderColor="#1e1e1e" />
             <Text fontSize="xs" color="gray.500">
               lub
             </Text>
-            <Divider borderColor="#2a2a2a" />
+            <Divider borderColor="#1e1e1e" />
           </HStack>
 
           {/* Google Login */}

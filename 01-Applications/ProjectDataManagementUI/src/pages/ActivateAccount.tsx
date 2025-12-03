@@ -49,12 +49,13 @@ export default function ActivateAccount() {
       justify="center"
       align="center"
       minH="100vh"
-      bg="#0f0f0f"
+      bg="gray.50"
       px={4}
     >
       <Box
-        bg="#131313"
-        border="1px solid #1d1d1d"
+        bg="white"
+        border="1px solid"
+        borderColor="gray.200"
         rounded="lg"
         p={10}
         width="100%"
@@ -65,11 +66,11 @@ export default function ActivateAccount() {
           {/* ŁADOWANIE */}
           {loading && (
             <>
-              <Spinner size="xl" color="gray.300" thickness="4px" />
-              <Heading size="lg" color="gray.200">
+              <Spinner size="xl" color="gray.600" thickness="4px" />
+              <Heading size="lg" color="gray.800">
                 Aktywowanie konta...
               </Heading>
-              <Text color="gray.400">
+              <Text color="gray.600">
                 Proszę czekać, sprawdzamy poprawność linku aktywacyjnego.
               </Text>
             </>
@@ -112,8 +113,8 @@ export default function ActivateAccount() {
 
               <Button
                 variant="outline"
-                borderColor="#2a2a2a"
-                _hover={{ bg: "#1a1a1a" }}
+                borderColor="#1e1e1e"
+                _hover={{ bg: "#181818" }}
                 onClick={() => navigate("/login")}
                 width="100%"
                 size="lg"

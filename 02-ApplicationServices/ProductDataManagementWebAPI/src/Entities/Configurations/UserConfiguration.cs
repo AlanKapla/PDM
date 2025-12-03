@@ -23,6 +23,12 @@ namespace Entities.Configurations
             
             // Indeks dla kombinacji provider + external ID
             builder.HasIndex(u => new { u.AuthProvider, u.ExternalId });
+
+            // Relacja do przesłanych plików
+            builder.HasMany(u => u.UploadedFiles)
+                .WithOne(pf => pf.UploadedByUser)
+                .HasForeignKey(pf => pf.UploadedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 

@@ -15,7 +15,7 @@ export default function Home() {
   const navigate = useNavigate();
 
   return (
-    <Box bg="#0f0f0f" minH="100vh" py={20} px={4}>
+    <Box bg="gray.50" minH="100vh" py={20} px={4}>
       <Container maxW="600px">
         <VStack spacing={12}>
 
@@ -24,8 +24,9 @@ export default function Home() {
             w="90px"
             h="90px"
             rounded="xl"
-            bg="#1a1a1a"
-            border="1px solid #2a2a2a"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
             display="flex"
             alignItems="center"
             justifyContent="center"
@@ -47,7 +48,7 @@ export default function Home() {
 
             <Text
               fontSize="lg"
-              color="gray.400"
+              color="gray.600"
               textAlign="center"
               maxW="450px"
               lineHeight="1.6"
@@ -60,13 +61,14 @@ export default function Home() {
           {/* KARTA — minimalistyczna, bez shadowów */}
           <Box
             w="100%"
-            bg="#131313"
-            border="1px solid #1f1f1f"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
             rounded="lg"
             p={8}
           >
             <VStack spacing={6}>
-              <Text color="gray.300" fontSize="md" textAlign="center">
+              <Text color="gray.700" fontSize="md" textAlign="center">
                 Zaloguj się lub utwórz konto, aby rozpocząć pracę.
               </Text>
 
@@ -89,9 +91,9 @@ export default function Home() {
                   w="100%"
                   size="lg"
                   variant="outline"
-                  color="gray.300"
-                  borderColor="#2a2a2a"
-                  _hover={{ bg: "#1f1f1f", borderColor: "#3a3a3a" }}
+                  color="gray.700"
+                  borderColor="gray.300"
+                  _hover={{ bg: "#181818", borderColor: "#2e2e2e" }}
                   onClick={() => navigate("/register")}
                 >
                   Załóż konto

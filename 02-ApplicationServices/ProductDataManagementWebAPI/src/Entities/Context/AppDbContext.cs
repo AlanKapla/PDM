@@ -11,6 +11,8 @@ namespace Entities.Context
         public DbSet<TenantMember> TenantMembers=> Set<TenantMember>();
         public DbSet<Project> Projects => Set<Project>();
         public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+        public DbSet<ProjectFile> ProjectFiles => Set<ProjectFile>();
+        public DbSet<SharedProjectFile> SharedProjectFiles => Set<SharedProjectFile>();
         public DbSet<UserPasswordReset> UserPasswordResets => Set<UserPasswordReset>();
         public DbSet<UserActivation> UserActivations => Set<UserActivation>();
         public DbSet<UserProfileBase> UserProfiles => Set<UserProfileBase>();

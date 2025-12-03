@@ -61,8 +61,9 @@ export default function ActiveInvitations() {
             direction="column"
             align="center"
             justify="center"
-            bg="#131313"
-            border="1px solid #1d1d1d"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
             rounded="md"
             p={14}
             mt={4}
@@ -82,8 +83,9 @@ export default function ActiveInvitations() {
           <VStack
             align="stretch"
             spacing={0}
-            bg="#131313"
-            border="1px solid #1d1d1d"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
             rounded="md"
             mt={4}
           >
@@ -94,8 +96,8 @@ export default function ActiveInvitations() {
                 align="center"
                 px={5}
                 py={4}
-                borderBottom="1px solid #1d1d1d"
-                _hover={{ bg: "#1b1b1b" }}
+                borderBottom="1px solid #1e1e1e"
+                _hover={{ bg: "#181818" }}
               >
                 <Box>
                   <Text fontSize="md" fontWeight="semibold" color="gray.200">

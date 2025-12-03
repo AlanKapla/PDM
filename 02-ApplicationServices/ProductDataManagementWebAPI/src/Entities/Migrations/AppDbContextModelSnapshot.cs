@@ -101,6 +101,65 @@ namespace Entities.Migrations
                     b.ToTable("Projects");
                 });
 
+            modelBuilder.Entity("Entities.Models.ProjectFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BlobPath")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PackageName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.HasIndex("ProjectId", "PackageName");
+
+                    b.HasIndex("ProjectId", "TenantId");
+
+                    b.HasIndex("TenantId", "UploadedByUserId");
+
+                    b.ToTable("ProjectFiles");
+                });
+
             modelBuilder.Entity("Entities.Models.ProjectGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -166,6 +225,48 @@ namespace Entities.Migrations
                     b.HasIndex("TenantId", "UserId");
 
                     b.ToTable("ProjectMembers");
+                });
+
+            modelBuilder.Entity("Entities.Models.SharedProjectFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectFileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SharedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SharedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SharedWithUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ProjectFileId", "SharedWithUserId")
+                        .IsUnique();
+
+                    b.HasIndex("SharedByUserId", "ProjectId");
+
+                    b.HasIndex("SharedWithUserId", "ProjectId");
+
+                    b.HasIndex("TenantId", "SharedByUserId");
+
+                    b.HasIndex("TenantId", "SharedWithUserId");
+
+                    b.ToTable("SharedProjectFiles");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenant", b =>
@@ -484,6 +585,33 @@ namespace Entities.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("Entities.Models.ProjectFile", b =>
+                {
+                    b.HasOne("Entities.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "UploadedByUser")
+                        .WithMany("UploadedFiles")
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.TenantMember", "UploadedByTenantMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("UploadedByTenantMember");
+
+                    b.Navigation("UploadedByUser");
+                });
+
             modelBuilder.Entity("Entities.Models.ProjectGroup", b =>
                 {
                     b.HasOne("Entities.Models.Project", "Project")
@@ -532,6 +660,57 @@ namespace Entities.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("TenantMember");
+                });
+
+            modelBuilder.Entity("Entities.Models.SharedProjectFile", b =>
+                {
+                    b.HasOne("Entities.Models.ProjectFile", "ProjectFile")
+                        .WithMany()
+                        .HasForeignKey("ProjectFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "SharedByUser")
+                        .WithMany()
+                        .HasForeignKey("SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "SharedWithUser")
+                        .WithMany()
+                        .HasForeignKey("SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.TenantMember", "SharedByTenantMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.TenantMember", "SharedWithTenantMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("ProjectFile");
+
+                    b.Navigation("SharedByTenantMember");
+
+                    b.Navigation("SharedByUser");
+
+                    b.Navigation("SharedWithTenantMember");
+
+                    b.Navigation("SharedWithUser");
                 });
 
             modelBuilder.Entity("Entities.Models.TenantInvitation", b =>
@@ -650,6 +829,8 @@ namespace Entities.Migrations
                     b.Navigation("Profiles");
 
                     b.Navigation("TenantMemberships");
+
+                    b.Navigation("UploadedFiles");
 
                     b.Navigation("UserSessions");
                 });

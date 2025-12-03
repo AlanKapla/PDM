@@ -8,7 +8,6 @@ import {
   Input,
   Button,
   Spinner,
-  useColorModeValue,
   useToast,
   FormControl,
   FormLabel,
@@ -28,10 +27,6 @@ export default function Profile() {
   const [lastName, setLastName] = useState("");
 
   const toast = useToast();
-
-  const panelBg = useColorModeValue("#1a1a1a", "#1a1a1a");
-  const panelHover = useColorModeValue("#232323", "#232323");
-  const border = useColorModeValue("#2a2a2a", "#2a2a2a");
 
   useEffect(() => {
     async function load() {
@@ -114,13 +109,13 @@ export default function Profile() {
 
           {/* PANEL: DANE UŻYTKOWNIKA */}
           <Box
-            bg={panelBg}
+            bg="white"
             border="1px solid"
-            borderColor={border}
+            borderColor="gray.200"
             borderRadius="lg"
             p={8}
             transition="0.2s"
-            _hover={{ bg: panelHover }}
+            _hover={{ bg: "#181818" }}
           >
             <Text fontSize="lg" fontWeight="semibold" mb={6} color="gray.200">
               Dane użytkownika
@@ -148,13 +143,13 @@ export default function Profile() {
               {isEditing ? (
                 <>
                   <FormControl>
-                    <FormLabel color="gray.400">Imię</FormLabel>
+                    <FormLabel color="gray.600">Imię</FormLabel>
                     <Input
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      bg="#131313"
+                      bg="white"
                       border="1px solid"
-                      borderColor={border}
+                      borderColor="gray.300"
                       _focus={{
                         borderColor: "#6366f1",
                         boxShadow: "0 0 0 1px #6366f1",
@@ -163,13 +158,13 @@ export default function Profile() {
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="gray.400">Nazwisko</FormLabel>
+                    <FormLabel color="gray.600">Nazwisko</FormLabel>
                     <Input
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      bg="#131313"
+                      bg="white"
                       border="1px solid"
-                      borderColor={border}
+                      borderColor="gray.300"
                       _focus={{
                         borderColor: "#6366f1",
                         boxShadow: "0 0 0 1px #6366f1",

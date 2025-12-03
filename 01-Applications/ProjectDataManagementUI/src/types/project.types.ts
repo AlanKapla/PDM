@@ -36,3 +36,40 @@ export interface ProjectMemberWeb {
   role: number;
   joinedAt: string;
 }
+
+export interface ProjectFileWeb {
+  id: string;
+  fileName: string;
+  displayName: string;
+  packageName: string;
+  contentType: string;
+  fileSizeBytes: number;
+  uploadedAt: string;
+  uploadedByUserId: string;
+  uploadedByUserName: string;
+  sasUrl: string;
+}
+
+export interface ShareProjectFileResult {
+  sharedFileIds: string[];
+  successCount: number;
+  failedCount: number;
+  errors: string[];
+}
+
+export interface SharedProjectFileWeb {
+  id: string;
+  projectFileId: string;
+  fileName: string;
+  displayName: string;
+  packageName: string;
+  contentType: string;
+  fileSizeBytes: number;
+  uploadedAt: string;
+  sharedAt: string;
+  sharedByUserId: string;
+  sharedByUserName: string;
+  originalOwnerUserId: string;
+  originalOwnerUserName: string;
+  sasUrl: string;
+}

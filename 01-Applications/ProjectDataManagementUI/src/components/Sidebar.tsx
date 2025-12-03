@@ -18,8 +18,11 @@ import {
 import { useAuth } from "../hooks/useAuth";
 
 export default function Sidebar() {
-  const bg = useColorModeValue("#0f0f0f", "#0f0f0f");
-  const activeBg = useColorModeValue("#1a1a1a", "#1a1a1a");
+  const bg = useColorModeValue("white", "#0f0f0f");
+  const activeBg = useColorModeValue("gray.100", "#1a1a1a");
+  const textColor = useColorModeValue("gray.800", "gray.200");
+  const mutedColor = useColorModeValue("gray.600", "gray.500");
+  const border = useColorModeValue("gray.200", "#1e1e1e");
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -52,10 +55,10 @@ export default function Sidebar() {
         py={2}
         borderRadius="md"
         bg={isActive ? activeBg : "transparent"}
-        color={isActive ? "white" : "gray.300"}
+        color={isActive ? textColor : mutedColor}
         _hover={{
           bg: activeBg,
-          color: "white",
+          color: textColor,
           cursor: "pointer",
         }}
         transition="all 0.15s ease"
@@ -76,23 +79,31 @@ export default function Sidebar() {
       w="240px"
       h="100vh"
       bg={bg}
-      borderRight="1px solid #1d1d1d"
+      borderRight="1px solid"
+      borderColor={border}
       p={4}
-      color="gray.200"
+      color={textColor}
     >
       {/* LOGO */}
-      <Text fontSize="lg" fontWeight="bold" mb={6}>
+      <Text 
+        fontSize="lg" 
+        fontWeight="bold" 
+        mb={6}
+        cursor="pointer"
+        onClick={() => navigate("/dashboard")}
+        _hover={{ opacity: 0.8 }}
+      >
         Project Data Management
       </Text>
 
       {/* USER */}
       <HStack spacing={3} mb={6}>
-        <Avatar size="sm" name={`${user?.firstName} ${user?.lastName}`} />
+        <Avatar size="sm" bg="gray.300" />
         <Box>
           <Text fontSize="sm" fontWeight="semibold">
             {user?.firstName} {user?.lastName}
           </Text>
-          <Text fontSize="xs" color="gray.500">
+          <Text fontSize="xs" color={mutedColor}>
             {user?.email}
           </Text>
         </Box>
@@ -101,7 +112,7 @@ export default function Sidebar() {
       <VStack align="stretch" spacing={5}>
         {/* ORGANIZACJE */}
         <Box>
-          <Text fontSize="xs" mb={2} color="gray.500">
+          <Text fontSize="xs" mb={2} color={mutedColor}>
             ORGANIZACJE
           </Text>
           <VStack align="stretch" spacing={1}>
@@ -123,11 +134,11 @@ export default function Sidebar() {
           </VStack>
         </Box>
 
-        <Divider borderColor="#1d1d1d" />
+        <Divider borderColor={border} />
 
         {/* PROJEKTY */}
         <Box>
-          <Text fontSize="xs" mb={2} color="gray.500">
+          <Text fontSize="xs" mb={2} color={mutedColor}>
             PROJEKTY
           </Text>
           <VStack align="stretch" spacing={1}>
@@ -149,11 +160,11 @@ export default function Sidebar() {
           </VStack>
         </Box>
 
-        <Divider borderColor="#1d1d1d" />
+        <Divider borderColor={border} />
 
         {/* USTAWIENIA */}
         <Box>
-          <Text fontSize="xs" mb={2} color="gray.500">
+          <Text fontSize="xs" mb={2} color={mutedColor}>
             USTAWIENIA
           </Text>
           <VStack align="stretch" spacing={1}>
@@ -168,7 +179,7 @@ export default function Sidebar() {
 
       {/* DOLE – LOGOUT */}
       <Box position="absolute" bottom="20px" w="calc(100% - 2rem)">
-        <Divider borderColor="#1d1d1d" mb={3} />
+        <Divider borderColor={border} mb={3} />
 
         <NavItem
           icon={<ChevronRight size={16} />}

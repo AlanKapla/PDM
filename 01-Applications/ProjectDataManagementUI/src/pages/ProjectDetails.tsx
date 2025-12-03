@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -14,19 +14,6 @@ import {
   Button,
   useColorModeValue,
   useDisclosure,
-<<<<<<< HEAD
-  Divider,
-} from "@chakra-ui/react";
-import {
-  FolderKanban,
-  User,
-  Calendar,
-  ArrowLeft,
-  Users,
-  UserPlus,
-} from "lucide-react";
-
-=======
   IconButton,
   useToast,
   Modal,
@@ -37,10 +24,10 @@ import {
   ModalFooter,
   ModalCloseButton,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus, Trash2 } from "lucide-react";
->>>>>>> c12a0e8179ee79b38c964c19040a6b902b02f719
+import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus, Trash2, Upload, FileText } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
+import UploadFilesModal from "../components/UploadFilesModal";
 import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../hooks/useAuth";
@@ -58,6 +45,9 @@ export default function ProjectDetails() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
+  const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
+  const toast = useToast();
 
   const [project, setProject] = useState<any | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -66,14 +56,7 @@ export default function ProjectDetails() {
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-<<<<<<< HEAD
-=======
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
-  const toast = useToast();
-
   const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
->>>>>>> c12a0e8179ee79b38c964c19040a6b902b02f719
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -166,10 +149,6 @@ export default function ProjectDetails() {
     fetchUserTenantRole();
   }, [projectId, user?.activeTenantId]);
 
-<<<<<<< HEAD
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString("pl-PL", {
-=======
   const handleRemoveMemberClick = (userId: string, memberName: string) => {
     setMemberToRemove({ userId, name: memberName });
     onRemoveModalOpen();
@@ -218,11 +197,11 @@ export default function ProjectDetails() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pl-PL", {
->>>>>>> c12a0e8179ee79b38c964c19040a6b902b02f719
       year: "numeric",
       month: "long",
       day: "numeric",
     });
+  };
 
   return (
     <MainLayout>
@@ -253,48 +232,90 @@ export default function ProjectDetails() {
             Projekt nie istnieje
           </Alert>
         ) : (
-          <VStack spacing={8} align="stretch">
-            {/* ====================== PROJECT HEADER ======================= */}
-            <Box
-              bg={cardBg}
-              p={6}
-              rounded="xl"
-              borderWidth="1px"
-              borderColor={borderColor}
-              shadow="md"
-            >
-              <HStack justify="space-between" align="flex-start" mb={4}>
-                <HStack spacing={4}>
-                  <Icon as={FolderKanban} boxSize={10} color="blue.500" />
-                  <VStack align="flex-start" spacing={0}>
-                    <Heading size="lg">{project.name}</Heading>
-                    <Text fontSize="sm" color="gray.500">
-                      Projekt w organizacji {project.tenantId}
-                    </Text>
-                  </VStack>
+          <VStack spacing={6} align="stretch">
+            {/* Nagłówek projektu */}
+            <Box bg={cardBg} p={{ base: 4, md: 6 }} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+              <VStack spacing={4} align="stretch">
+                <HStack>
+                  <Icon as={FolderKanban} boxSize={{ base: 8, md: 10 }} color="blue.600" />
+                  <Heading size={{ base: "md", md: "lg" }}>{project.name}</Heading>
                 </HStack>
-
-                <HStack spacing={3}>
-                  <Badge
-                    colorScheme={project.isActive ? "green" : "gray"}
-                    fontSize="md"
-                    px={3}
-                    py={1}
-                    rounded="md"
-                  >
+                
+                <HStack spacing={2} flexWrap="wrap">
+                  <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "sm", md: "md" }} px={3} py={1}>
                     {project.isActive ? "Aktywny" : "Nieaktywny"}
                   </Badge>
-
-                  <Badge
-                    colorScheme={getProjectRoleColor(project.userRole)}
-                    fontSize="md"
-                    px={3}
-                    py={1}
-                    rounded="md"
-                  >
+                  <Badge colorScheme={getProjectRoleColor(project.userRole)} fontSize={{ base: "sm", md: "md" }} px={3} py={1}>
                     {getProjectRoleName(project.userRole)}
                   </Badge>
+                </HStack>
 
+                <VStack spacing={2} align="stretch" display={{ base: "flex", md: "none" }}>
+                  <Button
+                    leftIcon={<FileText size={18} />}
+                    colorScheme="purple"
+                    size="sm"
+                    width="100%"
+                    onClick={() => navigate(`/tenants/${project.tenantId}/projects/${projectId}/my-files`)}
+                  >
+                    Moje pliki
+                  </Button>
+                  <Button
+                    leftIcon={<Users size={18} />}
+                    colorScheme="teal"
+                    size="sm"
+                    width="100%"
+                    onClick={() => navigate(`/tenants/${project.tenantId}/projects/${projectId}/shared-files`)}
+                  >
+                    Udostępnione
+                  </Button>
+                  <Button
+                    leftIcon={<Upload size={18} />}
+                    colorScheme="green"
+                    size="sm"
+                    width="100%"
+                    onClick={onUploadModalOpen}
+                  >
+                    Dodaj pliki
+                  </Button>
+                  {isProjectAdmin && (
+                    <Button
+                      leftIcon={<UserPlus size={18} />}
+                      colorScheme="blue"
+                      size="sm"
+                      width="100%"
+                      onClick={onOpen}
+                    >
+                      Dodaj członka
+                    </Button>
+                  )}
+                </VStack>
+
+                <HStack spacing={2} display={{ base: "none", md: "flex" }} flexWrap="wrap">
+                  <Button
+                    leftIcon={<FileText size={18} />}
+                    colorScheme="purple"
+                    size="sm"
+                    onClick={() => navigate(`/tenants/${project.tenantId}/projects/${projectId}/my-files`)}
+                  >
+                    Moje pliki
+                  </Button>
+                  <Button
+                    leftIcon={<Users size={18} />}
+                    colorScheme="teal"
+                    size="sm"
+                    onClick={() => navigate(`/tenants/${project.tenantId}/projects/${projectId}/shared-files`)}
+                  >
+                    Udostępnione
+                  </Button>
+                  <Button
+                    leftIcon={<Upload size={18} />}
+                    colorScheme="green"
+                    size="sm"
+                    onClick={onUploadModalOpen}
+                  >
+                    Dodaj pliki
+                  </Button>
                   {isProjectAdmin && (
                     <Button
                       leftIcon={<UserPlus size={18} />}
@@ -305,32 +326,26 @@ export default function ProjectDetails() {
                     </Button>
                   )}
                 </HStack>
-              </HStack>
-
-              <Divider my={4} />
-
-              <VStack align="flex-start" spacing={3}>
-                <HStack>
-                  <Icon as={User} size={18} />
-                  <Text>
-                    <strong>Utworzył:</strong> {project.createdByUserName}
-                  </Text>
-                </HStack>
-
-                <HStack>
-                  <Icon as={Calendar} size={18} />
-                  <Text>
-                    <strong>Data utworzenia:</strong>{" "}
-                    {formatDate(project.createdAt)}
-                  </Text>
-                </HStack>
-
-                <HStack>
-                  <Icon as={Users} size={18} />
-                  <Text>
-                    <strong>Liczba członków:</strong> {members.length}
-                  </Text>
-                </HStack>
+                
+                <VStack align="flex-start" spacing={3} mt={4}>
+                  <HStack>
+                    <Icon as={User} boxSize={5} />
+                    <Text><strong>Utworzył:</strong> {project.createdByUserName}</Text>
+                  </HStack>
+                  <HStack>
+                    <Icon as={Calendar} size={18} />
+                    <Text>
+                      <strong>Data utworzenia:</strong>{" "}
+                      {formatDate(project.createdAt)}
+                    </Text>
+                  </HStack>
+                  <HStack>
+                    <Icon as={Users} size={18} />
+                    <Text>
+                      <strong>Liczba członków:</strong> {members.length}
+                    </Text>
+                  </HStack>
+                </VStack>
               </VStack>
             </Box>
 
@@ -369,12 +384,7 @@ export default function ProjectDetails() {
                         transition="0.15s"
                       >
                         <HStack justify="space-between">
-<<<<<<< HEAD
-                          {/* Left */}
-                          <HStack spacing={3}>
-=======
                           <HStack spacing={3} flex={1}>
->>>>>>> c12a0e8179ee79b38c964c19040a6b902b02f719
                             <Box
                               w="42px"
                               h="42px"
@@ -402,24 +412,13 @@ export default function ProjectDetails() {
                               </Text>
                             </VStack>
                           </HStack>
-<<<<<<< HEAD
-
-                          {/* Right */}
-                          <Badge
-                            colorScheme={getProjectRoleColor(m.role)}
-                            fontSize="sm"
-                            px={3}
-                            py={1}
-                          >
-                            {getProjectRoleName(m.role)}
-                          </Badge>
-=======
+                          
                           <HStack spacing={2}>
-                            <Badge colorScheme={roleColor} fontSize="sm" px={3} py={1}>
-                              {roleName}
+                            <Badge colorScheme={getProjectRoleColor(m.role)} fontSize="sm" px={3} py={1}>
+                              {getProjectRoleName(m.role)}
                             </Badge>
                             {/* Pokaż przycisk usuwania tylko dla admina tenanta i tylko dla innych użytkowników */}
-                            {isTenantAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                            {isTenantAdmin && m.email.toLowerCase() !== user?.email.toLowerCase() && (
                               <IconButton
                                 aria-label="Usuń członka"
                                 icon={<Trash2 size={16} />}
@@ -427,11 +426,10 @@ export default function ProjectDetails() {
                                 colorScheme="red"
                                 variant="ghost"
                                 isDisabled={removingMember !== null}
-                                onClick={() => handleRemoveMemberClick(member.userId, `${member.firstName} ${member.lastName}`)}
+                                onClick={() => handleRemoveMemberClick(m.userId, `${m.firstName} ${m.lastName}`)}
                               />
                             )}
                           </HStack>
->>>>>>> c12a0e8179ee79b38c964c19040a6b902b02f719
                         </HStack>
                       </Box>
                     );
@@ -494,6 +492,25 @@ export default function ProjectDetails() {
             </ModalFooter>
           </ModalContent>
         </Modal>
+
+        {/* Modal uploadu plików */}
+        {project && (
+          <UploadFilesModal
+            isOpen={isUploadModalOpen}
+            onClose={onUploadModalClose}
+            tenantId={project.tenantId}
+            projectId={project.id}
+            projectName={project.name}
+            onFilesUploaded={() => {
+              // Można tu odświeżyć listę plików gdy będzie zaimplementowana
+              toast({
+                title: "Pliki przesłane",
+                status: "success",
+                duration: 2000,
+              });
+            }}
+          />
+        )}
       </Box>
     </MainLayout>
   );

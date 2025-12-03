@@ -25,13 +25,10 @@ export default function Header() {
 
   const [activeTenantName, setActiveTenantName] = useState<string | null>(null);
 
-  const bg = useColorModeValue("#0f0f0f", "#0f0f0f");
-  const border = useColorModeValue("#1d1d1d", "#1d1d1d");
-
-  const initials =
-    user?.firstName && user?.lastName
-      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-      : "U";
+  const bg = useColorModeValue("white", "#0f0f0f");
+  const border = useColorModeValue("gray.200", "#1e1e1e");
+  const textColor = useColorModeValue("gray.800", "gray.200");
+  const mutedColor = useColorModeValue("gray.600", "gray.400");
 
   const pageTitle = getPageTitle(location.pathname);
 
@@ -74,7 +71,7 @@ export default function Header() {
       zIndex={999}
     >
       {/* LEWY: tytuł strony */}
-      <Text fontSize="lg" fontWeight="semibold" color="gray.200">
+      <Text fontSize="lg" fontWeight="semibold" color={textColor}>
         {pageTitle}
       </Text>
 
@@ -85,8 +82,8 @@ export default function Header() {
 
           {activeTenantName && (
             <HStack spacing={1} cursor="pointer">
-              <Icon as={Building2} boxSize={4} color="gray.400" />
-              <Text fontSize="sm" color="gray.300">
+              <Icon as={Building2} boxSize={4} color={mutedColor} />
+              <Text fontSize="sm" color={textColor}>
                 {activeTenantName}
               </Text>
             </HStack>
@@ -94,16 +91,13 @@ export default function Header() {
 
           <Menu placement="bottom-end">
             <MenuButton>
-              <Avatar size="sm" bg="gray.700" color="white">
-                {initials}
-              </Avatar>
+              <Avatar size="sm" bg="gray.300" />
             </MenuButton>
 
-            <MenuList bg="#1a1a1a" borderColor="#2a2a2a" color="gray.200">
+            <MenuList bg={bg} borderColor={border} color={textColor}>
               <MenuItem
                 icon={<UserIcon size={16} />}
-                bg="#1a1a1a"
-                _hover={{ bg: "#222" }}
+                _hover={{ bg: useColorModeValue("gray.100", "#181818") }}
                 onClick={() => navigate("/profile")}
               >
                 Ustawienia profilu
@@ -113,8 +107,7 @@ export default function Header() {
 
               <MenuItem
                 icon={<RefreshCw size={16} />}
-                bg="#1a1a1a"
-                _hover={{ bg: "#222" }}
+                _hover={{ bg: useColorModeValue("gray.100", "#181818") }}
                 onClick={() => navigate("/tenants/collaborating")}
               >
                 Zmień aktywnego tenanta
@@ -123,9 +116,8 @@ export default function Header() {
               <MenuDivider />
 
               <MenuItem
-                color="red.400"
-                bg="#1a1a1a"
-                _hover={{ bg: "#220000" }}
+                color="red.500"
+                _hover={{ bg: useColorModeValue("red.50", "#220000") }}
                 onClick={async () => {
                   await logout();
                   navigate("/");

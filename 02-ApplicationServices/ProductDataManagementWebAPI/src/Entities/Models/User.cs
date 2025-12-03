@@ -26,6 +26,7 @@ namespace Entities.Models
         public ICollection<UserPasswordReset> PasswordResets { get; set; } = new List<UserPasswordReset>();
         public ICollection<UserActivation> Activations { get; set; } = new List<UserActivation>();
         public ICollection<UserProfileBase> Profiles { get; set; } = new List<UserProfileBase>();
+        public ICollection<ProjectFile> UploadedFiles { get; set; } = new List<ProjectFile>();
     }
 
     public enum AuthProvider

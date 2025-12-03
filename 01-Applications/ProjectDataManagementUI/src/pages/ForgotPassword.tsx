@@ -71,12 +71,13 @@ export default function ForgotPassword() {
         justify="center"
         align="center"
         minH="100vh"
-        bg="#0f0f0f"
+        bg="gray.50"
         px={4}
       >
         <Box
-          bg="#131313"
-          border="1px solid #1d1d1d"
+          bg="white"
+          border="1px solid"
+          borderColor="gray.200"
           rounded="lg"
           p={10}
           maxW="420px"
@@ -85,11 +86,11 @@ export default function ForgotPassword() {
         >
           <Icon as={CheckCircle2} color="green.400" boxSize={20} mb={4} />
 
-          <Heading size="lg" color="gray.100" mb={4}>
+          <Heading size="lg" color="gray.800" mb={4}>
             Email wysłany
           </Heading>
 
-          <Text color="gray.400" fontSize="sm" mb={6}>
+          <Text color="gray.600" fontSize="sm" mb={6}>
             Jeśli konto z tym adresem istnieje, otrzymasz link do resetowania
             hasła. Sprawdź również folder spam.
           </Text>
@@ -114,32 +115,33 @@ export default function ForgotPassword() {
       justify="center"
       align="center"
       minH="100vh"
-      bg="#0f0f0f"
+      bg="gray.50"
       px={4}
     >
       <Box
-        bg="#131313"
-        border="1px solid #1d1d1d"
+        bg="white"
+        border="1px solid"
+        borderColor="gray.200"
         rounded="lg"
         p={10}
         maxW="420px"
         w="100%"
       >
         <Flex direction="column" align="center" mb={6}>
-          <Icon as={Mail} color="gray.300" boxSize={20} mb={3} />
-          <Heading size="lg" color="gray.100">
+          <Icon as={Mail} color="gray.600" boxSize={20} mb={3} />
+          <Heading size="lg" color="gray.800">
             Resetowanie hasła
           </Heading>
         </Flex>
 
         <VStack as="form" onSubmit={handleSubmit} spacing={5}>
-          <Text color="gray.400" fontSize="sm" textAlign="center">
+          <Text color="gray.600" fontSize="sm" textAlign="center">
             Podaj adres email przypisany do Twojego konta, a wyślemy do Ciebie
             link do ustawienia nowego hasła.
           </Text>
 
           <FormControl>
-            <FormLabel color="gray.300" fontSize="sm">
+            <FormLabel color="gray.700" fontSize="sm">
               Email
             </FormLabel>
             <Input
@@ -147,8 +149,9 @@ export default function ForgotPassword() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="twoj@email.com"
-              bg="#0f0f0f"
-              border="1px solid #2a2a2a"
+              bg="white"
+              border="1px solid"
+              borderColor="gray.300"
               _placeholder={{ color: "gray.600" }}
             />
           </FormControl>
@@ -164,7 +167,7 @@ export default function ForgotPassword() {
 
           <Button
             variant="link"
-            color="gray.400"
+            color="gray.600"
             onClick={() => navigate("/login")}
           >
             Powrót do logowania

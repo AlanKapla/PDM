@@ -15,6 +15,8 @@ import ResetPassword from "../pages/ResetPassword";
 import ActivateAccount from "../pages/ActivateAccount";
 import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
+import MyFiles from "../pages/MyFiles";
+import SharedFiles from "../pages/SharedFiles";
 
 export default function AppRouter() {
   return (
@@ -147,6 +149,24 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ProjectDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tenants/:tenantId/projects/:projectId/my-files"
+        element={
+          <ProtectedRoute>
+            <MyFiles />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tenants/:tenantId/projects/:projectId/shared-files"
+        element={
+          <ProtectedRoute>
+            <SharedFiles />
           </ProtectedRoute>
         }
       />

@@ -20,9 +20,12 @@ import MainLayout from "../layout/MainLayout";
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const cardBg = useColorModeValue("#1a1a1a", "#1a1a1a");
-  const cardHover = useColorModeValue("#232323", "#232323");
-  const border = useColorModeValue("#2a2a2a", "#2a2a2a");
+  const cardBg = useColorModeValue("white", "#101010");
+  const cardHover = useColorModeValue("gray.50", "#181818");
+  const border = useColorModeValue("gray.200", "#1e1e1e");
+  const textColor = useColorModeValue("gray.800", "gray.100");
+  const mutedColor = useColorModeValue("gray.600", "gray.400");
+  const iconColor = useColorModeValue("gray.700", "gray.300");
 
   const menuCards = [
     {
@@ -64,7 +67,7 @@ export default function Dashboard() {
           fontSize="2xl"
           fontWeight="semibold"
           mb={8}
-          color="gray.200"
+          color={textColor}
         >
           Panel główny
         </Text>
@@ -81,26 +84,28 @@ export default function Dashboard() {
               p={6}
               cursor="pointer"
               transition="0.2s"
+              boxShadow="sm"
               _hover={{
                 bg: cardHover,
-                borderColor: "#3a3a3a",
+                borderColor: useColorModeValue("gray.300", "#3a3a3a"),
                 transform: "translateY(-2px)",
+                boxShadow: "md",
               }}
               onClick={() => navigate(card.path)}
             >
               <Icon
                 as={card.icon}
-                color="gray.300"
+                color={iconColor}
                 boxSize={7}
                 mb={4}
               />
 
               <VStack align="flex-start" spacing={1} flex="1">
-                <Text fontSize="lg" fontWeight="semibold" color="gray.100">
+                <Text fontSize="lg" fontWeight="semibold" color={textColor}>
                   {card.title}
                 </Text>
 
-                <Text fontSize="sm" color="gray.400">
+                <Text fontSize="sm" color={mutedColor}>
                   {card.desc}
                 </Text>
               </VStack>

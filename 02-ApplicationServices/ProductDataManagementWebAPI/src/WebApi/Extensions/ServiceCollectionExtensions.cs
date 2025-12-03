@@ -203,6 +203,9 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
             services.AddScoped<IReadRepository<Notification>, ReadRepository<Notification>>();
             services.AddScoped<IRepository<Notification>, Repository<Notification>>();
+            services.AddScoped<IReadRepository<ProjectFile>, ReadRepository<ProjectFile>>();
+            services.AddScoped<IRepository<ProjectFile>, Repository<ProjectFile>>();
+            services.AddScoped<IRepository<SharedProjectFile>, Repository<SharedProjectFile>>();
             return services;
         }
 
