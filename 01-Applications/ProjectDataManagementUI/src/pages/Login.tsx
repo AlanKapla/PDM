@@ -13,6 +13,8 @@ import {
   InputGroup,
   InputRightElement,
   IconButton,
+  Text,
+  Divider,
 } from "@chakra-ui/react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -38,12 +40,11 @@ export default function Login() {
     setLoading(true);
 
     const result = await login(email, password);
-
     setLoading(false);
 
     if (!result.success) {
       toast({
-        title: result.message || "Błędne dane logowania",
+        title: result.message || "Błędne dane",
         status: "error",
         duration: 3000,
       });
@@ -51,7 +52,7 @@ export default function Login() {
     }
 
     toast({
-      title: "Zalogowano pomyślnie",
+      title: "Zalogowano",
       status: "success",
       duration: 2000,
     });
@@ -60,60 +61,68 @@ export default function Login() {
     navigate(from, { replace: true });
   };
 
-  const handleGoogleLogin = async (credentialResponse: any) => {
-    const token = credentialResponse.credential;
-
-    const result = await googleLogin(token);
+  const handleGoogleLogin = async (credential: any) => {
+    const result = await googleLogin(credential.credential);
 
     if (!result.success) {
       toast({
-        title: result.message || "Błąd logowania przez Google",
+        title: result.message || "Błąd Google",
         status: "error",
-        duration: 3000,
       });
       return;
     }
 
-    toast({
-      title: "Zalogowano przez Google",
-      status: "success",
-      duration: 2000,
-    });
-
     navigate("/dashboard", { replace: true });
   };
 
+  const bg = useColorModeValue("#ffffff", "#1a1a1a");
   const cardBg = useColorModeValue("white", "gray.800");
-  const pageBg = useColorModeValue("gray.50", "gray.900");
   const labelColor = useColorModeValue("gray.700", "gray.300");
+  const textSecondary = useColorModeValue("gray.600", "gray.400");
 
   return (
-    <Flex justify="center" align="center" minH="100vh" bg={pageBg}>
-      <Box bg={cardBg} p={8} rounded="lg" shadow="lg" maxW="400px" width="100%">
-        <Heading mb={6} textAlign="center">Logowanie</Heading>
+    <Flex justify="center" align="center" minH="100vh" bg={bg} px={4}>
+      <Box
+        bg={cardBg}
+        p={8}
+        rounded="2xl"
+        shadow="md"
+        w="100%"
+        maxW="420px"
+        border="1px solid"
+        borderColor="rgba(0,0,0,0.06)"
+      >
+        <Heading mb={6} textAlign="center" fontWeight="700">
+          Zaloguj się
+        </Heading>
 
-        {/* LOGOWANIE LOKALNE */}
         <VStack spacing={4} as="form" onSubmit={handleLocalLogin}>
           <FormControl>
-            <FormLabel color={labelColor}>Email</FormLabel>
-            <Input 
-              type="email" 
+            <FormLabel color={labelColor} fontWeight="500">
+              Email
+            </FormLabel>
+            <Input
+              type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)} 
+              size="lg"
+              onChange={(e) => setEmail(e.target.value)}
             />
           </FormControl>
 
           <FormControl>
-            <FormLabel color={labelColor}>Hasło</FormLabel>
+            <FormLabel color={labelColor} fontWeight="500">
+              Hasło
+            </FormLabel>
             <InputGroup>
               <Input
                 type={showPassword ? "text" : "password"}
                 value={password}
+                size="lg"
                 onChange={(e) => setPassword(e.target.value)}
               />
               <InputRightElement>
                 <IconButton
-                  aria-label="toggle password"
+                  aria-label="toggle"
                   icon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   onClick={() => setShowPassword(!showPassword)}
                   variant="ghost"
@@ -123,26 +132,28 @@ export default function Login() {
             </InputGroup>
           </FormControl>
 
-          <Button width="100%" colorScheme="blue" type="submit" isLoading={loading}>
+          <Button w="100%" colorScheme="blue" size="lg" type="submit" isLoading={loading}>
             Zaloguj się
           </Button>
         </VStack>
 
-        {/* GOOGLE LOGIN */}
-        <Box mt={6} textAlign="center">
+        <Divider my={6} />
+
+        <Text textAlign="center" color={textSecondary} mb={3} fontSize="sm">
+          lub użyj konta Google
+        </Text>
+
+        <Flex justify="center">
           <GoogleLogin
             onSuccess={handleGoogleLogin}
             onError={() =>
-              toast({
-                title: "Google login error",
-                status: "error",
-              })
+              toast({ title: "Google error", status: "error" })
             }
           />
-        </Box>
+        </Flex>
 
-        <Button variant="link" mt={4} width="100%" onClick={() => navigate("/register")}>
-          Utwórz konto
+        <Button variant="link" mt={6} width="100%" onClick={() => navigate("/register")}>
+          Utwórz nowe konto
         </Button>
       </Box>
     </Flex>
