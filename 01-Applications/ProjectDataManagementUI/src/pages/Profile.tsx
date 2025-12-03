@@ -1,45 +1,51 @@
 import { useEffect, useState } from "react";
 import {
   Box,
+  Heading,
   Text,
-  VStack,
-  HStack,
-  Avatar,
-  Input,
-  Button,
   Spinner,
-  useToast,
+  VStack,
+  useColorModeValue,
+  Button,
+  Input,
   FormControl,
   FormLabel,
+  HStack,
+  useToast,
 } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
-import { PageHeader } from "../components/PageHeader";
 import { getUserDetails, updateUserProfile } from "../services/userService";
 import type { UserProfile } from "../types/auth.types";
 
 export default function Profile() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-
+  const [saving, setSaving] = useState(false);
+  
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-
+  
   const toast = useToast();
+
+  const cardBg = useColorModeValue("white", "gray.800");
+  const cardText = useColorModeValue("gray.700", "gray.300");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const labelColor = useColorModeValue("gray.700", "gray.300");
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await getUserDetails();
-        setUser(data);
-
-        if (data) {
-          setFirstName(data.firstName);
-          setLastName(data.lastName);
+        const userData = await getUserDetails();
+        
+        setUser(userData);
+        
+        if (userData) {
+          setFirstName(userData.firstName);
+          setLastName(userData.lastName);
         }
-      } catch (err) {
-        console.error("Błąd ładowania profilu:", err);
+      } catch (error) {
+        console.error("Błąd ładowania danych:", error);
       } finally {
         setLoading(false);
       }
@@ -47,36 +53,8 @@ export default function Profile() {
     load();
   }, []);
 
-  const handleSave = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Imię i nazwisko nie mogą być puste.",
-        status: "error",
-      });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const success = await updateUserProfile(firstName, lastName);
-      if (success) {
-        setUser((prev) =>
-          prev ? { ...prev, firstName, lastName } : prev
-        );
-        setIsEditing(false);
-        toast({ title: "Profil zaktualizowany", status: "success" });
-      } else {
-        toast({
-          title: "Nie udało się zapisać zmian",
-          status: "error",
-        });
-      }
-    } catch (err) {
-      toast({ title: "Błąd połączenia", status: "error" });
-    } finally {
-      setSaving(false);
-    }
+  const handleEdit = () => {
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
@@ -87,10 +65,58 @@ export default function Profile() {
     }
   };
 
+  const handleSave = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      toast({
+        title: "Błąd walidacji",
+        description: "Imię i nazwisko nie mogą być puste",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const success = await updateUserProfile(firstName, lastName);
+      
+      if (success) {
+        setUser((prev) => prev ? { ...prev, firstName, lastName } : null);
+        setIsEditing(false);
+        toast({
+          title: "Profil zaktualizowany",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: "Błąd aktualizacji",
+          description: "Nie udało się zaktualizować profilu",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (error) {
+      console.error("Błąd aktualizacji profilu:", error);
+      toast({
+        title: "Błąd",
+        description: "Wystąpił problem z połączeniem",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
-        <VStack justify="center" minH="80vh">
+        <VStack justify="center" minH="100vh">
           <Spinner size="xl" />
         </VStack>
       </MainLayout>
@@ -99,151 +125,107 @@ export default function Profile() {
 
   return (
     <MainLayout>
-      <Box px={12} py={10}>
-        <PageHeader
-          title="Ustawienia profilu"
-          breadcrumb={["Ustawienia", "Profil użytkownika"]}
-        />
+      <Box p={{ base: 4, md: 10 }} bg={pageBg} minH="100vh">
+        <Box
+          bg={cardBg}
+          p={{ base: 6, md: 8 }}
+          rounded="2xl"
+          shadow="xl"
+          maxW="600px"
+          mx="auto"
+        >
+          <Heading mb={6} color={useColorModeValue("black", "white")}>
+            Profil użytkownika
+          </Heading>
 
-        <VStack spacing={10} align="stretch" maxW="700px" mx="auto">
+          <VStack spacing={4} align="stretch">
+            {!isEditing ? (
+              <>
+                <Box>
+                  <Text fontSize="sm" color={labelColor} mb={1}>
+                    Imię
+                  </Text>
+                  <Text fontSize="lg" color={cardText}>
+                    {user?.firstName}
+                  </Text>
+                </Box>
 
-          {/* PANEL: DANE UŻYTKOWNIKA */}
-          <Box
-            bg="white"
-            border="1px solid"
-            borderColor="gray.200"
-            borderRadius="lg"
-            p={8}
-            transition="0.2s"
-            _hover={{ bg: "#181818" }}
-          >
-            <Text fontSize="lg" fontWeight="semibold" mb={6} color="gray.200">
-              Dane użytkownika
-            </Text>
+                <Box>
+                  <Text fontSize="sm" color={labelColor} mb={1}>
+                    Nazwisko
+                  </Text>
+                  <Text fontSize="lg" color={cardText}>
+                    {user?.lastName}
+                  </Text>
+                </Box>
 
-            <HStack spacing={6} mb={8}>
-              <Avatar
-                size="xl"
-                bg="gray.700"
-                color="white"
-                name={`${user?.firstName} ${user?.lastName}`}
-              />
+                <Box>
+                  <Text fontSize="sm" color={labelColor} mb={1}>
+                    Email
+                  </Text>
+                  <Text fontSize="lg" color={cardText}>
+                    {user?.email}
+                  </Text>
+                </Box>
 
-              <VStack align="flex-start" spacing={0}>
-                <Text fontSize="lg" color="gray.200">
-                  {user?.firstName} {user?.lastName}
-                </Text>
-                <Text fontSize="sm" color="gray.400">
-                  {user?.email}
-                </Text>
-              </VStack>
-            </HStack>
+                <Button colorScheme="blue" onClick={handleEdit} mt={4}>
+                  Edytuj profil
+                </Button>
+              </>
+            ) : (
+              <>
+                <FormControl>
+                  <FormLabel color={labelColor}>Imię</FormLabel>
+                  <Input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Podaj imię"
+                  />
+                </FormControl>
 
-            <VStack spacing={6} align="stretch">
-              {isEditing ? (
-                <>
-                  <FormControl>
-                    <FormLabel color="gray.600">Imię</FormLabel>
-                    <Input
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      bg="white"
-                      border="1px solid"
-                      borderColor="gray.300"
-                      _focus={{
-                        borderColor: "#6366f1",
-                        boxShadow: "0 0 0 1px #6366f1",
-                      }}
-                    />
-                  </FormControl>
+                <FormControl>
+                  <FormLabel color={labelColor}>Nazwisko</FormLabel>
+                  <Input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Podaj nazwisko"
+                  />
+                </FormControl>
 
-                  <FormControl>
-                    <FormLabel color="gray.600">Nazwisko</FormLabel>
-                    <Input
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      bg="white"
-                      border="1px solid"
-                      borderColor="gray.300"
-                      _focus={{
-                        borderColor: "#6366f1",
-                        boxShadow: "0 0 0 1px #6366f1",
-                      }}
-                    />
-                  </FormControl>
+                <Box>
+                  <Text fontSize="sm" color={labelColor} mb={1}>
+                    Email
+                  </Text>
+                  <Text fontSize="lg" color={cardText}>
+                    {user?.email}
+                  </Text>
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    Email nie może być edytowany
+                  </Text>
+                </Box>
 
-                  <Box>
-                    <Text fontSize="sm" color="gray.400">
-                      Email
-                    </Text>
-                    <Text fontSize="md" color="gray.300">
-                      {user?.email}
-                    </Text>
-                    <Text fontSize="xs" color="gray.500">
-                      Email nie może być edytowany.
-                    </Text>
-                  </Box>
-
-                  <HStack spacing={4} pt={2}>
-                    <Button
-                      colorScheme="blue"
-                      onClick={handleSave}
-                      isLoading={saving}
-                      flex={1}
-                    >
-                      Zapisz
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleCancel}
-                      isDisabled={saving}
-                      flex={1}
-                    >
-                      Anuluj
-                    </Button>
-                  </HStack>
-                </>
-              ) : (
-                <>
-                  <Box>
-                    <Text fontSize="sm" color="gray.400">
-                      Imię
-                    </Text>
-                    <Text fontSize="lg" color="gray.200">
-                      {user?.firstName}
-                    </Text>
-                  </Box>
-
-                  <Box>
-                    <Text fontSize="sm" color="gray.400">
-                      Nazwisko
-                    </Text>
-                    <Text fontSize="lg" color="gray.200">
-                      {user?.lastName}
-                    </Text>
-                  </Box>
-
-                  <Box>
-                    <Text fontSize="sm" color="gray.400">
-                      Email
-                    </Text>
-                    <Text fontSize="lg" color="gray.300">
-                      {user?.email}
-                    </Text>
-                  </Box>
-
+                <HStack spacing={3} mt={4}>
                   <Button
                     colorScheme="blue"
-                    mt={4}
-                    onClick={() => setIsEditing(true)}
+                    onClick={handleSave}
+                    isLoading={saving}
+                    flex={1}
                   >
-                    Edytuj profil
+                    Zapisz
                   </Button>
-                </>
-              )}
-            </VStack>
-          </Box>
-        </VStack>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancel}
+                    isDisabled={saving}
+                    flex={1}
+                  >
+                    Anuluj
+                  </Button>
+                </HStack>
+              </>
+            )}
+          </VStack>
+        </Box>
       </Box>
     </MainLayout>
   );

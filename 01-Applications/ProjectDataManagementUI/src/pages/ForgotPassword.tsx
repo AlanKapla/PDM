@@ -8,11 +8,10 @@ import {
   VStack,
   FormControl,
   FormLabel,
-  Text,
-  Icon,
   useToast,
+  useColorModeValue,
+  Text,
 } from "@chakra-ui/react";
-import { Mail, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { requestPasswordReset } from "../services/authService";
 
@@ -26,12 +25,13 @@ export default function ForgotPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!email.trim()) {
+    
+    if (!email) {
       toast({
         title: "Podaj adres email",
         status: "warning",
-        duration: 2500,
+        duration: 3000,
+        isClosable: true,
       });
       return;
     }
@@ -39,135 +39,103 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      const ok = await requestPasswordReset(email);
+      const success = await requestPasswordReset(email);
 
-      if (ok) {
+      if (success) {
         setSent(true);
+        toast({
+          title: "Email wysłany",
+          description: "Sprawdź swoją skrzynkę pocztową",
+          status: "success",
+          duration: 5000,
+          isClosable: true,
+        });
       } else {
         toast({
           title: "Błąd",
-          description: "Nie udało się wysłać wiadomości",
+          description: "Nie udało się wysłać emaila",
           status: "error",
-          duration: 2500,
+          duration: 3000,
+          isClosable: true,
         });
       }
-    } catch {
+    } catch (error) {
+      console.error("Błąd resetowania hasła:", error);
       toast({
-        title: "Błąd połączenia",
+        title: "Błąd połączenia z serwerem",
         status: "error",
-        duration: 2500,
+        duration: 3000,
+        isClosable: true,
       });
     } finally {
       setLoading(false);
     }
   };
 
-  //
-  // ---------- WIDOK: EMAIL WYSŁANY ----------
-  //
+  const cardBg = useColorModeValue("white", "gray.800");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const labelColor = useColorModeValue("gray.700", "gray.300");
+
   if (sent) {
     return (
-      <Flex
-        justify="center"
-        align="center"
-        minH="100vh"
-        bg="gray.50"
-        px={4}
-      >
-        <Box
-          bg="white"
-          border="1px solid"
-          borderColor="gray.200"
-          rounded="lg"
-          p={10}
-          maxW="420px"
-          w="100%"
-          textAlign="center"
-        >
-          <Icon as={CheckCircle2} color="green.400" boxSize={20} mb={4} />
-
-          <Heading size="lg" color="gray.800" mb={4}>
+      <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
+        <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
+          <Heading mb={6} textAlign="center" size="lg">
             Email wysłany
           </Heading>
 
-          <Text color="gray.600" fontSize="sm" mb={6}>
-            Jeśli konto z tym adresem istnieje, otrzymasz link do resetowania
-            hasła. Sprawdź również folder spam.
-          </Text>
+          <VStack spacing={4}>
+            <Text textAlign="center">
+              Jeśli konto z tym adresem email istnieje, otrzymasz wiadomość z linkiem do resetowania hasła.
+            </Text>
 
-          <Button
-            colorScheme="blue"
-            w="100%"
-            onClick={() => navigate("/login")}
-          >
-            Powrót do logowania
-          </Button>
+            <Text textAlign="center" fontSize="sm" color="gray.500">
+              Sprawdź również folder spam.
+            </Text>
+
+            <Button width="100%" colorScheme="blue" onClick={() => navigate("/login")}>
+              Powrót do logowania
+            </Button>
+          </VStack>
         </Box>
       </Flex>
     );
   }
 
-  //
-  // ---------- WIDOK: FORMULARZ RESETU ----------
-  //
   return (
-    <Flex
-      justify="center"
-      align="center"
-      minH="100vh"
-      bg="gray.50"
-      px={4}
-    >
-      <Box
-        bg="white"
-        border="1px solid"
-        borderColor="gray.200"
-        rounded="lg"
-        p={10}
-        maxW="420px"
-        w="100%"
-      >
-        <Flex direction="column" align="center" mb={6}>
-          <Icon as={Mail} color="gray.600" boxSize={20} mb={3} />
-          <Heading size="lg" color="gray.800">
-            Resetowanie hasła
-          </Heading>
-        </Flex>
+    <Flex justify="center" align="center" minH="100vh" bg={pageBg} px={{ base: 4, md: 0 }}>
+      <Box bg={cardBg} p={{ base: 6, md: 8 }} rounded="lg" shadow="lg" width="100%" maxW="400px">
+        <Heading mb={6} textAlign="center" size="lg">
+          Resetowanie hasła
+        </Heading>
 
-        <VStack as="form" onSubmit={handleSubmit} spacing={5}>
-          <Text color="gray.600" fontSize="sm" textAlign="center">
-            Podaj adres email przypisany do Twojego konta, a wyślemy do Ciebie
-            link do ustawienia nowego hasła.
+        <VStack spacing={4} as="form" onSubmit={handleSubmit}>
+          <Text textAlign="center" fontSize="sm" color={labelColor}>
+            Podaj adres email przypisany do Twojego konta. Wyślemy Ci link do resetowania hasła.
           </Text>
 
           <FormControl>
-            <FormLabel color="gray.700" fontSize="sm">
-              Email
-            </FormLabel>
+            <FormLabel color={labelColor}>Email</FormLabel>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="twoj@email.com"
-              bg="white"
-              border="1px solid"
-              borderColor="gray.300"
-              _placeholder={{ color: "gray.600" }}
+              required
             />
           </FormControl>
 
-          <Button
-            type="submit"
-            w="100%"
-            colorScheme="blue"
+          <Button 
+            width="100%" 
+            colorScheme="blue" 
+            type="submit" 
             isLoading={loading}
           >
             Wyślij link resetujący
           </Button>
 
-          <Button
-            variant="link"
-            color="gray.600"
+          <Button 
+            variant="link" 
             onClick={() => navigate("/login")}
           >
             Powrót do logowania
