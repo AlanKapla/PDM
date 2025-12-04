@@ -68,7 +68,7 @@ export default function Dashboard() {
       icon: Calculator,
       color: pastel.orange,
       gradient: "linear(to-br, orange.50, white)",
-      path: "/estimates",
+      path: "/cost-editor",
     },
     {
       title: "Ustawienia",

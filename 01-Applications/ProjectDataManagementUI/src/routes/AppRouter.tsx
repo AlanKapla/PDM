@@ -17,6 +17,7 @@ import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
 import MyFiles from "../pages/MyFiles";
 import SharedFiles from "../pages/SharedFiles";
+import CostEditor from "../pages/CostEditor";
 
 export default function AppRouter() {
   return (
@@ -167,6 +168,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <SharedFiles />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/cost-editor"
+        element={
+          <ProtectedRoute>
+            <CostEditor />
           </ProtectedRoute>
         }
       />

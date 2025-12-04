@@ -153,8 +153,8 @@ export default function Sidebar() {
         <Button
           {...buttonStyle}
           leftIcon={<Calculator size={18} />}
-          bg={location.pathname.startsWith("/estimates") ? activeBg : "transparent"}
-          onClick={() => navigate("/estimates")}
+          bg={location.pathname.startsWith("/cost-editor") ? activeBg : "transparent"}
+          onClick={() => navigate("/cost-editor")}
         >
           Kosztorysy
         </Button>
