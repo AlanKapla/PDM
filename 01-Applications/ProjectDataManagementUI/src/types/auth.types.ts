@@ -21,6 +21,7 @@ export interface LogoutRequest {
 }
 
 export interface UserProfile {
+  id?: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -57,6 +58,7 @@ export interface TenantDetails {
   name: string;
   createdAt: string;
   role: number;
+  isActive: boolean;
   members: TenantMemberDetails[];
   invitations: TenantInvitationWeb[];
 }

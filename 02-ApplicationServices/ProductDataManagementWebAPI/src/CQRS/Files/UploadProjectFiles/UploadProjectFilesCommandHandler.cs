@@ -1,53 +1,99 @@
 ﻿using Business.Interfaces.Configurations;
-using Business.Interfaces.DTO;
+using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Business.Interfaces.WebModels.Files;
 using Entities.Models;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.UploadProjectFiles
 {
-    public class UploadProjectFilesCommandHandler : IRequestHandler<UploadProjectFilesCommand, List<ProjectFileWeb>>
+    public class UploadProjectFilesCommandHandler : IRequestHandler<UploadProjectFilesCommand, Unit>
     {
         private readonly IRepository<ProjectFile> projectFileRepo;
+        private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
+        private readonly IRepository<ProjectFileVersionComment> commentRepo;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UploadProjectFilesCommandHandler> logger;
 
         public UploadProjectFilesCommandHandler(
             IRepository<ProjectFile> projectFileRepo,
+            IRepository<ProjectFileVersion> projectFileVersionRepo,
+            IRepository<ProjectFileVersionComment> commentRepo,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<UploadProjectFilesCommandHandler> logger)
         {
             this.projectFileRepo = projectFileRepo;
+            this.projectFileVersionRepo = projectFileVersionRepo;
+            this.commentRepo = commentRepo;
             this.blobStorageService = blobStorageService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
 
-        public async Task<List<ProjectFileWeb>> Handle(UploadProjectFilesCommand request, CancellationToken cancellationToken)
+        public async Task<Unit> Handle(UploadProjectFilesCommand request, CancellationToken cancellationToken)
         {
-            var uploadedFiles = new List<ProjectFileWeb>();
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
 
-            foreach (var fileItem in request.Files)
+            foreach (FileUploadItem fileItem in request.Files)
             {
                 try
                 {
-                    var file = fileItem.File;
+                    IFormFile file = fileItem.File;
                     
-                    // Generate GUID for blob name
-                    Guid fileId = Guid.NewGuid();
-                    string fileExtension = Path.GetExtension(file.FileName);
-                    string blobFileName = $"{fileId}{fileExtension}";
-                    string blobPath = $"{request.TenantId}/{request.ProjectId}/{currentUser.Id}/{request.PackageName}/{blobFileName}";
+                    string displayName = !string.IsNullOrWhiteSpace(fileItem.DisplayName)
+                        ? fileItem.DisplayName
+                        : Path.GetFileNameWithoutExtension(file.FileName);
 
-                    // Upload to blob storage
-                    using (var stream = file.OpenReadStream())
+                    // Utworzenie ProjectFile - Id jest generowane automatycznie przez BaseEntity
+                    ProjectFile projectFile = new ProjectFile
+                    {
+                        TenantId = request.TenantId,
+                        ProjectId = request.ProjectId,
+                        OwnerId = currentUser.Id,
+                        FileName = file.FileName,
+                        PackageName = request.PackageName,
+                        DisplayName = displayName,
+                        CurrentVersionId = null, // Ustawiamy null, zaktualizujemy po utworzeniu wersji
+                        CreatedAt = DateTime.UtcNow,
+                        IsDeleted = false
+                    };
+
+                    // Pobieramy wygenerowane ID
+                    Guid fileId = projectFile.Id;
+
+                    // Normalizacja nazwy paczki dla blob storage (usunięcie niedozwolonych znaków, spacje -> podkreślniki)
+                    string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(request.PackageName);
+
+                    string fileExtension = Path.GetExtension(file.FileName);
+                    int versionNumber = 1;
+                    
+                    // Tworzymy ProjectFileVersion - Id jest generowane automatycznie
+                    ProjectFileVersion firstVersion = new ProjectFileVersion
+                    {
+                        ProjectFileId = fileId,
+                        VersionNumber = versionNumber,
+                        CreatedByUserId = currentUser.Id,
+                        ContentType = file.ContentType,
+                        FileSizeBytes = file.Length,
+                        CreatedAt = DateTime.UtcNow,
+                        IsDeleted = false
+                    };
+
+                    Guid versionId = firstVersion.Id;
+                    string blobFileName = $"{versionId}{fileExtension}";
+                    string blobPath = $"{request.TenantId}/{request.ProjectId}/{packageNameForBlob}/{fileId}/{versionNumber}/{blobFileName}";
+
+                    // Ustawiamy blob path i nazwę pliku w wersji
+                    firstVersion.BlobFileName = blobFileName;
+                    firstVersion.BlobPath = blobPath;
+
+                    // Upload pliku do blob storage przed zapisem do bazy
+                    using (Stream stream = file.OpenReadStream())
                     {
                         await blobStorageService.UploadAsync(
                             containerName,
@@ -57,50 +103,35 @@ namespace CQRS.Files.UploadProjectFiles
                             cancellationToken);
                     }
 
-                    // DisplayName: use provided or default to source filename without extension
-                    string displayName = !string.IsNullOrWhiteSpace(fileItem.DisplayName)
-                        ? fileItem.DisplayName
-                        : Path.GetFileNameWithoutExtension(file.FileName);
-
-                    // Save to database
-                    var projectFile = new ProjectFile
-                    {
-                        Id = fileId,
-                        TenantId = request.TenantId,
-                        ProjectId = request.ProjectId,
-                        UploadedByUserId = currentUser.Id,
-                        FileName = file.FileName,  // Original source filename
-                        PackageName = request.PackageName,
-                        DisplayName = displayName,
-                        ContentType = file.ContentType,
-                        FileSizeBytes = file.Length,
-                        BlobPath = blobPath,
-                        UploadedAt = DateTime.UtcNow
-                    };
-
                     await projectFileRepo.Insert(projectFile);
+                    await projectFileVersionRepo.Insert(firstVersion);
 
-                    // Generate SAS URL for immediate access
-                    Uri sasUri = blobStorageService.GenerateSasUri(containerName, blobPath, expiresInMinutes: 60);
+                    // Zapisujemy zmiany, aby ProjectFile i ProjectFileVersion zostały zapisane przed ustawieniem CurrentVersionId
+                    await projectFileRepo.SaveChangesAsync(cancellationToken);
 
-                    // Map to Web model
-                    uploadedFiles.Add(new ProjectFileWeb
+                    // Teraz ustawiamy CurrentVersionId i aktualizujemy
+                    projectFile.CurrentVersionId = versionId;
+                    await projectFileRepo.Update(projectFile);
+
+                    if (!string.IsNullOrWhiteSpace(fileItem.Comment))
                     {
-                        Id = projectFile.Id,
-                        FileName = projectFile.FileName,
-                        DisplayName = projectFile.DisplayName,
-                        PackageName = projectFile.PackageName,
-                        ContentType = projectFile.ContentType,
-                        FileSizeBytes = projectFile.FileSizeBytes,
-                        UploadedAt = projectFile.UploadedAt,
-                        UploadedByUserId = projectFile.UploadedByUserId,
-                        UploadedByUserName = string.Empty, // Not loaded in upload context
-                        SasUrl = sasUri.ToString()
-                    });
+                        ProjectFileVersionComment comment = new ProjectFileVersionComment
+                        {
+                            ProjectFileVersionId = versionId,
+                            ProjectId = request.ProjectId,
+                            UserId = currentUser.Id,
+                            TenantId = request.TenantId,
+                            Content = fileItem.Comment,
+                            CreatedAt = DateTime.UtcNow,
+                            IsDeleted = false
+                        };
+
+                        await commentRepo.Insert(comment);
+                    }
 
                     logger.LogInformation(
-                        "File {FileName} (ID: {FileId}) uploaded to project {ProjectId} by user {UserId}",
-                        file.FileName, fileId, request.ProjectId, currentUser.Id);
+                        "File {FileName} (ID: {FileId}) with version {VersionNumber} uploaded to project {ProjectId} by user {UserId}",
+                        file.FileName, fileId, versionNumber, request.ProjectId, currentUser.Id);
                 }
                 catch (Exception ex)
                 {
@@ -111,7 +142,7 @@ namespace CQRS.Files.UploadProjectFiles
                 }
             }
 
-            return uploadedFiles;
+            return Unit.Value;
         }
     }
 }

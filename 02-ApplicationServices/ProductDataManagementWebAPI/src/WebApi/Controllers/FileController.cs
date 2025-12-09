@@ -1,8 +1,10 @@
-﻿using CQRS.Files.DeleteProjectFile;
+﻿using CQRS.Files.AddFileVersionComment;
+using CQRS.Files.DeleteProjectFile;
 using CQRS.Files.GetSharedFiles;
 using CQRS.Files.GetUserUploadedFiles;
 using CQRS.Files.ShareProjectFile;
 using CQRS.Files.UploadProjectFiles;
+using CQRS.Files.UploadProjectFileVersion;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,18 +28,28 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromForm] UploadProjectFilesCommand command)
         {
-            if (command.TenantId != tenantId)
-            {
-                return BadRequest("TenantId in URL does not match TenantId in request body");
-            }
+            command = command with { TenantId = tenantId, ProjectId = projectId };
 
-            if (command.ProjectId != projectId)
-            {
-                return BadRequest("ProjectId in URL does not match ProjectId in request body");
-            }
+            await Send(command);
+            return NoContent();
+        }
 
-            var result = await Send(command);
-            return Ok(result);
+        /// <summary>
+        /// Upload a new version of an existing project file
+        /// </summary>
+        [HttpPost("versions")]
+        [Authorize(Policy = Policies.ProjectMember)]
+        [RequestSizeLimit(52428800)] // 50 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
+        public async Task<IActionResult> UploadFileVersion(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromForm] UploadProjectFileVersionCommand command)
+        {
+            command = command with { TenantId = tenantId, ProjectId = projectId };
+
+            await Send(command);
+            return NoContent();
         }
 
         /// <summary>
@@ -58,7 +70,7 @@ namespace WebApi.Controllers
         /// Get files shared with current user
         /// </summary>
         [HttpGet("shared")]
-        [Authorize(Policy = Policies.TenantMember)]
+        [Authorize(Policy = Policies.ProjectMember)]
         public async Task<IActionResult> GetSharedFiles(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -78,15 +90,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromBody] ShareProjectFileCommand command)
         {
-            if (command.TenantId != tenantId)
-            {
-                return BadRequest("TenantId in URL does not match TenantId in request body");
-            }
-
-            if (command.ProjectId != projectId)
-            {
-                return BadRequest("ProjectId in URL does not match ProjectId in request body");
-            }
+            command = command with { TenantId = tenantId, ProjectId = projectId };
 
             var result = await Send(command);
             
@@ -95,7 +99,7 @@ namespace WebApi.Controllers
                 return BadRequest(new
                 {
                     Message = "File sharing failed",
-                    Errors = result.Errors
+                    result.Errors
                 });
             }
 
@@ -113,6 +117,54 @@ namespace WebApi.Controllers
             [FromRoute] Guid fileId)
         {
             var command = new DeleteProjectFileCommand(tenantId, projectId, fileId);
+            await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Upload a new version of an existing file with optional comment
+        /// </summary>
+        [HttpPost("{fileId}/versions")]
+        [Authorize(Policy = Policies.ProjectMember)]
+        [RequestSizeLimit(52428800)] // 50 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
+        public async Task<IActionResult> UploadNewVersion(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid fileId,
+            [FromForm] UploadProjectFileVersionCommand command)
+        {
+            command = command with 
+            { 
+                TenantId = tenantId, 
+                ProjectId = projectId, 
+                FileId = fileId 
+            };
+
+            await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Add a comment to a specific file version
+        /// </summary>
+        [HttpPost("{fileId}/versions/{versionId}/comments")]
+        [Authorize(Policy = Policies.ProjectMember)]
+        public async Task<IActionResult> AddFileVersionComment(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid fileId,
+            [FromRoute] Guid versionId,
+            [FromBody] AddFileVersionCommentCommand command)
+        {
+            command = command with 
+            { 
+                TenantId = tenantId, 
+                ProjectId = projectId, 
+                FileId = fileId,
+                VersionId = versionId
+            };
+
             await Send(command);
             return NoContent();
         }

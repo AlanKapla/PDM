@@ -3,16 +3,20 @@
 namespace Entities.Models
 {
     /// <summary>
-    /// Reprezentuje plik dodany do projektu
+    /// Reprezentuje plik dodany do projektu (metadane i właściciel)
     /// </summary>
     public class ProjectFile : BaseEntity
     {
         public Guid TenantId { get; set; }
         public Guid ProjectId { get; set; }
-        public Guid UploadedByUserId { get; set; }
         
         /// <summary>
-        /// Nazwa pliku z rozszerzeniem
+        /// ID właściciela pliku (użytkownik, który pierwotnie przesłał plik)
+        /// </summary>
+        public Guid OwnerId { get; set; }
+        
+        /// <summary>
+        /// Nazwa pliku źródłowego z rozszerzeniem
         /// </summary>
         public string FileName { get; set; } = default!;
         
@@ -27,25 +31,40 @@ namespace Entities.Models
         public string DisplayName { get; set; } = default!;
         
         /// <summary>
-        /// Typ pliku (MIME type)
+        /// Data utworzenia pliku
         /// </summary>
-        public string ContentType { get; set; } = default!;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
         /// <summary>
-        /// Rozmiar pliku w bajtach
+        /// ID aktualnie aktywnej wersji
         /// </summary>
-        public long FileSizeBytes { get; set; }
+        public Guid? CurrentVersionId { get; set; }
         
         /// <summary>
-        /// Pełna ścieżka do pliku na blob storage: tenantId/projectId/userId/packageName/fileName
+        /// Czy plik został usunięty (soft delete)
         /// </summary>
-        public string BlobPath { get; set; } = default!;
+        public bool IsDeleted { get; set; } = false;
         
-        public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? DeletedAt { get; set; }
 
         // Navigation properties
         public Project Project { get; set; } = default!;
-        public User UploadedByUser { get; set; } = default!;
-        public TenantMember UploadedByTenantMember { get; set; } = default!;
+        public User Owner { get; set; } = default!;
+        public TenantMember OwnerTenantMember { get; set; } = default!;
+        
+        /// <summary>
+        /// Aktualnie aktywna wersja pliku
+        /// </summary>
+        public ProjectFileVersion? CurrentVersion { get; set; }
+        
+        /// <summary>
+        /// Wszystkie wersje pliku
+        /// </summary>
+        public ICollection<ProjectFileVersion> Versions { get; set; } = new List<ProjectFileVersion>();
+        
+        /// <summary>
+        /// Użytkownicy, którym udostępniono ten plik
+        /// </summary>
+        public ICollection<SharedProjectFile> SharedWith { get; set; } = new List<SharedProjectFile>();
     }
 }

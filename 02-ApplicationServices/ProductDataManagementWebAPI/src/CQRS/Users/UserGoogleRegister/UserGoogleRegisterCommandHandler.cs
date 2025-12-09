@@ -1,4 +1,4 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models;
@@ -13,15 +13,18 @@ namespace CQRS.Users.UserGoogleRegister
     {
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<UserSession> userSessionRepo;
+        private readonly IReadRepository<TenantPreferencesProfile> tenantPrefsRepo;
         private readonly IJwtService jwt;
 
         public UserGoogleRegisterCommandHandler(
             IReadRepository<User> userRepo,
             IReadRepository<UserSession> userSessionRepo,
+            IReadRepository<TenantPreferencesProfile> tenantPrefsRepo,
             IJwtService jwt)
         {
             this.userRepo = userRepo;
             this.userSessionRepo = userSessionRepo;
+            this.tenantPrefsRepo = tenantPrefsRepo;
             this.jwt = jwt;
         }
 
@@ -59,7 +62,7 @@ namespace CQRS.Users.UserGoogleRegister
                 }
 
                 UserSession linkedUserSession = await CreateUserSession(existingLocalUser);
-                return PrepareUserAuthWeb(existingLocalUser, linkedUserSession);
+                return await PrepareUserAuthWeb(existingLocalUser, linkedUserSession);
             }
 
             User newUser = new User
@@ -77,7 +80,7 @@ namespace CQRS.Users.UserGoogleRegister
 
             UserSession userSession = await CreateUserSession(newUser);
 
-            return PrepareUserAuthWeb(newUser, userSession);
+            return await PrepareUserAuthWeb(newUser, userSession);
         }
 
         private async Task<UserSession> CreateUserSession(User user)
@@ -96,9 +99,13 @@ namespace CQRS.Users.UserGoogleRegister
             return userSession;
         }
 
-        private UserAuthWeb PrepareUserAuthWeb(User user, UserSession userSession)
+        private async Task<UserAuthWeb> PrepareUserAuthWeb(User user, UserSession userSession)
         {
-            TokenDto token = jwt.GenerateToken(user, user.ActiveTenantId);
+            // Pobierz ActiveTenantId z profilu użytkownika
+            TenantPreferencesProfile? prefs = await tenantPrefsRepo.GetFirstBySearch(p => p.UserId == user.Id);
+            Guid? activeTenantId = prefs?.ActiveTenantId;
+
+            TokenDto token = jwt.GenerateToken(user, activeTenantId);
 
             return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
         }

@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Entities.Enums;
 using Entities.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -49,8 +49,12 @@ namespace WebApi.Authorization
                 return;
             }
 
-            var membership = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == tenantId && m.UserId == currentUser.Id && m.IsActive);
-            if (membership != null && membership.Role == TenantRole.Admin)
+            var membership = await tenantMemberRepo.GetFirstBySearch(m =>
+                m.TenantId == tenantId &&
+                m.UserId == currentUser.Id &&
+                m.Role == TenantRole.Admin);
+
+            if (membership != null)
             {
                 context.Succeed(requirement);
             }

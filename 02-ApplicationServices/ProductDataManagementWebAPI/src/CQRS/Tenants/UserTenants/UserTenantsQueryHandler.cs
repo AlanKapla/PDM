@@ -23,16 +23,19 @@ namespace CQRS.Tenants.UserTenants
 
         public async Task<IEnumerable<TenantDetailsWeb>> Handle(UserTenantsQuery request, CancellationToken cancellationToken)
         {
-            // Pobranie aktywnych członkostw użytkownika z tenantami
+            // Pobranie aktywnych członkostw użytkownika z filtrami w bazie:
+            // - dla adminów: wszystkie tenanty (aktywne i nieaktywne)
+            // - dla pozostałych: tylko aktywne tenanty
             IEnumerable<TenantMember> memberships = await tenantMemberRepo.GetBySearch(
-                m => m.UserId == currentUser.Id && m.IsActive,
+                m => m.UserId == currentUser.Id 
+                     && m.IsActive 
+                     && m.Tenant != null 
+                     && (m.Role == TenantRole.Admin || m.Tenant.IsActive),
                 q => q.Include(m => m.Tenant)
             );
 
-            List<TenantMember> membershipList = memberships.Where(m => m.Tenant != null).ToList();
-
             // Id tenantów gdzie użytkownik jest Adminem
-            List<Guid> adminTenantIds = membershipList
+            List<Guid> adminTenantIds = memberships
                 .Where(m => m.Role == TenantRole.Admin)
                 .Select(m => m.TenantId)
                 .Distinct()
@@ -101,12 +104,13 @@ namespace CQRS.Tenants.UserTenants
                 }
             }
 
-            return membershipList
+            return memberships
                 .Select(m => new TenantDetailsWeb
                 {
                     Id = m.TenantId,
                     Name = m.Tenant!.Name,
                     CreatedAt = m.Tenant.CreatedAt,
+                    IsActive = m.Tenant.IsActive,
                     Role = m.Role,
                     Members = membersPerTenant.TryGetValue(m.TenantId, out var members) ? members : new List<TenantMemberDetailsWeb>(),
                     Invitations = invitationsPerTenant.TryGetValue(m.TenantId, out var invs) ? invs : new List<TenantInvitationWeb>()

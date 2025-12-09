@@ -1,12 +1,18 @@
 import * as signalR from "@microsoft/signalr";
-import type { NotificationWeb } from "../types/notification.types";
+import type { NotificationWeb, NotificationMarkAsReadDto } from "../types/notification.types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 class NotificationHubService {
   private connection: signalR.HubConnection | null = null;
   private listeners: ((notification: NotificationWeb) => void)[] = [];
+  private syncListeners: ((dto: NotificationMarkAsReadDto) => void)[] = []; // Listenery dla sync events
   private isConnecting: boolean = false;
+  
+  // Cache powiadomień w pamięci
+  private notificationsCache: NotificationWeb[] = [];
+  private unreadCountCache: number = 0;
+  private cacheInitialized: boolean = false;
 
   async startConnection(): Promise<void> {
     // Zapobiegnij wielokrotnym próbom połączenia
@@ -58,7 +64,20 @@ class NotificationHubService {
     // Nasłuchuj na nowe powiadomienia
     this.connection.on("ReceiveNotification", (notification: NotificationWeb) => {
       console.log("Nowe powiadomienie otrzymane:", notification);
+      
+      // ✅ Dodaj do cache TUTAJ (przed notyfikowaniem listenerów)
+      this.addNotificationToCache(notification);
+      
+      // Powiadom listenery (oni już NIE dodają do cache, tylko odświeżają UI)
       this.notifyListeners(notification);
+    });
+
+    // 🔄 Nasłuchuj na synchronizację między urządzeniami (gdy inne urządzenie oznaczyło jako przeczytane)
+    // UWAGA: SignalR automatycznie konwertuje nazwę z backendu na camelCase
+    this.connection.on("ReceiveNotificationMarkAsRead", (dto: NotificationMarkAsReadDto) => {
+      console.log("🔄 Synchronizacja: Powiadomienie oznaczone jako przeczytane na innym urządzeniu:", dto);
+      this.markAsReadInCache(dto.notificationId);
+      this.notifySyncListeners(dto);
     });
 
     // Obsługa reconnect
@@ -116,8 +135,85 @@ class NotificationHubService {
     });
   }
 
+  private notifySyncListeners(dto: NotificationMarkAsReadDto): void {
+    this.syncListeners.forEach(listener => {
+      try {
+        listener(dto);
+      } catch (error) {
+        console.error("Error in sync listener:", error);
+      }
+    });
+  }
+
+  // Subskrybuj na eventy synchronizacji (oznaczenie jako przeczytane na innym urządzeniu)
+  onNotificationSynced(callback: (dto: NotificationMarkAsReadDto) => void): () => void {
+    this.syncListeners.push(callback);
+    return () => {
+      this.syncListeners = this.syncListeners.filter(listener => listener !== callback);
+    };
+  }
+
   getConnectionState(): signalR.HubConnectionState | null {
     return this.connection?.state || null;
+  }
+
+  // Inicjalizuj cache z API (wywołaj raz przy starcie aplikacji)
+  async initializeCache(notifications: NotificationWeb[]): Promise<void> {
+    this.notificationsCache = notifications;
+    this.unreadCountCache = notifications.filter(n => !n.readed).length;
+    this.cacheInitialized = true;
+    console.log("🔵 Notification cache initialized:", this.notificationsCache.length, "notifications,", this.unreadCountCache, "unread");
+  }
+
+  // Dodaj nowe powiadomienie do cache (wywołane przez SignalR)
+  addNotificationToCache(notification: NotificationWeb): void {
+    // Dodaj na początek listy
+    this.notificationsCache = [notification, ...this.notificationsCache];
+    
+    // Jeśli nieprzeczytane, zwiększ licznik
+    if (!notification.readed) {
+      this.unreadCountCache++;
+    }
+    
+    console.log("🔵 Notification added to cache:", notification.title, "| Total:", this.notificationsCache.length, "| Unread:", this.unreadCountCache);
+  }
+
+  // Oznacz jako przeczytane w cache
+  markAsReadInCache(notificationId: string): void {
+    const notification = this.notificationsCache.find(n => n.id === notificationId);
+    if (notification && !notification.readed) {
+      notification.readed = true;
+      this.unreadCountCache = Math.max(0, this.unreadCountCache - 1);
+      console.log("🔵 Notification marked as read in cache:", notificationId, "| Unread count:", this.unreadCountCache);
+    }
+  }
+
+  // Pobierz nieprzeczytane powiadomienia z cache
+  getUnreadNotificationsFromCache(): NotificationWeb[] {
+    return this.notificationsCache.filter(n => !n.readed);
+  }
+
+  // Pobierz wszystkie powiadomienia z cache
+  getAllNotificationsFromCache(): NotificationWeb[] {
+    return [...this.notificationsCache];
+  }
+
+  // Pobierz licznik nieprzeczytanych z cache
+  getUnreadCountFromCache(): number {
+    return this.unreadCountCache;
+  }
+
+  // Sprawdź czy cache jest zainicjalizowany
+  isCacheInitialized(): boolean {
+    return this.cacheInitialized;
+  }
+
+  // Wyczyść cache (np. przy logout)
+  clearCache(): void {
+    this.notificationsCache = [];
+    this.unreadCountCache = 0;
+    this.cacheInitialized = false;
+    console.log("🔵 Notification cache cleared");
   }
 }
 

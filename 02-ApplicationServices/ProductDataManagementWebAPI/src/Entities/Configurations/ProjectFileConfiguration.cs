@@ -22,19 +22,12 @@ namespace Entities.Configurations
                 .IsRequired()
                 .HasMaxLength(255);
             
-            builder.Property(pf => pf.ContentType)
-                .IsRequired()
-                .HasMaxLength(100);
-            
-            builder.Property(pf => pf.BlobPath)
-                .IsRequired()
-                .HasMaxLength(1000);
-            
-            builder.Property(pf => pf.FileSizeBytes)
+            builder.Property(pf => pf.CreatedAt)
                 .IsRequired();
             
-            builder.Property(pf => pf.UploadedAt)
-                .IsRequired();
+            builder.Property(pf => pf.IsDeleted)
+                .IsRequired()
+                .HasDefaultValue(false);
 
             // Relacja z Project
             builder.HasOne(pf => pf.Project)
@@ -42,18 +35,25 @@ namespace Entities.Configurations
                 .HasForeignKey(pf => pf.ProjectId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Relacja z User (UploadedByUser)
-            builder.HasOne(pf => pf.UploadedByUser)
+            // Relacja z User (Owner)
+            builder.HasOne(pf => pf.Owner)
                 .WithMany()
-                .HasForeignKey(pf => pf.UploadedByUserId)
+                .HasForeignKey(pf => pf.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Relacja z TenantMember (UploadedByTenantMember)
-            builder.HasOne(pf => pf.UploadedByTenantMember)
+            // Relacja z TenantMember (OwnerTenantMember)
+            builder.HasOne(pf => pf.OwnerTenantMember)
                 .WithMany()
-                .HasForeignKey(pf => new { pf.TenantId, pf.UploadedByUserId })
+                .HasForeignKey(pf => new { pf.TenantId, pf.OwnerId })
                 .HasPrincipalKey(tm => new { tm.TenantId, tm.UserId })
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Relacja z CurrentVersion (opcjonalna, 1:0..1)
+            builder.HasOne(pf => pf.CurrentVersion)
+                .WithMany()
+                .HasForeignKey(pf => pf.CurrentVersionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
 
             // Indeks dla szybkiego wyszukiwania plików projektu
             builder.HasIndex(pf => new { pf.ProjectId, pf.TenantId });
@@ -61,8 +61,11 @@ namespace Entities.Configurations
             // Indeks dla wyszukiwania po nazwie paczki
             builder.HasIndex(pf => new { pf.ProjectId, pf.PackageName });
             
-            // Indeks dla wyszukiwania plików użytkownika
-            builder.HasIndex(pf => pf.UploadedByUserId);
+            // Indeks dla wyszukiwania plików właściciela
+            builder.HasIndex(pf => pf.OwnerId);
+            
+            // Indeks dla wyszukiwania nieusuniętych plików
+            builder.HasIndex(pf => new { pf.ProjectId, pf.IsDeleted });
         }
     }
 }

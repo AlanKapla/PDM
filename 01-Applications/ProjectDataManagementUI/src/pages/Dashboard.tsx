@@ -1,5 +1,5 @@
 import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack } from "@chakra-ui/react";
-import { Building2, FolderKanban, Settings, FileText, Calculator } from "lucide-react";
+import { Building2, FolderKanban, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 
@@ -25,20 +25,6 @@ export default function Dashboard() {
       icon: FolderKanban,
       color: "green.500",
       path: "/projects",
-    },
-    {
-      title: "Pliki",
-      description: "Zarządzaj dokumentami i plikami projektów",
-      icon: FileText,
-      color: "purple.500",
-      path: "/files",
-    },
-    {
-      title: "Kosztorysy",
-      description: "Twórz i przeglądaj kosztorysy projektów",
-      icon: Calculator,
-      color: "orange.500",
-      path: "/estimates",
     },
     {
       title: "Ustawienia",

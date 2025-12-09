@@ -16,18 +16,6 @@ namespace CQRS.Files.GetUserUploadedFiles
 
             RuleFor(x => x.ProjectId)
                 .NotEmpty().WithMessage("ProjectId is required");
-
-            // Validate user is project member
-            RuleFor(x => x)
-                .MustAsync(async (query, cancellation) =>
-                {
-                    var membership = await projectMemberRepo.GetFirstBySearch(
-                        pm => pm.ProjectId == query.ProjectId &&
-                              pm.TenantId == query.TenantId &&
-                              pm.UserId == currentUser.Id);
-                    return membership != null;
-                })
-                .WithMessage("User is not a member of the project");
         }
     }
 }

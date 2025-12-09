@@ -55,5 +55,20 @@
         /// Temporary URL with SAS token for direct file access
         /// </summary>
         public string SasUrl { get; init; } = default!;
+        
+        /// <summary>
+        /// Aktywna wersja pliku
+        /// </summary>
+        public ProjectFileVersionWeb? CurrentVersion { get; init; }
+        
+        /// <summary>
+        /// Wszystkie wersje pliku wraz z komentarzami
+        /// </summary>
+        public List<ProjectFileVersionWeb> Versions { get; init; } = new();
+        
+        /// <summary>
+        /// Całkowita liczba wersji pliku
+        /// </summary>
+        public int TotalVersions { get; init; }
     }
 }

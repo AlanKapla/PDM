@@ -9,15 +9,33 @@
         public string FileName { get; init; } = default!;
         public string DisplayName { get; init; } = default!;
         public string PackageName { get; init; } = default!;
-        public string ContentType { get; init; } = default!;
-        public long FileSizeBytes { get; init; }
-        public DateTime UploadedAt { get; init; }
-        public Guid UploadedByUserId { get; init; }
-        public string UploadedByUserName { get; init; } = default!;
+        public DateTime CreatedAt { get; init; }
+        public Guid OwnerId { get; init; }
+        public string OwnerName { get; init; } = default!;
         
         /// <summary>
-        /// Temporary URL with SAS token for direct file access
+        /// Aktywna wersja pliku
         /// </summary>
-        public string SasUrl { get; init; } = default!;
+        public ProjectFileVersionWeb? CurrentVersion { get; init; }
+        
+        /// <summary>
+        /// Wszystkie wersje pliku wraz z komentarzami
+        /// </summary>
+        public List<ProjectFileVersionWeb> Versions { get; init; } = new();
+        
+        /// <summary>
+        /// Całkowita liczba wersji pliku
+        /// </summary>
+        public int TotalVersions { get; init; }
+        
+        /// <summary>
+        /// Czy użytkownik jest właścicielem pliku
+        /// </summary>
+        public bool IsOwner { get; init; }
+        
+        /// <summary>
+        /// Czy plik został udostępniony obecnemu użytkownikowi
+        /// </summary>
+        public bool IsShared { get; init; }
     }
 }

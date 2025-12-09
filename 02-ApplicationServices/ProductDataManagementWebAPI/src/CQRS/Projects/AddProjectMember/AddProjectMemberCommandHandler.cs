@@ -33,7 +33,7 @@ namespace CQRS.Projects.AddProjectMember
         {
             // Pobierz projekt do użycia w notyfikacji (walidacja już wykonana w validatorze)
             Project project = (await projectRepo.GetFirstBySearch(
-                p => p.Id == request.ProjectId && p.TenantId == request.TenantId,
+                p => p.Id == request.ProjectId && p.TenantId == request.TenantId && p.IsActive,
                 cancellationToken))!;
 
             // Utwórz nowego członka projektu z rolą Member

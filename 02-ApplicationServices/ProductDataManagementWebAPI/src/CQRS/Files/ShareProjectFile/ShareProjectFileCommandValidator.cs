@@ -54,7 +54,8 @@ namespace CQRS.Files.ShareProjectFile
                     {
                         var file = await projectFileRepo.GetFirstBySearch(
                             pf => pf.Id == fileId &&
-                                  pf.UploadedByUserId == currentUser.Id);
+                                  pf.OwnerId == currentUser.Id &&
+                                  !pf.IsDeleted);
                         
                         if (file == null)
                             return false;
@@ -79,18 +80,6 @@ namespace CQRS.Files.ShareProjectFile
             RuleFor(x => x.SharedWithUserId)
                 .Must((command, sharedWithUserId) => sharedWithUserId != currentUser.Id)
                 .WithMessage("You cannot share files with yourself");
-
-            // Check if current user is a member of the project
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    var currentUserMember = await projectMemberRepo.GetFirstBySearch(
-                        pm => pm.ProjectId == command.ProjectId &&
-                              pm.TenantId == command.TenantId &&
-                              pm.UserId == currentUser.Id);
-                    return currentUserMember != null;
-                })
-                .WithMessage("You are not a member of this project");
         }
     }
 }

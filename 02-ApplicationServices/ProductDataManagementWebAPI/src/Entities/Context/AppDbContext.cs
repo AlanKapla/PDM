@@ -12,6 +12,8 @@ namespace Entities.Context
         public DbSet<Project> Projects => Set<Project>();
         public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
         public DbSet<ProjectFile> ProjectFiles => Set<ProjectFile>();
+        public DbSet<ProjectFileVersion> ProjectFileVersions => Set<ProjectFileVersion>();
+        public DbSet<ProjectFileVersionComment> ProjectFileVersionComments => Set<ProjectFileVersionComment>();
         public DbSet<SharedProjectFile> SharedProjectFiles => Set<SharedProjectFile>();
         public DbSet<UserPasswordReset> UserPasswordResets => Set<UserPasswordReset>();
         public DbSet<UserActivation> UserActivations => Set<UserActivation>();
@@ -19,6 +21,9 @@ namespace Entities.Context
         public DbSet<TenantPreferencesProfile> TenantPreferencesProfiles => Set<TenantPreferencesProfile>();
         public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<Chat> Chats => Set<Chat>();
+        public DbSet<ChatMember> ChatMembers => Set<ChatMember>();
+        public DbSet<MessageHistory> MessageHistories => Set<MessageHistory>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

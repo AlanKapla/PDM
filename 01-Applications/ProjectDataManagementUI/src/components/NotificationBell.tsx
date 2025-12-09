@@ -32,43 +32,52 @@ export default function NotificationBell() {
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const unreadBg = useColorModeValue("blue.50", "blue.900");
 
-  // Pobierz powiadomienia tylko gdy użytkownik kliknie w dzwoneczek
-  const fetchNotifications = async () => {
-    setLoading(true);
-    try {
-      const response = await notificationApi.getUnreadNotifications();
-      if (response.ok) {
-        const data: NotificationWeb[] = await response.json();
-        setNotifications(data);
-        setUnreadCount(data.filter(n => !n.readed).length);
-      }
-    } catch (error) {
-      console.error("Błąd pobierania powiadomień:", error);
-    } finally {
-      setLoading(false);
-    }
+  // Załaduj powiadomienia z cache (gdy użytkownik otworzy popover)
+  const loadNotificationsFromCache = () => {
+    const cachedNotifications = notificationHubService.getUnreadNotificationsFromCache();
+    const cachedUnreadCount = notificationHubService.getUnreadCountFromCache();
+    
+    setNotifications(cachedNotifications);
+    setUnreadCount(cachedUnreadCount);
+    
+    console.log("🔵 Loaded notifications from cache:", cachedNotifications.length, "| Unread:", cachedUnreadCount);
   };
 
-  // Pobierz licznik nieprzeczytanych powiadomień przy montowaniu
+  // Inicjalizacja cache z API (tylko raz przy montowaniu)
   useEffect(() => {
-    const fetchUnreadCount = async () => {
+    const initializeNotifications = async () => {
+      // Jeśli cache już zainicjalizowany, użyj go
+      if (notificationHubService.isCacheInitialized()) {
+        const cachedUnreadCount = notificationHubService.getUnreadCountFromCache();
+        setUnreadCount(cachedUnreadCount);
+        console.log("🔵 Cache already initialized, unread count:", cachedUnreadCount);
+        return;
+      }
+
+      // Pobierz z API i zainicjalizuj cache
+      setLoading(true);
       try {
         const response = await notificationApi.getUnreadNotifications();
         if (response.ok) {
           const data: NotificationWeb[] = await response.json();
+          await notificationHubService.initializeCache(data);
           setUnreadCount(data.filter(n => !n.readed).length);
+          console.log("🔵 Cache initialized from API:", data.length, "notifications");
         }
       } catch (error) {
-        console.error("Błąd pobierania licznika powiadomień:", error);
+        console.error("Błąd inicjalizacji powiadomień:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchUnreadCount();
+    initializeNotifications();
   }, []);
 
   // Połączenie SignalR i nasłuchiwanie na nowe powiadomienia - TYLKO RAZ
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
+    let unsubscribeNew: (() => void) | null = null;
+    let unsubscribeSync: (() => void) | null = null;
 
     const initSignalR = async () => {
       try {
@@ -76,23 +85,41 @@ export default function NotificationBell() {
         await notificationHubService.startConnection();
 
         // Subskrybuj na nowe powiadomienia
-        unsubscribe = notificationHubService.onNotificationReceived(async (notification) => {
-          console.log("Nowe powiadomienie w dzwoneczku:", notification);
+        unsubscribeNew = notificationHubService.onNotificationReceived((notification) => {
+          console.log("✅ Nowe powiadomienie otrzymane z SignalR:", notification.title);
           
-          // Pobierz świeżą listę nieprzeczytanych powiadomień z API
-          try {
-            const response = await notificationApi.getUnreadNotifications();
-            if (response.ok) {
-              const data: NotificationWeb[] = await response.json();
-              setNotifications(data);
-              setUnreadCount(data.filter(n => !n.readed).length);
-            }
-          } catch (error) {
-            console.error("Błąd odświeżania powiadomień:", error);
-            // Fallback - zwiększ licznik lokalnie
-            setUnreadCount(prev => prev + 1);
-            setNotifications(prev => [notification, ...prev]);
+          // ✅ Cache został już zaktualizowany w notificationHubService
+          // Tutaj tylko odświeżamy UI
+          const newUnreadCount = notificationHubService.getUnreadCountFromCache();
+          setUnreadCount(newUnreadCount);
+          
+          // Jeśli popover jest otwarty, odśwież listę
+          if (isOpen) {
+            loadNotificationsFromCache();
           }
+          
+          console.log("✅ UI zaktualizowane bez API call! Nowy licznik nieprzeczytanych:", newUnreadCount);
+        });
+
+        // 🔄 Subskrybuj na synchronizację między urządzeniami
+        unsubscribeSync = notificationHubService.onNotificationSynced((dto) => {
+          console.log("🔄 Synchronizacja z innego urządzenia - powiadomienie oznaczone jako przeczytane:", {
+            notificationId: dto.notificationId,
+            userId: dto.userId,
+            readAt: dto.readAt
+          });
+          
+          // Cache został już zaktualizowany przez SignalR event handler
+          // Teraz tylko odśwież UI
+          const newUnreadCount = notificationHubService.getUnreadCountFromCache();
+          setUnreadCount(newUnreadCount);
+          
+          // Jeśli popover jest otwarty, odśwież listę
+          if (isOpen) {
+            loadNotificationsFromCache();
+          }
+          
+          console.log("🔄 UI zsynchronizowane z innym urządzeniem! Nowy licznik:", newUnreadCount);
         });
       } catch (error) {
         console.error("Błąd inicjalizacji SignalR:", error);
@@ -101,13 +128,16 @@ export default function NotificationBell() {
 
     initSignalR();
 
-    // Cleanup przy unmount - usuń listener
+    // Cleanup przy unmount - usuń listenery
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
+      if (unsubscribeNew) {
+        unsubscribeNew();
+      }
+      if (unsubscribeSync) {
+        unsubscribeSync();
       }
     };
-  }, []); // ⚠️ Pusta tablica zależności - uruchom TYLKO RAZ przy mount
+  }, [isOpen]); // Dodaj isOpen do zależności
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -131,25 +161,35 @@ export default function NotificationBell() {
     console.log("🔵 Oznaczam jako przeczytane:", notificationId);
     
     try {
-      const response = await notificationApi.markAsRead(notificationId);
-      console.log("🔵 Odpowiedź API:", response.status, response.ok);
+      // ✅ Najpierw zaktualizuj cache (optimistic update)
+      notificationHubService.markAsReadInCache(notificationId);
       
-      if (response.ok) {
-        console.log("✅ Oznaczono jako przeczytane, odświeżam listę...");
-        // Odśwież listę powiadomień z API
-        const refreshResponse = await notificationApi.getUnreadNotifications();
-        if (refreshResponse.ok) {
-          const data: NotificationWeb[] = await refreshResponse.json();
-          console.log("✅ Pobrano odświeżoną listę:", data.length, "powiadomień");
-          setNotifications(data);
-          setUnreadCount(data.filter(n => !n.readed).length);
-        }
-      } else {
+      // ✅ Zaktualizuj UI natychmiast z cache
+      const newUnreadCount = notificationHubService.getUnreadCountFromCache();
+      const updatedNotifications = notificationHubService.getUnreadNotificationsFromCache();
+      
+      setUnreadCount(newUnreadCount);
+      setNotifications(updatedNotifications);
+      
+      console.log("✅ UI zaktualizowane optimistically (bez czekania na API)");
+      
+      // Wyślij request do API w tle (bez blokowania UI)
+      const response = await notificationApi.markAsRead(notificationId);
+      
+      if (!response.ok) {
+        // Jeśli API zwróci błąd, cofnij zmiany w cache
+        console.error("❌ API błąd - cofam zmiany w cache");
+        // Tutaj możesz opcjonalnie dodać logikę rollback
+        // Na razie logujemy tylko błąd
         const errorText = await response.text();
-        console.error("❌ Błąd oznaczania jako przeczytane - status:", response.status, errorText);
+        console.error("❌ Błąd API:", response.status, errorText);
+      } else {
+        console.log("✅ API potwierdziło oznaczenie jako przeczytane");
       }
     } catch (error) {
       console.error("❌ Błąd oznaczania powiadomienia jako przeczytane:", error);
+      // W przypadku błędu sieciowego, cache pozostaje zaktualizowany
+      // Można dodać toast z informacją o problemie
     }
   };
 
@@ -178,7 +218,7 @@ export default function NotificationBell() {
       isOpen={isOpen}
       onOpen={() => {
         setIsOpen(true);
-        fetchNotifications();
+        loadNotificationsFromCache(); // ✅ Ładuj z cache zamiast API
       }}
       onClose={() => setIsOpen(false)}
       placement="bottom-end"

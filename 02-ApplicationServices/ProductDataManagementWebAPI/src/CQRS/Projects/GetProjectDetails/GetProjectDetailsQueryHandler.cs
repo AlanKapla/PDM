@@ -1,11 +1,10 @@
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
-using Business.Interfaces.Model;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
-using Business.Interfaces.Exceptions;
 
 namespace CQRS.Projects.GetProjectDetails
 {
@@ -27,6 +26,7 @@ namespace CQRS.Projects.GetProjectDetails
 
         public async Task<ProjectDetailsWeb?> Handle(GetProjectDetailsQuery request, CancellationToken cancellationToken)
         {
+            // Wszystkie walidacje wykonane w validatorze
             IEnumerable<ProjectMember> projectMembers = await projectMemberRepo.GetBySearch(
                 pm => pm.TenantId == request.TenantId 
                     && pm.ProjectId == request.ProjectId 
@@ -36,9 +36,7 @@ namespace CQRS.Projects.GetProjectDetails
                                  .ThenInclude(cb => cb.User)
             );
 
-            ProjectMember projectMember = projectMembers.FirstOrDefault() 
-                ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
-
+            ProjectMember projectMember = projectMembers.First();
             Project project = projectMember.Project;
 
             IEnumerable<ProjectMember> membersCount = await projectMemberRepo.GetBySearch(

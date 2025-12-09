@@ -1,18 +1,19 @@
-﻿using CQRS.Tenants.ChangeActiveTenant;
-using CQRS.Tenants.CreateTenant;
-using CQRS.Tenants.UserTenants;
+﻿using Business.Interfaces.WebModels.Tenants;
+using CQRS.Tenants.AcceptTenantInvitation;
+using CQRS.Tenants.ActiveInvitations;
 using CQRS.Tenants.ActiveTenant;
+using CQRS.Tenants.ChangeActiveTenant;
+using CQRS.Tenants.CreateTenant;
+using CQRS.Tenants.GetTenantMembers;
+using CQRS.Tenants.InviteTenantMember;
+using CQRS.Tenants.RemoveTenantMember;
+using CQRS.Tenants.ToggleTenantStatus;
 using CQRS.Tenants.UpdateTenant;
+using CQRS.Tenants.UserTenants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using CQRS.Tenants.InviteTenantMember;
-using CQRS.Tenants.AcceptTenantInvitation;
-using CQRS.Tenants.RemoveTenantMember;
-using CQRS.Tenants.ActiveInvitations;
-using CQRS.Tenants.GetTenantMembers;
 using WebApi.Constants;
-using Business.Interfaces.WebModels.Tenants;
 
 namespace WebApi.Controllers
 {
@@ -53,26 +54,22 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{tenantId}")]
-        [Authorize(Policy = "TenantAdmin")]
-        public async Task<IActionResult> UpdateTenant(Guid tenantId, [FromBody] UpdateTenantCommand body)
+        [Authorize(Policy = Policies.TenantAdmin)]
+        public async Task<IActionResult> UpdateTenant(Guid tenantId, [FromBody] UpdateTenantCommand request)
         {
-            if (tenantId != body.TenantId)
-            {
-                return BadRequest("Route tenantId differs from body TenantId.");
-            }
-            object result = await Send(body);
+            request = request with { TenantId = tenantId };
+
+            object result = await Send(request);
             return Ok(result);
         }
 
         [HttpPost("{tenantId}/invitations")]
-        [Authorize(Policy = "TenantAdmin")]
-        public async Task<IActionResult> InviteTenantMember(Guid tenantId, [FromBody] InviteTenantMemberCommand body)
+        [Authorize(Policy = Policies.TenantAdmin)]
+        public async Task<IActionResult> InviteTenantMember(Guid tenantId, [FromBody] InviteTenantMemberCommand request)
         {
-            if (tenantId != body.TenantId)
-            {
-                return BadRequest("Route tenantId differs from body TenantId.");
-            }
-            await Send(body);
+            request = request with { TenantId = tenantId };
+
+            await Send(request);
             return Ok();
         }
 
@@ -86,9 +83,9 @@ namespace WebApi.Controllers
 
         [HttpPost("invitations/accept")]
         [Authorize]
-        public async Task<IActionResult> AcceptInvitation([FromBody] AcceptTenantInvitationCommand body)
+        public async Task<IActionResult> AcceptInvitation([FromBody] AcceptTenantInvitationCommand request)
         {
-            await Send(body);
+            await Send(request);
             return Ok();
         }
 
@@ -107,6 +104,15 @@ namespace WebApi.Controllers
         public async Task<IActionResult> RemoveTenantMember(Guid tenantId, Guid userId)
         {
             await Send(new RemoveTenantMemberCommand(tenantId, userId));
+            return NoContent();
+        }
+
+        [HttpPatch("{tenantId}/status")]
+        [Authorize(Policy = Policies.TenantAdminOrOwner)]
+        public async Task<IActionResult> ToggleTenantStatus([FromRoute] Guid tenantId, [FromQuery] bool isActive)
+        {
+            var command = new ToggleTenantStatusCommand(tenantId, isActive);
+            await Send(command);
             return NoContent();
         }
     }

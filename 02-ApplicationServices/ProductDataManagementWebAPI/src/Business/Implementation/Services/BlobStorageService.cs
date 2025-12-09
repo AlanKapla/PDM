@@ -9,7 +9,9 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using Business.Interfaces.Configurations;
+using Business.Interfaces.Helpers;
 using Business.Interfaces.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -20,11 +22,18 @@ namespace Business.Implementation.Services
         private readonly BlobServiceClient blobServiceClient;
         private readonly BlobStorageSettings settings;
         private readonly ILogger<BlobStorageService> logger;
+        private readonly IMemoryCache memoryCache;
 
-        public BlobStorageService(IOptions<BlobStorageSettings> options, ILogger<BlobStorageService> logger)
+        private const string CacheKeyPrefix = "UserDelegationKey_";
+
+        public BlobStorageService(
+            IOptions<BlobStorageSettings> options, 
+            ILogger<BlobStorageService> logger,
+            IMemoryCache memoryCache)
         {
             settings = options.Value;
             this.logger = logger;
+            this.memoryCache = memoryCache;
 
             if (string.IsNullOrWhiteSpace(settings.ContainerUrl))
             {
@@ -70,6 +79,7 @@ namespace Business.Implementation.Services
 
             BlobClient blob = container.GetBlobClient(blobName);
             BlobUploadOptions options = new();
+            
             if (!string.IsNullOrWhiteSpace(contentType))
             {
                 options.HttpHeaders = new BlobHttpHeaders { ContentType = contentType };
@@ -125,7 +135,7 @@ namespace Business.Implementation.Services
             logger.LogInformation("Deleted blob {BlobName} from container {ContainerName}", blobName, containerName);
         }
 
-        public Uri GenerateSasUri(string containerName, string blobName, int expiresInMinutes = 60)
+        public Uri GenerateSasUri(string containerName, string blobName, string fileName, int expiresInMinutes = 60, string contentDisposition = "inline")
         {
             if (string.IsNullOrWhiteSpace(containerName))
             {
@@ -137,10 +147,18 @@ namespace Business.Implementation.Services
                 throw new ArgumentException("blobName is required");
             }
 
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                throw new ArgumentException("fileName is required");
+            }
+
             try
             {
-                logger.LogInformation("Generating SAS URI for blob: {BlobName} in container: {ContainerName}, account: {AccountName}", 
-                    blobName, containerName, blobServiceClient.AccountName);
+                // Normalize fileName for safe use in Content-Disposition header
+                string normalizedFileName = FileHelper.NormalizeFileNameForContentDisposition(fileName);
+
+                logger.LogInformation("Generating SAS URI for blob: {BlobName} in container: {ContainerName}, account: {AccountName}, fileName: {FileName} (normalized: {NormalizedFileName}), contentDisposition: {ContentDisposition}", 
+                    blobName, containerName, blobServiceClient.AccountName, fileName, normalizedFileName, contentDisposition);
 
                 BlobContainerClient container = blobServiceClient.GetBlobContainerClient(containerName);
                 BlobClient blob = container.GetBlobClient(blobName);
@@ -148,19 +166,14 @@ namespace Business.Implementation.Services
                 var startsOn = DateTimeOffset.UtcNow.AddMinutes(-5);
                 var expiresOn = DateTimeOffset.UtcNow.AddMinutes(expiresInMinutes);
 
-                logger.LogDebug("Requesting User Delegation Key from Azure AD. StartsOn: {StartsOn}, ExpiresOn: {ExpiresOn}", 
-                    startsOn, expiresOn);
-
-                // Get User Delegation Key from Azure AD (requires "Storage Blob Data Contributor" role)
-                Response<UserDelegationKey> userDelegationKeyResponse = blobServiceClient.GetUserDelegationKey(
-                    startsOn: startsOn,
-                    expiresOn: expiresOn);
-
-                var userDelegationKey = userDelegationKeyResponse.Value;
-
-                logger.LogDebug("User Delegation Key obtained. SignedOid: {SignedOid}, SignedTid: {SignedTid}", 
-                    userDelegationKey.SignedObjectId, userDelegationKey.SignedTenantId);
-
+                // Użyj cache dla User Delegation Key (IMemoryCache - thread-safe, automatyczne wygasanie)
+                var userDelegationKey = GetOrCreateUserDelegationKey(startsOn, expiresOn);
+                
+                // Prosty format Content-Disposition bez RFC 5987 encoding
+                // Adobe Reader ma problem z parsowaniem filename*=UTF-8''...
+                // Używamy tylko standardowego filename="..." z przestrzeniami (bezpieczne w cudzysłowach)
+                string fullContentDisposition = $"{contentDisposition}; filename=\"{normalizedFileName}\"";
+                
                 // Create SAS with User Delegation Key
                 BlobSasBuilder sasBuilder = new BlobSasBuilder
                 {
@@ -169,7 +182,7 @@ namespace Business.Implementation.Services
                     Resource = "b",
                     StartsOn = startsOn,
                     ExpiresOn = expiresOn,
-                    ContentDisposition = "attachment" // Wymusza pobieranie zamiast wyświetlania
+                    ContentDisposition = fullContentDisposition
                 };
 
                 sasBuilder.SetPermissions(BlobSasPermissions.Read);
@@ -182,8 +195,8 @@ namespace Business.Implementation.Services
 
                 Uri sasUri = blobUriBuilder.ToUri();
 
-                logger.LogInformation("Successfully generated User Delegation SAS URI for blob {BlobName}, expires at {ExpiresOn}", 
-                    blobName, expiresOn);
+                logger.LogInformation("Successfully generated User Delegation SAS URI for blob {BlobName}, fileName: {FileName} (normalized: {NormalizedFileName}), expires at {ExpiresOn}, disposition: {ContentDisposition}", 
+                    blobName, fileName, normalizedFileName, expiresOn, fullContentDisposition);
 
                 return sasUri;
             }
@@ -227,7 +240,105 @@ namespace Business.Implementation.Services
 
         public async ValueTask DisposeAsync()
         {
+            // IMemoryCache jest zarządzany przez DI container - nie wymaga ręcznego Dispose
             await Task.CompletedTask;
+        }
+
+        public async Task<bool> UpdateBlobContentDispositionAsync(string containerName, string blobName, string contentDisposition, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(containerName))
+            {
+                throw new ArgumentException("containerName is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(blobName))
+            {
+                throw new ArgumentException("blobName is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(contentDisposition))
+            {
+                throw new ArgumentException("contentDisposition is required");
+            }
+
+            try
+            {
+                BlobContainerClient container = blobServiceClient.GetBlobContainerClient(containerName);
+                BlobClient blob = container.GetBlobClient(blobName);
+
+                // Sprawdź czy blob istnieje
+                bool exists = await blob.ExistsAsync(cancellationToken);
+                if (!exists)
+                {
+                    logger.LogWarning("Blob {BlobName} does not exist in container {ContainerName}", blobName, containerName);
+                    return false;
+                }
+
+                // Pobierz obecne właściwości bloba
+                BlobProperties properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken);
+
+                // Ustaw nową wartość Content-Disposition zachowując pozostałe headers
+                BlobHttpHeaders headers = new BlobHttpHeaders
+                {
+                    ContentType = properties.ContentType,
+                    ContentEncoding = properties.ContentEncoding,
+                    ContentLanguage = properties.ContentLanguage,
+                    ContentDisposition = contentDisposition,
+                    CacheControl = properties.CacheControl
+                };
+
+                // Aktualizuj headers bloba
+                await blob.SetHttpHeadersAsync(headers, cancellationToken: cancellationToken);
+
+                logger.LogInformation("Updated Content-Disposition for blob {BlobName}: {ContentDisposition}", 
+                    blobName, contentDisposition);
+
+                return true;
+            }
+            catch (RequestFailedException ex)
+            {
+                logger.LogError(ex, 
+                    "Failed to update Content-Disposition for blob {BlobName}. Status: {Status}, ErrorCode: {ErrorCode}",
+                    blobName, ex.Status, ex.ErrorCode);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unexpected error updating Content-Disposition for blob {BlobName}", blobName);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Pobiera User Delegation Key z cache lub tworzy nowy jeśli cache wygasł.
+        /// Thread-safe dzięki IMemoryCache (wbudowana synchronizacja).
+        /// </summary>
+        private UserDelegationKey GetOrCreateUserDelegationKey(DateTimeOffset startsOn, DateTimeOffset expiresOn)
+        {
+            // Klucz cache bazujący na czasie wygaśnięcia (aby różne TTL miały osobne cache)
+            string cacheKey = $"{CacheKeyPrefix}{expiresOn:yyyyMMddHHmm}";
+
+            return memoryCache.GetOrCreate(cacheKey, entry =>
+            {
+                logger.LogDebug("Cache miss - requesting new User Delegation Key from Azure AD. StartsOn: {StartsOn}, ExpiresOn: {ExpiresOn}", 
+                    startsOn, expiresOn);
+
+                // Pobierz nowy User Delegation Key z Azure AD
+                Response<UserDelegationKey> userDelegationKeyResponse = blobServiceClient.GetUserDelegationKey(
+                    startsOn: startsOn,
+                    expiresOn: expiresOn);
+
+                var userDelegationKey = userDelegationKeyResponse.Value;
+
+                // Konfiguracja cache - wygasa 5 minut przed rzeczywistym wygaśnięciem klucza (safety buffer)
+                entry.AbsoluteExpiration = expiresOn.AddMinutes(-5);
+                entry.Priority = CacheItemPriority.High; // Wysoki priorytet - rzadko używany, ale ważny
+
+                logger.LogInformation("New User Delegation Key cached until {CacheExpiration} (key expires: {KeyExpiration}). SignedOid: {SignedOid}, SignedTid: {SignedTid}",
+                    entry.AbsoluteExpiration, expiresOn, userDelegationKey.SignedObjectId, userDelegationKey.SignedTenantId);
+
+                return userDelegationKey;
+            })!; // Non-null bo GetOrCreate zawsze zwraca wartość (factory nie może zwrócić null)
         }
     }
 }

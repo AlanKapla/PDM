@@ -1,9 +1,10 @@
 ﻿using CQRS.Projects.AddProjectMember;
 using CQRS.Projects.CreateProject;
-using CQRS.Projects.GetTenantProjects;
-using CQRS.Projects.GetProjectMembers;
 using CQRS.Projects.GetProjectDetails;
+using CQRS.Projects.GetProjectMembers;
+using CQRS.Projects.GetTenantProjects;
 using CQRS.Projects.RemoveProjectMember;
+using CQRS.Projects.ToggleProjectStatus;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -62,15 +63,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromBody] AddProjectMemberCommand command)
         {
-            if (command.TenantId != tenantId)
-            {
-                return BadRequest("TenantId in URL does not match TenantId in request body");
-            }
-
-            if (command.ProjectId != projectId)
-            {
-                return BadRequest("ProjectId in URL does not match ProjectId in request body");
-            }
+            command = command with { TenantId = tenantId, ProjectId = projectId };  
 
             await Send(command);
             return NoContent();
@@ -84,6 +77,18 @@ namespace WebApi.Controllers
             [FromRoute] Guid userId)
         {
             var command = new RemoveProjectMemberCommand(tenantId, projectId, userId);
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{projectId}/toggle-status")]
+        [Authorize(Policy = Policies.ProjectAdmin)]
+        public async Task<IActionResult> ToggleProjectStatus(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromQuery] bool isActive)
+        {
+            var command = new ToggleProjectStatusCommand(tenantId, projectId, isActive);
             await Send(command);
             return NoContent();
         }

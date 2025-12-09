@@ -74,7 +74,6 @@ namespace CQRS.Files.ShareProjectFile
 
                     var sharedFile = new SharedProjectFile
                     {
-                        Id = Guid.NewGuid(),
                         TenantId = request.TenantId,
                         ProjectId = request.ProjectId,
                         ProjectFileId = fileId,

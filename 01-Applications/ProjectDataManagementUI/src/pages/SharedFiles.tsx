@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 import {
   Box,
   Heading,
@@ -28,18 +29,15 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   useColorModeValue,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalCloseButton,
-  ModalFooter,
+  useDisclosure,
+  Textarea,
+  IconButton,
 } from "@chakra-ui/react";
-import { Download, ArrowLeft, Users, Eye, ChevronLeft, ChevronRight, Share2 } from "lucide-react";
+import { Download, ArrowLeft, Users, Eye, Share2, MessageSquare, Clock, User, ChevronDown, ChevronUp, Upload, Send } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import { projectApi } from "../api/projectApi";
-import type { SharedProjectFileWeb } from "../types/project.types";
+import type { SharedProjectFileWeb, ProjectFileWeb } from "../types/project.types";
 
 interface GroupedSharedFiles {
   [packageName: string]: {
@@ -49,24 +47,29 @@ interface GroupedSharedFiles {
 
 export default function SharedFiles() {
   const { tenantId, projectId } = useParams<{ tenantId: string; projectId: string }>();
+  const { user } = useContext(AuthContext);
   const [files, setFiles] = useState<SharedProjectFileWeb[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previewFile, setPreviewFile] = useState<SharedProjectFileWeb | null>(null);
-  const [currentGroupFiles, setCurrentGroupFiles] = useState<SharedProjectFileWeb[]>([]);
+  const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
+  const [expandedAccordionIndices, setExpandedAccordionIndices] = useState<number[]>([]);
+  const [fileForNewVersion, setFileForNewVersion] = useState<ProjectFileWeb | null>(null);
+  const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
+  const [submittingComment, setSubmittingComment] = useState<string | null>(null);
+  const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const toast = useToast();
   const navigate = useNavigate();
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
 
   useEffect(() => {
-    fetchSharedFiles();
+    fetchSharedFiles(true);
   }, [tenantId, projectId]);
 
-  const fetchSharedFiles = async () => {
+  const fetchSharedFiles = async (showLoading = false) => {
     if (!tenantId || !projectId) return;
 
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const response = await projectApi.getSharedFiles(tenantId, projectId);
       if (response.ok) {
         const data = await response.json();
@@ -120,9 +123,118 @@ export default function SharedFiles() {
     });
   };
 
-  const handleDownload = async (sasUrl: string, fileName: string) => {
+  const toggleFileVersions = (fileId: string) => {
+    setExpandedFileIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileId)) {
+        newSet.delete(fileId);
+      } else {
+        newSet.add(fileId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddComment = async (fileId: string, versionId: string) => {
+    if (!tenantId || !projectId) return;
+
+    const commentKey = `${fileId}-${versionId}`;
+    const comment = newComments.get(commentKey);
+
+    if (!comment || comment.trim() === "") {
+      toast({
+        title: "Uwaga",
+        description: "Komentarz nie może być pusty",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     try {
-      const response = await fetch(sasUrl, {
+      setSubmittingComment(commentKey);
+      const response = await projectApi.addFileVersionComment(
+        tenantId,
+        projectId,
+        fileId,
+        versionId,
+        comment.trim()
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: "Komentarz został dodany",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+
+        setNewComments((prev) => {
+          const updated = new Map(prev);
+          updated.delete(commentKey);
+          return updated;
+        });
+
+        await fetchSharedFiles();
+      } else {
+        throw new Error("Nie udało się dodać komentarza");
+      }
+    } catch (error) {
+      console.error("Błąd podczas dodawania komentarza:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się dodać komentarza",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setSubmittingComment(null);
+    }
+  };
+
+  const openUploadVersionModal = (file: SharedProjectFileWeb) => {
+    const projectFile: ProjectFileWeb = {
+      id: file.projectFileId,
+      fileName: file.fileName,
+      displayName: file.displayName,
+      packageName: file.packageName,
+      createdAt: file.uploadedAt,
+      ownerId: file.originalOwnerUserId,
+      ownerName: file.originalOwnerUserName,
+      currentVersion: file.currentVersion,
+      versions: file.versions,
+      totalVersions: file.totalVersions,
+      isOwner: false,
+      isShared: true,
+    };
+    setFileForNewVersion(projectFile);
+    onUploadVersionModalOpen();
+  };
+
+  const handleVersionUploaded = () => {
+    onUploadVersionModalClose();
+    setFileForNewVersion(null);
+    fetchSharedFiles();
+  };
+
+  const handlePreview = (sasUrlView: string) => {
+    window.open(sasUrlView, '_blank', 'noopener,noreferrer');
+  };
+
+  const isPreviewSupported = (contentType: string): boolean => {
+    return (
+      contentType === "application/pdf" ||
+      contentType.startsWith("image/")
+    );
+  };
+
+  const handleDownload = async (sasUrlDownload: string, fileName: string) => {
+    try {
+      console.log('handleDownload fileName:', fileName);
+      const response = await fetch(sasUrlDownload, {
         method: 'GET',
         mode: 'cors',
       });
@@ -154,44 +266,6 @@ export default function SharedFiles() {
         isClosable: true,
       });
     }
-  };
-
-  const handlePreview = (file: SharedProjectFileWeb, groupFiles: SharedProjectFileWeb[]) => {
-    setPreviewFile(file);
-    setCurrentGroupFiles(groupFiles);
-  };
-
-  const closePreview = () => {
-    setPreviewFile(null);
-    setCurrentGroupFiles([]);
-  };
-
-  const isPreviewSupported = (contentType: string): boolean => {
-    return (
-      contentType === "application/pdf" ||
-      contentType.startsWith("image/")
-    );
-  };
-
-  const navigateFile = (direction: "prev" | "next") => {
-    if (!previewFile || currentGroupFiles.length === 0) return;
-
-    const currentIndex = currentGroupFiles.findIndex((f) => f.id === previewFile.id);
-    let newIndex: number;
-
-    if (direction === "prev") {
-      newIndex = currentIndex > 0 ? currentIndex - 1 : currentGroupFiles.length - 1;
-    } else {
-      newIndex = currentIndex < currentGroupFiles.length - 1 ? currentIndex + 1 : 0;
-    }
-
-    setPreviewFile(currentGroupFiles[newIndex]);
-  };
-
-  const getCurrentFileIndex = (): string => {
-    if (!previewFile || currentGroupFiles.length === 0) return "";
-    const currentIndex = currentGroupFiles.findIndex((f) => f.id === previewFile.id);
-    return `${currentIndex + 1} / ${currentGroupFiles.length}`;
   };
 
   const groupedFiles = groupFilesByPackageAndUser(files);
@@ -247,7 +321,11 @@ export default function SharedFiles() {
           </Alert>
         ) : (
           <VStack spacing={4} align="stretch">
-            <Accordion allowMultiple>
+            <Accordion 
+              allowMultiple 
+              index={expandedAccordionIndices}
+              onChange={(indices) => setExpandedAccordionIndices(indices as number[])}
+            >
               {packageNames.map((packageName) => {
                 const userGroups = groupedFiles[packageName];
                 const userNames = Object.keys(userGroups).sort();
@@ -278,7 +356,7 @@ export default function SharedFiles() {
                       <VStack spacing={4} align="stretch">
                         {userNames.map((userName) => {
                           const userFiles = userGroups[userName];
-                          const totalSize = userFiles.reduce((sum, file) => sum + file.fileSizeBytes, 0);
+                          const totalSize = userFiles.reduce((sum, file) => sum + (file.currentVersion?.fileSizeBytes || file.fileSizeBytes), 0);
 
                           return (
                             <Box
@@ -313,14 +391,15 @@ export default function SharedFiles() {
                                 </Thead>
                                 <Tbody>
                                   {userFiles.map((file) => (
-                                    <Tr key={file.id}>
+                                    <React.Fragment key={file.id}>
+                                    <Tr>
                                       <Td>
                                         <VStack align="start" spacing={0}>
-                                          {isPreviewSupported(file.contentType) ? (
+                                          {isPreviewSupported(file.currentVersion?.contentType || file.contentType) ? (
                                             <Link
                                               color="blue.600"
                                               fontWeight="medium"
-                                              onClick={() => handlePreview(file, userFiles)}
+                                              onClick={() => handlePreview(file.currentVersion?.sasUrlView || file.sasUrl)}
                                               cursor="pointer"
                                               _hover={{ textDecoration: "underline" }}
                                               fontSize={{ base: "sm", md: "md" }}
@@ -336,8 +415,8 @@ export default function SharedFiles() {
                                             </Text>
                                           )}
                                           <HStack spacing={1} display={{ base: "flex", md: "none" }} mt={1} flexWrap="wrap">
-                                            <Badge colorScheme={file.contentType.includes("pdf") ? "red" : "green"} fontSize="xs">
-                                              {file.contentType.split("/")[1]?.toUpperCase() || "FILE"}
+                                            <Badge colorScheme={(file.currentVersion?.contentType || file.contentType).includes("pdf") ? "red" : "green"} fontSize="xs">
+                                              {(file.currentVersion?.contentType || file.contentType).split("/")[1]?.toUpperCase() || "FILE"}
                                             </Badge>
                                             <Text fontSize="xs" color="gray.600">
                                               {file.originalOwnerUserName}
@@ -349,20 +428,25 @@ export default function SharedFiles() {
                                         <Text fontSize="sm">{file.originalOwnerUserName}</Text>
                                       </Td>
                                       <Td display={{ base: "none", md: "table-cell" }}>
-                                        <Badge colorScheme={file.contentType.includes("pdf") ? "red" : "green"}>
-                                          {file.contentType.split("/")[1]?.toUpperCase() || "FILE"}
+                                        <Badge colorScheme={(file.currentVersion?.contentType || file.contentType).includes("pdf") ? "red" : "green"}>
+                                          {(file.currentVersion?.contentType || file.contentType).split("/")[1]?.toUpperCase() || "FILE"}
                                         </Badge>
                                       </Td>
-                                      <Td display={{ base: "none", lg: "table-cell" }}>{formatFileSize(file.fileSizeBytes)}</Td>
+                                      <Td display={{ base: "none", lg: "table-cell" }}>{formatFileSize(file.currentVersion?.fileSizeBytes || file.fileSizeBytes)}</Td>
                                       <Td display={{ base: "none", xl: "table-cell" }}>
                                         <Text fontSize="sm">{formatDate(file.sharedAt)}</Text>
+                                        {file.totalVersions > 1 && file.currentVersion && (
+                                          <Badge colorScheme="purple" ml={2} fontSize="xs">
+                                            v{file.currentVersion.versionNumber} ({file.totalVersions})
+                                          </Badge>
+                                        )}
                                       </Td>
                                       <Td>
                                         <VStack spacing={1} align="stretch" display={{ base: "flex", md: "none" }}>
-                                          {isPreviewSupported(file.contentType) && (
+                                          {isPreviewSupported(file.currentVersion?.contentType || file.contentType) && (
                                             <Link
                                               color="purple.500"
-                                              onClick={() => handlePreview(file, userFiles)}
+                                              onClick={() => handlePreview(file.currentVersion?.sasUrlView || file.sasUrl)}
                                               cursor="pointer"
                                               display="inline-flex"
                                               alignItems="center"
@@ -375,7 +459,7 @@ export default function SharedFiles() {
                                           )}
                                           <Link
                                             color="blue.500"
-                                            onClick={() => handleDownload(file.sasUrl, file.fileName)}
+                                            onClick={() => handleDownload(file.currentVersion?.sasUrlDownload || file.sasUrl, file.fileName)}
                                             cursor="pointer"
                                             display="inline-flex"
                                             alignItems="center"
@@ -385,12 +469,38 @@ export default function SharedFiles() {
                                             <Download size={14} />
                                             Pobierz
                                           </Link>
+                                          {file.versions.length > 0 && (
+                                            <Link
+                                              color="gray.600"
+                                              onClick={() => toggleFileVersions(file.projectFileId)}
+                                              cursor="pointer"
+                                              display="inline-flex"
+                                              alignItems="center"
+                                              gap={1}
+                                              fontSize="xs"
+                                            >
+                                              {expandedFileIds.has(file.projectFileId) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                              Wersje ({file.totalVersions})
+                                            </Link>
+                                          )}
+                                          <Link
+                                            color="green.500"
+                                            onClick={() => openUploadVersionModal(file)}
+                                            cursor="pointer"
+                                            display="inline-flex"
+                                            alignItems="center"
+                                            gap={1}
+                                            fontSize="xs"
+                                          >
+                                            <Upload size={14} />
+                                            Upload nowej wersji
+                                          </Link>
                                         </VStack>
                                         <HStack spacing={3} display={{ base: "none", md: "flex" }}>
-                                          {isPreviewSupported(file.contentType) && (
+                                          {isPreviewSupported(file.currentVersion?.contentType || file.contentType) && (
                                             <Link
                                               color="purple.500"
-                                              onClick={() => handlePreview(file, userFiles)}
+                                              onClick={() => handlePreview(file.currentVersion?.sasUrlView || file.sasUrl)}
                                               cursor="pointer"
                                               display="inline-flex"
                                               alignItems="center"
@@ -402,7 +512,7 @@ export default function SharedFiles() {
                                           )}
                                           <Link
                                             color="blue.500"
-                                            onClick={() => handleDownload(file.sasUrl, file.fileName)}
+                                            onClick={() => handleDownload(file.currentVersion?.sasUrlDownload || file.sasUrl, file.fileName)}
                                             cursor="pointer"
                                             display="inline-flex"
                                             alignItems="center"
@@ -411,10 +521,169 @@ export default function SharedFiles() {
                                             <Download size={16} />
                                             Pobierz
                                           </Link>
+                                          {file.versions.length > 0 && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              leftIcon={expandedFileIds.has(file.projectFileId) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                              onClick={() => toggleFileVersions(file.projectFileId)}
+                                            >
+                                              Wersje ({file.totalVersions})
+                                            </Button>
+                                          )}
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            colorScheme="green"
+                                            leftIcon={<Upload size={16} />}
+                                            onClick={() => openUploadVersionModal(file)}
+                                          >
+                                            Upload nowej wersji
+                                          </Button>
                                         </HStack>
                                       </Td>
                                     </Tr>
-                                  ))}
+                                    {/* Rozwinięte wersje pliku */}
+                                    {expandedFileIds.has(file.projectFileId) && (
+                                      <Tr>
+                                        <Td colSpan={6} bg="gray.50" p={4}>
+                                          <Box>
+                                            <VStack align="stretch" spacing={4}>
+                                              {file.versions.map((version) => (
+                                                <Box
+                                                  key={version.id}
+                                                  p={3}
+                                                  bg="white"
+                                                  borderRadius="md"
+                                                  borderWidth="1px"
+                                                  borderColor="gray.200"
+                                                >
+                                                  <HStack justify="space-between" mb={2}>
+                                                    <HStack spacing={2}>
+                                                      <Badge colorScheme="purple" fontSize="sm">
+                                                        Wersja {version.versionNumber}
+                                                      </Badge>
+                                                      <Badge colorScheme={(version.contentType).includes("pdf") ? "red" : "green"} fontSize="xs">
+                                                        {version.contentType.split("/")[1]?.toUpperCase()}
+                                                      </Badge>
+                                                      <Text fontSize="xs" color="gray.600">
+                                                        {formatFileSize(version.fileSizeBytes)}
+                                                      </Text>
+                                                    </HStack>
+                                                    <Button
+                                                      size="xs"
+                                                      leftIcon={<Download size={14} />}
+                                                      onClick={() => handleDownload(version.sasUrlDownload, file.fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`))}
+                                                    >
+                                                      Pobierz
+                                                    </Button>
+                                                  </HStack>
+                                                  <HStack spacing={4} fontSize="xs" color="gray.600" mb={2}>
+                                                    <HStack spacing={1}>
+                                                      <User size={12} />
+                                                      <Text>{version.createdByUserName}</Text>
+                                                    </HStack>
+                                                    <HStack spacing={1}>
+                                                      <Clock size={12} />
+                                                      <Text>{formatDate(version.createdAt)}</Text>
+                                                    </HStack>
+                                                  </HStack>
+                                                  
+                                                  {/* Komentarze do wersji */}
+                                                  {version.comments.length > 0 && (
+                                                    <Box mt={3}>
+                                                      <HStack spacing={1} mb={3}>
+                                                        <MessageSquare size={14} />
+                                                        <Text fontSize="sm" fontWeight="semibold">
+                                                          Komentarze ({version.comments.length})
+                                                        </Text>
+                                                      </HStack>
+                                                      <VStack align="stretch" spacing={3}>
+                                                        {version.comments
+                                                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                                          .map((comment) => {
+                                                            const isMyComment = user?.id === comment.userId;
+                                                            return (
+                                                              <HStack
+                                                                key={comment.id}
+                                                                justify={isMyComment ? "flex-end" : "flex-start"}
+                                                                w="100%"
+                                                              >
+                                                                <Box
+                                                                  maxW="75%"
+                                                                  bg={isMyComment ? "blue.500" : "gray.100"}
+                                                                  color={isMyComment ? "white" : "black"}
+                                                                  p={3}
+                                                                  borderRadius="lg"
+                                                                  borderBottomRightRadius={isMyComment ? "sm" : "lg"}
+                                                                  borderBottomLeftRadius={isMyComment ? "lg" : "sm"}
+                                                                >
+                                                                  <VStack align="stretch" spacing={1}>
+                                                                    <HStack justify="space-between">
+                                                                      <Text fontSize="xs" fontWeight="bold" opacity={isMyComment ? 0.9 : 1}>
+                                                                        {comment.userName}
+                                                                      </Text>
+                                                                      {comment.isEdited && (
+                                                                        <Badge colorScheme={isMyComment ? "whiteAlpha" : "gray"} fontSize="2xs">
+                                                                          Edytowano
+                                                                        </Badge>
+                                                                      )}
+                                                                    </HStack>
+                                                                    <Text fontSize="sm">{comment.content}</Text>
+                                                                    <Text fontSize="2xs" opacity={0.7} textAlign={isMyComment ? "right" : "left"}>
+                                                                      {formatDate(comment.editedAt || comment.createdAt)}
+                                                                    </Text>
+                                                                  </VStack>
+                                                                </Box>
+                                                              </HStack>
+                                                            );
+                                                          })}
+                                                      </VStack>
+                                                    </Box>
+                                                  )}
+
+                                                  {/* Dodaj nowy komentarz */}
+                                                  <Box mt={version.comments.length > 0 ? 3 : 2}>
+                                                    <HStack spacing={2}>
+                                                      <Textarea
+                                                        placeholder="Dodaj komentarz..."
+                                                        size="sm"
+                                                        resize="none"
+                                                        rows={2}
+                                                        value={newComments.get(`${file.projectFileId}-${version.id}`) || ""}
+                                                        onChange={(e) => {
+                                                          setNewComments((prev) => {
+                                                            const updated = new Map(prev);
+                                                            updated.set(`${file.projectFileId}-${version.id}`, e.target.value);
+                                                            return updated;
+                                                          });
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                          if (e.key === "Enter" && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            handleAddComment(file.projectFileId, version.id);
+                                                          }
+                                                        }}
+                                                      />
+                                                      <IconButton
+                                                        aria-label="Wyślij komentarz"
+                                                        icon={<Send size={16} />}
+                                                        colorScheme="blue"
+                                                        size="sm"
+                                                        isLoading={submittingComment === `${file.projectFileId}-${version.id}`}
+                                                        onClick={() => handleAddComment(file.projectFileId, version.id)}
+                                                      />
+                                                    </HStack>
+                                                  </Box>
+                                                </Box>
+                                              ))}
+                                            </VStack>
+                                          </Box>
+                                        </Td>
+                                      </Tr>
+                                    )}
+                                  </React.Fragment>
+                                ))}
                                 </Tbody>
                               </Table>
                             </Box>
@@ -429,103 +698,20 @@ export default function SharedFiles() {
           </VStack>
         )}
 
-        {/* Modal podglądu pliku */}
-        <Modal isOpen={!!previewFile} onClose={closePreview} size="6xl">
-          <ModalOverlay />
-          <ModalContent maxH="90vh">
-            <ModalHeader>
-              <HStack justify="space-between" align="center" width="100%">
-                <VStack align="start" spacing={1} flex="1">
-                  <Text>{previewFile?.displayName}</Text>
-                  {previewFile && previewFile.displayName !== previewFile.fileName && (
-                    <Text fontSize="sm" fontWeight="normal" color="gray.500">
-                      {previewFile.fileName}
-                    </Text>
-                  )}
-                  {previewFile && (
-                    <HStack spacing={2} fontSize="xs">
-                      <Badge colorScheme="purple">
-                        Udostępnił: {previewFile.sharedByUserName}
-                      </Badge>
-                      <Badge colorScheme="blue">
-                        Właściciel: {previewFile.originalOwnerUserName}
-                      </Badge>
-                    </HStack>
-                  )}
-                </VStack>
-                {currentGroupFiles.length > 1 && (
-                  <HStack spacing={2}>
-                    <Button
-                      size="sm"
-                      leftIcon={<ChevronLeft size={18} />}
-                      onClick={() => navigateFile("prev")}
-                      variant="ghost"
-                    >
-                      Poprzedni
-                    </Button>
-                    <Badge colorScheme="blue" fontSize="md" px={3} py={1}>
-                      {getCurrentFileIndex()}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      rightIcon={<ChevronRight size={18} />}
-                      onClick={() => navigateFile("next")}
-                      variant="ghost"
-                    >
-                      Następny
-                    </Button>
-                  </HStack>
-                )}
-              </HStack>
-            </ModalHeader>
-            <ModalCloseButton />
-            <ModalBody pb={6} display="flex" justifyContent="center" alignItems="center" overflow="auto">
-              {previewFile && (
-                <>
-                  {previewFile.contentType === "application/pdf" ? (
-                    <Box width="100%" height="700px">
-                      <iframe
-                        src={previewFile.sasUrl}
-                        width="100%"
-                        height="100%"
-                        title={previewFile.displayName}
-                        style={{ border: "none" }}
-                      />
-                    </Box>
-                  ) : previewFile.contentType.startsWith("image/") ? (
-                    <Box maxW="100%" maxH="700px" display="flex" justifyContent="center">
-                      <img
-                        src={previewFile.sasUrl}
-                        alt={previewFile.displayName}
-                        style={{ maxWidth: "100%", maxHeight: "700px", objectFit: "contain" }}
-                      />
-                    </Box>
-                  ) : (
-                    <Alert status="warning">
-                      <AlertIcon />
-                      Podgląd nie jest dostępny dla tego typu pliku.
-                    </Alert>
-                  )}
-                </>
-              )}
-            </ModalBody>
-            <ModalFooter>
-              <HStack spacing={3}>
-                <Button
-                  leftIcon={<Download size={18} />}
-                  colorScheme="blue"
-                  onClick={() => previewFile && handleDownload(previewFile.sasUrl, previewFile.fileName)}
-                >
-                  Pobierz plik
-                </Button>
-                <Button variant="ghost" onClick={closePreview}>
-                  Zamknij
-                </Button>
-              </HStack>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
+
       </Box>
+
+      {/* Modal uploadu nowej wersji */}
+      {fileForNewVersion && (
+        <UploadNewVersionModal
+          isOpen={isUploadVersionModalOpen}
+          onClose={onUploadVersionModalClose}
+          file={fileForNewVersion}
+          tenantId={tenantId!}
+          projectId={projectId!}
+          onVersionUploaded={handleVersionUploaded}
+        />
+      )}
     </MainLayout>
   );
 }

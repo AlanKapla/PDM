@@ -46,18 +46,6 @@ namespace CQRS.Files.DeleteProjectFile
                 })
                 .WithMessage("File not found");
 
-            // Validate user is project member
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    var membership = await projectMemberRepo.GetFirstBySearch(
-                        pm => pm.ProjectId == command.ProjectId &&
-                              pm.TenantId == command.TenantId &&
-                              pm.UserId == currentUser.Id);
-                    return membership != null;
-                })
-                .WithMessage("User is not a member of the project");
-
             // Validate user has permission (file owner OR project admin)
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
@@ -65,7 +53,8 @@ namespace CQRS.Files.DeleteProjectFile
                     var file = await projectFileRepo.GetFirstBySearch(
                         pf => pf.Id == command.FileId &&
                               pf.ProjectId == command.ProjectId &&
-                              pf.TenantId == command.TenantId);
+                              pf.TenantId == command.TenantId &&
+                              !pf.IsDeleted);
 
                     if (file == null) return false;
 
@@ -76,7 +65,7 @@ namespace CQRS.Files.DeleteProjectFile
 
                     if (membership == null) return false;
 
-                    bool isFileOwner = file.UploadedByUserId == currentUser.Id;
+                    bool isFileOwner = file.OwnerId == currentUser.Id;
                     bool isProjectAdmin = membership.Role == ProjectRole.Admin;
 
                     return isFileOwner || isProjectAdmin;

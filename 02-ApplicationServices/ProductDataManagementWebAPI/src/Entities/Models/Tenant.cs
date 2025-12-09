@@ -5,6 +5,7 @@ namespace Entities.Models
     public class Tenant : BaseEntity
     {
         public string Name { get; set; } = default!;
+        public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<TenantMember> Members { get; set; } = new List<TenantMember>();

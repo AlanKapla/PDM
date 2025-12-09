@@ -1,6 +1,8 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Entities.Models;
+using Entities.Enums;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace WebApi.Authorization
@@ -66,20 +68,26 @@ namespace WebApi.Authorization
                 return;
             }
 
-            // Weryfikacja aktywnego cz�onkostwa w tenancie
+            // Weryfikacja aktywnego członkostwa w tenancie
+            // Admin tenanta ma dostęp nawet gdy tenant jest nieaktywny
             TenantMember? tenantMembership = await tenantMemberRepo.GetFirstBySearch(
-                m => m.TenantId == tenantId && m.UserId == currentUser.Id && m.IsActive);
+                m => m.TenantId == tenantId &&
+                     m.UserId == currentUser.Id &&
+                     m.IsActive &&
+                     m.Tenant.IsActive);
 
             if (tenantMembership == null)
             {
                 return;
             }
 
-            // Weryfikacja cz�onkostwa w projekcie
+            // Weryfikacja członkostwa w projekcie
+            // Admin projektu ma dostęp nawet gdy projekt jest nieaktywny
             ProjectMember? projectMembership = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.TenantId == tenantId && 
                       pm.ProjectId == projectId && 
-                      pm.UserId == currentUser.Id);
+                      pm.UserId == currentUser.Id &&
+                      pm.Project.IsActive);
 
             if (projectMembership != null)
             {

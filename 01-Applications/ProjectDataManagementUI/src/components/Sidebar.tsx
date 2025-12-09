@@ -21,14 +21,13 @@ import {
   ChevronDown,
   ChevronUp,
   FolderKanban,
-  FileText,
-  Calculator,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getActiveInvitations } from "../services/tenantService";
 import { InvitationStatus } from "../types/auth.types";
+import { tenantApi } from "../api/tenantApi";
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -36,10 +35,17 @@ export default function Sidebar() {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [invitationsCount, setInvitationsCount] = useState(0);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
 
   // Przywróć stan z localStorage lub ustaw na false
   const [tenantsExpanded, setTenantsExpanded] = useState(() => {
     const saved = localStorage.getItem("sidebar_tenants_expanded");
+    return saved === "true";
+  });
+
+  const [projectsExpanded, setProjectsExpanded] = useState(() => {
+    const saved = localStorage.getItem("sidebar_projects_expanded");
     return saved === "true";
   });
 
@@ -61,10 +67,39 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
+  // Pobierz projekty aktywnego tenanta
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const activeTenantResponse = await tenantApi.getActiveTenant();
+        if (activeTenantResponse.ok) {
+          const activeTenantData = await activeTenantResponse.json();
+          
+          if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
+            setActiveTenantId(activeTenantData.activeTenantId);
+            
+            const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
+            if (projectsResponse.ok) {
+              const projectsData = await projectsResponse.json();
+              setProjects(projectsData);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Błąd pobierania projektów w sidebar:", error);
+      }
+    };
+
+    fetchProjects();
+  }, []);
+
   // Automatycznie rozwiń sekcję jeśli użytkownik jest na danej ścieżce
   useEffect(() => {
     if (location.pathname.startsWith("/tenants") && !tenantsExpanded) {
       setTenantsExpanded(true);
+    }
+    if (location.pathname.startsWith("/projects") && !projectsExpanded) {
+      setProjectsExpanded(true);
     }
   }, [location.pathname]);
 
@@ -72,6 +107,10 @@ export default function Sidebar() {
   useEffect(() => {
     localStorage.setItem("sidebar_tenants_expanded", String(tenantsExpanded));
   }, [tenantsExpanded]);
+
+  useEffect(() => {
+    localStorage.setItem("sidebar_projects_expanded", String(projectsExpanded));
+  }, [projectsExpanded]);
 
   const bg = useColorModeValue("white", "gray.900");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -147,41 +186,47 @@ export default function Sidebar() {
           {/* Projekty */}
           <Button
             variant="ghost"
-            justifyContent="flex-start"
+            justifyContent="space-between"
             leftIcon={<FolderKanban size={20} />}
+            rightIcon={projectsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             w="100%"
-            bg={location.pathname.startsWith("/projects") ? activeBg : "transparent"}
+            bg={location.pathname === "/projects" ? activeBg : "transparent"}
             _hover={{ bg: hoverBg }}
-            onClick={() => navigate("/projects")}
+            onClick={() => setProjectsExpanded(!projectsExpanded)}
           >
             Projekty
           </Button>
 
-          {/* Pliki */}
-          <Button
-            variant="ghost"
-            justifyContent="flex-start"
-            leftIcon={<FileText size={20} />}
-            w="100%"
-            bg={location.pathname.startsWith("/files") ? activeBg : "transparent"}
-            _hover={{ bg: hoverBg }}
-            onClick={() => navigate("/files")}
-          >
-            Pliki
-          </Button>
-
-          {/* Kosztorysy */}
-          <Button
-            variant="ghost"
-            justifyContent="flex-start"
-            leftIcon={<Calculator size={20} />}
-            w="100%"
-            bg={location.pathname.startsWith("/estimates") ? activeBg : "transparent"}
-            _hover={{ bg: hoverBg }}
-            onClick={() => navigate("/estimates")}
-          >
-            Kosztorysy
-          </Button>
+          {/* Panel rozwijany projektów */}
+          <Collapse in={projectsExpanded} animateOpacity>
+            <VStack align="stretch" w="100%" spacing={2} pl={4} pt={2}>
+              {projects.length > 0 ? (
+                projects.map((project) => (
+                  <Button
+                    key={project.id}
+                    variant="ghost"
+                    size="sm"
+                    justifyContent="flex-start"
+                    w="100%"
+                    fontSize="sm"
+                    bg={location.pathname === `/projects/${project.id}` ? activeBg : "transparent"}
+                    _hover={{ bg: hoverBg }}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                    title={project.name}
+                    overflow="hidden"
+                    textOverflow="ellipsis"
+                    whiteSpace="nowrap"
+                  >
+                    {project.name}
+                  </Button>
+                ))
+              ) : (
+                <Box pl={2} py={1} fontSize="xs" color="gray.500">
+                  Brak projektów
+                </Box>
+              )}
+            </VStack>
+          </Collapse>
         </VStack>
       </VStack>
   );

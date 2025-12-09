@@ -150,6 +150,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Błąd wylogowania:", error);
     }
 
+    // Wyczyść cache powiadomień
+    const { notificationHubService } = await import("../services/notificationHubService");
+    notificationHubService.clearCache();
+    await notificationHubService.stopConnection();
+
     setIsAuthenticated(false);
     setUser(null);
   };

@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -52,6 +53,14 @@ namespace WebApi.Extensions
                 .AddHttpContextAccessor()
                 .AddControllers();
 
+            // Konfiguracja FormOptions dla multipart/form-data uploads (np. pliki)
+            services.Configure<FormOptions>(options =>
+            {
+                options.MultipartBodyLengthLimit = 52428800; // 50 MB
+                options.ValueLengthLimit = 52428800;
+                options.MultipartHeadersLengthLimit = 52428800;
+            });
+
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
             services.AddHealthChecks();
@@ -60,6 +69,8 @@ namespace WebApi.Extensions
                 .PersistKeysToFileSystem(new DirectoryInfo("/keys"));
             
             services.AddSignalR();
+
+            services.AddMemoryCache();
 
             return services;
         }
@@ -205,7 +216,17 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<Notification>, Repository<Notification>>();
             services.AddScoped<IReadRepository<ProjectFile>, ReadRepository<ProjectFile>>();
             services.AddScoped<IRepository<ProjectFile>, Repository<ProjectFile>>();
+            services.AddScoped<IReadRepository<ProjectFileVersion>, ReadRepository<ProjectFileVersion>>();
+            services.AddScoped<IRepository<ProjectFileVersion>, Repository<ProjectFileVersion>>();
+            services.AddScoped<IReadRepository<ProjectFileVersionComment>, ReadRepository<ProjectFileVersionComment>>();
+            services.AddScoped<IRepository<ProjectFileVersionComment>, Repository<ProjectFileVersionComment>>();
+            services.AddScoped<IReadRepository<SharedProjectFile>, ReadRepository<SharedProjectFile>>();
             services.AddScoped<IRepository<SharedProjectFile>, Repository<SharedProjectFile>>();
+            services.AddScoped<IReadRepository<Chat>, ReadRepository<Chat>>();
+            services.AddScoped<IRepository<Chat>, Repository<Chat>>();
+            services.AddScoped<IRepository<ChatMember>, Repository<ChatMember>>();
+            services.AddScoped<IReadRepository<MessageHistory>, ReadRepository<MessageHistory>>();
+            services.AddScoped<IRepository<MessageHistory>, Repository<MessageHistory>>();
             return services;
         }
 
@@ -230,6 +251,15 @@ namespace WebApi.Extensions
             // Notification background worker
             services.AddHostedService<NotificationWorker>();
             services.AddScoped<INotificationSender, QueuedNotificationSender>();
+
+            // Notification mark as read dispatcher via SignalR (singleton-safe)
+            services.AddSingleton<INotificationMarkAsReadDispatcher, WebApi.Services.SignalRNotificationMarkAsReadDispatcher>();
+            // Notification mark as read background worker
+            services.AddHostedService<NotificationMarkAsReadWorker>();
+            services.AddScoped<INotificationMarkAsReadSender, QueuedNotificationMarkAsReadSender>();
+
+            services.AddSingleton<IMessageDispatcher, WebApi.Services.SignalRMessageDispatcher>();
+            services.AddHostedService<MessageWorker>();
 
             return services;
         }
@@ -290,11 +320,13 @@ namespace WebApi.Extensions
             {
                 options.AddPolicy(Policies.TenantAdmin, policy => policy.Requirements.Add(new TenantAdminRequirement()));
                 options.AddPolicy(Policies.TenantMember, policy => policy.Requirements.Add(new TenantMemberRequirement()));
+                options.AddPolicy(Policies.TenantAdminOrOwner, policy => policy.Requirements.Add(new TenantAdminOrOwnerRequirement()));
                 options.AddPolicy(Policies.ProjectAdmin, policy => policy.Requirements.Add(new ProjectAdminRequirement()));
                 options.AddPolicy(Policies.ProjectMember, policy => policy.Requirements.Add(new ProjectMemberRequirement()));
             });
             services.AddScoped<IAuthorizationHandler, TenantAdminHandler>();
             services.AddScoped<IAuthorizationHandler, TenantMemberHandler>();
+            services.AddScoped<IAuthorizationHandler, TenantAdminOrOwnerHandler>();
             services.AddScoped<IAuthorizationHandler, ProjectAdminHandler>();
             services.AddScoped<IAuthorizationHandler, ProjectMemberHandler>();
             return services;

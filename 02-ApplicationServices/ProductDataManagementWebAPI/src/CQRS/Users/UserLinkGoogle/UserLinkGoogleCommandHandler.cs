@@ -1,4 +1,4 @@
-using Business.Interfaces.Exceptions;
+Ôªøusing Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models;
@@ -13,24 +13,27 @@ namespace CQRS.Users.UserLinkGoogle
     {
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<UserSession> userSessionRepo;
+        private readonly IReadRepository<TenantPreferencesProfile> tenantPrefsRepo;
         private readonly IJwtService jwt;
         private readonly ICurrentUser currentUser;
 
         public UserLinkGoogleCommandHandler(
             IReadRepository<User> userRepo,
             IReadRepository<UserSession> userSessionRepo,
+            IReadRepository<TenantPreferencesProfile> tenantPrefsRepo,
             IJwtService jwt,
             ICurrentUser currentUser)
         {
             this.userRepo = userRepo;
             this.userSessionRepo = userSessionRepo;
+            this.tenantPrefsRepo = tenantPrefsRepo;
             this.jwt = jwt;
             this.currentUser = currentUser;
         }
 
         public async Task<UserAuthWeb> Handle(UserLinkGoogleCommand request, CancellationToken cancellationToken)
         {
-            // Pobranie aktualnie zalogowanego uøytkownika
+            // Pobranie aktualnie zalogowanego u≈ºytkownika
             User? user = await userRepo.GetById(currentUser.Id);
             if (user == null)
             {
@@ -48,14 +51,14 @@ namespace CQRS.Users.UserLinkGoogle
                     "Google email is not verified");
             }
 
-            // Sprawdzenie czy email siÍ zgadza
+            // Sprawdzenie czy email siƒô zgadza
             if (user.Email != payload.Email)
             {
                 throw new ApiException(ApiExceptionReason.InvalidOperation, 
                     "Google account email must match your current account email");
             }
 
-            // Sprawdzenie czy Google account juø jest po≥πczone z innym uøytkownikiem
+            // Sprawdzenie czy Google account ju≈º jest po≈ÇƒÖczone z innym u≈ºytkownikiem
             User? existingGoogleUser = await userRepo.GetFirstBySearch(x => 
                 x.ExternalId == payload.Subject && x.Id != user.Id);
                 
@@ -65,7 +68,7 @@ namespace CQRS.Users.UserLinkGoogle
                     "This Google account is already linked to another user");
             }
 
-            // Sprawdzenie czy uøytkownik juø ma po≥πczone Google
+            // Sprawdzenie czy u≈ºytkownik ju≈º ma po≈ÇƒÖczone Google
             if (!string.IsNullOrEmpty(user.ExternalId))
             {
                 throw new ApiException(ApiExceptionReason.InvalidOperation, 
@@ -80,7 +83,7 @@ namespace CQRS.Users.UserLinkGoogle
             // Tworzenie nowej sesji
             UserSession userSession = await CreateUserSession(user);
 
-            return PrepareUserAuthWeb(user, userSession);
+            return await PrepareUserAuthWeb(user, userSession);
         }
 
         private async Task<UserSession> CreateUserSession(User user)
@@ -99,9 +102,13 @@ namespace CQRS.Users.UserLinkGoogle
             return userSession;
         }
 
-        private UserAuthWeb PrepareUserAuthWeb(User user, UserSession userSession)
+        private async Task<UserAuthWeb> PrepareUserAuthWeb(User user, UserSession userSession)
         {
-            TokenDto token = jwt.GenerateToken(user, user.ActiveTenantId);
+            // Pobierz ActiveTenantId z profilu u≈ºytkownika
+            TenantPreferencesProfile? prefs = await tenantPrefsRepo.GetFirstBySearch(p => p.UserId == user.Id);
+            Guid? activeTenantId = prefs?.ActiveTenantId;
+
+            TokenDto token = jwt.GenerateToken(user, activeTenantId);
 
             return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
         }

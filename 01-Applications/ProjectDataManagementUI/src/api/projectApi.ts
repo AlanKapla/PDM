@@ -50,7 +50,7 @@ export const projectApi = {
     tenantId: string, 
     projectId: string, 
     packageName: string, 
-    files: Array<{ file: File; displayName?: string }>
+    files: Array<{ file: File; displayName?: string; comment?: string }>
   ): Promise<Response> => {
     const formData = new FormData();
     formData.append('TenantId', tenantId);
@@ -61,6 +61,9 @@ export const projectApi = {
       formData.append(`Files[${index}].File`, item.file);
       if (item.displayName) {
         formData.append(`Files[${index}].DisplayName`, item.displayName);
+      }
+      if (item.comment) {
+        formData.append(`Files[${index}].Comment`, item.comment);
       }
     });
 
@@ -105,6 +108,59 @@ export const projectApi = {
   getSharedFiles: async (tenantId: string, projectId: string): Promise<Response> => {
     return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/shared`, {
       method: "GET",
+      credentials: "include",
+    });
+  },
+
+  // Usuń plik z projektu
+  deleteFile: async (tenantId: string, projectId: string, fileId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+  },
+
+  // Upload nowej wersji pliku
+  uploadNewVersion: async (
+    tenantId: string,
+    projectId: string,
+    fileId: string,
+    file: File,
+    comment?: string
+  ): Promise<Response> => {
+    const formData = new FormData();
+    formData.append("File", file);
+    if (comment) {
+      formData.append("Comment", comment);
+    }
+
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}/versions`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+  },
+
+  // Dodaj komentarz do wersji pliku
+  addFileVersionComment: async (
+    tenantId: string,
+    projectId: string,
+    fileId: string,
+    versionId: string,
+    comment: string
+  ): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}/versions/${versionId}/comments`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comment }),
+    });
+  },
+
+  // Zmień status projektu (aktywuj/dezaktywuj)
+  toggleProjectStatus: async (tenantId: string, projectId: string, isActive: boolean): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/Project/${projectId}/toggle-status?isActive=${isActive}`, {
+      method: "PATCH",
       credentials: "include",
     });
   },

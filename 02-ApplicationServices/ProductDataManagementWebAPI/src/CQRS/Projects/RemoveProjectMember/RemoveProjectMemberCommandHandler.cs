@@ -32,7 +32,7 @@ namespace CQRS.Projects.RemoveProjectMember
         {
             // Pobierz projekt do użycia w notyfikacji (walidacja już wykonana w validatorze)
             Project project = (await projectRepo.GetFirstBySearch(
-                p => p.Id == request.ProjectId && p.TenantId == request.TenantId))!;
+                p => p.Id == request.ProjectId && p.TenantId == request.TenantId && p.IsActive))!;
 
             // Pobierz członka projektu
             ProjectMember projectMember = (await projectMemberRepo.GetFirstBySearch(

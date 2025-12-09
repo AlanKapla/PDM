@@ -1,5 +1,6 @@
-using Business.Interfaces.Exceptions;
+Ôªøusing Business.Interfaces.DTO;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -10,33 +11,41 @@ namespace CQRS.Notifications.MarkNotificationAsRead
     {
         private readonly IRepository<Notification> notificationRepo;
         private readonly ICurrentUser currentUser;
+        private readonly INotificationMarkAsReadSender notificationMarkAsReadSender;
 
-        public MarkNotificationAsReadCommandHandler(IRepository<Notification> notificationRepo, ICurrentUser currentUser)
+        public MarkNotificationAsReadCommandHandler(
+            IRepository<Notification> notificationRepo,
+            ICurrentUser currentUser,
+            INotificationMarkAsReadSender notificationMarkAsReadSender)
         {
             this.notificationRepo = notificationRepo;
             this.currentUser = currentUser;
+            this.notificationMarkAsReadSender = notificationMarkAsReadSender;
         }
 
         public async Task<Unit> Handle(MarkNotificationAsReadCommand request, CancellationToken cancellationToken)
         {
-            // Pobierz notyfikacjÍ naleøπcπ do zalogowanego uøytkownika
-            Notification? notification = await notificationRepo
-                .GetFirstBySearch(n => n.Id == request.NotificationId && n.UserId == currentUser.Id);
+            // Walidacja wykonana w validatorze - notyfikacja istnieje i nale≈ºy do u≈ºytkownika
+            Notification notification = (await notificationRepo
+                .GetFirstBySearch(n => n.Id == request.NotificationId && n.UserId == currentUser.Id))!;
 
-            if (notification == null)
-            {
-                throw new NotFoundApiException(nameof(Notification), request.NotificationId.ToString());
-            }
-
-            // Jeúli juø przeczytana, nie rÛb nic
+            // Je≈õli ju≈º przeczytana, nie r√≥b nic
             if (notification.Readed)
             {
                 return Unit.Value;
             }
 
-            // Oznacz jako przeczytanπ
+            // Oznacz jako przeczytanƒÖ
             notification.Readed = true;
             await notificationRepo.Update(notification);
+
+            // Enqueue SignalR event
+            await notificationMarkAsReadSender.EnqueueAsync(new NotificationMarkAsReadDto
+            {
+                NotificationId = notification.Id,
+                UserId = notification.UserId,
+                ReadAt = DateTimeOffset.UtcNow
+            }, cancellationToken);
 
             return Unit.Value;
         }

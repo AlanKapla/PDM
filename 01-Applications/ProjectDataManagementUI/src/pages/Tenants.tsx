@@ -404,11 +404,16 @@ export default function Tenants() {
                       >
                         <HStack justify="space-between">
                           <HStack spacing={3} flex={1}>
-                            <Radio value={tenant.id} isDisabled={changingTenant}>
+                            <Radio value={tenant.id} isDisabled={changingTenant || !tenant.isActive}>
                               <VStack align="flex-start" spacing={1}>
-                                <Text fontWeight={tenant.id === activeTenantId ? "bold" : "normal"}>
-                                  {tenant.name}
-                                </Text>
+                                <HStack spacing={2}>
+                                  <Text fontWeight={tenant.id === activeTenantId ? "bold" : "normal"}>
+                                    {tenant.name}
+                                  </Text>
+                                  <Badge colorScheme={tenant.isActive ? "green" : "gray"} fontSize="xs">
+                                    {tenant.isActive ? "Aktywna" : "Nieaktywna"}
+                                  </Badge>
+                                </HStack>
                                 <HStack spacing={2}>
                                   <Text fontSize="xs" color="gray.500">
                                     Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
@@ -542,6 +547,9 @@ export default function Tenants() {
                             <VStack align="flex-start" spacing={1}>
                               <HStack>
                                 <Text fontWeight="bold" fontSize="lg">{tenant.name}</Text>
+                                <Badge colorScheme={tenant.isActive ? "green" : "gray"} fontSize="xs">
+                                  {tenant.isActive ? "Aktywna" : "Nieaktywna"}
+                                </Badge>
                                 {tenant.id === activeTenantId && (
                                   <Badge colorScheme="blue" display="flex" alignItems="center" gap={1}>
                                     <CheckCircle2 size={14} />

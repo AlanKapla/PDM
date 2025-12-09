@@ -1,13 +1,12 @@
-using System;
-using System.Collections.Generic;
-
-namespace Business.Interfaces.DTO
+﻿namespace Business.Interfaces.DTO
 {
     public class NotificationDto
     {
         public Guid Id { get; set; }
         public Guid TenantId { get; set; }
         public Guid? ProjectId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
+        public string? ProjectName { get; set; }
         public Guid UserId { get; set; }
         public NotificationType Type { get; set; }
         public string Title { get; set; } = string.Empty;

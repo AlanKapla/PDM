@@ -43,6 +43,13 @@ export const tenantApi = {
     });
   },
 
+  toggleTenantStatus: async (tenantId: string, isActive: boolean) => {
+    return fetch(`${API_URL}/${tenantId}/status?isActive=${isActive}`, {
+      method: "PATCH",
+      credentials: "include",
+    });
+  },
+
   inviteMember: async (tenantId: string, email: string) => {
     return fetch(`${API_URL}/${tenantId}/invitations`, {
       method: "POST",

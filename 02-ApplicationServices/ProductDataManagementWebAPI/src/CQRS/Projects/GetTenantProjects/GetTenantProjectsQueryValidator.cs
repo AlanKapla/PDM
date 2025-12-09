@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace CQRS.Projects.GetTenantProjects
 {
@@ -8,7 +8,7 @@ namespace CQRS.Projects.GetTenantProjects
         {
             RuleFor(x => x.TenantId)
                 .NotEmpty()
-                .WithMessage("TenantId jest wymagane");
+                .WithMessage("TenantId is required");
         }
     }
 }

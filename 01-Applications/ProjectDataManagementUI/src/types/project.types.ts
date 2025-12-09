@@ -42,12 +42,41 @@ export interface ProjectFileWeb {
   fileName: string;
   displayName: string;
   packageName: string;
+  createdAt: string;
+  ownerId: string;
+  ownerName: string;
+  currentVersion?: ProjectFileVersionWeb;
+  versions: ProjectFileVersionWeb[];
+  totalVersions: number;
+  isOwner: boolean;
+  isShared: boolean;
+}
+
+export interface ProjectFileVersionWeb {
+  id: string;
+  projectFileId: string;
+  versionNumber: number;
   contentType: string;
   fileSizeBytes: number;
-  uploadedAt: string;
-  uploadedByUserId: string;
-  uploadedByUserName: string;
-  sasUrl: string;
+  createdAt: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  sasUrlView: string;
+  sasUrlDownload: string;
+  comments: ProjectFileVersionCommentWeb[];
+}
+
+export interface ProjectFileVersionCommentWeb {
+  id: string;
+  projectFileVersionId: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+  editedAt?: string;
+  isEdited: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
 export interface ShareProjectFileResult {
@@ -72,4 +101,7 @@ export interface SharedProjectFileWeb {
   originalOwnerUserId: string;
   originalOwnerUserName: string;
   sasUrl: string;
+  currentVersion?: ProjectFileVersionWeb;
+  versions: ProjectFileVersionWeb[];
+  totalVersions: number;
 }

@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Entities.Enums;
 using Entities.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -63,15 +63,24 @@ namespace WebApi.Authorization
                 return;
             }
 
-            TenantMember? tenantMembership = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == tenantId && m.UserId == currentUser.Id && m.IsActive);
+            TenantMember? tenantMembership = await tenantMemberRepo.GetFirstBySearch(m =>
+                m.TenantId == tenantId &&
+                m.UserId == currentUser.Id &&
+                m.IsActive);
+
+            if (tenantMembership == null)
+            {
+                return;
+            }
 
             ProjectMember? projectMembership = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.TenantId == tenantId && 
                       pm.ProjectId == projectId && 
-                      pm.UserId == currentUser.Id);
+                      pm.UserId == currentUser.Id &&
+                      pm.Role == ProjectRole.Admin);
 
-            if (projectMembership != null && projectMembership.Role == ProjectRole.Admin 
-                && tenantMembership != null && tenantMembership.Role == TenantRole.Admin)
+            // Wystarczy być ProjectAdmin (nie wymaga TenantAdmin)
+            if (projectMembership != null)
             {
                 context.Succeed(requirement);
             }

@@ -22,8 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Files\DownloadProjectFile\" />
-    <Folder Include="Files\GetProjectMembersForSharing\" />
+    <Folder Include="Messages\GetProjectMessages\" />
+    <Folder Include="Migrations\UpdateBlobContentDisposition\" />
     <Folder Include="Notifications\GetUserNotifications\" />
     <Folder Include="Test\TestBlobConnection\" />
   </ItemGroup>

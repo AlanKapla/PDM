@@ -6,5 +6,6 @@
         public const string ProjectMember = "ProjectMember";
         public const string TenantAdmin = "TenantAdmin";
         public const string TenantMember = "TenantMember";
+        public const string TenantAdminOrOwner = "TenantAdminOrOwner";
     }
 }

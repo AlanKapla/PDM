@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 import {
   Box,
   Heading,
@@ -28,19 +29,24 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   useColorModeValue,
+  Checkbox,
+  useDisclosure,
+  Tooltip,
   Modal,
   ModalOverlay,
   ModalContent,
   ModalHeader,
   ModalBody,
-  ModalCloseButton,
   ModalFooter,
-  Checkbox,
-  useDisclosure,
+  ModalCloseButton,
+  Textarea,
+  Input,
+  IconButton,
 } from "@chakra-ui/react";
-import { Download, ArrowLeft, FileText, Eye, ChevronLeft, ChevronRight, Share2, Package } from "lucide-react";
+import { Download, ArrowLeft, FileText, Eye, Share2, Package, MessageSquare, Clock, User, ChevronDown, ChevronUp, Trash2, Upload, Send } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import ShareFilesModal from "../components/ShareFilesModal";
+import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import { projectApi } from "../api/projectApi";
 import type { ProjectFileWeb } from "../types/project.types";
 
@@ -50,12 +56,18 @@ interface GroupedFiles {
 
 export default function MyFiles() {
   const { tenantId, projectId } = useParams<{ tenantId: string; projectId: string }>();
+  const { user } = useContext(AuthContext);
   const [files, setFiles] = useState<ProjectFileWeb[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previewFile, setPreviewFile] = useState<ProjectFileWeb | null>(null);
-  const [currentPackageFiles, setCurrentPackageFiles] = useState<ProjectFileWeb[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
+  const [fileToDelete, setFileToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [fileForNewVersion, setFileForNewVersion] = useState<ProjectFileWeb | null>(null);
+  const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
+  const [submittingComment, setSubmittingComment] = useState<string | null>(null);
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
+  const { isOpen: isDeleteModalOpen, onOpen: onDeleteModalOpen, onClose: onDeleteModalClose } = useDisclosure();
+  const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const toast = useToast();
   const navigate = useNavigate();
   const cardBg = useColorModeValue("white", "gray.800");
@@ -120,40 +132,38 @@ export default function MyFiles() {
     });
   };
 
-  const handleDownload = async (sasUrl: string, fileName: string) => {
-    try {
-      const response = await fetch(sasUrl, {
-        method: 'GET',
-        mode: 'cors',
+  const handleDownload = (sasUrl: string, fileName: string) => {
+    // Debug: sprawdź co trafia jako fileName
+    console.log('handleDownload fileName:', fileName);
+    // Użyj fetch + createElement('a') z download attribute aby zagwarantować fileName
+    fetch(sasUrl, { method: 'GET', mode: 'cors' })
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return response.blob();
+      })
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+      })
+      .catch(error => {
+        console.error("Błąd podczas pobierania pliku:", error);
+        toast({
+          title: "Błąd",
+          description: "Nie udało się pobrać pliku",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      
-      setTimeout(() => {
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }, 100);
-    } catch (error) {
-      console.error("Błąd podczas pobierania pliku:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać pliku",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    }
   };
 
   const handleDownloadSelectedAsZip = async () => {
@@ -176,9 +186,10 @@ export default function MyFiles() {
       // Pobierz wszystkie pliki i dodaj do ZIP - używając mode: 'no-cors' nie zadziała dla blob
       // Zamiast tego pobierzemy pliki przez proxy lub użyjemy bezpośredniego dostępu
       const filePromises = selectedFiles.map(async (file) => {
+        if (!file.currentVersion) return { success: false, fileName: file.fileName };
         try {
           // Pobierz plik z włączonymi credentials
-          const response = await fetch(file.sasUrl, {
+          const response = await fetch(file.currentVersion.sasUrlDownload, {
             method: 'GET',
             mode: 'cors',
           });
@@ -188,11 +199,11 @@ export default function MyFiles() {
           }
           
           const blob = await response.blob();
-          zip.file(file.fileName, blob);
-          return { success: true, fileName: file.fileName };
+          zip.file(file.displayName, blob);
+          return { success: true, fileName: file.displayName };
         } catch (error) {
-          console.error(`Błąd pobierania ${file.fileName}:`, error);
-          return { success: false, fileName: file.fileName };
+          console.error(`Błąd pobierania ${file.displayName}:`, error);
+          return { success: false, fileName: file.displayName };
         }
       });
 
@@ -253,14 +264,9 @@ export default function MyFiles() {
     }
   };
 
-  const handlePreview = (file: ProjectFileWeb, packageFiles: ProjectFileWeb[]) => {
-    setPreviewFile(file);
-    setCurrentPackageFiles(packageFiles);
-  };
-
-  const closePreview = () => {
-    setPreviewFile(null);
-    setCurrentPackageFiles([]);
+  const handlePreview = (sasUrlView: string) => {
+    // Użyj bezpośrednio SAS URL - nazwa z Content-Disposition (parametr rscd)
+    window.open(sasUrlView, '_blank', 'noopener,noreferrer');
   };
 
   const isPreviewSupported = (contentType: string): boolean => {
@@ -268,27 +274,6 @@ export default function MyFiles() {
       contentType === "application/pdf" ||
       contentType.startsWith("image/")
     );
-  };
-
-  const navigateFile = (direction: "prev" | "next") => {
-    if (!previewFile || currentPackageFiles.length === 0) return;
-
-    const currentIndex = currentPackageFiles.findIndex(f => f.id === previewFile.id);
-    let newIndex: number;
-
-    if (direction === "prev") {
-      newIndex = currentIndex > 0 ? currentIndex - 1 : currentPackageFiles.length - 1;
-    } else {
-      newIndex = currentIndex < currentPackageFiles.length - 1 ? currentIndex + 1 : 0;
-    }
-
-    setPreviewFile(currentPackageFiles[newIndex]);
-  };
-
-  const getCurrentFileIndex = (): string => {
-    if (!previewFile || currentPackageFiles.length === 0) return "";
-    const currentIndex = currentPackageFiles.findIndex(f => f.id === previewFile.id);
-    return `${currentIndex + 1} / ${currentPackageFiles.length}`;
   };
 
   const toggleFileSelection = (fileId: string) => {
@@ -322,9 +307,139 @@ export default function MyFiles() {
     return files.filter((f) => selectedFileIds.has(f.id));
   };
 
+  const openDeleteModal = (fileId: string, fileName: string) => {
+    setFileToDelete({ id: fileId, name: fileName });
+    onDeleteModalOpen();
+  };
+
+  const handleDeleteFile = async () => {
+    if (!tenantId || !projectId || !fileToDelete) return;
+
+    try {
+      const response = await projectApi.deleteFile(tenantId, projectId, fileToDelete.id);
+      
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: "Plik został usunięty",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+        
+        // Usuń plik z lokalnego stanu
+        setFiles((prevFiles) => prevFiles.filter((f) => f.id !== fileToDelete.id));
+        
+        // Usuń z zaznaczonych jeśli był zaznaczony
+        setSelectedFileIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(fileToDelete.id);
+          return newSet;
+        });
+        
+        onDeleteModalClose();
+        setFileToDelete(null);
+      } else {
+        throw new Error("Nie udało się usunąć pliku");
+      }
+    } catch (error) {
+      console.error("Błąd podczas usuwania pliku:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć pliku",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleFilesShared = () => {
     setSelectedFileIds(new Set());
     fetchMyFiles();
+  };
+
+  const handleAddComment = async (fileId: string, versionId: string) => {
+    if (!tenantId || !projectId) return;
+
+    const commentKey = `${fileId}-${versionId}`;
+    const comment = newComments.get(commentKey);
+
+    if (!comment || comment.trim() === "") {
+      toast({
+        title: "Uwaga",
+        description: "Komentarz nie może być pusty",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      setSubmittingComment(commentKey);
+      const response = await projectApi.addFileVersionComment(
+        tenantId,
+        projectId,
+        fileId,
+        versionId,
+        comment.trim()
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: "Komentarz został dodany",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+
+        // Wyczyść pole komentarza
+        setNewComments((prev) => {
+          const updated = new Map(prev);
+          updated.delete(commentKey);
+          return updated;
+        });
+
+        // Odśwież listę plików aby pobrać nowy komentarz
+        await fetchMyFiles();
+      } else {
+        throw new Error("Nie udało się dodać komentarza");
+      }
+    } catch (error) {
+      console.error("Błąd podczas dodawania komentarza:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się dodać komentarza",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setSubmittingComment(null);
+    }
+  };
+
+  const openUploadVersionModal = (file: ProjectFileWeb) => {
+    setFileForNewVersion(file);
+    onUploadVersionModalOpen();
+  };
+
+  const handleVersionUploaded = () => {
+    fetchMyFiles();
+  };
+
+  const toggleFileVersions = (fileId: string) => {
+    setExpandedFileIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileId)) {
+        newSet.delete(fileId);
+      } else {
+        newSet.add(fileId);
+      }
+      return newSet;
+    });
   };
 
   const groupedFiles = groupFilesByPackage(files);
@@ -370,9 +485,14 @@ export default function MyFiles() {
           </HStack>
           {selectedFileIds.size > 0 && (
             <VStack spacing={2} align="stretch">
-              <Badge colorScheme="blue" fontSize="md" px={3} py={1} textAlign="center">
-                Wybrano: {selectedFileIds.size}
-              </Badge>
+              <VStack spacing={1}>
+                <Badge colorScheme="blue" fontSize="md" px={3} py={1} textAlign="center">
+                  Wybrano: {selectedFileIds.size} {selectedFileIds.size === 1 ? 'plik' : 'plików'}
+                </Badge>
+                <Text fontSize="xs" color="gray.600" textAlign="center">
+                  (pliki bazowe ze wszystkimi wersjami)
+                </Text>
+              </VStack>
               <HStack spacing={2} flexWrap="wrap">
                 <Button
                   leftIcon={<Package size={18} />}
@@ -421,7 +541,7 @@ export default function MyFiles() {
             <Accordion allowMultiple>
               {packageNames.map((packageName) => {
                 const packageFiles = groupedFiles[packageName];
-                const totalSize = packageFiles.reduce((sum, file) => sum + file.fileSizeBytes, 0);
+                const totalSize = packageFiles.reduce((sum, file) => sum + (file.currentVersion?.fileSizeBytes || 0), 0);
 
                 return (
                   <AccordionItem
@@ -434,21 +554,28 @@ export default function MyFiles() {
                   >
                     <AccordionButton _expanded={{ bg: "blue.50" }} py={4}>
                       <HStack flex="1" spacing={3}>
-                        <Checkbox
-                          isChecked={packageFiles.every((f) => selectedFileIds.has(f.id))}
-                          isIndeterminate={
-                            packageFiles.some((f) => selectedFileIds.has(f.id)) &&
-                            !packageFiles.every((f) => selectedFileIds.has(f.id))
-                          }
-                          onChange={() => togglePackageSelection(packageFiles)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        <Tooltip label="Zaznacz wszystkie pliki bazowe w pakiecie (ze wszystkimi wersjami)" fontSize="xs">
+                          <Checkbox
+                            isChecked={packageFiles.every((f) => selectedFileIds.has(f.id))}
+                            isIndeterminate={
+                              packageFiles.some((f) => selectedFileIds.has(f.id)) &&
+                              !packageFiles.every((f) => selectedFileIds.has(f.id))
+                            }
+                            onChange={() => togglePackageSelection(packageFiles)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </Tooltip>
                         <Box flex="1" textAlign="left">
-                          <HStack spacing={3}>
+                          <HStack spacing={3} flexWrap="wrap">
                             <Text fontWeight="bold" fontSize="lg">
                               📦 {packageName}
                             </Text>
                             <Badge colorScheme="blue">{packageFiles.length} plików</Badge>
+                            {packageFiles.some(f => f.totalVersions > 1) && (
+                              <Badge colorScheme="purple">
+                                {packageFiles.filter(f => f.totalVersions > 1).length} z wersjami
+                              </Badge>
+                            )}
                             <Text fontSize="sm" color="gray.600">
                               ({formatFileSize(totalSize)})
                             </Text>
@@ -471,20 +598,28 @@ export default function MyFiles() {
                     </Thead>
                     <Tbody>
                       {packageFiles.map((file) => (
+                        <>
                         <Tr key={file.id}>
                           <Td>
-                            <Checkbox
-                              isChecked={selectedFileIds.has(file.id)}
-                              onChange={() => toggleFileSelection(file.id)}
-                            />
+                            <Tooltip 
+                              label={file.totalVersions > 1 
+                                ? `Zaznacz plik bazowy z ${file.totalVersions} wersjami` 
+                                : "Zaznacz plik"} 
+                              fontSize="xs"
+                            >
+                              <Checkbox
+                                isChecked={selectedFileIds.has(file.id)}
+                                onChange={() => toggleFileSelection(file.id)}
+                              />
+                            </Tooltip>
                           </Td>
                           <Td>
                             <VStack align="start" spacing={0}>
-                              {isPreviewSupported(file.contentType) ? (
+                              {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) ? (
                                 <Link
                                   color="blue.600"
                                   fontWeight="medium"
-                                  onClick={() => handlePreview(file, packageFiles)}
+                                  onClick={() => handlePreview(file.currentVersion!.sasUrlView)}
                                   cursor="pointer"
                                   _hover={{ textDecoration: "underline" }}
                                   fontSize={{ base: "sm", md: "md" }}
@@ -500,30 +635,35 @@ export default function MyFiles() {
                                 </Text>
                               )}
                               <HStack spacing={1} display={{ base: "flex", md: "none" }} mt={1} flexWrap="wrap">
-                                <Badge colorScheme={file.contentType.includes("pdf") ? "red" : "green"} fontSize="xs">
-                                  {file.contentType.split("/")[1]?.toUpperCase() || "FILE"}
+                                <Badge colorScheme={file.currentVersion?.contentType.includes("pdf") ? "red" : "green"} fontSize="xs">
+                                  {file.currentVersion?.contentType.split("/")[1]?.toUpperCase() || "FILE"}
                                 </Badge>
                                 <Text fontSize="xs" color="gray.600">
-                                  {formatFileSize(file.fileSizeBytes)}
+                                  {formatFileSize(file.currentVersion?.fileSizeBytes || 0)}
                                 </Text>
                               </HStack>
                             </VStack>
                           </Td>
                           <Td display={{ base: "none", md: "table-cell" }}>
-                            <Badge colorScheme={file.contentType.includes("pdf") ? "red" : "green"}>
-                              {file.contentType.split("/")[1]?.toUpperCase() || "FILE"}
+                            <Badge colorScheme={file.currentVersion?.contentType.includes("pdf") ? "red" : "green"}>
+                              {file.currentVersion?.contentType.split("/")[1]?.toUpperCase() || "FILE"}
                             </Badge>
                           </Td>
-                          <Td display={{ base: "none", lg: "table-cell" }}>{formatFileSize(file.fileSizeBytes)}</Td>
+                          <Td display={{ base: "none", lg: "table-cell" }}>{formatFileSize(file.currentVersion?.fileSizeBytes || 0)}</Td>
                           <Td display={{ base: "none", lg: "table-cell" }}>
-                            <Text fontSize="sm">{formatDate(file.uploadedAt)}</Text>
+                            <Text fontSize="sm">{formatDate(file.currentVersion?.createdAt || file.createdAt)}</Text>
+                            {file.totalVersions > 1 && (
+                              <Badge colorScheme="purple" ml={2} fontSize="xs">
+                                v{file.currentVersion?.versionNumber}
+                              </Badge>
+                            )}
                           </Td>
                           <Td>
                             <VStack spacing={1} align="stretch" display={{ base: "flex", md: "none" }}>
-                              {isPreviewSupported(file.contentType) && (
+                              {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) && (
                                 <Link
-                                  color="purple.500"
-                                  onClick={() => handlePreview(file, packageFiles)}
+                                  color="blue.500"
+                                  onClick={() => handlePreview(file.currentVersion!.sasUrlView)}
                                   cursor="pointer"
                                   display="inline-flex"
                                   alignItems="center"
@@ -534,24 +674,68 @@ export default function MyFiles() {
                                   Podgląd
                                 </Link>
                               )}
-                              <Link
-                                color="blue.500"
-                                onClick={() => handleDownload(file.sasUrl, file.fileName)}
-                                cursor="pointer"
-                                display="inline-flex"
-                                alignItems="center"
-                                gap={1}
-                                fontSize="xs"
-                              >
-                                <Download size={14} />
-                                Pobierz
-                              </Link>
+                              {file.currentVersion && (
+                                <Link
+                                  color="blue.500"
+                                  onClick={() => handleDownload(file.currentVersion!.sasUrlDownload, file.fileName)}
+                                  cursor="pointer"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                  fontSize="xs"
+                                >
+                                  <Download size={14} />
+                                  Pobierz
+                                </Link>
+                              )}
+                              {file.versions.length > 0 && (
+                                <Link
+                                  color="gray.600"
+                                  onClick={() => toggleFileVersions(file.id)}
+                                  cursor="pointer"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                  fontSize="xs"
+                                >
+                                  {expandedFileIds.has(file.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                  Wersje ({file.totalVersions})
+                                </Link>
+                              )}
+                              {file.isOwner && (
+                                <Link
+                                  color="green.500"
+                                  onClick={() => openUploadVersionModal(file)}
+                                  cursor="pointer"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                  fontSize="xs"
+                                >
+                                  <Upload size={14} />
+                                  Nowa wersja
+                                </Link>
+                              )}
+                              {file.isOwner && (
+                                <Link
+                                  color="red.500"
+                                  onClick={() => openDeleteModal(file.id, file.displayName)}
+                                  cursor="pointer"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                  fontSize="xs"
+                                >
+                                  <Trash2 size={14} />
+                                  Usuń
+                                </Link>
+                              )}
                             </VStack>
                             <HStack spacing={3} display={{ base: "none", md: "flex" }}>
-                              {isPreviewSupported(file.contentType) && (
+                              {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) && (
                                 <Link
-                                  color="purple.500"
-                                  onClick={() => handlePreview(file, packageFiles)}
+                                  color="blue.500"
+                                  onClick={() => handlePreview(file.currentVersion!.sasUrlView)}
                                   cursor="pointer"
                                   display="inline-flex"
                                   alignItems="center"
@@ -561,20 +745,204 @@ export default function MyFiles() {
                                   Podgląd
                                 </Link>
                               )}
-                              <Link
-                                color="blue.500"
-                                onClick={() => handleDownload(file.sasUrl, file.fileName)}
-                                cursor="pointer"
-                                display="inline-flex"
-                                alignItems="center"
-                                gap={1}
-                              >
-                                <Download size={16} />
-                                Pobierz
-                              </Link>
+                              {file.currentVersion && (
+                                <Link
+                                  color="blue.500"
+                                  onClick={() => handleDownload(file.currentVersion!.sasUrlDownload, file.fileName)}
+                                  cursor="pointer"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                >
+                                  <Download size={16} />
+                                  Pobierz
+                                </Link>
+                              )}
+                              {file.versions.length > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => toggleFileVersions(file.id)}
+                                  rightIcon={expandedFileIds.has(file.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                >
+                                  Wersje ({file.totalVersions})
+                                </Button>
+                              )}
+                              {file.isOwner && (
+                                <Link
+                                  color="green.500"
+                                  onClick={() => openUploadVersionModal(file)}
+                                  cursor="pointer"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                >
+                                  <Upload size={16} />
+                                  Nowa wersja
+                                </Link>
+                              )}
+                              {file.isOwner && (
+                                <Link
+                                  color="red.500"
+                                  onClick={() => openDeleteModal(file.id, file.displayName)}
+                                  cursor="pointer"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                >
+                                  <Trash2 size={16} />
+                                  Usuń
+                                </Link>
+                              )}
                             </HStack>
                           </Td>
                         </Tr>
+                        {/* Rozwinięte wersje i komentarze */}
+                        {expandedFileIds.has(file.id) && file.versions.length > 0 && (
+                          <Tr key={`${file.id}-versions`}>
+                            <Td colSpan={6} p={0}>
+                              <Box bg="gray.50" p={4}>
+                                <VStack align="stretch" spacing={3}>
+                                  <Heading size="sm" mb={2}>
+                                    Historia wersji ({file.totalVersions})
+                                  </Heading>
+                                  {file.versions
+                                    .sort((a, b) => b.versionNumber - a.versionNumber)
+                                    .map((version) => (
+                                      <Box
+                                        key={version.id}
+                                        borderWidth="1px"
+                                        borderRadius="md"
+                                        p={3}
+                                        bg={version.id === file.currentVersion?.id ? "blue.50" : "white"}
+                                        borderColor={version.id === file.currentVersion?.id ? "blue.300" : "gray.200"}
+                                      >
+                                        <HStack justify="space-between" mb={2}>
+                                          <HStack spacing={2}>
+                                            <Badge colorScheme={version.id === file.currentVersion?.id ? "blue" : "gray"}>
+                                              Wersja {version.versionNumber}
+                                              {version.id === file.currentVersion?.id && " (Aktualna)"}
+                                            </Badge>
+                                            <Badge colorScheme="purple" fontSize="xs">
+                                              {version.contentType.split("/")[1]?.toUpperCase()}
+                                            </Badge>
+                                            <Text fontSize="xs" color="gray.600">
+                                              {formatFileSize(version.fileSizeBytes)}
+                                            </Text>
+                                          </HStack>
+                                          <Button
+                                            size="xs"
+                                            leftIcon={<Download size={14} />}
+                                            onClick={() => handleDownload(version.sasUrlDownload, file.fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`))}
+                                          >
+                                            Pobierz
+                                          </Button>
+                                        </HStack>
+                                        <HStack spacing={4} fontSize="xs" color="gray.600" mb={2}>
+                                          <HStack spacing={1}>
+                                            <User size={12} />
+                                            <Text>{version.createdByUserName}</Text>
+                                          </HStack>
+                                          <HStack spacing={1}>
+                                            <Clock size={12} />
+                                            <Text>{formatDate(version.createdAt)}</Text>
+                                          </HStack>
+                                        </HStack>
+                                        
+                                        {/* Komentarze do wersji */}
+                                        {version.comments.length > 0 && (
+                                          <Box mt={3}>
+                                            <HStack spacing={1} mb={3}>
+                                              <MessageSquare size={14} />
+                                              <Text fontSize="sm" fontWeight="semibold">
+                                                Komentarze ({version.comments.length})
+                                              </Text>
+                                            </HStack>
+                                            <VStack align="stretch" spacing={3}>
+                                              {version.comments
+                                                .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                                                .map((comment) => {
+                                                  const isMyComment = user?.id === comment.userId;
+                                                  return (
+                                                    <HStack
+                                                      key={comment.id}
+                                                      justify={isMyComment ? "flex-end" : "flex-start"}
+                                                      w="100%"
+                                                    >
+                                                      <Box
+                                                        maxW="75%"
+                                                        bg={isMyComment ? "blue.500" : "gray.100"}
+                                                        color={isMyComment ? "white" : "black"}
+                                                        p={3}
+                                                        borderRadius="lg"
+                                                        borderBottomRightRadius={isMyComment ? "sm" : "lg"}
+                                                        borderBottomLeftRadius={isMyComment ? "lg" : "sm"}
+                                                      >
+                                                        <VStack align="stretch" spacing={1}>
+                                                          <HStack justify="space-between">
+                                                            <Text fontSize="xs" fontWeight="bold" opacity={isMyComment ? 0.9 : 1}>
+                                                              {comment.userName}
+                                                            </Text>
+                                                            {comment.isEdited && (
+                                                              <Badge colorScheme={isMyComment ? "whiteAlpha" : "gray"} fontSize="2xs">
+                                                                Edytowano
+                                                              </Badge>
+                                                            )}
+                                                          </HStack>
+                                                          <Text fontSize="sm">{comment.content}</Text>
+                                                          <Text fontSize="2xs" opacity={0.7} textAlign={isMyComment ? "right" : "left"}>
+                                                            {formatDate(comment.editedAt || comment.createdAt)}
+                                                          </Text>
+                                                        </VStack>
+                                                      </Box>
+                                                    </HStack>
+                                                  );
+                                                })}
+                                            </VStack>
+                                          </Box>
+                                        )}
+
+                                        {/* Dodaj nowy komentarz */}
+                                        <Box mt={version.comments.length > 0 ? 3 : 2}>
+                                          <HStack spacing={2}>
+                                            <Textarea
+                                              placeholder="Dodaj komentarz..."
+                                              size="sm"
+                                              resize="none"
+                                              rows={2}
+                                              value={newComments.get(`${file.id}-${version.id}`) || ""}
+                                              onChange={(e) => {
+                                                setNewComments((prev) => {
+                                                  const updated = new Map(prev);
+                                                  updated.set(`${file.id}-${version.id}`, e.target.value);
+                                                  return updated;
+                                                });
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter" && !e.shiftKey) {
+                                                  e.preventDefault();
+                                                  handleAddComment(file.id, version.id);
+                                                }
+                                              }}
+                                            />
+                                            <IconButton
+                                              aria-label="Wyślij komentarz"
+                                              icon={<Send size={16} />}
+                                              colorScheme="blue"
+                                              size="sm"
+                                              isLoading={submittingComment === `${file.id}-${version.id}`}
+                                              onClick={() => handleAddComment(file.id, version.id)}
+                                            />
+                                          </HStack>
+                                        </Box>
+                                      </Box>
+                                    ))}
+                                </VStack>
+                              </Box>
+                            </Td>
+                          </Tr>
+                        )}
+                        </>
                       ))}
                     </Tbody>
                   </Table>
@@ -585,123 +953,6 @@ export default function MyFiles() {
             </Accordion>
           </VStack>
         )}
-
-        {/* Modal podglądu pliku */}
-        <Modal isOpen={!!previewFile} onClose={closePreview} size={{ base: "full", md: "6xl" }}>
-          <ModalOverlay />
-          <ModalContent maxH={{ base: "100vh", md: "90vh" }}>
-            <ModalHeader>
-              <VStack spacing={3} align="stretch" width="100%">
-                <VStack align="start" spacing={1}>
-                  <Text fontSize={{ base: "md", md: "lg" }}>{previewFile?.displayName}</Text>
-                  {previewFile && previewFile.displayName !== previewFile.fileName && (
-                    <Text fontSize="sm" fontWeight="normal" color="gray.500">
-                      {previewFile.fileName}
-                    </Text>
-                  )}
-                </VStack>
-                {currentPackageFiles.length > 1 && (
-                  <>
-                    <HStack spacing={2} justify="center" display={{ base: "flex", md: "none" }}>
-                      <Button
-                        size="xs"
-                        leftIcon={<ChevronLeft size={16} />}
-                        onClick={() => navigateFile("prev")}
-                        variant="ghost"
-                      >
-                        Poprzedni
-                      </Button>
-                      <Badge colorScheme="blue" fontSize="sm" px={2} py={1}>
-                        {getCurrentFileIndex()}
-                      </Badge>
-                      <Button
-                        size="xs"
-                        rightIcon={<ChevronRight size={16} />}
-                        onClick={() => navigateFile("next")}
-                        variant="ghost"
-                      >
-                        Następny
-                      </Button>
-                    </HStack>
-                    <HStack spacing={2} display={{ base: "none", md: "flex" }}>
-                      <Button
-                        size="sm"
-                        leftIcon={<ChevronLeft size={18} />}
-                        onClick={() => navigateFile("prev")}
-                        variant="ghost"
-                      >
-                        Poprzedni
-                      </Button>
-                      <Badge colorScheme="blue" fontSize="md" px={3} py={1}>
-                        {getCurrentFileIndex()}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        rightIcon={<ChevronRight size={18} />}
-                        onClick={() => navigateFile("next")}
-                        variant="ghost"
-                      >
-                        Następny
-                      </Button>
-                    </HStack>
-                  </>
-                )}
-              </VStack>
-            </ModalHeader>
-            <ModalCloseButton />
-            <ModalBody pb={6} display="flex" justifyContent="center" alignItems="center" overflow="auto" p={{ base: 2, md: 6 }}>
-              {previewFile && (
-                <>
-                  {previewFile.contentType === "application/pdf" ? (
-                    <Box width="100%" height={{ base: "500px", md: "700px" }}>
-                      <iframe
-                        src={previewFile.sasUrl}
-                        width="100%"
-                        height="100%"
-                        title={previewFile.displayName}
-                        style={{ border: "none" }}
-                      />
-                    </Box>
-                  ) : previewFile.contentType.startsWith("image/") ? (
-                    <Box maxW="100%" maxH={{ base: "500px", md: "700px" }} display="flex" justifyContent="center">
-                      <img
-                        src={previewFile.sasUrl}
-                        alt={previewFile.displayName}
-                        style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                      />
-                    </Box>
-                  ) : (
-                    <Alert status="warning">
-                      <AlertIcon />
-                      Podgląd nie jest dostępny dla tego typu pliku.
-                    </Alert>
-                  )}
-                </>
-              )}
-            </ModalBody>
-            <ModalFooter>
-              <VStack spacing={2} width={{ base: "100%", md: "auto" }}>
-                <Button
-                  leftIcon={<Download size={18} />}
-                  colorScheme="blue"
-                  onClick={() => previewFile && handleDownload(previewFile.sasUrl, previewFile.fileName)}
-                  width={{ base: "100%", md: "auto" }}
-                  size={{ base: "sm", md: "md" }}
-                >
-                  Pobierz plik
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  onClick={closePreview}
-                  width={{ base: "100%", md: "auto" }}
-                  size={{ base: "sm", md: "md" }}
-                >
-                  Zamknij
-                </Button>
-              </VStack>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
 
         {/* Modal udostępniania plików */}
         {tenantId && projectId && (
@@ -714,6 +965,49 @@ export default function MyFiles() {
             onFilesShared={handleFilesShared}
           />
         )}
+
+        {/* Modal uploadu nowej wersji */}
+        {tenantId && projectId && fileForNewVersion && (
+          <UploadNewVersionModal
+            isOpen={isUploadVersionModalOpen}
+            onClose={onUploadVersionModalClose}
+            tenantId={tenantId}
+            projectId={projectId}
+            file={fileForNewVersion}
+            onVersionUploaded={handleVersionUploaded}
+          />
+        )}
+
+        {/* Modal potwierdzenia usunięcia */}
+        <Modal isOpen={isDeleteModalOpen} onClose={onDeleteModalClose} isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Potwierdzenie usunięcia</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <Alert status="warning">
+                  <AlertIcon />
+                  <Text>Ta operacja jest nieodwracalna!</Text>
+                </Alert>
+                <Text>
+                  Czy na pewno chcesz usunąć plik <strong>"{fileToDelete?.name}"</strong>?
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  Zostaną usunięte wszystkie wersje tego pliku ({files.find(f => f.id === fileToDelete?.id)?.totalVersions || 0}).
+                </Text>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onDeleteModalClose}>
+                Anuluj
+              </Button>
+              <Button colorScheme="red" leftIcon={<Trash2 size={16} />} onClick={handleDeleteFile}>
+                Usuń plik
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Box>
     </MainLayout>
   );

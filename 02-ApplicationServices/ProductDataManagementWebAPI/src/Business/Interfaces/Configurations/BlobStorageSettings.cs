@@ -11,11 +11,7 @@
         /// </summary>
         public static string GetContainerName(BlobContainerNames containerName)
         {
-            return containerName switch
-            {
-                BlobContainerNames.Documentation => "documentation",
-                _ => throw new ArgumentOutOfRangeException(nameof(containerName), containerName, "Unknown container name")
-            };
+            return containerName.ToString().ToLowerInvariant();
         }
     }
 }

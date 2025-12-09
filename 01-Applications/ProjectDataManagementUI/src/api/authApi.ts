@@ -21,7 +21,8 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
     return response;
   }
   
-  if (response.status === 401 && !isRefreshing) {
+  // Obsługa 401 (Unauthorized) i 403 (Forbidden) - token może być wygasły
+  if ((response.status === 401 || response.status === 403) && !isRefreshing) {
     isRefreshing = true;
     
     try {
@@ -68,8 +69,8 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
     }
   }
   
-  // Jeśli 401 ale isRefreshing=true (inny request już refreshuje), zwróć 401
-  if (response.status === 401 && isRefreshing) {
+  // Jeśli 401/403 ale isRefreshing=true (inny request już refreshuje), zwróć odpowiedź
+  if ((response.status === 401 || response.status === 403) && isRefreshing) {
     return response;
   }
   

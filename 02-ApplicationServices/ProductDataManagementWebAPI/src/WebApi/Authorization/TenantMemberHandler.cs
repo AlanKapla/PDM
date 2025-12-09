@@ -1,6 +1,8 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Entities.Models;
+using Entities.Enums;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace WebApi.Authorization
@@ -56,10 +58,12 @@ namespace WebApi.Authorization
                 return;
             }
 
-            var membership = await tenantMemberRepo.GetFirstBySearch(m => 
-                m.TenantId == tenantId && 
-                m.UserId == currentUser.Id && 
-                m.IsActive);
+            // Admin tenanta ma dostęp nawet gdy tenant jest nieaktywny
+            var membership = await tenantMemberRepo.GetFirstBySearch(
+                m => m.TenantId == tenantId && 
+                     m.UserId == currentUser.Id && 
+                     m.IsActive &&
+                     m.Tenant.IsActive);
             
             if (membership != null)
             {

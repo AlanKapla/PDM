@@ -12,7 +12,6 @@ namespace Entities.Models
         public bool IsActive { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public SystemRole SystemRole { get; set; } = SystemRole.User;
-        public Guid? ActiveTenantId { get; set; }
         
         public AuthProvider AuthProvider { get; set; } = AuthProvider.Local;
         public string? ExternalId { get; set; }
@@ -26,7 +25,6 @@ namespace Entities.Models
         public ICollection<UserPasswordReset> PasswordResets { get; set; } = new List<UserPasswordReset>();
         public ICollection<UserActivation> Activations { get; set; } = new List<UserActivation>();
         public ICollection<UserProfileBase> Profiles { get; set; } = new List<UserProfileBase>();
-        public ICollection<ProjectFile> UploadedFiles { get; set; } = new List<ProjectFile>();
     }
 
     public enum AuthProvider

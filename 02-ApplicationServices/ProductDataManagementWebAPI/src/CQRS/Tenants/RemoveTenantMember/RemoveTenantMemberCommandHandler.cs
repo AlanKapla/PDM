@@ -31,7 +31,8 @@ namespace CQRS.Tenants.RemoveTenantMember
         public async Task<Unit> Handle(RemoveTenantMemberCommand request, CancellationToken cancellationToken)
         {
             // Pobierz tenant do użycia w notyfikacji (walidacja już wykonana w validatorze)
-            Tenant tenant = (await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId))!;
+            Tenant tenant = (await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId && t.IsActive))
+                ?? throw new NotFoundApiException(nameof(Tenant), request.TenantId.ToString());
 
             // Pobierz członka tenanta
             TenantMember tenantMember = (await tenantMemberRepo.GetFirstBySearch(

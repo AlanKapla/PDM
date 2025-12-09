@@ -21,3 +21,9 @@ export interface NotificationWeb {
   readed: boolean;
   metadata?: Record<string, any> | null;
 }
+
+export interface NotificationMarkAsReadDto {
+  notificationId: string;
+  userId: string;
+  readAt: string; // DateTimeOffset from backend
+}

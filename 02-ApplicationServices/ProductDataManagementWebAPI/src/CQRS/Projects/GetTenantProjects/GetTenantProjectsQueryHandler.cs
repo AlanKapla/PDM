@@ -1,6 +1,7 @@
+﻿using Business.Interfaces.WebModels.Projects;
 using Business.Interfaces.Model;
-using Business.Interfaces.WebModels.Projects;
 using Entities.Models;
+using Entities.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositiories.Repository.Interfaces;
@@ -26,37 +27,49 @@ namespace CQRS.Projects.GetTenantProjects
 
         public async Task<IEnumerable<ProjectDetailsWeb>> Handle(GetTenantProjectsQuery request, CancellationToken cancellationToken)
         {
+            // Pobierz projekty użytkownika z filtrowaniem w bazie danych
+            // Admin projektu widzi wszystkie projekty, member tylko aktywne
             var userProjectMembers = await projectMemberRepo.GetBySearch(
-                pm => pm.TenantId == request.TenantId && pm.UserId == currentUser.Id,
+                pm => pm.TenantId == request.TenantId 
+                    && pm.UserId == currentUser.Id
+                    && (pm.Role == ProjectRole.Admin || pm.Project.IsActive),
                 include => include.Include(pm => pm.Project)
                                  .ThenInclude(p => p.CreatedBy)
                                  .ThenInclude(cb => cb.User));
 
-            var result = new List<ProjectDetailsWeb>();
+            // Pobierz wszystkich członków dla tych projektów w jednym zapytaniu
+            var projectIds = userProjectMembers.Select(pm => pm.ProjectId).ToList();
+            
+            var allProjectMembers = await projectMemberRepo.GetBySearch(
+                pm => projectIds.Contains(pm.ProjectId));
 
-            foreach (var projectMember in userProjectMembers)
-            {
-                var project = projectMember.Project;
-                
-                var membersCount = await projectMemberRepo.GetBySearch(
-                    pm => pm.ProjectId == project.Id);
+            // Zbuduj słownik z liczbą członków dla każdego projektu
+            var membersCountDict = allProjectMembers
+                .GroupBy(pm => pm.ProjectId)
+                .ToDictionary(g => g.Key, g => g.Count());
 
-                var projectWeb = new ProjectDetailsWeb(
-                    Id: project.Id,
-                    TenantId: project.TenantId,
-                    Name: project.Name,
-                    IsActive: project.IsActive,
-                    CreatedAt: project.CreatedAt,
-                    CreatedByUserId: project.CreatedByUserId,
-                    CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
-                    UserRole: projectMember.Role,
-                    MembersCount: membersCount.Count()
-                );
+            var result = userProjectMembers
+                .Select(projectMember =>
+                {
+                    var project = projectMember.Project;
+                    int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
 
-                result.Add(projectWeb);
-            }
+                    return new ProjectDetailsWeb(
+                        Id: project.Id,
+                        TenantId: project.TenantId,
+                        Name: project.Name,
+                        IsActive: project.IsActive,
+                        CreatedAt: project.CreatedAt,
+                        CreatedByUserId: project.CreatedByUserId,
+                        CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
+                        UserRole: projectMember.Role,
+                        MembersCount: membersCount
+                    );
+                })
+                .OrderByDescending(p => p.CreatedAt)
+                .ToList();
 
-            return result.OrderByDescending(p => p.CreatedAt);
+            return result;
         }
     }
 }

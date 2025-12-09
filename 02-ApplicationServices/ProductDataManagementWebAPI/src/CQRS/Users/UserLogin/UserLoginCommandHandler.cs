@@ -13,17 +13,20 @@ namespace CQRS.Users.UserLogin
     {
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<UserSession> userSessionRepo;
+        private readonly IReadRepository<TenantPreferencesProfile> tenantPrefsRepo;
         private readonly IJwtService jwt;
         private readonly IPasswordHasher passwordHasher;
 
         public UserLoginCommandHandler(
             IReadRepository<User> userRepo,
             IReadRepository<UserSession> userSessionRepo,
+            IReadRepository<TenantPreferencesProfile> tenantPrefsRepo,
             IJwtService jwt,
             IPasswordHasher passwordHasher)
         {
             this.userRepo = userRepo;
             this.userSessionRepo = userSessionRepo;
+            this.tenantPrefsRepo = tenantPrefsRepo;
             this.jwt = jwt;
             this.passwordHasher = passwordHasher;
         }
@@ -67,7 +70,7 @@ namespace CQRS.Users.UserLogin
             if (verifyResult)
             {
                 UserSession userSession = await CreateUserSession(user);
-                return PrepareUserLoginWeb(user, userSession);
+                return await PrepareUserLoginWeb(user, userSession);
             }
 
             throw new UnauthorizedApiException();
@@ -93,7 +96,7 @@ namespace CQRS.Users.UserLogin
                 }
 
                 UserSession userSession = await CreateUserSession(googleUser);
-                return PrepareUserLoginWeb(googleUser, userSession);
+                return await PrepareUserLoginWeb(googleUser, userSession);
             }
 
             // HYBRID AUTH: Sprawdź czy istnieje użytkownik z tym emailem (niezależnie od AuthProvider)
@@ -118,7 +121,7 @@ namespace CQRS.Users.UserLogin
                 }
 
                 UserSession userSession = await CreateUserSession(existingUser);
-                return PrepareUserLoginWeb(existingUser, userSession);
+                return await PrepareUserLoginWeb(existingUser, userSession);
             }
 
             // Jeśli użytkownik nie istnieje, zwróć błąd z informacją o konieczności rejestracji
@@ -141,9 +144,13 @@ namespace CQRS.Users.UserLogin
             return userSession;
         }
 
-        private UserAuthWeb PrepareUserLoginWeb(User user, UserSession userSession)
+        private async Task<UserAuthWeb> PrepareUserLoginWeb(User user, UserSession userSession)
         {
-            TokenDto token = jwt.GenerateToken(user, user.ActiveTenantId);
+            // Pobierz ActiveTenantId z profilu użytkownika
+            TenantPreferencesProfile? prefs = await tenantPrefsRepo.GetFirstBySearch(p => p.UserId == user.Id);
+            Guid? activeTenantId = prefs?.ActiveTenantId;
+
+            TokenDto token = jwt.GenerateToken(user, activeTenantId);
 
             return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
         }

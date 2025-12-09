@@ -35,6 +35,7 @@ interface UploadFilesModalProps {
 interface FileWithDisplayName {
   file: File;
   displayName: string;
+  comment: string;
 }
 
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg'];
@@ -83,7 +84,7 @@ export default function UploadFilesModal({
       
       // Domyślna nazwa wyświetlana to nazwa pliku bez rozszerzenia
       const displayName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-      validatedFiles.push({ file, displayName });
+      validatedFiles.push({ file, displayName, comment: '' });
     }
     
     setFiles([...files, ...validatedFiles]);
@@ -97,6 +98,12 @@ export default function UploadFilesModal({
   const handleDisplayNameChange = (index: number, newDisplayName: string) => {
     const updatedFiles = [...files];
     updatedFiles[index].displayName = newDisplayName;
+    setFiles(updatedFiles);
+  };
+
+  const handleCommentChange = (index: number, newComment: string) => {
+    const updatedFiles = [...files];
+    updatedFiles[index].comment = newComment;
     setFiles(updatedFiles);
   };
 
@@ -126,6 +133,7 @@ export default function UploadFilesModal({
       const filesToUpload = files.map(f => ({
         file: f.file,
         displayName: f.displayName.trim() || undefined,
+        comment: f.comment.trim() || undefined,
       }));
 
       const response = await projectApi.uploadFiles(
@@ -281,6 +289,16 @@ export default function UploadFilesModal({
                               value={item.displayName}
                               onChange={(e) => handleDisplayNameChange(index, e.target.value)}
                               placeholder="Domyślnie: nazwa pliku"
+                              isDisabled={uploading}
+                            />
+                          </FormControl>
+                          <FormControl size="sm">
+                            <FormLabel fontSize="xs">Komentarz (opcjonalny)</FormLabel>
+                            <Input
+                              size="sm"
+                              value={item.comment}
+                              onChange={(e) => handleCommentChange(index, e.target.value)}
+                              placeholder="Dodaj komentarz do pliku"
                               isDisabled={uploading}
                             />
                           </FormControl>

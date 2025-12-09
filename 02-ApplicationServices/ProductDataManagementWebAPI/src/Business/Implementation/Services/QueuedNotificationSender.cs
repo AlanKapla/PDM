@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Encodings.Web;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
@@ -21,19 +21,45 @@ namespace Business.Implementation.Services
         private readonly IQueueStorageService queueStorageService;
         private readonly ILogger<QueuedNotificationSender> logger;
         private readonly IReadRepository<Notification> notificationRepo;
+        private readonly IReadRepository<Tenant> tenantRepo;
+        private readonly IReadRepository<Project> projectRepo;
 
-        public QueuedNotificationSender(IQueueStorageService queueStorageService, ILogger<QueuedNotificationSender> logger, IReadRepository<Notification> notificationRepo)
+        public QueuedNotificationSender(
+            IQueueStorageService queueStorageService, 
+            ILogger<QueuedNotificationSender> logger, 
+            IReadRepository<Notification> notificationRepo,
+            IReadRepository<Tenant> tenantRepo,
+            IReadRepository<Project> projectRepo)
         {
             this.queueStorageService = queueStorageService;
             this.logger = logger;
             this.notificationRepo = notificationRepo;
+            this.tenantRepo = tenantRepo;
+            this.projectRepo = projectRepo;
         }
 
         public async Task EnqueueAsync(NotificationDto notificationDto, CancellationToken cancellationToken = default)
         {
+            // Load Tenant and Project to get names
+            Tenant? tenant = await tenantRepo.GetFirstBySearch(t => t.Id == notificationDto.TenantId);
+            if (tenant != null)
+            {
+                notificationDto.TenantName = tenant.Name;
+            }
+
+            if (notificationDto.ProjectId.HasValue)
+            {
+                Project? project = await projectRepo.GetFirstBySearch(p => p.Id == notificationDto.ProjectId.Value);
+                if (project != null)
+                {
+                    notificationDto.ProjectName = project.Name;
+                }
+            }
+
             // 1) Persist in DB for history and UI read
             Notification entity = new Notification
             {
+                Id = notificationDto.Id,
                 TenantId = notificationDto.TenantId,
                 ProjectId = notificationDto.ProjectId,
                 UserId = notificationDto.UserId,

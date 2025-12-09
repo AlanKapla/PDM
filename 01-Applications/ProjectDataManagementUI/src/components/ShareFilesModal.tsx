@@ -122,14 +122,88 @@ export default function ShareFilesModal({
             isClosable: true,
           });
         }
+      } else if (response.status === 400) {
+        // Bad Request - wyciągnij szczegółowe błędy z odpowiedzi
+        try {
+          const errorData = await response.json();
+          
+          // Sprawdź czy to struktura z errors array
+          if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+            toast({
+              title: "Błąd walidacji",
+              description: errorData.errors.join(", "),
+              status: "error",
+              duration: 7000,
+              isClosable: true,
+            });
+          } 
+          // Sprawdź czy to ModelState errors (format ASP.NET)
+          else if (errorData.errors && typeof errorData.errors === 'object') {
+            const allErrors = Object.values(errorData.errors).flat();
+            toast({
+              title: "Błąd walidacji",
+              description: Array.isArray(allErrors) ? allErrors.join(", ") : "Nieprawidłowe dane",
+              status: "error",
+              duration: 7000,
+              isClosable: true,
+            });
+          }
+          // Sprawdź czy to prosty komunikat
+          else if (errorData.message || errorData.title) {
+            toast({
+              title: "Błąd",
+              description: errorData.message || errorData.title,
+              status: "error",
+              duration: 5000,
+              isClosable: true,
+            });
+          }
+          // Jeśli to zwykły tekst
+          else if (typeof errorData === 'string') {
+            toast({
+              title: "Błąd",
+              description: errorData,
+              status: "error",
+              duration: 5000,
+              isClosable: true,
+            });
+          }
+          else {
+            toast({
+              title: "Błąd walidacji",
+              description: "Nieprawidłowe dane wejściowe",
+              status: "error",
+              duration: 5000,
+              isClosable: true,
+            });
+          }
+        } catch {
+          // Jeśli nie można sparsować JSON, spróbuj jako tekst
+          const errorText = await response.text();
+          toast({
+            title: "Błąd",
+            description: errorText || "Nieprawidłowe dane wejściowe",
+            status: "error",
+            duration: 5000,
+            isClosable: true,
+          });
+        }
       } else {
-        throw new Error("Nie udało się udostępnić plików");
+        // Inne błędy HTTP
+        const errorText = await response.text().catch(() => "Nie udało się udostępnić plików");
+        toast({
+          title: `Błąd ${response.status}`,
+          description: errorText,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
       }
     } catch (error) {
       console.error("Błąd podczas udostępniania plików:", error);
       toast({
         title: "Błąd",
-        description: "Nie udało się udostępnić plików",
+        description: error instanceof Error ? error.message : "Nie udało się udostępnić plików",
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -174,18 +248,30 @@ export default function ShareFilesModal({
                     fontSize="sm"
                   >
                     <Text fontWeight="medium">{file.displayName}</Text>
-                    <HStack spacing={2} mt={1}>
+                    <HStack spacing={2} mt={1} flexWrap="wrap">
                       <Badge colorScheme="purple" fontSize="xs">
                         {file.packageName}
                       </Badge>
-                      <Text fontSize="xs" color="gray.600">
-                        {(file.fileSizeBytes / 1024).toFixed(2)} KB
-                      </Text>
+                      {file.currentVersion && (
+                        <Badge colorScheme="blue" fontSize="xs">
+                          {(file.currentVersion.fileSizeBytes / 1024).toFixed(2)} KB
+                        </Badge>
+                      )}
+                      {file.totalVersions > 1 && (
+                        <Badge colorScheme="green" fontSize="xs">
+                          {file.totalVersions} wersji
+                        </Badge>
+                      )}
                     </HStack>
                   </Box>
                 ))}
               </VStack>
             </Box>
+
+            <Alert status="info" fontSize="xs">
+              <AlertIcon />
+              Udostępniasz pliki bazowe (wszystkie wersje). Członek będzie mieć dostęp do wszystkich wersji wybranych plików.
+            </Alert>
 
             <Divider />
 

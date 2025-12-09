@@ -1,14 +1,14 @@
-﻿using Business.Interfaces.Model;
-using Business.Interfaces.Services;
+﻿using Business.Interfaces.Services;
+using Business.Interfaces.Model;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using Repositiories.Repository.Interfaces;
 using Microsoft.Extensions.Options;
 using Business.Interfaces.Configurations;
-using Business.Interfaces.Exceptions;
 using Business.Interfaces.DTO;
 using DtoNotificationType = Business.Interfaces.DTO.NotificationType;
+using Business.Interfaces.Exceptions;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
@@ -48,41 +48,11 @@ namespace CQRS.Tenants.InviteTenantMember
 
         public async Task<Unit> Handle(InviteTenantMemberCommand request, CancellationToken cancellationToken)
         {
-            TenantMember? membership = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == request.TenantId && m.UserId == currentUser.Id && m.IsActive);
-            if (membership == null || membership.Role != Entities.Enums.TenantRole.Admin)
-            {
-                throw new ForbiddenApiException("Only tenant admins can invite members.");
-            }
-
+            // Wszystkie walidacje są wykonane w validatorze
             string normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
             // Sprawdź czy użytkownik już istnieje w systemie
             User? existingUser = await userRepo.GetFirstBySearch(u => u.Email == normalizedEmail && u.IsActive);
-
-            // Sprawdź czy użytkownik już jest członkiem tenanta
-            if (existingUser != null)
-            {
-                TenantMember? existingMembership = await tenantMemberRepo.GetFirstBySearch(
-                    m => m.TenantId == request.TenantId && m.UserId == existingUser.Id && m.IsActive);
-                
-                if (existingMembership != null)
-                {
-                    return Unit.Value;
-                }
-            }
-
-            // Sprawdź czy istnieje już aktywne zaproszenie
-            TenantInvitation? existingInvitation = await invitationRepo.GetFirstBySearch(
-                i => i.TenantId == request.TenantId 
-                    && i.Email == normalizedEmail 
-                    && i.IsActive 
-                    && i.Status == InvitationStatus.Pending 
-                    && i.ExpiresAt > DateTime.UtcNow);
-
-            if (existingInvitation != null)
-            {
-                return Unit.Value;
-            }
 
             // Utwórz nowe zaproszenie
             string token = tokenGenerator.GenerateToken();
@@ -101,8 +71,10 @@ namespace CQRS.Tenants.InviteTenantMember
 
             await invitationRepo.Insert(invitation);
 
-            Tenant? tenant = await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId);
-            string tenantName = tenant?.Name ?? "organization";
+            Tenant tenant = await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId && t.IsActive)
+                ?? throw new NotFoundApiException(nameof(Tenant), request.TenantId.ToString());
+
+            string tenantName = tenant.Name;
 
             // Jeśli użytkownik NIE ISTNIEJE w systemie - wyślij email z instrukcją rejestracji
             if (existingUser == null)
