@@ -37,7 +37,7 @@ import {
   Input,
   Textarea,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus, Trash2, Upload, FileText, Share2, Download, ChevronDown, ChevronUp, Clock, MessageSquare, Send } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus, Trash2, Upload, FileText, Share2, Download, ChevronDown, ChevronUp, Clock, MessageSquare, Send, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import UploadFilesModal from "../components/UploadFilesModal";
@@ -226,6 +226,17 @@ export default function ProjectDetails() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const handlePreview = (sasUrlView: string) => {
+    window.open(sasUrlView, '_blank', 'noopener,noreferrer');
+  };
+
+  const isPreviewSupported = (contentType: string): boolean => {
+    return (
+      contentType === "application/pdf" ||
+      contentType.startsWith("image/")
+    );
   };
 
   const openUploadVersionModal = (file: any) => {
@@ -609,6 +620,16 @@ export default function ProjectDetails() {
                                   </Td>
                                   <Td>
                                     <HStack spacing={1} flexWrap="wrap">
+                                      {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) && (
+                                        <IconButton
+                                          aria-label="Podgląd"
+                                          icon={<Eye size={16} />}
+                                          size="sm"
+                                          variant="ghost"
+                                          colorScheme="purple"
+                                          onClick={() => handlePreview(file.currentVersion.sasUrlView)}
+                                        />
+                                      )}
                                       {file.currentVersion && (
                                         <IconButton
                                           aria-label="Pobierz"
@@ -616,7 +637,10 @@ export default function ProjectDetails() {
                                           size="sm"
                                           variant="ghost"
                                           colorScheme="blue"
-                                          onClick={() => handleDownloadFile(file.currentVersion.sasUrlDownload, file.displayName)}
+                                          onClick={() => {
+                                            const fileName = file.fileName || file.displayName || 'plik';
+                                            handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
+                                          }}
                                         />
                                       )}
                                       <IconButton
@@ -673,13 +697,31 @@ export default function ProjectDetails() {
                                                       {formatFileSize(version.fileSizeBytes)}
                                                     </Text>
                                                   </HStack>
-                                                  <Button
-                                                    size="xs"
-                                                    leftIcon={<Download size={14} />}
-                                                    onClick={() => handleDownloadFile(version.sasUrlDownload, file.fileName?.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`) || file.displayName)}
-                                                  >
-                                                    Pobierz
-                                                  </Button>
+                                                  <HStack spacing={1}>
+                                                    {isPreviewSupported(version.contentType) && (
+                                                      <IconButton
+                                                        aria-label="Podgląd"
+                                                        icon={<Eye size={14} />}
+                                                        size="xs"
+                                                        colorScheme="purple"
+                                                        onClick={() => handlePreview(version.sasUrlView)}
+                                                      />
+                                                    )}
+                                                    <Button
+                                                      size="xs"
+                                                      leftIcon={<Download size={14} />}
+                                                      onClick={() => {
+                                                        const fileName = file.fileName || file.displayName || 'plik';
+                                                        const isCurrentVersion = version.id === file.currentVersion?.id;
+                                                        const finalName = isCurrentVersion 
+                                                          ? fileName 
+                                                          : fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`);
+                                                        handleDownloadFile(version.sasUrlDownload, finalName);
+                                                      }}
+                                                    >
+                                                      Pobierz
+                                                    </Button>
+                                                  </HStack>
                                                 </HStack>
                                                 <HStack spacing={4} fontSize="xs" color="gray.600" mb={2}>
                                                   <HStack spacing={1}>
@@ -847,6 +889,16 @@ export default function ProjectDetails() {
                                   </Td>
                                   <Td>
                                     <HStack spacing={1} flexWrap="wrap">
+                                      {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) && (
+                                        <IconButton
+                                          aria-label="Podgląd"
+                                          icon={<Eye size={16} />}
+                                          size="sm"
+                                          variant="ghost"
+                                          colorScheme="purple"
+                                          onClick={() => handlePreview(file.currentVersion.sasUrlView)}
+                                        />
+                                      )}
                                       {file.currentVersion && (
                                         <IconButton
                                           aria-label="Pobierz"
@@ -854,7 +906,10 @@ export default function ProjectDetails() {
                                           size="sm"
                                           variant="ghost"
                                           colorScheme="blue"
-                                          onClick={() => handleDownloadFile(file.currentVersion.sasUrlDownload, file.displayName)}
+                                          onClick={() => {
+                                            const fileName = file.fileName || file.displayName || 'plik';
+                                            handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
+                                          }}
                                         />
                                       )}
                                       <IconButton
@@ -911,13 +966,31 @@ export default function ProjectDetails() {
                                                       {formatFileSize(version.fileSizeBytes)}
                                                     </Text>
                                                   </HStack>
-                                                  <Button
-                                                    size="xs"
-                                                    leftIcon={<Download size={14} />}
-                                                    onClick={() => handleDownloadFile(version.sasUrlDownload, file.fileName?.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`) || file.displayName)}
-                                                  >
-                                                    Pobierz
-                                                  </Button>
+                                                  <HStack spacing={1}>
+                                                    {isPreviewSupported(version.contentType) && (
+                                                      <IconButton
+                                                        aria-label="Podgląd"
+                                                        icon={<Eye size={14} />}
+                                                        size="xs"
+                                                        colorScheme="purple"
+                                                        onClick={() => handlePreview(version.sasUrlView)}
+                                                      />
+                                                    )}
+                                                    <Button
+                                                      size="xs"
+                                                      leftIcon={<Download size={14} />}
+                                                      onClick={() => {
+                                                        const fileName = file.fileName || file.displayName || 'plik';
+                                                        const isCurrentVersion = version.id === file.currentVersion?.id;
+                                                        const finalName = isCurrentVersion 
+                                                          ? fileName 
+                                                          : fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`);
+                                                        handleDownloadFile(version.sasUrlDownload, finalName);
+                                                      }}
+                                                    >
+                                                      Pobierz
+                                                    </Button>
+                                                  </HStack>
                                                 </HStack>
                                                 <HStack spacing={4} fontSize="xs" color="gray.600" mb={2}>
                                                   <HStack spacing={1}>
