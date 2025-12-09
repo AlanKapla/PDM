@@ -71,7 +71,7 @@ export default function UploadNewVersionModal({
       const response = await projectApi.uploadNewVersion(
         tenantId,
         projectId,
-        file.projectFileId || file.id,
+        (file as any).projectFileId || file.id,
         selectedFile,
         comment || undefined
       );
