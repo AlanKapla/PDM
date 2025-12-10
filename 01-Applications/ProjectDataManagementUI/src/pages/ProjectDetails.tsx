@@ -42,10 +42,12 @@ import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
+import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
 import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../hooks/useAuth";
 import { ProjectRole } from "../types/project.types";
+import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 
 /* Helpery UI */
 const getProjectRoleName = (role: number) =>
@@ -62,6 +64,7 @@ export default function ProjectDetails() {
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
+  const { isOpen: isWorkScheduleModalOpen, onOpen: onWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
   const toast = useToast();
 
   const [project, setProject] = useState<any | null>(null);
@@ -78,6 +81,8 @@ export default function ProjectDetails() {
   const [fileForNewVersion, setFileForNewVersion] = useState<any | null>(null);
   const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
+  const [workSchedules, setWorkSchedules] = useState<WorkScheduleSummaryWeb[]>([]);
+  const [loadingWorkSchedules, setLoadingWorkSchedules] = useState(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -159,6 +164,23 @@ export default function ProjectDetails() {
       }
     } catch (err) {
       console.error("Błąd pobierania udostępnionych plików:", err);
+    }
+  };
+
+  const fetchWorkSchedules = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    setLoadingWorkSchedules(true);
+    try {
+      const response = await projectApi.getMyWorkSchedules(user.activeTenantId, projectId);
+      if (response.ok) {
+        const data: WorkScheduleSummaryWeb[] = await response.json();
+        setWorkSchedules(data);
+      }
+    } catch (err) {
+      console.error("Błąd pobierania harmonogramów:", err);
+    } finally {
+      setLoadingWorkSchedules(false);
     }
   };
 
@@ -315,6 +337,7 @@ export default function ProjectDetails() {
     fetchMembers();
     fetchMyFiles();
     fetchSharedFiles();
+    fetchWorkSchedules();
     
     // Pobierz rolę użytkownika w tenancie
     const fetchUserTenantRole = async () => {
@@ -458,7 +481,67 @@ export default function ProjectDetails() {
             </Box>
 
             {/* ====================== SEKCJE ZWIJANE ======================= */}
-            <Accordion allowMultiple defaultIndex={[0]}>
+            <Accordion allowMultiple>
+              {/* ====================== SEKCJA: HARMONOGRAMY ======================= */}
+              <AccordionItem bg={cardBg} border="1px" borderColor={borderColor} borderRadius="md" mb={4}>
+                <AccordionButton py={4}>
+                  <HStack flex="1" spacing={3}>
+                    <Icon as={Calendar} boxSize={6} color="purple.600" />
+                    <Heading size="md">Harmonogramy prac</Heading>
+                    <Badge colorScheme="purple" fontSize="sm">{workSchedules.length}</Badge>
+                  </HStack>
+                  <Button
+                    leftIcon={<Calendar size={18} />}
+                    colorScheme="purple"
+                    size="sm"
+                    mr={2}
+                    onClick={(e) => { e.stopPropagation(); onWorkScheduleModalOpen(); }}
+                  >
+                    Utwórz harmonogram
+                  </Button>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel pb={4}>
+                  {loadingWorkSchedules ? (
+                    <HStack justify="center" py={6}>
+                      <Spinner size="md" />
+                    </HStack>
+                  ) : workSchedules.length === 0 ? (
+                    <Text color="gray.500" fontSize="sm">Brak harmonogramów. Kliknij "Utwórz harmonogram" aby dodać pierwszy.</Text>
+                  ) : (
+                    <VStack spacing={3} align="stretch">
+                      {workSchedules.map((schedule) => (
+                        <Box
+                          key={schedule.id}
+                          p={4}
+                          borderWidth="1px"
+                          borderColor={borderColor}
+                          rounded="md"
+                          _hover={{ bg: hoverBg }}
+                          transition="0.15s"
+                          cursor="pointer"
+                          onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
+                        >
+                          <VStack align="flex-start" spacing={2}>
+                            <Text fontWeight="bold" fontSize="lg">{schedule.name}</Text>
+                            <HStack spacing={4} fontSize="xs" color="gray.500">
+                              <HStack spacing={1}>
+                                <User size={12} />
+                                <Text>{schedule.createdByUserName}</Text>
+                              </HStack>
+                              <HStack spacing={1}>
+                                <Clock size={12} />
+                                <Text>{formatDate(schedule.createdAt)}</Text>
+                              </HStack>
+                            </HStack>
+                          </VStack>
+                        </Box>
+                      ))}
+                    </VStack>
+                  )}
+                </AccordionPanel>
+              </AccordionItem>
+
               {/* ====================== SEKCJA: CZŁONKOWIE ======================= */}
               <AccordionItem bg={cardBg} border="1px" borderColor={borderColor} borderRadius="md" mb={4}>
                 <AccordionButton py={4}>
@@ -608,12 +691,12 @@ export default function ProjectDetails() {
                                 <>
                                 <Tr key={file.id}>
                                   <Td>
-                                    <VStack align="flex-start" spacing={0}>
+                                    <HStack spacing={2}>
                                       <Text fontSize="sm" fontWeight="medium">{file.displayName}</Text>
-                                      {file.totalVersions > 1 && (
-                                        <Badge colorScheme="purple" fontSize="xs">v{file.currentVersion?.versionNumber} (z {file.totalVersions})</Badge>
+                                      {file.currentVersion?.versionNumber && (
+                                        <Badge colorScheme="purple" fontSize="xs">v{file.currentVersion.versionNumber}</Badge>
                                       )}
-                                    </VStack>
+                                    </HStack>
                                   </Td>
                                   <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
                                     {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : "-"}
@@ -874,12 +957,12 @@ export default function ProjectDetails() {
                                 <>
                                 <Tr key={file.id}>
                                   <Td>
-                                    <VStack align="flex-start" spacing={0}>
+                                    <HStack spacing={2}>
                                       <Text fontSize="sm" fontWeight="medium">{file.displayName}</Text>
-                                      {file.totalVersions > 1 && (
-                                        <Badge colorScheme="purple" fontSize="xs">v{file.currentVersion?.versionNumber} (z {file.totalVersions})</Badge>
+                                      {file.currentVersion?.versionNumber && (
+                                        <Badge colorScheme="purple" fontSize="xs">v{file.currentVersion.versionNumber}</Badge>
                                       )}
-                                    </VStack>
+                                    </HStack>
                                   </Td>
                                   <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
                                     {file.ownerName || "-"}
@@ -1187,6 +1270,27 @@ export default function ProjectDetails() {
             projectId={project.id}
             file={fileForNewVersion}
             onVersionUploaded={handleVersionUploaded}
+          />
+        )}
+
+        {/* Modal tworzenia harmonogramu */}
+        {project && (
+          <CreateWorkScheduleModal
+            isOpen={isWorkScheduleModalOpen}
+            onClose={onWorkScheduleModalClose}
+            tenantId={project.tenantId}
+            projectId={project.id}
+            projectName={project.name}
+            members={members}
+            onScheduleCreated={() => {
+              fetchWorkSchedules();
+              toast({
+                title: "Sukces",
+                description: "Harmonogram został utworzony",
+                status: "success",
+                duration: 3000,
+              });
+            }}
           />
         )}
 

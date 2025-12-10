@@ -164,4 +164,104 @@ export const projectApi = {
       credentials: "include",
     });
   },
+
+  // Utwórz harmonogram prac
+  createWorkSchedule: async (
+    tenantId: string,
+    projectId: string,
+    command: {
+      name: string;
+      stages: Array<{
+        name: string;
+        order: number;
+        works: Array<{
+          name: string;
+          order: number;
+          colorRgb: string;
+          periods: Array<{
+            startDate: string;
+            endDate: string;
+          }>;
+          assignedUserIds: string[];
+        }>;
+      }>;
+    }
+  ): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenantId,
+        projectId,
+        name: command.name,
+        stages: command.stages,
+      }),
+    });
+  },
+
+  // Pobierz moje harmonogramy prac (lista podsumowań)
+  getMyWorkSchedules: async (tenantId: string, projectId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules/my`, {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  // Pobierz szczegóły pojedynczego harmonogramu prac
+  getWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules/${workScheduleId}`, {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  // Aktualizuj harmonogram prac
+  updateWorkSchedule: async (
+    tenantId: string,
+    projectId: string,
+    workScheduleId: string,
+    command: {
+      name: string;
+      stages: Array<{
+        id?: string;
+        name: string;
+        order: number;
+        works: Array<{
+          id?: string;
+          name: string;
+          order: number;
+          colorRgb: string;
+          isClosed: boolean;
+          periods: Array<{
+            id?: string;
+            startDate: string;
+            endDate: string;
+          }>;
+          assignedUserIds: string[];
+        }>;
+      }>;
+    }
+  ): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules/${workScheduleId}`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenantId,
+        projectId,
+        workScheduleId,
+        name: command.name,
+        stages: command.stages,
+      }),
+    });
+  },
+
+  // Pobierz prace przypisane do użytkownika
+  getMyAssignedWorks: async (tenantId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/my-assigned-works`, {
+      method: "GET",
+      credentials: "include",
+    });
+  },
 };

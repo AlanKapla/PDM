@@ -227,6 +227,11 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<ChatMember>, Repository<ChatMember>>();
             services.AddScoped<IReadRepository<MessageHistory>, ReadRepository<MessageHistory>>();
             services.AddScoped<IRepository<MessageHistory>, Repository<MessageHistory>>();
+            services.AddScoped<IReadRepository<WorkSchedule>, ReadRepository<WorkSchedule>>();
+            services.AddScoped<IRepository<WorkSchedule>, Repository<WorkSchedule>>();
+            services.AddScoped<IRepository<WorkScheduleStage>, Repository<WorkScheduleStage>>();
+            services.AddScoped<IRepository<WorkScheduleStageWork>, Repository<WorkScheduleStageWork>>();
+            services.AddScoped<IRepository<WorkScheduleStageWorkAssignment>, Repository<WorkScheduleStageWorkAssignment>>();
             return services;
         }
 

@@ -434,12 +434,14 @@ export default function SharedFiles() {
                                       </Td>
                                       <Td display={{ base: "none", lg: "table-cell" }}>{formatFileSize(file.currentVersion?.fileSizeBytes || file.fileSizeBytes)}</Td>
                                       <Td display={{ base: "none", xl: "table-cell" }}>
-                                        <Text fontSize="sm">{formatDate(file.sharedAt)}</Text>
-                                        {file.totalVersions > 1 && file.currentVersion && (
-                                          <Badge colorScheme="purple" ml={2} fontSize="xs">
-                                            v{file.currentVersion.versionNumber} ({file.totalVersions})
-                                          </Badge>
-                                        )}
+                                        <HStack spacing={2}>
+                                          <Text fontSize="sm">{formatDate(file.sharedAt)}</Text>
+                                          {file.currentVersion?.versionNumber && (
+                                            <Badge colorScheme="purple" fontSize="xs">
+                                              v{file.currentVersion.versionNumber}
+                                            </Badge>
+                                          )}
+                                        </HStack>
                                       </Td>
                                       <Td>
                                         <VStack spacing={1} align="stretch" display={{ base: "flex", md: "none" }}>

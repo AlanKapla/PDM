@@ -24,6 +24,10 @@ namespace Entities.Context
         public DbSet<Chat> Chats => Set<Chat>();
         public DbSet<ChatMember> ChatMembers => Set<ChatMember>();
         public DbSet<MessageHistory> MessageHistories => Set<MessageHistory>();
+        public DbSet<WorkSchedule> WorkSchedules => Set<WorkSchedule>();
+        public DbSet<WorkScheduleStage> WorkScheduleStages => Set<WorkScheduleStage>();
+        public DbSet<WorkScheduleStageWork> WorkScheduleStageWorks => Set<WorkScheduleStageWork>();
+        public DbSet<WorkScheduleStageWorkAssignment> WorkScheduleStageWorkAssignments => Set<WorkScheduleStageWorkAssignment>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

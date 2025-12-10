@@ -25,7 +25,7 @@ namespace WebApi.Controllers
         [Authorize]
         public async Task<IActionResult> CreateTenant([FromBody] CreateTenantCommand request)
         {
-            object result = await Send(request);
+            TenantDetailsWeb result = await Send(request);
             return Ok(result);
         }
 
@@ -33,7 +33,7 @@ namespace WebApi.Controllers
         [Authorize]
         public async Task<IActionResult> GetUserTenants()
         {
-            object result = await Send(new UserTenantsQuery());
+            IEnumerable<TenantDetailsWeb> result = await Send(new UserTenantsQuery());
             return Ok(result);
         }
 
@@ -41,7 +41,7 @@ namespace WebApi.Controllers
         [Authorize]
         public async Task<IActionResult> ChangeActiveTenant([FromBody] ChangeActiveTenantCommand request)
         {
-            object result = await Send(request);
+            ActiveTenantWeb result = await Send(request);
             return Ok(result);
         }
 
@@ -49,7 +49,7 @@ namespace WebApi.Controllers
         [Authorize]
         public async Task<IActionResult> GetActiveTenant()
         {
-            object result = await Send(new ActiveTenantQuery());
+            ActiveTenantWeb result = await Send(new ActiveTenantQuery());
             return Ok(result);
         }
 
@@ -59,7 +59,7 @@ namespace WebApi.Controllers
         {
             request = request with { TenantId = tenantId };
 
-            object result = await Send(request);
+            TenantDetailsWeb result = await Send(request);
             return Ok(result);
         }
 
@@ -77,7 +77,7 @@ namespace WebApi.Controllers
         [Authorize]
         public async Task<IActionResult> GetActiveInvitations()
         {
-            object result = await Send(new ActiveTenantInvitationsQuery());
+            IEnumerable<TenantInvitationWeb> result = await Send(new ActiveTenantInvitationsQuery());
             return Ok(result);
         }
 
@@ -111,7 +111,7 @@ namespace WebApi.Controllers
         [Authorize(Policy = Policies.TenantAdminOrOwner)]
         public async Task<IActionResult> ToggleTenantStatus([FromRoute] Guid tenantId, [FromQuery] bool isActive)
         {
-            var command = new ToggleTenantStatusCommand(tenantId, isActive);
+            ToggleTenantStatusCommand command = new ToggleTenantStatusCommand(tenantId, isActive);
             await Send(command);
             return NoContent();
         }

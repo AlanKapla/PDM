@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251210075913_migration-fourth")]
+    partial class migrationfourth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -826,10 +829,8 @@ namespace Entities.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<bool>("IsClosed")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -838,6 +839,9 @@ namespace Entities.Migrations
 
                     b.Property<int>("Order")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -1276,33 +1280,6 @@ namespace Entities.Migrations
                         .HasForeignKey("WorkScheduleStageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.OwnsMany("Entities.Models.WorkScheduleStageWorkPeriod", "Periods", b1 =>
-                        {
-                            b1.Property<Guid>("WorkScheduleStageWorkId")
-                                .HasColumnType("uniqueidentifier");
-
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("int");
-
-                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"));
-
-                            b1.Property<DateTime>("EndDate")
-                                .HasColumnType("datetime2");
-
-                            b1.Property<DateTime>("StartDate")
-                                .HasColumnType("datetime2");
-
-                            b1.HasKey("WorkScheduleStageWorkId", "Id");
-
-                            b1.ToTable("WorkScheduleStageWorkPeriod");
-
-                            b1.WithOwner()
-                                .HasForeignKey("WorkScheduleStageWorkId");
-                        });
-
-                    b.Navigation("Periods");
 
                     b.Navigation("Stage");
                 });

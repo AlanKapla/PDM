@@ -17,6 +17,8 @@ import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
 import MyFiles from "../pages/MyFiles";
 import SharedFiles from "../pages/SharedFiles";
+import WorkScheduleView from "../pages/WorkScheduleView";
+import AssignedWorks from "../pages/AssignedWorks";
 
 export default function AppRouter() {
   return (
@@ -154,6 +156,15 @@ export default function AppRouter() {
       />
 
       <Route
+        path="/projects/:projectId/schedules/:workScheduleId"
+        element={
+          <ProtectedRoute>
+            <WorkScheduleView />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/tenants/:tenantId/projects/:projectId/my-files"
         element={
           <ProtectedRoute>
@@ -167,6 +178,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <SharedFiles />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/assigned-works"
+        element={
+          <ProtectedRoute>
+            <AssignedWorks />
           </ProtectedRoute>
         }
       />

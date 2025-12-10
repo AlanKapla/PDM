@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   FolderKanban,
+  Briefcase,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -38,15 +39,15 @@ export default function Sidebar() {
   const [projects, setProjects] = useState<any[]>([]);
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
 
-  // Przywróć stan z localStorage lub ustaw na false
+  // Przywróć stan z localStorage lub ustaw na false (domyślnie zwinięte)
   const [tenantsExpanded, setTenantsExpanded] = useState(() => {
     const saved = localStorage.getItem("sidebar_tenants_expanded");
-    return saved === "true";
+    return saved === "true" ? true : false;
   });
 
   const [projectsExpanded, setProjectsExpanded] = useState(() => {
     const saved = localStorage.getItem("sidebar_projects_expanded");
-    return saved === "true";
+    return saved === "true" ? true : false;
   });
 
   // Pobierz liczbę aktywnych zaproszeń
@@ -182,6 +183,19 @@ export default function Sidebar() {
               </Button>
             </VStack>
           </Collapse>
+
+          {/* Zaplanowane prace */}
+          <Button
+            variant="ghost"
+            justifyContent="flex-start"
+            leftIcon={<Briefcase size={20} />}
+            w="100%"
+            bg={location.pathname === "/assigned-works" ? activeBg : "transparent"}
+            _hover={{ bg: hoverBg }}
+            onClick={() => navigate("/assigned-works")}
+          >
+            Zaplanowane prace
+          </Button>
 
           {/* Projekty */}
           <Button

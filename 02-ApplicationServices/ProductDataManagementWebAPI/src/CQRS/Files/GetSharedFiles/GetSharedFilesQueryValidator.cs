@@ -7,10 +7,10 @@ namespace CQRS.Files.GetSharedFiles
         public GetSharedFilesQueryValidator()
         {
             RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId jest wymagany");
+                .NotEmpty().WithMessage("TenantId is required");
 
             RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId jest wymagany");
+                .NotEmpty().WithMessage("ProjectId is required");
         }
     }
 }
