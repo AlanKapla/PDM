@@ -512,10 +512,10 @@ export default function CreateWorkScheduleModal({
         onScheduleCreated?.();
         onClose();
       } else {
-        const errorMessage = await handleApiError(response);
+        const { title, description } = await handleApiError(response);
         toast({
-          title: "Błąd",
-          description: errorMessage,
+          title,
+          description,
           status: "error",
           duration: 3000,
         });

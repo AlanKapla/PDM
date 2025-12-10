@@ -182,8 +182,8 @@ export default function NotificationBell() {
         console.error("❌ API błąd - cofam zmiany w cache");
         // Tutaj możesz opcjonalnie dodać logikę rollback
         // Na razie logujemy tylko błąd
-        const errorMessage = await handleApiError(response);
-        console.error("❌ Błąd API:", response.status, errorMessage);
+        const { title, description } = await handleApiError(response);
+        console.error("❌ Błąd API:", response.status, title, description);
       } else {
         console.log("✅ API potwierdziło oznaczenie jako przeczytane");
       }

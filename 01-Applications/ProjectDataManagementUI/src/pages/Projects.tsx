@@ -200,10 +200,10 @@ export default function Projects() {
           setProjects(projectsData);
         }
       } else {
-        const errorMessage = await handleApiError(response);
+        const { title, description } = await handleApiError(response);
         toast({
-          title: "Błąd",
-          description: errorMessage,
+          title,
+          description,
           status: "error",
           duration: 5000,
         });
@@ -260,10 +260,10 @@ export default function Projects() {
           setProjects(data);
         }
       } else {
-        const errorMessage = await handleApiError(response);
+        const { title, description } = await handleApiError(response);
         toast({
-          title: "Błąd tworzenia projektu",
-          description: errorMessage,
+          title,
+          description,
           status: "error",
           duration: 3000,
         });

@@ -5,16 +5,7 @@ export const apiExceptionReasonMessages: Record<string, string> = {
   Unauthorized: "Brak autoryzacji. Zaloguj się ponownie.",
   Forbidden: "Brak uprawnień do wykonania tej operacji.",
   Conflict: "Konflikt danych — element już istnieje.",
-  InternalServerError: "Wystąpił błąd serwera. Spróbuj ponownie.",
-};
-
-// Stare mapowanie dla kompatybilności wstecznej
-export const exceptionMessages: Record<string, string> = {
-  ConflictApiException: "Konflikt danych — element już istnieje.",
-  NotFoundApiException: "Nie znaleziono żądanego zasobu.",
-  UnauthorizedApiException: "Brak autoryzacji. Zaloguj się ponownie.",
-  ValidationApiException: "Niepoprawne dane. Sprawdź formularz.",
-  ApiException: "Wystąpił błąd podczas przetwarzania żądania.",
+  InvalidOperation: "Wystąpił błąd serwera. Spróbuj ponownie.",
 };
 
 export const defaultErrorMessage =

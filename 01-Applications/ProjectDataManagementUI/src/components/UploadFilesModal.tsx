@@ -158,10 +158,10 @@ export default function UploadFilesModal({
         onFilesUploaded();
         onClose();
       } else {
-        const errorMessage = await handleApiError(response);
+        const { title, description } = await handleApiError(response);
         toast({
-          title: "Błąd przesyłania",
-          description: errorMessage,
+          title,
+          description,
           status: "error",
           duration: 5000,
         });

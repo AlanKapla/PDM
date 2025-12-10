@@ -297,12 +297,12 @@ export default function ManagedTenants() {
         const tenantsData = await getUserTenants();
         setTenants(tenantsData);
       } else {
-        const errorMessage = await handleApiError(response);
+        const { title, description } = await handleApiError(response);
         toast({
-          title: "Błąd",
-          description: errorMessage,
+          title,
+          description,
           status: "error",
-          duration: 5000,
+          duration: 3000,
         });
       }
     } catch (error) {

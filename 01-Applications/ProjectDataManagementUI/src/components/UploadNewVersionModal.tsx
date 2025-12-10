@@ -89,10 +89,10 @@ export default function UploadNewVersionModal({
         onVersionUploaded();
         handleClose();
       } else {
-        const errorMessage = await handleApiError(response);
+        const { title, description } = await handleApiError(response);
         toast({
-          title: "Błąd",
-          description: errorMessage,
+          title,
+          description,
           status: "error",
           duration: 5000,
           isClosable: true,
