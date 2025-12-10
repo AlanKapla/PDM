@@ -22,6 +22,7 @@ import {
   FormErrorMessage,
 } from "@chakra-ui/react";
 import { X, Upload, FileText } from "lucide-react";
+import { handleApiError } from "../utils/handleApiError";
 
 interface UploadFilesModalProps {
   isOpen: boolean;
@@ -157,22 +158,16 @@ export default function UploadFilesModal({
         onFilesUploaded();
         onClose();
       } else {
-        const errorText = await response.text();
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd przesyłania",
-          description: errorText || "Nie udało się przesłać plików",
+          description: errorMessage,
           status: "error",
           duration: 5000,
         });
       }
     } catch (error) {
       console.error("Błąd uploadu plików:", error);
-      toast({
-        title: "Błąd",
-        description: "Wystąpił błąd podczas przesyłania plików",
-        status: "error",
-        duration: 5000,
-      });
     } finally {
       setUploading(false);
     }

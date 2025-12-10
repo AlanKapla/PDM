@@ -19,6 +19,7 @@ import {
 import { Bell, Info, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { notificationApi } from "../api/notificationApi";
 import { notificationHubService } from "../services/notificationHubService";
+import { handleApiError } from "../utils/handleApiError";
 import { type NotificationWeb, NotificationType } from "../types/notification.types";
 
 export default function NotificationBell() {
@@ -181,8 +182,8 @@ export default function NotificationBell() {
         console.error("❌ API błąd - cofam zmiany w cache");
         // Tutaj możesz opcjonalnie dodać logikę rollback
         // Na razie logujemy tylko błąd
-        const errorText = await response.text();
-        console.error("❌ Błąd API:", response.status, errorText);
+        const errorMessage = await handleApiError(response);
+        console.error("❌ Błąd API:", response.status, errorMessage);
       } else {
         console.log("✅ API potwierdziło oznaczenie jako przeczytane");
       }

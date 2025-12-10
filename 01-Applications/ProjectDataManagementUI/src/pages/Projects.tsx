@@ -33,6 +33,7 @@ import {
 import { FolderKanban, User, Calendar, Plus, Power } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
+import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
 import { TenantRole } from "../types/auth.types";
@@ -199,10 +200,10 @@ export default function Projects() {
           setProjects(projectsData);
         }
       } else {
-        const errorText = await response.text();
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd",
-          description: errorText || `Nie udało się ${newStatus ? 'aktywować' : 'zdezaktywować'} projektu`,
+          description: errorMessage,
           status: "error",
           duration: 5000,
         });
@@ -259,10 +260,10 @@ export default function Projects() {
           setProjects(data);
         }
       } else {
-        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd tworzenia projektu",
-          description: errorData.message || "Nie udało się utworzyć projektu",
+          description: errorMessage,
           status: "error",
           duration: 3000,
         });

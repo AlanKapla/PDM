@@ -26,6 +26,7 @@ import {
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import type { WorkScheduleDetailsWeb } from "../types/workSchedule.types";
+import { handleApiError } from "../utils/handleApiError";
 
 interface EditWorkScheduleModalProps {
   isOpen: boolean;
@@ -539,22 +540,16 @@ export default function EditWorkScheduleModal({
         onScheduleUpdated?.();
         onClose();
       } else {
-        const errorText = await response.text();
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd",
-          description: errorText || "Nie udało się zaktualizować harmonogramu",
+          description: errorMessage,
           status: "error",
           duration: 3000,
         });
       }
     } catch (error) {
       console.error("Błąd aktualizacji harmonogramu:", error);
-      toast({
-        title: "Błąd",
-        description: "Wystąpił błąd podczas aktualizacji harmonogramu",
-        status: "error",
-        duration: 3000,
-      });
     } finally {
       setSubmitting(false);
     }

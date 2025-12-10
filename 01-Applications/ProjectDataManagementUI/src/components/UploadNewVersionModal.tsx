@@ -22,6 +22,7 @@ import {
 } from "@chakra-ui/react";
 import { Upload, FileText } from "lucide-react";
 import { projectApi } from "../api/projectApi";
+import { handleApiError } from "../utils/handleApiError";
 import type { ProjectFileWeb } from "../types/project.types";
 
 interface UploadNewVersionModalProps {
@@ -88,17 +89,17 @@ export default function UploadNewVersionModal({
         onVersionUploaded();
         handleClose();
       } else {
-        throw new Error("Nie udało się przesłać pliku");
+        const errorMessage = await handleApiError(response);
+        toast({
+          title: "Błąd",
+          description: errorMessage,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
       }
     } catch (error) {
       console.error("Błąd podczas przesyłania nowej wersji:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się przesłać nowej wersji pliku",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
     } finally {
       setUploading(false);
     }

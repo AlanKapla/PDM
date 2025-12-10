@@ -21,6 +21,7 @@ import {
 } from "@chakra-ui/react";
 import { Share2, User } from "lucide-react";
 import { projectApi } from "../api/projectApi";
+import { handleApiError } from "../utils/handleApiError";
 import { useAuth } from "../hooks/useAuth";
 import type { ProjectFileWeb, ProjectMemberWeb } from "../types/project.types";
 
@@ -122,78 +123,11 @@ export default function ShareFilesModal({
             isClosable: true,
           });
         }
-      } else if (response.status === 400) {
-        // Bad Request - wyciągnij szczegółowe błędy z odpowiedzi
-        try {
-          const errorData = await response.json();
-          
-          // Sprawdź czy to struktura z errors array
-          if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
-            toast({
-              title: "Błąd walidacji",
-              description: errorData.errors.join(", "),
-              status: "error",
-              duration: 7000,
-              isClosable: true,
-            });
-          } 
-          // Sprawdź czy to ModelState errors (format ASP.NET)
-          else if (errorData.errors && typeof errorData.errors === 'object') {
-            const allErrors = Object.values(errorData.errors).flat();
-            toast({
-              title: "Błąd walidacji",
-              description: Array.isArray(allErrors) ? allErrors.join(", ") : "Nieprawidłowe dane",
-              status: "error",
-              duration: 7000,
-              isClosable: true,
-            });
-          }
-          // Sprawdź czy to prosty komunikat
-          else if (errorData.message || errorData.title) {
-            toast({
-              title: "Błąd",
-              description: errorData.message || errorData.title,
-              status: "error",
-              duration: 5000,
-              isClosable: true,
-            });
-          }
-          // Jeśli to zwykły tekst
-          else if (typeof errorData === 'string') {
-            toast({
-              title: "Błąd",
-              description: errorData,
-              status: "error",
-              duration: 5000,
-              isClosable: true,
-            });
-          }
-          else {
-            toast({
-              title: "Błąd walidacji",
-              description: "Nieprawidłowe dane wejściowe",
-              status: "error",
-              duration: 5000,
-              isClosable: true,
-            });
-          }
-        } catch {
-          // Jeśli nie można sparsować JSON, spróbuj jako tekst
-          const errorText = await response.text();
-          toast({
-            title: "Błąd",
-            description: errorText || "Nieprawidłowe dane wejściowe",
-            status: "error",
-            duration: 5000,
-            isClosable: true,
-          });
-        }
       } else {
-        // Inne błędy HTTP
-        const errorText = await response.text().catch(() => "Nie udało się udostępnić plików");
+        const errorMessage = await handleApiError(response);
         toast({
-          title: `Błąd ${response.status}`,
-          description: errorText,
+          title: "Błąd",
+          description: errorMessage,
           status: "error",
           duration: 5000,
           isClosable: true,
@@ -201,13 +135,6 @@ export default function ShareFilesModal({
       }
     } catch (error) {
       console.error("Błąd podczas udostępniania plików:", error);
-      toast({
-        title: "Błąd",
-        description: error instanceof Error ? error.message : "Nie udało się udostępnić plików",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
     } finally {
       setLoading(false);
     }

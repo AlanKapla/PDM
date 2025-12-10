@@ -21,6 +21,7 @@ import {
 import { UserPlus, Check } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
+import { handleApiError } from "../utils/handleApiError";
 import { ProjectRole } from "../types/project.types";
 import { TenantRole } from "../types/auth.types";
 import type { TenantMemberWeb, ProjectMemberWeb } from "../types/project.types";
@@ -122,21 +123,16 @@ export default function AddProjectMemberModal({
         await fetchData();
         onMemberAdded?.();
       } else {
-        const errorText = await response.text();
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd",
-          description: errorText || "Nie udało się dodać członka",
+          description: errorMessage,
           status: "error",
           duration: 3000,
         });
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił błąd podczas dodawania członka",
-        status: "error",
-        duration: 3000,
-      });
+      console.error("Błąd podczas dodawania członka:", error);
     } finally {
       setAdding(null);
     }

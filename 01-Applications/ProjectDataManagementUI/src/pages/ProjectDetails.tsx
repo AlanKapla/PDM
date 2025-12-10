@@ -40,6 +40,7 @@ import {
 import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus, Trash2, Upload, FileText, Share2, Download, ChevronDown, ChevronUp, Clock, MessageSquare, Send, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
+import { handleApiError } from "../utils/handleApiError";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
@@ -395,21 +396,16 @@ export default function ProjectDetails() {
         await fetchProjectDetails();
         await fetchMembers();
       } else {
-        const errorText = await response.text();
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd",
-          description: errorText || "Nie udało się usunąć członka",
+          description: errorMessage,
           status: "error",
           duration: 3000,
         });
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił błąd podczas usuwania członka",
-        status: "error",
-        duration: 3000,
-      });
+      console.error("Błąd podczas usuwania członka:", error);
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);

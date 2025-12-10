@@ -24,6 +24,7 @@ import {
 } from "@chakra-ui/react";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { projectApi } from "../api/projectApi";
+import { handleApiError } from "../utils/handleApiError";
 
 interface CreateWorkScheduleModalProps {
   isOpen: boolean;
@@ -511,22 +512,16 @@ export default function CreateWorkScheduleModal({
         onScheduleCreated?.();
         onClose();
       } else {
-        const errorText = await response.text();
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd",
-          description: errorText || "Nie udało się utworzyć harmonogramu",
+          description: errorMessage,
           status: "error",
           duration: 3000,
         });
       }
     } catch (error) {
       console.error("Błąd tworzenia harmonogramu:", error);
-      toast({
-        title: "Błąd",
-        description: "Wystąpił błąd podczas tworzenia harmonogramu",
-        status: "error",
-        duration: 3000,
-      });
     } finally {
       setSubmitting(false);
     }

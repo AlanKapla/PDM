@@ -36,6 +36,7 @@ import {
 import { Building2, Plus, Edit2, UserPlus, ChevronDown, ChevronUp, Trash2, Power } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getUserTenants, createTenant, updateTenant, inviteTenantMember, removeTenantMember } from "../services/tenantService";
+import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
 import type { TenantDetails } from "../types/auth.types";
 import { TenantRole, getTenantRoleName, getTenantRoleColor, InvitationStatus, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
@@ -296,10 +297,10 @@ export default function ManagedTenants() {
         const tenantsData = await getUserTenants();
         setTenants(tenantsData);
       } else {
-        const errorText = await response.text();
+        const errorMessage = await handleApiError(response);
         toast({
           title: "Błąd",
-          description: errorText || `Nie udało się ${newStatus ? 'aktywować' : 'zdezaktywować'} organizacji`,
+          description: errorMessage,
           status: "error",
           duration: 5000,
         });
