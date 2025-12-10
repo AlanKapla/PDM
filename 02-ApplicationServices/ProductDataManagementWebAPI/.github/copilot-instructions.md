@@ -1,190 +1,241 @@
-﻿# 🏗️ Standardy kodowania – Product Data Management Web API
+﻿# 🏗️ Product Data Management Web API – Coding Standards
 
-> **Kontekst projektu:** .NET 8 Web API z architekturą CQRS, multi-tenancy i pattern Repository  
+> **Stack:** .NET 8 Web API | CQRS | Multi-tenancy | Repository Pattern  
 > **Workspace:** `02-ApplicationServices/ProductDataManagementWebAPI/`
 
-## 📁 Struktura projektu
+---
+
+## 📖 Quick Reference Guide
+
+| Topic | Key Rule | Details |
+|-------|----------|---------|
+| **CQRS Interfaces** | Commands → `IRequestCommand<T>` <br> Queries → `IRequestQuery<T>` | ❌ NEVER use `IRequest<T>` directly |
+| **SaveChanges** | Automatic via `TransactionBehavior` | ⚠️ Call manually ONLY when you need FK Id |
+| **Multi-tenancy** | ALWAYS filter by `TenantId` | Check in every Handler + Query |
+| **Exceptions** | Use `ApiException` hierarchy | ❌ NO standard .NET exceptions in Handlers |
+| **Exception Language** | English ONLY | ❌ NO Polish messages |
+| **Validation** | Input → Validator <br> Business logic → Handler | Move existence checks to Validator when possible |
+| **Soft Delete** | Filter `!IsDeleted` everywhere | Never use physical `Delete()` |
+| **Async** | Always use `async/await` | ❌ NO `.Result`, `.Wait()` |
+| **DateTime** | Always UTC | Use `DateTime.UtcNow` |
+| **Comments** | Explain WHY, not WHAT | Code should be self-documenting |
+
+---
+
+## 📁 Project Structure
 
 ```
 src/
-├── Business/          # Interfejsy, web modele (DTO), serwisy, helpery, wyjątki
-├── CQRS/             # Command/Query handlers, validators
-├── Entities/         # Encje domenowe, DbContext, konfiguracje EF Core
-├── Repositiories/    # Repository pattern implementacja
-└── WebApi/           # Controllers, middleware, extensions, autoryzacja
+├── Business/          # Interfaces, Web models (DTO), services, helpers, exceptions
+├── CQRS/             # Command/Query handlers, validators (FluentValidation)
+├── Entities/         # Domain entities, DbContext, EF Core configurations
+├── Repositiories/    # Repository pattern implementation
+└── WebApi/           # Controllers, middleware, extensions, authorization
 ```
 
 ---
 
-## 📋 Architektura i wzorce projektowe
+## 🚨 CRITICAL RULES – What Copilot MUST Check
 
-### 1. **Multi-tenancy**
-- **Każda encja domenowa** związana z danym najemcą (tenant) MUSI posiadać właściwość `TenantId` typu `Guid`
-- **Walidacja izolacji tenant** jest OBOWIĄZKOWA w każdym Command/Query Handler:
-  ```csharp
-  if (entity.TenantId != currentUser.ActiveTenantId)
-  {
-      throw new ForbiddenApiException("Access denied to this tenant's resources");
-  }
-  ```
-- **Wszystkie zapytania** do bazy danych MUSZĄ filtrować po `TenantId`:
-  ```csharp
-  await repo.GetBySearch(x => x.TenantId == request.TenantId && x.Id == request.Id)
-  ```
-- **NIE WOLNO** zwracać danych z innego tenanta ani zezwalać na modyfikacje zasobów spoza aktywnego tenanta użytkownika
+### 🔴 ALWAYS Flag These Issues
 
-### 2. **CQRS (Command Query Responsibility Segregation)**
+| ❌ Anti-Pattern | ✅ Correct Pattern |
+|----------------|-------------------|
+| `public record MyCommand : IRequest<Guid>` | `public record MyCommand : IRequestCommand<Guid>` |
+| `throw new Exception("Error")` | `throw new ValidationApiException("Error message")` |
+| `throw new ValidationApiException("Błąd walidacji")` | `throw new ValidationApiException("Validation error")` |
+| No `TenantId` check in Handler | `if (entity.TenantId != currentUser.ActiveTenantId) throw new ForbiddenApiException(...)` |
+| Query without `!IsDeleted` filter | `x => x.ProjectId == id && !x.IsDeleted` |
+| Using `.Result` or `.Wait()` | `await someRepo.GetAsync(...)` |
+| `DateTime.Now` | `DateTime.UtcNow` |
+| Manual `SaveChangesAsync()` in simple Command | Let `TransactionBehavior` handle it automatically |
 
-#### Command/Query Interface Inheritance
-- **Commands** MUSZĄ dziedziczyć po `IRequestCommand<TResponse>`
-- **Queries** MUSZĄ dziedziczyć po `IRequestQuery<TResponse>`
-- **NIE WOLNO** używać bezpośrednio `IRequest<T>` z MediatR
+### 🟡 Review & Suggest Improvements
 
-Przykład:
+- Commands building complex DTO projections → Move to Query
+- Queries modifying state → Move to Command
+- Existence check in Handler when object is not used for logic → Move to Validator with `MustAsync`
+- Duplicated validation/mapping logic → Extract to Helper/Service
+- Controllers with business logic → Move to Handler
+- Missing XML documentation on public API endpoints
+
+---
+
+## 🎯 Architecture Patterns
+
+### 1. 🔐 Multi-tenancy (MANDATORY)
+
+**Every entity related to a tenant MUST have `TenantId` property.**
+
 ```csharp
-// GOOD - Command
+// ✅ GOOD - Always validate tenant isolation
+public async Task<Unit> Handle(DeleteProjectCommand request, CancellationToken ct)
+{
+    Project? project = await projectRepo.GetFirstBySearch(
+        p => p.Id == request.ProjectId && p.TenantId == request.TenantId
+    );
+    
+    if (project == null)
+        throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
+    
+    // Validate tenant isolation
+    if (project.TenantId != currentUser.ActiveTenantId)
+        throw new ForbiddenApiException("Cannot access project from another tenant");
+    
+    // ... business logic
+}
+```
+
+**Rules:**
+- ✅ Filter by `TenantId` in EVERY database query
+- ✅ Validate `entity.TenantId == currentUser.ActiveTenantId` before modifications
+- ❌ NEVER return or modify data from different tenant
+
+---
+
+### 2. 📨 CQRS Pattern
+
+#### Interface Inheritance (CRITICAL)
+
+```csharp
+// ✅ GOOD - Use project-specific interfaces
+public record CreateProjectCommand : IRequestCommand<Guid> { }
+public record GetProjectDetailsQuery : IRequestQuery<ProjectDetailsWeb> { }
+
+// ❌ BAD - Direct MediatR interface usage
+public record CreateProjectCommand : IRequest<Guid> { } // NEVER DO THIS!
+```
+
+#### Commands – Change State
+
+**Purpose:** Modify data, return simple results (`Unit`, `Guid`, or simple result DTO)
+
+**Commands CAN read data ONLY for:**
+- Business validation
+- Loading entity for modification
+
+**Commands MUST NOT:**
+- Build complex DTO projections for UI (use Query instead)
+
+```csharp
+// ✅ GOOD - Command returns simple ID
 public record CreateProjectCommand : IRequestCommand<Guid>
 {
     public Guid TenantId { get; init; }
     public string Name { get; init; } = string.Empty;
 }
 
-// GOOD - Query
+public async Task<Guid> Handle(CreateProjectCommand request, CancellationToken ct)
+{
+    Project project = new Project
+    {
+        TenantId = request.TenantId,
+        Name = request.Name,
+        CreatedByUserId = currentUser.Id
+    };
+    
+    await projectRepo.Insert(project);
+    // SaveChanges is called automatically by TransactionBehavior
+    return project.Id;
+}
+```
+
+#### Queries – Read Only
+
+**Purpose:** Fetch data, return Web models (DTOs) tailored for UI/API needs
+
+**Queries MUST:**
+- Be read-only (ZERO state modification)
+- Return Web models (`*Web` suffix)
+- Contain projection and mapping logic
+
+**Queries MUST NOT:**
+- Call `SaveChangesAsync()`
+- Modify any entity
+
+```csharp
+// ✅ GOOD - Query returns Web model
 public record GetProjectDetailsQuery : IRequestQuery<ProjectDetailsWeb>
 {
     public Guid TenantId { get; init; }
     public Guid ProjectId { get; init; }
 }
 
-// BAD - bezpośrednie użycie IRequest
-public record CreateProjectCommand : IRequest<Guid> // ❌ Błąd!
+public async Task<ProjectDetailsWeb> Handle(GetProjectDetailsQuery request, CancellationToken ct)
+{
+    Project? project = await projectRepo.GetFirstBySearch(
+        p => p.Id == request.ProjectId && p.TenantId == request.TenantId && !p.IsDeleted,
+        include => include.Include(p => p.Members).Include(p => p.Groups)
+    );
+    
+    if (project == null)
+        throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
+    
+    // Map to Web model
+    return new ProjectDetailsWeb
+    {
+        Id = project.Id,
+        Name = project.Name,
+        Members = project.Members.Select(m => new ProjectMemberWeb { ... }).ToList()
+    };
+}
 ```
 
-#### Commands (zmieniają stan)
-- Powinny zwracać **proste wyniki**: `Unit`, `Guid` (ID nowo utworzonego obiektu), lub prostą strukturę wynikową
-- Mogą odczytywać dane TYLKO w celu:
-  - Walidacji biznesowej
-  - Pobrania encji do modyfikacji
-- **NIE WOLNO** budować rozbudowanych projekcji DTO/Web modeli w Command – do tego służą Query
-- Przykład:
-  ```csharp
-  public record CreateProjectCommand : IRequestCommand<Guid> { ... }
-  
-  public async Task<Guid> Handle(CreateProjectCommand request, CancellationToken ct)
-  {
-      Project project = new Project { ... };
-      await projectRepo.Insert(project);
-      // SaveChanges jest automatycznie wywołane przez TransactionBehavior
-      return project.Id; // Zwracamy tylko ID
-  }
-  ```
+---
 
-#### Queries (odczyt danych)
-- Służą **wyłącznie do odczytu** – ZERO modyfikacji stanu
-- Zwracają **Web modele (DTO)** dopasowane do potrzeb UI/API
-- Powinny zawierać logikę projekcji i mapowania encji na DTO
-- **NIE WOLNO** wywoływać `SaveChangesAsync()` w Query
-- Przykład:
-  ```csharp
-  public record GetProjectDetailsQuery : IRequestQuery<ProjectDetailsWeb> { ... }
-  
-  public async Task<ProjectDetailsWeb> Handle(GetProjectDetailsQuery request, CancellationToken ct)
-  {
-      Project? project = await projectRepo.GetFirstBySearch(
-          p => p.Id == request.ProjectId && p.TenantId == request.TenantId,
-          include => include.Include(p => p.Members)
-      );
-      
-      if (project == null)
-          throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
-      
-      return new ProjectDetailsWeb
-      {
-          Id = project.Id,
-          Name = project.Name,
-          // ... mapping
-      };
-  }
-  ```
+### 3. 💾 SaveChanges Rules (CRITICAL)
 
-#### SaveChanges – zasady wywoływania
-**KRYTYCZNA ZASADA:** `SaveChangesAsync()` jest **AUTOMATYCZNIE** wywoływane przez `TransactionBehavior` dla wszystkich `IRequestCommand`.
+**DEFAULT BEHAVIOR:** `SaveChangesAsync()` is **AUTOMATICALLY** called by `TransactionBehavior` for ALL `IRequestCommand`.
 
-**NIE WYWOŁUJ `SaveChangesAsync()` w Handler CHYBA ŻE:**
-- Musisz zapisać encję, aby uzyskać `Id` z bazy (auto-generated)
-- To `Id` jest **wymagane** do zapisania innych powiązanych encji (Foreign Key)
+#### When NOT to call SaveChangesAsync (STANDARD CASE)
 
 ```csharp
-// PRZYKŁAD 1: BEZ SaveChanges (standard - obsługuje TransactionBehavior)
+// ✅ GOOD - TransactionBehavior handles SaveChanges
 public async Task<Unit> Handle(DeleteProjectFileCommand request, CancellationToken ct)
 {
-    ProjectFile? projectFile = await projectFileRepo.GetFirstBySearch(...);
+    ProjectFile? file = await fileRepo.GetFirstBySearch(...);
     
-    projectFile.IsDeleted = true;
-    projectFile.DeletedAt = DateTime.UtcNow;
-    await projectFileRepo.Update(projectFile);
+    file.IsDeleted = true;
+    file.DeletedAt = DateTime.UtcNow;
+    await fileRepo.Update(file);
     
-    // NIE WYWOŁUJ SaveChanges - zrobi to TransactionBehavior
+    // DON'T call SaveChanges - TransactionBehavior does it automatically
     return Unit.Value;
 }
+```
 
-// PRZYKŁAD 2: BEZ SaveChanges - pojedyncza operacja
-public async Task<Unit> Handle(AddFileVersionCommentCommand request, CancellationToken ct)
-{
-    ProjectFileVersionComment comment = new ProjectFileVersionComment { ... };
-    await commentRepo.Insert(comment);
-    
-    // NIE WYWOŁUJ SaveChanges - zrobi to TransactionBehavior
-    return Unit.Value;
-}
+#### When TO call SaveChangesAsync (EXCEPTION CASES)
 
-// PRZYKŁAD 3: Z SaveChanges - gdy potrzebujemy Id dla FK
+**Call manually ONLY when:**
+1. You need the generated `Id` from database
+2. That `Id` is required as Foreign Key in related entity
+
+```csharp
+// ✅ GOOD - Manual SaveChanges when FK Id is needed
 public async Task<Guid> Handle(UploadProjectFilesCommand request, CancellationToken ct)
 {
     ProjectFile projectFile = new ProjectFile { ... };
     await projectFileRepo.Insert(projectFile);
     
-    // MUSIMY zapisać TERAZ, bo potrzebujemy projectFile.Id dla wersji
+    // MUST save NOW because we need projectFile.Id for the version
     await projectFileRepo.SaveChangesAsync(ct);
     
     ProjectFileVersion firstVersion = new ProjectFileVersion
     {
-        ProjectFileId = projectFile.Id, // ← To wymaga zapisanego Id
+        ProjectFileId = projectFile.Id, // ← Requires saved Id
+        VersionNumber = 1,
         // ...
     };
     await projectFileVersionRepo.Insert(firstVersion);
     
-    // TransactionBehavior wywoła SaveChanges na końcu ponownie
+    // TransactionBehavior will call SaveChanges again at the end
     return projectFile.Id;
-}
-
-// PRZYKŁAD 4: Z SaveChanges - aktualizacja FK po zapisaniu
-public async Task<Unit> Handle(UploadProjectFileVersionCommand request, CancellationToken ct)
-{
-    ProjectFile? projectFile = await projectFileRepo.GetFirstBySearch(...);
-    
-    ProjectFileVersion version = new ProjectFileVersion { ... };
-    await projectFileVersionRepo.Insert(version);
-    
-    // MUSIMY zapisać TERAZ, aby uzyskać version.Id
-    await projectFileVersionRepo.SaveChangesAsync(ct);
-    
-    projectFile.CurrentVersionId = version.Id; // ← Wymaga zapisanego version.Id
-    await projectFileRepo.Update(projectFile);
-    
-    // TransactionBehavior wywoła SaveChanges na końcu ponownie
-    return Unit.Value;
 }
 ```
 
-**Zasady:**
-- ✅ **NIE WYWOŁUJ** `SaveChangesAsync()` w standardowych przypadkach – `TransactionBehavior` robi to automatycznie
-- ✅ Wywołuj `SaveChangesAsync()` **TYLKO** gdy potrzebujesz `Id` dla Foreign Key w kolejnej encji
-- ❌ **NIE WOLNO** wywoływać `SaveChangesAsync()` w Query
-- ⚠️ `TransactionBehavior` opakowuje wszystkie `IRequestCommand` w transakcję i automatycznie wywołuje `SaveChanges` + `Commit`
-
-**TransactionBehavior - jak działa:**
+**How TransactionBehavior Works:**
 ```csharp
+// Automatic transaction wrapping for all IRequestCommand
 public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
 {
     if (request is IRequestCommand<TResponse>)
@@ -193,8 +244,8 @@ public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TRe
         return await strategy.ExecuteAsync(async () =>
         {
             await using var transaction = await appDbContext.Database.BeginTransactionAsync(ct);
-            var response = await next(); // Wykonanie Handler
-            await appDbContext.SaveChangesAsync(ct); // Automatyczne SaveChanges
+            var response = await next(); // Execute Handler
+            await appDbContext.SaveChangesAsync(ct); // Automatic SaveChanges
             await transaction.CommitAsync(ct);
             return response;
         });
@@ -203,210 +254,74 @@ public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TRe
 }
 ```
 
-### 3. **Obsługa wyjątków – ApiException i pochodne**
+**Rules:**
+- ✅ DON'T call `SaveChangesAsync()` in standard cases
+- ✅ Call `SaveChangesAsync()` ONLY when you need Id for FK
+- ❌ NEVER call `SaveChangesAsync()` in Query
 
-#### Hierarchia wyjątków
-Projekt definiuje bazową klasę `ApiException` z następującymi pochodnymi:
+---
+
+### 4. 🚫 Exception Handling – ApiException Hierarchy
+
+**Use ONLY `ApiException` hierarchy in Handlers.**
+
+#### Exception Types
 
 ```csharp
-// Bazowa klasa
-public class ApiException(ApiExceptionReason reason, string? message, 
-    string? objectType = null, string? objectId = null) : Exception(message)
+// Validation errors (business logic, not input validation)
+throw new ValidationApiException("File extension mismatch. Expected: .pdf, received: .docx");
 
-// Dedykowane klasy pochodne
-public class ValidationApiException(string message) 
-    : ApiException(ApiExceptionReason.ValidationError, message)
+// Resource not found
+throw new NotFoundApiException(
+    objectType: nameof(ProjectFile),
+    objectId: request.FileId.ToString(),
+    message: "File does not exist or has been deleted" // optional
+);
 
-public class NotFoundApiException(string objectType, string objectId, string? message = null)
-    : ApiException(ApiExceptionReason.NotFound, message ?? $"{objectType} with ID {objectId} not found", objectType, objectId)
+// Access denied (multi-tenancy, role check)
+throw new ForbiddenApiException("Cannot access project from another tenant");
 
-public class UnauthorizedApiException(string? message = null)
-    : ApiException(ApiExceptionReason.Unauthorized, message ?? "Unauthorized")
+// Authentication failure
+throw new UnauthorizedApiException("Invalid email or password");
 
-public class ForbiddenApiException(string? message = null)
-    : ApiException(ApiExceptionReason.Forbidden, message ?? "Access denied")
-
-public class ConflictApiException(string? message = null)
-    : ApiException(ApiExceptionReason.Conflict, message ?? "Resource conflict")
+// Resource conflict (duplicate, uniqueness violation)
+throw new ConflictApiException("User with this email already exists");
 ```
 
-#### Kiedy używać których wyjątków
+#### Rules
 
-- **`ValidationApiException`** – błędy walidacji logiki biznesowej (NIE walidacji wejścia – to jest w Validator)
-  ```csharp
-  if (originalExtension != newFileExtension)
-  {
-      throw new ValidationApiException(
-          $"The new version must have the same extension. Expected: {originalExtension}, received: {newFileExtension}");
-  }
-  ```
+- ✅ Use `ApiException` hierarchy exclusively
+- ✅ **Write ALL exception messages in ENGLISH**
+- ❌ NEVER use `throw new Exception()`
+- ❌ NEVER use standard .NET exceptions (`ArgumentException`, `InvalidOperationException`) in Handlers
+- ❌ NEVER write exception messages in Polish
 
-- **`NotFoundApiException`** – zasób nie istnieje lub został usunięty
-  ```csharp
-  if (projectFile == null)
-  {
-      throw new NotFoundApiException(
-          objectType: nameof(ProjectFile),
-          objectId: request.FileId.ToString(),
-          message: $"File with ID {request.FileId} does not exist or has been deleted");
-  }
-  ```
-
-- **`ForbiddenApiException`** – użytkownik nie ma uprawnień do zasobu (multi-tenancy, brak roli, itp.)
-  ```csharp
-  if (project.TenantId != currentUser.ActiveTenantId)
-  {
-      throw new ForbiddenApiException("Cannot access project from another tenant");
-  }
-  ```
-
-- **`UnauthorizedApiException`** – brak autentykacji lub nieprawidłowe dane logowania
-  ```csharp
-  if (!passwordHasher.VerifyPassword(password, user.PasswordHash))
-  {
-      throw new UnauthorizedApiException("Invalid email or password");
-  }
-  ```
-
-- **`ConflictApiException`** – konflikt zasobów (duplikacja, naruszenie unikalności)
-  ```csharp
-  if (existingUser != null)
-  {
-      throw new ConflictApiException($"User with email {request.Email} already exists");
-  }
-  ```
-
-#### Zasady ogólne
-- **NIE UŻYWAJ** `throw new Exception()` ani standardowych wyjątków .NET (`ArgumentException`, `InvalidOperationException`) w handlerach
-- Middleware `ApiExceptionMiddleware` automatycznie konwertuje `ApiException` na odpowiedni status HTTP
-- Wszystkie wyjątki domenowe/biznesowe MUSZĄ dziedziczyć po `ApiException`
-- **WSZYSTKIE WYJĄTKI MUSZĄ BYĆ PISANE WYŁĄCZNIE W JĘZYKU ANGIELSKIM**
-  ```csharp
-  // GOOD ✅
-  throw new ValidationApiException("File extension mismatch. Expected .pdf, received .docx");
-  
-  // BAD ❌
-  throw new ValidationApiException("Rozszerzenie pliku nie pasuje. Oczekiwano .pdf, otrzymano .docx");
-  ```
-
-### 4. **DRY (Don't Repeat Yourself)**
-
-#### Kiedy wydzielać kod współny
-
-- **Helper classes** – metody narzędziowe używane w wielu miejscach
-  ```csharp
-  // FileHelper.cs
-  public static class FileHelper
-  {
-      public static string NormalizePackageNameForBlobPath(string packageName)
-      {
-          return packageName.Replace(" ", "_").Replace("/", "-");
-      }
-      
-      public static bool IsAllowedExtension(string fileName, string[] allowedExtensions)
-      {
-          string ext = Path.GetExtension(fileName).ToLowerInvariant();
-          return allowedExtensions.Contains(ext);
-      }
-  }
-  ```
-
-- **Serwisy domenowe** – logika biznesowa współdzielona między wieloma handlerami
-  ```csharp
-  public interface INotificationService
-  {
-      Task SendProjectInvitationAsync(Guid userId, Guid projectId, CancellationToken ct);
-  }
-  ```
-
-- **Walidatory współdzielone** – wspólne reguły walidacji
-  ```csharp
-  public static class CommonValidators
-  {
-      public static IRuleBuilderOptions<T, Guid> MustBeValidTenant<T>(
-          this IRuleBuilder<T, Guid> ruleBuilder)
-      {
-          return ruleBuilder
-              .NotEmpty().WithMessage("TenantId is required")
-              .Must(id => id != Guid.Empty).WithMessage("Invalid TenantId");
-      }
-  }
-  ```
-
-#### Czego NIE duplikować
-- Logika walidacji – przenieś do Validator
-- Mapowanie encji → DTO – stwórz metody rozszerzające lub AutoMapper profile
-- Zapytania do bazy – wydziel do Repository methods lub specification pattern
-- Logika autoryzacji – użyj Policy Handlers
-
-### 5. **Komentarze – zasada minimalizmu**
-
-#### ❌ NIE pisz komentarzy do:
-- Oczywistych operacji:
-  ```csharp
-  // BAD
-  // Pobierz użytkownika z bazy
-  User? user = await userRepo.GetFirstBySearch(u => u.Id == userId);
-  ```
-
-- Kodu który sam się tłumaczy:
-  ```csharp
-  // BAD
-  // Sprawdź czy plik istnieje
-  if (projectFile == null)
-  ```
-
-#### ✅ Pisz komentarze gdy:
-- Wyjaśniasz **dlaczego** coś jest zrobione w określony sposób:
-  ```csharp
-  // GOOD
-  // CurrentVersionId jest ustawiane AFTER SaveChanges, bo wersja musi być najpierw zapisana w bazie
-  // aby uzyskać prawidłowe Id i uniknąć naruszeń FK
-  projectFile.CurrentVersionId = versionId;
-  ```
-
-- Dokumentujesz nietrywale decyzje biznesowe:
-  ```csharp
-  // GOOD
-  // Rozszerzenie pliku musi być identyczne z oryginałem ze względu na wymagania
-  // systemu wersjonowania i renderowania podglądu
-  if (originalExtension != newFileExtension)
-  {
-      throw new ValidationApiException(...);
-  }
-  ```
-
-- Ostrzegasz przed pułapkami:
-  ```csharp
-  // GOOD
-  // UWAGA: właściwości ICurrentUser nie są async, więc jednorazowo pobieramy dane
-  // blokując i keszujemy w obiekcie (scoped per request) – minimalizuje to koszty
-  User? user = userRepo.GetFirstBySearch(u => u.Id == userId).GetAwaiter().GetResult();
-  ```
-
-#### XML Documentation Comments
-Używaj XML comments dla **publicznych API endpoints** w kontrolerach:
 ```csharp
-/// <summary>
-/// Upload a new version of an existing project file
-/// </summary>
-/// <param name="tenantId">Tenant identifier</param>
-/// <param name="projectId">Project identifier</param>
-/// <returns>NoContent on success</returns>
-[HttpPost("versions")]
-[Authorize(Policy = Policies.ProjectMember)]
-public async Task<IActionResult> UploadFileVersion(...)
+// ✅ GOOD
+throw new ValidationApiException("File size cannot exceed 50 MB");
+
+// ❌ BAD - Polish message
+throw new ValidationApiException("Rozmiar pliku nie może przekraczać 50 MB");
+
+// ❌ BAD - Standard exception
+throw new ArgumentException("Invalid file size");
 ```
 
-### 6. **Walidacja – Validators vs Handlers**
+---
 
-#### FluentValidation Validators – odpowiedzialne za:
-- ✅ Walidację **struktury i formatu** danych wejściowych
-- ✅ Sprawdzanie **wymaganych pól** i ich ograniczeń
-- ✅ Walidację **rozmiaru plików, długości stringów, formatów email, itp.**
-- ✅ Proste reguły biznesowe **bez dostępu do bazy danych**
+### 5. ✅ Validation – Validators vs Handlers
 
-Przykład:
+#### Division of Responsibility
+
+| Validator (FluentValidation) | Handler |
+|------------------------------|---------|
+| Input structure & format | Business logic requiring DB access |
+| Required fields & constraints | Checking related entity existence |
+| File size, string length, email format | Multi-tenant isolation verification |
+| Simple business rules (no DB) | Domain-specific rules (e.g., file extension matching) |
+
+#### FluentValidation Validator Example
+
 ```csharp
 public class UploadProjectFileVersionCommandValidator : AbstractValidator<UploadProjectFileVersionCommand>
 {
@@ -414,12 +329,6 @@ public class UploadProjectFileVersionCommandValidator : AbstractValidator<Upload
     {
         RuleFor(x => x.TenantId)
             .NotEmpty().WithMessage("TenantId is required");
-        
-        RuleFor(x => x.ProjectId)
-            .NotEmpty().WithMessage("ProjectId is required");
-        
-        RuleFor(x => x.FileId)
-            .NotEmpty().WithMessage("FileId is required");
         
         RuleFor(x => x.File)
             .NotNull().WithMessage("File is required")
@@ -433,28 +342,22 @@ public class UploadProjectFileVersionCommandValidator : AbstractValidator<Upload
 }
 ```
 
-#### Handlers – odpowiedzialne za:
-- ✅ Walidację **logiki biznesowej wymagającej dostępu do bazy**
-- ✅ Sprawdzanie **istnienia powiązanych encji**
-- ✅ Weryfikację **uprawnień i izolacji multi-tenant**
-- ✅ Reguły **specyficzne dla domeny** (np. zgodność rozszerzeń plików)
+#### Handler Validation Example
 
-Przykład:
 ```csharp
 public async Task<Unit> Handle(UploadProjectFileVersionCommand request, CancellationToken ct)
 {
-    // Walidacja istnienia pliku (wymaga dostępu do DB)
+    // Validate entity existence (requires DB access)
     ProjectFile? projectFile = await projectFileRepo.GetFirstBySearch(
         pf => pf.Id == request.FileId && 
               pf.TenantId == request.TenantId && 
-              !pf.IsDeleted);
+              !pf.IsDeleted
+    );
     
     if (projectFile == null)
-    {
         throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
-    }
     
-    // Walidacja logiki biznesowej (zgodność rozszerzeń)
+    // Validate business logic (file extension matching)
     string originalExtension = Path.GetExtension(projectFile.FileName).ToLowerInvariant();
     string newFileExtension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
     
@@ -464,48 +367,38 @@ public async Task<Unit> Handle(UploadProjectFileVersionCommand request, Cancella
             $"Extension mismatch. Expected: {originalExtension}, received: {newFileExtension}");
     }
     
-    // ... reszta logiki
+    // ... business logic
 }
 ```
 
-#### Zasada podziału
-> **Jeśli walidacja wymaga dostępu do bazy danych lub zewnętrznych serwisów → Handler**  
-> **Jeśli to prosta reguła na danych wejściowych → Validator**
+#### CRITICAL: Move Existence Checks to Validator
 
-#### KRYTYCZNA ZASADA: Przenoszenie walidacji istnienia do Validator
-
-**Jeśli w Handler pobierasz obiekt z bazy WYŁĄCZNIE w celu sprawdzenia czy istnieje** (bez żadnej dodatkowej logiki biznesowej), taka walidacja **POWINNA być przeniesiona do Validator**.
+**If you fetch an object from DB ONLY to check if it exists** (without using its properties), **MOVE that validation to Validator**.
 
 ```csharp
-// ❌ BAD - walidacja istnienia w Handler (gdy to jedyne użycie obiektu)
+// ❌ BAD - Existence check in Handler when object is not used
 public async Task<Unit> Handle(AddFileVersionCommentCommand request, CancellationToken ct)
 {
-    // Pobieramy tylko po to, żeby sprawdzić czy istnieje - to powinno być w Validator!
+    // We fetch ONLY to check existence - should be in Validator!
     ProjectFileVersion? version = await versionRepo.GetFirstBySearch(
-        v => v.Id == request.VersionId && 
-             v.TenantId == request.TenantId &&
-             !v.IsDeleted
+        v => v.Id == request.VersionId && v.TenantId == request.TenantId && !v.IsDeleted
     );
     
     if (version == null)
-    {
         throw new NotFoundApiException(nameof(ProjectFileVersion), request.VersionId.ToString());
-    }
     
-    // Tworzymy komentarz bez użycia pobranej wersji
+    // We create comment WITHOUT using the fetched version object
     var comment = new FileVersionComment
     {
-        ProjectFileVersionId = request.VersionId, // Używamy Id z request, nie z pobranego obiektu
-        Comment = request.Comment,
-        // ...
+        ProjectFileVersionId = request.VersionId, // Using Id from request, not from fetched object
+        Comment = request.Comment
     };
     
     await commentRepo.Insert(comment);
-    await commentRepo.SaveChangesAsync(ct);
     return Unit.Value;
 }
 
-// ✅ GOOD - walidacja istnienia przeniesiona do Validator
+// ✅ GOOD - Existence check moved to Validator
 public class AddFileVersionCommentCommandValidator : AbstractValidator<AddFileVersionCommentCommand>
 {
     private readonly IRepository<ProjectFileVersion> versionRepo;
@@ -523,17 +416,14 @@ public class AddFileVersionCommentCommandValidator : AbstractValidator<AddFileVe
     private async Task<bool> VersionExists(AddFileVersionCommentCommand command, Guid versionId, CancellationToken ct)
     {
         return await versionRepo.GetFirstBySearch(
-            v => v.Id == versionId && 
-                 v.TenantId == command.TenantId &&
-                 !v.IsDeleted
+            v => v.Id == versionId && v.TenantId == command.TenantId && !v.IsDeleted
         ) != null;
     }
 }
 
-// Handler jest teraz prostszy - wie że wersja istnieje dzięki Validator
+// Handler is now simpler - knows version exists thanks to Validator
 public async Task<Unit> Handle(AddFileVersionCommentCommand request, CancellationToken ct)
 {
-    // Nie musimy sprawdzać istnienia - Validator to już zrobił
     var comment = new FileVersionComment
     {
         ProjectFileVersionId = request.VersionId,
@@ -543,60 +433,48 @@ public async Task<Unit> Handle(AddFileVersionCommentCommand request, Cancellatio
     };
     
     await commentRepo.Insert(comment);
-    await commentRepo.SaveChangesAsync(ct);
     return Unit.Value;
 }
 ```
 
-**Kiedy NIE przenosić do Validator:**
+**When NOT to move to Validator:**
 
 ```csharp
-// ✅ GOOD - zostaje w Handler, bo używamy properties/navigation properties pobranego obiektu
+// ✅ GOOD - Stays in Handler because we USE properties of fetched object
 public async Task<Unit> Handle(UploadProjectFileVersionCommand request, CancellationToken ct)
 {
     ProjectFile? projectFile = await projectFileRepo.GetFirstBySearch(
-        pf => pf.Id == request.FileId && 
-              pf.TenantId == request.TenantId && 
-              !pf.IsDeleted
+        pf => pf.Id == request.FileId && pf.TenantId == request.TenantId && !pf.IsDeleted
     );
     
     if (projectFile == null)
-    {
         throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
-    }
     
-    // UŻYWAMY properties pobranego obiektu - musi zostać w Handler
+    // We USE properties of fetched object - must stay in Handler
     string originalExtension = Path.GetExtension(projectFile.FileName).ToLowerInvariant();
-    string newFileExtension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
     
-    if (originalExtension != newFileExtension)
-    {
-        throw new ValidationApiException($"Extension mismatch. Expected: {originalExtension}");
-    }
-    
-    // Dalej używamy projectFile do logiki biznesowej
     var version = new ProjectFileVersion
     {
         ProjectFileId = projectFile.Id,
-        VersionNumber = projectFile.CurrentVersionNumber + 1, // ← Używamy properties
+        VersionNumber = projectFile.CurrentVersionNumber + 1, // ← Using properties
         // ...
     };
-    
-    // ...
 }
 ```
 
-**Podsumowanie zasady:**
-- ✅ Przenoszenie do Validator: sprawdzamy tylko **czy istnieje** (NotFound check)
-- ❌ Zostaje w Handler: używamy **properties/navigation properties** pobranego obiektu do logiki biznesowej
-- ❌ Zostaje w Handler: sprawdzamy **złożone warunki biznesowe** wymagające dostępu do wielu powiązanych encji
+**Summary:**
+- ✅ Move to Validator: checking **if exists** only (NotFound check)
+- ❌ Stay in Handler: using **properties/navigation properties** for business logic
+- ❌ Stay in Handler: checking **complex business conditions** requiring access to multiple related entities
 
-### 7. **Autoryzacja – Policy-based**
+---
 
-#### Struktura autoryzacji
-Projekt używa **Policy-based authorization** zamiast atrybutów `[Authorize(Roles = "...")]`
+### 6. 🔒 Authorization – Policy-based
 
-#### Definicja polityk
+**Use Policy-based authorization instead of `[Authorize(Roles = "...")]`**
+
+#### Policy Definition
+
 ```csharp
 // WebApi/Constants/Policies.cs
 public static class Policies
@@ -608,7 +486,8 @@ public static class Policies
 }
 ```
 
-#### Rejestracja polityk
+#### Policy Registration
+
 ```csharp
 // ServiceCollectionExtensions.cs
 services.AddAuthorization(options =>
@@ -621,14 +500,16 @@ services.AddAuthorization(options =>
 });
 ```
 
-#### Użycie w kontrolerach
+#### Usage in Controllers
+
 ```csharp
 [HttpPost("versions")]
 [Authorize(Policy = Policies.ProjectMember)]
 public async Task<IActionResult> UploadFileVersion(...)
 ```
 
-#### Implementacja własnych RequirementHandlers
+#### Custom Authorization Handler
+
 ```csharp
 public class ProjectAccessRequirement : IAuthorizationRequirement { }
 
@@ -643,8 +524,7 @@ public class ProjectAccessHandler : AuthorizationHandler<ProjectAccessRequiremen
     {
         Guid projectId = GetProjectIdFromRoute();
         
-        bool hasAccess = currentUser.Projects?
-            .Any(p => p.ProjectId == projectId) ?? false;
+        bool hasAccess = currentUser.Projects?.Any(p => p.ProjectId == projectId) ?? false;
         
         if (hasAccess)
             context.Succeed(requirement);
@@ -654,35 +534,45 @@ public class ProjectAccessHandler : AuthorizationHandler<ProjectAccessRequiremen
 }
 ```
 
-#### Zasady
-- **NIE używaj** `[Authorize(Roles = "Admin")]` – zawsze przez Policy
-- **Kontroler** sprawdza tylko czy użytkownik ma dostęp do zasobu wysokiego poziomu (projekt, tenant)
-- **Handler** dodatkowo weryfikuje izolację multi-tenant i szczegółowe uprawnienia
+**Rules:**
+- ❌ NEVER use `[Authorize(Roles = "Admin")]`
+- ✅ ALWAYS use `[Authorize(Policy = Policies.XYZ)]`
+- Controller checks high-level resource access (project, tenant)
+- Handler additionally verifies multi-tenant isolation and detailed permissions
 
-### 8. **Organizacja kodu CQRS**
+---
 
-#### Struktura folderów dla feature
-Każda funkcjonalność (feature) w `CQRS/` ma dedykowany folder z plikami:
+## 🏗️ Code Organization
+
+### CQRS Folder Structure
+
+Each feature in `CQRS/` has dedicated folder:
 
 ```
 CQRS/
 └── Files/
     └── UploadProjectFileVersion/
         ├── UploadProjectFileVersionCommand.cs           # Request model (record)
-        ├── UploadProjectFileVersionCommandHandler.cs    # Logika biznesowa
+        ├── UploadProjectFileVersionCommandHandler.cs    # Business logic
         └── UploadProjectFileVersionCommandValidator.cs  # FluentValidation rules
 ```
 
-#### Konwencja nazewnictwa
-- **Command/Query:** `{Feature}{Action}Command` lub `{Feature}{Action}Query`
-  - Przykład: `UploadProjectFileVersionCommand`, `GetProjectDetailsQuery`
-- **Handler:** `{Feature}{Action}CommandHandler` lub `{Feature}{Action}QueryHandler`
-- **Validator:** `{Feature}{Action}CommandValidator` lub `{Feature}{Action}QueryValidator`
+### Naming Conventions
 
-#### Command/Query jako record
-Używaj `record` dla immutability:
+| Type | Pattern | Example |
+|------|---------|---------|
+| Command | `{Feature}{Action}Command` | `UploadProjectFileVersionCommand` |
+| Query | `{Feature}{Action}Query` | `GetProjectDetailsQuery` |
+| Handler | `{Feature}{Action}CommandHandler` | `UploadProjectFileVersionCommandHandler` |
+| Validator | `{Feature}{Action}CommandValidator` | `UploadProjectFileVersionCommandValidator` |
+| Web Model (DTO) | `{Entity}Web` | `ProjectFileWeb`, `ProjectDetailsWeb` |
+
+### Command/Query as record
+
+Use `record` for immutability:
+
 ```csharp
-public record UploadProjectFileVersionCommand : IRequest<Unit>
+public record UploadProjectFileVersionCommand : IRequestCommand<Unit>
 {
     public Guid TenantId { get; init; }
     public Guid ProjectId { get; init; }
@@ -692,8 +582,10 @@ public record UploadProjectFileVersionCommand : IRequest<Unit>
 }
 ```
 
-#### Web modele (DTO)
-Definiowane w `Business/Interfaces/WebModels/`:
+### Web Models (DTOs)
+
+Defined in `Business/Interfaces/WebModels/`:
+
 ```
 Business/Interfaces/WebModels/
 ├── Files/
@@ -706,14 +598,17 @@ Business/Interfaces/WebModels/
     └── UserWeb.cs
 ```
 
-**Zasady:**
-- Suffix `Web` dla wszystkich DTO zwracanych przez API
-- Powinny zawierać tylko dane potrzebne dla UI/klienta
-- NIE eksponuj encji domenowych bezpośrednio (np. `ProjectFile` → `ProjectFileWeb`)
+**Rules:**
+- Suffix `Web` for all DTOs returned by API
+- Should contain only data needed for UI/client
+- ❌ NEVER expose domain entities directly
 
-### 9. **Entity Framework Core – Repository Pattern**
+---
 
-#### Struktura Repository
+## 🗄️ Entity Framework Core – Repository Pattern
+
+### Repository Interface
+
 ```csharp
 public interface IRepository<T> where T : class
 {
@@ -728,42 +623,47 @@ public interface IRepository<T> where T : class
 }
 ```
 
-#### Zasady używania
-- **Zawsze używaj includes** dla navigation properties:
-  ```csharp
-  var project = await projectRepo.GetFirstBySearch(
-      p => p.Id == projectId,
-      include => include
-          .Include(p => p.Members)
-          .Include(p => p.Groups)
-  );
-  ```
+### Usage Rules
 
-- **SaveChanges** wywoływany **RĘCZNIE** po wszystkich operacjach:
-  ```csharp
-  await projectFileRepo.Insert(projectFile);
-  await projectFileVersionRepo.Insert(firstVersion);
-  await projectFileRepo.SaveChangesAsync(ct); // Dopiero teraz commitujemy
-  ```
+#### Always use `.Include()` for navigation properties
 
-- **Soft delete** – ustawiaj `IsDeleted = true`, nie używaj `Delete()`:
-  ```csharp
-  projectFile.IsDeleted = true;
-  projectFile.DeletedAt = DateTime.UtcNow;
-  await projectFileRepo.Update(projectFile);
-  ```
+```csharp
+var project = await projectRepo.GetFirstBySearch(
+    p => p.Id == projectId,
+    include => include
+        .Include(p => p.Members)
+        .Include(p => p.Groups)
+);
+```
 
-- **Filtruj soft-deleted** w każdym zapytaniu:
-  ```csharp
-  var files = await projectFileRepo.GetBySearch(
-      f => f.ProjectId == projectId && !f.IsDeleted
-  );
-  ```
+#### Soft Delete – NEVER physical delete
 
-### 10. **Helpery i Serwisy**
+```csharp
+// ✅ GOOD - Soft delete
+projectFile.IsDeleted = true;
+projectFile.DeletedAt = DateTime.UtcNow;
+await projectFileRepo.Update(projectFile);
 
-#### Business/Interfaces/Helpers/
-Klasy statyczne z metodami narzędziowymi:
+// ❌ BAD - Physical delete
+await projectFileRepo.Delete(projectFile);
+```
+
+#### Always filter soft-deleted entities
+
+```csharp
+var files = await projectFileRepo.GetBySearch(
+    f => f.ProjectId == projectId && !f.IsDeleted // ← ALWAYS check !IsDeleted
+);
+```
+
+---
+
+## 🛠️ Helpers & Services
+
+### Helpers (Static Utilities)
+
+Located in `Business/Interfaces/Helpers/`:
+
 ```csharp
 // FileHelper.cs
 public static class FileHelper
@@ -772,11 +672,20 @@ public static class FileHelper
     {
         return packageName.Replace(" ", "_").Replace("/", "-");
     }
+    
+    public static bool IsAllowedExtension(string fileName, string[] allowedExtensions)
+    {
+        string ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return allowedExtensions.Contains(ext);
+    }
 }
 ```
 
-#### Business/Interfaces/Services/ & Business/Implementation/Services/
-Serwisy z logiką domenową/infrastrukturową:
+### Services (Domain/Infrastructure Logic)
+
+Interface: `Business/Interfaces/Services/`  
+Implementation: `Business/Implementation/Services/`
+
 ```csharp
 // Interface
 public interface IBlobStorageService
@@ -789,99 +698,188 @@ public interface IBlobStorageService
 // Implementation
 public class BlobStorageService : IBlobStorageService
 {
-    // ... implementacja
+    // ... implementation
 }
 ```
 
-**Rejestracja w DI:**
+**DI Registration:**
+
 ```csharp
 // WebApi/Extensions/ServiceCollectionExtensions.cs
 services.AddScoped<IBlobStorageService, BlobStorageService>();
 ```
 
-### 11. **Asynchroniczność**
+---
 
-#### Zasady async/await
-- **Wszystkie operacje IO** muszą być async: baza danych, API, file system, blob storage
-- **NIE UŻYWAJ** `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` w handlerach
-  - Wyjątek: `CurrentUser` (scoped per request, cached)
-  
-- **Przekazuj CancellationToken**:
-  ```csharp
-  public async Task<Unit> Handle(Command request, CancellationToken ct)
-  {
-      await repo.SaveChangesAsync(ct);
-      await blobService.UploadAsync(container, path, stream, contentType, ct);
-  }
-  ```
+## ⚡ Best Practices
 
-- **NIE MIX** synchronicznego i asynchronicznego kodu:
-  ```csharp
-  // BAD
-  var user = userRepo.GetFirstBySearch(u => u.Id == id).Result;
-  
-  // GOOD
-  var user = await userRepo.GetFirstBySearch(u => u.Id == id);
-  ```
+### Async/Await
 
-### 12. **Logowanie**
+- ✅ ALL IO operations MUST be async (database, API, file system, blob storage)
+- ✅ ALWAYS pass `CancellationToken`
+- ❌ NEVER use `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` in Handlers
+  - Exception: `CurrentUser` (scoped per request, cached)
 
-#### Kiedy logować
+```csharp
+// ✅ GOOD
+var user = await userRepo.GetFirstBySearch(u => u.Id == id, ct);
 
-- ✅ **Operacje krytyczne** (utworzenie zasobu, upload plików, modyfikacja danych):
-  ```csharp
-  logger.LogInformation(
-      "Created new version {VersionNumber} for file {FileId} in project {ProjectId}",
-      versionNumber, fileId, projectId);
-  ```
+// ❌ BAD
+var user = userRepo.GetFirstBySearch(u => u.Id == id).Result;
+```
 
-- ✅ **Błędy i wyjątki**:
-  ```csharp
-  catch (Exception ex)
-  {
-      logger.LogError(ex, 
-          "Failed to upload file {FileId} to project {ProjectId}",
-          fileId, projectId);
-      throw;
-  }
-  ```
+### DateTime
 
-- ✅ **Ostrzeżenia** (operacje potencjalnie problematyczne):
-  ```csharp
-  logger.LogWarning(
-      "Failed to cleanup blob {BlobPath} after upload failure",
-      blobPath);
-  ```
+- ✅ ALWAYS use `DateTime.UtcNow`
+- ❌ NEVER use `DateTime.Now`
 
-#### Czego NIE logować
-- ❌ Każdego kroku w handlerze
-- ❌ Danych wrażliwych (hasła, tokeny, PII)
-- ❌ Całych obiektów (tylko istotne właściwości)
+```csharp
+// ✅ GOOD
+CreatedAt = DateTime.UtcNow
 
-#### Format logów
-- Używaj **structured logging** (parametry, nie interpolacja):
-  ```csharp
-  // GOOD
-  logger.LogInformation("User {UserId} uploaded file {FileName}", userId, fileName);
-  
-  // BAD
-  logger.LogInformation($"User {userId} uploaded file {fileName}");
-  ```
+// ❌ BAD
+CreatedAt = DateTime.Now
+```
 
-### 13. **Kontrolery – REST API**
+### Null-Safety
 
-#### Routing i konwencje
+- ✅ Use `?` for nullable types
+- ✅ Check null before usage
+
+```csharp
+public string? Comment { get; init; }
+
+if (projectFile == null)
+    throw new NotFoundApiException(...);
+
+// Now safe to use projectFile
+```
+
+### MediatR Unit
+
+When Command returns nothing, use `Unit`:
+
+```csharp
+public record DeleteProjectCommand : IRequestCommand<Unit> { }
+
+public async Task<Unit> Handle(DeleteProjectCommand request, CancellationToken ct)
+{
+    // ... logic
+    return Unit.Value;
+}
+```
+
+### ICurrentUser – User Context
+
+Interface provides info about authenticated user:
+
+```csharp
+public interface ICurrentUser
+{
+    Guid Id { get; }                        // User ID from JWT claims
+    string FirstName { get; }               // Lazy-loaded from DB
+    string LastName { get; }                // Lazy-loaded from DB
+    string Email { get; }                   // From JWT claims
+    Guid? ActiveTenantId { get; }           // From TenantPreferencesProfile (DB)
+    TenantRole? ActiveTenantRole { get; }   // From JWT claims
+    SystemRole SystemRole { get; }          // From JWT claims
+    bool IsAuthenticated { get; }
+}
+```
+
+**Usage in Handlers:**
+
+```csharp
+public async Task<Unit> Handle(Command request, CancellationToken ct)
+{
+    Guid userId = currentUser.Id;
+    
+    if (currentUser.ActiveTenantId != request.TenantId)
+        throw new ForbiddenApiException("Cannot access this tenant's resources");
+    
+    var entity = new SomeEntity
+    {
+        CreatedByUserId = currentUser.Id,
+        TenantId = request.TenantId
+    };
+}
+```
+
+**Note:** `CurrentUser` is **scoped per request** and caches DB data, so it's safe to access properties multiple times.
+
+---
+
+## 💬 Comments – Minimalism Rule
+
+### ❌ DON'T write comments for:
+
+```csharp
+// ❌ BAD - Obvious operation
+// Get user from database
+User? user = await userRepo.GetFirstBySearch(u => u.Id == userId);
+
+// ❌ BAD - Self-explanatory code
+// Check if file exists
+if (projectFile == null)
+```
+
+### ✅ DO write comments when:
+
+```csharp
+// ✅ GOOD - Explains WHY
+// CurrentVersionId is set AFTER SaveChanges because version must be saved first
+// to get valid Id and avoid FK violations
+projectFile.CurrentVersionId = versionId;
+
+// ✅ GOOD - Documents non-trivial business decision
+// File extension must match original due to versioning system
+// and preview rendering requirements
+if (originalExtension != newFileExtension)
+{
+    throw new ValidationApiException(...);
+}
+
+// ✅ GOOD - Warns about pitfalls
+// WARNING: ICurrentUser properties are not async, so we fetch data once
+// with blocking call and cache in object (scoped per request) - minimizes cost
+User? user = userRepo.GetFirstBySearch(u => u.Id == userId).GetAwaiter().GetResult();
+```
+
+### XML Documentation Comments
+
+Use for **public API endpoints** in controllers:
+
+```csharp
+/// <summary>
+/// Upload a new version of an existing project file
+/// </summary>
+/// <param name="tenantId">Tenant identifier</param>
+/// <param name="projectId">Project identifier</param>
+/// <param name="fileId">File identifier</param>
+/// <returns>NoContent on success</returns>
+[HttpPost("versions")]
+[Authorize(Policy = Policies.ProjectMember)]
+public async Task<IActionResult> UploadFileVersion(...)
+```
+
+---
+
+## 🎮 Controllers – REST API
+
+### Routing & Conventions
+
 - **Route template**: `api/tenants/{tenantId}/projects/{projectId}/[controller]`
-- **Akcje HTTP**: `[HttpGet]`, `[HttpPost]`, `[HttpPut]`, `[HttpDelete]`
+- **HTTP methods**: `[HttpGet]`, `[HttpPost]`, `[HttpPut]`, `[HttpDelete]`
 - **Status codes**:
-  - `200 OK` – GET zwraca dane
-  - `201 Created` – POST tworzy zasób (zwróć `CreatedAtAction` z ID)
-  - `204 NoContent` – POST/PUT/DELETE bez body w odpowiedzi
-  - `400 BadRequest` – błąd walidacji
-  - `404 NotFound` – zasób nie istnieje
-  - `403 Forbidden` – brak uprawnień
+  - `200 OK` – GET returns data
+  - `201 Created` – POST creates resource (return `CreatedAtAction` with ID)
+  - `204 NoContent` – POST/PUT/DELETE without response body
+  - `400 BadRequest` – Validation error
+  - `404 NotFound` – Resource not found
+  - `403 Forbidden` – Access denied
 
-#### Przykład kontrolera
+### Controller Example
+
 ```csharp
 [Route("api/tenants/{tenantId}/projects/{projectId}/[controller]")]
 [ApiController]
@@ -905,160 +903,74 @@ public class FileController(IMediator mediator) : BaseApiController(mediator)
 }
 ```
 
-**Zasady:**
-- Kontroler jest **cienką warstwą** – tylko routing i autoryzacja
-- Logika biznesowa w **Handlerze**
-- Parametry route (`tenantId`, `projectId`) ustawiaj w kontrolerze:
+**Rules:**
+- Controller is **thin layer** – only routing and authorization
+- Business logic in **Handler**
+- Set route parameters (`tenantId`, `projectId`) in controller:
   ```csharp
   command = command with { TenantId = tenantId, ProjectId = projectId };
   ```
 
-### 14. **Inne ważne zasady**
-
-#### BaseEntity i Guid
-- Wszystkie encje dziedziczą po `BaseEntity` który automatycznie generuje `Id`:
-  ```csharp
-  public class BaseEntity
-  {
-      public Guid Id { get; set; } = Guid.NewGuid();
-  }
-  ```
-- **NIE TWÓRZ** ręcznie `Guid.NewGuid()` dla encji
-
-#### DateTime
-- **Zawsze używaj UTC**:
-  ```csharp
-  CreatedAt = DateTime.UtcNow
-  ```
-- **NIE używaj** `DateTime.Now`
-
-#### Navigation Properties
-- Inicjalizuj kolekcje w klasach encji:
-  ```csharp
-  public class Project : BaseEntity
-  {
-      public ICollection<ProjectMember> Members { get; set; } = new List<ProjectMember>();
-  }
-  ```
-
-#### MediatR Unit
-- Gdy Command nic nie zwraca, używaj `Unit` zamiast `Task`:
-  ```csharp
-  public record DeleteProjectCommand : IRequest<Unit> { ... }
-  
-  public async Task<Unit> Handle(DeleteProjectCommand request, CancellationToken ct)
-  {
-      // ...
-      return Unit.Value;
-  }
-  ```
-
-#### Null-safety
-- Używaj `?` dla nullable types:
-  ```csharp
-  public string? Comment { get; init; }
-  ```
-- Sprawdzaj null przed użyciem:
-  ```csharp
-  if (projectFile == null)
-      throw new NotFoundApiException(...);
-  
-  // Teraz bezpiecznie używamy projectFile
-  ```
-
-### 15. **ICurrentUser – kontekst użytkownika**
-
-#### Interfejs i właściwości
-`ICurrentUser` dostarcza informacji o zalogowanym użytkowniku:
-```csharp
-public interface ICurrentUser
-{
-    Guid Id { get; }                        // User ID z JWT claims
-    string FirstName { get; }               // Lazy-loaded z DB
-    string LastName { get; }                // Lazy-loaded z DB
-    string Email { get; }                   // Z JWT claims
-    Guid? ActiveTenantId { get; }           // Z TenantPreferencesProfile (DB)
-    TenantRole? ActiveTenantRole { get; }   // Z JWT claims
-    SystemRole SystemRole { get; }          // Z JWT claims
-    bool IsAuthenticated { get; }
-}
-```
-
-#### Użycie w handlerach
-```csharp
-public class UploadProjectFileVersionCommandHandler : IRequestHandler<...>
-{
-    private readonly ICurrentUser currentUser;
-    
-    public async Task<Unit> Handle(Command request, CancellationToken ct)
-    {
-        // Pobierz ID zalogowanego użytkownika
-        Guid userId = currentUser.Id;
-        
-        // Sprawdź aktywnego tenanta
-        if (currentUser.ActiveTenantId != request.TenantId)
-        {
-            throw new ForbiddenApiException("Cannot access this tenant's resources");
-        }
-        
-        // Użyj w encji
-        var version = new ProjectFileVersion
-        {
-            CreatedByUserId = currentUser.Id,
-            // ...
-        };
-    }
-}
-```
-
-#### Rejestracja
-```csharp
-// ServiceCollectionExtensions.cs
-services.AddScoped<ICurrentUser, CurrentUser>();
-```
-
-**Uwaga:** `CurrentUser` jest **scoped per request** i cachuje dane z DB, więc bezpieczne jest wielokrotne odwoływanie się do jego właściwości.
-
 ---
 
-## 🚦 Checklist przed commitem
+## 🤖 What Copilot Should Flag & Suggest
 
-### ✅ CQRS & Architektura
-- [ ] Command dziedziczy po `IRequestCommand<T>`, Query po `IRequestQuery<T>` (NIE bezpośrednio `IRequest<T>`)
-- [ ] Command zwraca `Unit` lub `Guid`, Query zwraca Web model (DTO)
-- [ ] Handler nie buduje rozbudowanych projekcji w Command
-- [ ] Query mapuje encje na `*Web` modele przed zwróceniem
-- [ ] Nazewnictwo: `{Feature}{Action}Command/Query` + `Handler` + `Validator`
-- [ ] `SaveChangesAsync()` wywoływane OBLIGATORYJNIE na końcu każdego Command Handler
-- [ ] `SaveChangesAsync()` wcześniej TYLKO gdy potrzebne Id dla Foreign Key w kolejnej encji
+### 🔴 Always Flag (Block/Error Level)
 
-### ✅ Multi-tenancy & Bezpieczeństwo
-- [ ] Walidacja `TenantId` we wszystkich handlerach
-- [ ] Zapytania filtrują po `TenantId` i `!IsDeleted`
-- [ ] Kontroler używa Policy-based authorization (`[Authorize(Policy = ...)]`)
-- [ ] Parametry route (`tenantId`, `projectId`) ustawiane w kontrolerze
+1. **Wrong CQRS interface inheritance**
+   - Issue: `public record MyCommand : IRequest<Guid>`
+   - Fix: `public record MyCommand : IRequestCommand<Guid>`
 
-### ✅ Wyjątki & Walidacja
-- [ ] Używam dedykowanych klas wyjątków (`NotFoundApiException`, `ValidationApiException`, etc.)
-- [ ] **WSZYSTKIE wyjątki napisane PO ANGIELSKU** (nie po polsku!)
-- [ ] Walidacja wejścia w `Validator`, walidacja biznesowa w `Handler`
-- [ ] Jeśli pobieranie z bazy TYLKO dla sprawdzenia istnienia → przenieś do `Validator` (MustAsync)
-- [ ] Jeśli używam properties/navigation properties pobranego obiektu → zostaje w `Handler`
-- [ ] Brak `throw new Exception()` ani standardowych wyjątków .NET w handlerach
+2. **Polish exception messages**
+   - Issue: `throw new ValidationApiException("Błąd walidacji")`
+   - Fix: `throw new ValidationApiException("Validation error")`
 
-### ✅ Async & Repository
-- [ ] Wszystkie operacje async/await używają `CancellationToken`
-- [ ] Brak `.Result`, `.Wait()` w kodzie asynchronicznym
-- [ ] Navigation properties ładowane przez `.Include()` w repository
+3. **Missing TenantId validation**
+   - Issue: No `TenantId` check in Handler
+   - Fix: Add `if (entity.TenantId != currentUser.ActiveTenantId) throw new ForbiddenApiException(...)`
 
-### ✅ Kod & Czytelność
-- [ ] Brak nadmiarowych komentarzy – kod jest samodokumentujący się
-- [ ] Duplikowany kod wydzielony do Helper/Service
-- [ ] Używam `DateTime.UtcNow` zamiast `DateTime.Now`
-- [ ] Logowanie zawiera structured parameters, nie interpolację stringów
-- [ ] XML documentation comments dla public API endpoints
+4. **Missing !IsDeleted filter**
+   - Issue: Query without soft-delete check
+   - Fix: Add `&& !x.IsDeleted` to predicate
 
-### ✅ Null-safety & Immutability
-- [ ] Używam `?` dla nullable types
-- [ ] Command/Query zdefiniowane jako `record` z `init`
-- [ ] Sprawdzam `null` przed użyciem encji z DB (lub delegowane do Validator gdy to tylko existence check)
+5. **Blocking async calls**
+   - Issue: `.Result`, `.Wait()`, `.GetAwaiter().GetResult()`
+   - Fix: `await someRepo.GetAsync(...)`
+
+6. **Using DateTime.Now**
+   - Issue: `CreatedAt = DateTime.Now`
+   - Fix: `CreatedAt = DateTime.UtcNow`
+
+7. **Standard exceptions in Handlers**
+   - Issue: `throw new Exception("Error")`
+   - Fix: `throw new ValidationApiException("Error message")`
+
+8. **Manual SaveChangesAsync in simple Command**
+   - Issue: SaveChanges called in Handler where TransactionBehavior should handle it
+   - Fix: Remove manual SaveChangesAsync call, let TransactionBehavior handle it
+
+### 🟡 Suggest Improvements (Warning Level)
+
+1. **Complex DTO projections in Command**
+   - Suggest: Move to Query
+
+2. **State modification in Query**
+   - Suggest: Move to Command
+
+3. **Existence check in Handler when object not used**
+   - Suggest: Move to Validator with `MustAsync`
+
+4. **Duplicated validation/mapping logic**
+   - Suggest: Extract to Helper/Service
+
+5. **Business logic in Controller**
+   - Suggest: Move to Handler
+
+6. **Missing XML documentation on public API endpoints**
+   - Suggest: Add summary and param tags
+
+7. **Manual SaveChangesAsync in simple Command**
+   - Suggest: Remove (TransactionBehavior handles it)
+
+8. **Missing includes for navigation properties**
+   - Suggest: Add `.Include()` for related entities
