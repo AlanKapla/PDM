@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251211121417_migration-eighth")]
+    partial class migrationeighth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -537,6 +540,9 @@ namespace Entities.Migrations
                     b.Property<Guid>("ProjectCostId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ProjectCostId1")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -555,6 +561,8 @@ namespace Entities.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProjectCostId");
+
+                    b.HasIndex("ProjectCostId1");
 
                     b.HasIndex("ProjectCostId", "SharedWithUserId")
                         .IsUnique();
@@ -1259,10 +1267,14 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.SharedProjectCost", b =>
                 {
                     b.HasOne("Entities.Models.ProjectCost", "ProjectCost")
-                        .WithMany("SharedWith")
+                        .WithMany()
                         .HasForeignKey("ProjectCostId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Entities.Models.ProjectCost", null)
+                        .WithMany("SharedWith")
+                        .HasForeignKey("ProjectCostId1");
 
                     b.HasOne("Entities.Models.TenantMember", "SharedByTenantMember")
                         .WithMany()

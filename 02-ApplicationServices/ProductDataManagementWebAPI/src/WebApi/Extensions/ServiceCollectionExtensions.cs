@@ -202,6 +202,7 @@ namespace WebApi.Extensions
             services.AddScoped<IReadRepository<Tenant>, ReadRepository<Tenant>>();
             services.AddScoped<IRepository<Tenant>, Repository<Tenant>>(); 
             services.AddScoped<IReadRepository<Project>, ReadRepository<Project>>();
+            services.AddScoped<IRepository<Project>, Repository<Project>>();
             services.AddScoped<IReadRepository<ProjectGroup>, ReadRepository<ProjectGroup>>();
             services.AddScoped<IRepository<TenantMember>, Repository<TenantMember>>();
             services.AddScoped<IRepository<ProjectMember>, Repository<ProjectMember>>();
@@ -232,6 +233,10 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<WorkScheduleStage>, Repository<WorkScheduleStage>>();
             services.AddScoped<IRepository<WorkScheduleStageWork>, Repository<WorkScheduleStageWork>>();
             services.AddScoped<IRepository<WorkScheduleStageWorkAssignment>, Repository<WorkScheduleStageWorkAssignment>>();
+            services.AddScoped<IReadRepository<ProjectCost>, ReadRepository<ProjectCost>>();
+            services.AddScoped<IRepository<ProjectCost>, Repository<ProjectCost>>();
+            services.AddScoped<IReadRepository<SharedProjectCost>, ReadRepository<SharedProjectCost>>();
+            services.AddScoped<IRepository<SharedProjectCost>, Repository<SharedProjectCost>>();
             return services;
         }
 

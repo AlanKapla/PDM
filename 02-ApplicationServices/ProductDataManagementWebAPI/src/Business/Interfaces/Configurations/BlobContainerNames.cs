@@ -5,6 +5,7 @@
     /// </summary>
     public enum BlobContainerNames
     {
-        Documentation
+        Documentation,
+        ProjectCosts
     }
 }

@@ -105,3 +105,76 @@ export interface SharedProjectFileWeb {
   versions: ProjectFileVersionWeb[];
   totalVersions: number;
 }
+
+// ===== Koszty projektowe =====
+
+export interface ProjectCostListItemWeb {
+  id: string;
+  userId: string;
+  userName: string;
+  name: string;
+  place?: string;
+  date: string;
+  description?: string;
+  netAmount?: number;
+  vatRate?: number;
+  grossAmount: number;
+  isClosed: boolean;
+  hasDocument: boolean;
+  documentFileName?: string;
+  previewSasUrl?: string;
+  downloadSasUrl?: string;
+  sharedWithUserIds: string[];
+  createdAt: string;
+}
+
+export interface CreateProjectCostCommand {
+  tenantId: string;
+  projectId: string;
+  name: string;
+  place?: string;
+  date: string;
+  description?: string;
+  netAmount?: number;
+  vatRate?: number;
+  grossAmount?: number;
+  document?: File;
+}
+
+export interface UpdateProjectCostCommand {
+  tenantId: string;
+  projectId: string;
+  costId: string;
+  name: string;
+  place?: string;
+  date: string;
+  description?: string;
+  netAmount?: number;
+  vatRate?: number;
+  grossAmount?: number;
+  isClosed: boolean;
+  document?: File;
+  removeDocument: boolean;
+}
+
+export interface SharedProjectCostWeb {
+  id: string;
+  projectCostId: string;
+  sharedWithUserId: string;
+  sharedWithUserName: string;
+  sharedByUserId: string;
+  sharedByUserName: string;
+  sharedAt: string;
+  costName: string;
+  costPlace?: string;
+  costDate: string;
+  costDescription?: string;
+  costNetAmount?: number;
+  costVatRate?: number;
+  costGrossAmount: number;
+  costIsClosed: boolean;
+  costHasDocument: boolean;
+  costDocumentFileName?: string;
+  previewSasUrl?: string;
+  downloadSasUrl?: string;
+}

@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <EmbeddedResource Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <None Remove="ProjectCosts\GetProjectCostDetails\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.0.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.72.0" />
     <PackageReference Include="MediatR" Version="13.0.0" />

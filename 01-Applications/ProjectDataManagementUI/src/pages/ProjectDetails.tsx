@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -36,19 +36,22 @@ import {
   Td,
   Input,
   Textarea,
+  Checkbox,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus, Trash2, Upload, FileText, Share2, Download, ChevronDown, ChevronUp, Clock, MessageSquare, Send, Eye } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, UserPlus, Trash2, Upload, FileText, Share2, Download, ChevronDown, ChevronUp, Clock, MessageSquare, Send, Eye, DollarSign, Edit, Check, X, File } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { handleApiError } from "../utils/handleApiError";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
+import ShareCostModal from "../components/ShareCostModal";
 import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../hooks/useAuth";
 import { ProjectRole } from "../types/project.types";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
+import type { ProjectCostListItemWeb, SharedProjectCostWeb } from "../types/project.types";
 
 /* Helpery UI */
 const getProjectRoleName = (role: number) =>
@@ -81,9 +84,33 @@ export default function ProjectDetails() {
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
   const [fileForNewVersion, setFileForNewVersion] = useState<any | null>(null);
   const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
-  const [submittingComment, setSubmittingComment] = useState<string | null>(null);
   const [workSchedules, setWorkSchedules] = useState<WorkScheduleSummaryWeb[]>([]);
   const [loadingWorkSchedules, setLoadingWorkSchedules] = useState(false);
+  const [projectCosts, setProjectCosts] = useState<ProjectCostListItemWeb[]>([]);
+  const [loadingCosts, setLoadingCosts] = useState(false);
+  const [sharedCosts, setSharedCosts] = useState<SharedProjectCostWeb[]>([]);
+  const [loadingSharedCosts, setLoadingSharedCosts] = useState(false);
+  const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
+  const { isOpen: isShareCostModalOpen, onOpen: onShareCostModalOpen, onClose: onShareCostModalClose } = useDisclosure();
+  const [editingCostId, setEditingCostId] = useState<string | null>(null);
+  const [editingCostData, setEditingCostData] = useState<any>(null);
+  const [savingCost, setSavingCost] = useState(false);
+  const [deletingCostId, setDeletingCostId] = useState<string | null>(null);
+  const [newCostData, setNewCostData] = useState<any>({
+    name: '',
+    place: '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    netAmount: '',
+    vatRate: '',
+    grossAmount: '',
+  });
+  const [addingNewCost, setAddingNewCost] = useState(false);
+  const [showNewCostRow, setShowNewCostRow] = useState(false);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [submittingComment, setSubmittingComment] = useState<string | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const newFileInputRef = useRef<HTMLInputElement>(null);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -182,6 +209,318 @@ export default function ProjectDetails() {
       console.error("Błąd pobierania harmonogramów:", err);
     } finally {
       setLoadingWorkSchedules(false);
+    }
+  };
+
+  const fetchProjectCosts = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    setLoadingCosts(true);
+    try {
+      const response = await projectApi.getProjectUserCosts(user.activeTenantId, projectId);
+      if (response.ok) {
+        const data: ProjectCostListItemWeb[] = await response.json();
+        setProjectCosts(data);
+      }
+    } catch (err) {
+      console.error("Błąd pobierania kosztów projektowych:", err);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać kosztów projektowych",
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setLoadingCosts(false);
+    }
+  };
+
+  const fetchSharedProjectCosts = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    setLoadingSharedCosts(true);
+    try {
+      const response = await projectApi.getSharedProjectCosts(user.activeTenantId, projectId);
+      if (response.ok) {
+        const data: SharedProjectCostWeb[] = await response.json();
+        setSharedCosts(data);
+      }
+    } catch (err) {
+      console.error("Błąd pobierania udostępnionych kosztów:", err);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać udostępnionych kosztów",
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setLoadingSharedCosts(false);
+    }
+  };
+
+  const handleAddCost = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    if (!newCostData.name.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Nazwa kosztu jest wymagana",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Walidacja daty
+    const selectedDate = new Date(newCostData.date);
+    selectedDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (selectedDate.getTime() > today.getTime()) {
+      toast({
+        title: "Błąd",
+        description: "Data nie może być w przyszłości",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Walidacja: albo netto+VAT albo gross
+    const hasNet = newCostData.netAmount && newCostData.vatRate;
+    const hasGross = newCostData.grossAmount;
+
+    if (!hasNet && !hasGross) {
+      toast({
+        title: "Błąd",
+        description: "Podaj kwotę netto i stawkę VAT lub kwotę brutto",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setAddingNewCost(true);
+    try {
+      const response = await projectApi.createProjectCost(
+        user.activeTenantId,
+        projectId,
+        {
+          name: newCostData.name,
+          place: newCostData.place || undefined,
+          date: new Date(newCostData.date),
+          description: newCostData.description || undefined,
+          netAmount: newCostData.netAmount ? parseFloat(newCostData.netAmount) : undefined,
+          vatRate: newCostData.vatRate ? parseFloat(newCostData.vatRate) : undefined,
+          grossAmount: newCostData.grossAmount ? parseFloat(newCostData.grossAmount) : undefined,
+          document: documentFile || undefined,
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: "Koszt został dodany",
+          status: "success",
+          duration: 3000,
+        });
+
+        // Reset formularza
+        setNewCostData({
+          name: '',
+          place: '',
+          date: new Date().toISOString().split('T')[0],
+          description: '',
+          netAmount: '',
+          vatRate: '',
+          grossAmount: '',
+        });
+        setDocumentFile(null);
+        setShowNewCostRow(false);
+
+        await fetchProjectCosts();
+      } else {
+        const { title, description } = await handleApiError(response);
+        toast({
+          title,
+          description,
+          status: "error",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("Błąd podczas dodawania kosztu:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się dodać kosztu",
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setAddingNewCost(false);
+    }
+  };
+
+  const handleEditCost = (cost: ProjectCostListItemWeb) => {
+    setEditingCostId(cost.id);
+    setEditingCostData({
+      name: cost.name,
+      place: cost.place || '',
+      date: new Date(cost.date).toISOString().split('T')[0],
+      description: cost.description || '',
+      netAmount: cost.netAmount?.toString() || '',
+      vatRate: cost.vatRate?.toString() || '',
+      grossAmount: cost.grossAmount.toString(),
+      isClosed: cost.isClosed,
+      removeDocument: false,
+    });
+    setDocumentFile(null);
+  };
+
+  const handleSaveCost = async () => {
+    if (!user?.activeTenantId || !projectId || !editingCostId) return;
+
+    if (!editingCostData.name.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Nazwa kosztu jest wymagana",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Walidacja daty
+    const selectedDate = new Date(editingCostData.date);
+    selectedDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (selectedDate.getTime() > today.getTime()) {
+      toast({
+        title: "Błąd",
+        description: "Data nie może być w przyszłości",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Walidacja: albo netto+VAT albo gross
+    const hasNet = editingCostData.netAmount && editingCostData.vatRate;
+    const hasGross = editingCostData.grossAmount;
+
+    if (!hasNet && !hasGross) {
+      toast({
+        title: "Błąd",
+        description: "Podaj kwotę netto i stawkę VAT lub kwotę brutto",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setSavingCost(true);
+    try {
+      const response = await projectApi.updateProjectCost(
+        user.activeTenantId,
+        projectId,
+        editingCostId,
+        {
+          name: editingCostData.name,
+          place: editingCostData.place || undefined,
+          date: new Date(editingCostData.date),
+          description: editingCostData.description || undefined,
+          netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
+          vatRate: editingCostData.vatRate ? parseFloat(editingCostData.vatRate) : undefined,
+          grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
+          isClosed: editingCostData.isClosed,
+          document: documentFile || undefined,
+          removeDocument: editingCostData.removeDocument,
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: "Koszt został zaktualizowany",
+          status: "success",
+          duration: 3000,
+        });
+
+        setEditingCostId(null);
+        setEditingCostData(null);
+        setDocumentFile(null);
+        await fetchProjectCosts();
+      } else {
+        const { title, description } = await handleApiError(response);
+        toast({
+          title,
+          description,
+          status: "error",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji kosztu:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zaktualizować kosztu",
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setSavingCost(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCostId(null);
+    setEditingCostData(null);
+    setDocumentFile(null);
+  };
+
+  const handleShareCost = (cost: ProjectCostListItemWeb) => {
+    setCostToShare(cost);
+    onShareCostModalOpen();
+  };
+
+  const handleDeleteCost = async (costId: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    if (!confirm("Czy na pewno chcesz usunąć ten koszt?")) return;
+
+    setDeletingCostId(costId);
+    try {
+      const response = await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
+
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: "Koszt został usunięty",
+          status: "success",
+          duration: 3000,
+        });
+
+        await fetchProjectCosts();
+      } else {
+        const { title, description } = await handleApiError(response);
+        toast({
+          title,
+          description,
+          status: "error",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("Błąd podczas usuwania kosztu:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć kosztu",
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setDeletingCostId(null);
     }
   };
 
@@ -339,6 +678,8 @@ export default function ProjectDetails() {
     fetchMyFiles();
     fetchSharedFiles();
     fetchWorkSchedules();
+    fetchProjectCosts();
+    fetchSharedProjectCosts();
     
     // Pobierz rolę użytkownika w tenancie
     const fetchUserTenantRole = async () => {
@@ -961,7 +1302,7 @@ export default function ProjectDetails() {
                                     </HStack>
                                   </Td>
                                   <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
-                                    {file.ownerName || "-"}
+                                    {file.originalOwnerUserName || "-"}
                                   </Td>
                                   <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
                                     {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : "-"}
@@ -1180,6 +1521,664 @@ export default function ProjectDetails() {
                   )}
                 </AccordionPanel>
               </AccordionItem>
+
+              {/* ====================== SEKCJA: KOSZTY PROJEKTOWE ======================= */}
+              <AccordionItem bg={cardBg} border="1px" borderColor={borderColor} borderRadius="md" mb={4}>
+                <AccordionButton py={4}>
+                  <HStack flex="1" spacing={3}>
+                    <Icon as={DollarSign} boxSize={6} color="orange.600" />
+                    <Heading size="md">Koszty projektowe</Heading>
+                    <Badge colorScheme="orange" fontSize="sm">{projectCosts.length}</Badge>
+                  </HStack>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel pb={4}>
+                  {loadingCosts ? (
+                    <HStack justify="center" py={6}>
+                      <Spinner size="md" />
+                    </HStack>
+                  ) : (
+                    <Box overflowX="auto">
+                      <Table size="sm" variant="simple">
+                        <Thead>
+                          <Tr>
+                            <Th textAlign="center">Nazwa</Th>
+                            <Th textAlign="center">Miejsce</Th>
+                            <Th textAlign="center">Data</Th>
+                            <Th textAlign="center">Opis</Th>
+                            <Th textAlign="center">Netto</Th>
+                            <Th textAlign="center">VAT %</Th>
+                            <Th textAlign="center">Brutto</Th>
+                            <Th textAlign="center">Zamknięty</Th>
+                            <Th textAlign="center">Dokument</Th>
+                            <Th textAlign="center">Akcje</Th>
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {projectCosts.map((cost) => {
+                            const isEditing = editingCostId === cost.id;
+                            const data = isEditing ? editingCostData : cost;
+
+                            return (
+                              <Tr key={cost.id}>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <Input
+                                      size="sm"
+                                      value={data.name}
+                                      onChange={(e) => setEditingCostData({ ...editingCostData, name: e.target.value })}
+                                      textAlign="center"
+                                    />
+                                  ) : (
+                                    <Text fontSize="sm">{cost.name}</Text>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <Input
+                                      size="sm"
+                                      value={data.place || ''}
+                                      onChange={(e) => setEditingCostData({ ...editingCostData, place: e.target.value })}
+                                      placeholder="Miejsce"
+                                      textAlign="center"
+                                    />
+                                  ) : (
+                                    <Text fontSize="sm">{cost.place || '-'}</Text>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <Input
+                                      size="sm"
+                                      type="date"
+                                      value={data.date}
+                                      max={new Date().toISOString().split('T')[0]}
+                                      onChange={(e) => setEditingCostData({ ...editingCostData, date: e.target.value })}
+                                      textAlign="center"
+                                    />
+                                  ) : (
+                                    <Text fontSize="sm">{new Date(cost.date).toLocaleDateString('pl-PL')}</Text>
+                                  )}
+                                </Td>
+                                <Td maxW="200px" textAlign="center">
+                                  {isEditing ? (
+                                    <Textarea
+                                      size="sm"
+                                      value={data.description || ''}
+                                      onChange={(e) => setEditingCostData({ ...editingCostData, description: e.target.value })}
+                                      placeholder="Opis"
+                                      rows={2}
+                                      textAlign="center"
+                                    />
+                                  ) : (
+                                    <Text fontSize="sm" noOfLines={2}>{cost.description || '-'}</Text>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <Input
+                                      size="sm"
+                                      type="text"
+                                      value={data.netAmount || ''}
+                                      onChange={(e) => {
+                                        let val = e.target.value.replace(/[^0-9.]/g, '');
+                                        const parts = val.split('.');
+                                        if (parts.length > 2) {
+                                          val = parts[0] + '.' + parts.slice(1).join('');
+                                        }
+                                        if (parts[1] && parts[1].length > 2) {
+                                          val = parts[0] + '.' + parts[1].substring(0, 2);
+                                        }
+                                        setEditingCostData({ ...editingCostData, netAmount: val, grossAmount: '' });
+                                      }}
+                                      onBlur={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val && !val.includes('.')) {
+                                          setEditingCostData({ ...editingCostData, netAmount: val + '.00', grossAmount: '' });
+                                        } else if (val && val.includes('.')) {
+                                          const parts = val.split('.');
+                                          const decimals = parts[1] || '';
+                                          if (decimals.length === 0) {
+                                            setEditingCostData({ ...editingCostData, netAmount: parts[0] + '.00', grossAmount: '' });
+                                          } else if (decimals.length === 1) {
+                                            setEditingCostData({ ...editingCostData, netAmount: parts[0] + '.' + decimals + '0', grossAmount: '' });
+                                          }
+                                        }
+                                      }}
+                                      placeholder="Netto"
+                                      textAlign="center"
+                                    />
+                                  ) : (
+                                    <Text fontSize="sm">{cost.netAmount ? `${cost.netAmount.toFixed(2)} PLN` : '-'}</Text>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <Input
+                                      size="sm"
+                                      type="text"
+                                      value={data.vatRate || ''}
+                                      onChange={(e) => {
+                                        let val = e.target.value.replace(/[^0-9.]/g, '');
+                                        const parts = val.split('.');
+                                        if (parts.length > 2) {
+                                          val = parts[0] + '.' + parts.slice(1).join('');
+                                        }
+                                        if (parts[1] && parts[1].length > 2) {
+                                          val = parts[0] + '.' + parts[1].substring(0, 2);
+                                        }
+                                        setEditingCostData({ ...editingCostData, vatRate: val, grossAmount: '' });
+                                      }}
+                                      onBlur={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val && !val.includes('.')) {
+                                          setEditingCostData({ ...editingCostData, vatRate: val + '.00', grossAmount: '' });
+                                        } else if (val && val.includes('.')) {
+                                          const parts = val.split('.');
+                                          const decimals = parts[1] || '';
+                                          if (decimals.length === 0) {
+                                            setEditingCostData({ ...editingCostData, vatRate: parts[0] + '.00', grossAmount: '' });
+                                          } else if (decimals.length === 1) {
+                                            setEditingCostData({ ...editingCostData, vatRate: parts[0] + '.' + decimals + '0', grossAmount: '' });
+                                          }
+                                        }
+                                      }}
+                                      placeholder="VAT"
+                                      textAlign="center"
+                                    />
+                                  ) : (
+                                    <Text fontSize="sm">{cost.vatRate ? `${cost.vatRate.toFixed(2)}%` : '-'}</Text>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <Input
+                                      size="sm"
+                                      type="text"
+                                      value={data.grossAmount || ''}
+                                      onChange={(e) => {
+                                        let val = e.target.value.replace(/[^0-9.]/g, '');
+                                        const parts = val.split('.');
+                                        if (parts.length > 2) {
+                                          val = parts[0] + '.' + parts.slice(1).join('');
+                                        }
+                                        if (parts[1] && parts[1].length > 2) {
+                                          val = parts[0] + '.' + parts[1].substring(0, 2);
+                                        }
+                                        setEditingCostData({ ...editingCostData, grossAmount: val, netAmount: '', vatRate: '' });
+                                      }}
+                                      onBlur={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val && !val.includes('.')) {
+                                          setEditingCostData({ ...editingCostData, grossAmount: val + '.00', netAmount: '', vatRate: '' });
+                                        } else if (val && val.includes('.')) {
+                                          const parts = val.split('.');
+                                          const decimals = parts[1] || '';
+                                          if (decimals.length === 0) {
+                                            setEditingCostData({ ...editingCostData, grossAmount: parts[0] + '.00', netAmount: '', vatRate: '' });
+                                          } else if (decimals.length === 1) {
+                                            setEditingCostData({ ...editingCostData, grossAmount: parts[0] + '.' + decimals + '0', netAmount: '', vatRate: '' });
+                                          }
+                                        }
+                                      }}
+                                      placeholder="Brutto"
+                                      textAlign="center"
+                                    />
+                                  ) : (
+                                    <Text fontSize="sm" fontWeight="bold">{cost.grossAmount.toFixed(2)} PLN</Text>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <Checkbox
+                                      isChecked={data.isClosed}
+                                      onChange={(e) => setEditingCostData({ ...editingCostData, isClosed: e.target.checked })}
+                                    />
+                                  ) : (
+                                    <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
+                                      {cost.isClosed ? "Tak" : "Nie"}
+                                    </Badge>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <VStack align="center" spacing={1}>
+                                      {cost.hasDocument && !data.removeDocument && (
+                                        <HStack spacing={1}>
+                                          <Text fontSize="xs" color="gray.500">{cost.documentFileName}</Text>
+                                          <IconButton
+                                            aria-label="Usuń dokument"
+                                            icon={<X size={12} />}
+                                            size="xs"
+                                            colorScheme="red"
+                                            variant="ghost"
+                                            onClick={() => setEditingCostData({ ...editingCostData, removeDocument: true })}
+                                          />
+                                        </HStack>
+                                      )}
+                                      <Input
+                                        ref={editFileInputRef}
+                                        type="file"
+                                        accept="image/*,application/pdf"
+                                        onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                                        display="none"
+                                      />
+                                      <Button
+                                        onClick={() => editFileInputRef.current?.click()}
+                                        leftIcon={<FileText size={14} />}
+                                        variant="outline"
+                                        size="xs"
+                                      >
+                                        {documentFile ? documentFile.name : "Wybierz plik"}
+                                      </Button>
+                                    </VStack>
+                                  ) : (
+                                    <HStack spacing={1}>
+                                      {cost.hasDocument && cost.previewSasUrl && (
+                                        <IconButton
+                                          aria-label="Podgląd dokumentu"
+                                          icon={<Eye size={14} />}
+                                          size="xs"
+                                          colorScheme="purple"
+                                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                                        />
+                                      )}
+                                      {cost.hasDocument && cost.downloadSasUrl && (
+                                        <IconButton
+                                          aria-label="Pobierz dokument"
+                                          icon={<Download size={14} />}
+                                          size="xs"
+                                          colorScheme="blue"
+                                          onClick={() => handleDownloadFile(cost.downloadSasUrl!, cost.documentFileName || 'dokument')}
+                                        />
+                                      )}
+                                      {!cost.hasDocument && (
+                                        <Icon as={File} boxSize={4} color="gray.400" />
+                                      )}
+                                    </HStack>
+                                  )}
+                                </Td>
+                                <Td textAlign="center">
+                                  {isEditing ? (
+                                    <HStack spacing={1} justify="center">
+                                      <IconButton
+                                        aria-label="Zapisz"
+                                        icon={<Check size={14} />}
+                                        size="xs"
+                                        colorScheme="green"
+                                        onClick={handleSaveCost}
+                                        isLoading={savingCost}
+                                      />
+                                      <IconButton
+                                        aria-label="Anuluj"
+                                        icon={<X size={14} />}
+                                        size="xs"
+                                        colorScheme="gray"
+                                        onClick={handleCancelEdit}
+                                        isDisabled={savingCost}
+                                      />
+                                    </HStack>
+                                  ) : (
+                                    <HStack spacing={1} justify="center">
+                                      <IconButton
+                                        aria-label="Edytuj"
+                                        icon={<Edit size={14} />}
+                                        size="xs"
+                                        colorScheme="blue"
+                                        variant="ghost"
+                                        onClick={() => handleEditCost(cost)}
+                                        isDisabled={editingCostId !== null || deletingCostId !== null}
+                                      />
+                                      <IconButton
+                                        aria-label="Udostępnij"
+                                        icon={<Share2 size={14} />}
+                                        size="xs"
+                                        colorScheme="teal"
+                                        variant="ghost"
+                                        onClick={() => handleShareCost(cost)}
+                                        isDisabled={editingCostId !== null || deletingCostId !== null}
+                                      />
+                                      <IconButton
+                                        aria-label="Usuń"
+                                        icon={<Trash2 size={14} />}
+                                        size="xs"
+                                        colorScheme="red"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteCost(cost.id)}
+                                        isLoading={deletingCostId === cost.id}
+                                        isDisabled={editingCostId !== null || (deletingCostId !== null && deletingCostId !== cost.id)}
+                                      />
+                                    </HStack>
+                                  )}
+                                </Td>
+                              </Tr>
+                            );
+                          })}
+                          
+                          {/* Wiersz dodawania nowego kosztu */}
+                          {showNewCostRow && (
+                          <Tr bg={useColorModeValue("blue.50", "blue.900")}>
+                            <Td textAlign="center">
+                              <Input
+                                size="sm"
+                                value={newCostData.name}
+                                onChange={(e) => setNewCostData({ ...newCostData, name: e.target.value })}
+                                placeholder="Nazwa kosztu *"
+                                textAlign="center"
+                              />
+                            </Td>
+                            <Td textAlign="center">
+                              <Input
+                                size="sm"
+                                value={newCostData.place}
+                                onChange={(e) => setNewCostData({ ...newCostData, place: e.target.value })}
+                                placeholder="Miejsce"
+                                textAlign="center"
+                              />
+                            </Td>
+                            <Td textAlign="center">
+                              <Input
+                                size="sm"
+                                type="date"
+                                value={newCostData.date}
+                                max={new Date().toISOString().split('T')[0]}
+                                onChange={(e) => setNewCostData({ ...newCostData, date: e.target.value })}
+                                textAlign="center"
+                              />
+                            </Td>
+                            <Td maxW="200px" textAlign="center">
+                              <Textarea
+                                size="sm"
+                                value={newCostData.description}
+                                onChange={(e) => setNewCostData({ ...newCostData, description: e.target.value })}
+                                placeholder="Opis"
+                                rows={2}
+                                textAlign="center"
+                              />
+                            </Td>
+                            <Td textAlign="center">
+                              <Input
+                                size="sm"
+                                type="text"
+                                value={newCostData.netAmount}
+                                onChange={(e) => {
+                                  let val = e.target.value.replace(/[^0-9.]/g, '');
+                                  const parts = val.split('.');
+                                  if (parts.length > 2) {
+                                    val = parts[0] + '.' + parts.slice(1).join('');
+                                  }
+                                  if (parts[1] && parts[1].length > 2) {
+                                    val = parts[0] + '.' + parts[1].substring(0, 2);
+                                  }
+                                  setNewCostData({ ...newCostData, netAmount: val, grossAmount: '' });
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  if (val && !val.includes('.')) {
+                                    setNewCostData({ ...newCostData, netAmount: val + '.00', grossAmount: '' });
+                                  } else if (val && val.includes('.')) {
+                                    const parts = val.split('.');
+                                    const decimals = parts[1] || '';
+                                    if (decimals.length === 0) {
+                                      setNewCostData({ ...newCostData, netAmount: parts[0] + '.00', grossAmount: '' });
+                                    } else if (decimals.length === 1) {
+                                      setNewCostData({ ...newCostData, netAmount: parts[0] + '.' + decimals + '0', grossAmount: '' });
+                                    }
+                                  }
+                                }}
+                                placeholder="Netto"
+                                textAlign="center"
+                              />
+                            </Td>
+                            <Td textAlign="center">
+                              <Input
+                                size="sm"
+                                type="text"
+                                value={newCostData.vatRate}
+                                onChange={(e) => {
+                                  let val = e.target.value.replace(/[^0-9.]/g, '');
+                                  const parts = val.split('.');
+                                  if (parts.length > 2) {
+                                    val = parts[0] + '.' + parts.slice(1).join('');
+                                  }
+                                  if (parts[1] && parts[1].length > 2) {
+                                    val = parts[0] + '.' + parts[1].substring(0, 2);
+                                  }
+                                  setNewCostData({ ...newCostData, vatRate: val, grossAmount: '' });
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  if (val && !val.includes('.')) {
+                                    setNewCostData({ ...newCostData, vatRate: val + '.00', grossAmount: '' });
+                                  } else if (val && val.includes('.')) {
+                                    const parts = val.split('.');
+                                    const decimals = parts[1] || '';
+                                    if (decimals.length === 0) {
+                                      setNewCostData({ ...newCostData, vatRate: parts[0] + '.00', grossAmount: '' });
+                                    } else if (decimals.length === 1) {
+                                      setNewCostData({ ...newCostData, vatRate: parts[0] + '.' + decimals + '0', grossAmount: '' });
+                                    }
+                                  }
+                                }}
+                                placeholder="VAT"
+                                textAlign="center"
+                              />
+                            </Td>
+                            <Td textAlign="center">
+                              <Input
+                                size="sm"
+                                type="text"
+                                value={newCostData.grossAmount}
+                                onChange={(e) => {
+                                  let val = e.target.value.replace(/[^0-9.]/g, '');
+                                  const parts = val.split('.');
+                                  if (parts.length > 2) {
+                                    val = parts[0] + '.' + parts.slice(1).join('');
+                                  }
+                                  if (parts[1] && parts[1].length > 2) {
+                                    val = parts[0] + '.' + parts[1].substring(0, 2);
+                                  }
+                                  setNewCostData({ ...newCostData, grossAmount: val, netAmount: '', vatRate: '' });
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  if (val && !val.includes('.')) {
+                                    setNewCostData({ ...newCostData, grossAmount: val + '.00', netAmount: '', vatRate: '' });
+                                  } else if (val && val.includes('.')) {
+                                    const parts = val.split('.');
+                                    const decimals = parts[1] || '';
+                                    if (decimals.length === 0) {
+                                      setNewCostData({ ...newCostData, grossAmount: parts[0] + '.00', netAmount: '', vatRate: '' });
+                                    } else if (decimals.length === 1) {
+                                      setNewCostData({ ...newCostData, grossAmount: parts[0] + '.' + decimals + '0', netAmount: '', vatRate: '' });
+                                    }
+                                  }
+                                }}
+                                placeholder="Brutto"
+                                textAlign="center"
+                              />
+                            </Td>
+                            <Td textAlign="center">
+                              <VStack align="center" spacing={1}>
+                                <Input
+                                  ref={newFileInputRef}
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                                  display="none"
+                                />
+                                <Button
+                                  onClick={() => newFileInputRef.current?.click()}
+                                  leftIcon={<FileText size={14} />}
+                                  variant="outline"
+                                  size="xs"
+                                >
+                                  {documentFile ? documentFile.name : "Wybierz plik"}
+                                </Button>
+                              </VStack>
+                            </Td>
+                            <Td textAlign="center">
+                              <HStack spacing={1} justify="center">
+                                <IconButton
+                                  aria-label="Zapisz koszt"
+                                  icon={<Check size={14} />}
+                                  size="xs"
+                                  colorScheme="green"
+                                  onClick={handleAddCost}
+                                  isLoading={addingNewCost}
+                                  isDisabled={!newCostData.name.trim() || editingCostId !== null}
+                                />
+                                <IconButton
+                                  aria-label="Anuluj"
+                                  icon={<X size={14} />}
+                                  size="xs"
+                                  colorScheme="gray"
+                                  onClick={() => {
+                                    setShowNewCostRow(false);
+                                    setNewCostData({
+                                      name: '',
+                                      place: '',
+                                      date: new Date().toISOString().split('T')[0],
+                                      description: '',
+                                      netAmount: '',
+                                      vatRate: '',
+                                      grossAmount: '',
+                                    });
+                                    setDocumentFile(null);
+                                  }}
+                                  isDisabled={addingNewCost}
+                                />
+                              </HStack>
+                            </Td>
+                          </Tr>
+                          )}
+                        </Tbody>
+                      </Table>
+                      
+                      {!showNewCostRow && (
+                        <Button
+                          leftIcon={<Check size={18} />}
+                          colorScheme="green"
+                          size="sm"
+                          mt={3}
+                          onClick={() => setShowNewCostRow(true)}
+                          isDisabled={editingCostId !== null}
+                        >
+                          Dodaj nowy koszt
+                        </Button>
+                      )}
+                      
+                      <Text fontSize="xs" color="gray.500" mt={2}>
+                        * Podaj kwotę netto i stawkę VAT lub kwotę brutto
+                      </Text>
+                    </Box>
+                  )}
+                </AccordionPanel>
+              </AccordionItem>
+
+              {/* ====================== SEKCJA: UDOSTĘPNIONE KOSZTY PROJEKTOWE ======================= */}
+              <AccordionItem bg={cardBg} border="1px" borderColor={borderColor} borderRadius="md" mb={4}>
+                <AccordionButton py={4}>
+                  <HStack flex="1" spacing={3}>
+                    <Icon as={Share2} boxSize={6} color="teal.600" />
+                    <Heading size="md">Udostępnione koszty projektowe</Heading>
+                    <Badge colorScheme="teal" fontSize="sm">{sharedCosts.length}</Badge>
+                  </HStack>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel pb={4}>
+                  {loadingSharedCosts ? (
+                    <HStack justify="center" py={6}>
+                      <Spinner size="md" />
+                    </HStack>
+                  ) : sharedCosts.length === 0 ? (
+                    <Text color="gray.500" fontSize="sm">Brak udostępnionych kosztów projektowych</Text>
+                  ) : (
+                    <Box overflowX="auto">
+                      <Table size="sm" variant="simple">
+                        <Thead>
+                          <Tr>
+                            <Th textAlign="center">Udostępnił</Th>
+                            <Th textAlign="center">Nazwa</Th>
+                            <Th textAlign="center">Miejsce</Th>
+                            <Th textAlign="center">Data</Th>
+                            <Th textAlign="center">Opis</Th>
+                            <Th textAlign="center">Netto</Th>
+                            <Th textAlign="center">VAT %</Th>
+                            <Th textAlign="center">Brutto</Th>
+                            <Th textAlign="center">Zamknięty</Th>
+                            <Th textAlign="center">Dokument</Th>
+                            <Th textAlign="center">Data udostępnienia</Th>
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {sharedCosts.map((cost) => (
+                            <Tr key={cost.id}>
+                              <Td textAlign="center">
+                                <Text fontSize="sm">{cost.sharedByUserName}</Text>
+                              </Td>
+                              <Td textAlign="center">
+                                <Text fontSize="sm">{cost.costName}</Text>
+                              </Td>
+                              <Td textAlign="center">
+                                <Text fontSize="sm">{cost.costPlace || '-'}</Text>
+                              </Td>
+                              <Td textAlign="center">
+                                <Text fontSize="sm">{new Date(cost.costDate).toLocaleDateString('pl-PL')}</Text>
+                              </Td>
+                              <Td maxW="200px" textAlign="center">
+                                <Text fontSize="sm" noOfLines={2}>{cost.costDescription || '-'}</Text>
+                              </Td>
+                              <Td textAlign="center">
+                                <Text fontSize="sm">{cost.costNetAmount ? `${cost.costNetAmount.toFixed(2)} PLN` : '-'}</Text>
+                              </Td>
+                              <Td textAlign="center">
+                                <Text fontSize="sm">{cost.costVatRate ? `${cost.costVatRate.toFixed(2)}%` : '-'}</Text>
+                              </Td>
+                              <Td textAlign="center">
+                                <Text fontSize="sm" fontWeight="bold">{cost.costGrossAmount.toFixed(2)} PLN</Text>
+                              </Td>
+                              <Td textAlign="center">
+                                <Badge colorScheme={cost.costIsClosed ? "green" : "gray"} fontSize="xs">
+                                  {cost.costIsClosed ? "Tak" : "Nie"}
+                                </Badge>
+                              </Td>
+                              <Td textAlign="center">
+                                <HStack spacing={1} justify="center">
+                                  {cost.costHasDocument && cost.previewSasUrl && (
+                                    <IconButton
+                                      aria-label="Podgląd dokumentu"
+                                      icon={<Eye size={14} />}
+                                      size="xs"
+                                      colorScheme="purple"
+                                      onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                                    />
+                                  )}
+                                  {cost.costHasDocument && cost.downloadSasUrl && (
+                                    <IconButton
+                                      aria-label="Pobierz dokument"
+                                      icon={<Download size={14} />}
+                                      size="xs"
+                                      colorScheme="blue"
+                                      onClick={() => handleDownloadFile(cost.downloadSasUrl!, cost.costDocumentFileName || 'dokument')}
+                                    />
+                                  )}
+                                  {!cost.costHasDocument && (
+                                    <Icon as={File} boxSize={4} color="gray.400" />
+                                  )}
+                                </HStack>
+                              </Td>
+                              <Td textAlign="center">
+                                <Text fontSize="xs" color="gray.500">{formatDate(cost.sharedAt)}</Text>
+                              </Td>
+                            </Tr>
+                          ))}
+                        </Tbody>
+                      </Table>
+                    </Box>
+                  )}
+                </AccordionPanel>
+              </AccordionItem>
             </Accordion>
           </VStack>
         )}
@@ -1196,6 +2195,24 @@ export default function ProjectDetails() {
             onMemberAdded={() => {
               fetchMembers();
               fetchProjectDetails();
+            }}
+          />
+        )}
+
+        {/* Modal udostępniania kosztu */}
+        {costToShare && user?.activeTenantId && projectId && (
+          <ShareCostModal
+            isOpen={isShareCostModalOpen}
+            onClose={() => {
+              onShareCostModalClose();
+              setCostToShare(null);
+            }}
+            tenantId={user.activeTenantId}
+            projectId={projectId}
+            cost={costToShare}
+            onCostShared={() => {
+              fetchProjectCosts();
+              fetchSharedProjectCosts();
             }}
           />
         )}

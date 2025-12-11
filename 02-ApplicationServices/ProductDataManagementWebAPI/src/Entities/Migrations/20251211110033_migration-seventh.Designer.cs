@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251211110033_migration-seventh")]
+    partial class migrationseventh
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -243,11 +246,6 @@ namespace Entities.Migrations
 
                     b.Property<bool>("HasDocument")
                         .HasColumnType("bit");
-
-                    b.Property<bool>("IsClosed")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -1259,7 +1257,7 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.SharedProjectCost", b =>
                 {
                     b.HasOne("Entities.Models.ProjectCost", "ProjectCost")
-                        .WithMany("SharedWith")
+                        .WithMany()
                         .HasForeignKey("ProjectCostId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1515,11 +1513,6 @@ namespace Entities.Migrations
                     b.Navigation("Groups");
 
                     b.Navigation("Members");
-                });
-
-            modelBuilder.Entity("Entities.Models.ProjectCost", b =>
-                {
-                    b.Navigation("SharedWith");
                 });
 
             modelBuilder.Entity("Entities.Models.ProjectFile", b =>

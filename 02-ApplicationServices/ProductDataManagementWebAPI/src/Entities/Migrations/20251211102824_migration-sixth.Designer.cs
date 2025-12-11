@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251211102824_migration-sixth")]
+    partial class migrationsixth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -243,11 +246,6 @@ namespace Entities.Migrations
 
                     b.Property<bool>("HasDocument")
                         .HasColumnType("bit");
-
-                    b.Property<bool>("IsClosed")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -526,46 +524,6 @@ namespace Entities.Migrations
                     b.HasIndex("TenantId", "UserId");
 
                     b.ToTable("ProjectMembers");
-                });
-
-            modelBuilder.Entity("Entities.Models.SharedProjectCost", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProjectCostId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("SharedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("SharedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SharedWithUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProjectCostId");
-
-                    b.HasIndex("ProjectCostId", "SharedWithUserId")
-                        .IsUnique();
-
-                    b.HasIndex("TenantId", "SharedByUserId");
-
-                    b.HasIndex("TenantId", "SharedWithUserId");
-
-                    b.HasIndex("TenantId", "ProjectId", "SharedWithUserId");
-
-                    b.ToTable("SharedProjectCosts");
                 });
 
             modelBuilder.Entity("Entities.Models.SharedProjectFile", b =>
@@ -1256,33 +1214,6 @@ namespace Entities.Migrations
                     b.Navigation("TenantMember");
                 });
 
-            modelBuilder.Entity("Entities.Models.SharedProjectCost", b =>
-                {
-                    b.HasOne("Entities.Models.ProjectCost", "ProjectCost")
-                        .WithMany("SharedWith")
-                        .HasForeignKey("ProjectCostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Entities.Models.TenantMember", "SharedByTenantMember")
-                        .WithMany()
-                        .HasForeignKey("TenantId", "SharedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Entities.Models.TenantMember", "SharedWithTenantMember")
-                        .WithMany()
-                        .HasForeignKey("TenantId", "SharedWithUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ProjectCost");
-
-                    b.Navigation("SharedByTenantMember");
-
-                    b.Navigation("SharedWithTenantMember");
-                });
-
             modelBuilder.Entity("Entities.Models.SharedProjectFile", b =>
                 {
                     b.HasOne("Entities.Models.ProjectFile", "ProjectFile")
@@ -1515,11 +1446,6 @@ namespace Entities.Migrations
                     b.Navigation("Groups");
 
                     b.Navigation("Members");
-                });
-
-            modelBuilder.Entity("Entities.Models.ProjectCost", b =>
-                {
-                    b.Navigation("SharedWith");
                 });
 
             modelBuilder.Entity("Entities.Models.ProjectFile", b =>

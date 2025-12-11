@@ -264,4 +264,117 @@ export const projectApi = {
       credentials: "include",
     });
   },
+
+  // ===== Koszty projektowe =====
+
+  // Pobierz listę kosztów projektowych
+  getProjectUserCosts: async (tenantId: string, projectId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs`, {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  // Utwórz nowy koszt projektowy
+  createProjectCost: async (
+    tenantId: string,
+    projectId: string,
+    data: {
+      name: string;
+      place?: string;
+      date: Date;
+      description?: string;
+      netAmount?: number;
+      vatRate?: number;
+      grossAmount?: number;
+      document?: File;
+    }
+  ): Promise<Response> => {
+    const formData = new FormData();
+    formData.append("TenantId", tenantId);
+    formData.append("ProjectId", projectId);
+    formData.append("Name", data.name);
+    if (data.place) formData.append("Place", data.place);
+    formData.append("Date", data.date.toISOString());
+    if (data.description) formData.append("Description", data.description);
+    if (data.netAmount !== undefined) formData.append("NetAmount", data.netAmount.toString());
+    if (data.vatRate !== undefined) formData.append("VatRate", data.vatRate.toString());
+    if (data.grossAmount !== undefined) formData.append("GrossAmount", data.grossAmount.toString());
+    if (data.document) formData.append("Document", data.document);
+
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+  },
+
+  // Aktualizuj koszt projektowy
+  updateProjectCost: async (
+    tenantId: string,
+    projectId: string,
+    costId: string,
+    data: {
+      name: string;
+      place?: string;
+      date: Date;
+      description?: string;
+      netAmount?: number;
+      vatRate?: number;
+      grossAmount?: number;
+      document?: File;
+      removeDocument: boolean;
+    }
+  ): Promise<Response> => {
+    const formData = new FormData();
+    formData.append("TenantId", tenantId);
+    formData.append("ProjectId", projectId);
+    formData.append("CostId", costId);
+    formData.append("Name", data.name);
+    if (data.place) formData.append("Place", data.place);
+    formData.append("Date", data.date.toISOString());
+    if (data.description) formData.append("Description", data.description);
+    if (data.netAmount !== undefined) formData.append("NetAmount", data.netAmount.toString());
+    if (data.vatRate !== undefined) formData.append("VatRate", data.vatRate.toString());
+    if (data.grossAmount !== undefined) formData.append("GrossAmount", data.grossAmount.toString());
+    if (data.document) formData.append("Document", data.document);
+    formData.append("RemoveDocument", data.removeDocument.toString());
+
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/${costId}`, {
+      method: "PUT",
+      credentials: "include",
+      body: formData,
+    });
+  },
+
+  // Usuń koszt projektowy
+  deleteProjectCost: async (tenantId: string, projectId: string, costId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/${costId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+  },
+
+  // Pobierz udostępnione koszty projektowe
+  getSharedProjectCosts: async (tenantId: string, projectId: string): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/shared`, {
+      method: "GET",
+      credentials: "include",
+    });
+  },
+
+  // Udostępnij koszt projektowy użytkownikom (backend zarządza dodawaniem i usuwaniem)
+  shareProjectCost: async (tenantId: string, projectId: string, costId: string, sharedWithUserIds: string[]): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/${costId}/share`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenantId,
+        projectId,
+        costId,
+        sharedWithUserIds,
+      }),
+    });
+  },
 };
