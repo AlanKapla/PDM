@@ -14,10 +14,6 @@ namespace Entities.Configurations
                 .IsRequired()
                 .HasMaxLength(255);
             
-            builder.Property(pf => pf.PackageName)
-                .IsRequired()
-                .HasMaxLength(200);
-            
             builder.Property(pf => pf.DisplayName)
                 .IsRequired()
                 .HasMaxLength(255);
@@ -34,6 +30,12 @@ namespace Entities.Configurations
                 .WithMany()
                 .HasForeignKey(pf => pf.ProjectId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Relacja z ProjectFilePackage
+            builder.HasOne(pf => pf.Package)
+                .WithMany(pfp => pfp.Files)
+                .HasForeignKey(pf => pf.ProjectFilePackageId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Relacja z User (Owner)
             builder.HasOne(pf => pf.Owner)
@@ -58,8 +60,8 @@ namespace Entities.Configurations
             // Indeks dla szybkiego wyszukiwania plików projektu
             builder.HasIndex(pf => new { pf.ProjectId, pf.TenantId });
             
-            // Indeks dla wyszukiwania po nazwie paczki
-            builder.HasIndex(pf => new { pf.ProjectId, pf.PackageName });
+            // Indeks dla wyszukiwania po paczce
+            builder.HasIndex(pf => pf.ProjectFilePackageId);
             
             // Indeks dla wyszukiwania plików właściciela
             builder.HasIndex(pf => pf.OwnerId);

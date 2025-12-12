@@ -5,11 +5,11 @@ using FluentValidation;
 using Repositories.Repository.Interfaces;
 using Repositiories.Repository.Interfaces;
 
-namespace CQRS.Files.UploadProjectFiles
+namespace CQRS.Files.CreatePackageAndUploadFiles
 {
-    public class UploadProjectFilesCommandValidator : AbstractValidator<UploadProjectFilesCommand>
+    public class CreatePackageAndUploadFilesCommandValidator : AbstractValidator<CreatePackageAndUploadFilesCommand>
     {
-        public UploadProjectFilesCommandValidator(
+        public CreatePackageAndUploadFilesCommandValidator(
             IReadRepository<Project> projectRepo,
             IReadRepository<ProjectFilePackage> packageRepo,
             ICurrentUser currentUser)
@@ -20,9 +20,6 @@ namespace CQRS.Files.UploadProjectFiles
             RuleFor(x => x.ProjectId)
                 .NotEmpty().WithMessage("ProjectId is required");
 
-            RuleFor(x => x.ProjectFilePackageId)
-                .NotEmpty().WithMessage("ProjectFilePackageId is required");
-
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
@@ -32,19 +29,24 @@ namespace CQRS.Files.UploadProjectFiles
                 })
                 .WithMessage("Project not found");
 
-            // Check if package exists and belongs to current user
+            RuleFor(x => x.PackageName)
+                .NotEmpty().WithMessage("Package name is required")
+                .MaximumLength(FileConstants.MaxPackageNameLength)
+                .WithMessage($"Package name cannot exceed {FileConstants.MaxPackageNameLength} characters");
+
+            // Check if package with this name already exists for current user
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
-                    var package = await packageRepo.GetFirstBySearch(
-                        pfp => pfp.Id == command.ProjectFilePackageId &&
-                               pfp.TenantId == command.TenantId &&
+                    var existingPackage = await packageRepo.GetFirstBySearch(
+                        pfp => pfp.TenantId == command.TenantId &&
                                pfp.ProjectId == command.ProjectId &&
                                pfp.OwnerId == currentUser.Id &&
+                               pfp.Name == command.PackageName &&
                                !pfp.IsDeleted);
-                    return package != null;
+                    return existingPackage == null;
                 })
-                .WithMessage("Package not found or does not belong to you");
+                .WithMessage("A package with this name already exists for you in this project");
 
             RuleFor(x => x.Files)
                 .NotNull().WithMessage("Files list cannot be null")

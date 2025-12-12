@@ -8,9 +8,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
-namespace CQRS.Files.UploadProjectFiles
+namespace CQRS.Files.CreatePackageAndUploadFiles
 {
-    public class UploadProjectFilesCommandHandler : IRequestHandler<UploadProjectFilesCommand, Unit>
+    public class CreatePackageAndUploadFilesCommandHandler : IRequestHandler<CreatePackageAndUploadFilesCommand, Unit>
     {
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
@@ -18,16 +18,16 @@ namespace CQRS.Files.UploadProjectFiles
         private readonly IRepository<ProjectFilePackage> projectFilePackageRepo;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICurrentUser currentUser;
-        private readonly ILogger<UploadProjectFilesCommandHandler> logger;
+        private readonly ILogger<CreatePackageAndUploadFilesCommandHandler> logger;
 
-        public UploadProjectFilesCommandHandler(
+        public CreatePackageAndUploadFilesCommandHandler(
             IRepository<ProjectFile> projectFileRepo,
             IRepository<ProjectFileVersion> projectFileVersionRepo,
             IRepository<ProjectFileVersionComment> commentRepo,
             IRepository<ProjectFilePackage> projectFilePackageRepo,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
-            ILogger<UploadProjectFilesCommandHandler> logger)
+            ILogger<CreatePackageAndUploadFilesCommandHandler> logger)
         {
             this.projectFileRepo = projectFileRepo;
             this.projectFileVersionRepo = projectFileVersionRepo;
@@ -38,18 +38,29 @@ namespace CQRS.Files.UploadProjectFiles
             this.logger = logger;
         }
 
-        public async Task<Unit> Handle(UploadProjectFilesCommand request, CancellationToken cancellationToken)
+        public async Task<Unit> Handle(CreatePackageAndUploadFilesCommand request, CancellationToken cancellationToken)
         {
-            // Get existing package by ID (validator ensures it exists and belongs to current user)
-            ProjectFilePackage package = (await projectFilePackageRepo.GetFirstBySearch(
-                pfp => pfp.Id == request.ProjectFilePackageId &&
-                       pfp.ProjectId == request.ProjectId &&
-                       pfp.TenantId == request.TenantId &&
-                       pfp.OwnerId == currentUser.Id &&
-                       !pfp.IsDeleted))!;
+            // Create new package (validator ensures it doesn't already exist)
+            ProjectFilePackage package = new ProjectFilePackage
+            {
+                TenantId = request.TenantId,
+                ProjectId = request.ProjectId,
+                OwnerId = currentUser.Id,
+                Name = request.PackageName,
+                CreatedByUserId = currentUser.Id,
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+
+            await projectFilePackageRepo.Insert(package);
+            await projectFilePackageRepo.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(
+                "Created new package {PackageName} (ID: {PackageId}) for user {UserId} in project {ProjectId}",
+                request.PackageName, package.Id, currentUser.Id, request.ProjectId);
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
-            string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(package.Name);
+            string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(request.PackageName);
 
             foreach (FileUploadItem fileItem in request.Files)
             {
@@ -139,14 +150,14 @@ namespace CQRS.Files.UploadProjectFiles
                     }
 
                     logger.LogInformation(
-                        "File {FileName} (ID: {FileId}) with version {VersionNumber} uploaded to package {PackageName} (ID: {PackageId}) in project {ProjectId} by user {UserId}",
-                        file.FileName, fileId, versionNumber, package.Name, package.Id, request.ProjectId, currentUser.Id);
+                        "File {FileName} (ID: {FileId}) with version {VersionNumber} uploaded to new package {PackageName} in project {ProjectId} by user {UserId}",
+                        file.FileName, fileId, versionNumber, request.PackageName, request.ProjectId, currentUser.Id);
                 }
                 catch (Exception ex)
                 {
                     logger.LogError(ex,
-                        "Error uploading file {FileName} to package {PackageId} in project {ProjectId}",
-                        fileItem.File.FileName, request.ProjectFilePackageId, request.ProjectId);
+                        "Error uploading file {FileName} to new package in project {ProjectId}",
+                        fileItem.File.FileName, request.ProjectId);
                     throw;
                 }
             }

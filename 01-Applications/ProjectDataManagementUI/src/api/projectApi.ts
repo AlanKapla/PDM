@@ -45,17 +45,42 @@ export const projectApi = {
     });
   },
 
-  // Upload plików do projektu
-  uploadFiles: async (
+  // Utwórz paczkę i upload plików
+  createPackageAndUploadFiles: async (
     tenantId: string, 
     projectId: string, 
     packageName: string, 
     files: Array<{ file: File; displayName?: string; comment?: string }>
   ): Promise<Response> => {
     const formData = new FormData();
-    formData.append('TenantId', tenantId);
-    formData.append('ProjectId', projectId);
     formData.append('PackageName', packageName);
+    
+    files.forEach((item, index) => {
+      formData.append(`Files[${index}].File`, item.file);
+      if (item.displayName) {
+        formData.append(`Files[${index}].DisplayName`, item.displayName);
+      }
+      if (item.comment) {
+        formData.append(`Files[${index}].Comment`, item.comment);
+      }
+    });
+
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/packages/create`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+  },
+
+  // Dodaj pliki do istniejącej paczki
+  addFilesToPackage: async (
+    tenantId: string, 
+    projectId: string, 
+    packageId: string,
+    files: Array<{ file: File; displayName?: string; comment?: string }>
+  ): Promise<Response> => {
+    const formData = new FormData();
+    formData.append('ProjectFilePackageId', packageId);
     
     files.forEach((item, index) => {
       formData.append(`Files[${index}].File`, item.file);
@@ -82,12 +107,12 @@ export const projectApi = {
     });
   },
 
-  // Udostępnij pliki członkowi projektu
+  // Udostępnij pliki wielu użytkownikom
   shareFiles: async (
     tenantId: string,
     projectId: string,
     fileIds: string[],
-    sharedWithUserId: string
+    sharedWithUserIds: string[]
   ): Promise<Response> => {
     return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/share`, {
       method: "POST",
@@ -99,7 +124,29 @@ export const projectApi = {
         tenantId,
         projectId,
         projectFileIds: fileIds,
-        sharedWithUserId,
+        sharedWithUserIds,
+      }),
+    });
+  },
+
+  // Zaktualizuj udostępnienie konkretnego pliku
+  updateFileShare: async (
+    tenantId: string,
+    projectId: string,
+    fileId: string,
+    sharedWithUserIds: string[]
+  ): Promise<Response> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}/share`, {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tenantId,
+        projectId,
+        fileId,
+        sharedWithUserIds,
       }),
     });
   },

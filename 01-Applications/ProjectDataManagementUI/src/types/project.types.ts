@@ -37,6 +37,16 @@ export interface ProjectMemberWeb {
   joinedAt: string;
 }
 
+export interface ProjectFilePackageWeb {
+  id: string;
+  name: string;
+  createdAt: string;
+  ownerId: string;
+  ownerName: string;
+  files: ProjectFileWeb[];
+  totalFiles: number;
+}
+
 export interface ProjectFileWeb {
   id: string;
   fileName: string;
@@ -50,6 +60,7 @@ export interface ProjectFileWeb {
   totalVersions: number;
   isOwner: boolean;
   isShared: boolean;
+  sharedWithUserIds: string[];
 }
 
 export interface ProjectFileVersionWeb {
@@ -84,6 +95,15 @@ export interface ShareProjectFileResult {
   successCount: number;
   failedCount: number;
   errors: string[];
+}
+
+export interface SharedProjectFilePackageWeb {
+  packageId: string;
+  packageName: string;
+  packageOwnerId: string;
+  packageOwnerName: string;
+  files: SharedProjectFileWeb[];
+  totalSharedFiles: number;
 }
 
 export interface SharedProjectFileWeb {

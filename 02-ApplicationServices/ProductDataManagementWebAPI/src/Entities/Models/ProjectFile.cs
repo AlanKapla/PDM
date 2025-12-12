@@ -11,6 +11,11 @@ namespace Entities.Models
         public Guid ProjectId { get; set; }
         
         /// <summary>
+        /// ID paczki do której należy plik
+        /// </summary>
+        public Guid ProjectFilePackageId { get; set; }
+        
+        /// <summary>
         /// ID właściciela pliku (użytkownik, który pierwotnie przesłał plik)
         /// </summary>
         public Guid OwnerId { get; set; }
@@ -19,11 +24,6 @@ namespace Entities.Models
         /// Nazwa pliku źródłowego z rozszerzeniem
         /// </summary>
         public string FileName { get; set; } = default!;
-        
-        /// <summary>
-        /// Nazwa paczki (katalogu) w której znajduje się plik
-        /// </summary>
-        public string PackageName { get; set; } = default!;
         
         /// <summary>
         /// Nazwa wyświetlana na UI
@@ -49,6 +49,7 @@ namespace Entities.Models
 
         // Navigation properties
         public Project Project { get; set; } = default!;
+        public ProjectFilePackage Package { get; set; } = default!;
         public User Owner { get; set; } = default!;
         public TenantMember OwnerTenantMember { get; set; } = default!;
         

@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251211203255_migration-tenth")]
+    partial class migrationtenth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -630,6 +633,9 @@ namespace Entities.Migrations
                     b.Property<Guid>("ProjectFileId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ProjectFileId1")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -646,6 +652,8 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProjectFileId1");
 
                     b.HasIndex("ProjectId");
 
@@ -1385,10 +1393,14 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.SharedProjectFile", b =>
                 {
                     b.HasOne("Entities.Models.ProjectFile", "ProjectFile")
-                        .WithMany("SharedWith")
+                        .WithMany()
                         .HasForeignKey("ProjectFileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Entities.Models.ProjectFile", null)
+                        .WithMany("SharedWith")
+                        .HasForeignKey("ProjectFileId1");
 
                     b.HasOne("Entities.Models.Project", "Project")
                         .WithMany()

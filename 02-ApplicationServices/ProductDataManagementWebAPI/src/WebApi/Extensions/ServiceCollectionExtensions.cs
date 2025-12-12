@@ -199,6 +199,7 @@ namespace WebApi.Extensions
         public static IServiceCollection AddAppRepositories(this IServiceCollection services)
         {
             services.AddScoped<IReadRepository<User>, ReadRepository<User>>();
+            services.AddScoped<IRepository<User>, ReadRepository<User>>();
             services.AddScoped<IReadRepository<Tenant>, ReadRepository<Tenant>>();
             services.AddScoped<IRepository<Tenant>, Repository<Tenant>>(); 
             services.AddScoped<IReadRepository<Project>, ReadRepository<Project>>();
@@ -215,6 +216,8 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
             services.AddScoped<IReadRepository<Notification>, ReadRepository<Notification>>();
             services.AddScoped<IRepository<Notification>, Repository<Notification>>();
+            services.AddScoped<IReadRepository<ProjectFilePackage>, ReadRepository<ProjectFilePackage>>();
+            services.AddScoped<IRepository<ProjectFilePackage>, Repository<ProjectFilePackage>>();
             services.AddScoped<IReadRepository<ProjectFile>, ReadRepository<ProjectFile>>();
             services.AddScoped<IRepository<ProjectFile>, Repository<ProjectFile>>();
             services.AddScoped<IReadRepository<ProjectFileVersion>, ReadRepository<ProjectFileVersion>>();

@@ -1,8 +1,10 @@
 ﻿using CQRS.Files.AddFileVersionComment;
+using CQRS.Files.CreatePackageAndUploadFiles;
 using CQRS.Files.DeleteProjectFile;
 using CQRS.Files.GetSharedFiles;
 using CQRS.Files.GetUserUploadedFiles;
-using CQRS.Files.ShareProjectFile;
+using CQRS.Files.ShareProjectFiles;
+using CQRS.Files.UpdateFileShare;
 using CQRS.Files.UploadProjectFiles;
 using CQRS.Files.UploadProjectFileVersion;
 using MediatR;
@@ -19,6 +21,27 @@ namespace WebApi.Controllers
     [ApiController]
     public class FileController(IMediator mediator) : BaseApiController(mediator)
     {
+        /// <summary>
+        /// Create a new package and upload files to it
+        /// </summary>
+        [HttpPost("packages/create")]
+        [Authorize(Policy = Policies.ProjectMember)]
+        [RequestSizeLimit(52428800)] // 50 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
+        public async Task<IActionResult> CreatePackageAndUploadFiles(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromForm] CreatePackageAndUploadFilesCommand command)
+        {
+            command = command with { TenantId = tenantId, ProjectId = projectId };
+
+            await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Upload files to an existing package
+        /// </summary>
         [HttpPost]
         [Authorize(Policy = Policies.ProjectMember)]
         [RequestSizeLimit(52428800)] // 50 MB
@@ -88,22 +111,13 @@ namespace WebApi.Controllers
         public async Task<IActionResult> ShareFiles(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
-            [FromBody] ShareProjectFileCommand command)
+            [FromBody] ShareProjectFilesCommand command)
         {
             command = command with { TenantId = tenantId, ProjectId = projectId };
 
-            var result = await Send(command);
+            await Send(command);
             
-            if (result.FailedCount > 0 && result.SuccessCount == 0)
-            {
-                return BadRequest(new
-                {
-                    Message = "File sharing failed",
-                    result.Errors
-                });
-            }
-
-            return Ok(result);
+            return NoContent();
         }
 
         /// <summary>
@@ -163,6 +177,28 @@ namespace WebApi.Controllers
                 ProjectId = projectId, 
                 FileId = fileId,
                 VersionId = versionId
+            };
+
+            await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Update file sharing - add or remove access for specific users
+        /// </summary>
+        [HttpPut("{fileId}/share")]
+        [Authorize(Policy = Policies.ProjectMember)]
+        public async Task<IActionResult> UpdateFileShare(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid fileId,
+            [FromBody] UpdateFileShareCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                FileId = fileId
             };
 
             await Send(command);

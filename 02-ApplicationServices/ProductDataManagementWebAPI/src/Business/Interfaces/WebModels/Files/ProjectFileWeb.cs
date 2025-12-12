@@ -37,5 +37,10 @@
         /// Czy plik został udostępniony obecnemu użytkownikowi
         /// </summary>
         public bool IsShared { get; init; }
+        
+        /// <summary>
+        /// Lista ID użytkowników, którym udostępniono ten plik
+        /// </summary>
+        public List<Guid> SharedWithUserIds { get; init; } = new();
     }
 }

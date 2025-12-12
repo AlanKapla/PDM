@@ -45,7 +45,8 @@ namespace CQRS.Files.UploadProjectFileVersion
                       pf.TenantId == request.TenantId &&
                       pf.ProjectId == request.ProjectId &&
                       !pf.IsDeleted,
-                include => include.Include(pf => pf.Versions.Where(v => !v.IsDeleted))
+                include => include.Include(pf => pf.Package)
+                                  .Include(pf => pf.Versions.Where(v => !v.IsDeleted))
             );
 
             ProjectFile? projectFile = projectFiles.FirstOrDefault();
@@ -76,7 +77,7 @@ namespace CQRS.Files.UploadProjectFileVersion
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
 
             // Normalizacja nazwy paczki dla blob storage
-            string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(projectFile.PackageName);
+            string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(projectFile.Package.Name);
 
             // Utwórz nową wersję
             ProjectFileVersion newVersion = new ProjectFileVersion

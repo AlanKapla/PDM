@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -20,9 +20,16 @@ import {
   List,
   ListItem,
   FormErrorMessage,
+  Select,
+  Radio,
+  RadioGroup,
+  Stack,
+  Spinner,
 } from "@chakra-ui/react";
-import { X, Upload, FileText } from "lucide-react";
+import { X, Upload, FileText, Package } from "lucide-react";
 import { handleApiError } from "../utils/handleApiError";
+import { projectApi } from "../api/projectApi";
+import type { ProjectFilePackageWeb } from "../types/project.types";
 
 interface UploadFilesModalProps {
   isOpen: boolean;
@@ -50,11 +57,42 @@ export default function UploadFilesModal({
   projectName,
   onFilesUploaded,
 }: UploadFilesModalProps) {
+  const [mode, setMode] = useState<"new" | "existing">("new");
   const [packageName, setPackageName] = useState("");
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [packages, setPackages] = useState<ProjectFilePackageWeb[]>([]);
+  const [loadingPackages, setLoadingPackages] = useState(false);
   const [files, setFiles] = useState<FileWithDisplayName[]>([]);
   const [uploading, setUploading] = useState(false);
   const [packageNameError, setPackageNameError] = useState("");
   const toast = useToast();
+
+  useEffect(() => {
+    if (isOpen && mode === "existing") {
+      fetchMyPackages();
+    }
+  }, [isOpen, mode, tenantId, projectId]);
+
+  const fetchMyPackages = async () => {
+    setLoadingPackages(true);
+    try {
+      const response = await projectApi.getMyFiles(tenantId, projectId);
+      if (response.ok) {
+        const data: ProjectFilePackageWeb[] = await response.json();
+        setPackages(data);
+      }
+    } catch (error) {
+      console.error("Błąd pobierania paczek:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać listy paczek",
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setLoadingPackages(false);
+    }
+  };
 
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -110,8 +148,18 @@ export default function UploadFilesModal({
 
   const handleUpload = async () => {
     // Walidacja
-    if (!packageName.trim()) {
-      setPackageNameError("Nazwa katalogu jest wymagana");
+    if (mode === "new" && !packageName.trim()) {
+      setPackageNameError("Nazwa paczki jest wymagana");
+      return;
+    }
+    
+    if (mode === "existing" && !selectedPackageId) {
+      toast({
+        title: "Błąd",
+        description: "Wybierz paczkę",
+        status: "error",
+        duration: 3000,
+      });
       return;
     }
     
@@ -129,20 +177,29 @@ export default function UploadFilesModal({
     setPackageNameError("");
 
     try {
-      const { projectApi } = await import("../api/projectApi");
-      
       const filesToUpload = files.map(f => ({
         file: f.file,
         displayName: f.displayName.trim() || undefined,
         comment: f.comment.trim() || undefined,
       }));
 
-      const response = await projectApi.uploadFiles(
-        tenantId,
-        projectId,
-        packageName.trim(),
-        filesToUpload
-      );
+      let response: Response;
+      
+      if (mode === "new") {
+        response = await projectApi.createPackageAndUploadFiles(
+          tenantId,
+          projectId,
+          packageName.trim(),
+          filesToUpload
+        );
+      } else {
+        response = await projectApi.addFilesToPackage(
+          tenantId,
+          projectId,
+          selectedPackageId,
+          filesToUpload
+        );
+      }
 
       if (response.ok) {
         toast({
@@ -153,7 +210,9 @@ export default function UploadFilesModal({
         });
         
         // Reset i zamknij
+        setMode("new");
         setPackageName("");
+        setSelectedPackageId("");
         setFiles([]);
         onFilesUploaded();
         onClose();
@@ -175,7 +234,9 @@ export default function UploadFilesModal({
 
   const handleClose = () => {
     if (!uploading) {
+      setMode("new");
       setPackageName("");
+      setSelectedPackageId("");
       setFiles([]);
       setPackageNameError("");
       onClose();
@@ -202,22 +263,71 @@ export default function UploadFilesModal({
               Projekt: <Text as="span" fontWeight="bold">{projectName}</Text>
             </Text>
 
-            <FormControl isRequired isInvalid={!!packageNameError}>
-              <FormLabel>Nazwa katalogu</FormLabel>
-              <Input
-                value={packageName}
-                onChange={(e) => {
-                  setPackageName(e.target.value);
-                  setPackageNameError("");
-                }}
-                placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
-                isDisabled={uploading}
-              />
-              <FormErrorMessage>{packageNameError}</FormErrorMessage>
-              <Text fontSize="xs" color="gray.500" mt={1}>
-                Pliki zostaną zapisane w tym katalogu
-              </Text>
+            <FormControl>
+              <FormLabel>Tryb dodawania</FormLabel>
+              <RadioGroup value={mode} onChange={(value) => setMode(value as "new" | "existing")}>
+                <Stack direction="row" spacing={4}>
+                  <Radio value="new" isDisabled={uploading}>
+                    Nowa paczka
+                  </Radio>
+                  <Radio value="existing" isDisabled={uploading}>
+                    Istniejąca paczka
+                  </Radio>
+                </Stack>
+              </RadioGroup>
             </FormControl>
+
+            {mode === "new" ? (
+              <FormControl isRequired isInvalid={!!packageNameError}>
+                <FormLabel>Nazwa paczki</FormLabel>
+                <Input
+                  value={packageName}
+                  onChange={(e) => {
+                    setPackageName(e.target.value);
+                    setPackageNameError("");
+                  }}
+                  placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
+                  isDisabled={uploading}
+                />
+                <FormErrorMessage>{packageNameError}</FormErrorMessage>
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Pliki zostaną zapisane w nowej paczce
+                </Text>
+              </FormControl>
+            ) : (
+              <FormControl isRequired>
+                <FormLabel>Wybierz paczkę</FormLabel>
+                {loadingPackages ? (
+                  <HStack justify="center" py={2}>
+                    <Spinner size="sm" />
+                    <Text fontSize="sm">Ładowanie paczek...</Text>
+                  </HStack>
+                ) : packages.length === 0 ? (
+                  <Text fontSize="sm" color="gray.500">
+                    Nie masz jeszcze żadnych paczek. Przełącz się na "Nowa paczka".
+                  </Text>
+                ) : (
+                  <>
+                    <Select
+                      value={selectedPackageId}
+                      onChange={(e) => setSelectedPackageId(e.target.value)}
+                      placeholder="Wybierz paczkę"
+                      isDisabled={uploading}
+                      icon={<Package size={16} />}
+                    >
+                      {packages.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id}>
+                          {pkg.name} ({pkg.totalFiles} {pkg.totalFiles === 1 ? 'plik' : 'plików'})
+                        </option>
+                      ))}
+                    </Select>
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      Pliki zostaną dodane do wybranej paczki
+                    </Text>
+                  </>
+                )}
+              </FormControl>
+            )}
 
             <FormControl>
               <FormLabel>Pliki (PDF, JPG, JPEG, max 10MB)</FormLabel>

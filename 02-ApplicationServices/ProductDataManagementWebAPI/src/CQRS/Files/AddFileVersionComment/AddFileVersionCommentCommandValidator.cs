@@ -1,6 +1,8 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
 using Entities.Models;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.AddFileVersionComment
@@ -12,7 +14,8 @@ namespace CQRS.Files.AddFileVersionComment
     {
         public AddFileVersionCommentCommandValidator(
             IRepository<ProjectFile> projectFileRepo,
-            IRepository<ProjectFileVersion> projectFileVersionRepo)
+            IRepository<ProjectFileVersion> projectFileVersionRepo,
+            ICurrentUser currentUser)
         {
             RuleFor(x => x.TenantId)
                 .NotEmpty()
@@ -36,7 +39,7 @@ namespace CQRS.Files.AddFileVersionComment
                 .MaximumLength(FileConstants.MaxCommentLength)
                 .WithMessage($"Comment cannot exceed {FileConstants.MaxCommentLength} characters");
 
-            // Verify that the file exists and belongs to the project
+            // Verify that the file exists, belongs to the project, and user has access
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
@@ -44,24 +47,14 @@ namespace CQRS.Files.AddFileVersionComment
                         pf => pf.Id == command.FileId
                             && pf.ProjectId == command.ProjectId
                             && pf.TenantId == command.TenantId
-                            && !pf.IsDeleted);
-                    
-                    return file != null;
-                })
-                .WithMessage("File does not exist or you do not have access to it");
+                            && !pf.IsDeleted
+                            && (pf.OwnerId == currentUser.Id || pf.SharedWith.Any(s => s.SharedWithUserId == currentUser.Id))
+                            && pf.Versions.Any(v => v.Id == command.VersionId));
 
-            // Verify that the version exists and belongs to the file
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    var version = await projectFileVersionRepo.GetFirstBySearch(
-                        v => v.Id == command.VersionId
-                            && v.ProjectFileId == command.FileId
-                            && !v.IsDeleted);
-                    
-                    return version != null;
+                    return file != null;
+                        
                 })
-                .WithMessage("File version does not exist");
+                .WithMessage("File or version does not exist.");
         }
     }
 }

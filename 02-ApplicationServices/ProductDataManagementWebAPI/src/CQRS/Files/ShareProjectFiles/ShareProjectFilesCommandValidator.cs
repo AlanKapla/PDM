@@ -4,14 +4,13 @@ using FluentValidation;
 using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
-namespace CQRS.Files.ShareProjectFile
+namespace CQRS.Files.ShareProjectFiles
 {
-    public class ShareProjectFileCommandValidator : AbstractValidator<ShareProjectFileCommand>
+    public class ShareProjectFilesCommandValidator : AbstractValidator<ShareProjectFilesCommand>
     {
-        public ShareProjectFileCommandValidator(
+        public ShareProjectFilesCommandValidator(
             IReadRepository<ProjectFile> projectFileRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IRepository<SharedProjectFile> sharedProjectFileRepo,
             ICurrentUser currentUser)
         {
             RuleFor(x => x.TenantId)
@@ -25,8 +24,10 @@ namespace CQRS.Files.ShareProjectFile
                 .NotEmpty().WithMessage("You must select at least one file to share")
                 .Must(ids => ids.Count <= 50).WithMessage("You can share a maximum of 50 files at once");
 
-            RuleFor(x => x.SharedWithUserId)
-                .NotEmpty().WithMessage("SharedWithUserId is required");
+            RuleFor(x => x.SharedWithUserIds)
+                .NotNull().WithMessage("SharedWithUserIds is required")
+                .NotEmpty().WithMessage("You must select at least one user to share with")
+                .Must(ids => ids.Count <= 50).WithMessage("You can share with a maximum of 50 users at once");
 
             // Check if all files exist in the project
             RuleFor(x => x)
@@ -64,21 +65,27 @@ namespace CQRS.Files.ShareProjectFile
                 })
                 .WithMessage("You can only share your own files");
 
-            // Check if the user we're sharing with is a member of the project
+            // Check if all users we're sharing with are members of the project
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
-                    var member = await projectMemberRepo.GetFirstBySearch(
-                        pm => pm.ProjectId == command.ProjectId &&
-                              pm.TenantId == command.TenantId &&
-                              pm.UserId == command.SharedWithUserId);
-                    return member != null;
+                    foreach (var userId in command.SharedWithUserIds)
+                    {
+                        var member = await projectMemberRepo.GetFirstBySearch(
+                            pm => pm.ProjectId == command.ProjectId &&
+                                  pm.TenantId == command.TenantId &&
+                                  pm.UserId == userId);
+                        
+                        if (member == null)
+                            return false;
+                    }
+                    return true;
                 })
-                .WithMessage("User is not a member of this project");
+                .WithMessage("One or more users are not members of this project");
 
             // Check if not sharing with yourself
-            RuleFor(x => x.SharedWithUserId)
-                .Must((command, sharedWithUserId) => sharedWithUserId != currentUser.Id)
+            RuleFor(x => x.SharedWithUserIds)
+                .Must((command, userIds) => !userIds.Contains(currentUser.Id))
                 .WithMessage("You cannot share files with yourself");
         }
     }

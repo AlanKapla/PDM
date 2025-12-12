@@ -961,7 +961,6 @@ export default function MyFiles() {
             onClose={onShareModalClose}
             tenantId={tenantId}
             projectId={projectId}
-            selectedFiles={getSelectedFiles()}
             onFilesShared={handleFilesShared}
           />
         )}

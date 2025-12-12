@@ -21,7 +21,7 @@ namespace Entities.Configurations
 
             // Relacja z ProjectFile - Cascade jest OK, bo ProjectFile też jest cascade z Project
             builder.HasOne(spf => spf.ProjectFile)
-                .WithMany()
+                .WithMany(pf => pf.SharedWith)
                 .HasForeignKey(spf => spf.ProjectFileId)
                 .OnDelete(DeleteBehavior.Cascade);
 

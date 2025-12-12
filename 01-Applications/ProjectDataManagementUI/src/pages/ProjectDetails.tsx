@@ -46,12 +46,14 @@ import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
 import ShareCostModal from "../components/ShareCostModal";
+import { ManageFileShareModal } from "../components/ManageFileShareModal";
+import ShareFilesModal from "../components/ShareFilesModal";
 import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../hooks/useAuth";
 import { ProjectRole } from "../types/project.types";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
-import type { ProjectCostListItemWeb, SharedProjectCostWeb } from "../types/project.types";
+import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../types/project.types";
 
 /* Helpery UI */
 const getProjectRoleName = (role: number) =>
@@ -79,8 +81,8 @@ export default function ProjectDetails() {
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
-  const [myFiles, setMyFiles] = useState<any[]>([]);
-  const [sharedFiles, setSharedFiles] = useState<any[]>([]);
+  const [myFiles, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
+  const [sharedFiles, setSharedFiles] = useState<SharedProjectFilePackageWeb[]>([]);
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
   const [fileForNewVersion, setFileForNewVersion] = useState<any | null>(null);
   const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
@@ -92,6 +94,9 @@ export default function ProjectDetails() {
   const [loadingSharedCosts, setLoadingSharedCosts] = useState(false);
   const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
   const { isOpen: isShareCostModalOpen, onOpen: onShareCostModalOpen, onClose: onShareCostModalClose } = useDisclosure();
+  const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
+  const { isOpen: isShareFilesModalOpen, onOpen: onShareFilesModalOpen, onClose: onShareFilesModalClose } = useDisclosure();
+  const [fileToManageShare, setFileToManageShare] = useState<any | null>(null);
   const [editingCostId, setEditingCostId] = useState<string | null>(null);
   const [editingCostData, setEditingCostData] = useState<any>(null);
   const [savingCost, setSavingCost] = useState(false);
@@ -433,7 +438,6 @@ export default function ProjectDetails() {
           netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
           vatRate: editingCostData.vatRate ? parseFloat(editingCostData.vatRate) : undefined,
           grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
-          isClosed: editingCostData.isClosed,
           document: documentFile || undefined,
           removeDocument: editingCostData.removeDocument,
         }
@@ -524,15 +528,6 @@ export default function ProjectDetails() {
     }
   };
 
-  const groupFilesByPackage = (files: any[]) => {
-    return files.reduce((acc, file) => {
-      const pkg = file.packageName || "Bez pakietu";
-      if (!acc[pkg]) acc[pkg] = [];
-      acc[pkg].push(file);
-      return acc;
-    }, {} as Record<string, any[]>);
-  };
-
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -610,6 +605,17 @@ export default function ProjectDetails() {
     fetchMyFiles();
     fetchSharedFiles();
     onUploadVersionModalClose();
+  };
+
+  const openManageShareModal = (file: any) => {
+    setFileToManageShare(file);
+    onManageShareModalOpen();
+  };
+
+  const handleShareUpdated = () => {
+    fetchMyFiles();
+    fetchSharedFiles();
+    onManageShareModalClose();
   };
 
   const handleAddComment = async (fileId: string, versionId: string) => {
@@ -985,17 +991,26 @@ export default function ProjectDetails() {
                   <HStack flex="1" spacing={3}>
                     <Icon as={FileText} boxSize={6} color="purple.600" />
                     <Heading size="md">Moje pliki</Heading>
-                    <Badge colorScheme="purple" fontSize="sm">{myFiles.length}</Badge>
+                    <Badge colorScheme="purple" fontSize="sm">{myFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
-                  <Button
-                    leftIcon={<Upload size={18} />}
-                    colorScheme="green"
-                    size="sm"
-                    mr={2}
-                    onClick={(e) => { e.stopPropagation(); onUploadModalOpen(); }}
-                  >
-                    Dodaj pliki
-                  </Button>
+                  <HStack spacing={2}>
+                    <Button
+                      leftIcon={<Share2 size={18} />}
+                      colorScheme="orange"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); onShareFilesModalOpen(); }}
+                    >
+                      Udostępnij grupowo
+                    </Button>
+                    <Button
+                      leftIcon={<Upload size={18} />}
+                      colorScheme="green"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); onUploadModalOpen(); }}
+                    >
+                      Dodaj pliki
+                    </Button>
+                  </HStack>
                   <AccordionIcon />
                 </AccordionButton>
                 <AccordionPanel pb={4}>
@@ -1003,14 +1018,12 @@ export default function ProjectDetails() {
                     <Text color="gray.500" fontSize="sm">Nie masz jeszcze żadnych plików w tym projekcie</Text>
                   ) : (
                     <Accordion allowMultiple>
-                      {Object.entries(groupFilesByPackage(myFiles)).map(([packageName, files]) => {
-                        const fileList = files as any[];
-                        return (
-                        <AccordionItem key={packageName} borderWidth="1px" borderColor={borderColor} rounded="md" mb={2}>
+                      {myFiles.map((pkg) => (
+                        <AccordionItem key={pkg.id} borderWidth="1px" borderColor={borderColor} rounded="md" mb={2}>
                           <AccordionButton py={3} _hover={{ bg: hoverBg }}>
                             <HStack flex="1" spacing={2}>
-                              <Text fontWeight="bold">📦 {packageName}</Text>
-                              <Badge colorScheme="blue" fontSize="xs">{fileList.length}</Badge>
+                              <Text fontWeight="bold">📦 {pkg.name}</Text>
+                              <Badge colorScheme="blue" fontSize="xs">{pkg.totalFiles}</Badge>
                             </HStack>
                             <AccordionIcon />
                           </AccordionButton>
@@ -1024,7 +1037,7 @@ export default function ProjectDetails() {
                               </Tr>
                             </Thead>
                             <Tbody>
-                              {fileList.map((file: any) => (
+                              {pkg.files.map((file) => (
                                 <>
                                 <Tr key={file.id}>
                                   <Td>
@@ -1032,6 +1045,12 @@ export default function ProjectDetails() {
                                       <Text fontSize="sm" fontWeight="medium">{file.displayName}</Text>
                                       {file.currentVersion?.versionNumber && (
                                         <Badge colorScheme="purple" fontSize="xs">v{file.currentVersion.versionNumber}</Badge>
+                                      )}
+                                      {file.sharedWithUserIds && file.sharedWithUserIds.length > 0 && (
+                                        <Badge colorScheme="orange" fontSize="xs" display="flex" alignItems="center" gap={1}>
+                                          <Share2 size={10} />
+                                          {file.sharedWithUserIds.length}
+                                        </Badge>
                                       )}
                                     </HStack>
                                   </Td>
@@ -1047,7 +1066,7 @@ export default function ProjectDetails() {
                                           size="sm"
                                           variant="ghost"
                                           colorScheme="purple"
-                                          onClick={() => handlePreview(file.currentVersion.sasUrlView)}
+                                          onClick={() => file.currentVersion && handlePreview(file.currentVersion.sasUrlView)}
                                         />
                                       )}
                                       {file.currentVersion && (
@@ -1058,8 +1077,10 @@ export default function ProjectDetails() {
                                           variant="ghost"
                                           colorScheme="blue"
                                           onClick={() => {
-                                            const fileName = file.fileName || file.displayName || 'plik';
-                                            handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
+                                            if (file.currentVersion) {
+                                              const fileName = file.fileName || file.displayName || 'plik';
+                                              handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
+                                            }
                                           }}
                                         />
                                       )}
@@ -1070,6 +1091,14 @@ export default function ProjectDetails() {
                                         variant="ghost"
                                         colorScheme="green"
                                         onClick={() => openUploadVersionModal(file)}
+                                      />
+                                      <IconButton
+                                        aria-label="Zarządzaj udostępnieniem"
+                                        icon={<Share2 size={16} />}
+                                        size="sm"
+                                        variant="ghost"
+                                        colorScheme="orange"
+                                        onClick={() => openManageShareModal(file)}
                                       />
                                       {file.versions && file.versions.length > 0 && (
                                         <Button
@@ -1246,8 +1275,7 @@ export default function ProjectDetails() {
                           </Table>
                           </AccordionPanel>
                         </AccordionItem>
-                        );
-                      })}
+                      ))}
                     </Accordion>
                   )}
                 </AccordionPanel>
@@ -1259,7 +1287,7 @@ export default function ProjectDetails() {
                   <HStack flex="1" spacing={3}>
                     <Icon as={Share2} boxSize={6} color="teal.600" />
                     <Heading size="md">Pliki udostępnione</Heading>
-                    <Badge colorScheme="teal" fontSize="sm">{sharedFiles.length}</Badge>
+                    <Badge colorScheme="teal" fontSize="sm">{sharedFiles.reduce((sum, pkg) => sum + pkg.totalSharedFiles, 0)}</Badge>
                   </HStack>
                   <AccordionIcon />
                 </AccordionButton>
@@ -1268,14 +1296,13 @@ export default function ProjectDetails() {
                     <Text color="gray.500" fontSize="sm">Brak udostępnionych plików</Text>
                   ) : (
                     <Accordion allowMultiple>
-                      {Object.entries(groupFilesByPackage(sharedFiles)).map(([packageName, files]) => {
-                        const fileList = files as any[];
-                        return (
-                        <AccordionItem key={packageName} borderWidth="1px" borderColor={borderColor} rounded="md" mb={2}>
+                      {sharedFiles.map((pkg) => (
+                        <AccordionItem key={pkg.packageId} borderWidth="1px" borderColor={borderColor} rounded="md" mb={2}>
                           <AccordionButton py={3} _hover={{ bg: hoverBg }}>
                             <HStack flex="1" spacing={2}>
-                              <Text fontWeight="bold">📦 {packageName}</Text>
-                              <Badge colorScheme="blue" fontSize="xs">{fileList.length}</Badge>
+                              <Text fontWeight="bold">📦 {pkg.packageName}</Text>
+                              <Badge colorScheme="blue" fontSize="xs">{pkg.totalSharedFiles}</Badge>
+                              <Text fontSize="xs" color="gray.500">od: {pkg.packageOwnerName}</Text>
                             </HStack>
                             <AccordionIcon />
                           </AccordionButton>
@@ -1290,7 +1317,7 @@ export default function ProjectDetails() {
                               </Tr>
                             </Thead>
                             <Tbody>
-                              {fileList.map((file: any) => (
+                              {pkg.files.map((file) => (
                                 <>
                                 <Tr key={file.id}>
                                   <Td>
@@ -1316,7 +1343,7 @@ export default function ProjectDetails() {
                                           size="sm"
                                           variant="ghost"
                                           colorScheme="purple"
-                                          onClick={() => handlePreview(file.currentVersion.sasUrlView)}
+                                          onClick={() => file.currentVersion && handlePreview(file.currentVersion.sasUrlView)}
                                         />
                                       )}
                                       {file.currentVersion && (
@@ -1327,8 +1354,10 @@ export default function ProjectDetails() {
                                           variant="ghost"
                                           colorScheme="blue"
                                           onClick={() => {
-                                            const fileName = file.fileName || file.displayName || 'plik';
-                                            handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
+                                            if (file.currentVersion) {
+                                              const fileName = file.fileName || file.displayName || 'plik';
+                                              handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
+                                            }
                                           }}
                                         />
                                       )}
@@ -1344,8 +1373,8 @@ export default function ProjectDetails() {
                                         <Button
                                           size="sm"
                                           variant="ghost"
-                                          onClick={() => toggleFileVersions(file.id)}
-                                          rightIcon={expandedFileIds.has(file.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                          onClick={() => toggleFileVersions(file.projectFileId)}
+                                          rightIcon={expandedFileIds.has(file.projectFileId) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                         >
                                           Wersje ({file.totalVersions})
                                         </Button>
@@ -1354,8 +1383,8 @@ export default function ProjectDetails() {
                                   </Td>
                                 </Tr>
                                 {/* Rozwinięte wersje i komentarze */}
-                                {expandedFileIds.has(file.id) && file.versions && file.versions.length > 0 && (
-                                  <Tr key={`${file.id}-versions`}>
+                                {expandedFileIds.has(file.projectFileId) && file.versions && file.versions.length > 0 && (
+                                  <Tr key={`${file.projectFileId}-versions`}>
                                     <Td colSpan={4} p={0}>
                                       <Box bg={useColorModeValue("gray.50", "gray.900")} p={4}>
                                         <VStack align="stretch" spacing={3}>
@@ -1424,15 +1453,16 @@ export default function ProjectDetails() {
                                                 </HStack>
                                                 
                                                 {/* Komentarze do wersji */}
-                                                {version.comments && version.comments.length > 0 && (
-                                                  <Box mt={3}>
-                                                    <HStack spacing={1} mb={3}>
-                                                      <MessageSquare size={14} />
-                                                      <Text fontSize="sm" fontWeight="semibold">
-                                                        Komentarze ({version.comments.length})
-                                                      </Text>
-                                                    </HStack>
-                                                    <VStack align="stretch" spacing={3}>
+                                                <Box mt={3}>
+                                                  <HStack spacing={1} mb={3}>
+                                                    <MessageSquare size={14} />
+                                                    <Text fontSize="sm" fontWeight="semibold">
+                                                      Komentarze ({version.comments?.length || 0})
+                                                    </Text>
+                                                  </HStack>
+                                                  
+                                                  {version.comments && version.comments.length > 0 && (
+                                                    <VStack align="stretch" spacing={3} mb={3}>
                                                       {version.comments
                                                         .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                                                         .map((comment: any) => {
@@ -1473,35 +1503,35 @@ export default function ProjectDetails() {
                                                           );
                                                         })}
                                                     </VStack>
-                                                    
-                                                    {/* Dodaj nowy komentarz */}
-                                                    <HStack mt={3} spacing={2}>
-                                                      <Textarea
-                                                        placeholder="Dodaj komentarz..."
-                                                        size="sm"
-                                                        value={newComments.get(`${file.id}-${version.id}`) || ""}
-                                                        onChange={(e) => {
-                                                          setNewComments((prev) => {
-                                                            const updated = new Map(prev);
-                                                            updated.set(`${file.id}-${version.id}`, e.target.value);
-                                                            return updated;
-                                                          });
-                                                        }}
-                                                        rows={2}
-                                                        resize="vertical"
-                                                      />
-                                                      <IconButton
-                                                        aria-label="Wyślij komentarz"
-                                                        icon={<Send size={16} />}
-                                                        colorScheme="blue"
-                                                        size="sm"
-                                                        onClick={() => handleAddComment(file.id, version.id)}
-                                                        isLoading={submittingComment === `${file.id}-${version.id}`}
-                                                        isDisabled={!newComments.get(`${file.id}-${version.id}`)?.trim()}
-                                                      />
-                                                    </HStack>
-                                                  </Box>
-                                                )}
+                                                  )}
+                                                  
+                                                  {/* Dodaj nowy komentarz - zawsze widoczny */}
+                                                  <HStack spacing={2}>
+                                                    <Textarea
+                                                      placeholder="Dodaj komentarz..."
+                                                      size="sm"
+                                                      value={newComments.get(`${file.projectFileId}-${version.id}`) || ""}
+                                                      onChange={(e) => {
+                                                        setNewComments((prev) => {
+                                                          const updated = new Map(prev);
+                                                          updated.set(`${file.projectFileId}-${version.id}`, e.target.value);
+                                                          return updated;
+                                                        });
+                                                      }}
+                                                      rows={2}
+                                                      resize="vertical"
+                                                    />
+                                                    <IconButton
+                                                      aria-label="Wyślij komentarz"
+                                                      icon={<Send size={16} />}
+                                                      colorScheme="blue"
+                                                      size="sm"
+                                                      onClick={() => handleAddComment(file.projectFileId, version.id)}
+                                                      isLoading={submittingComment === `${file.projectFileId}-${version.id}`}
+                                                      isDisabled={!newComments.get(`${file.projectFileId}-${version.id}`)?.trim()}
+                                                    />
+                                                  </HStack>
+                                                </Box>
                                               </Box>
                                             ))}
                                         </VStack>
@@ -1515,8 +1545,7 @@ export default function ProjectDetails() {
                           </Table>
                           </AccordionPanel>
                         </AccordionItem>
-                        );
-                      })}
+                      ))}
                     </Accordion>
                   )}
                 </AccordionPanel>
@@ -2303,6 +2332,36 @@ export default function ProjectDetails() {
                 status: "success",
                 duration: 3000,
               });
+            }}
+          />
+        )}
+
+        {/* Modal zarządzania udostępnieniem pliku */}
+        {project && fileToManageShare && user && (
+          <ManageFileShareModal
+            isOpen={isManageShareModalOpen}
+            onClose={onManageShareModalClose}
+            tenantId={project.tenantId}
+            projectId={project.id}
+            fileId={fileToManageShare.id}
+            fileName={fileToManageShare.displayName}
+            sharedWithUserIds={fileToManageShare.sharedWithUserIds || []}
+            members={members}
+            currentUserId={user.id || ''}
+            onShareUpdated={handleShareUpdated}
+          />
+        )}
+
+        {/* Modal grupowego udostępniania plików */}
+        {project && (
+          <ShareFilesModal
+            isOpen={isShareFilesModalOpen}
+            onClose={onShareFilesModalClose}
+            tenantId={project.tenantId}
+            projectId={project.id}
+            onFilesShared={() => {
+              fetchMyFiles();
+              fetchSharedFiles();
             }}
           />
         )}
