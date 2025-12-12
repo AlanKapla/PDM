@@ -3,7 +3,6 @@ import {
   Box,
   Heading,
   Text,
-  Spinner,
   VStack,
   useColorModeValue,
   Button,
@@ -11,10 +10,11 @@ import {
   FormControl,
   FormLabel,
   HStack,
-  useToast,
 } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
 import { getUserDetails, updateUserProfile } from "../services/userService";
+import { LoadingSpinner } from "../components/common";
+import { useToastNotification } from "../hooks/useToastNotification";
 import type { UserProfile } from "../types/auth.types";
 
 export default function Profile() {
@@ -26,7 +26,7 @@ export default function Profile() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const cardText = useColorModeValue("gray.700", "gray.300");
@@ -67,13 +67,7 @@ export default function Profile() {
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Imię i nazwisko nie mogą być puste",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      showError("Błąd walidacji", "Imię i nazwisko nie mogą być puste");
       return;
     }
 
@@ -84,30 +78,13 @@ export default function Profile() {
       if (success) {
         setUser((prev) => prev ? { ...prev, firstName, lastName } : null);
         setIsEditing(false);
-        toast({
-          title: "Profil zaktualizowany",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
+        showSuccess("Profil zaktualizowany");
       } else {
-        toast({
-          title: "Błąd aktualizacji",
-          description: "Nie udało się zaktualizować profilu",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
+        showError("Błąd aktualizacji", "Nie udało się zaktualizować profilu");
       }
     } catch (error) {
       console.error("Błąd aktualizacji profilu:", error);
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setSaving(false);
     }
@@ -116,9 +93,7 @@ export default function Profile() {
   if (loading) {
     return (
       <MainLayout>
-        <VStack justify="center" minH="100vh">
-          <Spinner size="xl" />
-        </VStack>
+        <LoadingSpinner fullScreen />
       </MainLayout>
     );
   }

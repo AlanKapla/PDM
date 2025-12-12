@@ -62,6 +62,10 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
             string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(request.PackageName);
 
+            var allProjectFiles = new List<ProjectFile>();
+            var allProjectFileVersions = new List<ProjectFileVersion>();
+            var allComments = new List<ProjectFileVersionComment>();
+
             foreach (FileUploadItem fileItem in request.Files)
             {
                 try
@@ -123,15 +127,11 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                             cancellationToken);
                     }
 
-                    await projectFileRepo.Insert(projectFile);
-                    await projectFileVersionRepo.Insert(firstVersion);
-
-                    // Zapisujemy zmiany, aby ProjectFile i ProjectFileVersion zostały zapisane przed ustawieniem CurrentVersionId
-                    await projectFileRepo.SaveChangesAsync(cancellationToken);
-
-                    // Teraz ustawiamy CurrentVersionId i aktualizujemy
+                    // Set CurrentVersionId after version is created
                     projectFile.CurrentVersionId = versionId;
-                    await projectFileRepo.Update(projectFile);
+
+                    allProjectFiles.Add(projectFile);
+                    allProjectFileVersions.Add(firstVersion);
 
                     if (!string.IsNullOrWhiteSpace(fileItem.Comment))
                     {
@@ -146,11 +146,11 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                             IsDeleted = false
                         };
 
-                        await commentRepo.Insert(comment);
+                        allComments.Add(comment);
                     }
 
                     logger.LogInformation(
-                        "File {FileName} (ID: {FileId}) with version {VersionNumber} uploaded to new package {PackageName} in project {ProjectId} by user {UserId}",
+                        "File {FileName} (ID: {FileId}) with version {VersionNumber} prepared for upload to new package {PackageName} in project {ProjectId} by user {UserId}",
                         file.FileName, fileId, versionNumber, request.PackageName, request.ProjectId, currentUser.Id);
                 }
                 catch (Exception ex)
@@ -160,6 +160,22 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                         fileItem.File.FileName, request.ProjectId);
                     throw;
                 }
+            }
+
+            // Insert all entities in batches
+            if (allProjectFiles.Any())
+            {
+                await projectFileRepo.InsertRange(allProjectFiles);
+            }
+
+            if (allProjectFileVersions.Any())
+            {
+                await projectFileVersionRepo.InsertRange(allProjectFileVersions);
+            }
+
+            if (allComments.Any())
+            {
+                await commentRepo.InsertRange(allComments);
             }
 
             return Unit.Value;

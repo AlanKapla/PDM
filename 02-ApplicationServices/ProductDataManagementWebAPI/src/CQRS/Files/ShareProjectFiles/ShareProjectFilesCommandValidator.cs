@@ -29,57 +29,42 @@ namespace CQRS.Files.ShareProjectFiles
                 .NotEmpty().WithMessage("You must select at least one user to share with")
                 .Must(ids => ids.Count <= 50).WithMessage("You can share with a maximum of 50 users at once");
 
-            // Check if all files exist in the project
+            // Check if all files exist in the project and user is owner
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
-                    foreach (var fileId in command.ProjectFileIds)
-                    {
-                        var file = await projectFileRepo.GetFirstBySearch(
-                            pf => pf.Id == fileId &&
-                                  pf.ProjectId == command.ProjectId &&
-                                  pf.TenantId == command.TenantId);
-                        
-                        if (file == null)
-                            return false;
-                    }
-                    return true;
+                    // Fetch all files in one query instead of in a loop
+                    var files = await projectFileRepo.GetBySearch(
+                        pf => command.ProjectFileIds.Contains(pf.Id) &&
+                              pf.ProjectId == command.ProjectId &&
+                              pf.TenantId == command.TenantId &&
+                              !pf.IsDeleted);
+                    
+                    var filesList = files.ToList();
+                    
+                    // Check if all requested files exist
+                    if (filesList.Count != command.ProjectFileIds.Count)
+                        return false;
+                    
+                    // Check if user is owner of all files
+                    return filesList.All(f => f.OwnerId == currentUser.Id);
                 })
-                .WithMessage("One or more files do not exist in this project");
-
-            // Check if user is the owner of all files
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    foreach (var fileId in command.ProjectFileIds)
-                    {
-                        var file = await projectFileRepo.GetFirstBySearch(
-                            pf => pf.Id == fileId &&
-                                  pf.OwnerId == currentUser.Id &&
-                                  !pf.IsDeleted);
-                        
-                        if (file == null)
-                            return false;
-                    }
-                    return true;
-                })
-                .WithMessage("You can only share your own files");
+                .WithMessage("One or more files do not exist in this project or you are not the owner");
 
             // Check if all users we're sharing with are members of the project
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
-                    foreach (var userId in command.SharedWithUserIds)
-                    {
-                        var member = await projectMemberRepo.GetFirstBySearch(
-                            pm => pm.ProjectId == command.ProjectId &&
-                                  pm.TenantId == command.TenantId &&
-                                  pm.UserId == userId);
-                        
-                        if (member == null)
-                            return false;
-                    }
-                    return true;
+                    // Fetch all project members in one query instead of in a loop
+                    var members = await projectMemberRepo.GetBySearch(
+                        pm => pm.ProjectId == command.ProjectId &&
+                              pm.TenantId == command.TenantId &&
+                              command.SharedWithUserIds.Contains(pm.UserId));
+                    
+                    var memberUserIds = members.Select(m => m.UserId).ToHashSet();
+                    
+                    // Check if all requested users are project members
+                    return command.SharedWithUserIds.All(userId => memberUserIds.Contains(userId));
                 })
                 .WithMessage("One or more users are not members of this project");
 

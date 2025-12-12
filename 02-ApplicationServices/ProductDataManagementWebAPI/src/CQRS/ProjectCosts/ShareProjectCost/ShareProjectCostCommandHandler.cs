@@ -15,6 +15,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
+        private readonly IRepository<Project> projectRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<ShareProjectCostCommandHandler> logger;
@@ -22,12 +23,14 @@ namespace CQRS.ProjectCosts.ShareProjectCost
         public ShareProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
             IRepository<SharedProjectCost> sharedProjectCostRepo,
+            IRepository<Project> projectRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<ShareProjectCostCommandHandler> logger)
         {
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
+            this.projectRepo = projectRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -38,13 +41,13 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             // ProjectMemberHandler already validated tenant isolation and project membership
             // Validator already checked cost ownership
 
-            // Get existing cost with shared relationships
+            // Get existing cost with shared relationships (without Project to avoid unnecessary data)
             var cost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId 
                     && pc.TenantId == request.TenantId 
                     && pc.ProjectId == request.ProjectId 
                     && !pc.IsDeleted,
-                query => query.Include(pc => pc.SharedWith).Include(pc => pc.Project));
+                query => query.Include(pc => pc.SharedWith));
 
             if (cost == null)
             {
@@ -56,6 +59,11 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             {
                 throw new ForbiddenApiException("Only the cost owner can share it");
             }
+
+            // Get project name separately only if needed for notifications
+            var project = await projectRepo.GetFirstBySearch(p => p.Id == request.ProjectId && p.IsActive);
+
+            string projectName = project?.Name ?? string.Empty;
 
             var existingUserIds = cost.SharedWith.Select(s => s.SharedWithUserId).ToHashSet();
             var requestedUserIds = request.SharedWithUserIds.ToHashSet();
@@ -73,10 +81,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
                     .Where(s => usersToRemove.Contains(s.SharedWithUserId))
                     .ToList();
 
-                foreach (var share in sharesToRemove)
-                {
-                    await sharedProjectCostRepo.Delete(share);
-                }
+                await sharedProjectCostRepo.DeleteRange(sharesToRemove);
 
                 // Send notifications to users who lost access
                 foreach (var userId in usersToRemove)
@@ -86,7 +91,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
                         Id = Guid.NewGuid(),
                         TenantId = request.TenantId,
                         ProjectId = request.ProjectId,
-                        ProjectName = cost.Project.Name,
+                        ProjectName = projectName,
                         UserId = userId,
                         Type = NotificationType.Info,
                         Title = "Odebrano dostęp do kosztu",
@@ -113,27 +118,27 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             // Add new shares
             if (usersToAdd.Any())
             {
+                var newShares = usersToAdd.Select(userId => new SharedProjectCost
+                {
+                    TenantId = request.TenantId,
+                    ProjectId = request.ProjectId,
+                    ProjectCostId = request.CostId,
+                    SharedWithUserId = userId,
+                    SharedByUserId = currentUser.Id,
+                    SharedAt = DateTime.UtcNow
+                }).ToList();
+
+                await sharedProjectCostRepo.InsertRange(newShares);
+
+                // Send notifications to users who gained access
                 foreach (var userId in usersToAdd)
                 {
-                    var share = new SharedProjectCost
-                    {
-                        TenantId = request.TenantId,
-                        ProjectId = request.ProjectId,
-                        ProjectCostId = request.CostId,
-                        SharedWithUserId = userId,
-                        SharedByUserId = currentUser.Id,
-                        SharedAt = DateTime.UtcNow
-                    };
-
-                    await sharedProjectCostRepo.Insert(share);
-
-                    // Send notification to user who gained access
                     var notification = new NotificationDto
                     {
                         Id = Guid.NewGuid(),
                         TenantId = request.TenantId,
                         ProjectId = request.ProjectId,
-                        ProjectName = cost.Project.Name,
+                        ProjectName = projectName,
                         UserId = userId,
                         Type = NotificationType.Success,
                         Title = "Udostępniono Ci koszt",

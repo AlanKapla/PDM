@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+ï»¿using Business.Interfaces.Model;
 using Entities.Models;
 using FluentValidation;
 using Repositiories.Repository.Interfaces;
@@ -30,43 +30,30 @@ namespace CQRS.Projects.AddProjectMember
             RuleFor(x => x.UserId)
                 .NotEmpty().WithMessage("UserId is required");
 
-            // Walidacja: projekt musi istnieæ
+            // Validate project exists and is active in one rule to avoid duplicate queries
             RuleFor(x => x)
-                .MustAsync(ProjectMustExist)
-                .WithMessage("Project not found");
+                .MustAsync(ProjectMustExistAndBeActive)
+                .WithMessage("Project not found or is inactive");
 
-            // Walidacja: projekt musi byæ aktywny
-            RuleFor(x => x)
-                .MustAsync(ProjectMustBeActive)
-                .WithMessage("Cannot add members to inactive project");
-
-            // Walidacja: u¿ytkownik musi byæ aktywnym cz³onkiem tenanta
+            // Validate user must be active tenant member
             RuleFor(x => x)
                 .MustAsync(UserMustBeTenantMember)
                 .WithMessage("User is not an active member of the tenant");
 
-            // Walidacja: u¿ytkownik nie mo¿e ju¿ byæ cz³onkiem projektu
+            // Validate user must not be project member already
             RuleFor(x => x)
                 .MustAsync(UserMustNotBeProjectMember)
                 .WithMessage("User is already a member of this project");
         }
 
-        private async Task<bool> ProjectMustExist(AddProjectMemberCommand command, CancellationToken cancellationToken)
+        private async Task<bool> ProjectMustExistAndBeActive(AddProjectMemberCommand command, CancellationToken cancellationToken)
         {
+            // Combined check to avoid fetching project twice
             Project? project = await projectRepo.GetFirstBySearch(
                 p => p.Id == command.ProjectId && p.TenantId == command.TenantId,
                 cancellationToken);
 
-            return project != null;
-        }
-
-        private async Task<bool> ProjectMustBeActive(AddProjectMemberCommand command, CancellationToken cancellationToken)
-        {
-            Project? project = await projectRepo.GetFirstBySearch(
-                p => p.Id == command.ProjectId && p.TenantId == command.TenantId,
-                cancellationToken);
-
-            return project?.IsActive ?? false;
+            return project != null && project.IsActive;
         }
 
         private async Task<bool> UserMustBeTenantMember(AddProjectMemberCommand command, CancellationToken cancellationToken)

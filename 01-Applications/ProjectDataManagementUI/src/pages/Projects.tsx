@@ -10,9 +10,6 @@ import {
   VStack,
   HStack,
   Icon,
-  Spinner,
-  Alert,
-  AlertIcon,
   useColorModeValue,
   Button,
   Modal,
@@ -25,8 +22,6 @@ import {
   FormControl,
   FormLabel,
   Input,
-  useDisclosure,
-  useToast,
   IconButton,
   Tooltip,
 } from "@chakra-ui/react";
@@ -38,6 +33,10 @@ import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
 import { TenantRole } from "../types/auth.types";
 import { ProjectRole } from "../types/project.types";
+import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import { useToastNotification } from "../hooks/useToastNotification";
+import { useModal } from "../hooks/useModal";
+import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
 
 interface ProjectDetailsWeb {
   id: string;
@@ -50,28 +49,6 @@ interface ProjectDetailsWeb {
   userRole: number;
   membersCount: number;
 }
-
-const getProjectRoleName = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin:
-      return 'Administrator';
-    case ProjectRole.Member:
-      return 'Członek';
-    default:
-      return 'Nieznana rola';
-  }
-};
-
-const getProjectRoleColor = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin:
-      return 'blue';
-    case ProjectRole.Member:
-      return 'green';
-    default:
-      return 'gray';
-  }
-};
 
 export default function Projects() {
   const location = useLocation();
@@ -86,9 +63,9 @@ export default function Projects() {
   const [projectToToggle, setProjectToToggle] = useState<ProjectDetailsWeb | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const { isOpen: isToggleStatusModalOpen, onOpen: onToggleStatusModalOpen, onClose: onToggleStatusModalClose } = useDisclosure();
-  const toast = useToast();
+  const createModal = useModal();
+  const toggleStatusModal = useModal();
+  const { showSuccess, showError } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -168,7 +145,7 @@ export default function Projects() {
   const openToggleStatusModal = (project: ProjectDetailsWeb, e: React.MouseEvent) => {
     e.stopPropagation();
     setProjectToToggle(project);
-    onToggleStatusModalOpen();
+    toggleStatusModal.onOpen();
   };
 
   const handleToggleProjectStatus = async () => {
@@ -181,16 +158,14 @@ export default function Projects() {
       const response = await projectApi.toggleProjectStatus(activeTenantId, projectToToggle.id, newStatus);
       
       if (response.ok) {
-        toast({
-          title: newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
-          description: newStatus 
+        showSuccess(
+          newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
+          newStatus 
             ? "Projekt został pomyślnie aktywowany" 
-            : "Projekt został pomyślnie zdezaktywowany",
-          status: "success",
-          duration: 4000,
-        });
+            : "Projekt został pomyślnie zdezaktywowany"
+        );
         
-        onToggleStatusModalClose();
+        toggleStatusModal.onClose();
         setProjectToToggle(null);
         
         // Odśwież listę projektów
@@ -201,21 +176,11 @@ export default function Projects() {
         }
       } else {
         const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-        });
+        showError(title, description);
       }
     } catch (error) {
       console.error("Błąd podczas toggle project status:", error);
-      toast({
-        title: "Błąd",
-        description: `Wystąpił błąd podczas ${newStatus ? 'aktywacji' : 'dezaktywacji'} projektu`,
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", `Wystąpił błąd podczas ${newStatus ? 'aktywacji' : 'dezaktywacji'} projektu`);
     } finally {
       setTogglingStatus(false);
     }
@@ -223,20 +188,12 @@ export default function Projects() {
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) {
-      toast({
-        title: "Nazwa projektu wymagana",
-        status: "warning",
-        duration: 3000,
-      });
+      showError("Nazwa projektu wymagana");
       return;
     }
 
     if (!activeTenantId) {
-      toast({
-        title: "Brak aktywnego tenanta",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Brak aktywnego tenanta");
       return;
     }
 
@@ -245,13 +202,9 @@ export default function Projects() {
       const response = await tenantApi.createProject(activeTenantId, newProjectName.trim());
 
       if (response.ok) {
-        toast({
-          title: "Projekt utworzony",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Projekt utworzony");
         setNewProjectName("");
-        onClose();
+        createModal.onClose();
         
         // Odśwież listę projektów
         const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
@@ -261,20 +214,10 @@ export default function Projects() {
         }
       } else {
         const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 3000,
-        });
+        showError(title, description);
       }
     } catch (err) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setCreating(false);
     }
@@ -293,7 +236,7 @@ export default function Projects() {
             <Button
               leftIcon={<Plus size={20} />}
               colorScheme="blue"
-              onClick={onOpen}
+              onClick={createModal.onOpen}
               size={{ base: "sm", md: "md" }}
             >
               Nowy projekt
@@ -302,19 +245,22 @@ export default function Projects() {
         </HStack>
 
         {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minH="200px">
-            <Spinner size="xl" color="blue.500" />
-          </Box>
+          <LoadingSpinner />
         ) : error ? (
-          <Alert status="error">
-            <AlertIcon />
-            {error}
-          </Alert>
+          <ErrorAlert description={error} />
         ) : projects.length === 0 ? (
-          <Alert status="info">
-            <AlertIcon />
-            Nie masz jeszcze żadnych projektów
-          </Alert>
+          <EmptyState 
+            icon={FolderKanban}
+            title="Nie masz jeszcze żadnych projektów"
+            description="Stwórz swój pierwszy projekt, aby zacząć pracę"
+            action={
+              userTenantRole === TenantRole.Admin && activeTenantId && (
+                <Button leftIcon={<Icon as={Plus} />} colorScheme="blue" onClick={createModal.onOpen}>
+                  Utwórz projekt
+                </Button>
+              )
+            }
+          />
         ) : (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
             {projects.map((project) => (
@@ -393,7 +339,7 @@ export default function Projects() {
       </Box>
 
       {/* Modal tworzenia projektu */}
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={createModal.isOpen} onClose={createModal.onClose}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Utwórz nowy projekt</ModalHeader>
@@ -414,7 +360,7 @@ export default function Projects() {
             </FormControl>
           </ModalBody>
           <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose} isDisabled={creating}>
+            <Button variant="ghost" mr={3} onClick={createModal.onClose} isDisabled={creating}>
               Anuluj
             </Button>
             <Button
@@ -429,7 +375,7 @@ export default function Projects() {
       </Modal>
 
       {/* Modal potwierdzenia zmiany statusu projektu */}
-      <Modal isOpen={isToggleStatusModalOpen} onClose={onToggleStatusModalClose} isCentered size="lg">
+      <Modal isOpen={toggleStatusModal.isOpen} onClose={toggleStatusModal.onClose} isCentered size="lg">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
@@ -505,7 +451,7 @@ export default function Projects() {
             <Button 
               variant="ghost" 
               mr={3} 
-              onClick={onToggleStatusModalClose}
+              onClick={toggleStatusModal.onClose}
               isDisabled={togglingStatus}
             >
               Anuluj

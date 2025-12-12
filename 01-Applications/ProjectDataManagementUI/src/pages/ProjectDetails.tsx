@@ -792,19 +792,21 @@ export default function ProjectDetails() {
           <VStack spacing={6} align="stretch">
             {/* Nagłówek projektu */}
             <Box bg={cardBg} p={{ base: 4, md: 6 }} rounded="lg" borderWidth="1px" borderColor={borderColor} shadow="sm">
-              <HStack spacing={4} mb={4}>
-                <Icon as={FolderKanban} boxSize={{ base: 8, md: 10 }} color="blue.600" />
-                <VStack align="flex-start" spacing={1} flex={1}>
-                  <Heading size={{ base: "md", md: "lg" }}>{project.name}</Heading>
-                  <HStack spacing={2} flexWrap="wrap">
-                    <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="xs" px={2}>
-                      {project.isActive ? "Aktywny" : "Nieaktywny"}
-                    </Badge>
-                    <Badge colorScheme={getProjectRoleColor(project.userRole)} fontSize="xs" px={2}>
-                      {getProjectRoleName(project.userRole)}
-                    </Badge>
-                  </HStack>
-                </VStack>
+              <HStack spacing={4} mb={4} justify="space-between" align="flex-start">
+                <HStack spacing={4} flex={1}>
+                  <Icon as={FolderKanban} boxSize={{ base: 8, md: 10 }} color="blue.600" />
+                  <VStack align="flex-start" spacing={1} flex={1}>
+                    <Heading size={{ base: "md", md: "lg" }}>{project.name}</Heading>
+                  </VStack>
+                </HStack>
+                <HStack spacing={2} flexWrap="wrap">
+                  <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="xs" px={2}>
+                    {project.isActive ? "Aktywny" : "Nieaktywny"}
+                  </Badge>
+                  <Badge colorScheme={getProjectRoleColor(project.userRole)} fontSize="xs" px={2}>
+                    {getProjectRoleName(project.userRole)}
+                  </Badge>
+                </HStack>
               </HStack>
               
               <VStack align="flex-start" spacing={2} fontSize="sm">
@@ -1802,7 +1804,7 @@ export default function ProjectDetails() {
                                       </Button>
                                     </VStack>
                                   ) : (
-                                    <HStack spacing={1}>
+                                    <HStack spacing={1} justify="center">
                                       {cost.hasDocument && cost.previewSasUrl && (
                                         <IconButton
                                           aria-label="Podgląd dokumentu"

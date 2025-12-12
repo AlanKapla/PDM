@@ -10,37 +10,18 @@ import {
   HStack,
   Text,
   Button,
-  Avatar,
   Badge,
   useColorModeValue,
-  useToast,
   Box,
-  Spinner,
   Icon,
 } from "@chakra-ui/react";
 import { UserPlus, Check } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
-import { handleApiError } from "../utils/handleApiError";
-import { ProjectRole } from "../types/project.types";
-import { TenantRole } from "../types/auth.types";
+import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import { useToastNotification } from "../hooks/useToastNotification";
+import { LoadingSpinner, EmptyState, UserAvatar, DataCard } from "./common";
 import type { TenantMemberWeb, ProjectMemberWeb } from "../types/project.types";
-
-const getProjectRoleName = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin: return "Administrator";
-    case ProjectRole.Member: return "Członek";
-    default: return "Nieznana";
-  }
-};
-
-const getProjectRoleColor = (role: number): string => {
-  switch (role) {
-    case ProjectRole.Admin: return "blue";
-    case ProjectRole.Member: return "green";
-    default: return "gray";
-  }
-};
 
 interface AddProjectMemberModalProps {
   isOpen: boolean;
@@ -60,15 +41,13 @@ export default function AddProjectMemberModal({
   projectName,
   onMemberAdded
 }: AddProjectMemberModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
   const [tenantMembers, setTenantMembers] = useState<TenantMemberWeb[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberWeb[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
 
   const bgColor = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   useEffect(() => {
     if (isOpen) {
@@ -95,12 +74,7 @@ export default function AddProjectMemberModal({
       }
     } catch (error) {
       console.error("Błąd pobierania członków:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać listy członków",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nie udało się pobrać listy członków");
     } finally {
       setLoading(false);
     }
@@ -112,27 +86,19 @@ export default function AddProjectMemberModal({
       const response = await projectApi.addProjectMember(tenantId, projectId, userId);
       
       if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Członek został dodany do projektu",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", "Członek został dodany do projektu");
         
         // Odśwież listę członków
         await fetchData();
         onMemberAdded?.();
       } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 3000,
-        });
+        const errorModule = await import("../utils/handleApiError");
+        const { title, description } = await errorModule.handleApiError(response);
+        showError(title, description);
       }
     } catch (error) {
-      console.error("Błąd podczas dodawania członka:", error);
+      console.error("Błąd dodawania członka:", error);
+      showError("Błąd", "Nie udało się dodać członka do projektu");
     } finally {
       setAdding(null);
     }
@@ -162,36 +128,29 @@ export default function AddProjectMemberModal({
         <ModalCloseButton />
         <ModalBody pb={6}>
           {loading ? (
-            <Box textAlign="center" py={10}>
-              <Spinner size="lg" color="blue.500" />
-            </Box>
+            <LoadingSpinner />
           ) : availableMembers.length === 0 ? (
-            <Box textAlign="center" py={10}>
-              <Text color="gray.500">
-                Wszyscy członkowie organizacji są już w tym projekcie
-              </Text>
-            </Box>
+            <EmptyState 
+              title="Wszyscy członkowie są już w projekcie"
+              description="Wszystkie osoby z organizacji zostały już dodane do tego projektu"
+            />
           ) : (
             <VStack spacing={2} align="stretch">
               {availableMembers.map((member) => {
-                const initials = `${member.firstName[0]}${member.lastName[0]}`.toUpperCase();
                 const isAdding = adding === member.userId;
 
                 return (
-                  <Box
+                  <DataCard
                     key={member.userId}
                     p={3}
-                    border="1px"
-                    borderColor={borderColor}
-                    borderRadius="md"
-                    _hover={{ bg: hoverBg }}
-                    transition="background 0.2s"
+                    hoverable
                   >
                     <HStack justify="space-between">
                       <HStack spacing={3}>
-                        <Avatar size="sm" bg="blue.600" color="white" name={initials}>
-                          {initials}
-                        </Avatar>
+                        <UserAvatar 
+                          firstName={member.firstName}
+                          lastName={member.lastName}
+                        />
                         <VStack align="flex-start" spacing={0}>
                           <Text fontWeight="medium" fontSize="sm">
                             {member.firstName} {member.lastName}
@@ -200,22 +159,20 @@ export default function AddProjectMemberModal({
                             {member.email}
                           </Text>
                         </VStack>
-                        <Badge colorScheme={member.role === TenantRole.Admin ? "purple" : "gray"} fontSize="xs">
-                          {member.role === TenantRole.Admin ? "Administrator" : "Członek"}
-                        </Badge>
                       </HStack>
                       <Button
                         size="sm"
                         colorScheme="blue"
-                        leftIcon={<Icon as={UserPlus} boxSize={4} />}
+                        leftIcon={isAdding ? undefined : <Icon as={UserPlus} />}
                         onClick={() => handleAddMember(member.userId)}
                         isLoading={isAdding}
+                        loadingText="Dodawanie..."
                         isDisabled={adding !== null}
                       >
                         Dodaj
                       </Button>
                     </HStack>
-                  </Box>
+                  </DataCard>
                 );
               })}
             </VStack>
@@ -228,22 +185,19 @@ export default function AddProjectMemberModal({
               </Text>
               <VStack spacing={2} align="stretch">
                 {projectMembers.map((member) => {
-                  const initials = `${member.firstName[0]}${member.lastName[0]}`.toUpperCase();
-
                   return (
-                    <Box
+                    <DataCard
                       key={member.userId}
                       p={3}
-                      border="1px"
-                      borderColor={borderColor}
-                      borderRadius="md"
                       bg={useColorModeValue("gray.50", "gray.700")}
                     >
                       <HStack justify="space-between">
                         <HStack spacing={3}>
-                          <Avatar size="sm" bg="green.600" color="white" name={initials}>
-                            {initials}
-                          </Avatar>
+                          <UserAvatar 
+                            firstName={member.firstName}
+                            lastName={member.lastName}
+                            bg="green.600"
+                          />
                           <VStack align="flex-start" spacing={0}>
                             <HStack>
                               <Text fontWeight="medium" fontSize="sm">
@@ -260,7 +214,7 @@ export default function AddProjectMemberModal({
                         </HStack>
                         <Icon as={Check} boxSize={5} color="green.500" />
                       </HStack>
-                    </Box>
+                    </DataCard>
                   );
                 })}
               </VStack>

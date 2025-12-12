@@ -38,30 +38,39 @@ namespace CQRS.Files.ShareProjectFiles
 
         public async Task<Unit> Handle(ShareProjectFilesCommand request, CancellationToken cancellationToken)
         {
-            // For each user, share all files
+            // Get all existing shares for all users and files in one query
+            var existingShares = await sharedProjectFileRepo.GetBySearch(
+                spf => request.SharedWithUserIds.Contains(spf.SharedWithUserId) &&
+                       request.ProjectFileIds.Contains(spf.ProjectFileId));
+
+            var existingSharesDict = existingShares
+                .GroupBy(spf => spf.SharedWithUserId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(spf => spf.ProjectFileId).ToHashSet()
+                );
+
+            // Get file details for notification once
+            var projectFiles = await projectFileRepo.GetBySearch(
+                pf => request.ProjectFileIds.Contains(pf.Id) && !pf.IsDeleted);
+
+            var fileNamesDict = projectFiles.ToDictionary(pf => pf.Id, pf => pf.DisplayName);
+
+            var allSharedFilesToInsert = new List<SharedProjectFile>();
+
+            // For each user, determine files to share
             foreach (var userId in request.SharedWithUserIds)
             {
-                // Get existing shares to avoid duplicates
-                var existingShares = await sharedProjectFileRepo.GetBySearch(
-                    spf => spf.SharedWithUserId == userId &&
-                           request.ProjectFileIds.Contains(spf.ProjectFileId));
+                var existingFileIds = existingSharesDict.ContainsKey(userId) 
+                    ? existingSharesDict[userId] 
+                    : new HashSet<Guid>();
 
-                var existingFileIds = existingShares.Select(spf => spf.ProjectFileId).ToHashSet();
-
-                // Filter out already shared files for this user
                 var filesToShare = request.ProjectFileIds.Where(id => !existingFileIds.Contains(id)).ToList();
 
                 if (!filesToShare.Any())
-                    continue; // Nothing to share with this user
+                    continue;
 
-                // Get file details for notification
-                var projectFiles = await projectFileRepo.GetBySearch(
-                    pf => filesToShare.Contains(pf.Id) && !pf.IsDeleted,
-                    include => include.Include(pf => pf.Owner));
-
-                var fileNamesDict = projectFiles.ToDictionary(pf => pf.Id, pf => pf.DisplayName);
-
-                // Share files with this user
+                // Prepare shares for this user
                 foreach (var fileId in filesToShare)
                 {
                     var sharedFile = new SharedProjectFile
@@ -74,15 +83,21 @@ namespace CQRS.Files.ShareProjectFiles
                         SharedAt = DateTime.UtcNow
                     };
 
-                    await sharedProjectFileRepo.Insert(sharedFile);
-
-                    logger.LogInformation(
-                        "User {UserId} shared file {FileId} with user {SharedWithUserId} in project {ProjectId}",
-                        currentUser.Id, fileId, userId, request.ProjectId);
+                    allSharedFilesToInsert.Add(sharedFile);
                 }
+
+                logger.LogInformation(
+                    "User {UserId} will share {FileCount} files with user {SharedWithUserId} in project {ProjectId}",
+                    currentUser.Id, filesToShare.Count, userId, request.ProjectId);
 
                 // Send notification to this user
                 await SendNotificationAsync(request, userId, filesToShare.Count, fileNamesDict, cancellationToken);
+            }
+
+            // Insert all shared files in one batch
+            if (allSharedFilesToInsert.Any())
+            {
+                await sharedProjectFileRepo.InsertRange(allSharedFilesToInsert);
             }
 
             return Unit.Value;

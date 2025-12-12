@@ -7,6 +7,7 @@ using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
+using Repositiories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.WorkSchedules.UpdateWorkSchedule
@@ -17,7 +18,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IRepository<WorkScheduleStageWork> workRepo;
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
+        private readonly IReadRepository<User> userRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -26,7 +27,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             IRepository<WorkScheduleStage> stageRepo,
             IRepository<WorkScheduleStageWork> workRepo,
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepo,
-            IRepository<TenantMember> tenantMemberRepo,
+            IReadRepository<User> userRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
@@ -34,7 +35,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
             this.assignmentRepo = assignmentRepo;
-            this.tenantMemberRepo = tenantMemberRepo;
+            this.userRepo = userRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
@@ -59,7 +60,6 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             // Update work schedule name
             workSchedule.Name = request.Name;
             await workScheduleRepo.Update(workSchedule);
-            await workScheduleRepo.SaveChangesAsync(cancellationToken);
 
             // Track assignment changes for notifications
             HashSet<Guid> removedUserIds = new HashSet<Guid>();
@@ -86,11 +86,16 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 .Select(w => w.Id!.Value)
                 .ToHashSet();
 
-            // Delete stages that are not in the incoming request
+            // Collect all stages and works to delete
             var stagesToDelete = workSchedule.Stages.Where(s => !incomingStageIds.Contains(s.Id)).ToList();
+            var worksToDelete = workSchedule.Stages
+                .SelectMany(s => s.Works)
+                .Where(w => !incomingWorkIds.Contains(w.Id))
+                .ToList();
+
+            // Track removed users from deleted stages/works
             foreach (var stage in stagesToDelete)
             {
-                // Track removed users from deleted works
                 foreach (var work in stage.Works)
                 {
                     foreach (var assignment in work.Assignments)
@@ -98,27 +103,45 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                         removedUserIds.Add(assignment.UserId);
                     }
                 }
-                await stageRepo.Delete(stage);
-                await stageRepo.SaveChangesAsync(cancellationToken);
             }
 
-            // Delete works that are not in the incoming request
-            var worksToDelete = workSchedule.Stages
-                .SelectMany(s => s.Works)
-                .Where(w => !incomingWorkIds.Contains(w.Id))
-                .ToList();
             foreach (var work in worksToDelete)
             {
-                // Track removed users from deleted works
                 foreach (var assignment in work.Assignments)
                 {
                     removedUserIds.Add(assignment.UserId);
                 }
-                await workRepo.Delete(work);
-                await workRepo.SaveChangesAsync(cancellationToken);
             }
 
+            // Delete stages and works in batch
+            if (stagesToDelete.Any())
+            {
+                await stageRepo.DeleteRange(stagesToDelete);
+            }
+
+            if (worksToDelete.Any())
+            {
+                await workRepo.DeleteRange(worksToDelete);
+            }
+
+            // Collect all unique user IDs from incoming works
+            var allUserIds = request.Stages
+                .SelectMany(s => s.Works)
+                .SelectMany(w => w.AssignedUserIds)
+                .Distinct()
+                .ToList();
+
+            // Fetch users directly - no need for TenantMember join just to get names
+            var users = await userRepo.GetBySearch(u => allUserIds.Contains(u.Id));
+
+            var userNameDict = users.ToDictionary(
+                u => u.Id,
+                u => $"{u.FirstName} {u.LastName}".Trim()
+            );
+
             List<WorkScheduleStageWeb> stageWebs = new List<WorkScheduleStageWeb>();
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete = new List<WorkScheduleStageWorkAssignment>();
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert = new List<WorkScheduleStageWorkAssignment>();
 
             // Process stages
             foreach (UpdateStageDto stageDto in request.Stages)
@@ -144,7 +167,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                         Order = stageDto.Order
                     };
                     await stageRepo.Insert(stage);
-                    await stageRepo.SaveChangesAsync(cancellationToken);
+                    await stageRepo.SaveChangesAsync(cancellationToken); // Need ID for works
                 }
 
                 List<WorkScheduleStageWorkWeb> workWebs = new List<WorkScheduleStageWorkWeb>();
@@ -180,12 +203,11 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                             previousAssignedUsers = previousUsers;
                         }
 
-                        // Delete existing assignments for this work
+                        // Collect existing assignments for deletion
                         var existingWorkAssignments = work.Assignments.ToList();
-                        foreach (var assignment in existingWorkAssignments)
+                        if (existingWorkAssignments.Any())
                         {
-                            await assignmentRepo.Delete(assignment);
-                            await assignmentRepo.SaveChangesAsync(cancellationToken);
+                            allAssignmentsToDelete.AddRange(existingWorkAssignments);
                         }
                     }
                     else
@@ -206,10 +228,10 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                             }).ToList()
                         };
                         await workRepo.Insert(work);
-                        await workRepo.SaveChangesAsync(cancellationToken);
+                        await workRepo.SaveChangesAsync(cancellationToken); // Need ID for assignments
                     }
 
-                    // Create new assignments
+                    // Prepare new assignments
                     List<WorkScheduleStageWorkAssigneeWeb> assigneeWebs = new List<WorkScheduleStageWorkAssigneeWeb>();
 
                     foreach (Guid userId in workDto.AssignedUserIds)
@@ -222,8 +244,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                             UserId = userId
                         };
 
-                        await assignmentRepo.Insert(assignment);
-                        await assignmentRepo.SaveChangesAsync(cancellationToken);
+                        allAssignmentsToInsert.Add(assignment);
 
                         // Track assignment changes
                         if (!previousAssignedUsers.Contains(userId))
@@ -231,13 +252,9 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                             addedUserIds.Add(userId);
                         }
 
-                        // Find user info for response
-                        TenantMember? tenantMember = await tenantMemberRepo.GetFirstBySearch(
-                            tm => tm.TenantId == tenantId && tm.UserId == userId,
-                            include => include.Include(tm => tm.User));
-
-                        string userName = tenantMember != null 
-                            ? $"{tenantMember.User.FirstName} {tenantMember.User.LastName}".Trim() 
+                        // Use pre-fetched user name from dictionary
+                        string userName = userNameDict.ContainsKey(userId) 
+                            ? userNameDict[userId] 
                             : "Unknown User";
 
                         assigneeWebs.Add(new WorkScheduleStageWorkAssigneeWeb(userId, userName));
@@ -276,6 +293,19 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 ));
             }
 
+            // Delete all old assignments in batch
+            if (allAssignmentsToDelete.Any())
+            {
+                await assignmentRepo.DeleteRange(allAssignmentsToDelete);
+            }
+
+            // Insert all new assignments in batch
+            if (allAssignmentsToInsert.Any())
+            {
+                await assignmentRepo.InsertRange(allAssignmentsToInsert);
+            }
+
+            // Save all changes once
             await workScheduleRepo.SaveChangesAsync(cancellationToken);
 
             // Get creator information

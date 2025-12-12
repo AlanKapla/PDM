@@ -52,26 +52,22 @@ namespace CQRS.ProjectCosts.ShareProjectCost
 
         private async Task<bool> AllUsersBeProjectMembers(ShareProjectCostCommand command, CancellationToken cancellationToken)
         {
-            foreach (var userId in command.SharedWithUserIds)
+            // User cannot share with themselves
+            if (command.SharedWithUserIds.Contains(currentUser.Id))
             {
-                // User cannot share with themselves
-                if (userId == currentUser.Id)
-                {
-                    return false;
-                }
-
-                var member = await projectMemberRepo.GetFirstBySearch(
-                    pm => pm.ProjectId == command.ProjectId 
-                        && pm.TenantId == command.TenantId 
-                        && pm.UserId == userId);
-
-                if (member == null)
-                {
-                    return false;
-                }
+                return false;
             }
 
-            return true;
+            // Fetch all project members in one query instead of in a loop
+            var members = await projectMemberRepo.GetBySearch(
+                pm => pm.ProjectId == command.ProjectId 
+                    && pm.TenantId == command.TenantId 
+                    && command.SharedWithUserIds.Contains(pm.UserId));
+
+            var memberUserIds = members.Select(m => m.UserId).ToHashSet();
+
+            // Check if all requested users are project members
+            return command.SharedWithUserIds.All(userId => memberUserIds.Contains(userId));
         }
     }
 }

@@ -13,7 +13,6 @@ import {
   FormLabel,
   Input,
   Text,
-  useToast,
   Box,
   HStack,
   IconButton,
@@ -24,11 +23,14 @@ import {
   Radio,
   RadioGroup,
   Stack,
-  Spinner,
 } from "@chakra-ui/react";
 import { X, Upload, FileText, Package } from "lucide-react";
 import { handleApiError } from "../utils/handleApiError";
 import { projectApi } from "../api/projectApi";
+import { useToastNotification } from "../hooks/useToastNotification";
+import { LoadingSpinner } from "./common";
+import { FILE_UPLOAD } from "../utils/constants";
+import { formatFileSize } from "../utils/formatters";
 import type { ProjectFilePackageWeb } from "../types/project.types";
 
 interface UploadFilesModalProps {
@@ -46,9 +48,6 @@ interface FileWithDisplayName {
   comment: string;
 }
 
-const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
 export default function UploadFilesModal({
   isOpen,
   onClose,
@@ -65,7 +64,7 @@ export default function UploadFilesModal({
   const [files, setFiles] = useState<FileWithDisplayName[]>([]);
   const [uploading, setUploading] = useState(false);
   const [packageNameError, setPackageNameError] = useState("");
-  const toast = useToast();
+  const { showSuccess, showError, showWarning } = useToastNotification();
 
   useEffect(() => {
     if (isOpen && mode === "existing") {
@@ -83,23 +82,18 @@ export default function UploadFilesModal({
       }
     } catch (error) {
       console.error("Błąd pobierania paczek:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać listy paczek",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nie udało się pobrać listy paczek");
     } finally {
       setLoadingPackages(false);
     }
   };
 
   const validateFile = (file: File): string | null => {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return `Plik ${file.name} ma niedozwolony format. Dozwolone: PDF, JPG, JPEG`;
+    if (!FILE_UPLOAD.ALLOWED_TYPES.includes(file.type)) {
+      return `Plik ${file.name} ma niedozwolony format. Dozwolone: ${FILE_UPLOAD.ALLOWED_TYPES_DISPLAY}`;
     }
-    if (file.size > MAX_FILE_SIZE) {
-      return `Plik ${file.name} jest za duży. Maksymalny rozmiar: 10MB`;
+    if (file.size > FILE_UPLOAD.MAX_FILE_SIZE) {
+      return `Plik ${file.name} jest za duży. Maksymalny rozmiar: ${formatFileSize(FILE_UPLOAD.MAX_FILE_SIZE)}`;
     }
     return null;
   };
@@ -112,12 +106,7 @@ export default function UploadFilesModal({
     for (const file of selectedFiles) {
       const error = validateFile(file);
       if (error) {
-        toast({
-          title: "Błąd walidacji pliku",
-          description: error,
-          status: "error",
-          duration: 5000,
-        });
+        showError("Błąd walidacji pliku", error);
         continue;
       }
       
@@ -154,22 +143,12 @@ export default function UploadFilesModal({
     }
     
     if (mode === "existing" && !selectedPackageId) {
-      toast({
-        title: "Błąd",
-        description: "Wybierz paczkę",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wybierz paczkę");
       return;
     }
     
     if (files.length === 0) {
-      toast({
-        title: "Błąd",
-        description: "Dodaj przynajmniej jeden plik",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Dodaj przynajmniej jeden plik");
       return;
     }
 
@@ -202,12 +181,7 @@ export default function UploadFilesModal({
       }
 
       if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`,
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`);
         
         // Reset i zamknij
         setMode("new");
@@ -218,12 +192,7 @@ export default function UploadFilesModal({
         onClose();
       } else {
         const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-        });
+        showError(title, description);
       }
     } catch (error) {
       console.error("Błąd uploadu plików:", error);
