@@ -64,10 +64,13 @@ namespace WebApi.Extensions
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
             services.AddHealthChecks();
+
+            var keysPath = Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? @"D:\home", "keys");
+
             services
                 .AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo("/keys"));
-            
+                .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+
             services.AddSignalR();
 
             services.AddMemoryCache();
