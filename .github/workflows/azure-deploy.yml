@@ -59,11 +59,17 @@ jobs:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           package: ${{ github.workspace }}/api-publish
 
+      - name: Wait for App Service to restart
+        shell: pwsh
+        run: |
+          Write-Host "⏳ Waiting 30 seconds for App Service to restart and initialize..."
+          Start-Sleep -Seconds 30
+
       - name: Health check API
         shell: pwsh
         run: |
           $apiUrl = "${{ vars.API_URL }}/api/health"
-          $maxRetries = 10
+          $maxRetries = 15
           $delay = 10
           $ok = $false
 
