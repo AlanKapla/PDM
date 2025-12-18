@@ -63,14 +63,14 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "⏳ Waiting 30 seconds for App Service to restart and initialize..."
-          Start-Sleep -Seconds 30
+          Start-Sleep -Seconds 120
 
       - name: Health check API
         shell: pwsh
         run: |
           $apiUrl = "${{ vars.API_URL }}/api/health"
-          $maxRetries = 15
-          $delay = 10
+          $maxRetries = 20
+          $delay = 30
           $ok = $false
 
           Write-Host "Checking API health at: $apiUrl"
