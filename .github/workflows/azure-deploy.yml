@@ -40,11 +40,13 @@ jobs:
 
       - name: Build WebAPI
         working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/WebApi
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore --runtime win-x64
 
       - name: Publish WebAPI
         working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/WebApi
-        run: dotnet publish --configuration Release --no-build --output ${{ github.workspace }}/api-publish
+        run: |
+          dotnet publish --configuration Release --no-build --output ${{ github.workspace }}/api-publish --runtime win-x64 --self-contained true
+          ls -R ${{ github.workspace }}/api-publish
 
       - name: Azure Login
         uses: azure/login@v2
@@ -62,7 +64,7 @@ jobs:
       - name: Wait for App Service to restart
         shell: pwsh
         run: |
-          Write-Host "⏳ Waiting 30 seconds for App Service to restart and initialize..."
+          Write-Host "⏳ Waiting 120 seconds for App Service to restart and initialize..."
           Start-Sleep -Seconds 120
 
       - name: Health check API
