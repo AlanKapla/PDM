@@ -25,6 +25,8 @@ internal class Program
 
         app.UseHttpsRedirection();
 
+        app.UseCookiePolicy();
+
         app.UseCors("AllowFrontend");
 
         app.UseWebSockets();
