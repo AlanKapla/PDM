@@ -6,7 +6,7 @@ export const apiClient = async (url: string, options: RequestInit = {}) => {
 
     if (!response.ok) {
       const msg = await handleApiError(response);
-      throw new Error(msg);
+      throw new Error(msg as unknown as string);
     }
 
     return response.json();

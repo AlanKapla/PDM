@@ -19,6 +19,12 @@ import MyFiles from "../pages/MyFiles";
 import SharedFiles from "../pages/SharedFiles";
 import WorkScheduleView from "../pages/WorkScheduleView";
 import AssignedWorks from "../pages/AssignedWorks";
+import CostEstimateTemplates from "../pages/CostEstimateTemplates";
+import ProjectMembers from "../pages/ProjectMembers";
+import ProjectSchedules from "../pages/ProjectSchedules";
+import ProjectFiles from "../pages/ProjectFiles";
+import ProjectCosts from "../pages/ProjectCosts";
+import { CostEstimateEditor } from "../pages/CostEstimateEditor";
 
 export default function AppRouter() {
   return (
@@ -160,6 +166,60 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <WorkScheduleView />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/cost-estimate-templates"
+        element={
+          <ProtectedRoute>
+            <CostEstimateTemplates />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/cost-estimates"
+        element={
+          <ProtectedRoute>
+            <ProjectCosts />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/members"
+        element={
+          <ProtectedRoute>
+            <ProjectMembers />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/schedules"
+        element={
+          <ProtectedRoute>
+            <ProjectSchedules />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/files"
+        element={
+          <ProtectedRoute>
+            <ProjectFiles />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/cost-estimates/:estimateId"
+        element={
+          <ProtectedRoute>
+            <CostEstimateEditor />
           </ProtectedRoute>
         }
       />

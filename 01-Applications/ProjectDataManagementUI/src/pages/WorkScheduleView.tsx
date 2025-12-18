@@ -126,7 +126,7 @@ export default function WorkScheduleView() {
     });
   };
 
-  const isExpired = (endDate: string): boolean => {
+  const _isExpired = (endDate: string): boolean => {
     return new Date(endDate) < new Date();
   };
 

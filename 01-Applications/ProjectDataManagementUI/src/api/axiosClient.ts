@@ -1,7 +1,15 @@
 import axios from "axios";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8085";
+
+console.log("=== AXIOS CLIENT CONFIG ===");
+console.log("VITE_API_BASE_URL from env:", import.meta.env.VITE_API_BASE_URL);
+console.log("Final API_BASE_URL:", API_BASE_URL);
+console.log("Full baseURL:", `${API_BASE_URL}/api`);
+console.log("===========================");
+
 export const axiosClient = axios.create({
-  baseURL: "/api",
+  baseURL: `${API_BASE_URL}/api`,
   withCredentials: true,
 });
 

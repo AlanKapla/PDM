@@ -240,6 +240,10 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<ProjectCost>, Repository<ProjectCost>>();
             services.AddScoped<IReadRepository<SharedProjectCost>, ReadRepository<SharedProjectCost>>();
             services.AddScoped<IRepository<SharedProjectCost>, Repository<SharedProjectCost>>();
+            services.AddScoped<IReadRepository<CostEstimateTemplate>, ReadRepository<CostEstimateTemplate>>();
+            services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
+            services.AddScoped<IReadRepository<CostEstimate>, ReadRepository<CostEstimate>>();
+            services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
             return services;
         }
 

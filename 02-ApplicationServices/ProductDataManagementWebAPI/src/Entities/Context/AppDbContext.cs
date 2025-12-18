@@ -31,6 +31,8 @@ namespace Entities.Context
         public DbSet<WorkScheduleStageWorkAssignment> WorkScheduleStageWorkAssignments => Set<WorkScheduleStageWorkAssignment>();
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
+        public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
+        public DbSet<CostEstimate> CostEstimates => Set<CostEstimate>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

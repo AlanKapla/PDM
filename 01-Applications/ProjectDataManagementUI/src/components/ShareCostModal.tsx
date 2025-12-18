@@ -48,7 +48,7 @@ export default function ShareCostModal({
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const toast = useToast();
-  const { user } = useAuth();
+  // const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen) {

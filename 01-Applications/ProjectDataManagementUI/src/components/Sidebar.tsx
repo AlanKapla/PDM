@@ -22,6 +22,7 @@ import {
   ChevronUp,
   FolderKanban,
   Briefcase,
+  FileText,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -37,7 +38,6 @@ export default function Sidebar() {
 
   const [invitationsCount, setInvitationsCount] = useState(0);
   const [projects, setProjects] = useState<any[]>([]);
-  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
 
   // Przywróć stan z localStorage lub ustaw na false (domyślnie zwinięte)
   const [tenantsExpanded, setTenantsExpanded] = useState(() => {
@@ -77,8 +77,6 @@ export default function Sidebar() {
           const activeTenantData = await activeTenantResponse.json();
           
           if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
-            setActiveTenantId(activeTenantData.activeTenantId);
-            
             const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
             if (projectsResponse.ok) {
               const projectsData = await projectsResponse.json();
@@ -119,10 +117,9 @@ export default function Sidebar() {
   const hoverBg = useColorModeValue("gray.200", "gray.600");
 
   const SidebarContent = () => (
-    <VStack align="flex-start" spacing={6} h="100%" overflow="auto">
-        <VStack align="stretch" w="100%" spacing={2}>
-          {/* Organizacje na samej górze */}
-          <Button
+    <VStack align="stretch" w="100%" spacing={2}>
+      {/* Organizacje na samej górze */}
+      <Button
             variant="ghost"
             justifyContent="space-between"
             leftIcon={<Building2 size={20} />}
@@ -133,10 +130,10 @@ export default function Sidebar() {
             onClick={() => setTenantsExpanded(!tenantsExpanded)}
           >
             Organizacje
-          </Button>
+      </Button>
 
-          {/* Panel rozwijany organizacji */}
-          <Collapse in={tenantsExpanded} animateOpacity>
+      {/* Panel rozwijany organizacji */}
+      <Collapse in={tenantsExpanded} animateOpacity>
             <VStack align="stretch" w="100%" spacing={2} pl={4} pt={2}>
               <Button
                 variant="ghost"
@@ -182,10 +179,10 @@ export default function Sidebar() {
                 Którymi zarządzasz
               </Button>
             </VStack>
-          </Collapse>
+      </Collapse>
 
-          {/* Zaplanowane prace */}
-          <Button
+      {/* Zaplanowane prace */}
+      <Button
             variant="ghost"
             justifyContent="flex-start"
             leftIcon={<Briefcase size={20} />}
@@ -195,10 +192,23 @@ export default function Sidebar() {
             onClick={() => navigate("/assigned-works")}
           >
             Zaplanowane prace
-          </Button>
+      </Button>
 
-          {/* Projekty */}
-          <Button
+      {/* Szablony kosztorysów */}
+      <Button
+            variant="ghost"
+            justifyContent="flex-start"
+            leftIcon={<FileText size={20} />}
+            w="100%"
+            bg={location.pathname === "/cost-estimate-templates" ? activeBg : "transparent"}
+            _hover={{ bg: hoverBg }}
+            onClick={() => navigate("/cost-estimate-templates")}
+          >
+            Szablony kosztorysów
+      </Button>
+
+      {/* Projekty */}
+      <Button
             variant="ghost"
             justifyContent="space-between"
             leftIcon={<FolderKanban size={20} />}
@@ -209,10 +219,10 @@ export default function Sidebar() {
             onClick={() => setProjectsExpanded(!projectsExpanded)}
           >
             Projekty
-          </Button>
+      </Button>
 
-          {/* Panel rozwijany projektów */}
-          <Collapse in={projectsExpanded} animateOpacity>
+      {/* Panel rozwijany projektów */}
+      <Collapse in={projectsExpanded} animateOpacity>
             <VStack align="stretch" w="100%" spacing={2} pl={4} pt={2}>
               {projects.length > 0 ? (
                 projects.map((project) => (
@@ -240,9 +250,8 @@ export default function Sidebar() {
                 </Box>
               )}
             </VStack>
-          </Collapse>
-        </VStack>
-      </VStack>
+      </Collapse>
+    </VStack>
   );
 
   return (

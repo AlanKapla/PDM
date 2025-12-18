@@ -23,12 +23,12 @@ import {
   Radio,
   RadioGroup,
   Stack,
+  Spinner,
 } from "@chakra-ui/react";
 import { X, Upload, FileText, Package } from "lucide-react";
 import { handleApiError } from "../utils/handleApiError";
 import { projectApi } from "../api/projectApi";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { LoadingSpinner } from "./common";
 import { FILE_UPLOAD } from "../utils/constants";
 import { formatFileSize } from "../utils/formatters";
 import type { ProjectFilePackageWeb } from "../types/project.types";
@@ -64,7 +64,7 @@ export default function UploadFilesModal({
   const [files, setFiles] = useState<FileWithDisplayName[]>([]);
   const [uploading, setUploading] = useState(false);
   const [packageNameError, setPackageNameError] = useState("");
-  const { showSuccess, showError, showWarning } = useToastNotification();
+  const { showSuccess, showError } = useToastNotification();
 
   useEffect(() => {
     if (isOpen && mode === "existing") {
@@ -89,7 +89,7 @@ export default function UploadFilesModal({
   };
 
   const validateFile = (file: File): string | null => {
-    if (!FILE_UPLOAD.ALLOWED_TYPES.includes(file.type)) {
+    if (!FILE_UPLOAD.ALLOWED_TYPES.includes(file.type as any)) {
       return `Plik ${file.name} ma niedozwolony format. Dozwolone: ${FILE_UPLOAD.ALLOWED_TYPES_DISPLAY}`;
     }
     if (file.size > FILE_UPLOAD.MAX_FILE_SIZE) {

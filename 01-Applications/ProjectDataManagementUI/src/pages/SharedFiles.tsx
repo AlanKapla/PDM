@@ -209,6 +209,7 @@ export default function SharedFiles() {
       totalVersions: file.totalVersions,
       isOwner: false,
       isShared: true,
+      sharedWithUserIds: [],
     };
     setFileForNewVersion(projectFile);
     onUploadVersionModalOpen();

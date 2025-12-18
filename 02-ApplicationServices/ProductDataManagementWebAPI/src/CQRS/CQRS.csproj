@@ -32,6 +32,7 @@
     <Folder Include="Messages\GetProjectMessages\" />
     <Folder Include="Notifications\GetUserNotifications\" />
     <Folder Include="Test\TestBlobConnection\" />
+    <Folder Include="Validators\Base\" />
   </ItemGroup>
 
 </Project>
