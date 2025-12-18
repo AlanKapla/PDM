@@ -1,24 +1,38 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <EmbeddedResource Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <None Remove="ProjectCosts\GetProjectCostDetails\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.0.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.72.0" />
     <PackageReference Include="MediatR" Version="13.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.8" />
-    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="8.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Business\Business.csproj" />
     <ProjectReference Include="..\Entities\Entities.csproj" />
     <ProjectReference Include="..\Repositiories\Repositiories.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Files\ShareProjectFile\" />
+    <Folder Include="Messages\GetProjectMessages\" />
+    <Folder Include="Notifications\GetUserNotifications\" />
+    <Folder Include="Test\TestBlobConnection\" />
+    <Folder Include="Validators\Base\" />
   </ItemGroup>
 
 </Project>

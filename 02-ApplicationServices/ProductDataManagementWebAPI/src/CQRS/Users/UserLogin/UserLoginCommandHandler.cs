@@ -13,17 +13,20 @@ namespace CQRS.Users.UserLogin
     {
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<UserSession> userSessionRepo;
+        private readonly IReadRepository<TenantPreferencesProfile> tenantPrefsRepo;
         private readonly IJwtService jwt;
         private readonly IPasswordHasher passwordHasher;
 
         public UserLoginCommandHandler(
             IReadRepository<User> userRepo,
             IReadRepository<UserSession> userSessionRepo,
+            IReadRepository<TenantPreferencesProfile> tenantPrefsRepo,
             IJwtService jwt,
             IPasswordHasher passwordHasher)
         {
             this.userRepo = userRepo;
             this.userSessionRepo = userSessionRepo;
+            this.tenantPrefsRepo = tenantPrefsRepo;
             this.jwt = jwt;
             this.passwordHasher = passwordHasher;
         }
@@ -44,9 +47,22 @@ namespace CQRS.Users.UserLogin
         {
             User? user = await userRepo.GetFirstBySearch(x => x.Email == request.Email);
 
-            if (string.IsNullOrEmpty(user?.PasswordHash))
+            // Sprawdzenie czy użytkownik istnieje
+            if (user == null)
             {
-                throw new UnauthorizedApiExeption();
+                throw new UnauthorizedApiException();
+            }
+
+            // HYBRID AUTH: Sprawdzenie czy użytkownik ma ustawione hasło (niezależnie od AuthProvider)
+            if (string.IsNullOrEmpty(user.PasswordHash))
+            {
+                throw new ApiException(ApiExceptionReason.InvalidOperation, 
+                    "Password not set for this account. Please set password or use Google login.");
+            }
+
+            if (!user.IsActive)
+            {
+                throw new ApiException(ApiExceptionReason.InvalidOperation, "Account is not activated. Please check your email for the activation link.");
             }
 
             bool verifyResult = passwordHasher.Verify(request.Password, user.PasswordHash);
@@ -54,11 +70,10 @@ namespace CQRS.Users.UserLogin
             if (verifyResult)
             {
                 UserSession userSession = await CreateUserSession(user);
-
-                return PrepareUserLoginWeb(user, userSession);
+                return await PrepareUserLoginWeb(user, userSession);
             }
 
-            throw new UnauthorizedApiExeption();
+            throw new UnauthorizedApiException();
         }
 
         private async Task<UserAuthWeb> GoogleLogin(UserLoginCommand request)
@@ -67,26 +82,50 @@ namespace CQRS.Users.UserLogin
 
             if (!payload.EmailVerified)
             {
-                throw new UnauthorizedApiExeption();
+                throw new UnauthorizedApiException();
             }
 
-            User? user = await userRepo.GetFirstBySearch(x => x.Email == payload.Email);
+            // HYBRID AUTH: Sprawdź czy użytkownik istnieje z tym Google ID
+            User? googleUser = await userRepo.GetFirstBySearch(x => x.ExternalId == payload.Subject);
 
-            if (user != null)
+            if (googleUser != null)
             {
-                UserSession userSession = await CreateUserSession(user);
+                if (!googleUser.IsActive)
+                {
+                    throw new ApiException(ApiExceptionReason.InvalidOperation, "Account is not activated. Please check your email for the activation link.");
+                }
 
-                return PrepareUserLoginWeb(user, userSession);
+                UserSession userSession = await CreateUserSession(googleUser);
+                return await PrepareUserLoginWeb(googleUser, userSession);
             }
 
-            throw new UnauthorizedApiExeption();
-        }
+            // HYBRID AUTH: Sprawdź czy istnieje użytkownik z tym emailem (niezależnie od AuthProvider)
+            User? existingUser = await userRepo.GetFirstBySearch(x => x.Email == payload.Email);
 
-        private UserAuthWeb PrepareUserLoginWeb(User user, UserSession userSession)
-        {
-            TokenDto token = jwt.GenerateToken(user, user.ActiveTenantId);
+            if (existingUser != null)
+            {
+                // Połącz konto Google z istniejącym użytkownikiem
+                existingUser.ExternalId = payload.Subject;
+                
+                // Aktualizuj AuthProvider tylko jeśli to pierwszy external provider
+                if (existingUser.AuthProvider == AuthProvider.Local && string.IsNullOrEmpty(existingUser.ExternalId))
+                {
+                    existingUser.AuthProvider = AuthProvider.Google;
+                }
 
-            return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
+                await userRepo.Update(existingUser);
+
+                if (!existingUser.IsActive)
+                {
+                    throw new ApiException(ApiExceptionReason.InvalidOperation, "Account is not activated. Please check your email for the activation link.");
+                }
+
+                UserSession userSession = await CreateUserSession(existingUser);
+                return await PrepareUserLoginWeb(existingUser, userSession);
+            }
+
+            // Jeśli użytkownik nie istnieje, zwróć błąd z informacją o konieczności rejestracji
+            throw new ApiException(ApiExceptionReason.InvalidOperation, "User not found. Please register first using Google sign-up.");
         }
 
         private async Task<UserSession> CreateUserSession(User user)
@@ -103,6 +142,17 @@ namespace CQRS.Users.UserLogin
 
             await userSessionRepo.Insert(userSession);
             return userSession;
+        }
+
+        private async Task<UserAuthWeb> PrepareUserLoginWeb(User user, UserSession userSession)
+        {
+            // Pobierz ActiveTenantId z profilu użytkownika
+            TenantPreferencesProfile? prefs = await tenantPrefsRepo.GetFirstBySearch(p => p.UserId == user.Id);
+            Guid? activeTenantId = prefs?.ActiveTenantId;
+
+            TokenDto token = jwt.GenerateToken(user, activeTenantId);
+
+            return new UserAuthWeb(token.Token, token.ExpiredAt, userSession.RefreshToken, userSession.ExpiresAt);
         }
     }
 }

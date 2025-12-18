@@ -1,7 +1,5 @@
-﻿using Business.Implementation.Model;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Enums;
 using Entities.Models;
@@ -15,18 +13,18 @@ namespace CQRS.Tenants.CreateTenant
     {
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly IReadRepository<User> userRepo;
+        private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
         private readonly ICurrentUser currentUser;
 
         public CreateTenantCommandHandler(
             IReadRepository<Tenant> tenantRepo,
             IRepository<TenantMember> tenantMemberRepo,
-            IReadRepository<User> userRepo,
+            IRepository<TenantPreferencesProfile> tenantPrefsRepo,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.tenantMemberRepo = tenantMemberRepo;
-            this.userRepo = userRepo;
+            this.tenantPrefsRepo = tenantPrefsRepo;
             this.currentUser = currentUser;
         }
 
@@ -48,17 +46,31 @@ namespace CQRS.Tenants.CreateTenant
 
             await tenantMemberRepo.Insert(ownerMember);
 
-            User existingUser = await userRepo.GetById(currentUser.Id) ?? throw new NotFoundApiException(nameof(User), currentUser.Id.ToString());
+            // Ustaw aktywny tenant w profilu użytkownika
+            TenantPreferencesProfile? profile = await tenantPrefsRepo.GetFirstBySearch(p => p.UserId == currentUser.Id);
             
-            existingUser.ActiveTenantId = tenant.Id;
-
-            await userRepo.Update(existingUser);
+            if (profile == null)
+            {
+                profile = new TenantPreferencesProfile
+                {
+                    UserId = currentUser.Id,
+                    ActiveTenantId = tenant.Id
+                };
+                await tenantPrefsRepo.Insert(profile);
+            }
+            else
+            {
+                profile.ActiveTenantId = tenant.Id;
+                await tenantPrefsRepo.Update(profile);
+            }
 
             return new TenantDetailsWeb
             {
                 Id = tenant.Id,
                 Name = tenant.Name,
-                CreatedAt = tenant.CreatedAt
+                CreatedAt = tenant.CreatedAt,
+                IsActive = tenant.IsActive,
+                Role = TenantRole.Admin
             };
         }
     }

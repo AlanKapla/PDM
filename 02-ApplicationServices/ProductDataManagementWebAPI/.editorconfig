@@ -1,0 +1,29 @@
+﻿root = true
+
+# Wszystkie pliki
+[*]
+charset = utf-8-bom
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# Pliki C#
+[*.cs]
+charset = utf-8-bom
+indent_size = 4
+
+# Pliki JSON
+[*.json]
+charset = utf-8
+indent_size = 2
+
+# Pliki XML i csproj
+[*.{xml,csproj,props,targets}]
+charset = utf-8
+indent_size = 2
+
+# Pliki konfiguracyjne
+[*.{yml,yaml}]
+charset = utf-8
+indent_size = 2

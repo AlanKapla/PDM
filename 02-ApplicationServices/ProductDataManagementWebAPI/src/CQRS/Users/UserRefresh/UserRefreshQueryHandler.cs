@@ -12,11 +12,16 @@ namespace CQRS.Users.UserRefresh
     {
         private readonly IJwtService jwtService;
         private readonly IReadRepository<UserSession> userSessionRepo;
+        private readonly IReadRepository<TenantPreferencesProfile> tenantPrefsRepo;
 
-        public UserRefreshQueryHandler(IJwtService jwtService, IReadRepository<UserSession> userSessionRepo)
+        public UserRefreshQueryHandler(
+            IJwtService jwtService, 
+            IReadRepository<UserSession> userSessionRepo,
+            IReadRepository<TenantPreferencesProfile> tenantPrefsRepo)
         {
             this.jwtService = jwtService;
             this.userSessionRepo = userSessionRepo;
+            this.tenantPrefsRepo = tenantPrefsRepo;
         }
 
         public async Task<UserAuthWeb> Handle(UserRefreshQuery request, CancellationToken cancellationToken)
@@ -25,16 +30,20 @@ namespace CQRS.Users.UserRefresh
                 s => s.RefreshToken == request.RefreshToken && s.ExpiresAt > DateTime.UtcNow && !s.IsRevoked,
                 cancellationToken,
                 q => q.Include(s => s.User)
-            ) ?? throw new UnauthorizedApiExeption();
+            ) ?? throw new UnauthorizedApiException();
 
-            User user = session.User ?? throw new UnauthorizedApiExeption();
+            User user = session.User ?? throw new UnauthorizedApiException();
 
             if (!user.IsActive)
             {
-                throw new UnauthorizedApiExeption();
+                throw new UnauthorizedApiException();
             }
 
-            TokenDto token = jwtService.GenerateToken(user, user.ActiveTenantId);
+            // Pobierz ActiveTenantId z profilu użytkownika
+            TenantPreferencesProfile? prefs = await tenantPrefsRepo.GetFirstBySearch(p => p.UserId == user.Id);
+            Guid? activeTenantId = prefs?.ActiveTenantId;
+
+            TokenDto token = jwtService.GenerateToken(user, activeTenantId);
 
             return new UserAuthWeb(token.Token, token.ExpiredAt, session.RefreshToken, session.ExpiresAt);
         }

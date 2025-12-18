@@ -22,15 +22,32 @@ public class Repository<T> : IRepository<T> where T : class
         await _dbSet.AddAsync(entity);
     }
 
+    public async Task InsertRange(IEnumerable<T> entities)
+    {
+        await _dbSet.AddRangeAsync(entities);
+    }
+
     public Task Update(T entity)
     {
         _context.Update(entity);
         return Task.CompletedTask;
     }
 
+    public Task UpdateRange(IEnumerable<T> entities)
+    {
+        _context.UpdateRange(entities);
+        return Task.CompletedTask;
+    }
+
     public Task Delete(T entity)
     {
         _context.Remove(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteRange(IEnumerable<T> entities)
+    {
+        _context.RemoveRange(entities);
         return Task.CompletedTask;
     }
 
@@ -47,5 +64,10 @@ public class Repository<T> : IRepository<T> where T : class
     public async Task<IEnumerable<T>> GetAll(params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes)
     {
         return await _dbSet.IncludeMultiple(includes).ToListAsync();
+    }
+
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.SaveChangesAsync(cancellationToken);
     }
 }

@@ -15,11 +15,7 @@ namespace CQRS.Users.UserDetails
 
         public Task<UserDetailsWeb> Handle(UserDetailsQuery request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(new UserDetailsWeb
-            {
-                Email = currentUser.Email,
-                LastTenantId = currentUser.ActiveTenantId,
-            });
+            return Task.FromResult(new UserDetailsWeb(currentUser.Id, currentUser.FirstName, currentUser.LastName, currentUser.Email, currentUser.ActiveTenantId));
         }
     }
 }

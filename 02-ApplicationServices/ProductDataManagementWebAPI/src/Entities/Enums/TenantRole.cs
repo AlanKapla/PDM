@@ -3,7 +3,6 @@
     public enum TenantRole
     {
         Admin = 0,
-        Member = 1,
-        Guest = 2
+        Member = 1
     }
 }

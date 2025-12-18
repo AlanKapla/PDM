@@ -1,0 +1,153 @@
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Box,
+  Heading,
+  VStack,
+  HStack,
+  Text,
+  Icon,
+  Button,
+  useColorModeValue,
+  useDisclosure,
+} from "@chakra-ui/react";
+import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
+import MainLayout from "../layout/MainLayout";
+import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
+import { useAuth } from "../hooks/useAuth";
+import { LoadingSpinner, EmptyState } from "../components/common";
+import { useToastNotification } from "../hooks/useToastNotification";
+import { formatDate } from "../utils/formatters";
+import { projectApi } from "../api/projectApi";
+import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
+
+export default function ProjectSchedules() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showError } = useToastNotification();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const [loading, setLoading] = useState(true);
+  const [workSchedules, setWorkSchedules] = useState<WorkScheduleSummaryWeb[]>([]);
+  const [project, setProject] = useState<any | null>(null);
+
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.700");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
+
+  useEffect(() => {
+    fetchData();
+  }, [projectId]);
+
+  const fetchData = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    setLoading(true);
+    try {
+      const [projectRes, schedulesRes] = await Promise.all([
+        projectApi.getProjectDetails(user.activeTenantId, projectId),
+        projectApi.getMyWorkSchedules(user.activeTenantId, projectId),
+      ]);
+
+      if (projectRes.ok) setProject(await projectRes.json());
+      if (schedulesRes.ok) setWorkSchedules(await schedulesRes.json());
+    } catch (error) {
+      showError("Nie udało się pobrać danych");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <Box p={{ base: 4, md: 10 }} minH="100vh">
+          <LoadingSpinner message="Ładowanie harmonogramów..." />
+        </Box>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <Box p={{ base: 4, md: 10 }} minH="100vh">
+        <Button
+          leftIcon={<ArrowLeft size={18} />}
+          variant="ghost"
+          mb={6}
+          onClick={() => navigate(`/projects/${projectId}`)}
+        >
+          Wróć do projektu
+        </Button>
+
+        <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
+          <HStack spacing={3}>
+            <Icon as={Calendar} boxSize={8} color="purple.600" />
+            <VStack align="flex-start" spacing={0}>
+              <Heading size="lg">Harmonogramy prac</Heading>
+              {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
+            </VStack>
+          </HStack>
+          <Button
+            leftIcon={<Calendar size={18} />}
+            colorScheme="purple"
+            onClick={onOpen}
+          >
+            Utwórz harmonogram
+          </Button>
+        </HStack>
+
+        {workSchedules.length === 0 ? (
+          <EmptyState
+            icon={Calendar}
+            title="Brak harmonogramów"
+            description="Utwórz pierwszy harmonogram prac dla tego projektu"
+          />
+        ) : (
+          <VStack spacing={4} align="stretch">
+            {workSchedules.map((schedule) => (
+              <Box
+                key={schedule.id}
+                bg={cardBg}
+                p={6}
+                borderWidth="1px"
+                borderColor={borderColor}
+                rounded="lg"
+                _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                transition="all 0.2s"
+                cursor="pointer"
+                onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
+                shadow="sm"
+              >
+                <VStack align="flex-start" spacing={3}>
+                  <Text fontWeight="bold" fontSize="xl">{schedule.name}</Text>
+                  <HStack spacing={6} fontSize="sm" color="gray.600">
+                    <HStack spacing={2}>
+                      <Icon as={User} boxSize={4} />
+                      <Text>{schedule.createdByUserName}</Text>
+                    </HStack>
+                    <HStack spacing={2}>
+                      <Icon as={Clock} boxSize={4} />
+                      <Text>{formatDate(schedule.createdAt)}</Text>
+                    </HStack>
+                  </HStack>
+                </VStack>
+              </Box>
+            ))}
+          </VStack>
+        )}
+
+        <CreateWorkScheduleModal
+          isOpen={isOpen}
+          onClose={onClose}
+          projectId={projectId || ""}
+          tenantId={user?.activeTenantId || ""}
+          projectName={project?.name || ""}
+          members={[]}
+          onScheduleCreated={fetchData}
+        />
+      </Box>
+    </MainLayout>
+  );
+}

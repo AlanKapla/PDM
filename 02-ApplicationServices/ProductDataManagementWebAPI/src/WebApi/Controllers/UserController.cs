@@ -1,11 +1,17 @@
 ﻿using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Users;
+using CQRS.Users.UserActivate;
+using CQRS.Users.UserAuthStatus;
 using CQRS.Users.UserDetails;
+using CQRS.Users.UserGoogleRegister;
+using CQRS.Users.UserLinkGoogle;
 using CQRS.Users.UserLogin;
 using CQRS.Users.UserLogout;
 using CQRS.Users.UserRefresh;
 using CQRS.Users.UserRegister;
 using CQRS.Users.UserResetPassword;
+using CQRS.Users.UserPasswordResetRequest;
+using CQRS.Users.UserUpdate;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +33,17 @@ public class UserController : BaseApiController
     public async Task<IActionResult> Register([FromBody] UserRegisterCommand request)
     {
         return Ok(await Send(request));
+    }
+
+    [HttpPost("register/google")]
+    public async Task<IActionResult> RegisterGoogle([FromBody] UserGoogleRegisterCommand request)
+    {
+        UserAuthWeb userAuthWeb = await Send(request);
+
+        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
+        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
+
+        return Ok(userAuthWeb);
     }
 
     [HttpPost("login")]
@@ -72,11 +89,50 @@ public class UserController : BaseApiController
         return Ok(await Send(request));
     }
 
+    [HttpPost("reset-password-request")]
+    public async Task<IActionResult> PasswordResetRequest([FromBody] UserPasswordResetRequestCommand request)
+    {
+        return Ok(await Send(request));
+    }
+
+    [HttpPost("activate-account")]
+    public async Task<IActionResult> ActivateAccount([FromBody] UserActivateCommand request)
+    {
+        return Ok(await Send(request));
+    }
+
+    [Authorize]
+    [HttpPut("me")]
+    public async Task<IActionResult> UpdateMe([FromBody] UserUpdateCommand request)
+    {
+        return Ok(await Send(request));
+    }
+
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> GetUserDetails()
     {
         UserDetailsQuery request = new();
+        return Ok(await Send(request));
+    }
+
+    [Authorize]
+    [HttpPost("link-google")]
+    public async Task<IActionResult> LinkGoogle([FromBody] UserLinkGoogleCommand request)
+    {
+        UserAuthWeb userAuthWeb = await Send(request);
+
+        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
+        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
+
+        return Ok(new { message = "Google account linked successfully" });
+    }
+
+    [Authorize]
+    [HttpGet("auth-status")]
+    public async Task<IActionResult> GetAuthStatus()
+    {
+        UserAuthStatusQuery request = new();
         return Ok(await Send(request));
     }
 }

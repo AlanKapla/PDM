@@ -1,7 +1,6 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using FluentValidation;
 using MediatR;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CQRS.Behaviours
 {
@@ -17,7 +16,6 @@ namespace CQRS.Behaviours
             if (!_validators.Any())
             {
                 return await next(ct);
-
             }
 
             var context = new ValidationContext<TRequest>(request);

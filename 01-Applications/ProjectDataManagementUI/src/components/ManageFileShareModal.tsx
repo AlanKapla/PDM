@@ -1,0 +1,162 @@
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Button,
+  VStack,
+  Checkbox,
+  useToast,
+  Text,
+  Box,
+} from "@chakra-ui/react";
+import { useState, useEffect } from "react";
+import type { ProjectMemberWeb } from "../types/project.types";
+import { projectApi } from "../api/projectApi";
+import { handleApiError } from "../utils/handleApiError";
+
+interface ManageFileShareModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  tenantId: string;
+  projectId: string;
+  fileId: string;
+  fileName: string;
+  sharedWithUserIds: string[];
+  members: ProjectMemberWeb[];
+  currentUserId: string;
+  onShareUpdated: () => void;
+}
+
+export const ManageFileShareModal = ({
+  isOpen,
+  onClose,
+  tenantId,
+  projectId,
+  fileId,
+  fileName,
+  sharedWithUserIds,
+  members,
+  currentUserId,
+  onShareUpdated,
+}: ManageFileShareModalProps) => {
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedUserIds(new Set(sharedWithUserIds));
+    }
+  }, [isOpen, sharedWithUserIds]);
+
+  const toggleUser = (userId: string) => {
+    const newSelection = new Set(selectedUserIds);
+    if (newSelection.has(userId)) {
+      newSelection.delete(userId);
+    } else {
+      newSelection.add(userId);
+    }
+    setSelectedUserIds(newSelection);
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      const userIds = Array.from(selectedUserIds);
+      const response = await projectApi.updateFileShare(tenantId, projectId, fileId, userIds);
+
+      if (response.ok) {
+        toast({
+          title: "Sukces",
+          description: "Zaktualizowano udostępnienie pliku",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+        onShareUpdated();
+        onClose();
+      } else {
+        const { title, description } = await handleApiError(response);
+        toast({
+          title,
+          description,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji udostępnienia:", error);
+      toast({
+        title: "Błąd",
+        description: "Wystąpił błąd podczas aktualizacji udostępnienia",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filtruj członków - usuń właściciela i obecnego użytkownika
+  const availableMembers = members.filter(
+    (member) => member.userId !== currentUserId
+  );
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="md">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Zarządzaj udostępnieniem</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <VStack align="stretch" spacing={4}>
+            <Box>
+              <Text fontWeight="bold" mb={2}>
+                Plik: {fileName}
+              </Text>
+              <Text fontSize="sm" color="gray.600">
+                Wybierz członków projektu, którym chcesz udostępnić ten plik
+              </Text>
+            </Box>
+
+            {availableMembers.length === 0 ? (
+              <Text color="gray.500">Brak członków projektu do udostępnienia</Text>
+            ) : (
+              <VStack align="stretch" spacing={2} maxH="300px" overflowY="auto">
+                {availableMembers.map((member) => (
+                  <Checkbox
+                    key={member.userId}
+                    isChecked={selectedUserIds.has(member.userId)}
+                    onChange={() => toggleUser(member.userId)}
+                  >
+                    {member.firstName} {member.lastName} ({member.email})
+                  </Checkbox>
+                ))}
+              </VStack>
+            )}
+          </VStack>
+        </ModalBody>
+
+        <ModalFooter>
+          <Button variant="ghost" mr={3} onClick={onClose} isDisabled={loading}>
+            Anuluj
+          </Button>
+          <Button
+            colorScheme="blue"
+            onClick={handleSave}
+            isLoading={loading}
+            isDisabled={availableMembers.length === 0}
+          >
+            Zapisz
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+};

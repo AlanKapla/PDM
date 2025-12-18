@@ -39,7 +39,7 @@ namespace Entities.Configurations
 
             builder.HasOne(pm => pm.TenantMember)
                    .WithMany(u => u.ProjectMembers)
-                   .HasForeignKey(a => new { a.ProjectId, a.UserId})
+                   .HasForeignKey(a => new { a.TenantId, a.UserId})
                    .OnDelete(DeleteBehavior.Restrict);
         }
     }

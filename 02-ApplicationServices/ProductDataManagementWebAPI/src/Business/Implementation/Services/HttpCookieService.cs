@@ -26,7 +26,7 @@ namespace Business.Implementation.Services
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = SameSiteMode.None,
                 Expires = expiresAt,
             });
         }
@@ -42,7 +42,7 @@ namespace Business.Implementation.Services
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = SameSiteMode.None,
                 Expires = expiresAt,
             });
         }
