@@ -40,13 +40,16 @@ jobs:
 
       - name: Build WebAPI
         working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/WebApi
-        run: dotnet build --configuration Release --no-restore --runtime win-x64
+        run: dotnet build --configuration Release --no-restore
 
       - name: Publish WebAPI
         working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/WebApi
         run: |
-          dotnet publish --configuration Release --no-build --output ${{ github.workspace }}/api-publish --runtime win-x64 --self-contained true
-          ls -R ${{ github.workspace }}/api-publish
+          dotnet publish --configuration Release --no-build --output ${{ github.workspace }}/api-publish
+          echo "=== Published files ==="
+          ls -la ${{ github.workspace }}/api-publish
+          echo "=== Checking for DLL ==="
+          ls -la ${{ github.workspace }}/api-publish/*.dll || echo "No DLL files found"
 
       - name: Azure Login
         uses: azure/login@v2
