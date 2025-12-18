@@ -67,8 +67,8 @@ jobs:
       - name: Wait for App Service to restart
         shell: pwsh
         run: |
-          Write-Host "⏳ Waiting 120 seconds for App Service to restart and initialize..."
-          Start-Sleep -Seconds 120
+          Write-Host "⏳ Waiting 30 seconds for App Service to restart and initialize..."
+          Start-Sleep -Seconds 30
 
       - name: Health check API
         shell: pwsh
