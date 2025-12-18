@@ -7,6 +7,7 @@
     <UserSecretsId>2b9d4450-0ee6-4345-a492-a896d021dae7</UserSecretsId>
     <DockerDefaultTargetOS>Windows</DockerDefaultTargetOS>
     <IsTransformWebConfigDisabled>false</IsTransformWebConfigDisabled>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>

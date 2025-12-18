@@ -36,7 +36,7 @@ jobs:
 
       - name: Restore dependencies
         working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/WebApi
-        run: dotnet restore
+        run: dotnet restore --runtime win-x64
 
       - name: Build WebAPI
         working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/WebApi
