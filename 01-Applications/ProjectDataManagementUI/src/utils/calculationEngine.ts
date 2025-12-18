@@ -360,7 +360,7 @@ export function recalculateEstimate(
             const updatedValues = { ...preparedWs.calculatedFieldValues };
             const lockedFields = preparedWs.lockedFields ? [...preparedWs.lockedFields] : [];
             
-            nestedCalcFields.forEach(nestedField => {
+            nestedCalcFields.forEach((nestedField: CalculatedFieldDefinition) => {
               const nestedValue = selectedItem.calculatedFieldValues?.[nestedField.name];
               const mainField = calculatedFields.find(f => f.type === nestedField.type);
               
