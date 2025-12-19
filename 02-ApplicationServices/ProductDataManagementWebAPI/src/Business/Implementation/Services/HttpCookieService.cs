@@ -28,8 +28,6 @@ namespace Business.Implementation.Services
                 Secure = true,
                 SameSite = SameSiteMode.None,
                 Expires = expiresAt,
-                Path = "/",
-                IsEssential = true
             });
         }
 
@@ -46,8 +44,6 @@ namespace Business.Implementation.Services
                 Secure = true,
                 SameSite = SameSiteMode.None,
                 Expires = expiresAt,
-                Path = "/",
-                IsEssential = true
             });
         }
 
@@ -60,9 +56,7 @@ namespace Business.Implementation.Services
                     Expires = DateTime.UtcNow.AddDays(-1),
                     HttpOnly = true,
                     Secure = true,
-                    SameSite = SameSiteMode.None,
-                    Path = "/",
-                    IsEssential = true
+                    SameSite = SameSiteMode.Strict
                 });
 
             contextAccessor.HttpContext?.Response.Cookies.Append(
@@ -72,9 +66,7 @@ namespace Business.Implementation.Services
                     Expires = DateTime.UtcNow.AddDays(-1),
                     HttpOnly = true,
                     Secure = true,
-                    SameSite = SameSiteMode.None,
-                    Path = "/",
-                    IsEssential = true
+                    SameSite = SameSiteMode.Strict
                 });
         }
     }

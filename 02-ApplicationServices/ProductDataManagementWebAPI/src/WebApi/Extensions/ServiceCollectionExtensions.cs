@@ -61,13 +61,6 @@ namespace WebApi.Extensions
                 options.MultipartHeadersLengthLimit = 52428800;
             });
 
-            // Konfiguracja Cookie Policy dla lepszego wsparcia incognito mode
-            services.Configure<CookiePolicyOptions>(options =>
-            {
-                options.MinimumSameSitePolicy = SameSiteMode.None;
-                options.Secure = CookieSecurePolicy.Always;
-            });
-
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
             services.AddHealthChecks();
@@ -164,7 +157,7 @@ namespace WebApi.Extensions
             })
             .AddJwtBearer(options =>
             {
-                options.RequireHttpsMetadata = true;
+                options.RequireHttpsMetadata = false;
                 options.SaveToken = true;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
