@@ -5,6 +5,7 @@ import type {
   PasswordResetRequest,
   ResetPasswordRequest
 } from "../types/auth.types";
+import { axiosClient } from "./axiosClient";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 const API_URL = `${API_BASE}/api/User`;
@@ -75,10 +76,7 @@ export const authApi = {
 
   /** @deprecated Use AuthContext.user instead */
   getProfile: async () => {
-    return fetchWithAuth(`${API_URL}/me`, {
-      method: "GET",
-      credentials: "include",
-    });
+    return axiosClient.get("/user/me");
   },
 
   /** 

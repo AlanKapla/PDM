@@ -160,17 +160,15 @@ export default function UploadFilesModal({
         comment: f.comment.trim() || undefined,
       }));
 
-      let response: Response;
-      
       if (mode === "new") {
-        response = await projectApi.createPackageAndUploadFiles(
+        await projectApi.createPackageAndUploadFiles(
           tenantId,
           projectId,
           packageName.trim(),
           filesToUpload
         );
       } else {
-        response = await projectApi.addFilesToPackage(
+        await projectApi.addFilesToPackage(
           tenantId,
           projectId,
           selectedPackageId,
