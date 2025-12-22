@@ -1,5 +1,5 @@
 import { Box, Button, Container, Heading, HStack, Text, VStack, useColorModeValue } from "@chakra-ui/react";
-import { LogIn, UserPlus, Building2 } from "lucide-react";
+import { LogIn, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Home() {
@@ -56,35 +56,24 @@ export default function Home() {
           >
             <VStack spacing={6}>
               <Text fontSize="lg" color={textColor} textAlign="center" fontWeight="medium">
-                Zaloguj się lub utwórz nowe konto, aby rozpocząć
+                Zaloguj się lub utwórz nowe konto za pomocą Microsoft
               </Text>
 
-              <VStack spacing={3} w="100%">
-                <Button
-                  leftIcon={<LogIn size={20} />}
-                  colorScheme="blue"
-                  size="lg"
-                  w="100%"
-                  onClick={() => navigate("/login")}
-                  fontSize="md"
-                  fontWeight="semibold"
-                >
-                  Zaloguj się
-                </Button>
-
-                <Button
-                  leftIcon={<UserPlus size={20} />}
-                  variant="outline"
-                  colorScheme="blue"
-                  size="lg"
-                  w="100%"
-                  onClick={() => navigate("/register")}
-                  fontSize="md"
-                  fontWeight="semibold"
-                >
-                  Zarejestruj się
-                </Button>
-              </VStack>
+              <Button
+                leftIcon={<LogIn size={20} />}
+                colorScheme="blue"
+                size="lg"
+                w="100%"
+                onClick={() => navigate("/login")}
+                fontSize="md"
+                fontWeight="semibold"
+              >
+                Zaloguj się / Zarejestruj się
+              </Button>
+              
+              <Text fontSize="xs" color="gray.500" textAlign="center">
+                Używamy Microsoft Entra External ID do bezpiecznego logowania
+              </Text>
             </VStack>
           </Box>
 

@@ -1,7 +1,6 @@
 ﻿import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "../pages/Home";
 import Login from "../pages/Login";
-import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -48,14 +47,8 @@ export default function AppRouter() {
         }
       />
 
-      <Route
-        path="/register"
-        element={
-          <PublicRoute>
-            <Register />
-          </PublicRoute>
-        }
-      />
+      {/* /register redirects to /login - MSAL handles both flows */}
+      <Route path="/register" element={<Navigate to="/login" replace />} />
 
       <Route
         path="/forgot-password"

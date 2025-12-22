@@ -121,25 +121,8 @@ export default function Login() {
 
             <VStack spacing={4} pt={4}>
               <Text fontSize="sm" color="gray.600" textAlign="center">
-                Używamy Azure AD B2C do bezpiecznej autentykacji.
-                <br />
-                Możesz zalogować się przez:
+                Używamy Microsoft Entra External ID do bezpiecznej autentykacji
               </Text>
-
-              <VStack spacing={2} w="full">
-                <Text fontSize="sm" fontWeight="medium" color="blue.600">
-                  ✓ Konto Email
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="blue.600">
-                  ✓ Google
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="blue.600">
-                  ✓ Facebook
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="blue.600">
-                  ✓ Apple (jeśli skonfigurowane)
-                </Text>
-              </VStack>
 
               <Button
                 colorScheme="blue"
@@ -152,11 +135,11 @@ export default function Login() {
                 _hover={{ transform: "translateY(-2px)", shadow: "lg" }}
                 transition="all 0.2s"
               >
-                Zaloguj się
+                Zaloguj się / Zarejestruj się
               </Button>
 
               <Text fontSize="xs" color="gray.500" textAlign="center" pt={4}>
-                Po kliknięciu zostaniesz przekierowany do bezpiecznej strony logowania Azure AD B2C.
+                Po kliknięciu zostaniesz przekierowany do bezpiecznej strony logowania Microsoft.
                 Jeśli nie masz konta, możesz je utworzyć podczas procesu logowania.
               </Text>
             </VStack>
@@ -164,7 +147,7 @@ export default function Login() {
         </Box>
 
         <Text fontSize="xs" color="gray.500" textAlign="center" mt={4}>
-          Logowanie jest zabezpieczone przez Microsoft Azure AD B2C
+          Logowanie jest zabezpieczone przez Microsoft Entra External ID
         </Text>
       </Container>
     </Flex>
