@@ -1,7 +1,7 @@
-namespace Business.Interfaces.Constants;
+﻿namespace Business.Interfaces.Constants;
 
 public static class ClaimNames
 {
-    public const string ActiveTenantId = nameof(ActiveTenantId);
-    public const string ActiveTenantRole = nameof(ActiveTenantRole);
+    public const string Oid = "http://schemas.microsoft.com/identity/claims/objectidentifier";
+    public const string PreferredUsername = "preferred_username";
 }

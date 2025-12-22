@@ -8,8 +8,35 @@
 
   <ItemGroup>
     <Compile Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <Compile Remove="Users\UserActivate\**" />
+    <Compile Remove="Users\UserGoogleRegister\**" />
+    <Compile Remove="Users\UserLinkGoogle\**" />
+    <Compile Remove="Users\UserLogin\**" />
+    <Compile Remove="Users\UserLogout\**" />
+    <Compile Remove="Users\UserPasswordResetRequest\**" />
+    <Compile Remove="Users\UserRefresh\**" />
+    <Compile Remove="Users\UserRegister\**" />
+    <Compile Remove="Users\UserResetPassword\**" />
     <EmbeddedResource Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <EmbeddedResource Remove="Users\UserActivate\**" />
+    <EmbeddedResource Remove="Users\UserGoogleRegister\**" />
+    <EmbeddedResource Remove="Users\UserLinkGoogle\**" />
+    <EmbeddedResource Remove="Users\UserLogin\**" />
+    <EmbeddedResource Remove="Users\UserLogout\**" />
+    <EmbeddedResource Remove="Users\UserPasswordResetRequest\**" />
+    <EmbeddedResource Remove="Users\UserRefresh\**" />
+    <EmbeddedResource Remove="Users\UserRegister\**" />
+    <EmbeddedResource Remove="Users\UserResetPassword\**" />
     <None Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <None Remove="Users\UserActivate\**" />
+    <None Remove="Users\UserGoogleRegister\**" />
+    <None Remove="Users\UserLinkGoogle\**" />
+    <None Remove="Users\UserLogin\**" />
+    <None Remove="Users\UserLogout\**" />
+    <None Remove="Users\UserPasswordResetRequest\**" />
+    <None Remove="Users\UserRefresh\**" />
+    <None Remove="Users\UserRegister\**" />
+    <None Remove="Users\UserResetPassword\**" />
   </ItemGroup>
 
   <ItemGroup>

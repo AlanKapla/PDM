@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -53,7 +53,7 @@ import { formatDate } from '../utils/formatters';
 import { CostEstimateTable } from '../components/CostEstimateTable';
 import { CostEstimateViewer } from '../components/CostEstimateViewer';
 import { CostEstimateExcelView } from '../components/CostEstimateExcelView';
-import { useAuth } from '../hooks/useAuth';
+import { AuthContext } from '../context/AuthContext';
 import { convertDataModelFromBackend, convertDataModelForBackend } from '../utils/enumMapper';
 
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
@@ -78,7 +78,7 @@ export const CostEstimateEditor: React.FC = () => {
   const { projectId, estimateId } = useParams<{ projectId: string; estimateId: string }>();
   const navigate = useNavigate();
   const toast = useToast();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

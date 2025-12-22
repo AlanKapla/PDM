@@ -1,21 +1,13 @@
-import { fetchWithAuth } from "./authApi";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { axiosClient } from "./axiosClient";
 
 export const notificationApi = {
   // Pobierz nieprzeczytane powiadomienia
-  getUnreadNotifications: async (): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/Notification/unread`, {
-      method: "GET",
-      credentials: "include",
-    });
+  getUnreadNotifications: async () => {
+    return axiosClient.get("/Notification/unread");
   },
 
   // Oznacz powiadomienie jako przeczytane
-  markAsRead: async (notificationId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/Notification/${notificationId}/mark-as-read`, {
-      method: "PUT",
-      credentials: "include",
-    });
+  markAsRead: async (notificationId: string) => {
+    return axiosClient.put(`/Notification/${notificationId}/mark-as-read`);
   },
 };

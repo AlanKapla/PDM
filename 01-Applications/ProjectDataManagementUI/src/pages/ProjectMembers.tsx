@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -23,7 +23,7 @@ import {
 import { ArrowLeft, Users, UserPlus, Trash2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
@@ -35,7 +35,7 @@ import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
 export default function ProjectMembers() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const { showSuccess, showError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
@@ -69,12 +69,9 @@ export default function ProjectMembers() {
         tenantApi.getActiveTenant(),
       ]);
 
-      if (projectRes.ok) setProject(await projectRes.json());
-      if (membersRes.ok) setMembers(await membersRes.json());
-      if (tenantRes.ok) {
-        const tenantData = await tenantRes.json();
-        setUserTenantRole(tenantData.userRole);
-      }
+      setProject(projectRes.data);
+      setMembers(membersRes.data);
+      setUserTenantRole(tenantRes.data.userRole);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -92,19 +89,15 @@ export default function ProjectMembers() {
 
     setRemovingMember(memberToRemove.userId);
     try {
-      const response = await projectApi.removeProjectMember(
+      await projectApi.removeProjectMember(
         user.activeTenantId,
         projectId,
         memberToRemove.userId
       );
 
-      if (response.ok) {
-        showSuccess(`Usunięto członka: ${memberToRemove.name}`);
-        setMembers((prev) => prev.filter((m) => m.userId !== memberToRemove.userId));
-        onRemoveModalClose();
-      } else {
-        showError("Nie udało się usunąć członka");
-      }
+      showSuccess(`Usunięto członka: ${memberToRemove.name}`);
+      setMembers((prev) => prev.filter((m) => m.userId !== memberToRemove.userId));
+      onRemoveModalClose();
     } catch (error) {
       showError("Błąd podczas usuwania członka");
     } finally {

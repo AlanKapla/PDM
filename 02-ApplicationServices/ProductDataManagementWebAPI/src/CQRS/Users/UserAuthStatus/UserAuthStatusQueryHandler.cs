@@ -1,4 +1,4 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Entities.Models;
 using MediatR;
@@ -27,10 +27,11 @@ namespace CQRS.Users.UserAuthStatus
                 throw new UnauthorizedApiException();
             }
 
+            // Azure AD B2C is the only authentication method
             return new UserAuthStatusWeb(
-                HasLocalAuth: user.HasLocalAuth,
-                HasGoogleAuth: user.HasGoogleAuth,
-                IsHybridAuth: user.IsHybridAuth
+                HasLocalAuth: false,
+                HasGoogleAuth: false,
+                IsHybridAuth: false
             );
         }
     }

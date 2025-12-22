@@ -73,16 +73,11 @@ export default function Sidebar() {
     const fetchProjects = async () => {
       try {
         const activeTenantResponse = await tenantApi.getActiveTenant();
-        if (activeTenantResponse.ok) {
-          const activeTenantData = await activeTenantResponse.json();
-          
-          if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
-            const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
-            if (projectsResponse.ok) {
-              const projectsData = await projectsResponse.json();
-              setProjects(projectsData);
-            }
-          }
+        const activeTenantData = activeTenantResponse.data;
+        
+        if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
+          const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
+          setProjects(projectsResponse.data);
         }
       } catch (error) {
         console.error("Błąd pobierania projektów w sidebar:", error);

@@ -82,46 +82,37 @@ export default function Projects() {
           tenantApi.getUserTenants(),
         ]);
 
-        if (activeTenantResponse.ok) {
-          const activeTenantData = await activeTenantResponse.json();
+        const activeTenantData = activeTenantResponse.data;
+        
+        console.log("🔍 Active tenant data:", activeTenantData);
+        console.log("🔍 activeTenantId value:", activeTenantData.activeTenantId);
+        console.log("🔍 activeTenantId type:", typeof activeTenantData.activeTenantId);
+        
+        // Jeśli jest aktywny tenant (sprawdź czy to prawdziwy string z wartością)
+        if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
+          console.log("✅ Tenant aktywny - pobieram projekty");
+          setActiveTenantId(activeTenantData.activeTenantId);
           
-          console.log("🔍 Active tenant data:", activeTenantData);
-          console.log("🔍 activeTenantId value:", activeTenantData.activeTenantId);
-          console.log("🔍 activeTenantId type:", typeof activeTenantData.activeTenantId);
+          // Znajdź rolę użytkownika w aktywnym tenancie
+          const tenants = tenantsResponse.data;
+          const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
+          if (activeTenant) {
+            setUserTenantRole(activeTenant.role);
+          }
           
-          // Jeśli jest aktywny tenant (sprawdź czy to prawdziwy string z wartością)
-          if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
-            console.log("✅ Tenant aktywny - pobieram projekty");
-            setActiveTenantId(activeTenantData.activeTenantId);
-            
-            // Znajdź rolę użytkownika w aktywnym tenancie
-            if (tenantsResponse.ok) {
-              const tenants = await tenantsResponse.json();
-              const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
-              if (activeTenant) {
-                setUserTenantRole(activeTenant.role);
-              }
-            }
-            
-            // Pobierz projekty
-            try {
-              const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
-              if (projectsResponse.ok) {
-                const projectsData = await projectsResponse.json();
-                setProjects(projectsData);
-              }
-            } catch (projectErr) {
-              console.error("Błąd pobierania projektów:", projectErr);
-              setError("Nie udało się pobrać projektów");
-            }
-          } else {
-            // Brak aktywnego tenanta
-            console.log("❌ Brak aktywnego tenanta - NIE pobieram projektów");
-            setActiveTenantId(null);
-            setUserTenantRole(null);
+          // Pobierz projekty
+          try {
+            const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
+            setProjects(projectsResponse.data);
+          } catch (projectErr) {
+            console.error("Błąd pobierania projektów:", projectErr);
+            setError("Nie udało się pobrać projektów");
           }
         } else {
-          setError("Nie udało się pobrać aktywnego tenanta");
+          // Brak aktywnego tenanta
+          console.log("❌ Brak aktywnego tenanta - NIE pobieram projektów");
+          setActiveTenantId(null);
+          setUserTenantRole(null);
         }
       } catch (err) {
         console.error("Błąd pobierania danych:", err);
@@ -155,31 +146,24 @@ export default function Projects() {
     setTogglingStatus(true);
     
     try {
-      const response = await projectApi.toggleProjectStatus(activeTenantId, projectToToggle.id, newStatus);
+      await projectApi.toggleProjectStatus(activeTenantId, projectToToggle.id, newStatus);
       
-      if (response.ok) {
-        showSuccess(
-          newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
-          newStatus 
-            ? "Projekt został pomyślnie aktywowany" 
-            : "Projekt został pomyślnie zdezaktywowany"
-        );
-        
-        toggleStatusModal.onClose();
-        setProjectToToggle(null);
-        
-        // Odśwież listę projektów
-        const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
-        if (projectsResponse.ok) {
-          const projectsData = await projectsResponse.json();
-          setProjects(projectsData);
-        }
-      } else {
-        const { title, description } = await handleApiError(response);
-        showError(title, description);
-      }
+      showSuccess(
+        newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
+        newStatus 
+          ? "Projekt został pomyślnie aktywowany" 
+          : "Projekt został pomyślnie zdezaktywowany"
+      );
+      
+      toggleStatusModal.onClose();
+      setProjectToToggle(null);
+      
+      // Odśwież listę projektów
+      const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
+      setProjects(projectsResponse.data);
     } catch (error) {
       console.error("Błąd podczas toggle project status:", error);
+      const { title, description } = handleApiError(error);
       showError("Błąd", `Wystąpił błąd podczas ${newStatus ? 'aktywacji' : 'dezaktywacji'} projektu`);
     } finally {
       setTogglingStatus(false);
@@ -199,25 +183,19 @@ export default function Projects() {
 
     setCreating(true);
     try {
-      const response = await tenantApi.createProject(activeTenantId, newProjectName.trim());
+      await tenantApi.createProject(activeTenantId, newProjectName.trim());
 
-      if (response.ok) {
-        showSuccess("Projekt utworzony");
-        setNewProjectName("");
-        createModal.onClose();
-        
-        // Odśwież listę projektów
-        const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
-        if (projectsResponse.ok) {
-          const data = await projectsResponse.json();
-          setProjects(data);
-        }
-      } else {
-        const { title, description } = await handleApiError(response);
-        showError(title, description);
-      }
-    } catch (err) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      showSuccess("Projekt utworzony");
+      setNewProjectName("");
+      createModal.onClose();
+      
+      // Odśwież listę projektów
+      const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
+      setProjects(projectsResponse.data);
+    } catch (error) {
+      console.error("Błąd podczas tworzenia projektu:", error);
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setCreating(false);
     }

@@ -1,9 +1,14 @@
-﻿using WebApi.Extensions;
+﻿using Microsoft.IdentityModel.Logging;
+using WebApi.Extensions;
 
 internal class Program
 {
     private static void Main(string[] args)
     {
+        // Enable PII logging FIRST - before any authentication setup
+        // ⚠️ WARNING: Only for development! Shows sensitive token data in logs
+        IdentityModelEventSource.ShowPII = true;
+
         var builder = WebApplication.CreateBuilder(args);
 
         // Konfiguracja Kestrel - zwiększenie limitów dla upload plików
@@ -23,7 +28,10 @@ internal class Program
 
         app.UseRouting();
 
-        app.UseHttpsRedirection();
+        if(!builder.Environment.IsDevelopment())
+        {
+            app.UseHttpsRedirection();
+        }
 
         app.UseCors("AllowFrontend");
 

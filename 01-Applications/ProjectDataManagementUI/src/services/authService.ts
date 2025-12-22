@@ -1,3 +1,8 @@
+/**
+ * ⚠️ DEPRECATED - This service uses legacy authApi endpoints.
+ * Most authentication is now handled by MSAL via AuthContext.
+ * Only keep methods that are still used: activateAccount, requestPasswordReset, resetPassword
+ */
 import { authApi } from "../api/authApi";
 import type { UserProfile } from "../types/auth.types";
 
@@ -13,89 +18,96 @@ export interface LoginForm {
   password: string;
 }
 
+/** @deprecated MSAL handles registration */
 export const registerUser = async (form: RegisterForm): Promise<boolean> => {
-  const payload = {
-    email: form.email,
-    password: form.password,
-    firstName: form.firstName,
-    lastName: form.lastName,
-    externalToken: "",
-    provider: 0,
-  };
+  try {
+    const payload = {
+      email: form.email,
+      password: form.password,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      externalToken: "",
+      provider: 0,
+    };
 
-  const res = await authApi.register(payload);
-  return res.ok;
+    await authApi.register(payload);
+    return true;
+  } catch (error) {
+    console.error("Register error:", error);
+    return false;
+  }
 };
 
+/** @deprecated MSAL handles Google authentication */
 export const registerGoogleUser = async (googleToken: string): Promise<{ success: boolean; message?: string }> => {
   try {
-    const res = await authApi.registerGoogle(googleToken);
-    
-    if (res.ok) {
-      return { success: true };
-    }
-    
-    const errorData = await res.json();
-    return {
-      success: false,
-      message: errorData.message || "Google registration failed",
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: "Network error during Google registration",
-    };
-  }
-};
-
-export const loginUser = async (form: LoginForm): Promise<{ success: boolean; message?: string }> => {
-  const payload = {
-    email: form.email,
-    password: form.password,
-    externalToken: "",
-    provider: 0,
-  };
-
-  const res = await authApi.login(payload);
-
-  if (res.ok) {
+    await authApi.registerGoogle(googleToken);
     return { success: true };
-  }
-
-  // Wydobycie błędu z odpowiedzi API
-  try {
-    const errorData = await res.json();
+  } catch (error: any) {
     return {
       success: false,
-      message: errorData.message || "Invalid login credentials",
-    };
-  } catch {
-    return {
-      success: false,
-      message: "Invalid login credentials",
+      message: error?.response?.data?.message || "Google registration failed",
     };
   }
 };
 
+/** @deprecated MSAL handles login */
+export const loginUser = async (form: LoginForm): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const payload = {
+      email: form.email,
+      password: form.password,
+      externalToken: "",
+      provider: 0,
+    };
+
+    await authApi.login(payload);
+    return { success: true };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.response?.data?.message || "Invalid login credentials",
+    };
+  }
+};
+
+/** @deprecated Use AuthContext.user instead */
 export const getUserProfile = async (): Promise<UserProfile | null> => {
-  const res = await authApi.getProfile();
-
-  if (!res.ok) return null;
-
-  return res.json();
+  try {
+    const response = await authApi.getProfile();
+    return response.data;
+  } catch (error) {
+    console.error("Get profile error:", error);
+    return null;
+  }
 };
 
 export const requestPasswordReset = async (email: string): Promise<boolean> => {
-  const res = await authApi.requestPasswordReset({ email });
-  return res.ok;
+  try {
+    await authApi.requestPasswordReset({ email });
+    return true;
+  } catch (error) {
+    console.error("Request password reset error:", error);
+    return false;
+  }
 };
 
 export const resetPassword = async (token: string, password: string): Promise<boolean> => {
-  const res = await authApi.resetPassword({ token, password });
-  return res.ok;
+  try {
+    await authApi.resetPassword({ token, password });
+    return true;
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return false;
+  }
 };
 
 export const activateAccount = async (token: string): Promise<boolean> => {
-  const res = await authApi.activateAccount({ token });
-  return res.ok;
+  try {
+    await authApi.activateAccount({ token });
+    return true;
+  } catch (error) {
+    console.error("Activate account error:", error);
+    return false;
+  }
 };

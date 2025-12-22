@@ -15,6 +15,7 @@ namespace Business.Implementation.Model
         private readonly IReadRepository<TenantPreferencesProfile> tenantPrefsRepo;
 
         private bool _loaded;
+        private Guid _id;
         private string? _firstName;
         private string? _lastName;
         private Guid? _activeTenantIdFromProfile;
@@ -32,10 +33,17 @@ namespace Business.Implementation.Model
             httpContextAccessor.HttpContext?.User
             ?? new ClaimsPrincipal(new ClaimsIdentity());
 
-        public Guid Id =>
-            Guid.TryParse(HttpUser.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var value)
-                ? value
-                : Guid.Empty;
+        public Guid Id
+        {
+            get
+            {
+                EnsureLoaded();
+                return _id;
+            }
+        }
+
+        public string AzureAdB2CObjectId =>
+            HttpUser.FindFirst(ClaimNames.Oid)?.Value ?? string.Empty;
 
         public string FirstName
         {
@@ -56,7 +64,7 @@ namespace Business.Implementation.Model
         }
 
         public string Email =>
-            HttpUser.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty;
+            HttpUser.FindFirst(ClaimNames.PreferredUsername)?.Value ?? string.Empty;
 
         public Guid? ActiveTenantId
         {
@@ -67,22 +75,13 @@ namespace Business.Implementation.Model
             }
         }
 
-        public TenantRole? ActiveTenantRole =>
-            Enum.TryParse<TenantRole>(HttpUser.FindFirst(ClaimNames.ActiveTenantRole)?.Value, out var value)
-                ? value
-                : null;
-
-        public SystemRole SystemRole =>
-            Enum.TryParse<SystemRole>(HttpUser.FindFirst(ClaimTypes.Role)?.Value, out var value)
-                ? value
-                : default;
-
-        public List<TenantMembership>? Tenants => null;
-        public List<ProjectMembership>? Projects => null;
-        public List<GroupMembership>? Groups => null;
-
         public bool IsAuthenticated =>
             HttpUser.Identity?.IsAuthenticated ?? false;
+
+        public string? GetClaimValue(string claimType)
+        {
+            return HttpUser.FindFirst(claimType)?.Value;
+        }
 
         private void EnsureLoaded()
         {
@@ -91,33 +90,33 @@ namespace Business.Implementation.Model
                 return;
             }
 
-            Guid userId = Id;
-            if (userId == Guid.Empty)
+            string? azureB2CObjectId = HttpUser.FindFirst(ClaimNames.Oid)?.Value;
+
+            if (string.IsNullOrEmpty(azureB2CObjectId))
             {
                 _loaded = true;
                 return;
             }
 
-            // UWAGA: wlasciwosci nie sa async, wiec jednorazowo pobieramy dane blokujaco
-            // i keszujemy w obiekcie (scoped per request) – minimalizuje to koszty.
-            User? user = userRepo.GetFirstBySearch(u => u.Id == userId).GetAwaiter().GetResult();
+            User? user = userRepo.GetFirstBySearch(u => u.AzureAdB2CObjectId == azureB2CObjectId)
+                .GetAwaiter().GetResult();
+
             if (user != null)
             {
+                _id = user.Id;
                 _firstName = user.FirstName;
                 _lastName = user.LastName;
-            }
 
-            TenantPreferencesProfile? prefs = tenantPrefsRepo.GetFirstBySearch(p => p.UserId == userId).GetAwaiter().GetResult();
-            if (prefs != null)
-            {
-                _activeTenantIdFromProfile = prefs.ActiveTenantId;
+                TenantPreferencesProfile? prefs = tenantPrefsRepo.GetFirstBySearch(p => p.UserId == user.Id)
+                    .GetAwaiter().GetResult();
+                
+                if (prefs != null)
+                {
+                    _activeTenantIdFromProfile = prefs.ActiveTenantId;
+                }
             }
 
             _loaded = true;
         }
     }
-
-    public record TenantMembership(Guid TenantId, TenantRole Role);
-    public record ProjectMembership(Guid ProjectId, ProjectRole Role);
-    public record GroupMembership(Guid GroupId);
 }

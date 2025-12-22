@@ -36,7 +36,8 @@ import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
 import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
+import { useContext } from "react";
 import { ProjectRole } from "../types/project.types";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../types/project.types";
@@ -51,7 +52,7 @@ const getProjectRoleColor = (role: number) =>
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const { isOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   const { isOpen: isUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
@@ -122,13 +123,7 @@ export default function ProjectDetails() {
         projectId
       );
 
-      if (!response.ok) {
-        setError("Nie udało się pobrać danych projektu");
-        setLoading(false);
-        return;
-      }
-
-      setProject(await response.json());
+      setProject(response.data);
     } catch (err) {
       console.error(err);
       setError("Błąd podczas pobierania szczegółów projektu");
@@ -148,7 +143,7 @@ export default function ProjectDetails() {
         projectId
       );
 
-      if (response.ok) setMembers(await response.json());
+      setMembers(response.data);
     } catch (err) {
       console.error("Błąd pobierania członków projektu:", err);
     } finally {
@@ -161,10 +156,7 @@ export default function ProjectDetails() {
 
     try {
       const response = await projectApi.getMyFiles(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data = await response.json();
-        setMyFiles(data);
-      }
+      setMyFiles(response.data);
     } catch (err) {
       console.error("Błąd pobierania moich plików:", err);
     }
@@ -175,10 +167,7 @@ export default function ProjectDetails() {
 
     try {
       const response = await projectApi.getSharedFiles(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data = await response.json();
-        setSharedFiles(data);
-      }
+      setSharedFiles(response.data);
     } catch (err) {
       console.error("Błąd pobierania udostępnionych plików:", err);
     }
@@ -190,10 +179,7 @@ export default function ProjectDetails() {
     setLoadingWorkSchedules(true);
     try {
       const response = await projectApi.getMyWorkSchedules(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data: WorkScheduleSummaryWeb[] = await response.json();
-        setWorkSchedules(data);
-      }
+      setWorkSchedules(response.data);
     } catch (err) {
       console.error("Błąd pobierania harmonogramów:", err);
     } finally {
@@ -207,10 +193,7 @@ export default function ProjectDetails() {
     setLoadingCosts(true);
     try {
       const response = await projectApi.getProjectUserCosts(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data: ProjectCostListItemWeb[] = await response.json();
-        setProjectCosts(data);
-      }
+      setProjectCosts(response.data);
     } catch (err) {
       console.error("Błąd pobierania kosztów projektowych:", err);
       toast({
@@ -230,10 +213,7 @@ export default function ProjectDetails() {
     setLoadingSharedCosts(true);
     try {
       const response = await projectApi.getSharedProjectCosts(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data: SharedProjectCostWeb[] = await response.json();
-        setSharedCosts(data);
-      }
+      setSharedCosts(response.data);
     } catch (err) {
       console.error("Błąd pobierania udostępnionych kosztów:", err);
       toast({
@@ -291,7 +271,7 @@ export default function ProjectDetails() {
 
     setAddingNewCost(true);
     try {
-      const response = await projectApi.createProjectCost(
+      await projectApi.createProjectCost(
         user.activeTenantId,
         projectId,
         {
@@ -306,42 +286,33 @@ export default function ProjectDetails() {
         }
       );
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Koszt został dodany",
-          status: "success",
-          duration: 3000,
-        });
+      toast({
+        title: "Sukces",
+        description: "Koszt został dodany",
+        status: "success",
+        duration: 3000,
+      });
 
-        // Reset formularza
-        setNewCostData({
-          name: '',
-          place: '',
-          date: new Date().toISOString().split('T')[0],
-          description: '',
-          netAmount: '',
-          vatRate: '',
-          grossAmount: '',
-        });
-        setDocumentFile(null);
-        setShowNewCostRow(false);
+      // Reset formularza
+      setNewCostData({
+        name: '',
+        place: '',
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        netAmount: '',
+        vatRate: '',
+        grossAmount: '',
+      });
+      setDocumentFile(null);
+      setShowNewCostRow(false);
 
-        await fetchProjectCosts();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-        });
-      }
+      await fetchProjectCosts();
     } catch (error) {
       console.error("Błąd podczas dodawania kosztu:", error);
+      const { title, description } = handleApiError(error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się dodać kosztu",
+        title,
+        description,
         status: "error",
         duration: 5000,
       });
@@ -427,29 +398,20 @@ export default function ProjectDetails() {
         }
       );
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Koszt został zaktualizowany",
-          status: "success",
-          duration: 3000,
-        });
+      toast({
+        title: "Sukces",
+        description: "Koszt został zaktualizowany",
+        status: "success",
+        duration: 3000,
+      });
 
-        setEditingCostId(null);
-        setEditingCostData(null);
-        setDocumentFile(null);
-        await fetchProjectCosts();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-        });
-      }
+      setEditingCostId(null);
+      setEditingCostData(null);
+      setDocumentFile(null);
+      await fetchProjectCosts();
     } catch (error) {
       console.error("Błąd podczas aktualizacji kosztu:", error);
+      const { title, description } = handleApiError(error);
       toast({
         title: "Błąd",
         description: "Nie udało się zaktualizować kosztu",
@@ -481,26 +443,19 @@ export default function ProjectDetails() {
     try {
       const response = await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Koszt został usunięty",
-          status: "success",
-          duration: 3000,
-        });
+      await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
 
-        await fetchProjectCosts();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-        });
-      }
+      toast({
+        title: "Sukces",
+        description: "Koszt został usunięty",
+        status: "success",
+        duration: 3000,
+      });
+
+      await fetchProjectCosts();
     } catch (error) {
       console.error("Błąd podczas usuwania kosztu:", error);
+      const { title, description } = handleApiError(error);
       toast({
         title: "Błąd",
         description: "Nie udało się usunąć kosztu",
@@ -620,7 +575,7 @@ export default function ProjectDetails() {
 
     try {
       setSubmittingComment(commentKey);
-      const response = await projectApi.addFileVersionComment(
+      await projectApi.addFileVersionComment(
         user.activeTenantId,
         projectId,
         fileId,
@@ -628,27 +583,23 @@ export default function ProjectDetails() {
         comment.trim()
       );
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Komentarz został dodany",
-          status: "success",
-          duration: 3000,
-        });
+      toast({
+        title: "Sukces",
+        description: "Komentarz został dodany",
+        status: "success",
+        duration: 3000,
+      });
 
-        // Wyczyść pole komentarza
-        setNewComments((prev) => {
-          const updated = new Map(prev);
-          updated.delete(commentKey);
-          return updated;
-        });
+      // Wyczyść pole komentarza
+      setNewComments((prev) => {
+        const updated = new Map(prev);
+        updated.delete(commentKey);
+        return updated;
+      });
 
-        // Odśwież listę plików
-        await fetchMyFiles();
-        await fetchSharedFiles();
-      } else {
-        throw new Error("Nie udało się dodać komentarza");
-      }
+      // Odśwież listę plików
+      await fetchMyFiles();
+      await fetchSharedFiles();
     } catch (error) {
       console.error("Błąd podczas dodawania komentarza:", error);
       toast({
@@ -678,17 +629,15 @@ export default function ProjectDetails() {
         
         console.log("🔵 getUserTenants response:", response.status);
         
-        if (response.ok) {
-          const tenants = await response.json();
-          console.log("🔵 User tenants:", tenants);
-          
-          // Znajdź aktywny tenant i pobierz rolę
-          const activeTenant = tenants.find((t: any) => t.id === user.activeTenantId);
-          if (activeTenant) {
-            console.log("🔵 Active tenant:", activeTenant);
-            console.log("🔵 User role in tenant:", activeTenant.role);
-            setUserTenantRole(activeTenant.role);
-          }
+        const tenants = response.data;
+        console.log("🔵 User tenants:", tenants);
+        
+        // Znajdź aktywny tenant i pobierz rolę
+        const activeTenant = tenants.find((t: any) => t.id === user.activeTenantId);
+        if (activeTenant) {
+          console.log("🔵 Active tenant:", activeTenant);
+          console.log("🔵 User role in tenant:", activeTenant.role);
+          setUserTenantRole(activeTenant.role);
         }
       } catch (error) {
         console.error("❌ Błąd pobierania roli tenanta:", error);
@@ -708,30 +657,21 @@ export default function ProjectDetails() {
     
     setRemovingMember(memberToRemove.userId);
     try {
-      const response = await projectApi.removeProjectMember(user.activeTenantId, projectId, memberToRemove.userId);
+      await projectApi.removeProjectMember(user.activeTenantId, projectId, memberToRemove.userId);
       
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: `Użytkownik ${memberToRemove.name} został usunięty z projektu`,
-          status: "success",
-          duration: 3000,
-        });
-        
-        // Odśwież listę
-        await fetchProjectDetails();
-        await fetchMembers();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 3000,
-        });
-      }
+      toast({
+        title: "Sukces",
+        description: `Użytkownik ${memberToRemove.name} został usunięty z projektu`,
+        status: "success",
+        duration: 3000,
+      });
+      
+      // Odśwież listę
+      await fetchProjectDetails();
+      await fetchMembers();
     } catch (error) {
       console.error("Błąd podczas usuwania członka:", error);
+      const { title, description } = handleApiError(error);
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
@@ -873,7 +813,7 @@ export default function ProjectDetails() {
                 onClick={() => navigate(`/projects/${projectId}/costs`)}
               >
                 <VStack spacing={3}>
-                  <Icon as={DollarSign} boxSize={8} color="orange.600" />
+                  <Icon as={DollarSign} boxSize={8} color="red.600" />
                   <Text fontWeight="bold" fontSize="md">Koszty</Text>
                 </VStack>
               </Box>
@@ -891,7 +831,7 @@ export default function ProjectDetails() {
                 onClick={() => navigate(`/projects/${projectId}/cost-estimates`)}
               >
                 <VStack spacing={3}>
-                  <Icon as={FileText} boxSize={8} color="green.600" />
+                  <Icon as={FileText} boxSize={8} color="orange.600" />
                   <Text fontWeight="bold" fontSize="md">Kosztorysy</Text>
                 </VStack>
               </Box>

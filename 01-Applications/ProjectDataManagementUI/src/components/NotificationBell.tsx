@@ -59,12 +59,10 @@ export default function NotificationBell() {
       setLoading(true);
       try {
         const response = await notificationApi.getUnreadNotifications();
-        if (response.ok) {
-          const data: NotificationWeb[] = await response.json();
-          await notificationHubService.initializeCache(data);
-          setUnreadCount(data.filter(n => !n.readed).length);
-          console.log("🔵 Cache initialized from API:", data.length, "notifications");
-        }
+        const data: NotificationWeb[] = response.data;
+        await notificationHubService.initializeCache(data);
+        setUnreadCount(data.filter(n => !n.readed).length);
+        console.log("🔵 Cache initialized from API:", data.length, "notifications");
       } catch (error) {
         console.error("Błąd inicjalizacji powiadomień:", error);
       } finally {
@@ -175,17 +173,15 @@ export default function NotificationBell() {
       console.log("✅ UI zaktualizowane optimistically (bez czekania na API)");
       
       // Wyślij request do API w tle (bez blokowania UI)
-      const response = await notificationApi.markAsRead(notificationId);
-      
-      if (!response.ok) {
+      try {
+        await notificationApi.markAsRead(notificationId);
+        console.log("✅ API potwierdziło oznaczenie jako przeczytane");
+      } catch (error) {
         // Jeśli API zwróci błąd, cofnij zmiany w cache
         console.error("❌ API błąd - cofam zmiany w cache");
-        // Tutaj możesz opcjonalnie dodać logikę rollback
-        // Na razie logujemy tylko błąd
-        const { title, description } = await handleApiError(response);
-        console.error("❌ Błąd API:", response.status, title, description);
-      } else {
-        console.log("✅ API potwierdziło oznaczenie jako przeczytane");
+        const { title, description } = handleApiError(error);
+        console.error("❌ Błąd API:", title, description);
+        // Możesz opcjonalnie dodać logikę rollback tutaj
       }
     } catch (error) {
       console.error("❌ Błąd oznaczania powiadomienia jako przeczytane:", error);

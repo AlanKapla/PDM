@@ -9,75 +9,31 @@ import type {
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 const API_URL = `${API_BASE}/api/User`;
 
-let isRefreshing = false;
-let hasRedirected = false; // Flaga zapobiegająca wielokrotnym przekierowaniom
+/**
+ * ⚠️ DEPRECATED - This file contains LEGACY authentication methods.
+ * 
+ * The app now uses MSAL (Microsoft Authentication Library) for authentication:
+ * - Login: via AuthContext + MSAL instance
+ * - Logout: via AuthContext.logout() → instance.logoutRedirect()
+ * - Token management: automatic via axiosClient + acquireTokenSilent()
+ * 
+ * Methods below (register, login, logout, getProfile, updateProfile) are NOT used.
+ * Only keep: activateAccount, requestPasswordReset, resetPassword if still needed by backend.
+ */
 
-// Wrapper dla fetch z obsługą wygasłych tokenów i refresh flow
+// Simple fetch wrapper - only for non-MSAL endpoints
 const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const response = await fetch(url, options);
   
-  // Jeśli to /me i dostaliśmy 401, nie próbuj refresh - user nie jest zalogowany
-  if (response.status === 401 && url.includes("/me")) {
-    return response;
-  }
-  
-  // Obsługa 401 (Unauthorized) i 403 (Forbidden) - token może być wygasły
-  if ((response.status === 401 || response.status === 403) && !isRefreshing) {
-    isRefreshing = true;
-    
-    try {
-      // Spróbuj odświeżyć token
-      const refreshResponse = await fetch(`${API_URL}/refresh`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (refreshResponse.status === 401) {
-        // Refresh token też wygasł - sesja całkowicie wygasła
-        if (!hasRedirected) {
-          hasRedirected = true;
-          console.warn("Sesja wygasła - przekierowanie na login");
-          window.location.href = "/login";
-        }
-        isRefreshing = false;
-        return response;
-      }
-
-      if (refreshResponse.ok) {
-        // Token odświeżony pomyślnie - ponów oryginalny request
-        isRefreshing = false;
-        return fetch(url, options);
-      } else {
-        // Inny błąd (500, 503 etc.)
-        if (!hasRedirected) {
-          hasRedirected = true;
-          console.error("Błąd serwera podczas refresh:", refreshResponse.status);
-          window.location.href = "/login";
-        }
-        isRefreshing = false;
-        return response;
-      }
-    } catch (error) {
-      // Błąd sieciowy
-      if (!hasRedirected) {
-        hasRedirected = true;
-        console.error("Błąd sieci podczas refresh token:", error);
-        window.location.href = "/login";
-      }
-      isRefreshing = false;
-      return response;
-    }
-  }
-  
-  // Jeśli 401/403 ale isRefreshing=true (inny request już refreshuje), zwróć odpowiedź
-  if ((response.status === 401 || response.status === 403) && isRefreshing) {
-    return response;
+  if (response.status === 401) {
+    console.warn("⚠️ 401 Unauthorized (legacy endpoint)");
   }
   
   return response;
 };
 
 export const authApi = {
+  /** @deprecated Use MSAL AuthContext instead */
   register: async (data: RegisterRequest) => {
     return fetchWithAuth(`${API_URL}/register`, {
       method: "POST",
@@ -87,6 +43,7 @@ export const authApi = {
     });
   },
 
+  /** @deprecated Use MSAL AuthContext instead */
   registerGoogle: async (googleToken: string) => {
     return fetch(`${API_URL}/register/google`, {
       method: "POST",
@@ -96,8 +53,8 @@ export const authApi = {
     });
   },
 
+  /** @deprecated Use MSAL AuthContext instead */
   login: async (data: LoginRequest) => {
-    // Login nie powinien sprawdzać 401 - to pierwsze żądanie bez tokenu
     return fetch(`${API_URL}/login`, {
       method: "POST",
       credentials: "include",
@@ -106,6 +63,7 @@ export const authApi = {
     });
   },
 
+  /** @deprecated Use AuthContext.logout() instead */
   logout: async (data: LogoutRequest) => {
     return fetchWithAuth(`${API_URL}/logout`, {
       method: "POST",
@@ -115,6 +73,7 @@ export const authApi = {
     });
   },
 
+  /** @deprecated Use AuthContext.user instead */
   getProfile: async () => {
     return fetchWithAuth(`${API_URL}/me`, {
       method: "GET",
@@ -122,8 +81,11 @@ export const authApi = {
     });
   },
 
+  /** 
+   * Request password reset (public endpoint - no auth required)
+   * ⚠️ Check if this is still used with MSAL - password reset may be handled by Azure
+   */
   requestPasswordReset: async (data: PasswordResetRequest) => {
-    // Reset hasła nie wymaga autentykacji
     return fetch(`${API_URL}/reset-password-request`, {
       method: "POST",
       credentials: "include",
@@ -132,8 +94,11 @@ export const authApi = {
     });
   },
 
+  /**
+   * Reset password with token (public endpoint - no auth required)
+   * ⚠️ Check if this is still used with MSAL - password reset may be handled by Azure
+   */
   resetPassword: async (data: ResetPasswordRequest) => {
-    // Reset hasła nie wymaga autentykacji (token w URL)
     return fetch(`${API_URL}/reset-password`, {
       method: "POST",
       credentials: "include",
@@ -142,8 +107,11 @@ export const authApi = {
     });
   },
 
+  /**
+   * Activate account with token (public endpoint - no auth required)
+   * ⚠️ Check if this is still used with MSAL - account activation may be handled by Azure
+   */
   activateAccount: async (data: { token: string }) => {
-    // Aktywacja nie wymaga autentykacji (token w payload)
     return fetch(`${API_URL}/activate-account`, {
       method: "POST",
       credentials: "include",
@@ -152,6 +120,7 @@ export const authApi = {
     });
   },
 
+  /** @deprecated Profile updates should use axiosClient + MSAL tokens */
   updateProfile: async (data: { firstName: string; lastName: string }) => {
     return fetchWithAuth(`${API_URL}/me`, {
       method: "PUT",
@@ -163,4 +132,3 @@ export const authApi = {
 };
 
 export { fetchWithAuth };
-

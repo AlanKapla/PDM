@@ -278,38 +278,29 @@ export default function ManagedTenants() {
     setTogglingStatus(true);
     
     try {
-      const response = await tenantApi.toggleTenantStatus(tenantToToggle.id, newStatus);
+      await tenantApi.toggleTenantStatus(tenantToToggle.id, newStatus);
       
-      if (response.ok) {
-        toast({
-          title: newStatus ? "Organizacja aktywowana" : "Organizacja zdezaktywowana",
-          description: newStatus 
-            ? "Organizacja została pomyślnie aktywowana" 
-            : "Organizacja została pomyślnie zdezaktywowana",
-          status: "success",
-          duration: 4000,
-        });
-        
-        onToggleStatusModalClose();
-        setTenantToToggle(null);
-        
-        // Odśwież listę tenantów
-        const tenantsData = await getUserTenants();
-        setTenants(tenantsData);
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 3000,
-        });
-      }
+      toast({
+        title: newStatus ? "Organizacja aktywowana" : "Organizacja zdezaktywowana",
+        description: newStatus 
+          ? "Organizacja została pomyślnie aktywowana" 
+          : "Organizacja została pomyślnie zdezaktywowana",
+        status: "success",
+        duration: 4000,
+      });
+      
+      onToggleStatusModalClose();
+      setTenantToToggle(null);
+      
+      // Odśwież listę tenantów
+      const tenantsData = await getUserTenants();
+      setTenants(tenantsData);
     } catch (error) {
       console.error("Błąd podczas toggle tenant status:", error);
+      const { title, description } = handleApiError(error);
       toast({
-        title: "Błąd",
-        description: `Wystąpił błąd podczas ${newStatus ? 'aktywacji' : 'dezaktywacji'} organizacji`,
+        title,
+        description,
         status: "error",
         duration: 5000,
       });

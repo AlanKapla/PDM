@@ -16,8 +16,6 @@ namespace Entities.Context
         public DbSet<ProjectFileVersion> ProjectFileVersions => Set<ProjectFileVersion>();
         public DbSet<ProjectFileVersionComment> ProjectFileVersionComments => Set<ProjectFileVersionComment>();
         public DbSet<SharedProjectFile> SharedProjectFiles => Set<SharedProjectFile>();
-        public DbSet<UserPasswordReset> UserPasswordResets => Set<UserPasswordReset>();
-        public DbSet<UserActivation> UserActivations => Set<UserActivation>();
         public DbSet<UserProfileBase> UserProfiles => Set<UserProfileBase>();
         public DbSet<TenantPreferencesProfile> TenantPreferencesProfiles => Set<TenantPreferencesProfile>();
         public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();

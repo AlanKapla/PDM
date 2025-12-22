@@ -1,5 +1,7 @@
 import * as signalR from "@microsoft/signalr";
 import type { NotificationWeb, NotificationMarkAsReadDto } from "../types/notification.types";
+import { msalInstance } from "../main";
+import { silentRequest } from "../config/authConfig";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -28,27 +30,34 @@ class NotificationHubService {
 
     this.isConnecting = true;
 
-    // Pobierz access token z cookie dla WebSocket
-    const getAccessToken = (): string | null => {
-      const name = "access_token=";
-      const decodedCookie = decodeURIComponent(document.cookie);
-      const ca = decodedCookie.split(';');
-      for (let i = 0; i < ca.length; i++) {
-        let c = ca[i];
-        while (c.charAt(0) === ' ') {
-          c = c.substring(1);
-        }
-        if (c.indexOf(name) === 0) {
-          return c.substring(name.length, c.length);
-        }
+    // Get access token using MSAL (same as axios client)
+    const getAccessToken = async (): Promise<string> => {
+      const accounts = msalInstance.getAllAccounts();
+      
+      if (accounts.length === 0) {
+        console.warn("⚠️ No MSAL accounts found for SignalR");
+        return "";
       }
-      return null;
+
+      const account = msalInstance.getActiveAccount() || accounts[0];
+      
+      try {
+        const response = await msalInstance.acquireTokenSilent({
+          ...silentRequest,
+          account: account,
+        });
+        console.log("✅ SignalR: Token acquired from MSAL");
+        return response.accessToken;
+      } catch (error) {
+        console.error("❌ SignalR: Failed to acquire token:", error);
+        return "";
+      }
     };
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(`${API_BASE_URL}/api/hubs/notifications`, {
-        accessTokenFactory: () => getAccessToken() || "", // Token w query string dla WebSocket
-        withCredentials: true,
+        accessTokenFactory: getAccessToken, // MSAL token instead of cookie
+        withCredentials: false, // No cookies needed
         skipNegotiation: false,
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents | signalR.HttpTransportType.LongPolling,
       })

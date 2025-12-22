@@ -76,10 +76,8 @@ export default function UploadFilesModal({
     setLoadingPackages(true);
     try {
       const response = await projectApi.getMyFiles(tenantId, projectId);
-      if (response.ok) {
-        const data: ProjectFilePackageWeb[] = await response.json();
-        setPackages(data);
-      }
+      const data: ProjectFilePackageWeb[] = response.data;
+      setPackages(data);
     } catch (error) {
       console.error("Błąd pobierania paczek:", error);
       showError("Błąd", "Nie udało się pobrać listy paczek");
@@ -180,22 +178,19 @@ export default function UploadFilesModal({
         );
       }
 
-      if (response.ok) {
-        showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`);
-        
-        // Reset i zamknij
-        setMode("new");
-        setPackageName("");
-        setSelectedPackageId("");
-        setFiles([]);
-        onFilesUploaded();
-        onClose();
-      } else {
-        const { title, description } = await handleApiError(response);
-        showError(title, description);
-      }
+      showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`);
+      
+      // Reset i zamknij
+      setMode("new");
+      setPackageName("");
+      setSelectedPackageId("");
+      setFiles([]);
+      onFilesUploaded();
+      onClose();
     } catch (error) {
       console.error("Błąd uploadu plików:", error);
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setUploading(false);
     }

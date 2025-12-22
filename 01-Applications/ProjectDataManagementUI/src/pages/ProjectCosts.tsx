@@ -26,7 +26,8 @@ import {
 } from "@chakra-ui/react";
 import { ArrowLeft, Eye, Trash2, Plus, FileText } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
+import { useContext } from "react";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { projectApi } from "../api/projectApi";
@@ -56,7 +57,7 @@ const costEstimateStatusColors: Record<CostEstimateStatus, string> = {
 export default function ProjectCosts() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const { showError, showSuccess } = useToastNotification();
 
   console.log("=== ProjectCosts RENDER ===");
@@ -97,10 +98,7 @@ export default function ProjectCosts() {
       ]);
       console.log("Data fetched successfully:", { projectResponse, costEstimates });
 
-      if (projectResponse.ok) {
-        const projectData = await projectResponse.json();
-        setProject(projectData);
-      }
+      setProject(projectResponse.data);
 
       // Filter my cost estimates (owned by current user)
       const myCosts = costEstimates.filter((ce) => ce.ownerId === user?.id);

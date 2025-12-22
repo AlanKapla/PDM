@@ -1,7 +1,16 @@
-import { createContext, useEffect, useState, type ReactNode } from "react";
-import { loginUser, getUserProfile, registerGoogleUser } from "../services/authService";
-import { authApi } from "../api/authApi";
-import type { UserProfile } from "../types/auth.types";
+﻿import { createContext, useEffect, useState, type ReactNode } from "react";
+import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { axiosClient } from "../api/axiosClient";
+
+interface UserProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+  systemRole: string;
+  activeTenantId?: string;
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -26,137 +35,109 @@ export const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { instance, accounts } = useMsal();
+  const isAuthenticated = useIsAuthenticated();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sessionChecked, setSessionChecked] = useState(false);
 
-  // Sprawdzenie sesji przy starcie aplikacji - TYLKO RAZ
+  // Fetch user profile when authenticated
   useEffect(() => {
-    if (sessionChecked) return; // Już sprawdzone - nie powtarzaj
+    let isMounted = true; // Prevent state updates on unmounted component
 
-    const checkSession = async () => {
-      // ⛔️ NIE sprawdzamy sesji na swaggerze – tam auth nie jest potrzebny
-      if (window.location.pathname.startsWith("/swagger")) {
-        setLoading(false);
-        setSessionChecked(true);
+    const fetchUserProfile = async () => {
+      // Not authenticated - clear state and finish
+      if (!isAuthenticated) {
+        console.log("🔴 AuthContext: Not authenticated");
+        if (isMounted) {
+          setUser(null);
+          setLoading(false);
+        }
         return;
       }
 
-      try {
-        const profile = await getUserProfile();
+      // Already have user - don't fetch again
+      if (user) {
+        console.log("✅ AuthContext: User already loaded");
+        if (isMounted) setLoading(false);
+        return;
+      }
 
-        if (profile) {
-          setIsAuthenticated(true);
-          setUser(profile);
-        } else {
-          setIsAuthenticated(false);
-          setUser(null);
+      // Start fetching
+      console.log("🟢 AuthContext: Fetching user profile...");
+      if (isMounted) setLoading(true);
+      
+      try {
+        // Sync user from B2C
+        await axiosClient.post("/user/sync-b2c");
+        
+        // Fetch user details
+        const response = await axiosClient.get("/user/me");
+        console.log("✅ AuthContext: User profile loaded");
+        
+        if (isMounted) {
+          setUser(response.data);
+          setLoading(false);
         }
-      } catch (error) {
-        console.error("Błąd sprawdzania sesji:", error);
-        setIsAuthenticated(false);
-        setUser(null);
-      } finally {
-        setLoading(false);
-        setSessionChecked(true);
+      } catch (error: any) {
+        console.error("❌ AuthContext: Error fetching user:", error);
+        if (isMounted) {
+          setUser(null);
+          setLoading(false);
+        }
       }
     };
 
-    checkSession();
-  }, [sessionChecked]);
+    fetchUserProfile();
 
-  // Zwykłe logowanie
-  const login = async (email: string, password: string) => {
-    try {
-      const result = await loginUser({ email, password });
+    return () => {
+      isMounted = false; // Cleanup
+    };
+  }, [isAuthenticated]); // Only re-run when authentication state changes
 
-      if (!result.success) return { success: false, message: result.message };
-
-      const profile = await getUserProfile();
-      if (!profile) return { success: false, message: "Failed to load user profile" };
-
-      setIsAuthenticated(true);
-      setUser(profile);
-
-      return { success: true };
-    } catch (error) {
-      console.error("Błąd logowania:", error);
-      return { success: false, message: "An unexpected error occurred" };
-    }
+  // Legacy login method - now deprecated, redirects to B2C
+  const login = async (_email: string, _password: string) => {
+    console.warn("Legacy login method called. Redirecting to Azure AD B2C...");
+    await instance.loginRedirect();
+    return { success: true };
   };
 
-  // Logowanie przez Google
-  const googleLogin = async (token: string) => {
-    try {
-      const response = await authApi.login({
-        email: "",
-        password: "",
-        externalToken: token,
-        provider: 1,
-      });
-
-      if (!response.ok) {
-        return { success: false, message: "Google login failed" };
-      }
-
-      // Teraz pobierz profil
-      const profile = await getUserProfile();
-
-      if (!profile) {
-        return { success: false, message: "Failed to load user profile" };
-      }
-
-      setIsAuthenticated(true);
-      setUser(profile);
-
-      return { success: true };
-    } catch (error) {
-      console.error("Google login error:", error);
-      return { success: false, message: "Unexpected Google login error" };
-    }
+  // Legacy Google login - now deprecated, use B2C Google provider
+  const googleLogin = async (_token: string) => {
+    console.warn("Legacy Google login called. Redirecting to Azure AD B2C...");
+    await instance.loginRedirect();
+    return { success: true };
   };
 
-  // Rejestracja przez Google
-  const googleRegister = async (token: string) => {
-    try {
-      const result = await registerGoogleUser(token);
-
-      if (!result.success) {
-        return { success: false, message: result.message };
-      }
-
-      // Po rejestracji użytkownik jest automatycznie zalogowany
-      const profile = await getUserProfile();
-
-      if (!profile) {
-        return { success: false, message: "Failed to load user profile after registration" };
-      }
-
-      setIsAuthenticated(true);
-      setUser(profile);
-
-      return { success: true };
-    } catch (error) {
-      console.error("Google register error:", error);
-      return { success: false, message: "Unexpected Google registration error" };
-    }
+  // Legacy Google register - now deprecated, use B2C
+  const googleRegister = async (_token: string) => {
+    console.warn("Legacy Google register called. Redirecting to Azure AD B2C...");
+    await instance.loginRedirect();
+    return { success: true };
   };
 
+  // Logout
+  // Logout - clear state and redirect to MSAL logout
   const logout = async () => {
-    try {
-      await authApi.logout({ refreshToken: "" });
-    } catch (error) {
-      console.error("Błąd wylogowania:", error);
-    }
-
-    // Wyczyść cache powiadomień
-    const { notificationHubService } = await import("../services/notificationHubService");
-    notificationHubService.clearCache();
-    await notificationHubService.stopConnection();
-
-    setIsAuthenticated(false);
+    console.log("🚪 Logging out...");
+    
+    // Clear app state
     setUser(null);
+    
+    // Clear app storage (MSAL will handle its own cache)
+    Object.keys(localStorage).forEach(key => {
+      if (!key.startsWith('msal.')) {
+        localStorage.removeItem(key);
+      }
+    });
+    sessionStorage.clear();
+    
+    // Redirect to MSAL logout (will clear MSAL cache and redirect to Azure logout)
+    const account = instance.getActiveAccount() || accounts[0];
+    await instance.logoutRedirect({ account });
+  };
+
+  const setIsAuthenticated = (_value: boolean) => {
+    console.warn("setIsAuthenticated is deprecated with Azure AD B2C");
   };
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import {
   Box,
   Text,
@@ -15,14 +15,14 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import { tenantApi } from "../api/tenantApi";
 import NotificationBell from "./NotificationBell";
 
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated } = useContext(AuthContext);
   const [activeTenantName, setActiveTenantName] = useState<string | null>(null);
   
   const bg = useColorModeValue("white", "gray.800");
@@ -42,19 +42,18 @@ export default function Header() {
           tenantApi.getUserTenants(),
         ]);
 
-        if (activeTenantResponse.ok && tenantsResponse.ok) {
-          const activeTenantData = await activeTenantResponse.json();
-          const tenants = await tenantsResponse.json();
-          
-          if (activeTenantData.activeTenantId) {
-            const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
-            setActiveTenantName(activeTenant?.name || null);
-          } else {
-            setActiveTenantName(null);
-          }
+        const activeTenantData = activeTenantResponse.data;
+        const tenants = tenantsResponse.data;
+        
+        if (activeTenantData?.activeTenantId) {
+          const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
+          setActiveTenantName(activeTenant?.name || null);
+        } else {
+          setActiveTenantName(null);
         }
       } catch (err) {
         console.error("Błąd pobierania aktywnego tenanta:", err);
+        setActiveTenantName(null);
       }
     };
 

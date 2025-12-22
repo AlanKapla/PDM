@@ -98,3 +98,11 @@ export const isImageFile = (filename: string): boolean => {
 export const isPdfFile = (filename: string): boolean => {
   return getFileExtension(filename) === "pdf";
 };
+
+/**
+ * Format currency amount with locale format
+ */
+export const formatCurrency = (amount: number | undefined, currency: string = 'PLN'): string => {
+  if (amount === undefined || amount === null) return `0.00 ${currency}`;
+  return `${amount.toFixed(2)} ${currency}`;
+};

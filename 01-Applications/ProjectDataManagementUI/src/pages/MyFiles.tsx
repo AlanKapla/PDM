@@ -82,12 +82,7 @@ export default function MyFiles() {
     try {
       setLoading(true);
       const response = await projectApi.getMyFiles(tenantId, projectId);
-      if (response.ok) {
-        const data = await response.json();
-        setFiles(data);
-      } else {
-        throw new Error("Nie udało się pobrać plików");
-      }
+      setFiles(response.data);
     } catch (error) {
       console.error("Błąd podczas pobierania plików:", error);
       toast({
@@ -137,7 +132,7 @@ export default function MyFiles() {
     // Użyj fetch + createElement('a') z download attribute aby zagwarantować fileName
     fetch(sasUrl, { method: 'GET', mode: 'cors' })
       .then(response => {
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status !== 200) throw new Error(`HTTP error! status: ${response.status}`);
         return response.blob();
       })
       .then(blob => {
@@ -315,19 +310,18 @@ export default function MyFiles() {
     if (!tenantId || !projectId || !fileToDelete) return;
 
     try {
-      const response = await projectApi.deleteFile(tenantId, projectId, fileToDelete.id);
+      await projectApi.deleteFile(tenantId, projectId, fileToDelete.id);
       
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Plik został usunięty",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        
-        // Usuń plik z lokalnego stanu
-        setFiles((prevFiles) => prevFiles.filter((f) => f.id !== fileToDelete.id));
+      toast({
+        title: "Sukces",
+        description: "Plik został usunięty",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      // Usuń plik z lokalnego stanu
+      setFiles((prevFiles) => prevFiles.filter((f) => f.id !== fileToDelete.id));
         
         // Usuń z zaznaczonych jeśli był zaznaczony
         setSelectedFileIds((prev) => {
@@ -338,9 +332,6 @@ export default function MyFiles() {
         
         onDeleteModalClose();
         setFileToDelete(null);
-      } else {
-        throw new Error("Nie udało się usunąć pliku");
-      }
     } catch (error) {
       console.error("Błąd podczas usuwania pliku:", error);
       toast({
@@ -385,27 +376,23 @@ export default function MyFiles() {
         comment.trim()
       );
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Komentarz został dodany",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
+      toast({
+        title: "Sukces",
+        description: "Komentarz został dodany",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
 
-        // Wyczyść pole komentarza
-        setNewComments((prev) => {
-          const updated = new Map(prev);
-          updated.delete(commentKey);
+      // Wyczyść pole komentarza
+      setNewComments((prev) => {
+        const updated = new Map(prev);
+        updated.delete(commentKey);
           return updated;
-        });
+      });
 
-        // Odśwież listę plików aby pobrać nowy komentarz
-        await fetchMyFiles();
-      } else {
-        throw new Error("Nie udało się dodać komentarza");
-      }
+      // Odśwież listę plików aby pobrać nowy komentarz
+      await fetchMyFiles();
     } catch (error) {
       console.error("Błąd podczas dodawania komentarza:", error);
       toast({

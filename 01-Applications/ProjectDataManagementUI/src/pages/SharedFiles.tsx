@@ -71,12 +71,7 @@ export default function SharedFiles() {
     try {
       if (showLoading) setLoading(true);
       const response = await projectApi.getSharedFiles(tenantId, projectId);
-      if (response.ok) {
-        const data = await response.json();
-        setFiles(data);
-      } else {
-        throw new Error("Nie udało się pobrać udostępnionych plików");
-      }
+      setFiles(response.data);
     } catch (error) {
       console.error("Błąd podczas pobierania udostępnionych plików:", error);
       toast({
@@ -154,7 +149,7 @@ export default function SharedFiles() {
 
     try {
       setSubmittingComment(commentKey);
-      const response = await projectApi.addFileVersionComment(
+      await projectApi.addFileVersionComment(
         tenantId,
         projectId,
         fileId,
@@ -162,25 +157,21 @@ export default function SharedFiles() {
         comment.trim()
       );
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Komentarz został dodany",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
+      toast({
+        title: "Sukces",
+        description: "Komentarz został dodany",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
 
-        setNewComments((prev) => {
-          const updated = new Map(prev);
-          updated.delete(commentKey);
-          return updated;
-        });
+      setNewComments((prev) => {
+        const updated = new Map(prev);
+        updated.delete(commentKey);
+        return updated;
+      });
 
-        await fetchSharedFiles();
-      } else {
-        throw new Error("Nie udało się dodać komentarza");
-      }
+      await fetchSharedFiles();
     } catch (error) {
       console.error("Błąd podczas dodawania komentarza:", error);
       toast({

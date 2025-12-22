@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+﻿import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "../pages/Home";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
@@ -13,6 +13,8 @@ import ActiveInvitations from "../pages/ActiveInvitations";
 import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import ActivateAccount from "../pages/ActivateAccount";
+import AuthCallback from "../pages/AuthCallback";
+import LoggedOut from "../pages/LoggedOut";
 import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
 import MyFiles from "../pages/MyFiles";
@@ -24,11 +26,18 @@ import ProjectMembers from "../pages/ProjectMembers";
 import ProjectSchedules from "../pages/ProjectSchedules";
 import ProjectFiles from "../pages/ProjectFiles";
 import ProjectCosts from "../pages/ProjectCosts";
+import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
 import { CostEstimateEditor } from "../pages/CostEstimateEditor";
 
 export default function AppRouter() {
   return (
     <Routes>
+      {/* OAuth callback route - handles redirect from Azure External ID */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
+
+      {/* Post-logout page - handles redirect after MSAL logout */}
+      <Route path="/logged-out" element={<LoggedOut />} />
+
       {/* Public pages */}
       <Route
         path="/login"
@@ -175,6 +184,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <CostEstimateTemplates />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/costs"
+        element={
+          <ProtectedRoute>
+            <ProjectSimpleCosts />
           </ProtectedRoute>
         }
       />

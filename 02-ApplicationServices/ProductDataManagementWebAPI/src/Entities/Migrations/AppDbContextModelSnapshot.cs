@@ -886,21 +886,16 @@ namespace Entities.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AuthProvider")
+                    b.Property<string>("AzureAdB2CObjectId")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(450)")
-                        .HasDefaultValue("Local");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ExternalId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
@@ -919,87 +914,19 @@ namespace Entities.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("SystemRole")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AzureAdB2CObjectId")
+                        .IsUnique();
+
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.HasIndex("AuthProvider", "ExternalId");
-
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("Entities.Models.UserActivation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ActivatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Token")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserActivations");
-                });
-
-            modelBuilder.Entity("Entities.Models.UserPasswordReset", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime?>("UsedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Token")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserPasswordResets");
                 });
 
             modelBuilder.Entity("Entities.Models.UserProfileBase", b =>
@@ -1637,28 +1564,6 @@ namespace Entities.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Entities.Models.UserActivation", b =>
-                {
-                    b.HasOne("Entities.Models.User", "User")
-                        .WithMany("Activations")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Entities.Models.UserPasswordReset", b =>
-                {
-                    b.HasOne("Entities.Models.User", "User")
-                        .WithMany("PasswordResets")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Entities.Models.UserProfileBase", b =>
                 {
                     b.HasOne("Entities.Models.User", "User")
@@ -1832,10 +1737,6 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.User", b =>
                 {
-                    b.Navigation("Activations");
-
-                    b.Navigation("PasswordResets");
-
                     b.Navigation("Profiles");
 
                     b.Navigation("TenantMemberships");

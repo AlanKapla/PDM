@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -14,7 +14,7 @@ import {
 import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
@@ -24,7 +24,7 @@ import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 export default function ProjectSchedules() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const { showError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
@@ -50,8 +50,8 @@ export default function ProjectSchedules() {
         projectApi.getMyWorkSchedules(user.activeTenantId, projectId),
       ]);
 
-      if (projectRes.ok) setProject(await projectRes.json());
-      if (schedulesRes.ok) setWorkSchedules(await schedulesRes.json());
+      setProject(projectRes.data);
+      setWorkSchedules(schedulesRes.data);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {

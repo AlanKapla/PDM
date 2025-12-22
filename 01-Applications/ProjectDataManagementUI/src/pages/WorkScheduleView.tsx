@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -30,7 +30,7 @@ import { ArrowLeft, Edit, Clock, User, AlertTriangle } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi } from "../api/projectApi";
 import EditWorkScheduleModal from "../components/EditWorkScheduleModal";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import type { WorkScheduleDetailsWeb } from "../types/workSchedule.types";
 
 type TimeScale = "days" | "weeks" | "months";
@@ -38,7 +38,7 @@ type TimeScale = "days" | "weeks" | "months";
 export default function WorkScheduleView() {
   const { projectId, workScheduleId } = useParams<{ projectId: string; workScheduleId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
 
   const [schedule, setSchedule] = useState<WorkScheduleDetailsWeb | null>(null);
@@ -76,14 +76,7 @@ export default function WorkScheduleView() {
         workScheduleId
       );
 
-      if (!response.ok) {
-        setError("Nie udało się pobrać harmonogramu");
-        setLoading(false);
-        return;
-      }
-
-      const scheduleData: WorkScheduleDetailsWeb = await response.json();
-      setSchedule(scheduleData);
+      setSchedule(response.data);
     } catch (err) {
       console.error("Błąd pobierania harmonogramu:", err);
       setError("Błąd podczas pobierania harmonogramu");
@@ -97,10 +90,7 @@ export default function WorkScheduleView() {
 
     try {
       const response = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      if (response.ok) {
-        const data = await response.json();
-        setMembers(data);
-      }
+      setMembers(response.data);
     } catch (err) {
       console.error("Błąd pobierania członków:", err);
     }

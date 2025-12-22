@@ -60,11 +60,8 @@ export default function AssignedWorks() {
 
         // Pobierz aktywny tenant
         const activeTenantResponse = await tenantApi.getActiveTenant();
-        if (!activeTenantResponse.ok) {
-          throw new Error("Nie udało się pobrać aktywnego tenanta");
-        }
+        const activeTenantData = activeTenantResponse.data;
 
-        const activeTenantData = await activeTenantResponse.json();
         if (!activeTenantData.activeTenantId || activeTenantData.activeTenantId === "00000000-0000-0000-0000-000000000000") {
           setError("Brak aktywnego tenanta. Wybierz organizację.");
           setLoading(false);
@@ -73,12 +70,7 @@ export default function AssignedWorks() {
 
         // Pobierz zaplanowane prace
         const response = await projectApi.getMyAssignedWorks(activeTenantData.activeTenantId);
-        if (!response.ok) {
-          throw new Error("Nie udało się pobrać zaplanowanych prac");
-        }
-
-        const data: UserAssignedWorksGroupedWeb[] = await response.json();
-        setAssignedWorks(data);
+        setAssignedWorks(response.data);
       } catch (err: any) {
         console.error("Błąd pobierania zaplanowanych prac:", err);
         setError(err.message || "Wystąpił błąd podczas pobierania zaplanowanych prac");

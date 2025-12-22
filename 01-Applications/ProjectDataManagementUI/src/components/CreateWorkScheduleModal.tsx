@@ -502,26 +502,23 @@ export default function CreateWorkScheduleModal({
 
       const response = await projectApi.createWorkSchedule(tenantId, projectId, command);
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Harmonogram został utworzony",
-          status: "success",
-          duration: 3000,
-        });
-        onScheduleCreated?.();
-        onClose();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 3000,
-        });
-      }
+      toast({
+        title: "Sukces",
+        description: "Harmonogram został utworzony",
+        status: "success",
+        duration: 3000,
+      });
+      onScheduleCreated?.();
+      onClose();
     } catch (error) {
       console.error("Błąd tworzenia harmonogramu:", error);
+      const { title, description } = handleApiError(error);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 3000,
+      });
     } finally {
       setSubmitting(false);
     }

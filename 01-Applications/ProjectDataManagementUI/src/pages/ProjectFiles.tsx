@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -37,7 +37,7 @@ import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
@@ -47,7 +47,7 @@ import type { ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../type
 export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const toast = useToast();
   const { showSuccess, showError } = useToastNotification();
   const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
@@ -86,10 +86,10 @@ export default function ProjectFiles() {
         projectApi.getProjectMembers(user.activeTenantId, projectId),
       ]);
 
-      if (projectRes.ok) setProject(await projectRes.json());
-      if (myFilesRes.ok) setMyFiles(await myFilesRes.json());
-      if (sharedFilesRes.ok) setSharedFiles(await sharedFilesRes.json());
-      if (membersRes.ok) setMembers(await membersRes.json());
+      setProject(projectRes.data);
+      setMyFiles(myFilesRes.data);
+      setSharedFiles(sharedFilesRes.data);
+      setMembers(membersRes.data);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -192,7 +192,7 @@ export default function ProjectFiles() {
 
     try {
       setSubmittingComment(commentKey);
-      const response = await projectApi.addFileVersionComment(
+      await projectApi.addFileVersionComment(
         user.activeTenantId,
         projectId,
         fileId,
@@ -200,17 +200,13 @@ export default function ProjectFiles() {
         comment.trim()
       );
 
-      if (response.ok) {
-        showSuccess("Komentarz został dodany");
-        setNewComments((prev) => {
-          const updated = new Map(prev);
-          updated.delete(commentKey);
-          return updated;
-        });
-        await fetchData();
-      } else {
-        throw new Error("Nie udało się dodać komentarza");
-      }
+      showSuccess("Komentarz został dodany");
+      setNewComments((prev) => {
+        const updated = new Map(prev);
+        updated.delete(commentKey);
+        return updated;
+      });
+      await fetchData();
     } catch (error) {
       showError("Nie udało się dodać komentarza");
     } finally {

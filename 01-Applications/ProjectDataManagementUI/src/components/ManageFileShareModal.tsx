@@ -67,33 +67,23 @@ export const ManageFileShareModal = ({
     try {
       setLoading(true);
       const userIds = Array.from(selectedUserIds);
-      const response = await projectApi.updateFileShare(tenantId, projectId, fileId, userIds);
+      await projectApi.updateFileShare(tenantId, projectId, fileId, userIds);
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Zaktualizowano udostępnienie pliku",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        onShareUpdated();
-        onClose();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
-      }
+      toast({
+        title: "Sukces",
+        description: "Zaktualizowano udostępnienie pliku",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      onShareUpdated();
+      onClose();
     } catch (error) {
       console.error("Błąd podczas aktualizacji udostępnienia:", error);
+      const { title, description } = handleApiError(error);
       toast({
-        title: "Błąd",
-        description: "Wystąpił błąd podczas aktualizacji udostępnienia",
+        title,
+        description,
         status: "error",
         duration: 5000,
         isClosable: true,

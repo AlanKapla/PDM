@@ -61,12 +61,10 @@ export default function ShareCostModal({
     setLoadingMembers(true);
     try {
       const response = await projectApi.getProjectMembers(tenantId, projectId);
-      if (response.ok) {
-        const data: ProjectMemberWeb[] = await response.json();
-        // Filtruj, aby nie pokazywać właściciela kosztu
-        const filteredMembers = data.filter((m) => m.userId !== cost.userId);
-        setMembers(filteredMembers);
-      }
+      const data: ProjectMemberWeb[] = response.data;
+      // Filtruj, aby nie pokazywać właściciela kosztu
+      const filteredMembers = data.filter((m) => m.userId !== cost.userId);
+      setMembers(filteredMembers);
     } catch (err) {
       console.error("Błąd pobierania członków:", err);
       toast({
@@ -91,12 +89,7 @@ export default function ShareCostModal({
     // Backend sam zarządza dodawaniem i usuwaniem udostępnień
     setLoading(true);
     try {
-      const shareResponse = await projectApi.shareProjectCost(tenantId, projectId, cost.id, selectedUserIds);
-      if (!shareResponse.ok) {
-        const { title, description } = await handleApiError(shareResponse);
-        toast({ title, description, status: "error", duration: 5000 });
-        return;
-      }
+      await projectApi.shareProjectCost(tenantId, projectId, cost.id, selectedUserIds);
 
       toast({
         title: "Sukces",
@@ -109,12 +102,8 @@ export default function ShareCostModal({
       onClose();
     } catch (err) {
       console.error("Błąd podczas udostępniania kosztu:", err);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się zaktualizować udostępniania",
-        status: "error",
-        duration: 5000,
-      });
+      const { title, description } = handleApiError(err);
+      toast({ title, description, status: "error", duration: 5000 });
     } finally {
       setLoading(false);
     }

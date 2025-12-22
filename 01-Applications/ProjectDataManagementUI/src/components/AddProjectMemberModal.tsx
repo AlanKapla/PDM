@@ -63,15 +63,11 @@ export default function AddProjectMemberModal({
         projectApi.getProjectMembers(tenantId, projectId),
       ]);
 
-      if (tenantMembersRes.ok) {
-        const members: TenantMemberWeb[] = await tenantMembersRes.json();
-        setTenantMembers(members.filter(m => m.isActive));
-      }
+      const members: TenantMemberWeb[] = tenantMembersRes.data;
+      setTenantMembers(members.filter(m => m.isActive));
 
-      if (projectMembersRes.ok) {
-        const members: ProjectMemberWeb[] = await projectMembersRes.json();
-        setProjectMembers(members);
-      }
+      const projectMembers: ProjectMemberWeb[] = projectMembersRes.data;
+      setProjectMembers(projectMembers);
     } catch (error) {
       console.error("Błąd pobierania członków:", error);
       showError("Błąd", "Nie udało się pobrać listy członków");
@@ -83,22 +79,18 @@ export default function AddProjectMemberModal({
   const handleAddMember = async (userId: string) => {
     setAdding(userId);
     try {
-      const response = await projectApi.addProjectMember(tenantId, projectId, userId);
+      await projectApi.addProjectMember(tenantId, projectId, userId);
       
-      if (response.ok) {
-        showSuccess("Sukces", "Członek został dodany do projektu");
-        
-        // Odśwież listę członków
-        await fetchData();
-        onMemberAdded?.();
-      } else {
-        const errorModule = await import("../utils/handleApiError");
-        const { title, description } = await errorModule.handleApiError(response);
-        showError(title, description);
-      }
+      showSuccess("Sukces", "Członek został dodany do projektu");
+      
+      // Odśwież listę członków
+      await fetchData();
+      onMemberAdded?.();
     } catch (error) {
       console.error("Błąd dodawania członka:", error);
-      showError("Błąd", "Nie udało się dodać członka do projektu");
+      const errorModule = await import("../utils/handleApiError");
+      const { title, description } = errorModule.handleApiError(error);
+      showError(title, description);
     } finally {
       setAdding(null);
     }
