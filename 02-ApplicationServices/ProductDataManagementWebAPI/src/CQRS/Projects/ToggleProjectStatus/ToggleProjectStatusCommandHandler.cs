@@ -16,17 +16,20 @@ namespace CQRS.Projects.ToggleProjectStatus;
 public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectStatusCommand, Unit>
 {
     private readonly IReadRepository<Project> projectRepo;
+    private readonly IReadRepository<User> userRepo;
     private readonly IRepository<ProjectMember> projectMemberRepo;
     private readonly INotificationSender notificationSender;
     private readonly ICurrentUser currentUser;
 
     public ToggleProjectStatusCommandHandler(
         IReadRepository<Project> projectRepo,
+        IReadRepository<User> userRepo,
         IRepository<ProjectMember> projectMemberRepo,
         INotificationSender notificationSender,
         ICurrentUser currentUser)
     {
         this.projectRepo = projectRepo;
+        this.userRepo = userRepo;
         this.projectMemberRepo = projectMemberRepo;
         this.notificationSender = notificationSender;
         this.currentUser = currentUser;
@@ -43,23 +46,31 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
         project.IsActive = request.IsActive;
         await projectRepo.Update(project);
 
-        // Pobierz wszystkich członków projektu do wysłania notyfikacji
         IEnumerable<ProjectMember> projectMembers = await projectMemberRepo.GetBySearch(
             pm => pm.ProjectId == request.ProjectId && pm.TenantId == request.TenantId);
 
-        // Określ typ i treść notyfikacji w zależności od akcji
         string actionText = request.IsActive ? "aktywowany" : "zdezaktywowany";
         NotificationType notificationType = request.IsActive ? NotificationType.Info : NotificationType.Warning;
 
-        // Wyślij notyfikację do wszystkich członków projektu oprócz użytkownika wykonującego akcję
+        var memberUserIds = projectMembers
+            .Where(pm => pm.UserId != currentUser.Id)
+            .Select(pm => pm.UserId)
+            .ToList();
+
+        var users = await userRepo.GetBySearch(u => memberUserIds.Contains(u.Id));
+        var userDict = users.ToDictionary(u => u.Id);
+
         foreach (ProjectMember member in projectMembers.Where(pm => pm.UserId != currentUser.Id))
         {
+            userDict.TryGetValue(member.UserId, out User? targetUser);
+
             NotificationDto notification = new()
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = member.UserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = notificationType,
                 Title = $"Projekt {actionText}",
                 Message = $"Projekt \"{project.Name}\" został {actionText}",

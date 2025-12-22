@@ -16,6 +16,7 @@ namespace CQRS.Tenants.ToggleTenantStatus;
 public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStatusCommand, Unit>
 {
     private readonly IReadRepository<Tenant> tenantRepo;
+    private readonly IReadRepository<User> userRepo;
     private readonly IRepository<TenantMember> tenantMemberRepo;
     private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
     private readonly INotificationSender notificationSender;
@@ -23,12 +24,14 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
 
     public ToggleTenantStatusCommandHandler(
         IReadRepository<Tenant> tenantRepo,
+        IReadRepository<User> userRepo,
         IRepository<TenantMember> tenantMemberRepo,
         IRepository<TenantPreferencesProfile> tenantPrefsRepo,
         INotificationSender notificationSender,
         ICurrentUser currentUser)
     {
         this.tenantRepo = tenantRepo;
+        this.userRepo = userRepo;
         this.tenantMemberRepo = tenantMemberRepo;
         this.tenantPrefsRepo = tenantPrefsRepo;
         this.notificationSender = notificationSender;
@@ -62,19 +65,28 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
         IEnumerable<TenantMember> tenantMembers = await tenantMemberRepo.GetBySearch(
             tm => tm.TenantId == request.TenantId && tm.IsActive);
 
-        // Określ typ i treść notyfikacji w zależności od akcji
         string actionText = request.IsActive ? "aktywowana" : "zdezaktywowana";
         NotificationType notificationType = request.IsActive ? NotificationType.Info : NotificationType.Warning;
 
-        // Wyślij notyfikację do wszystkich członków tenanta oprócz użytkownika wykonującego akcję
+        var memberUserIds = tenantMembers
+            .Where(tm => tm.UserId != currentUser.Id)
+            .Select(tm => tm.UserId)
+            .ToList();
+
+        var users = await userRepo.GetBySearch(u => memberUserIds.Contains(u.Id));
+        var userDict = users.ToDictionary(u => u.Id);
+
         foreach (TenantMember member in tenantMembers.Where(tm => tm.UserId != currentUser.Id))
         {
+            userDict.TryGetValue(member.UserId, out User? targetUser);
+
             NotificationDto notification = new()
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
                 ProjectId = null,
                 UserId = member.UserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = notificationType,
                 Title = $"Organizacja {actionText}",
                 Message = $"Organizacja \"{tenant.Name}\" została {actionText}",

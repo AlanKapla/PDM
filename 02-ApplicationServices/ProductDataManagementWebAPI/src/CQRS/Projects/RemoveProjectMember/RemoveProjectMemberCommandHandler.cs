@@ -12,6 +12,7 @@ namespace CQRS.Projects.RemoveProjectMember
     public class RemoveProjectMemberCommandHandler : IRequestHandler<RemoveProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
+        private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
@@ -20,12 +21,14 @@ namespace CQRS.Projects.RemoveProjectMember
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
             INotificationSender notificationSender,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IReadRepository<User> userRepo)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
+            this.userRepo = userRepo;
         }
 
         public async Task<Unit> Handle(RemoveProjectMemberCommand request, CancellationToken cancellationToken)
@@ -44,12 +47,15 @@ namespace CQRS.Projects.RemoveProjectMember
             await projectMemberRepo.Delete(projectMember);
 
             // Wyślij notyfikację do usuniętego użytkownika
+            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
+
             NotificationDto notification = new NotificationDto
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = request.UserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.Warning,
                 Title = "Usunięto z projektu",
                 Message = $"Zostałeś usunięty z projektu: {project.Name}",

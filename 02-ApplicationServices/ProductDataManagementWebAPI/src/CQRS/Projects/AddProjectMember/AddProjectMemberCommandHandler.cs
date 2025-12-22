@@ -13,17 +13,20 @@ namespace CQRS.Projects.AddProjectMember
     public class AddProjectMemberCommandHandler : IRequestHandler<AddProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
+        private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
         public AddProjectMemberCommandHandler(
             IReadRepository<Project> projectRepo,
+            IReadRepository<User> userRepo,
             IRepository<ProjectMember> projectMemberRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
+            this.userRepo = userRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
@@ -46,6 +49,8 @@ namespace CQRS.Projects.AddProjectMember
 
             await projectMemberRepo.Insert(newMember);
 
+            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
+
             // Wyślij notyfikację do użytkownika
             NotificationDto notification = new NotificationDto
             {
@@ -53,6 +58,7 @@ namespace CQRS.Projects.AddProjectMember
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = request.UserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.Info,
                 Title = "Dodano do projektu",
                 Message = $"Zostałeś dodany do projektu: {project.Name}",

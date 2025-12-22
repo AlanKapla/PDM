@@ -15,8 +15,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.Graph;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
@@ -27,6 +27,7 @@ using Repositiories.Repository.Repositories;
 using Repositories.Repository.Interfaces;
 using WebApi.Authorization;
 using WebApi.Constants;
+using WebApi.Services;
 
 namespace WebApi.Extensions
 {
@@ -67,14 +68,9 @@ namespace WebApi.Extensions
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
             services.AddHealthChecks();
-
-            var keysPath = Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? @"D:\home", "keys");
-
-            services
-                .AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
-
             services.AddSignalR();
+            services.AddSingleton<IUserIdProvider, AzureAdB2CUserIdProvider>();
+
             services.AddMemoryCache();
 
             return services;
@@ -205,7 +201,15 @@ namespace WebApi.Extensions
                             if (!string.IsNullOrEmpty(accessToken))
                             {
                                 context.Token = accessToken;
+                                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                                logger.LogInformation("Token received from query string for path: {Path}", context.Request.Path);
                             }
+                            return Task.CompletedTask;
+                        },
+                        OnAuthenticationFailed = context =>
+                        {
+                            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                            logger.LogError(context.Exception, "Authentication failed for path: {Path}", context.Request.Path);
                             return Task.CompletedTask;
                         }
                     };

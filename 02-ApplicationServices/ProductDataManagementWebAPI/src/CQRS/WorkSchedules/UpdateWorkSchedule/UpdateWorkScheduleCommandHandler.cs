@@ -314,15 +314,21 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             // Remove users who are both removed and added (net zero change)
             removedUserIds.ExceptWith(addedUserIds);
 
-            // Send notifications to removed users
+            var allNotificationUserIds = removedUserIds.Union(addedUserIds).ToList();
+            var notificationUsers = await userRepo.GetBySearch(u => allNotificationUserIds.Contains(u.Id));
+            var notificationUserDict = notificationUsers.ToDictionary(u => u.Id);
+
             foreach (Guid userId in removedUserIds)
             {
+                notificationUserDict.TryGetValue(userId, out User? targetUser);
+
                 NotificationDto notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     ProjectId = projectId,
                     UserId = userId,
+                    AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                     Type = NotificationType.Info,
                     Title = "Usunięto z harmonogramu prac",
                     Message = $"Zostałeś usunięty z prac w harmonogramie: {request.Name}",
@@ -341,15 +347,17 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 await notificationSender.EnqueueAsync(notification, cancellationToken);
             }
 
-            // Send notifications to newly added users
             foreach (Guid userId in addedUserIds)
             {
+                notificationUserDict.TryGetValue(userId, out User? targetUser);
+
                 NotificationDto notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     ProjectId = projectId,
                     UserId = userId,
+                    AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                     Type = NotificationType.Info,
                     Title = "Przypisano do harmonogramu prac",
                     Message = $"Zostałeś przypisany do prac w harmonogramie: {request.Name}",

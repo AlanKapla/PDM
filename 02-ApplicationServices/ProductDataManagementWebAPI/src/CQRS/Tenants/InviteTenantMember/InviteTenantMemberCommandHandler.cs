@@ -104,6 +104,7 @@ namespace CQRS.Tenants.InviteTenantMember
                     TenantId = request.TenantId,
                     ProjectId = null,
                     UserId = existingUser.Id,
+                    AzureAdB2CObjectId = existingUser.AzureAdB2CObjectId,
                     Type = DtoNotificationType.Info,
                     Title = "Tenant Invitation",
                     Message = $"You have been invited to join {tenantName}",

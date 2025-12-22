@@ -167,22 +167,26 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
             // Get creator information from ICurrentUser
             string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
-            // Collect all unique assigned users for notifications
             HashSet<Guid> allAssignedUsers = request.Stages
                 .SelectMany(s => s.Works)
                 .SelectMany(w => w.AssignedUserIds)
                 .Distinct()
                 .ToHashSet();
 
-            // Send notification to each assigned user
+            var notificationUsers = await userRepo.GetBySearch(u => allAssignedUsers.Contains(u.Id));
+            var userDict = notificationUsers.ToDictionary(u => u.Id);
+
             foreach (Guid userId in allAssignedUsers)
             {
+                userDict.TryGetValue(userId, out User? targetUser);
+
                 NotificationDto notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     ProjectId = projectId,
                     UserId = userId,
+                    AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                     Type = NotificationType.Info,
                     Title = "Przypisano do harmonogramu prac",
                     Message = $"Zostałeś przypisany do prac w harmonogramie: {request.Name}",

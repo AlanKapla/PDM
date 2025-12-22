@@ -140,12 +140,15 @@ namespace CQRS.Files.ShareProjectFiles
                 ["FileNames"] = fileNamesDict.Values.Take(5).ToList()
             };
 
+            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == sharedWithUserId, cancellationToken);
+
             var notificationDto = new NotificationDto
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = sharedWithUserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationTypeDto.Info,
                 Title = title,
                 Message = message,

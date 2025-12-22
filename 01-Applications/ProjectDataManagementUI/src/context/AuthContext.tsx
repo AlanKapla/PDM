@@ -1,6 +1,7 @@
 ﻿import { createContext, useEffect, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { axiosClient } from "../api/axiosClient";
+import { notificationHubService } from "../services/notificationHubService";
 
 interface UserProfile {
   id: string;
@@ -78,6 +79,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(response.data);
           setLoading(false);
         }
+
+        // ✅ Uruchom SignalR po załadowaniu profilu użytkownika
+        console.log("🔔 Starting SignalR connection for notifications...");
+        await notificationHubService.startConnection();
       } catch (error: any) {
         console.error("❌ AuthContext: Error fetching user:", error);
         if (isMounted) {
@@ -119,6 +124,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Logout - clear state and redirect to MSAL logout
   const logout = async () => {
     console.log("🚪 Logging out...");
+    
+    // ✅ Zatrzymaj SignalR przed wylogowaniem
+    console.log("🔔 Stopping SignalR connection...");
+    await notificationHubService.stopConnection();
+    notificationHubService.clearCache();
     
     // Clear app state
     setUser(null);

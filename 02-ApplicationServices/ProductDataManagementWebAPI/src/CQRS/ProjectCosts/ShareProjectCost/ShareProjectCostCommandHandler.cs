@@ -6,6 +6,7 @@ using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -16,6 +17,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
         private readonly IRepository<Project> projectRepo;
+        private readonly IReadRepository<User> userRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<ShareProjectCostCommandHandler> logger;
@@ -24,6 +26,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             IRepository<ProjectCost> projectCostRepo,
             IRepository<SharedProjectCost> sharedProjectCostRepo,
             IRepository<Project> projectRepo,
+            IReadRepository<User> userRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<ShareProjectCostCommandHandler> logger)
@@ -31,6 +34,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
             this.projectRepo = projectRepo;
+            this.userRepo = userRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -68,11 +72,12 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             var existingUserIds = cost.SharedWith.Select(s => s.SharedWithUserId).ToHashSet();
             var requestedUserIds = request.SharedWithUserIds.ToHashSet();
 
-            // Find users to add (in request but not in existing)
             var usersToAdd = requestedUserIds.Except(existingUserIds).ToList();
-
-            // Find users to remove (in existing but not in request)
             var usersToRemove = existingUserIds.Except(requestedUserIds).ToList();
+
+            var allAffectedUserIds = usersToAdd.Union(usersToRemove).ToList();
+            var affectedUsers = await userRepo.GetBySearch(u => allAffectedUserIds.Contains(u.Id));
+            var userDict = affectedUsers.ToDictionary(u => u.Id);
 
             // Remove shares that are no longer in the list
             if (usersToRemove.Any())
@@ -86,6 +91,8 @@ namespace CQRS.ProjectCosts.ShareProjectCost
                 // Send notifications to users who lost access
                 foreach (var userId in usersToRemove)
                 {
+                    userDict.TryGetValue(userId, out User? targetUser);
+
                     var notification = new NotificationDto
                     {
                         Id = Guid.NewGuid(),
@@ -93,6 +100,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
                         ProjectId = request.ProjectId,
                         ProjectName = projectName,
                         UserId = userId,
+                        AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                         Type = NotificationType.Info,
                         Title = "Odebrano dostęp do kosztu",
                         Message = $"{currentUser.FirstName} {currentUser.LastName} odebrał Ci dostęp do kosztu: {cost.Name}",
@@ -133,6 +141,8 @@ namespace CQRS.ProjectCosts.ShareProjectCost
                 // Send notifications to users who gained access
                 foreach (var userId in usersToAdd)
                 {
+                    userDict.TryGetValue(userId, out User? targetUser);
+
                     var notification = new NotificationDto
                     {
                         Id = Guid.NewGuid(),
@@ -140,6 +150,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
                         ProjectId = request.ProjectId,
                         ProjectName = projectName,
                         UserId = userId,
+                        AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                         Type = NotificationType.Success,
                         Title = "Udostępniono Ci koszt",
                         Message = $"{currentUser.FirstName} {currentUser.LastName} udostępnił Ci koszt: {cost.Name}",

@@ -75,66 +75,51 @@ export default function NotificationBell() {
 
   // Połączenie SignalR i nasłuchiwanie na nowe powiadomienia - TYLKO RAZ
   useEffect(() => {
-    let unsubscribeNew: (() => void) | null = null;
-    let unsubscribeSync: (() => void) | null = null;
-
-    const initSignalR = async () => {
-      try {
-        // Uruchom połączenie SignalR
-        await notificationHubService.startConnection();
-
-        // Subskrybuj na nowe powiadomienia
-        unsubscribeNew = notificationHubService.onNotificationReceived((notification) => {
-          console.log("✅ Nowe powiadomienie otrzymane z SignalR:", notification.title);
-          
-          // ✅ Cache został już zaktualizowany w notificationHubService
-          // Tutaj tylko odświeżamy UI
-          const newUnreadCount = notificationHubService.getUnreadCountFromCache();
-          setUnreadCount(newUnreadCount);
-          
-          // Jeśli popover jest otwarty, odśwież listę
-          if (isOpen) {
-            loadNotificationsFromCache();
-          }
-          
-          console.log("✅ UI zaktualizowane bez API call! Nowy licznik nieprzeczytanych:", newUnreadCount);
-        });
-
-        // 🔄 Subskrybuj na synchronizację między urządzeniami
-        unsubscribeSync = notificationHubService.onNotificationSynced((dto) => {
-          console.log("🔄 Synchronizacja z innego urządzenia - powiadomienie oznaczone jako przeczytane:", {
-            notificationId: dto.notificationId,
-            userId: dto.userId,
-            readAt: dto.readAt
-          });
-          
-          // Cache został już zaktualizowany przez SignalR event handler
-          // Teraz tylko odśwież UI
-          const newUnreadCount = notificationHubService.getUnreadCountFromCache();
-          setUnreadCount(newUnreadCount);
-          
-          // Jeśli popover jest otwarty, odśwież listę
-          if (isOpen) {
-            loadNotificationsFromCache();
-          }
-          
-          console.log("🔄 UI zsynchronizowane z innym urządzeniem! Nowy licznik:", newUnreadCount);
-        });
-      } catch (error) {
-        console.error("Błąd inicjalizacji SignalR:", error);
+    // ✅ SignalR jest już uruchomiony globalnie w AuthContext
+    // Tutaj tylko rejestrujemy listenery dla tego komponentu
+    
+    // Subskrybuj na nowe powiadomienia
+    const unsubscribeNew = notificationHubService.onNotificationReceived((notification) => {
+      console.log("✅ Nowe powiadomienie otrzymane z SignalR:", notification.title);
+      
+      // ✅ Cache został już zaktualizowany w notificationHubService
+      // Tutaj tylko odświeżamy UI
+      const newUnreadCount = notificationHubService.getUnreadCountFromCache();
+      setUnreadCount(newUnreadCount);
+      
+      // Jeśli popover jest otwarty, odśwież listę
+      if (isOpen) {
+        loadNotificationsFromCache();
       }
-    };
+      
+      console.log("✅ UI zaktualizowane bez API call! Nowy licznik nieprzeczytanych:", newUnreadCount);
+    });
 
-    initSignalR();
+    // 🔄 Subskrybuj na synchronizację między urządzeniami
+    const unsubscribeSync = notificationHubService.onNotificationSynced((dto) => {
+      console.log("🔄 Synchronizacja z innego urządzenia - powiadomienie oznaczone jako przeczytane:", {
+        notificationId: dto.notificationId,
+        userId: dto.userId,
+        readAt: dto.readAt
+      });
+      
+      // Cache został już zaktualizowany przez SignalR event handler
+      // Teraz tylko odśwież UI
+      const newUnreadCount = notificationHubService.getUnreadCountFromCache();
+      setUnreadCount(newUnreadCount);
+      
+      // Jeśli popover jest otwarty, odśwież listę
+      if (isOpen) {
+        loadNotificationsFromCache();
+      }
+      
+      console.log("🔄 UI zsynchronizowane z innym urządzeniem! Nowy licznik:", newUnreadCount);
+    });
 
     // Cleanup przy unmount - usuń listenery
     return () => {
-      if (unsubscribeNew) {
-        unsubscribeNew();
-      }
-      if (unsubscribeSync) {
-        unsubscribeSync();
-      }
+      unsubscribeNew();
+      unsubscribeSync();
     };
   }, [isOpen]); // Dodaj isOpen do zależności
 
