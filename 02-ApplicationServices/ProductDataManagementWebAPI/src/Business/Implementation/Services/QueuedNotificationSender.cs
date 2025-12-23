@@ -40,6 +40,10 @@ namespace Business.Implementation.Services
 
         public async Task EnqueueAsync(NotificationDto notificationDto, CancellationToken cancellationToken = default)
         {
+            var startTime = DateTimeOffset.UtcNow;
+            logger.LogInformation("📤 [ENQUEUE START] NotificationId={NotificationId}, UserId={UserId}, Type={Type}, Timestamp={Timestamp}",
+                notificationDto.Id, notificationDto.UserId, notificationDto.Type, startTime);
+            
             // Load Tenant and Project to get names
             Tenant? tenant = await tenantRepo.GetFirstBySearch(t => t.Id == notificationDto.TenantId);
             if (tenant != null)
@@ -77,7 +81,10 @@ namespace Business.Implementation.Services
 
             string payload = JsonSerializer.Serialize(notificationDto, JsonOptions);
             await queueStorageService.EnqueueAsync(QueueNames.NotificationSend, payload, cancellationToken: cancellationToken);
-            logger.LogInformation("Notification enqueued for user {UserId} type {Type}", notificationDto.UserId, notificationDto.Type);
+            
+            var elapsedMs = (DateTimeOffset.UtcNow - startTime).TotalMilliseconds;
+            logger.LogInformation("✅ [ENQUEUE DONE] NotificationId={NotificationId}, Elapsed={ElapsedMs}ms, Timestamp={Timestamp}",
+                notificationDto.Id, elapsedMs, DateTimeOffset.UtcNow);
         }
 
         private static Entities.Models.NotificationType MapType(Business.Interfaces.DTO.NotificationType type)

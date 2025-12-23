@@ -68,7 +68,16 @@ namespace WebApi.Extensions
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
             services.AddHealthChecks();
-            services.AddSignalR();
+
+            services.AddSignalR(options =>
+            {
+                options.EnableDetailedErrors = false; // Wyłączone w produkcji dla bezpieczeństwa
+                options.KeepAliveInterval = TimeSpan.FromSeconds(10); // Ping co 10s
+                options.ClientTimeoutInterval = TimeSpan.FromSeconds(30); // Timeout po 30s bez odpowiedzi
+                options.HandshakeTimeout = TimeSpan.FromSeconds(15);
+                options.MaximumReceiveMessageSize = 102400; // 100 KB
+            });
+
             services.AddSingleton<IUserIdProvider, AzureAdB2CUserIdProvider>();
 
             services.AddMemoryCache();
@@ -107,21 +116,6 @@ namespace WebApi.Extensions
                 {
                     { bearerScheme, Array.Empty<string>() }
                 });
-
-                var cookieScheme = new OpenApiSecurityScheme
-                {
-                    Name = CookieKeys.AccessToken,
-                    Type = SecuritySchemeType.ApiKey,
-                    In = ParameterLocation.Cookie,
-                    Description = "JWT stored in HttpOnly cookie (legacy auth)",
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "CookieAuth"
-                    }
-                };
-
-                c.AddSecurityDefinition("CookieAuth", cookieScheme);
             });
 
             return services;
@@ -269,7 +263,6 @@ namespace WebApi.Extensions
 
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
-            services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<ICurrentUser, CurrentUser>();
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();

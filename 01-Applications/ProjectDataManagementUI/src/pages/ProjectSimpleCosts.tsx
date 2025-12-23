@@ -26,7 +26,7 @@ import {
   Badge,
   Icon,
 } from "@chakra-ui/react";
-import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi } from "../api/projectApi";
 import { AuthContext } from "../context/AuthContext";
@@ -55,6 +55,8 @@ export default function ProjectSimpleCosts() {
   const [savingCost, setSavingCost] = useState(false);
   const [deletingCostId, setDeletingCostId] = useState<string | null>(null);
   const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
 
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
 
@@ -139,6 +141,7 @@ export default function ProjectSimpleCosts() {
           netAmount: newCostData.netAmount ? parseFloat(newCostData.netAmount) : undefined,
           vatRate: newCostData.vatRate ? parseFloat(newCostData.vatRate) : undefined,
           grossAmount: parseFloat(newCostData.grossAmount),
+          document: documentFile || undefined,
         }
       );
 
@@ -152,6 +155,7 @@ export default function ProjectSimpleCosts() {
         vatRate: '',
         grossAmount: '',
       });
+      setDocumentFile(null);
       setShowNewCostRow(false);
       fetchProjectCosts();
     } catch (error) {
@@ -192,13 +196,15 @@ export default function ProjectSimpleCosts() {
           netAmount: parseFloat(editingCostData.netAmount),
           vatRate: parseFloat(editingCostData.vatRate),
           grossAmount: parseFloat(editingCostData.grossAmount),
-          removeDocument: false,
+          document: editDocumentFile || undefined,
+          removeDocument: editingCostData?.removeDocument || false,
         }
       );
 
       showSuccess("Koszt został zaktualizowany");
       setEditingCostId(null);
       setEditingCostData(null);
+      setEditDocumentFile(null);
       fetchProjectCosts();
     } catch (error) {
       console.error("Błąd podczas aktualizacji kosztu:", error);
@@ -315,6 +321,7 @@ export default function ProjectSimpleCosts() {
                           <Th isNumeric>Netto</Th>
                           <Th isNumeric>VAT %</Th>
                           <Th isNumeric>Brutto</Th>
+                          <Th textAlign="center">Dokument</Th>
                           <Th textAlign="center">Akcje</Th>
                         </Tr>
                       </Thead>
@@ -329,9 +336,41 @@ export default function ProjectSimpleCosts() {
                             <Td><Input size="sm" type="number" step="0.01" value={newCostData.vatRate} onChange={(e) => setNewCostData({ ...newCostData, vatRate: e.target.value })} placeholder="0" /></Td>
                             <Td><Input size="sm" type="number" step="0.01" value={newCostData.grossAmount} onChange={(e) => setNewCostData({ ...newCostData, grossAmount: e.target.value })} placeholder="0.00" /></Td>
                             <Td textAlign="center">
+                              <VStack spacing={1}>
+                                <Input
+                                  size="sm"
+                                  type="file"
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                                  display="none"
+                                  id="new-cost-file"
+                                />
+                                <Button
+                                  as="label"
+                                  htmlFor="new-cost-file"
+                                  size="xs"
+                                  leftIcon={<FileUp size={14} />}
+                                  variant="outline"
+                                  cursor="pointer"
+                                >
+                                  {documentFile ? documentFile.name.substring(0, 15) : "Dodaj plik"}
+                                </Button>
+                                {documentFile && (
+                                  <IconButton
+                                    aria-label="Usuń plik"
+                                    icon={<X size={12} />}
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="red"
+                                    onClick={() => setDocumentFile(null)}
+                                  />
+                                )}
+                              </VStack>
+                            </Td>
+                            <Td textAlign="center">
                               <HStack spacing={1} justify="center">
                                 <Button size="sm" colorScheme="green" onClick={handleAddCost} isLoading={addingNewCost}>Zapisz</Button>
-                                <Button size="sm" variant="ghost" onClick={() => setShowNewCostRow(false)}>Anuluj</Button>
+                                <Button size="sm" variant="ghost" onClick={() => { setShowNewCostRow(false); setDocumentFile(null); }}>Anuluj</Button>
                               </HStack>
                             </Td>
                           </Tr>
@@ -348,9 +387,41 @@ export default function ProjectSimpleCosts() {
                               <Td><Input size="sm" type="number" step="0.01" value={editingCostData.vatRate} onChange={(e) => setEditingCostData({ ...editingCostData, vatRate: e.target.value })} /></Td>
                               <Td><Input size="sm" type="number" step="0.01" value={editingCostData.grossAmount} onChange={(e) => setEditingCostData({ ...editingCostData, grossAmount: e.target.value })} /></Td>
                               <Td textAlign="center">
+                                <VStack spacing={1}>
+                                  <Input
+                                    size="sm"
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => setEditDocumentFile(e.target.files?.[0] || null)}
+                                    display="none"
+                                    id="edit-cost-file"
+                                  />
+                                  <Button
+                                    as="label"
+                                    htmlFor="edit-cost-file"
+                                    size="xs"
+                                    leftIcon={<FileUp size={14} />}
+                                    variant="outline"
+                                    cursor="pointer"
+                                  >
+                                    {editDocumentFile ? editDocumentFile.name.substring(0, 15) : "Zmień plik"}
+                                  </Button>
+                                  {editDocumentFile && (
+                                    <IconButton
+                                      aria-label="Usuń plik"
+                                      icon={<X size={12} />}
+                                      size="xs"
+                                      variant="ghost"
+                                      colorScheme="red"
+                                      onClick={() => setEditDocumentFile(null)}
+                                    />
+                                  )}
+                                </VStack>
+                              </Td>
+                              <Td textAlign="center">
                                 <HStack spacing={1} justify="center">
                                   <Button size="sm" colorScheme="green" onClick={handleSaveEdit} isLoading={savingCost}>Zapisz</Button>
-                                  <Button size="sm" variant="ghost" onClick={() => { setEditingCostId(null); setEditingCostData(null); }}>Anuluj</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => { setEditingCostId(null); setEditingCostData(null); setEditDocumentFile(null); }}>Anuluj</Button>
                                 </HStack>
                               </Td>
                             </Tr>
@@ -363,6 +434,32 @@ export default function ProjectSimpleCosts() {
                               <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                               <Td isNumeric>{cost.vatRate ?? 0}%</Td>
                               <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                              <Td textAlign="center">
+                                {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
+                                  <HStack spacing={1} justify="center">
+                                    <IconButton
+                                      aria-label="Podgląd"
+                                      icon={<Eye size={14} />}
+                                      size="xs"
+                                      variant="ghost"
+                                      colorScheme="purple"
+                                      onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                                      title={`Podgląd: ${cost.documentFileName}`}
+                                    />
+                                    <IconButton
+                                      aria-label="Pobierz"
+                                      icon={<Download size={14} />}
+                                      size="xs"
+                                      variant="ghost"
+                                      colorScheme="green"
+                                      onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                                      title={`Pobierz: ${cost.documentFileName}`}
+                                    />
+                                  </HStack>
+                                ) : (
+                                  <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
+                                )}
+                              </Td>
                               <Td textAlign="center">
                                 <HStack spacing={1} justify="center">
                                   <IconButton aria-label="Edytuj" icon={<Edit2 size={14} />} size="xs" variant="ghost" onClick={() => handleEditCost(cost)} />
@@ -407,6 +504,7 @@ export default function ProjectSimpleCosts() {
                           <Th isNumeric>Netto</Th>
                           <Th isNumeric>VAT %</Th>
                           <Th isNumeric>Brutto</Th>
+                          <Th textAlign="center">Dokument</Th>
                           <Th>Udostępnione przez</Th>
                         </Tr>
                       </Thead>
@@ -420,6 +518,32 @@ export default function ProjectSimpleCosts() {
                             <Td isNumeric>{formatCurrency(cost.costNetAmount ?? 0)}</Td>
                             <Td isNumeric>{cost.costVatRate ?? 0}%</Td>
                             <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.costGrossAmount)}</Td>
+                            <Td textAlign="center">
+                              {cost.costHasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
+                                <HStack spacing={1} justify="center">
+                                  <IconButton
+                                    aria-label="Podgląd"
+                                    icon={<Eye size={14} />}
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="purple"
+                                    onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                                    title={`Podgląd: ${cost.costDocumentFileName}`}
+                                  />
+                                  <IconButton
+                                    aria-label="Pobierz"
+                                    icon={<Download size={14} />}
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="green"
+                                    onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                                    title={`Pobierz: ${cost.costDocumentFileName}`}
+                                  />
+                                </HStack>
+                              ) : (
+                                <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
+                              )}
+                            </Td>
                             <Td>{cost.sharedByUserName}</Td>
                           </Tr>
                         ))}

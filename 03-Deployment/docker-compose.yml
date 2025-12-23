@@ -94,6 +94,8 @@ services:
     volumes:
       # główny config reverse proxy
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # dodatkowe konfiguracje (np. WebSocket mapping)
+      - ./conf.d:/etc/nginx/conf.d/includes:ro
 
     # Host-port dostarczany z GitHub Environment → vars.HOST_PORT
     # i zapisany do .env jako HOST_PORT=$hostPort

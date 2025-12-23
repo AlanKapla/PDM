@@ -31,9 +31,12 @@ namespace Business.Implementation.Services
                     DequeuedMessage? message = await queueStorage.DequeueAsync(QueueNames.NotificationSend, cancellationToken: stoppingToken);
                     if (message is null)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                        // Krótszy delay (100ms zamiast 1s) - szybsza reakcja
+                        await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
                         continue;
                     }
+
+                    logger.LogInformation("📩 Processing notification from queue: {MessageId}", message.MessageId);
 
                     JsonSerializerOptions jsonOptions = new JsonSerializerOptions
                     {
@@ -43,7 +46,9 @@ namespace Business.Implementation.Services
 
                     if (notification != null)
                     {
+                        logger.LogInformation("🔔 Dispatching notification {NotificationId} to user {UserId}", notification.Id, notification.AzureAdB2CObjectId);
                         await dispatcher.DispatchAsync(notification, stoppingToken);
+                        logger.LogInformation("✅ Notification {NotificationId} dispatched successfully", notification.Id);
                     }
                     else
                     {

@@ -1,5 +1,6 @@
 ﻿import { createContext, useEffect, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
 import { notificationHubService } from "../services/notificationHubService";
 
@@ -40,15 +41,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = useIsAuthenticated();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Flaga zapobiegająca wielokrotnej inicjalizacji SignalR
+  const [signalRInitialized, setSignalRInitialized] = useState(false);
 
   // Fetch user profile when authenticated
   useEffect(() => {
-    let isMounted = true; // Prevent state updates on unmounted component
+    let isMounted = true;
 
     const fetchUserProfile = async () => {
-      // Not authenticated - clear state and finish
       if (!isAuthenticated) {
-        console.log("🔴 AuthContext: Not authenticated");
         if (isMounted) {
           setUser(null);
           setLoading(false);
@@ -56,33 +58,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Already have user - don't fetch again
+      // Already have user - skip fetch
       if (user) {
-        console.log("✅ AuthContext: User already loaded");
         if (isMounted) setLoading(false);
         return;
       }
 
       // Start fetching
-      console.log("🟢 AuthContext: Fetching user profile...");
       if (isMounted) setLoading(true);
       
       try {
-        // Sync user from B2C
         await axiosClient.post("/user/sync-b2c");
-        
-        // Fetch user details
         const response = await axiosClient.get("/user/me");
-        console.log("✅ AuthContext: User profile loaded");
         
         if (isMounted) {
           setUser(response.data);
           setLoading(false);
         }
-
-        // ✅ Uruchom SignalR po załadowaniu profilu użytkownika
-        console.log("🔔 Starting SignalR connection for notifications...");
-        await notificationHubService.startConnection();
       } catch (error: any) {
         console.error("❌ AuthContext: Error fetching user:", error);
         if (isMounted) {
@@ -95,9 +87,139 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchUserProfile();
 
     return () => {
-      isMounted = false; // Cleanup
+      isMounted = false;
     };
-  }, [isAuthenticated]); // Only re-run when authentication state changes
+  }, [isAuthenticated]); // Tylko isAuthenticated, bez user!
+
+  // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
+  useEffect(() => {
+    console.log("AUTH state", { 
+      isAuthenticated, 
+      hasUser: !!user, 
+      accountCount: accounts.length,
+      signalRInitialized
+    });
+
+    if (!isAuthenticated) {
+      setSignalRInitialized(false);
+      return;
+    }
+
+    // Jeśli już zainicjalizowane, nie rób ponownie
+    if (signalRInitialized) {
+      console.log("✅ SignalR already initialized, skipping");
+      return;
+    }
+
+    // Sprawdź czy mamy account (token)
+    const account = instance.getActiveAccount() || accounts[0];
+    if (!account) {
+      console.warn("⚠️ No MSAL account available yet");
+      return;
+    }
+
+    // Oznacz jako inicjalizowane
+    setSignalRInitialized(true);
+    console.log("🚀 Initializing SignalR for the first time...");
+
+    // Ustaw callback resync po reconnect
+    notificationHubService.setAfterReconnect(async () => {
+      try {
+        console.log("🔄 SignalR resync after reconnect...");
+        const response = await axiosClient.get("/Notification"); // GET /api/notification - wszystkie
+        await notificationHubService.initializeCache(response.data);
+        console.log("✅ SignalR resync completed");
+      } catch (error) {
+        console.error("❌ SignalR resync failed:", error);
+      }
+    });
+
+    // Inicjalizacja: NAJPIERW connect, POTEM cache
+    const initializeSignalR = async () => {
+      try {
+        // 1. Uruchom połączenie NAJPIERW (żeby nie tracić eventów)
+        console.log("🔌 Starting SignalR connection (before cache)...");
+        await notificationHubService.startConnection();
+        console.log("✅ SignalR connected");
+
+        // 2. Dopiero teraz pobierz i zainicjalizuj cache
+        console.log("💾 Loading initial notifications cache...");
+        const response = await axiosClient.get("/Notification"); // GET /api/notification - wszystkie (limit 50)
+        await notificationHubService.initializeCache(response.data);
+        console.log("✅ SignalR cache initialized:", response.data.length, "notifications");
+      } catch (error) {
+        console.error("❌ Failed to initialize SignalR:", error);
+        // Jeśli init failed, spróbuj ponownie za 5s
+        setTimeout(() => {
+          console.log("🔄 Retrying SignalR init...");
+          initializeSignalR().catch(e => console.error("❌ Retry failed:", e));
+        }, 5000);
+      }
+    };
+
+    initializeSignalR();
+
+    return () => {
+      // Cleanup - NIE stopuj SignalR (singleton)
+    };
+  }, [isAuthenticated, accounts.length]); // <-- BEZ user! Start wcześniej
+
+  // ✅ Health check - ping co 15s + force restart przy fail
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Ping co 15s (lepiej niż 60s do wykrywania problemów)
+    const pingInterval = setInterval(async () => {
+      const state = notificationHubService.getConnectionState();
+      
+      if (state === HubConnectionState.Connected) {
+        try {
+          await notificationHubService.ping();
+        } catch (error) {
+          console.warn("⚠️ SignalR ping failed -> force restart");
+          notificationHubService.forceRestart().catch(e => 
+            console.error("❌ Force restart failed:", e)
+          );
+        }
+      } else if (state === HubConnectionState.Disconnected || state === null) {
+        console.warn("⚠️ SignalR disconnected -> force restart");
+        notificationHubService.forceRestart().catch(e =>
+          console.error("❌ Force restart failed:", e)
+        );
+      }
+    }, 15000); // 15s
+
+    return () => {
+      clearInterval(pingInterval);
+    };
+  }, [isAuthenticated]);
+
+  // ✅ Sprawdź połączenie gdy użytkownik wraca do karty
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        console.log("👁️ Tab visible again, checking SignalR...");
+        const state = notificationHubService.getConnectionState();
+        
+        if (state !== HubConnectionState.Connected) {
+          console.warn("⚠️ SignalR not connected (state:", state, ") -> force restart");
+          try {
+            await notificationHubService.forceRestart();
+          } catch (error) {
+            console.error("❌ Failed to restart SignalR:", error);
+          }
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isAuthenticated]);
 
   // Legacy login method - now deprecated, redirects to B2C
   const login = async (_email: string, _password: string) => {
@@ -127,8 +249,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // ✅ Zatrzymaj SignalR przed wylogowaniem
     console.log("🔔 Stopping SignalR connection...");
-    await notificationHubService.stopConnection();
-    notificationHubService.clearCache();
+    try {
+      await notificationHubService.stopConnection();
+      notificationHubService.clearCache();
+    } catch (error) {
+      console.error("❌ Error stopping SignalR:", error);
+    }
     
     // Clear app state
     setUser(null);

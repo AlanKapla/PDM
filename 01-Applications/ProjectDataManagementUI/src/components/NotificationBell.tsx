@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Box,
   IconButton,
@@ -27,21 +27,31 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Ref dla isOpen, żeby listenery miały dostęp bez re-rejestracji
+  const isOpenRef = useRef(false);
 
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const unreadBg = useColorModeValue("blue.50", "blue.900");
+  const messageTextColor = useColorModeValue("gray.700", "gray.300");
+
+  // Synchronizuj isOpenRef z isOpen
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
   // Załaduj powiadomienia z cache (gdy użytkownik otworzy popover)
   const loadNotificationsFromCache = () => {
-    const cachedNotifications = notificationHubService.getUnreadNotificationsFromCache();
+    // Pokazuj WSZYSTKIE powiadomienia, nie tylko unread - eliminuje problem "nic nie ma"
+    const cachedNotifications = notificationHubService.getAllNotificationsFromCache();
     const cachedUnreadCount = notificationHubService.getUnreadCountFromCache();
     
     setNotifications(cachedNotifications);
     setUnreadCount(cachedUnreadCount);
     
-    console.log("🔵 Loaded notifications from cache:", cachedNotifications.length, "| Unread:", cachedUnreadCount);
+    console.log("🔵 Loaded ALL notifications from cache:", cachedNotifications.length, "| Unread:", cachedUnreadCount);
   };
 
   // Inicjalizacja cache z API (tylko raz przy montowaniu)
@@ -73,10 +83,10 @@ export default function NotificationBell() {
     initializeNotifications();
   }, []);
 
-  // Połączenie SignalR i nasłuchiwanie na nowe powiadomienia - TYLKO RAZ
+  // Połączenie SignalR i nasłuchiwanie na nowe powiadomienia - TYLKO RAZ, BEZ RE-REJESTRACJI
   useEffect(() => {
     // ✅ SignalR jest już uruchomiony globalnie w AuthContext
-    // Tutaj tylko rejestrujemy listenery dla tego komponentu
+    // Tutaj tylko rejestrujemy listenery dla tego komponentu - RAZ na cały cykl życia
     
     // Subskrybuj na nowe powiadomienia
     const unsubscribeNew = notificationHubService.onNotificationReceived((notification) => {
@@ -87,8 +97,8 @@ export default function NotificationBell() {
       const newUnreadCount = notificationHubService.getUnreadCountFromCache();
       setUnreadCount(newUnreadCount);
       
-      // Jeśli popover jest otwarty, odśwież listę
-      if (isOpen) {
+      // Jeśli popover jest otwarty, odśwież listę (czytamy przez ref)
+      if (isOpenRef.current) {
         loadNotificationsFromCache();
       }
       
@@ -108,8 +118,8 @@ export default function NotificationBell() {
       const newUnreadCount = notificationHubService.getUnreadCountFromCache();
       setUnreadCount(newUnreadCount);
       
-      // Jeśli popover jest otwarty, odśwież listę
-      if (isOpen) {
+      // Jeśli popover jest otwarty, odśwież listę (czytamy przez ref)
+      if (isOpenRef.current) {
         loadNotificationsFromCache();
       }
       
@@ -121,7 +131,7 @@ export default function NotificationBell() {
       unsubscribeNew();
       unsubscribeSync();
     };
-  }, [isOpen]); // Dodaj isOpen do zależności
+  }, []); // <-- TYLKO RAZ! isOpen czytamy przez ref
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -150,7 +160,7 @@ export default function NotificationBell() {
       
       // ✅ Zaktualizuj UI natychmiast z cache
       const newUnreadCount = notificationHubService.getUnreadCountFromCache();
-      const updatedNotifications = notificationHubService.getUnreadNotificationsFromCache();
+      const updatedNotifications = notificationHubService.getAllNotificationsFromCache(); // Wszystkie, nie tylko unread
       
       setUnreadCount(newUnreadCount);
       setNotifications(updatedNotifications);
@@ -295,7 +305,7 @@ export default function NotificationBell() {
                         )}
                       </HStack>
                       
-                      <Text fontSize="sm" color={useColorModeValue("gray.700", "gray.300")} noOfLines={2} lineHeight="1.4">
+                      <Text fontSize="sm" color={messageTextColor} noOfLines={2} lineHeight="1.4">
                         {notification.message}
                       </Text>
                       

@@ -46,6 +46,11 @@ async function initializeApp() {
       console.error("❌ Acquire token failure event:", event);
     }
     
+    // NIE restartuj SignalR przy odświeżeniu tokenu - powoduje niestabilność
+    // SignalR automatycznie pobierze świeży token przez accessTokenFactory przy:
+    // - negotiate endpoint
+    // - automatycznym reconnect (gdy backend zwróci 401/403)
+    
     if (event.eventType === EventType.HANDLE_REDIRECT_END) {
       console.log("🏁 Handle redirect end event:", event);
     }
@@ -83,6 +88,22 @@ if ("serviceWorker" in navigator) {
       .then((reg) => console.log("Service Worker registered:", reg))
       .catch((err) => console.error("Service Worker registration failed:", err));
   });
+}
+
+// Expose for dev debugging in browser console
+if (import.meta.env.DEV) {
+  (window as any).msalInstance = msalInstance;
+  
+  // Diagnostyka SignalR - importuj service dynamicznie żeby uniknąć circular dependency
+  (window as any).signalRDiag = async () => {
+    const { notificationHubService: service } = await import("./services/notificationHubService");
+    return {
+      ...service.getConnectionDiagnostics(),
+      backendUserId: await service.testConnection()
+    };
+  };
+  
+  console.log("🛠 Dev mode: use window.signalRDiag() to check SignalR connection");
 }
 
 // Start the app

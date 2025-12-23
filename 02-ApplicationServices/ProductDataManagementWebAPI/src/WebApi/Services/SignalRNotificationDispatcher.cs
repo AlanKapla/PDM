@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
 using Microsoft.AspNetCore.SignalR;
@@ -22,22 +22,37 @@ namespace WebApi.Services
 
         public async Task DispatchAsync(NotificationDto notification, CancellationToken cancellationToken)
         {
+            logger.LogInformation("📨 [SignalR] Attempting to dispatch notification {NotificationId} to user {AzureAdB2CObjectId}",
+                notification.Id,
+                notification.AzureAdB2CObjectId);
+
             if (string.IsNullOrEmpty(notification.AzureAdB2CObjectId))
             {
                 logger.LogWarning(
-                    "Cannot dispatch notification {NotificationId} - AzureAdB2CObjectId is missing for user {UserId}",
+                    "❌ [SignalR] Cannot dispatch notification {NotificationId} - AzureAdB2CObjectId is missing for user {UserId}",
                     notification.Id,
                     notification.UserId);
                 return;
             }
 
-            await hubContext.Clients.User(notification.AzureAdB2CObjectId)
-                .ReceiveNotification(notification);
+            try
+            {
+                await hubContext.Clients.User(notification.AzureAdB2CObjectId)
+                    .ReceiveNotification(notification);
 
-            logger.LogInformation(
-                "Notification {NotificationId} dispatched to user {AzureAdB2CObjectId}",
-                notification.Id,
-                notification.AzureAdB2CObjectId);
+                logger.LogInformation(
+                    "✅ [SignalR] Notification {NotificationId} dispatched to user {AzureAdB2CObjectId}",
+                    notification.Id,
+                    notification.AzureAdB2CObjectId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "❌ [SignalR] Failed to dispatch notification {NotificationId} to user {AzureAdB2CObjectId}",
+                    notification.Id,
+                    notification.AzureAdB2CObjectId);
+                throw;
+            }
         }
     }
 }

@@ -26,6 +26,8 @@ internal class Program
 
         var app = builder.Build();
 
+        app.UseWebSockets();
+
         app.UseRouting();
 
         if(!builder.Environment.IsDevelopment())
@@ -34,8 +36,6 @@ internal class Program
         }
 
         app.UseCors("AllowFrontend");
-
-        app.UseWebSockets();
 
         app.UseGlobalExceptionHandling();
 
@@ -47,10 +47,13 @@ internal class Program
 
         app.MapControllers();
 
-        app.MapHub<WebApi.Hubs.NotificationHub>("api/hubs/notifications")
+        app.MapHub<WebApi.Hubs.NotificationHub>("/api/hubs/notifications")
             .RequireCors("AllowFrontend");
 
-        app.MapHealthChecks("api/health");
+        app.MapHub<WebApi.Hubs.MessageHub>("/api/hubs/messages")
+            .RequireCors("AllowFrontend");
+
+        app.MapHealthChecks("/api/health");
 
         app.Run();
     }

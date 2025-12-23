@@ -32,6 +32,7 @@ services:
     container_name: pdm-gateway-development
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./conf.d:/etc/nginx/conf.d/includes:ro
     depends_on:
       - webapi
       - ui

@@ -31,6 +31,7 @@ export default function ProjectSchedules() {
   const [loading, setLoading] = useState(true);
   const [workSchedules, setWorkSchedules] = useState<WorkScheduleSummaryWeb[]>([]);
   const [project, setProject] = useState<any | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -45,13 +46,15 @@ export default function ProjectSchedules() {
 
     setLoading(true);
     try {
-      const [projectRes, schedulesRes] = await Promise.all([
+      const [projectRes, schedulesRes, membersRes] = await Promise.all([
         projectApi.getProjectDetails(user.activeTenantId, projectId),
         projectApi.getMyWorkSchedules(user.activeTenantId, projectId),
+        projectApi.getProjectMembers(user.activeTenantId, projectId),
       ]);
 
       setProject(projectRes.data);
       setWorkSchedules(schedulesRes.data);
+      setMembers(membersRes.data);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -144,7 +147,7 @@ export default function ProjectSchedules() {
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
           projectName={project?.name || ""}
-          members={[]}
+          members={members}
           onScheduleCreated={fetchData}
         />
       </Box>
