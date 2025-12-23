@@ -83,6 +83,7 @@ namespace CQRS.Files.UpdateFileShare
                 {
                     await notificationSender.EnqueueAsync(new NotificationDto
                     {
+                        Id = Guid.NewGuid(),
                         TenantId = request.TenantId,
                         ProjectId = request.ProjectId,
                         UserId = userId,
@@ -118,6 +119,7 @@ namespace CQRS.Files.UpdateFileShare
                     {
                         await notificationSender.EnqueueAsync(new NotificationDto
                         {
+                            Id = Guid.NewGuid(),
                             TenantId = request.TenantId,
                             ProjectId = request.ProjectId,
                             UserId = userId,

@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Files\ShareProjectFile\**" />
     <Compile Remove="ProjectCosts\GetProjectCostDetails\**" />
     <Compile Remove="Users\UserActivate\**" />
     <Compile Remove="Users\UserGoogleRegister\**" />
@@ -17,6 +18,7 @@
     <Compile Remove="Users\UserRefresh\**" />
     <Compile Remove="Users\UserRegister\**" />
     <Compile Remove="Users\UserResetPassword\**" />
+    <EmbeddedResource Remove="Files\ShareProjectFile\**" />
     <EmbeddedResource Remove="ProjectCosts\GetProjectCostDetails\**" />
     <EmbeddedResource Remove="Users\UserActivate\**" />
     <EmbeddedResource Remove="Users\UserGoogleRegister\**" />
@@ -27,6 +29,7 @@
     <EmbeddedResource Remove="Users\UserRefresh\**" />
     <EmbeddedResource Remove="Users\UserRegister\**" />
     <EmbeddedResource Remove="Users\UserResetPassword\**" />
+    <None Remove="Files\ShareProjectFile\**" />
     <None Remove="ProjectCosts\GetProjectCostDetails\**" />
     <None Remove="Users\UserActivate\**" />
     <None Remove="Users\UserGoogleRegister\**" />
@@ -55,7 +58,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Files\ShareProjectFile\" />
     <Folder Include="Messages\GetProjectMessages\" />
     <Folder Include="Notifications\GetUserNotifications\" />
     <Folder Include="Test\TestBlobConnection\" />
