@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     notificationHubService.setAfterReconnect(async () => {
       try {
         console.log("🔄 SignalR resync after reconnect...");
-        const response = await axiosClient.get("/Notification"); // GET /api/notification - wszystkie
+        const response = await axiosClient.get("/Notification/unread");
         await notificationHubService.initializeCache(response.data);
         console.log("✅ SignalR resync completed");
       } catch (error) {
@@ -144,7 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         // 2. Dopiero teraz pobierz i zainicjalizuj cache
         console.log("💾 Loading initial notifications cache...");
-        const response = await axiosClient.get("/Notification"); // GET /api/notification - wszystkie (limit 50)
+        const response = await axiosClient.get("/Notification/unread");
         await notificationHubService.initializeCache(response.data);
         console.log("✅ SignalR cache initialized:", response.data.length, "notifications");
       } catch (error) {

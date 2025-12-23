@@ -44,14 +44,13 @@ export default function NotificationBell() {
 
   // Załaduj powiadomienia z cache (gdy użytkownik otworzy popover)
   const loadNotificationsFromCache = () => {
-    // Pokazuj WSZYSTKIE powiadomienia, nie tylko unread - eliminuje problem "nic nie ma"
-    const cachedNotifications = notificationHubService.getAllNotificationsFromCache();
+    const cachedNotifications = notificationHubService.getUnreadNotificationsFromCache();
     const cachedUnreadCount = notificationHubService.getUnreadCountFromCache();
     
     setNotifications(cachedNotifications);
     setUnreadCount(cachedUnreadCount);
     
-    console.log("🔵 Loaded ALL notifications from cache:", cachedNotifications.length, "| Unread:", cachedUnreadCount);
+    console.log("🔵 Loaded unread notifications from cache:", cachedNotifications.length);
   };
 
   // Inicjalizacja cache z API (tylko raz przy montowaniu)
