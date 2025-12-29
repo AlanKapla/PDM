@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -23,8 +23,18 @@ import {
   ModalFooter,
   ModalCloseButton,
   SimpleGrid,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  FormControl,
+  FormLabel,
+  Input,
+  Tooltip,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { handleApiError } from "../utils/handleApiError";
@@ -66,6 +76,10 @@ export default function ProjectDetails() {
   const [, setLoadingMembers] = useState(false);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [updatingName, setUpdatingName] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
   const [, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
@@ -83,6 +97,8 @@ export default function ProjectDetails() {
   const { isOpen: isShareCostModalOpen, onOpen: onShareCostModalOpen, onClose: onShareCostModalClose } = useDisclosure();
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
   const { isOpen: isShareFilesModalOpen, onClose: onShareFilesModalClose } = useDisclosure();
+  const { isOpen: isToggleStatusOpen, onOpen: onToggleStatusOpen, onClose: onToggleStatusClose } = useDisclosure();
+  const cancelRefToggle = useRef<HTMLButtonElement>(null);
   const [fileToManageShare, setFileToManageShare] = useState<any | null>(null);
   const [editingCostId, setEditingCostId] = useState<string | null>(null);
   const [editingCostData, setEditingCostData] = useState<any>(null);
@@ -103,7 +119,9 @@ export default function ProjectDetails() {
   const [, setSubmittingComment] = useState<string | null>(null);
 
   const cardBg = useColorModeValue("white", "gray.800");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.700");
+  const labelColor = useColorModeValue("gray.700", "gray.300");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   const isProjectAdmin = project && project.userRole === ProjectRole.Admin;
@@ -124,6 +142,7 @@ export default function ProjectDetails() {
       );
 
       setProject(response.data);
+      setEditedName(response.data.name);
     } catch (err) {
       console.error(err);
       setError("Błąd podczas pobierania szczegółów projektu");
@@ -679,68 +698,213 @@ export default function ProjectDetails() {
     }
   };
 
+  const handleToggleProjectStatus = async () => {
+    if (!project || !user?.activeTenantId || !projectId) return;
+
+    const newStatus = !project.isActive;
+    setTogglingStatus(true);
+    
+    try {
+      await projectApi.toggleProjectStatus(user.activeTenantId, projectId, newStatus);
+      
+      toast({
+        title: newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
+        description: newStatus 
+          ? "Projekt został pomyślnie aktywowany" 
+          : "Projekt został pomyślnie zdezaktywowany",
+        status: "success",
+        duration: 4000,
+      });
+      
+      onToggleStatusClose();
+      
+      // Odśwież dane projektu
+      await fetchProjectDetails();
+    } catch (error) {
+      console.error("Błąd podczas toggle project status:", error);
+      const { title, description } = handleApiError(error);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
+  const handleUpdateName = async () => {
+    if (!editedName.trim()) {
+      toast({
+        title: "Błąd walidacji",
+        description: "Nazwa projektu nie może być pusta",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (!user?.activeTenantId || !projectId) return;
+
+    setUpdatingName(true);
+    try {
+      await projectApi.updateProject(user.activeTenantId, projectId, { Name: editedName });
+
+      toast({
+        title: "Zaktualizowano",
+        description: "Nazwa projektu została zmieniona",
+        status: "success",
+        duration: 3000,
+      });
+
+      setIsEditingName(false);
+      await fetchProjectDetails();
+    } catch (error) {
+      console.error("Błąd aktualizacji:", error);
+      const { title, description } = handleApiError(error);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setUpdatingName(false);
+    }
+  };
+
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
-        {/* BACK BUTTON */}
-        <Button
-          leftIcon={<ArrowLeft size={18} />}
-          variant="ghost"
-          mb={6}
-          onClick={() => navigate("/projects")}
-        >
-          Wróć do projektów
-        </Button>
+      <Box bg={pageBg} minH="100vh" p={{ base: 4, md: 6 }}>
+        <VStack spacing={6} maxW="1200px" mx="auto" align="stretch">
+          {/* Header */}
+          <HStack justify="space-between">
+            <HStack spacing={3}>
+              <Button
+                variant="ghost"
+                leftIcon={<ArrowLeft size={20} />}
+                onClick={() => navigate("/projects")}
+              >
+                Powrót
+              </Button>
+            </HStack>
+          </HStack>
 
         {loading ? (
-          <HStack justify="center" spacing={4} py={10}>
-            <Spinner size="xl" />
-            <Text>Ładowanie projektu...</Text>
-          </HStack>
+          <VStack spacing={4} align="center" justify="center" minH="50vh">
+            <Spinner size="xl" color="blue.500" />
+            <Text>Ładowanie szczegółów projektu...</Text>
+          </VStack>
         ) : error ? (
           <Alert status="error" rounded="md">
             <AlertIcon />
             {error}
           </Alert>
         ) : !project ? (
-          <Alert status="warning" rounded="md">
-            <AlertIcon />
-            Projekt nie istnieje
-          </Alert>
+          <VStack spacing={4} align="center" justify="center" minH="50vh">
+            <Text>Nie znaleziono projektu</Text>
+            <Button onClick={() => navigate("/projects")}>Powrót do listy projektów</Button>
+          </VStack>
         ) : (
-          <VStack spacing={6} align="stretch">
-            {/* Nagłówek projektu */}
-            <Box bg={cardBg} p={{ base: 4, md: 6 }} rounded="lg" borderWidth="1px" borderColor={borderColor} shadow="sm">
-              <HStack spacing={4} mb={4} justify="space-between" align="flex-start">
-                <HStack spacing={4} flex={1}>
-                  <Icon as={FolderKanban} boxSize={{ base: 8, md: 10 }} color="blue.600" />
-                  <VStack align="flex-start" spacing={1} flex={1}>
-                    <Heading size={{ base: "md", md: "lg" }}>{project.name}</Heading>
+          <>
+            {/* Informacje podstawowe */}
+            <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
+              <VStack align="stretch" spacing={4}>
+                <HStack justify="space-between">
+                  <HStack spacing={3}>
+                    <FolderKanban size={32} />
+                    <Heading size="lg">Szczegóły projektu</Heading>
+                  </HStack>
+                  <HStack spacing={2}>
+                    {!isEditingName && (
+                      <>
+                        {isProjectAdmin && (
+                          <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              leftIcon={<Power size={16} />}
+                              colorScheme={project.isActive ? "red" : "green"}
+                              onClick={onToggleStatusOpen}
+                            >
+                              {project.isActive ? "Dezaktywuj" : "Aktywuj"}
+                            </Button>
+                          </Tooltip>
+                        )}
+                        {isProjectAdmin && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            leftIcon={<Edit2 size={16} />}
+                            onClick={() => setIsEditingName(true)}
+                          >
+                            Edytuj
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </HStack>
+                </HStack>
+
+                {isEditingName ? (
+                  <VStack spacing={3} align="stretch">
+                    <FormControl>
+                      <FormLabel color={labelColor}>Nazwa projektu</FormLabel>
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter" && !updatingName) {
+                            handleUpdateName();
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <HStack spacing={2}>
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        leftIcon={<Save size={16} />}
+                        onClick={handleUpdateName}
+                        isLoading={updatingName}
+                        flex={1}
+                      >
+                        Zapisz
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<X size={16} />}
+                        onClick={() => {
+                          setIsEditingName(false);
+                          setEditedName(project.name);
+                        }}
+                        isDisabled={updatingName}
+                        flex={1}
+                      >
+                        Anuluj
+                      </Button>
+                    </HStack>
                   </VStack>
-                </HStack>
-                <HStack spacing={2} flexWrap="wrap">
-                  <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="xs" px={2}>
-                    {project.isActive ? "Aktywny" : "Nieaktywny"}
-                  </Badge>
-                  <Badge colorScheme={getProjectRoleColor(project.userRole)} fontSize="xs" px={2}>
-                    {getProjectRoleName(project.userRole)}
-                  </Badge>
-                </HStack>
-              </HStack>
-              
-              <VStack align="flex-start" spacing={2} fontSize="sm">
-                <HStack>
-                  <Icon as={User} boxSize={4} color="gray.500" />
-                  <Text><strong>Utworzył:</strong> {project.createdByUserName}</Text>
-                </HStack>
-                <HStack>
-                  <Icon as={Calendar} boxSize={4} color="gray.500" />
-                  <Text><strong>Data utworzenia:</strong> {formatDate(project.createdAt)}</Text>
-                </HStack>
-                <HStack>
-                  <Icon as={Users} boxSize={4} color="gray.500" />
-                  <Text><strong>Liczba członków:</strong> {members.length}</Text>
-                </HStack>
+                ) : (
+                  <VStack align="flex-start" spacing={2}>
+                    <HStack>
+                      <Text fontSize="2xl" fontWeight="bold">
+                        {project.name}
+                      </Text>
+                      <Badge colorScheme={project.isActive ? "green" : "gray"}>
+                        {project.isActive ? "Aktywny" : "Nieaktywny"}
+                      </Badge>
+                    </HStack>
+                    <Text fontSize="sm" color="gray.500">
+                      Utworzono: {formatDate(project.createdAt)}
+                    </Text>
+                    <Badge colorScheme={getProjectRoleColor(project.userRole)}>
+                      {getProjectRoleName(project.userRole)}
+                    </Badge>
+                  </VStack>
+                )}
               </VStack>
             </Box>
 
@@ -838,8 +1002,9 @@ export default function ProjectDetails() {
             </SimpleGrid>
 
             {/* Sekcje przeniesione do dedykowanych stron - dostępne przez karty powyżej */}
-          </VStack>
+          </>
         )}
+        </VStack>
 
         {/* Modals - wszystkie sekcje przeniesione na osobne strony */}
 
@@ -996,6 +1161,106 @@ export default function ProjectDetails() {
             }}
           />
         )}
+
+        {/* Dialog potwierdzenia zmiany statusu projektu */}
+        <AlertDialog
+          isOpen={isToggleStatusOpen}
+          leastDestructiveRef={cancelRefToggle}
+          onClose={onToggleStatusClose}
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent maxW="600px">
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                {project?.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}
+              </AlertDialogHeader>
+
+              <AlertDialogBody>
+                <VStack align="flex-start" spacing={4}>
+                  <Text>
+                    Czy na pewno chcesz {project?.isActive ? "zdezaktywować" : "aktywować"} projekt <Text as="span" fontWeight="bold" color="blue.500">{project?.name}</Text>?
+                  </Text>
+                  {project?.isActive ? (
+                    <Box
+                      p={4}
+                      bg={useColorModeValue("orange.50", "orange.900")}
+                      borderRadius="md"
+                      borderWidth="1px"
+                      borderColor={useColorModeValue("orange.200", "orange.700")}
+                      width="100%"
+                    >
+                      <VStack align="flex-start" spacing={3}>
+                        <HStack spacing={2}>
+                          <Icon as={Power} color="orange.500" />
+                          <Text fontWeight="bold" color="orange.600" fontSize="sm">
+                            ⚠️ Ważne informacje:
+                          </Text>
+                        </HStack>
+                        <Text fontSize="sm">
+                          • Zdezaktywowany projekt <Text as="span" fontWeight="bold">nie będzie widoczny</Text> na liście projektów
+                        </Text>
+                        <Text fontSize="sm">
+                          • Wszystkie dane projektu zostaną zachowane
+                        </Text>
+                        <Text fontSize="sm">
+                          • Możesz ponownie aktywować projekt w każdej chwili
+                        </Text>
+                        <Text fontSize="sm" fontWeight="medium" color="orange.700" mt={2}>
+                          Operacja nie usuwa projektu, tylko ukrywa go przed użytkownikami.
+                        </Text>
+                      </VStack>
+                    </Box>
+                  ) : (
+                    <Box
+                      p={4}
+                      bg={useColorModeValue("green.50", "green.900")}
+                      borderRadius="md"
+                      borderWidth="1px"
+                      borderColor={useColorModeValue("green.200", "green.700")}
+                      width="100%"
+                    >
+                      <VStack align="flex-start" spacing={3}>
+                        <HStack spacing={2}>
+                          <Icon as={Power} color="green.500" />
+                          <Text fontWeight="bold" color="green.600" fontSize="sm">
+                            ℹ️ Informacje:
+                          </Text>
+                        </HStack>
+                        <Text fontSize="sm">
+                          • Projekt stanie się <Text as="span" fontWeight="bold">widoczny</Text> na liście projektów
+                        </Text>
+                        <Text fontSize="sm">
+                          • Wszyscy członkowie projektu będą mieli dostęp
+                        </Text>
+                        <Text fontSize="sm">
+                          • Wszystkie dane projektu są zachowane
+                        </Text>
+                      </VStack>
+                    </Box>
+                  )}
+                </VStack>
+              </AlertDialogBody>
+
+              <AlertDialogFooter>
+                <Button 
+                  ref={cancelRefToggle} 
+                  onClick={onToggleStatusClose}
+                  isDisabled={togglingStatus}
+                >
+                  Anuluj
+                </Button>
+                <Button 
+                  colorScheme={project?.isActive ? "red" : "green"}
+                  onClick={handleToggleProjectStatus}
+                  isLoading={togglingStatus}
+                  loadingText={project?.isActive ? "Dezaktywuję..." : "Aktywuję..."}
+                  ml={3}
+                >
+                  {project?.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
 
       </Box>
     </MainLayout>

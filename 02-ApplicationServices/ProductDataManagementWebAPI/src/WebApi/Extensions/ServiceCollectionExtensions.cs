@@ -286,6 +286,8 @@ namespace WebApi.Extensions
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
 
+            services.AddHostedService<StartupSeederService>();
+
             return services;
         }
 
@@ -324,6 +326,7 @@ namespace WebApi.Extensions
             services.Configure<CorsSettings>(config.GetSection(CorsSettings.SectionName));
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
+            services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
             return services;
         }
 

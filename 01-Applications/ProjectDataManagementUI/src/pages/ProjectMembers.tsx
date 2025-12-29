@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+﻿import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -19,8 +19,16 @@ import {
   ModalBody,
   ModalFooter,
   ModalCloseButton,
+  Select,
+  Tooltip,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from "@chakra-ui/react";
-import { ArrowLeft, Users, UserPlus, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, UserPlus, Trash2, Shield, Save, X } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { AuthContext } from "../context/AuthContext";
@@ -31,6 +39,11 @@ import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { ProjectRole } from "../types/project.types";
 import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+
+interface ProjectRoleOption {
+  value: number;
+  name: string;
+}
 
 export default function ProjectMembers() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -47,6 +60,11 @@ export default function ProjectMembers() {
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
 
+  const [editingRoleMemberId, setEditingRoleMemberId] = useState<string | null>(null);
+  const [editedRole, setEditedRole] = useState<number>(1);
+  const [updatingRole, setUpdatingRole] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<ProjectRoleOption[]>([]);
+
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
@@ -56,7 +74,19 @@ export default function ProjectMembers() {
 
   useEffect(() => {
     fetchData();
+    fetchRoles();
   }, [projectId]);
+
+  const fetchRoles = async () => {
+    if (!user?.activeTenantId) return;
+
+    try {
+      const response = await projectApi.getProjectRoles(user.activeTenantId);
+      setAvailableRoles(response.data);
+    } catch (error) {
+      console.error("Błąd ładowania ról:", error);
+    }
+  };
 
   const fetchData = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -67,7 +97,7 @@ export default function ProjectMembers() {
         projectApi.getProjectDetails(user.activeTenantId, projectId),
         projectApi.getProjectMembers(user.activeTenantId, projectId),
         tenantApi.getActiveTenant(),
-      ]);
+      ])
 
       setProject(projectRes.data);
       setMembers(membersRes.data);
@@ -103,6 +133,37 @@ export default function ProjectMembers() {
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
+    }
+  };
+
+  const handleUpdateMemberRole = async (userId: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    if (user.id === userId) {
+      showError("Nie możesz zmienić własnej roli");
+      return;
+    }
+
+    setUpdatingRole(true);
+    try {
+      await projectApi.updateProjectMemberRole(
+        user.activeTenantId,
+        projectId,
+        userId,
+        editedRole
+      );
+
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.userId === userId ? { ...m, role: editedRole } : m
+        )
+      );
+      setEditingRoleMemberId(null);
+      showSuccess("Zaktualizowano rolę członka");
+    } catch (error) {
+      showError("Nie udało się zmienić roli");
+    } finally {
+      setUpdatingRole(false);
     }
   };
 
@@ -154,73 +215,104 @@ export default function ProjectMembers() {
             description="Ten projekt nie ma jeszcze żadnych członków"
           />
         ) : (
-          <VStack spacing={3} align="stretch">
-            {members.map((m) => {
-              const initials = `${m.firstName[0]}${m.lastName[0]}`;
-
-              return (
-                <Box
-                  key={m.userId}
-                  bg={cardBg}
-                  p={6}
-                  borderWidth="1px"
-                  borderColor={borderColor}
-                  rounded="lg"
-                  _hover={{ bg: hoverBg }}
-                  transition="0.15s"
-                  shadow="sm"
-                >
-                  <HStack justify="space-between">
-                    <HStack spacing={4} flex={1}>
-                      <Box
-                        w="56px"
-                        h="56px"
-                        rounded="full"
-                        bg="blue.600"
-                        color="white"
-                        fontWeight="bold"
-                        fontSize="lg"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        {initials}
-                      </Box>
-
-                      <VStack align="flex-start" spacing={1}>
-                        <Text fontWeight="bold" fontSize="lg">
-                          {m.firstName} {m.lastName}
-                        </Text>
-                        <Text fontSize="sm" color="gray.600">
-                          {m.email}
-                        </Text>
-                        <Text fontSize="xs" color="gray.500">
-                          Dołączył: {formatDate(m.joinedAt)}
-                        </Text>
-                      </VStack>
-                    </HStack>
-
-                    <HStack spacing={3}>
-                      <Badge colorScheme={getProjectRoleColor(m.role)} fontSize="md" px={4} py={2}>
-                        {getProjectRoleName(m.role)}
-                      </Badge>
-                      {isTenantAdmin && m.email.toLowerCase() !== user?.email.toLowerCase() && (
-                        <IconButton
-                          aria-label="Usuń członka"
-                          icon={<Trash2 size={18} />}
-                          size="md"
-                          colorScheme="red"
-                          variant="ghost"
-                          isDisabled={removingMember !== null}
-                          onClick={() => handleRemoveMemberClick(m.userId, `${m.firstName} ${m.lastName}`)}
-                        />
+          <Box bg={cardBg} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Imię i nazwisko</Th>
+                  <Th>Email</Th>
+                  <Th>Rola</Th>
+                  <Th>Data dołączenia</Th>
+                  <Th>Akcje</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {members.map((member) => (
+                  <Tr key={member.userId}>
+                    <Td>
+                      {member.firstName} {member.lastName}
+                      {user?.id === member.userId && (
+                        <Badge ml={2} colorScheme="green" fontSize="xs">
+                          Ty
+                        </Badge>
                       )}
-                    </HStack>
-                  </HStack>
-                </Box>
-              );
-            })}
-          </VStack>
+                    </Td>
+                    <Td>{member.email}</Td>
+                    <Td>
+                      <Badge colorScheme={getProjectRoleColor(member.role)}>
+                        {getProjectRoleName(member.role)}
+                      </Badge>
+                    </Td>
+                    <Td>{formatDate(member.joinedAt)}</Td>
+                    <Td>
+                      {editingRoleMemberId === member.userId ? (
+                        <HStack spacing={2}>
+                          <Select
+                            size="sm"
+                            value={editedRole}
+                            onChange={(e) => setEditedRole(Number(e.target.value))}
+                            isDisabled={updatingRole}
+                            width="150px"
+                          >
+                            {availableRoles.map((role) => (
+                              <option key={role.value} value={role.value}>
+                                {role.name}
+                              </option>
+                            ))}
+                          </Select>
+                          <IconButton
+                            aria-label="Zapisz rolę"
+                            icon={<Save size={14} />}
+                            size="sm"
+                            colorScheme="green"
+                            onClick={() => handleUpdateMemberRole(member.userId)}
+                            isLoading={updatingRole}
+                          />
+                          <IconButton
+                            aria-label="Anuluj"
+                            icon={<X size={14} />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingRoleMemberId(null)}
+                            isDisabled={updatingRole}
+                          />
+                        </HStack>
+                      ) : (
+                        <HStack spacing={2}>
+                          {isProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                            <Tooltip label="Zmień rolę">
+                              <IconButton
+                                aria-label="Edytuj rolę"
+                                icon={<Shield size={14} />}
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingRoleMemberId(member.userId);
+                                  setEditedRole(member.role);
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                          {isProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                            <Tooltip label="Usuń członka">
+                              <IconButton
+                                aria-label="Usuń członka"
+                                icon={<Trash2 size={16} />}
+                                size="sm"
+                                colorScheme="red"
+                                variant="ghost"
+                                onClick={() => handleRemoveMemberClick(member.userId, `${member.firstName} ${member.lastName}`)}
+                              />
+                            </Tooltip>
+                          )}
+                        </HStack>
+                      )}
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
         )}
 
         <AddProjectMemberModal

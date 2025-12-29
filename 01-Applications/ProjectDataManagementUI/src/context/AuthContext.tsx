@@ -1,4 +1,4 @@
-﻿import { createContext, useEffect, useState, type ReactNode } from "react";
+﻿import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
@@ -292,4 +292,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

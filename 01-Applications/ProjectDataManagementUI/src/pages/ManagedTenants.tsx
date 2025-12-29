@@ -33,7 +33,7 @@ import {
   Tooltip,
   Icon,
 } from "@chakra-ui/react";
-import { Building2, Plus, Trash2, Power, Eye } from "lucide-react";
+import { Building2, Plus, Trash2, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getUserTenants, createTenant, removeTenantMember } from "../services/tenantService";
 import { handleApiError } from "../utils/handleApiError";
@@ -53,11 +53,7 @@ export default function ManagedTenants() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ tenantId: string; userId: string; name: string } | null>(null);
   
-  const [tenantToToggle, setTenantToToggle] = useState<TenantDetails | null>(null);
-  const [togglingStatus, setTogglingStatus] = useState(false);
-  
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
-  const { isOpen: isToggleStatusModalOpen, onOpen: onToggleStatusModalOpen, onClose: onToggleStatusModalClose } = useDisclosure();
   
   const toast = useToast();
 
@@ -193,48 +189,7 @@ export default function ManagedTenants() {
     }
   };
 
-  const openToggleStatusModal = (tenant: TenantDetails) => {
-    setTenantToToggle(tenant);
-    onToggleStatusModalOpen();
-  };
 
-  const handleToggleTenantStatus = async () => {
-    if (!tenantToToggle) return;
-
-    const newStatus = !tenantToToggle.isActive;
-    setTogglingStatus(true);
-    
-    try {
-      await tenantApi.toggleTenantStatus(tenantToToggle.id, newStatus);
-      
-      toast({
-        title: newStatus ? "Organizacja aktywowana" : "Organizacja zdezaktywowana",
-        description: newStatus 
-          ? "Organizacja została pomyślnie aktywowana" 
-          : "Organizacja została pomyślnie zdezaktywowana",
-        status: "success",
-        duration: 4000,
-      });
-      
-      onToggleStatusModalClose();
-      setTenantToToggle(null);
-      
-      // Odśwież listę tenantów
-      const tenantsData = await getUserTenants();
-      setTenants(tenantsData);
-    } catch (error) {
-      console.error("Błąd podczas toggle tenant status:", error);
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-      });
-    } finally {
-      setTogglingStatus(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -341,16 +296,6 @@ export default function ManagedTenants() {
                             <Badge colorScheme={tenant.isActive ? "green" : "gray"} fontSize="xs">
                               {tenant.isActive ? "Aktywna" : "Nieaktywna"}
                             </Badge>
-                            <Tooltip label={tenant.isActive ? "Dezaktywuj organizację" : "Aktywuj organizację"}>
-                              <IconButton
-                                aria-label={tenant.isActive ? "Dezaktywuj organizację" : "Aktywuj organizację"}
-                                icon={<Power size={16} />}
-                                size="xs"
-                                colorScheme={tenant.isActive ? "red" : "green"}
-                                variant="ghost"
-                                onClick={() => openToggleStatusModal(tenant)}
-                              />
-                            </Tooltip>
                           </HStack>
                           <Text fontSize="xs" color="gray.500">
                             Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
@@ -396,103 +341,6 @@ export default function ManagedTenants() {
             </Button>
             <Button colorScheme="red" onClick={handleRemoveMember}>
               Usuń członka
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Modal potwierdzenia zmiany statusu organizacji */}
-      <Modal isOpen={isToggleStatusModalOpen} onClose={onToggleStatusModalClose} isCentered size="lg">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            {tenantToToggle?.isActive ? "Dezaktywuj organizację" : "Aktywuj organizację"}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack align="flex-start" spacing={4}>
-              <Text>
-                Czy na pewno chcesz {tenantToToggle?.isActive ? "zdezaktywować" : "aktywować"} organizację <Text as="span" fontWeight="bold" color="blue.500">{tenantToToggle?.name}</Text>?
-              </Text>
-              {tenantToToggle?.isActive ? (
-                <Box
-                  p={4}
-                  bg={useColorModeValue("orange.50", "orange.900")}
-                  borderRadius="md"
-                  borderWidth="1px"
-                  borderColor={useColorModeValue("orange.200", "orange.700")}
-                  width="100%"
-                >
-                  <VStack align="flex-start" spacing={3}>
-                    <HStack spacing={2}>
-                      <Icon as={Power} color="orange.500" />
-                      <Text fontWeight="bold" color="orange.600" fontSize="sm">
-                        ⚠️ Ważne informacje:
-                      </Text>
-                    </HStack>
-                    <Text fontSize="sm">
-                      • Zdezaktywowana organizacja będzie <Text as="span" fontWeight="bold">niedostępna</Text> dla wszystkich użytkowników
-                    </Text>
-                    <Text fontSize="sm">
-                      • Nie będzie można edytować ani zapraszać nowych członków
-                    </Text>
-                    <Text fontSize="sm">
-                      • Wszystkie dane organizacji zostaną zachowane
-                    </Text>
-                    <Text fontSize="sm">
-                      • Możesz ponownie aktywować organizację w każdej chwili
-                    </Text>
-                    <Text fontSize="sm" fontWeight="medium" color="orange.700" mt={2}>
-                      Operacja nie usuwa organizacji, tylko zawiesza jej działanie.
-                    </Text>
-                  </VStack>
-                </Box>
-              ) : (
-                <Box
-                  p={4}
-                  bg={useColorModeValue("green.50", "green.900")}
-                  borderRadius="md"
-                  borderWidth="1px"
-                  borderColor={useColorModeValue("green.200", "green.700")}
-                  width="100%"
-                >
-                  <VStack align="flex-start" spacing={3}>
-                    <HStack spacing={2}>
-                      <Icon as={Power} color="green.500" />
-                      <Text fontWeight="bold" color="green.600" fontSize="sm">
-                        ℹ️ Informacje:
-                      </Text>
-                    </HStack>
-                    <Text fontSize="sm">
-                      • Organizacja stanie się <Text as="span" fontWeight="bold">dostępna</Text> dla wszystkich członków
-                    </Text>
-                    <Text fontSize="sm">
-                      • Będzie można edytować i zapraszać nowych członków
-                    </Text>
-                    <Text fontSize="sm">
-                      • Wszystkie dane organizacji są zachowane
-                    </Text>
-                  </VStack>
-                </Box>
-              )}
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={onToggleStatusModalClose}
-              isDisabled={togglingStatus}
-            >
-              Anuluj
-            </Button>
-            <Button 
-              colorScheme={tenantToToggle?.isActive ? "red" : "green"}
-              onClick={handleToggleTenantStatus}
-              isLoading={togglingStatus}
-              loadingText={tenantToToggle?.isActive ? "Dezaktywuję..." : "Aktywuję..."}
-            >
-              {tenantToToggle?.isActive ? "Dezaktywuj organizację" : "Aktywuj organizację"}
             </Button>
           </ModalFooter>
         </ModalContent>

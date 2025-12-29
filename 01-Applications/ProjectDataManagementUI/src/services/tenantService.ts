@@ -1,4 +1,4 @@
-import { tenantApi } from "../api/tenantApi";
+﻿import { tenantApi } from "../api/tenantApi";
 import type { TenantDetails, ActiveTenant } from "../types/auth.types";
 
 /**
@@ -105,5 +105,30 @@ export const getActiveInvitations = async () => {
   } catch (error) {
     console.error("Error fetching active invitations:", error);
     return [];
+  }
+};
+
+export interface TenantRoleOption {
+  value: number;
+  name: string;
+}
+
+export const getTenantRoles = async (): Promise<TenantRoleOption[]> => {
+  try {
+    const response = await tenantApi.getTenantRoles();
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching tenant roles:", error);
+    return [];
+  }
+};
+
+export const updateTenantMemberRole = async (tenantId: string, userId: string, role: number): Promise<boolean> => {
+  try {
+    await tenantApi.updateTenantMemberRole(tenantId, userId, role);
+    return true;
+  } catch (error) {
+    console.error("Error updating tenant member role:", error);
+    return false;
   }
 };

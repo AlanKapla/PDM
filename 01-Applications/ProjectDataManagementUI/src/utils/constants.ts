@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Shared constants for roles, colors, and configuration
  */
 
@@ -25,9 +25,9 @@ export const getProjectRoleName = (role: number): string => {
 export const getProjectRoleColor = (role: number): string => {
   switch (role) {
     case ProjectRole.Admin:
-      return "blue";
+      return "purple";
     case ProjectRole.Member:
-      return "green";
+      return "blue";
     default:
       return "gray";
   }
@@ -55,7 +55,7 @@ export const getTenantRoleColor = (role: number): string => {
     case TenantRole.Admin:
       return "purple";
     case TenantRole.Member:
-      return "teal";
+      return "blue";
     default:
       return "gray";
   }

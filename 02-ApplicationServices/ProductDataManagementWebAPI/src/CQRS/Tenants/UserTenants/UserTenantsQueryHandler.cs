@@ -46,9 +46,8 @@ namespace CQRS.Tenants.UserTenants
 
             if (adminTenantIds.Count > 0)
             {
-                // Active members (except current user)
                 IEnumerable<TenantMember> adminTenantsMembers = await tenantMemberRepo.GetBySearch(
-                    tm => adminTenantIds.Contains(tm.TenantId) && tm.IsActive && tm.UserId != currentUser.Id,
+                    tm => adminTenantIds.Contains(tm.TenantId) && tm.IsActive,
                     q => q.Include(m => m.User)
                 );
 

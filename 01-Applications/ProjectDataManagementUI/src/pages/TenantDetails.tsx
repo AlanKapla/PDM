@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -29,18 +29,24 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   useDisclosure,
+  Select,
+  Tooltip,
+  Icon,
 } from "@chakra-ui/react";
-import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus } from "lucide-react";
+import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getUserTenants, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember } from "../services/tenantService";
+import { getUserTenants, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, getTenantRoles, updateTenantMemberRole, type TenantRoleOption } from "../services/tenantService";
 import type { TenantDetails as TenantDetailsType } from "../types/auth.types";
 import { getTenantRoleName, getTenantRoleColor, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
-import { useRef } from "react";
+import { useAuth } from "../context/AuthContext";
+import { tenantApi } from "../api/tenantApi";
+import { handleApiError } from "../utils/handleApiError";
 
 export default function TenantDetails() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
 
   const [tenant, setTenant] = useState<TenantDetailsType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,14 +65,24 @@ export default function TenantDetails() {
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [deletingInvitationId, setDeletingInvitationId] = useState<string | null>(null);
   
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  
+  const [editingRoleMemberId, setEditingRoleMemberId] = useState<string | null>(null);
+  const [editedRole, setEditedRole] = useState<number>(1);
+  const [updatingRole, setUpdatingRole] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<TenantRoleOption[]>([]);
+  
   const { isOpen: isMemberDeleteOpen, onOpen: onMemberDeleteOpen, onClose: onMemberDeleteClose } = useDisclosure();
   const { isOpen: isInvitationDeleteOpen, onOpen: onInvitationDeleteOpen, onClose: onInvitationDeleteClose } = useDisclosure();
+  const { isOpen: isToggleStatusOpen, onOpen: onToggleStatusOpen, onClose: onToggleStatusClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const labelColor = useColorModeValue("gray.700", "gray.300");
+  const inviteBg = useColorModeValue("blue.50", "blue.900");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   useEffect(() => {
     async function loadTenant() {
@@ -105,7 +121,13 @@ export default function TenantDetails() {
       }
     }
 
+    async function loadRoles() {
+      const roles = await getTenantRoles();
+      setAvailableRoles(roles);
+    }
+
     loadTenant();
+    loadRoles();
   }, [tenantId, navigate, toast]);
 
   const handleUpdateName = async () => {
@@ -306,6 +328,102 @@ export default function TenantDetails() {
     }
   };
 
+  const handleUpdateMemberRole = async (userId: string) => {
+    if (!tenantId) return;
+
+    if (user?.id === userId) {
+      toast({
+        title: "Błąd",
+        description: "Nie możesz zmienić własnej roli",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setUpdatingRole(true);
+    try {
+      const success = await updateTenantMemberRole(tenantId, userId, editedRole);
+
+      if (success) {
+        setTenant((prev) =>
+          prev
+            ? {
+                ...prev,
+                members: prev.members.map((m) =>
+                  m.userId === userId ? { ...m, role: editedRole } : m
+                ),
+              }
+            : null
+        );
+        setEditingRoleMemberId(null);
+        toast({
+          title: "Zaktualizowano rolę",
+          description: "Rola członka została zmieniona",
+          status: "success",
+          duration: 3000,
+        });
+      } else {
+        toast({
+          title: "Błąd",
+          description: "Nie udało się zmienić roli",
+          status: "error",
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("Błąd zmiany roli:", error);
+      toast({
+        title: "Błąd",
+        description: "Wystąpił problem z połączeniem",
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setUpdatingRole(false);
+    }
+  };
+
+  const handleToggleTenantStatus = async () => {
+    if (!tenant || !tenantId) return;
+
+    const newStatus = !tenant.isActive;
+    setTogglingStatus(true);
+    
+    try {
+      await tenantApi.toggleTenantStatus(tenantId, newStatus);
+      
+      toast({
+        title: newStatus ? "Organizacja aktywowana" : "Organizacja zdezaktywowana",
+        description: newStatus 
+          ? "Organizacja została pomyślnie aktywowana" 
+          : "Organizacja została pomyślnie zdezaktywowana",
+        status: "success",
+        duration: 4000,
+      });
+      
+      onToggleStatusClose();
+      
+      // Odśwież dane tenanta
+      const tenants = await getUserTenants();
+      const updated = tenants.find((t) => t.id === tenantId);
+      if (updated) {
+        setTenant(updated);
+      }
+    } catch (error) {
+      console.error("Błąd podczas toggle tenant status:", error);
+      const { title, description } = handleApiError(error);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -353,16 +471,31 @@ export default function TenantDetails() {
                   <Building2 size={32} />
                   <Heading size="lg">Szczegóły organizacji</Heading>
                 </HStack>
-                {!isEditingName && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    leftIcon={<Edit2 size={16} />}
-                    onClick={() => setIsEditingName(true)}
-                  >
-                    Edytuj
-                  </Button>
-                )}
+                <HStack spacing={2}>
+                  {!isEditingName && (
+                    <>
+                      <Tooltip label={tenant.isActive ? "Dezaktywuj organizację" : "Aktywuj organizację"}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          leftIcon={<Power size={16} />}
+                          colorScheme={tenant.isActive ? "red" : "green"}
+                          onClick={onToggleStatusOpen}
+                        >
+                          {tenant.isActive ? "Dezaktywuj" : "Aktywuj"}
+                        </Button>
+                      </Tooltip>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        leftIcon={<Edit2 size={16} />}
+                        onClick={() => setIsEditingName(true)}
+                      >
+                        Edytuj
+                      </Button>
+                    </>
+                  )}
+                </HStack>
               </HStack>
 
               {isEditingName ? (
@@ -461,7 +594,7 @@ export default function TenantDetails() {
             <Collapse in={membersExpanded} animateOpacity>
               <Box borderTop="1px solid" borderColor={borderColor}>
                 {isInviting && (
-                  <Box p={4} bg={useColorModeValue("blue.50", "blue.900")} borderBottom="1px solid" borderColor={borderColor}>
+                  <Box p={4} bg={inviteBg} borderBottom="1px solid" borderColor={borderColor}>
                     <VStack spacing={3} align="stretch">
                       <FormControl>
                         <FormLabel fontSize="sm">Adres email osoby zapraszanej</FormLabel>
@@ -510,7 +643,8 @@ export default function TenantDetails() {
                       Brak członków w tej organizacji
                     </Text>
                   </Box>
-                ) : (
+                ) :
+                (
                   <Table variant="simple" size="sm">
                     <Thead>
                       <Tr>
@@ -526,6 +660,11 @@ export default function TenantDetails() {
                         <Tr key={member.userId}>
                           <Td>
                             {member.firstName} {member.lastName}
+                            {user?.id === member.userId && (
+                              <Badge ml={2} colorScheme="green" fontSize="xs">
+                                Ty
+                              </Badge>
+                            )}
                           </Td>
                           <Td>{member.email}</Td>
                           <Td>
@@ -535,17 +674,71 @@ export default function TenantDetails() {
                           </Td>
                           <Td>{new Date(member.joinedAt).toLocaleDateString("pl-PL")}</Td>
                           <Td>
-                            <IconButton
-                              aria-label="Usuń członka"
-                              icon={<Trash2 size={16} />}
-                              size="sm"
-                              colorScheme="red"
-                              variant="ghost"
-                              onClick={() => {
-                                setDeletingMemberId(member.userId);
-                                onMemberDeleteOpen();
-                              }}
-                            />
+                            {editingRoleMemberId === member.userId ? (
+                              <HStack spacing={2}>
+                                <Select
+                                  size="sm"
+                                  value={editedRole}
+                                  onChange={(e) => setEditedRole(Number(e.target.value))}
+                                  isDisabled={updatingRole}
+                                  width="150px"
+                                >
+                                  {availableRoles.map((role) => (
+                                    <option key={role.value} value={role.value}>
+                                      {role.name}
+                                    </option>
+                                  ))}
+                                </Select>
+                                <IconButton
+                                  aria-label="Zapisz rolę"
+                                  icon={<Save size={14} />}
+                                  size="sm"
+                                  colorScheme="green"
+                                  onClick={() => handleUpdateMemberRole(member.userId)}
+                                  isLoading={updatingRole}
+                                />
+                                <IconButton
+                                  aria-label="Anuluj"
+                                  icon={<X size={14} />}
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditingRoleMemberId(null)}
+                                  isDisabled={updatingRole}
+                                />
+                              </HStack>
+                            ) : (
+                              <HStack spacing={2}>
+                                {user?.id !== member.userId && (
+                                  <Tooltip label="Zmień rolę">
+                                    <IconButton
+                                      aria-label="Edytuj rolę"
+                                      icon={<Shield size={14} />}
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingRoleMemberId(member.userId);
+                                        setEditedRole(member.role);
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                                {user?.id !== member.userId && (
+                                  <Tooltip label="Usuń członka">
+                                    <IconButton
+                                      aria-label="Usuń członka"
+                                      icon={<Trash2 size={16} />}
+                                      size="sm"
+                                      colorScheme="red"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setDeletingMemberId(member.userId);
+                                        onMemberDeleteOpen();
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                              </HStack>
+                            )}
                           </Td>
                         </Tr>
                       ))}
@@ -563,7 +756,7 @@ export default function TenantDetails() {
               justify="space-between"
               cursor="pointer"
               onClick={() => setInvitationsExpanded(!invitationsExpanded)}
-              _hover={{ bg: useColorModeValue("gray.50", "gray.700") }}
+              _hover={{ bg: hoverBg }}
             >
               <HStack spacing={3}>
                 <Heading size="md">Zaproszenia</Heading>
@@ -687,6 +880,109 @@ export default function TenantDetails() {
               </Button>
               <Button colorScheme="red" onClick={handleRemoveInvitation} ml={3}>
                 Usuń
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Dialog potwierdzenia zmiany statusu organizacji */}
+      <AlertDialog
+        isOpen={isToggleStatusOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onToggleStatusClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent maxW="600px">
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              {tenant?.isActive ? "Dezaktywuj organizację" : "Aktywuj organizację"}
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              <VStack align="flex-start" spacing={4}>
+                <Text>
+                  Czy na pewno chcesz {tenant?.isActive ? "zdezaktywować" : "aktywować"} organizację <Text as="span" fontWeight="bold" color="blue.500">{tenant?.name}</Text>?
+                </Text>
+                {tenant?.isActive ? (
+                  <Box
+                    p={4}
+                    bg={useColorModeValue("orange.50", "orange.900")}
+                    borderRadius="md"
+                    borderWidth="1px"
+                    borderColor={useColorModeValue("orange.200", "orange.700")}
+                    width="100%"
+                  >
+                    <VStack align="flex-start" spacing={3}>
+                      <HStack spacing={2}>
+                        <Icon as={Power} color="orange.500" />
+                        <Text fontWeight="bold" color="orange.600" fontSize="sm">
+                          ⚠️ Ważne informacje:
+                        </Text>
+                      </HStack>
+                      <Text fontSize="sm">
+                        • Zdezaktywowana organizacja będzie <Text as="span" fontWeight="bold">niedostępna</Text> dla wszystkich użytkowników
+                      </Text>
+                      <Text fontSize="sm">
+                        • Nie będzie można edytować ani zapraszać nowych członków
+                      </Text>
+                      <Text fontSize="sm">
+                        • Wszystkie dane organizacji zostaną zachowane
+                      </Text>
+                      <Text fontSize="sm">
+                        • Możesz ponownie aktywować organizację w każdej chwili
+                      </Text>
+                      <Text fontSize="sm" fontWeight="medium" color="orange.700" mt={2}>
+                        Operacja nie usuwa organizacji, tylko zawiesza jej działanie.
+                      </Text>
+                    </VStack>
+                  </Box>
+                ) : (
+                  <Box
+                    p={4}
+                    bg={useColorModeValue("green.50", "green.900")}
+                    borderRadius="md"
+                    borderWidth="1px"
+                    borderColor={useColorModeValue("green.200", "green.700")}
+                    width="100%"
+                  >
+                    <VStack align="flex-start" spacing={3}>
+                      <HStack spacing={2}>
+                        <Icon as={Power} color="green.500" />
+                        <Text fontWeight="bold" color="green.600" fontSize="sm">
+                          ℹ️ Informacje:
+                        </Text>
+                      </HStack>
+                      <Text fontSize="sm">
+                        • Organizacja stanie się <Text as="span" fontWeight="bold">dostępna</Text> dla wszystkich członków
+                      </Text>
+                      <Text fontSize="sm">
+                        • Będzie można edytować i zapraszać nowych członków
+                      </Text>
+                      <Text fontSize="sm">
+                        • Wszystkie dane organizacji są zachowane
+                      </Text>
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button 
+                ref={cancelRef} 
+                onClick={onToggleStatusClose}
+                isDisabled={togglingStatus}
+              >
+                Anuluj
+              </Button>
+              <Button 
+                colorScheme={tenant?.isActive ? "red" : "green"}
+                onClick={handleToggleTenantStatus}
+                isLoading={togglingStatus}
+                loadingText={tenant?.isActive ? "Dezaktywuję..." : "Aktywuję..."}
+                ml={3}
+              >
+                {tenant?.isActive ? "Dezaktywuj organizację" : "Aktywuj organizację"}
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>

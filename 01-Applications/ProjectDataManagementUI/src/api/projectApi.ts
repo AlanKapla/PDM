@@ -1,4 +1,4 @@
-import { axiosClient } from "./axiosClient";
+﻿import { axiosClient } from "./axiosClient";
 
 export const projectApi = {
   // Pobierz szczegóły projektu
@@ -158,6 +158,11 @@ export const projectApi = {
   // Zmień status projektu (aktywuj/dezaktywuj)
   toggleProjectStatus: async (tenantId: string, projectId: string, isActive: boolean) => {
     return axiosClient.patch(`/tenants/${tenantId}/Project/${projectId}/toggle-status?isActive=${isActive}`);
+  },
+
+  // Aktualizuj projekt (nazwa)
+  updateProject: async (tenantId: string, projectId: string, data: { Name: string }) => {
+    return axiosClient.put(`/tenants/${tenantId}/Project/${projectId}`, data);
   },
 
   // Utwórz harmonogram prac
@@ -334,5 +339,15 @@ export const projectApi = {
       costId,
       sharedWithUserIds,
     });
+  },
+
+  // Pobierz dostępne role projektowe
+  getProjectRoles: async (tenantId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/Project/roles`);
+  },
+
+  // Zmień rolę członka projektu
+  updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, role: number) => {
+    return axiosClient.patch(`/tenants/${tenantId}/Project/${projectId}/members/${userId}/role`, { role });
   },
 };

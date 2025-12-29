@@ -11,10 +11,13 @@ using CQRS.Tenants.RemoveTenantMember;
 using CQRS.Tenants.ToggleTenantStatus;
 using CQRS.Tenants.UpdateTenant;
 using CQRS.Tenants.UserTenants;
+using CQRS.Tenants.UpdateTenantMemberRole;
+using Entities.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Constants;
+using Business.Interfaces.Helpers;
 
 namespace WebApi.Controllers
 {
@@ -123,6 +126,40 @@ namespace WebApi.Controllers
         {
             ToggleTenantStatusCommand command = new ToggleTenantStatusCommand(tenantId, isActive);
             await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Get available tenant roles dictionary
+        /// </summary>
+        /// <returns>Dictionary of tenant roles</returns>
+        [HttpGet("roles")]
+        [Authorize]
+        public IActionResult GetTenantRoles()
+        {
+            var roles = Enum.GetValues<TenantRole>()
+                .Select(r => new { Value = (int)r, Name = r.GetDisplayName() })
+                .ToList();
+
+            return Ok(roles);
+        }
+
+        /// <summary>
+        /// Update tenant member role
+        /// </summary>
+        /// <param name="tenantId">Tenant identifier</param>
+        /// <param name="userId">User identifier</param>
+        /// <param name="request">New role information</param>
+        /// <returns>No content</returns>
+        [HttpPatch("{tenantId}/members/{userId}/role")]
+        [Authorize(Policy = Policies.TenantAdmin)]
+        public async Task<IActionResult> UpdateTenantMemberRole(
+            Guid tenantId,
+            Guid userId,
+            [FromBody] UpdateTenantMemberRoleCommand request)
+        {
+            request = request with { TenantId = tenantId, UserId = userId };
+            await Send(request);
             return NoContent();
         }
     }

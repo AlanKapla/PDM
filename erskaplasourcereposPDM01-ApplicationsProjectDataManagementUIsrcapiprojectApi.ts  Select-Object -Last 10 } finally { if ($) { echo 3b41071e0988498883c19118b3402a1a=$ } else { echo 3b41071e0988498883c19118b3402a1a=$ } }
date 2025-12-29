@@ -1,0 +1,130 @@
+warning: in the working copy of '01-Applications/ProjectDataManagementUI/src/api/tenantApi.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/01-Applications/ProjectDataManagementUI/src/api/tenantApi.ts b/01-Applications/ProjectDataManagementUI/src/api/tenantApi.ts[m
+[1mindex bf42e0a..0cb77ea 100644[m
+[1m--- a/01-Applications/ProjectDataManagementUI/src/api/tenantApi.ts[m
+[1m+++ b/01-Applications/ProjectDataManagementUI/src/api/tenantApi.ts[m
+[36m@@ -1,60 +1,68 @@[m
+ import { axiosClient } from "./axiosClient";[m
+ [m
+ export const tenantApi = {[m
+[31m-  getUserTenants: async () => {[m
+[31m-    return axiosClient.get("/tenant/user-tenants");[m
+[31m-  },[m
+[31m-[m
+[31m-  getActiveTenant: async () => {[m
+[31m-    return axiosClient.get("/tenant/active");[m
+[31m-  },[m
+[31m-[m
+[31m-  changeActiveTenant: async (tenantId: string) => {[m
+[31m-    return axiosClient.put("/tenant/active", { tenantId });[m
+[31m-  },[m
+[31m-[m
+[31m-  createTenant: async (name: string) => {[m
+[31m-    return axiosClient.post("/tenant/create", { name });[m
+[31m-  },[m
+[31m-[m
+[31m-  updateTenant: async (tenantId: string, name: string) => {[m
+[31m-    return axiosClient.put(`/tenant/${tenantId}`, { tenantId, name });[m
+[31m-  },[m
+[31m-[m
+[31m-  toggleTenantStatus: async (tenantId: string, isActive: boolean) => {[m
+[31m-    return axiosClient.patch(`/tenant/${tenantId}/status?isActive=${isActive}`);[m
+[31m-  },[m
+[31m-[m
+[31m-  inviteMember: async (tenantId: string, email: string) => {[m
+[31m-    return axiosClient.post(`/tenant/${tenantId}/invitations`, { tenantId, email });[m
+[31m-  },[m
+[31m-[m
+[31m-  acceptInvitation: async (token: string) => {[m
+[31m-    console.log("[API] acceptInvitation - Token:", token);[m
+[31m-    return axiosClient.post("/tenant/invitations/accept", { token });[m
+[31m-  },[m
+[31m-[m
+[31m-  removeMember: async (tenantId: string, userId: string) => {[m
+[31m-    return axiosClient.delete(`/tenant/${tenantId}/members/${userId}`);[m
+[31m-  },[m
+[31m-[m
+[31m-  removeInvitation: async (tenantId: string, invitationId: string) => {[m
+[31m-    return axiosClient.delete(`/tenant/${tenantId}/invitations/${invitationId}`);[m
+[31m-  },[m
+[31m-[m
+[31m-  getActiveInvitations: async () => {[m
+[31m-    return axiosClient.get("/tenant/invitations");[m
+[31m-  },[m
+[31m-[m
+[31m-  getTenantProjects: async (tenantId: string) => {[m
+[31m-    return axiosClient.get(`/tenants/${tenantId}/Project`);[m
+[31m-  },[m
+[31m-[m
+[31m-  createProject: async (tenantId: string, name: string) => {[m
+[31m-    return axiosClient.post(`/tenants/${tenantId}/Project`, { name });[m
+[31m-  },[m
+[31m-[m
+[31m-  getTenantMembers: async (tenantId: string) => {[m
+[31m-    return axiosClient.get(`/tenant/${tenantId}/members`);[m
+[31m-  },[m
+[32m+[m[32m    getUserTenants: async () => {[m
+[32m+[m[32m        return axiosClient.get("/tenant/user-tenants");[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    getActiveTenant: async () => {[m
+[32m+[m[32m        return axiosClient.get("/tenant/active");[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    changeActiveTenant: async (tenantId: string) => {[m
+[32m+[m[32m        return axiosClient.put("/tenant/active", { tenantId });[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    createTenant: async (name: string) => {[m
+[32m+[m[32m        return axiosClient.post("/tenant/create", { name });[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    updateTenant: async (tenantId: string, name: string) => {[m
+[32m+[m[32m        return axiosClient.put(`/tenant/${tenantId}`, { tenantId, name });[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    toggleTenantStatus: async (tenantId: string, isActive: boolean) => {[m
+[32m+[m[32m        return axiosClient.patch(`/tenant/${tenantId}/status?isActive=${isActive}`);[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    inviteMember: async (tenantId: string, email: string) => {[m
+[32m+[m[32m        return axiosClient.post(`/tenant/${tenantId}/invitations`, { tenantId, email });[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    acceptInvitation: async (token: string) => {[m
+[32m+[m[32m        console.log("[API] acceptInvitation - Token:", token);[m
+[32m+[m[32m        return axiosClient.post("/tenant/invitations/accept", { token });[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    removeMember: async (tenantId: string, userId: string) => {[m
+[32m+[m[32m        return axiosClient.delete(`/tenant/${tenantId}/members/${userId}`);[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    removeInvitation: async (tenantId: string, invitationId: string) => {[m
+[32m+[m[32m        return axiosClient.delete(`/tenant/${tenantId}/invitations/${invitationId}`);[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    getActiveInvitations: async () => {[m
+[32m+[m[32m        return axiosClient.get("/tenant/invitations");[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    getTenantProjects: async (tenantId: string) => {[m
+[32m+[m[32m        return axiosClient.get(`/tenants/${tenantId}/Project`);[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    createProject: async (tenantId: string, name: string) => {[m
+[32m+[m[32m        return axiosClient.post(`/tenants/${tenantId}/Project`, { name });[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    getTenantMembers: async (tenantId: string) => {[m
+[32m+[m[32m        return axiosClient.get(`/tenant/${tenantId}/members`);[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    getTenantRoles: async () => {[m
+[32m+[m[32m        return axiosClient.get("/tenant/roles");[m
+[32m+[m[32m    },[m
+[32m+[m
+[32m+[m[32m    updateTenantMemberRole: async (tenantId: string, userId: string, role: number) => {[m
+[32m+[m[32m        return axiosClient.patch(`/tenant/${tenantId}/members/${userId}/role`, { role });[m
+[32m+[m[32m    }[m
+ };[m
