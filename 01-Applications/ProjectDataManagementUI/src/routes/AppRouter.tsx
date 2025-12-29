@@ -5,7 +5,7 @@ import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
 import Profile from "../pages/Profile";
-import Tenants from "../pages/Tenants";
+import TenantDetails from "../pages/TenantDetails";
 import CollaboratingTenants from "../pages/CollaboratingTenants";
 import ManagedTenants from "../pages/ManagedTenants";
 import ActiveInvitations from "../pages/ActiveInvitations";
@@ -111,9 +111,14 @@ export default function AppRouter() {
 
       <Route
         path="/tenants"
+        element={<Navigate to="/tenants/managed" replace />}
+      />
+
+      <Route
+        path="/tenants/:tenantId"
         element={
           <ProtectedRoute>
-            <Tenants />
+            <TenantDetails />
           </ProtectedRoute>
         }
       />

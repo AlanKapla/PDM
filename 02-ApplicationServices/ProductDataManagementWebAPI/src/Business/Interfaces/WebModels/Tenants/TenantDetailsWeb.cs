@@ -9,7 +9,7 @@ namespace Business.Interfaces.WebModels.Tenants
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; }
         public TenantRole Role { get; set; }
-        public List<TenantMemberDetailsWeb> Members { get; set; } = new();
+        public List<TenantMemberWeb> Members { get; set; } = new();
         public List<TenantInvitationWeb> Invitations { get; set; } = new();
     }
 }

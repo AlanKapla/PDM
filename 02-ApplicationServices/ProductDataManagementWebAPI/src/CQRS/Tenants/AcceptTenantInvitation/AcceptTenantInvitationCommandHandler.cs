@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
@@ -27,8 +27,6 @@ namespace CQRS.Tenants.AcceptTenantInvitation
         {
             TenantInvitation? invitation = await invitationRepo.GetFirstBySearch(i => i.Token == request.Token && i.IsActive)
                 ?? throw new NotFoundApiException("TenantInvitation", request.Token);
-
-            // Walidacja przeniesiona do Validatora: status, expiry, email match
 
             // Create membership as Member
             TenantMember? existing = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == invitation.TenantId && m.UserId == currentUser.Id);

@@ -41,7 +41,7 @@ namespace CQRS.Tenants.UserTenants
                 .Distinct()
                 .ToList();
 
-            Dictionary<Guid, List<TenantMemberDetailsWeb>> membersPerTenant = new();
+            Dictionary<Guid, List<TenantMemberWeb>> membersPerTenant = new();
             Dictionary<Guid, List<TenantInvitationWeb>> invitationsPerTenant = new();
 
             if (adminTenantIds.Count > 0)
@@ -54,21 +54,21 @@ namespace CQRS.Tenants.UserTenants
 
                 foreach (TenantMember member in adminTenantsMembers)
                 {
-                    if (!membersPerTenant.TryGetValue(member.TenantId, out List<TenantMemberDetailsWeb>? list))
+                    if (!membersPerTenant.TryGetValue(member.TenantId, out List<TenantMemberWeb>? list))
                     {
-                        list = new List<TenantMemberDetailsWeb>();
+                        list = new List<TenantMemberWeb>();
                         membersPerTenant[member.TenantId] = list;
                     }
 
-                    list.Add(new TenantMemberDetailsWeb
-                    {
-                        UserId = member.UserId,
-                        Email = member.User.Email,
-                        FirstName = member.User.FirstName,
-                        LastName = member.User.LastName,
-                        Role = member.Role,
-                        JoinedAt = member.CreatedAt
-                    });
+                    list.Add(new TenantMemberWeb(
+                        UserId: member.UserId,
+                        Email: member.User.Email,
+                        FirstName: member.User.FirstName,
+                        LastName: member.User.LastName,
+                        Role: member.Role,
+                        IsActive: member.IsActive,
+                        JoinedAt: member.CreatedAt
+                    ));
                 }
 
                 // Pending invitations for tenants current user administrates
@@ -112,7 +112,7 @@ namespace CQRS.Tenants.UserTenants
                     CreatedAt = m.Tenant.CreatedAt,
                     IsActive = m.Tenant.IsActive,
                     Role = m.Role,
-                    Members = membersPerTenant.TryGetValue(m.TenantId, out var members) ? members : new List<TenantMemberDetailsWeb>(),
+                    Members = membersPerTenant.TryGetValue(m.TenantId, out var members) ? members : new List<TenantMemberWeb>(),
                     Invitations = invitationsPerTenant.TryGetValue(m.TenantId, out var invs) ? invs : new List<TenantInvitationWeb>()
                 })
                 .ToList();

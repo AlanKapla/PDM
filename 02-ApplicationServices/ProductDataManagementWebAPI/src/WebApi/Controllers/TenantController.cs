@@ -4,6 +4,7 @@ using CQRS.Tenants.ActiveInvitations;
 using CQRS.Tenants.ActiveTenant;
 using CQRS.Tenants.ChangeActiveTenant;
 using CQRS.Tenants.CreateTenant;
+using CQRS.Tenants.RemoveTenantInvitation;
 using CQRS.Tenants.GetTenantMembers;
 using CQRS.Tenants.InviteTenantMember;
 using CQRS.Tenants.RemoveTenantMember;
@@ -87,6 +88,15 @@ namespace WebApi.Controllers
         {
             await Send(request);
             return Ok();
+        }
+
+        [HttpDelete("{tenantId}/invitations/{invitationId}")]
+        [Authorize(Policy = Policies.TenantAdmin)]
+        public async Task<IActionResult> RemoveInvitation(Guid tenantId, Guid invitationId)
+        {
+            RemoveTenantInvitationCommand command = new(tenantId, invitationId);
+            await Send(command);
+            return NoContent();
         }
 
         [HttpGet("{tenantId}/members")]

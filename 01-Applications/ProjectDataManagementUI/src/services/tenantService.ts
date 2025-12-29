@@ -88,6 +88,16 @@ export const removeTenantMember = async (tenantId: string, userId: string): Prom
   }
 };
 
+export const removeTenantInvitation = async (tenantId: string, invitationId: string): Promise<boolean> => {
+  try {
+    await tenantApi.removeInvitation(tenantId, invitationId);
+    return true;
+  } catch (error) {
+    console.error("Error removing tenant invitation:", error);
+    return false;
+  }
+};
+
 export const getActiveInvitations = async () => {
   try {
     const response = await tenantApi.getActiveInvitations();

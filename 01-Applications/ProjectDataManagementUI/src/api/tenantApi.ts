@@ -38,6 +38,10 @@ export const tenantApi = {
     return axiosClient.delete(`/tenant/${tenantId}/members/${userId}`);
   },
 
+  removeInvitation: async (tenantId: string, invitationId: string) => {
+    return axiosClient.delete(`/tenant/${tenantId}/invitations/${invitationId}`);
+  },
+
   getActiveInvitations: async () => {
     return axiosClient.get("/tenant/invitations");
   },

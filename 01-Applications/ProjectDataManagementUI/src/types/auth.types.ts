@@ -50,6 +50,7 @@ export interface TenantMemberDetails {
   firstName: string;
   lastName: string;
   role: number;
+  isActive: boolean;
   joinedAt: string;
 }
 

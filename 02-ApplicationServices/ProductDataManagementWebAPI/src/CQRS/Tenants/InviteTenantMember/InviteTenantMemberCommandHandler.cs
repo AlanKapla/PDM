@@ -86,13 +86,13 @@ namespace CQRS.Tenants.InviteTenantMember
                 await emailSender.SendEmailAsync(new EmailMessageDto
                 {
                     To = normalizedEmail,
-                    Subject = $"Invitation to join {tenantName}",
-                    TextBody = $"You have been invited to join {tenantName}. To accept this invitation, please create an account by clicking the link: {acceptUrl}",
+                    Subject = $"Zaproszenie do {tenantName}",
+                    TextBody = $"Zostałeś zaproszony do {tenantName}. Aby zaakceptować zaproszenie, utwórz konto klikając w link: {acceptUrl}",
                     HtmlBody = $@"
-                        <p>You have been invited to join <strong>{tenantName}</strong>.</p>
-                        <p>To accept this invitation, please create an account by clicking the link below:</p>
-                        <p><a href=""{acceptUrl}"">Create Account and Join</a></p>
-                        <p>This invitation will expire in 7 days.</p>"
+                        <p>Zostałeś zaproszony do <strong>{tenantName}</strong>.</p>
+                        <p>Aby zaakceptować zaproszenie, utwórz konto klikając w poniższy link:</p>
+                        <p><a href=""{acceptUrl}"">Utwórz konto i dołącz</a></p>
+                        <p>To zaproszenie wygaśnie za 7 dni.</p>"
                 }, cancellationToken);
             }
             // Jeśli użytkownik ISTNIEJE - wyślij tylko notyfikację
@@ -106,8 +106,8 @@ namespace CQRS.Tenants.InviteTenantMember
                     UserId = existingUser.Id,
                     AzureAdB2CObjectId = existingUser.AzureAdB2CObjectId,
                     Type = DtoNotificationType.Info,
-                    Title = "Tenant Invitation",
-                    Message = $"You have been invited to join {tenantName}",
+                    Title = "Zaproszenie do organizacji",
+                    Message = $"Zostałeś zaproszony do {tenantName}",
                     CreatedAt = DateTimeOffset.UtcNow,
                     Readed = false,
                     Metadata = new Dictionary<string, object?>
