@@ -19,6 +19,7 @@ import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
+import { canEditProject } from "../types/project.types";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 
 export default function ProjectSchedules() {
@@ -36,6 +37,8 @@ export default function ProjectSchedules() {
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
+
+  const userCanEdit = canEditProject(project?.userRole);
 
   useEffect(() => {
     fetchData();
@@ -92,15 +95,27 @@ export default function ProjectSchedules() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          <Button
-            leftIcon={<Calendar size={18} />}
-            colorScheme="purple"
-            onClick={onOpen}
-          >
-            Utwórz harmonogram
-          </Button>
+          {userCanEdit && (
+            <Button
+              leftIcon={<Calendar size={18} />}
+              colorScheme="purple"
+              onClick={onOpen}
+            >
+              Utwórz harmonogram
+            </Button>
+          )}
         </HStack>
 
+        {!userCanEdit ? (
+          <Box p={8} textAlign="center">
+            <EmptyState
+              icon={Calendar}
+              title="Brak dostępu"
+              description="Harmonogramy są dostępne tylko dla edytorów i administratorów projektu"
+            />
+          </Box>
+        ) : (
+        <>
         {workSchedules.length === 0 ? (
           <EmptyState
             icon={Calendar}
@@ -139,6 +154,8 @@ export default function ProjectSchedules() {
               </Box>
             ))}
           </VStack>
+        )}
+        </>
         )}
 
         <CreateWorkScheduleModal

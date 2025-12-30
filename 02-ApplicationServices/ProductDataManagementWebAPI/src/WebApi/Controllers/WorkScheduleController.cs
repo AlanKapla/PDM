@@ -25,7 +25,7 @@ namespace WebApi.Controllers
         /// <param name="command">The work schedule creation details</param>
         /// <returns>The created work schedule with all stages and works</returns>
         [HttpPost]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> CreateWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -45,7 +45,7 @@ namespace WebApi.Controllers
         /// <param name="command">The work schedule update details</param>
         /// <returns>The updated work schedule with all stages and works</returns>
         [HttpPut("{workScheduleId}")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> UpdateWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -64,7 +64,7 @@ namespace WebApi.Controllers
         /// <param name="projectId">The project ID</param>
         /// <returns>List of work schedules created by the current user</returns>
         [HttpGet("my")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> GetMyWorkSchedules(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -82,7 +82,7 @@ namespace WebApi.Controllers
         /// <param name="workScheduleId">The work schedule ID</param>
         /// <returns>The work schedule with all details</returns>
         [HttpGet("{workScheduleId}")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> GetWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

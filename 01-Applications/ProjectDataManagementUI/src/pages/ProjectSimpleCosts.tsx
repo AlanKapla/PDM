@@ -36,6 +36,7 @@ import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate, formatCurrency } from "../utils/formatters";
 import ShareCostModal from "../components/ShareCostModal";
 import type { ProjectCostListItemWeb, SharedProjectCostWeb } from "../types/project.types";
+import { canEditProject, canViewProject } from "../types/project.types";
 
 export default function ProjectSimpleCosts() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -47,6 +48,7 @@ export default function ProjectSimpleCosts() {
   const [sharedCosts, setSharedCosts] = useState<SharedProjectCostWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingShared, setLoadingShared] = useState(false);
+  const [project, setProject] = useState<any | null>(null);
   const [projectName, setProjectName] = useState("");
   const [showNewCostRow, setShowNewCostRow] = useState(false);
   const [addingNewCost, setAddingNewCost] = useState(false);
@@ -73,37 +75,52 @@ export default function ProjectSimpleCosts() {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
+  const userCanEdit = canEditProject(project?.userRole);
+  const userCanView = canViewProject(project?.userRole);
+
   useEffect(() => {
     if (projectId && user?.activeTenantId) {
       fetchProjectDetails();
-      fetchProjectCosts();
-      fetchSharedCosts();
     }
   }, [projectId, user?.activeTenantId]);
 
   const fetchProjectDetails = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
+    setLoading(true);
     try {
       const response = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      setProject(response.data);
       setProjectName(response.data.name);
+      
+      // Po załadowaniu projektu, pobierz odpowiednie dane
+      const userRole = response.data.userRole;
+      const canEdit = canEditProject(userRole);
+      const canView = canViewProject(userRole);
+      
+      if (canEdit) {
+        await fetchProjectCosts();
+      }
+      
+      if (canView) {
+        await fetchSharedCosts();
+      }
     } catch (error) {
       console.error("Błąd podczas pobierania projektu:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchProjectCosts = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
-    setLoading(true);
     try {
       const response = await projectApi.getProjectUserCosts(user.activeTenantId, projectId);
       setProjectCosts(response.data);
     } catch (error) {
       console.error("Błąd podczas pobierania kosztów:", error);
       showError("Wystąpił błąd podczas pobierania kosztów");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -267,18 +284,30 @@ export default function ProjectSimpleCosts() {
               {projectName && <Text fontSize="sm" color="gray.600">{projectName}</Text>}
             </VStack>
           </HStack>
-          <Button
-            leftIcon={<Plus size={18} />}
-            colorScheme="blue"
-            onClick={() => setShowNewCostRow(true)}
-            isDisabled={showNewCostRow}
-          >
-            Dodaj koszt
-          </Button>
+          {userCanEdit && (
+            <Button
+              leftIcon={<Plus size={18} />}
+              colorScheme="blue"
+              onClick={() => setShowNewCostRow(true)}
+              isDisabled={showNewCostRow}
+            >
+              Dodaj koszt
+            </Button>
+          )}
         </HStack>
 
+        {!project || !userCanView ? (
+          <Box p={8} textAlign="center">
+            <EmptyState
+              icon={DollarSign}
+              title="Brak dostępu"
+              description="Nie masz uprawnień do przeglądania kosztów w tym projekcie"
+            />
+          </Box>
+        ) : (
         <Tabs colorScheme="blue" variant="enclosed">
           <TabList>
+            {userCanEdit && (
             <Tab fontWeight="bold">
               <HStack spacing={2}>
                 <Icon as={DollarSign} boxSize={4} />
@@ -286,6 +315,8 @@ export default function ProjectSimpleCosts() {
                 <Badge colorScheme="blue" ml={2}>{projectCosts.length}</Badge>
               </HStack>
             </Tab>
+            )}
+            {userCanView && (
             <Tab fontWeight="bold">
               <HStack spacing={2}>
                 <Icon as={Share2} boxSize={4} />
@@ -293,10 +324,12 @@ export default function ProjectSimpleCosts() {
                 <Badge colorScheme="teal" ml={2}>{sharedCosts.length}</Badge>
               </HStack>
             </Tab>
+            )}
           </TabList>
 
           <TabPanels>
             {/* TAB 1: MOJE KOSZTY */}
+            {userCanEdit && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -476,8 +509,10 @@ export default function ProjectSimpleCosts() {
                 )}
               </VStack>
             </TabPanel>
+            )}
 
             {/* TAB 2: UDOSTĘPNIONE KOSZTY */}
+            {userCanView && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -553,8 +588,10 @@ export default function ProjectSimpleCosts() {
                 )}
               </VStack>
             </TabPanel>
+            )}
           </TabPanels>
         </Tabs>
+        )}
 
         <Box mt={6} p={4} bg="blue.50" rounded="md" borderWidth="1px" borderColor="blue.200">
           <Text fontSize="sm" color="blue.800">

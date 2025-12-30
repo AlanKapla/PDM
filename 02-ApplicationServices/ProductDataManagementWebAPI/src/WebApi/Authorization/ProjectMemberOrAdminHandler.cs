@@ -3,16 +3,22 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Authorization
 {
-    public class ProjectAdminHandler : AuthorizationHandler<ProjectAdminRequirement>
+    /// <summary>
+    /// Sprawdza czy użytkownik jest członkiem projektu LUB administratorem tenanta.
+    /// Administratorzy tenanta mają dostęp do wszystkich projektów w swoim tenancie.
+    /// </summary>
+    public class ProjectMemberOrAdminHandler : AuthorizationHandler<ProjectMemberOrAdminRequirement>
     {
         private readonly IAccessService accessService;
 
-        public ProjectAdminHandler(IAccessService accessService)
+        public ProjectMemberOrAdminHandler(IAccessService accessService)
         {
             this.accessService = accessService;
         }
 
-        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ProjectAdminRequirement requirement)
+        protected override async Task HandleRequirementAsync(
+            AuthorizationHandlerContext context, 
+            ProjectMemberOrAdminRequirement requirement)
         {
             if (!accessService.IsUserAuthenticated())
             {
@@ -31,7 +37,7 @@ namespace WebApi.Authorization
                 return;
             }
 
-            if (await accessService.IsProjectAdminAsync(tenantId, projectId))
+            if (await accessService.IsProjectMemberOrAdminAsync(tenantId, projectId))
             {
                 context.Succeed(requirement);
             }

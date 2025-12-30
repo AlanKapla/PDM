@@ -2,10 +2,35 @@
 
 export const ProjectRole = {
   Admin: 0,
-  Member: 1,
+  Editor: 1,
+  Viewer: 2,
+  Member: 3,
 } as const;
 
 export type ProjectRoleType = (typeof ProjectRole)[keyof typeof ProjectRole];
+
+// Funkcja pomocnicza do określania poziomu roli (im niższa wartość, tym wyższe uprawnienia)
+// Wartości enum są już bezpośrednio poziomami uprawnień
+export const getProjectRoleLevel = (role: number): number => {
+  return role;
+};
+
+// Funkcje pomocnicze do sprawdzania uprawnień
+export const hasProjectRoleLevel = (userRole: number, requiredRole: number): boolean => {
+  return getProjectRoleLevel(userRole) <= getProjectRoleLevel(requiredRole);
+};
+
+export const isProjectAdmin = (userRole: number): boolean => {
+  return userRole === ProjectRole.Admin;
+};
+
+export const canEditProject = (userRole: number): boolean => {
+  return hasProjectRoleLevel(userRole, ProjectRole.Editor);
+};
+
+export const canViewProject = (userRole: number): boolean => {
+  return hasProjectRoleLevel(userRole, ProjectRole.Viewer);
+};
 
 // Re-export TenantRole z auth.types dla wygody
 export { TenantRole } from './auth.types';

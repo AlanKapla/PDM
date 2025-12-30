@@ -1,18 +1,24 @@
 ﻿using Business.Interfaces.Services;
+using Entities.Enums;
 using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Authorization
 {
-    public class ProjectAdminHandler : AuthorizationHandler<ProjectAdminRequirement>
+    /// <summary>
+    /// Sprawdza czy użytkownik ma uprawnienia do przeglądania projektu (rola Viewer, Member, Editor lub Admin).
+    /// </summary>
+    public class ProjectViewerHandler : AuthorizationHandler<ProjectViewerRequirement>
     {
         private readonly IAccessService accessService;
 
-        public ProjectAdminHandler(IAccessService accessService)
+        public ProjectViewerHandler(IAccessService accessService)
         {
             this.accessService = accessService;
         }
 
-        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ProjectAdminRequirement requirement)
+        protected override async Task HandleRequirementAsync(
+            AuthorizationHandlerContext context, 
+            ProjectViewerRequirement requirement)
         {
             if (!accessService.IsUserAuthenticated())
             {
@@ -31,7 +37,7 @@ namespace WebApi.Authorization
                 return;
             }
 
-            if (await accessService.IsProjectAdminAsync(tenantId, projectId))
+            if (await accessService.HasProjectRoleAtLeastAsync(tenantId, projectId, ProjectRole.Viewer))
             {
                 context.Succeed(requirement);
             }

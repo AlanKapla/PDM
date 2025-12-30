@@ -22,7 +22,7 @@ namespace WebApi.Controllers
         /// Pobiera listę kosztów zalogowanego użytkownika w projekcie
         /// </summary>
         [HttpGet]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> GetProjectUserCosts(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -41,7 +41,7 @@ namespace WebApi.Controllers
         /// Pobiera listę kosztów udostępnionych zalogowanemu użytkownikowi
         /// </summary>
         [HttpGet("shared")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectViewer)]
         public async Task<IActionResult> GetSharedProjectCosts(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -60,7 +60,7 @@ namespace WebApi.Controllers
         /// Tworzy nowy koszt projektu
         /// </summary>
         [HttpPost]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> CreateProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -80,7 +80,7 @@ namespace WebApi.Controllers
         /// Aktualizuje istniejący koszt projektu
         /// </summary>
         [HttpPut("{costId}")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> UpdateProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -102,7 +102,7 @@ namespace WebApi.Controllers
         /// Usuwa koszt projektu (soft delete)
         /// </summary>
         [HttpDelete("{costId}")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> DeleteProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -125,7 +125,7 @@ namespace WebApi.Controllers
         /// Pusta lista usuwa wszystkie udostępnienia.
         /// </summary>
         [HttpPost("{costId}/share")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> ShareProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

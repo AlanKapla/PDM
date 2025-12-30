@@ -1,48 +1,37 @@
-﻿using Business.Interfaces.Model;
-using Entities.Models;
-using Entities.Enums;
+﻿using Business.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
-using Repositories.Repository.Interfaces;
 
 namespace WebApi.Authorization
 {
     public class TenantMemberHandler : AuthorizationHandler<TenantMemberRequirement>
     {
-        private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly ICurrentUser currentUser;
+        private readonly IAccessService accessService;
 
-        public TenantMemberHandler(IRepository<TenantMember> tenantMemberRepo, ICurrentUser currentUser)
+        public TenantMemberHandler(IAccessService accessService)
         {
-            this.tenantMemberRepo = tenantMemberRepo;
-            this.currentUser = currentUser;
+            this.accessService = accessService;
         }
 
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, TenantMemberRequirement requirement)
         {
-            if (!currentUser.IsAuthenticated || currentUser.Id == Guid.Empty)
+            if (!accessService.IsUserAuthenticated())
             {
                 return;
             }
 
-            if (!currentUser.ActiveTenantId.HasValue)
+            if (!accessService.HasActiveTenant())
             {
                 return;
             }
 
-            var httpContext = context.Resource as HttpContext;
-            Guid tenantId = Guid.Empty;
-            
-            if (httpContext != null)
+            var tenantId = accessService.GetRouteTenantId(context.Resource);
+
+            if (tenantId == Guid.Empty)
             {
-                if (httpContext.Request.RouteValues.TryGetValue("tenantId", out var routeTenantId) && 
-                    routeTenantId is string routeString && 
-                    Guid.TryParse(routeString, out var routeParsed))
-                {
-                    tenantId = routeParsed;
-                }
-                else if (httpContext.Request.Query.TryGetValue("tenantId", out var queryTenantId) &&
-                         Guid.TryParse(queryTenantId.FirstOrDefault(), out var queryParsed))
+                // Fallback: try to get from query string
+                if (context.Resource is HttpContext httpContext &&
+                    httpContext.Request.Query.TryGetValue("tenantId", out var queryTenantId) &&
+                    Guid.TryParse(queryTenantId.FirstOrDefault(), out var queryParsed))
                 {
                     tenantId = queryParsed;
                 }
@@ -53,19 +42,7 @@ namespace WebApi.Authorization
                 return;
             }
 
-            if (currentUser.ActiveTenantId != tenantId)
-            {
-                return;
-            }
-
-            // Admin tenanta ma dostęp nawet gdy tenant jest nieaktywny
-            var membership = await tenantMemberRepo.GetFirstBySearch(
-                m => m.TenantId == tenantId && 
-                     m.UserId == currentUser.Id && 
-                     m.IsActive &&
-                     m.Tenant.IsActive);
-            
-            if (membership != null)
+            if (await accessService.IsTenantMemberAsync(tenantId))
             {
                 context.Succeed(requirement);
             }

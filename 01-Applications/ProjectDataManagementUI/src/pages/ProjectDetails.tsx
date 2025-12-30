@@ -49,15 +49,11 @@ import { tenantApi } from "../api/tenantApi";
 import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
 import { ProjectRole } from "../types/project.types";
+import { isProjectAdmin, canEditProject, canViewProject } from "../types/project.types";
+import { isTenantAdmin } from "../types/auth.types";
+import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../types/project.types";
-
-/* Helpery UI */
-const getProjectRoleName = (role: number) =>
-  role === ProjectRole.Admin ? "Administrator" : "Członek";
-
-const getProjectRoleColor = (role: number) =>
-  role === ProjectRole.Admin ? "blue" : "green";
 
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -124,7 +120,9 @@ export default function ProjectDetails() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const isProjectAdmin = project && project.userRole === ProjectRole.Admin;
+  const userIsProjectAdmin = project && isProjectAdmin(project.userRole);
+  const userCanEdit = project && canEditProject(project.userRole);
+  const userCanView = project && canViewProject(project.userRole);
   const isTenantAdmin = userTenantRole === 0; // TenantRole.Admin
   
   console.log("🔍 userTenantRole:", userTenantRole, "isTenantAdmin:", isTenantAdmin);
@@ -819,7 +817,7 @@ export default function ProjectDetails() {
                   <HStack spacing={2}>
                     {!isEditingName && (
                       <>
-                        {isProjectAdmin && (
+                        {userIsProjectAdmin && (
                           <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
                             <Button
                               size="sm"
@@ -832,7 +830,7 @@ export default function ProjectDetails() {
                             </Button>
                           </Tooltip>
                         )}
-                        {isProjectAdmin && (
+                        {userIsProjectAdmin && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -910,95 +908,105 @@ export default function ProjectDetails() {
 
             {/* ====================== SZYBKI DOSTĘP ======================= */}
             <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-              <Box
-                as="button"
-                bg={cardBg}
-                p={6}
-                rounded="lg"
-                borderWidth="1px"
-                borderColor={borderColor}
-                shadow="sm"
-                _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                transition="all 0.2s"
-                onClick={() => navigate(`/projects/${projectId}/members`)}
-              >
-                <VStack spacing={3}>
-                  <Icon as={Users} boxSize={8} color="blue.600" />
-                  <Text fontWeight="bold" fontSize="md">Członkowie</Text>
-                </VStack>
-              </Box>
+              {userCanView && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/members`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={Users} boxSize={8} color="blue.600" />
+                    <Text fontWeight="bold" fontSize="md">Członkowie</Text>
+                  </VStack>
+                </Box>
+              )}
 
-              <Box
-                as="button"
-                bg={cardBg}
-                p={6}
-                rounded="lg"
-                borderWidth="1px"
-                borderColor={borderColor}
-                shadow="sm"
-                _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                transition="all 0.2s"
-                onClick={() => navigate(`/projects/${projectId}/schedules`)}
-              >
-                <VStack spacing={3}>
-                  <Icon as={Calendar} boxSize={8} color="purple.600" />
-                  <Text fontWeight="bold" fontSize="md">Harmonogramy</Text>
-                </VStack>
-              </Box>
+              {userCanEdit && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/schedules`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={Calendar} boxSize={8} color="purple.600" />
+                    <Text fontWeight="bold" fontSize="md">Harmonogramy</Text>
+                  </VStack>
+                </Box>
+              )}
 
-              <Box
-                as="button"
-                bg={cardBg}
-                p={6}
-                rounded="lg"
-                borderWidth="1px"
-                borderColor={borderColor}
-                shadow="sm"
-                _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                transition="all 0.2s"
-                onClick={() => navigate(`/projects/${projectId}/files`)}
-              >
-                <VStack spacing={3}>
-                  <Icon as={FileText} boxSize={8} color="purple.600" />
-                  <Text fontWeight="bold" fontSize="md">Pliki</Text>
-                </VStack>
-              </Box>
+              {userCanView && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/files`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={FileText} boxSize={8} color="purple.600" />
+                    <Text fontWeight="bold" fontSize="md">Pliki</Text>
+                  </VStack>
+                </Box>
+              )}
 
-              <Box
-                as="button"
-                bg={cardBg}
-                p={6}
-                rounded="lg"
-                borderWidth="1px"
-                borderColor={borderColor}
-                shadow="sm"
-                _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                transition="all 0.2s"
-                onClick={() => navigate(`/projects/${projectId}/costs`)}
-              >
-                <VStack spacing={3}>
-                  <Icon as={DollarSign} boxSize={8} color="red.600" />
-                  <Text fontWeight="bold" fontSize="md">Koszty</Text>
-                </VStack>
-              </Box>
+              {userCanView && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/costs`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={DollarSign} boxSize={8} color="red.600" />
+                    <Text fontWeight="bold" fontSize="md">Koszty</Text>
+                  </VStack>
+                </Box>
+              )}
 
-              <Box
-                as="button"
-                bg={cardBg}
-                p={6}
-                rounded="lg"
-                borderWidth="1px"
-                borderColor={borderColor}
-                shadow="sm"
-                _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                transition="all 0.2s"
-                onClick={() => navigate(`/projects/${projectId}/cost-estimates`)}
-              >
-                <VStack spacing={3}>
-                  <Icon as={FileText} boxSize={8} color="orange.600" />
-                  <Text fontWeight="bold" fontSize="md">Kosztorysy</Text>
-                </VStack>
-              </Box>
+              {userCanView && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/cost-estimates`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={FileText} boxSize={8} color="orange.600" />
+                    <Text fontWeight="bold" fontSize="md">Kosztorysy</Text>
+                  </VStack>
+                </Box>
+              )}
             </SimpleGrid>
 
             {/* Sekcje przeniesione do dedykowanych stron - dostępne przez karty powyżej */}
@@ -1016,7 +1024,7 @@ export default function ProjectDetails() {
             tenantId={project.tenantId}
             projectId={project.id}
             projectName={project.name}
-            isAdmin={isProjectAdmin}
+            isAdmin={userIsProjectAdmin}
             onMemberAdded={() => {
               fetchMembers();
               fetchProjectDetails();

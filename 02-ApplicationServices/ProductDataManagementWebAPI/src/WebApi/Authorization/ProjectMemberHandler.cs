@@ -1,95 +1,39 @@
-﻿using Business.Interfaces.Model;
-using Entities.Models;
-using Entities.Enums;
+﻿using Business.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
-using Repositories.Repository.Interfaces;
 
 namespace WebApi.Authorization
 {
     public class ProjectMemberHandler : AuthorizationHandler<ProjectMemberRequirement>
     {
-        private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly ICurrentUser currentUser;
+        private readonly IAccessService accessService;
 
-        public ProjectMemberHandler(
-            IRepository<ProjectMember> projectMemberRepo, 
-            IRepository<TenantMember> tenantMemberRepo,
-            ICurrentUser currentUser)
+        public ProjectMemberHandler(IAccessService accessService)
         {
-            this.projectMemberRepo = projectMemberRepo;
-            this.tenantMemberRepo = tenantMemberRepo;
-            this.currentUser = currentUser;
+            this.accessService = accessService;
         }
 
         protected override async Task HandleRequirementAsync(
             AuthorizationHandlerContext context, 
             ProjectMemberRequirement requirement)
         {
-            if (!currentUser.IsAuthenticated || currentUser.Id == Guid.Empty)
+            if (!accessService.IsUserAuthenticated())
             {
                 return;
             }
 
-            if (!currentUser.ActiveTenantId.HasValue)
+            if (!accessService.HasActiveTenant())
             {
                 return;
             }
 
-            var httpContext = context.Resource as HttpContext;
-            Guid tenantId = Guid.Empty;
-            Guid projectId = Guid.Empty;
-
-            if (httpContext != null)
-            {
-                if (httpContext.Request.RouteValues.TryGetValue("tenantId", out var rawTenantId) && 
-                    rawTenantId is string tenantString && 
-                    Guid.TryParse(tenantString, out var parsedTenantId))
-                {
-                    tenantId = parsedTenantId;
-                }
-
-                if (httpContext.Request.RouteValues.TryGetValue("projectId", out var rawProjectId) && 
-                    rawProjectId is string projectString && 
-                    Guid.TryParse(projectString, out var parsedProjectId))
-                {
-                    projectId = parsedProjectId;
-                }
-            }
+            var (tenantId, projectId) = accessService.GetRouteIds(context.Resource);
 
             if (tenantId == Guid.Empty || projectId == Guid.Empty)
             {
                 return;
             }
 
-            if (currentUser.ActiveTenantId != tenantId)
-            {
-                return;
-            }
-
-            // Weryfikacja aktywnego członkostwa w tenancie
-            // Admin tenanta ma dostęp nawet gdy tenant jest nieaktywny
-            TenantMember? tenantMembership = await tenantMemberRepo.GetFirstBySearch(
-                m => m.TenantId == tenantId &&
-                     m.UserId == currentUser.Id &&
-                     m.IsActive &&
-                     m.Tenant.IsActive);
-
-            if (tenantMembership == null)
-            {
-                return;
-            }
-
-            // Weryfikacja członkostwa w projekcie
-            // Admin projektu ma dostęp nawet gdy projekt jest nieaktywny
-            ProjectMember? projectMembership = await projectMemberRepo.GetFirstBySearch(
-                pm => pm.TenantId == tenantId && 
-                      pm.ProjectId == projectId && 
-                      pm.UserId == currentUser.Id &&
-                      pm.Project.IsActive);
-
-            if (projectMembership != null)
+            if (await accessService.IsProjectMemberAsync(tenantId, projectId))
             {
                 context.Succeed(requirement);
             }

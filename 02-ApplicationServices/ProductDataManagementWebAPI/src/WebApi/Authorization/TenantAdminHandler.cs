@@ -1,60 +1,37 @@
-﻿using Business.Interfaces.Model;
-using Entities.Enums;
-using Entities.Models;
+﻿using Business.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
-using Repositories.Repository.Interfaces;
 
 namespace WebApi.Authorization
 {
     public class TenantAdminHandler : AuthorizationHandler<TenantAdminRequirement>
     {
-        private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly ICurrentUser currentUser;
+        private readonly IAccessService accessService;
 
-        public TenantAdminHandler(IRepository<TenantMember> tenantMemberRepo, ICurrentUser currentUser)
+        public TenantAdminHandler(IAccessService accessService)
         {
-            this.tenantMemberRepo = tenantMemberRepo;
-            this.currentUser = currentUser;
+            this.accessService = accessService;
         }
 
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, TenantAdminRequirement requirement)
         {
-            if (!currentUser.IsAuthenticated || currentUser.Id == Guid.Empty)
+            if (!accessService.IsUserAuthenticated())
             {
                 return;
             }
 
-            if (!currentUser.ActiveTenantId.HasValue)
+            if (!accessService.HasActiveTenant())
             {
                 return;
             }
 
-            var httpContext = context.Resource as HttpContext;
-            Guid tenantId = Guid.Empty;
-            if (httpContext != null)
-            {
-                if (httpContext.Request.RouteValues.TryGetValue("tenantId", out var raw) && raw is string s && Guid.TryParse(s, out var parsed))
-                {
-                    tenantId = parsed;
-                }
-            }
+            var tenantId = accessService.GetRouteTenantId(context.Resource);
 
             if (tenantId == Guid.Empty)
             {
                 return;
             }
 
-            if (currentUser.ActiveTenantId != tenantId)
-            {
-                return;
-            }
-
-            var membership = await tenantMemberRepo.GetFirstBySearch(m =>
-                m.TenantId == tenantId &&
-                m.UserId == currentUser.Id &&
-                m.Role == TenantRole.Admin);
-
-            if (membership != null)
+            if (await accessService.IsTenantAdminAsync(tenantId))
             {
                 context.Succeed(requirement);
             }

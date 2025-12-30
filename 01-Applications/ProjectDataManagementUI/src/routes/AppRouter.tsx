@@ -9,6 +9,7 @@ import TenantDetails from "../pages/TenantDetails";
 import CollaboratingTenants from "../pages/CollaboratingTenants";
 import ManagedTenants from "../pages/ManagedTenants";
 import ActiveInvitations from "../pages/ActiveInvitations";
+import TenantsOverview from "../pages/TenantsOverview";
 import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import ActivateAccount from "../pages/ActivateAccount";
@@ -111,7 +112,11 @@ export default function AppRouter() {
 
       <Route
         path="/tenants"
-        element={<Navigate to="/tenants/managed" replace />}
+        element={
+          <ProtectedRoute>
+            <TenantsOverview />
+          </ProtectedRoute>
+        }
       />
 
       <Route

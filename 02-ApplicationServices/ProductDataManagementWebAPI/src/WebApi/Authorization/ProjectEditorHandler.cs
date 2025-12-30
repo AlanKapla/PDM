@@ -3,16 +3,20 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Authorization
 {
-    public class ProjectAdminHandler : AuthorizationHandler<ProjectAdminRequirement>
+    /// <summary>
+    /// Sprawdza czy użytkownik ma uprawnienia do edycji zasobów w projekcie (rola Editor lub Admin).
+    /// Nie sprawdza uprawnień do konkretnego zasobu - tylko rolę w projekcie.
+    /// </summary>
+    public class ProjectEditorHandler : AuthorizationHandler<ProjectEditorRequirement>
     {
         private readonly IAccessService accessService;
 
-        public ProjectAdminHandler(IAccessService accessService)
+        public ProjectEditorHandler(IAccessService accessService)
         {
             this.accessService = accessService;
         }
 
-        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ProjectAdminRequirement requirement)
+        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ProjectEditorRequirement requirement)
         {
             if (!accessService.IsUserAuthenticated())
             {
@@ -31,7 +35,7 @@ namespace WebApi.Authorization
                 return;
             }
 
-            if (await accessService.IsProjectAdminAsync(tenantId, projectId))
+            if (await accessService.CanEditProjectAsync(tenantId, projectId))
             {
                 context.Succeed(requirement);
             }

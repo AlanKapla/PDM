@@ -6,8 +6,14 @@ namespace Entities.Enums
     {
         [Display(Name = "Administrator")]
         Admin = 0,
-        
+
+        [Display(Name = "Edytor")]
+        Editor = 1,
+
+        [Display(Name = "Przeglądający")]
+        Viewer = 2,
+
         [Display(Name = "Członek")]
-        Member = 1
+        Member = 3
     }
 }

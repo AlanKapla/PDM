@@ -264,6 +264,7 @@ namespace WebApi.Extensions
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
             services.AddScoped<ICurrentUser, CurrentUser>();
+            services.AddScoped<IAccessService, AccessService>();
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
             services.AddScoped<IEmailSender, QueuedEmailSender>();
@@ -378,12 +379,18 @@ namespace WebApi.Extensions
                 options.AddPolicy(Policies.TenantAdminOrOwner, policy => policy.Requirements.Add(new TenantAdminOrOwnerRequirement()));
                 options.AddPolicy(Policies.ProjectAdmin, policy => policy.Requirements.Add(new ProjectAdminRequirement()));
                 options.AddPolicy(Policies.ProjectMember, policy => policy.Requirements.Add(new ProjectMemberRequirement()));
+                options.AddPolicy(Policies.ProjectMemberOrAdmin, policy => policy.Requirements.Add(new ProjectMemberOrAdminRequirement()));
+                options.AddPolicy(Policies.ProjectEditor, policy => policy.Requirements.Add(new ProjectEditorRequirement()));
+                options.AddPolicy(Policies.ProjectViewer, policy => policy.Requirements.Add(new ProjectViewerRequirement()));
             });
             services.AddScoped<IAuthorizationHandler, TenantAdminHandler>();
             services.AddScoped<IAuthorizationHandler, TenantMemberHandler>();
             services.AddScoped<IAuthorizationHandler, TenantAdminOrOwnerHandler>();
             services.AddScoped<IAuthorizationHandler, ProjectAdminHandler>();
             services.AddScoped<IAuthorizationHandler, ProjectMemberHandler>();
+            services.AddScoped<IAuthorizationHandler, ProjectMemberOrAdminHandler>();
+            services.AddScoped<IAuthorizationHandler, ProjectEditorHandler>();
+            services.AddScoped<IAuthorizationHandler, ProjectViewerHandler>();
             return services;
         }
     }

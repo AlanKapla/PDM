@@ -40,9 +40,39 @@ export interface ResetPasswordRequest {
 export const TenantRole = {
   Admin: 0,
   Member: 1,
+  Editor: 2,
+  Viewer: 3,
 } as const;
 
 export type TenantRoleType = (typeof TenantRole)[keyof typeof TenantRole];
+
+// Funkcja pomocnicza do określania poziomu roli (im niższa wartość, tym wyższe uprawnienia)
+export const getTenantRoleLevel = (role: number): number => {
+  switch (role) {
+    case TenantRole.Admin: return 0;
+    case TenantRole.Editor: return 1;
+    case TenantRole.Viewer: return 2;
+    case TenantRole.Member: return 3;
+    default: return Number.MAX_SAFE_INTEGER;
+  }
+};
+
+// Funkcje pomocnicze do sprawdzania uprawnień
+export const hasTenantRoleLevel = (userRole: number, requiredRole: number): boolean => {
+  return getTenantRoleLevel(userRole) <= getTenantRoleLevel(requiredRole);
+};
+
+export const isTenantAdmin = (userRole: number): boolean => {
+  return userRole === TenantRole.Admin;
+};
+
+export const canEditTenant = (userRole: number): boolean => {
+  return hasTenantRoleLevel(userRole, TenantRole.Editor);
+};
+
+export const canViewTenant = (userRole: number): boolean => {
+  return hasTenantRoleLevel(userRole, TenantRole.Viewer);
+};
 
 export interface TenantMemberDetails {
   userId: string;
@@ -130,6 +160,10 @@ export const getTenantRoleName = (role: number): string => {
       return 'Administrator';
     case TenantRole.Member:
       return 'Członek';
+    case TenantRole.Editor:
+      return 'Edytor';
+    case TenantRole.Viewer:
+      return 'Przeglądający';
     default:
       return 'Nieznana rola';
   }
@@ -139,8 +173,12 @@ export const getTenantRoleColor = (role: number): string => {
   switch (role) {
     case TenantRole.Admin:
       return 'purple';
-    case TenantRole.Member:
+    case TenantRole.Editor:
       return 'blue';
+    case TenantRole.Viewer:
+      return 'green';
+    case TenantRole.Member:
+      return 'gray';
     default:
       return 'gray';
   }

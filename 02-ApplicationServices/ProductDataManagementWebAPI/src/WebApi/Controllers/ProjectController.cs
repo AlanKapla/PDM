@@ -38,7 +38,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{projectId}")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectMemberOrAdmin)]
         public async Task<IActionResult> GetProjectDetails(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -69,7 +69,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{projectId}/members")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectViewer)]
         public async Task<IActionResult> GetProjectMembers(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)

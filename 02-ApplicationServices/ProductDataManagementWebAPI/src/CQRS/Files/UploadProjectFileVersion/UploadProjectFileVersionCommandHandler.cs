@@ -18,6 +18,7 @@ namespace CQRS.Files.UploadProjectFileVersion
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
         private readonly IRepository<ProjectFileVersionComment> commentRepo;
         private readonly IBlobStorageService blobStorageService;
+        private readonly IAccessService accessService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UploadProjectFileVersionCommandHandler> logger;
 
@@ -26,6 +27,7 @@ namespace CQRS.Files.UploadProjectFileVersion
             IRepository<ProjectFileVersion> projectFileVersionRepo,
             IRepository<ProjectFileVersionComment> commentRepo,
             IBlobStorageService blobStorageService,
+            IAccessService accessService,
             ICurrentUser currentUser,
             ILogger<UploadProjectFileVersionCommandHandler> logger)
         {
@@ -33,12 +35,27 @@ namespace CQRS.Files.UploadProjectFileVersion
             this.projectFileVersionRepo = projectFileVersionRepo;
             this.commentRepo = commentRepo;
             this.blobStorageService = blobStorageService;
+            this.accessService = accessService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
 
         public async Task<Unit> Handle(UploadProjectFileVersionCommand request, CancellationToken cancellationToken)
         {
+            // Sprawdź uprawnienia do edycji pliku (rola Editor/Admin + właściciel lub udostępniony)
+            bool canEdit = await accessService.CanEditProjectFileAsync(
+                request.TenantId,
+                request.ProjectId,
+                request.FileId,
+                cancellationToken);
+
+            if (!canEdit)
+            {
+                throw new ForbiddenApiException(
+                    "You do not have permission to upload a new version of this file. " +
+                    "You must be a project Editor or Admin and either own the file or have it shared with you.");
+            }
+
             // Pobierz istniejący plik z wersjami
             var projectFiles = await projectFileRepo.GetBySearch(
                 pf => pf.Id == request.FileId &&

@@ -37,7 +37,8 @@ import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
-import { ProjectRole } from "../types/project.types";
+import { ProjectRole, isProjectAdmin, canViewProject } from "../types/project.types";
+import { isTenantAdmin as checkIsTenantAdmin } from "../types/auth.types";
 import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
 
 interface ProjectRoleOption {
@@ -69,8 +70,9 @@ export default function ProjectMembers() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const isProjectAdmin = project && project.userRole === ProjectRole.Admin;
-  const isTenantAdmin = userTenantRole === 0;
+  const userIsProjectAdmin = project && isProjectAdmin(project.userRole);
+  const userCanView = project && canViewProject(project.userRole);
+  const isTenantAdmin = userTenantRole !== null && checkIsTenantAdmin(userTenantRole);
 
   useEffect(() => {
     fetchData();
@@ -189,6 +191,16 @@ export default function ProjectMembers() {
           Wróć do projektu
         </Button>
 
+        {!userCanView ? (
+          <Box bg={cardBg} p={8} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+            <VStack spacing={4}>
+              <Heading size="md" color="red.500">Brak dostępu</Heading>
+              <Text>Nie masz uprawnień do przeglądania członków tego projektu.</Text>
+              <Text fontSize="sm" color="gray.600">Wymagana rola: conajmniej Przeglądający</Text>
+            </VStack>
+          </Box>
+        ) : (
+          <>
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={Users} boxSize={8} color="blue.600" />
@@ -197,7 +209,7 @@ export default function ProjectMembers() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {isProjectAdmin && (
+          {userIsProjectAdmin && (
             <Button
               leftIcon={<UserPlus size={18} />}
               colorScheme="blue"
@@ -279,7 +291,7 @@ export default function ProjectMembers() {
                         </HStack>
                       ) : (
                         <HStack spacing={2}>
-                          {isProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                          {userIsProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
                             <Tooltip label="Zmień rolę">
                               <IconButton
                                 aria-label="Edytuj rolę"
@@ -293,7 +305,7 @@ export default function ProjectMembers() {
                               />
                             </Tooltip>
                           )}
-                          {isProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                          {userIsProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
                             <Tooltip label="Usuń członka">
                               <IconButton
                                 aria-label="Usuń członka"
@@ -313,6 +325,8 @@ export default function ProjectMembers() {
               </Tbody>
             </Table>
           </Box>
+        )}
+        </>
         )}
 
         <AddProjectMemberModal

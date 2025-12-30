@@ -35,6 +35,7 @@ import { costEstimateApi } from "../api/costEstimateApi";
 import { formatDate } from "../utils/formatters";
 import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
 import type { CostEstimateListItem, CostEstimateStatus } from "../types/costEstimate.types";
+import { canEditProject, canViewProject } from "../types/project.types";
 
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
   [0]: "Szkic",
@@ -75,6 +76,9 @@ export default function ProjectCosts() {
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
 
+  const userCanEdit = canEditProject(project?.userRole);
+  const userCanView = canViewProject(project?.userRole);
+
   useEffect(() => {
     fetchData();
   }, [projectId]);
@@ -92,17 +96,20 @@ export default function ProjectCosts() {
     setLoading(true);
     try {
       console.log("Fetching project details and cost estimates...");
-      const [projectResponse, costEstimates] = await Promise.all([
-        projectApi.getProjectDetails(user.activeTenantId, projectId),
-        costEstimateApi.getCostEstimates(user.activeTenantId, projectId),
-      ]);
-      console.log("Data fetched successfully:", { projectResponse, costEstimates });
-
+      const projectResponse = await projectApi.getProjectDetails(user.activeTenantId, projectId);
       setProject(projectResponse.data);
+      
+      const userRole = projectResponse.data.userRole;
+      const canEdit = canEditProject(userRole);
+      
+      if (canEdit) {
+        const costEstimates = await costEstimateApi.getCostEstimates(user.activeTenantId, projectId);
+        console.log("Data fetched successfully:", { projectResponse, costEstimates });
 
-      // Filter my cost estimates (owned by current user)
-      const myCosts = costEstimates.filter((ce) => ce.ownerId === user?.id);
-      setMyCostEstimates(myCosts);
+        // Filter my cost estimates (owned by current user)
+        const myCosts = costEstimates.filter((ce) => ce.ownerId === user?.id);
+        setMyCostEstimates(myCosts);
+      }
 
       // Shared cost estimates (TODO: implement sharing logic)
       // For now, empty array - will be implemented later
@@ -165,35 +172,51 @@ export default function ProjectCosts() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          <Button
-            leftIcon={<Plus size={18} />}
-            colorScheme="blue"
-            onClick={onCreateModalOpen}
-          >
-            Nowy kosztorys
-          </Button>
+          {userCanEdit && (
+            <Button
+              leftIcon={<Plus size={18} />}
+              colorScheme="blue"
+              onClick={onCreateModalOpen}
+            >
+              Nowy kosztorys
+            </Button>
+          )}
         </HStack>
 
+        {!project || !userCanView ? (
+          <Box p={8} textAlign="center">
+            <EmptyState
+              icon={FileText}
+              title="Brak dostępu"
+              description="Nie masz uprawnień do przeglądania kosztorysów w tym projekcie"
+            />
+          </Box>
+        ) : (
         <Tabs colorScheme="blue" variant="enclosed">
           <TabList>
-            <Tab fontWeight="bold">
-              <HStack spacing={2}>
-                <Icon as={FileText} boxSize={4} />
-                <Text>Moje kosztorysy</Text>
-                <Badge colorScheme="blue" ml={2}>{myCostEstimates.length}</Badge>
-              </HStack>
-            </Tab>
-            <Tab fontWeight="bold">
-              <HStack spacing={2}>
-                <Icon as={FileText} boxSize={4} />
-                <Text>Udostępnione</Text>
-                <Badge colorScheme="teal" ml={2}>{sharedCostEstimates.length}</Badge>
-              </HStack>
-            </Tab>
+            {userCanEdit && (
+              <Tab fontWeight="bold">
+                <HStack spacing={2}>
+                  <Icon as={FileText} boxSize={4} />
+                  <Text>Moje kosztorysy</Text>
+                  <Badge colorScheme="blue" ml={2}>{myCostEstimates.length}</Badge>
+                </HStack>
+              </Tab>
+            )}
+            {userCanView && (
+              <Tab fontWeight="bold">
+                <HStack spacing={2}>
+                  <Icon as={FileText} boxSize={4} />
+                  <Text>Udostępnione</Text>
+                  <Badge colorScheme="teal" ml={2}>{sharedCostEstimates.length}</Badge>
+                </HStack>
+              </Tab>
+            )}
           </TabList>
 
           <TabPanels>
             {/* TAB 1: MOJE KOSZTORYSY */}
+            {userCanEdit && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -284,8 +307,10 @@ export default function ProjectCosts() {
                 )}
               </VStack>
             </TabPanel>
+            )}
 
             {/* TAB 2: UDOSTĘPNIONE KOSZTORYSY */}
+            {userCanView && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -362,8 +387,10 @@ export default function ProjectCosts() {
                 )}
               </VStack>
             </TabPanel>
+            )}
           </TabPanels>
         </Tabs>
+        )}
 
         <Box mt={6} p={4} bg="blue.50" rounded="md" borderWidth="1px" borderColor="blue.200">
           <Text fontSize="sm" color="blue.800">

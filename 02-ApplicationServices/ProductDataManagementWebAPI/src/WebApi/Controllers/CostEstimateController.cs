@@ -12,7 +12,6 @@ namespace WebApi.Controllers
 {
     [ApiController]
     [Route("api/tenants/{tenantId:guid}/projects/{projectId:guid}/cost-estimates")]
-    [Authorize(Policy = Policies.ProjectMember)]
     public class CostEstimateController : BaseApiController
     {
         public CostEstimateController(IMediator mediator) : base(mediator)
@@ -26,6 +25,7 @@ namespace WebApi.Controllers
         /// <param name="projectId">Project ID</param>
         /// <returns>List of cost estimates</returns>
         [HttpGet]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [ProducesResponseType(typeof(List<CostEstimateListItem>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetCostEstimates(
@@ -49,6 +49,7 @@ namespace WebApi.Controllers
         /// <param name="id">Cost estimate ID</param>
         /// <returns>Cost estimate details with full data</returns>
         [HttpGet("{id:guid}")]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [ProducesResponseType(typeof(CostEstimateDetails), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -74,6 +75,7 @@ namespace WebApi.Controllers
         /// <param name="command">Cost estimate basic data</param>
         /// <returns>Created cost estimate ID</returns>
         [HttpPost]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -102,6 +104,7 @@ namespace WebApi.Controllers
         /// <param name="command">Updated cost estimate data</param>
         /// <returns>No content</returns>
         [HttpPut("{id:guid}")]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -131,6 +134,7 @@ namespace WebApi.Controllers
         /// <param name="id">Cost estimate ID</param>
         /// <returns>No content</returns>
         [HttpDelete("{id:guid}")]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]

@@ -43,6 +43,7 @@ import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
 import type { ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../types/project.types";
+import { canEditProject, canViewProject } from "../types/project.types";
 
 export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -70,6 +71,9 @@ export default function ProjectFiles() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
+  const userCanEdit = canEditProject(project?.userRole);
+  const userCanView = canViewProject(project?.userRole);
+
   useEffect(() => {
     fetchData();
   }, [projectId]);
@@ -79,17 +83,38 @@ export default function ProjectFiles() {
 
     setLoading(true);
     try {
-      const [projectRes, myFilesRes, sharedFilesRes, membersRes] = await Promise.all([
-        projectApi.getProjectDetails(user.activeTenantId, projectId),
-        projectApi.getMyFiles(user.activeTenantId, projectId),
-        projectApi.getSharedFiles(user.activeTenantId, projectId),
-        projectApi.getProjectMembers(user.activeTenantId, projectId),
-      ]);
-
+      const projectRes = await projectApi.getProjectDetails(user.activeTenantId, projectId);
       setProject(projectRes.data);
-      setMyFiles(myFilesRes.data);
-      setSharedFiles(sharedFilesRes.data);
-      setMembers(membersRes.data);
+      
+      const userRole = projectRes.data.userRole;
+      const canEdit = canEditProject(userRole);
+      const canView = canViewProject(userRole);
+      
+      // Pobieraj tylko te dane do których user ma dostęp
+      const promises: Promise<any>[] = [
+        projectApi.getProjectMembers(user.activeTenantId, projectId),
+      ];
+      
+      if (canEdit) {
+        promises.push(projectApi.getMyFiles(user.activeTenantId, projectId));
+      }
+      
+      if (canView) {
+        promises.push(projectApi.getSharedFiles(user.activeTenantId, projectId));
+      }
+      
+      const results = await Promise.all(promises);
+      
+      setMembers(results[0].data);
+      
+      if (canEdit) {
+        setMyFiles(results[1].data);
+        if (canView) {
+          setSharedFiles(results[2].data);
+        }
+      } else if (canView) {
+        setSharedFiles(results[1].data);
+      }
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -489,26 +514,40 @@ export default function ProjectFiles() {
           </HStack>
         </HStack>
 
+        {!project || !userCanView ? (
+          <Box p={8} textAlign="center">
+            <EmptyState
+              icon={FileText}
+              title="Brak dostępu"
+              description="Nie masz uprawnień do przeglądania plików w tym projekcie"
+            />
+          </Box>
+        ) : (
         <Tabs colorScheme="purple" variant="enclosed">
           <TabList>
-            <Tab fontWeight="bold">
-              <HStack spacing={2}>
-                <Icon as={FileText} boxSize={4} />
-                <Text>Moje pliki</Text>
-                <Badge colorScheme="purple" ml={2}>{myFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
-              </HStack>
-            </Tab>
-            <Tab fontWeight="bold">
-              <HStack spacing={2}>
-                <Icon as={Share2} boxSize={4} />
-                <Text>Udostępnione</Text>
-                <Badge colorScheme="teal" ml={2}>{sharedFiles.reduce((sum, pkg) => sum + pkg.totalSharedFiles, 0)}</Badge>
-              </HStack>
-            </Tab>
+            {userCanEdit && (
+              <Tab fontWeight="bold">
+                <HStack spacing={2}>
+                  <Icon as={FileText} boxSize={4} />
+                  <Text>Moje pliki</Text>
+                  <Badge colorScheme="blue" ml={2}>{myFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                </HStack>
+              </Tab>
+            )}
+            {userCanView && (
+              <Tab fontWeight="bold">
+                <HStack spacing={2}>
+                  <Icon as={Share2} boxSize={4} />
+                  <Text>Udostępnione</Text>
+                  <Badge colorScheme="teal" ml={2}>{sharedFiles.reduce((sum, pkg) => sum + pkg.totalSharedFiles, 0)}</Badge>
+                </HStack>
+              </Tab>
+            )}
           </TabList>
 
           <TabPanels>
             {/* TAB 1: MOJE PLIKI */}
+            {userCanEdit && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <HStack justify="space-between">
@@ -572,8 +611,10 @@ export default function ProjectFiles() {
                 )}
               </VStack>
             </TabPanel>
+            )}
 
             {/* TAB 2: PLIKI UDOSTĘPNIONE */}
+            {userCanView && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -620,8 +661,10 @@ export default function ProjectFiles() {
                 )}
               </VStack>
             </TabPanel>
+            )}
           </TabPanels>
         </Tabs>
+        )}
 
         <UploadFilesModal
           isOpen={isUploadModalOpen}

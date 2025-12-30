@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
+using Entities.Enums;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +31,8 @@ namespace CQRS.Projects.GetProjectDetails
             IEnumerable<ProjectMember> projectMembers = await projectMemberRepo.GetBySearch(
                 pm => pm.TenantId == request.TenantId 
                     && pm.ProjectId == request.ProjectId 
-                    && pm.UserId == currentUser.Id,
+                    && pm.UserId == currentUser.Id
+                    && (pm.Role == ProjectRole.Admin || pm.Project.IsActive),
                 include => include.Include(pm => pm.Project)
                                  .ThenInclude(p => p.CreatedBy)
                                  .ThenInclude(cb => cb.User)

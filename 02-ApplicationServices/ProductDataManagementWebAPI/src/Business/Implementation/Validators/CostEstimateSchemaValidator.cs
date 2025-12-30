@@ -128,7 +128,7 @@ namespace Business.Implementation.Validators
                     if (fieldDef.AllowedValues != null && fieldDef.AllowedValues.Count > 0 && value != null)
                     {
                         var valueStr = value.ToString();
-                        if (!fieldDef.AllowedValues.Contains(valueStr))
+                        if (valueStr != null && !fieldDef.AllowedValues.Contains(valueStr))
                         {
                             errors.Add($"Group '{group.Id}': Header field '{fieldDef.Type}' value '{valueStr}' is not in allowed values");
                         }

@@ -25,7 +25,7 @@ namespace WebApi.Controllers
         /// Create a new package and upload files to it
         /// </summary>
         [HttpPost("packages/create")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [RequestSizeLimit(52428800)] // 50 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
         public async Task<IActionResult> CreatePackageAndUploadFiles(
@@ -43,7 +43,7 @@ namespace WebApi.Controllers
         /// Upload files to an existing package
         /// </summary>
         [HttpPost]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [RequestSizeLimit(52428800)] // 50 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
         public async Task<IActionResult> UploadFiles(
@@ -61,7 +61,7 @@ namespace WebApi.Controllers
         /// Upload a new version of an existing project file
         /// </summary>
         [HttpPost("versions")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [RequestSizeLimit(52428800)] // 50 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
         public async Task<IActionResult> UploadFileVersion(
@@ -79,7 +79,7 @@ namespace WebApi.Controllers
         /// Get files uploaded by current user
         /// </summary>
         [HttpGet("my")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> GetMyFiles(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -93,7 +93,7 @@ namespace WebApi.Controllers
         /// Get files shared with current user
         /// </summary>
         [HttpGet("shared")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectViewer)]
         public async Task<IActionResult> GetSharedFiles(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -107,7 +107,7 @@ namespace WebApi.Controllers
         /// Share files with another project member
         /// </summary>
         [HttpPost("share")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> ShareFiles(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -124,7 +124,7 @@ namespace WebApi.Controllers
         /// Delete a file (owner or project admin only)
         /// </summary>
         [HttpDelete("{fileId}")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> DeleteFile(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -139,7 +139,7 @@ namespace WebApi.Controllers
         /// Upload a new version of an existing file with optional comment
         /// </summary>
         [HttpPost("{fileId}/versions")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         [RequestSizeLimit(52428800)] // 50 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
         public async Task<IActionResult> UploadNewVersion(
@@ -163,7 +163,7 @@ namespace WebApi.Controllers
         /// Add a comment to a specific file version
         /// </summary>
         [HttpPost("{fileId}/versions/{versionId}/comments")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> AddFileVersionComment(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -187,7 +187,7 @@ namespace WebApi.Controllers
         /// Update file sharing - add or remove access for specific users
         /// </summary>
         [HttpPut("{fileId}/share")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = Policies.ProjectEditor)]
         public async Task<IActionResult> UpdateFileShare(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
