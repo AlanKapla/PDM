@@ -561,13 +561,6 @@ export default function WorkScheduleView() {
             <AlertIcon />
             {error || "Nie znaleziono harmonogramu"}
           </Alert>
-          <Button
-            leftIcon={<ArrowLeft size={18} />}
-            mt={4}
-            onClick={() => navigate(`/projects/${projectId}`)}
-          >
-            Powrót do projektu
-          </Button>
         </Box>
       </MainLayout>
     );
@@ -580,11 +573,6 @@ export default function WorkScheduleView() {
           {/* Header */}
           <HStack justify="space-between">
             <HStack spacing={4}>
-              <IconButton
-                aria-label="Powrót"
-                icon={<ArrowLeft size={20} />}
-                onClick={() => navigate(`/projects/${projectId}`)}
-              />
               <VStack align="flex-start" spacing={0}>
                 <Heading size="lg">{schedule.name}</Heading>
                 <HStack spacing={3} fontSize="sm" color="gray.500">

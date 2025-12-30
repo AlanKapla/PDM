@@ -16,6 +16,12 @@ export const projectApi = {
     return axiosClient.get(`/tenants/${tenantId}/Project/${projectId}/members`);
   },
 
+  // Pobierz słownik projektów (id -> nazwa) dla tenanta
+  getProjectsDictionary: async (tenantId: string): Promise<Record<string, string>> => {
+    const response = await axiosClient.get<Record<string, string>>(`/tenants/${tenantId}/Project/dictionary`);
+    return response.data;
+  },
+
   // Dodaj członka do projektu
   addProjectMember: async (tenantId: string, projectId: string, userId: string) => {
     return axiosClient.post(`/tenants/${tenantId}/Project/${projectId}/members`, { 

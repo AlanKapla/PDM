@@ -777,18 +777,6 @@ export default function ProjectDetails() {
       <Box bg={pageBg} minH="100vh" p={{ base: 4, md: 6 }}>
         <VStack spacing={6} maxW="1200px" mx="auto" align="stretch">
           {/* Header */}
-          <HStack justify="space-between">
-            <HStack spacing={3}>
-              <Button
-                variant="ghost"
-                leftIcon={<ArrowLeft size={20} />}
-                onClick={() => navigate("/projects")}
-              >
-                Powrót
-              </Button>
-            </HStack>
-          </HStack>
-
         {loading ? (
           <VStack spacing={4} align="center" justify="center" minH="50vh">
             <Spinner size="xl" color="blue.500" />

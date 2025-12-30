@@ -286,30 +286,28 @@ export default function ManagedTenants() {
                     borderWidth="1px"
                     borderColor={borderColor}
                     overflow="hidden"
+                    cursor="pointer"
+                    onClick={() => navigate(`/tenants/${tenant.id}`)}
+                    transition="all 0.2s"
+                    _hover={{
+                      shadow: "lg",
+                      borderColor: "blue.400",
+                      transform: "translateY(-2px)",
+                    }}
                   >
                     {/* Header organizacji */}
                     <Box p={4}>
-                      <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "flex-start", md: "center" }} spacing={3}>
-                        <VStack align="flex-start" spacing={1} flex={1}>
-                          <HStack spacing={2}>
-                            <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>{tenant.name}</Text>
-                            <Badge colorScheme={tenant.isActive ? "green" : "gray"} fontSize="xs">
-                              {tenant.isActive ? "Aktywna" : "Nieaktywna"}
-                            </Badge>
-                          </HStack>
-                          <Text fontSize="xs" color="gray.500">
-                            Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
-                          </Text>
-                        </VStack>
-                        <Button
-                          size="sm"
-                          colorScheme="blue"
-                          leftIcon={<Eye size={14} />}
-                          onClick={() => navigate(`/tenants/${tenant.id}`)}
-                        >
-                          Szczegóły
-                        </Button>
-                      </Stack>
+                      <VStack align="flex-start" spacing={1}>
+                        <HStack spacing={2}>
+                          <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>{tenant.name}</Text>
+                          <Badge colorScheme={tenant.isActive ? "green" : "gray"} fontSize="xs">
+                            {tenant.isActive ? "Aktywna" : "Nieaktywna"}
+                          </Badge>
+                        </HStack>
+                        <Text fontSize="xs" color="gray.500">
+                          Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
+                        </Text>
+                      </VStack>
                     </Box>
                   </Box>
                 ))}

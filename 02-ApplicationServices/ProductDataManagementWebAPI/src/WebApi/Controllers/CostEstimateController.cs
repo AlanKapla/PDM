@@ -1,4 +1,5 @@
-﻿using CQRS.CostEstimates.CreateCostEstimate;
+﻿using CQRS.CostEstimates.CopyCostEstimate;
+using CQRS.CostEstimates.CreateCostEstimate;
 using CQRS.CostEstimates.DeleteCostEstimate;
 using CQRS.CostEstimates.GetCostEstimateDetails;
 using CQRS.CostEstimates.GetCostEstimates;
@@ -151,6 +152,39 @@ namespace WebApi.Controllers
             
             await Send(command);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Copy cost estimate to other projects
+        /// Tenant admins can copy to any project in tenant
+        /// Regular users can copy only to projects where they have Editor or Admin role
+        /// </summary>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Source project ID</param>
+        /// <param name="id">Cost estimate ID to copy</param>
+        /// <param name="command">Target project IDs</param>
+        /// <returns>List of created cost estimate IDs</returns>
+        [HttpPost("{id:guid}/copy")]
+        [Authorize(Policy = Policies.ProjectEditor)]
+        [ProducesResponseType(typeof(List<Guid>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> CopyCostEstimate(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid id,
+            [FromBody] CopyCostEstimateCommand command)
+        {
+            command = command with
+            {
+                CostEstimateId = id,
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+
+            var result = await Send(command);
+            return Ok(result);
         }
     }
 }

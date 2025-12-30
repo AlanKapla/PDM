@@ -87,7 +87,7 @@ export default function Header() {
             fontWeight="bold" 
             color={textColor}
           >
-            Project Data Management
+            BrickSoft
           </Text>
         </HStack>
 

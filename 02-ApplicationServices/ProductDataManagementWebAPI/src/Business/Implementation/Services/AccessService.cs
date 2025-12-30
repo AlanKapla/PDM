@@ -152,8 +152,9 @@ namespace Business.Implementation.Services
         public async Task<bool> HasProjectRoleAtLeastAsync(Guid tenantId, Guid projectId, ProjectRole minimumRole, CancellationToken cancellationToken = default)
         {
             bool isProjectAdmin = await IsProjectAdminAsync(tenantId, projectId, cancellationToken);
+            bool isTenantAdmin = await IsTenantAdminAsync(tenantId, cancellationToken);
 
-            if (isProjectAdmin)
+            if (isTenantAdmin || isProjectAdmin)
             {
                 return true;
             }

@@ -182,15 +182,6 @@ export default function ProjectMembers() {
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <Button
-          leftIcon={<ArrowLeft size={18} />}
-          variant="ghost"
-          mb={6}
-          onClick={() => navigate(`/projects/${projectId}`)}
-        >
-          Wróć do projektu
-        </Button>
-
         {!userCanView ? (
           <Box bg={cardBg} p={8} rounded="lg" borderWidth="1px" borderColor={borderColor}>
             <VStack spacing={4}>

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import {
   Box,
+  Flex,
   Heading,
   Text,
   VStack,
@@ -434,7 +435,6 @@ export default function MyFiles() {
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 6 }} maxW="1400px" mx="auto">
-        {/* Breadcrumb */}
         <Breadcrumb mb={4} fontSize="sm" display={{ base: "none", md: "flex" }}>
           <BreadcrumbItem>
             <BreadcrumbLink onClick={() => navigate("/projects")}>Projekty</BreadcrumbLink>
@@ -447,18 +447,6 @@ export default function MyFiles() {
           </BreadcrumbItem>
         </Breadcrumb>
 
-        {/* Przycisk powrotu */}
-        <Button
-          leftIcon={<ArrowLeft size={20} />}
-          variant="ghost"
-          mb={6}
-          size={{ base: "sm", md: "md" }}
-          onClick={() => navigate(`/projects/${projectId}`)}
-        >
-          Wróć do projektu
-        </Button>
-
-        {/* Nagłówek */}
         <VStack mb={6} spacing={3} align="stretch">
           <HStack spacing={3}>
             <Box display={{ base: "none", md: "block" }}>
@@ -510,19 +498,17 @@ export default function MyFiles() {
             </VStack>
           )}
         </VStack>
-
         {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minH="400px">
+          <Flex justifyContent="center" alignItems="center" minH="400px">
             <Spinner size="xl" color="blue.500" />
             <Text ml={4}>Ładowanie plików...</Text>
-          </Box>
+          </Flex>
         ) : files.length === 0 ? (
           <Alert status="info" borderRadius="md">
             <AlertIcon />
             Nie masz jeszcze żadnych przesłanych plików w tym projekcie.
           </Alert>
         ) : (
-
           <VStack spacing={4} align="stretch">
             <Accordion allowMultiple>
               {packageNames.map((packageName) => {

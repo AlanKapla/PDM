@@ -24,7 +24,7 @@ import {
   IconButton,
   useDisclosure,
 } from "@chakra-ui/react";
-import { ArrowLeft, Eye, Trash2, Plus, FileText } from "lucide-react";
+import { ArrowLeft, Eye, Trash2, Plus, FileText, Copy } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
@@ -34,6 +34,7 @@ import { projectApi } from "../api/projectApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { formatDate } from "../utils/formatters";
 import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
+import CopyCostEstimateModal from "../components/CopyCostEstimateModal";
 import type { CostEstimateListItem, CostEstimateStatus } from "../types/costEstimate.types";
 import { canEditProject, canViewProject } from "../types/project.types";
 
@@ -70,8 +71,10 @@ export default function ProjectCosts() {
   const [project, setProject] = useState<any | null>(null);
   const [myCostEstimates, setMyCostEstimates] = useState<CostEstimateListItem[]>([]);
   const [sharedCostEstimates, setSharedCostEstimates] = useState<CostEstimateListItem[]>([]);
+  const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItem | null>(null);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
+  const { isOpen: isCopyModalOpen, onOpen: onCopyModalOpen, onClose: onCopyModalClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -140,6 +143,16 @@ export default function ProjectCosts() {
     navigate(`/projects/${projectId}/cost-estimates/${costEstimateId}`);
   };
 
+  const handleCopyCostEstimate = (costEstimate: CostEstimateListItem) => {
+    setCostEstimateToCopy(costEstimate);
+    onCopyModalOpen();
+  };
+
+  const handleCopySuccess = () => {
+    // Opcjonalnie możesz odświeżyć listę kosztorysów
+    // fetchData();
+  };
+
 
 
   if (loading) {
@@ -155,15 +168,6 @@ export default function ProjectCosts() {
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <Button
-          leftIcon={<ArrowLeft size={18} />}
-          variant="ghost"
-          mb={6}
-          onClick={() => navigate(`/projects/${projectId}`)}
-        >
-          Wróć do projektu
-        </Button>
-
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={FileText} boxSize={8} color="blue.600" />
@@ -290,6 +294,14 @@ export default function ProjectCosts() {
                                   onClick={() => handleViewCostEstimate(costEstimate.id)}
                                 />
                                 <IconButton
+                                  aria-label="Kopiuj"
+                                  icon={<Copy size={14} />}
+                                  size="xs"
+                                  colorScheme="purple"
+                                  variant="ghost"
+                                  onClick={() => handleCopyCostEstimate(costEstimate)}
+                                />
+                                <IconButton
                                   aria-label="Usuń"
                                   icon={<Trash2 size={14} />}
                                   size="xs"
@@ -406,6 +418,18 @@ export default function ProjectCosts() {
             tenantId={user.activeTenantId}
             projectId={projectId}
             onCostEstimateCreated={fetchData}
+          />
+        )}
+
+        {/* MODAL: COPY COST ESTIMATE */}
+        {costEstimateToCopy && projectId && (
+          <CopyCostEstimateModal
+            isOpen={isCopyModalOpen}
+            onClose={onCopyModalClose}
+            costEstimateId={costEstimateToCopy.id}
+            costEstimateName={costEstimateToCopy.name}
+            currentProjectId={projectId}
+            onSuccess={handleCopySuccess}
           />
         )}
       </Box>

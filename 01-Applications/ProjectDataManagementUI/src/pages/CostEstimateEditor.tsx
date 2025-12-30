@@ -551,11 +551,6 @@ export const CostEstimateEditor: React.FC = () => {
       {/* Header */}
       <HStack justify="space-between" mb={6}>
         <HStack spacing={4}>
-          <IconButton
-            aria-label="Powrót"
-            icon={<ArrowLeft size={20} />}
-            onClick={() => navigate(`/projects/${projectId}/cost-estimates`)}
-          />
           <Box>
             <HStack spacing={3} mb={1}>
               <Heading size="lg">{estimate.name}</Heading>

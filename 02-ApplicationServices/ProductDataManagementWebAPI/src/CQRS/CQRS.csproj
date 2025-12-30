@@ -60,6 +60,7 @@
   <ItemGroup>
     <Folder Include="Messages\GetProjectMessages\" />
     <Folder Include="Notifications\GetUserNotifications\" />
+    <Folder Include="Tenants\GetProjectsDictionary\" />
     <Folder Include="Validators\Base\" />
   </ItemGroup>
 

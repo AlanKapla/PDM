@@ -91,7 +91,7 @@ namespace WebApi.Extensions
             {
                 c.SwaggerDoc("v1", new OpenApiInfo 
                 { 
-                    Title = "Product Data Management API", 
+                    Title = "BrickSoft API", 
                     Version = "v1",
                     Description = "API protected by Azure AD B2C authentication"
                 });

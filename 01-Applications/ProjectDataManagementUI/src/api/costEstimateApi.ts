@@ -79,4 +79,20 @@ export const costEstimateApi = {
   deleteCostEstimate: async (tenantId: string, projectId: string, id: string): Promise<void> => {
     await axiosClient.delete(`/tenants/${tenantId}/projects/${projectId}/cost-estimates/${id}`);
   },
+
+  /**
+   * Copy cost estimate to other projects
+   */
+  copyCostEstimate: async (
+    tenantId: string,
+    projectId: string,
+    id: string,
+    targetProjectIds: string[]
+  ): Promise<string[]> => {
+    const response = await axiosClient.post<string[]>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-estimates/${id}/copy`,
+      { targetProjectIds }
+    );
+    return response.data;
+  },
 };

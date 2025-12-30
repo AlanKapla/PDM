@@ -2,6 +2,7 @@
 using CQRS.Projects.CreateProject;
 using CQRS.Projects.GetProjectDetails;
 using CQRS.Projects.GetProjectMembers;
+using CQRS.Projects.GetProjectsDictionary;
 using CQRS.Projects.GetTenantProjects;
 using CQRS.Projects.RemoveProjectMember;
 using CQRS.Projects.ToggleProjectStatus;
@@ -25,6 +26,23 @@ namespace WebApi.Controllers
         public async Task<IActionResult> GetTenantProjects([FromRoute] Guid tenantId)
         {
             var query = new GetTenantProjectsQuery(tenantId);
+            var result = await Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get projects dictionary (Id => Name)
+        /// Tenant admins see all projects (including inactive with [Nieaktywny] suffix)
+        /// Project admins see their projects (active and inactive)
+        /// Project editors see only active projects where they have Editor role
+        /// </summary>
+        /// <param name="tenantId">Tenant identifier</param>
+        /// <returns>Dictionary of project IDs and names</returns>
+        [HttpGet("dictionary")]
+        [Authorize(Policy = Policies.TenantMember)]
+        public async Task<IActionResult> GetProjectsDictionary([FromRoute] Guid tenantId)
+        {
+            var query = new GetProjectsDictionaryQuery(tenantId);
             var result = await Send(query);
             return Ok(result);
         }

@@ -78,15 +78,6 @@ export default function ProjectSchedules() {
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <Button
-          leftIcon={<ArrowLeft size={18} />}
-          variant="ghost"
-          mb={6}
-          onClick={() => navigate(`/projects/${projectId}`)}
-        >
-          Wróć do projektu
-        </Button>
-
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={Calendar} boxSize={8} color="purple.600" />

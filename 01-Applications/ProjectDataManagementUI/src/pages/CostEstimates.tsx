@@ -132,16 +132,7 @@ export default function CostEstimates() {
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
         {/* BACK BUTTON */}
-        <Button
-          leftIcon={<ArrowLeft size={18} />}
-          variant="ghost"
-          mb={6}
-          onClick={() => navigate(`/projects/${projectId}`)}
-        >
-          Wróć do projektu
-        </Button>
-
-        {/* HEADER */}
+        {/* HEADER */
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={FileText} boxSize={8} color="green.600" />
