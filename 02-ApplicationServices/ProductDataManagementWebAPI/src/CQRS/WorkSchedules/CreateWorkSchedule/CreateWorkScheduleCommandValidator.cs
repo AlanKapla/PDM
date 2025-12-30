@@ -31,7 +31,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                 .MustAsync(async (command, cancellationToken) =>
                 {
                     Project? project = await projectRepo.GetFirstBySearch(
-                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId && p.IsActive,
+                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId,
                         cancellationToken);
 
                     return project != null;
@@ -41,13 +41,15 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
             RuleFor(x => x)
                 .MustAsync(async (command, cancellationToken) =>
                 {
-                    if (command.Stages == null)
+                    if (command.Stages == null || command.Stages.Count == 0)
                         return true;
 
                     // Get all unique user IDs from all works
                     var allUserIds = command.Stages
-                        .SelectMany(s => s.Works)
-                        .SelectMany(w => w.AssignedUserIds)
+                        .Where(s => s.Works != null)
+                        .SelectMany(s => s.Works!)
+                        .Where(w => w.AssignedUserIds != null)
+                        .SelectMany(w => w.AssignedUserIds!)
                         .Distinct()
                         .ToHashSet();
 
@@ -66,11 +68,9 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                 })
                 .WithMessage("One or more assigned users are not members of the project");
 
-            RuleFor(x => x.Stages)
-                .NotEmpty().WithMessage("At least one stage is required");
-
             RuleForEach(x => x.Stages)
-                .SetValidator(new CreateStageDtoValidator());
+                .SetValidator(new CreateStageDtoValidator())
+                .When(x => x.Stages != null);
         }
     }
 
@@ -85,11 +85,9 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
             RuleFor(x => x.Order)
                 .GreaterThanOrEqualTo(0).WithMessage("Stage order must be greater than or equal to 0");
 
-            RuleFor(x => x.Works)
-                .NotEmpty().WithMessage("At least one work is required in each stage");
-
             RuleForEach(x => x.Works)
-                .SetValidator(new CreateWorkDtoValidator());
+                .SetValidator(new CreateWorkDtoValidator())
+                .When(x => x.Works != null);
         }
     }
 
@@ -111,18 +109,20 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                 .WithMessage("Color RGB must be in format 'rgb(r,g,b)' or '#RRGGBB'");
 
             RuleFor(x => x.Periods)
-                .NotEmpty().WithMessage("At least one period is required for each work")
                 .Must(periods => !HasOverlappingPeriods(periods))
-                .WithMessage("Periods cannot overlap with each other");
+                .WithMessage("Periods cannot overlap with each other")
+                .When(x => x.Periods != null && x.Periods.Count > 0);
 
             RuleForEach(x => x.Periods)
-                .SetValidator(new CreateWorkPeriodDtoValidator());
+                .SetValidator(new CreateWorkPeriodDtoValidator())
+                .When(x => x.Periods != null);
 
-            RuleFor(x => x.AssignedUserIds)
-                .NotEmpty().WithMessage("At least one user must be assigned to each work");
+            RuleForEach(x => x.Comments)
+                .SetValidator(new CreateWorkCommentDtoValidator())
+                .When(x => x.Comments != null);
         }
 
-        private bool HasOverlappingPeriods(List<CreateWorkPeriodDto> periods)
+        private bool HasOverlappingPeriods(List<CreateWorkPeriodDto>? periods)
         {
             if (periods == null || periods.Count <= 1)
                 return false;
@@ -155,6 +155,16 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
             RuleFor(x => x.EndDate)
                 .NotEmpty().WithMessage("Period end date is required")
                 .GreaterThan(x => x.StartDate).WithMessage("Period end date must be after start date");
+        }
+    }
+
+    public class CreateWorkCommentDtoValidator : AbstractValidator<CreateWorkCommentDto>
+    {
+        public CreateWorkCommentDtoValidator()
+        {
+            RuleFor(x => x.Content)
+                .NotEmpty().WithMessage("Comment content is required")
+                .MaximumLength(2000).WithMessage("Comment content cannot exceed 2000 characters");
         }
     }
 }

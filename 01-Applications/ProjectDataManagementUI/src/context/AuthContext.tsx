@@ -37,7 +37,7 @@ export const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { instance, accounts } = useMsal();
+  const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +50,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let isMounted = true;
 
     const fetchUserProfile = async () => {
+      // Czekaj aż MSAL zakończy inicjalizację
+      if (inProgress !== "none") {
+        return;
+      }
+
       if (!isAuthenticated) {
         if (isMounted) {
           setUser(null);
@@ -89,7 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated]); // Tylko isAuthenticated, bez user!
+  }, [isAuthenticated, inProgress]); // Czekaj na MSAL initialization
 
   // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
   useEffect(() => {

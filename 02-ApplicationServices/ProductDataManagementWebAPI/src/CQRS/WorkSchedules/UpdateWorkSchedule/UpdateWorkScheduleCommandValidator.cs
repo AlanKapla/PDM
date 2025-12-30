@@ -22,6 +22,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.workScheduleRepo = workScheduleRepo;
+            this.currentUser = currentUser;
 
             RuleFor(x => x.TenantId)
                 .NotEmpty().WithMessage("TenantId is required");
@@ -53,7 +54,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 .MustAsync(async (command, cancellationToken) =>
                 {
                     Project? project = await projectRepo.GetFirstBySearch(
-                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId && p.IsActive);
+                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId);
 
                     return project != null;
                 })
@@ -62,13 +63,15 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             RuleFor(x => x)
                 .MustAsync(async (command, cancellationToken) =>
                 {
-                    if (command.Stages == null)
+                    if (command.Stages == null || command.Stages.Count == 0)
                         return true;
 
                     // Get all unique user IDs from all works
                     var allUserIds = command.Stages
-                        .SelectMany(s => s.Works)
-                        .SelectMany(w => w.AssignedUserIds)
+                        .Where(s => s.Works != null)
+                        .SelectMany(s => s.Works!)
+                        .Where(w => w.AssignedUserIds != null)
+                        .SelectMany(w => w.AssignedUserIds!)
                         .Distinct()
                         .ToHashSet();
 
@@ -87,12 +90,9 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 })
                 .WithMessage("One or more assigned users are not members of the project");
 
-            RuleFor(x => x.Stages)
-                .NotEmpty().WithMessage("At least one stage is required");
-
             RuleForEach(x => x.Stages)
-                .SetValidator(new UpdateStageDtoValidator());
-            this.currentUser = currentUser;
+                .SetValidator(new UpdateStageDtoValidator())
+                .When(x => x.Stages != null);
         }
     }
 
@@ -107,11 +107,9 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             RuleFor(x => x.Order)
                 .GreaterThanOrEqualTo(0).WithMessage("Stage order must be greater than or equal to 0");
 
-            RuleFor(x => x.Works)
-                .NotEmpty().WithMessage("At least one work is required in each stage");
-
             RuleForEach(x => x.Works)
-                .SetValidator(new UpdateWorkDtoValidator());
+                .SetValidator(new UpdateWorkDtoValidator())
+                .When(x => x.Works != null);
         }
     }
 
@@ -133,15 +131,20 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 .WithMessage("Color RGB must be in format 'rgb(r,g,b)' or '#RRGGBB'");
 
             RuleFor(x => x.Periods)
-                .NotEmpty().WithMessage("At least one period is required for each work")
                 .Must(periods => !HasOverlappingPeriods(periods))
-                .WithMessage("Periods cannot overlap with each other");
+                .WithMessage("Periods cannot overlap with each other")
+                .When(x => x.Periods != null && x.Periods.Count > 0);
 
             RuleForEach(x => x.Periods)
-                .SetValidator(new UpdateWorkPeriodDtoValidator());
+                .SetValidator(new UpdateWorkPeriodDtoValidator())
+                .When(x => x.Periods != null);
+
+            RuleForEach(x => x.Comments)
+                .SetValidator(new UpdateWorkCommentDtoValidator())
+                .When(x => x.Comments != null);
         }
 
-        private bool HasOverlappingPeriods(List<UpdateWorkPeriodDto> periods)
+        private bool HasOverlappingPeriods(List<UpdateWorkPeriodDto>? periods)
         {
             if (periods == null || periods.Count <= 1)
                 return false;
@@ -177,5 +180,14 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         }
     }
 
+    public class UpdateWorkCommentDtoValidator : AbstractValidator<UpdateWorkCommentDto>
+    {
+        public UpdateWorkCommentDtoValidator()
+        {
+            RuleFor(x => x.Content)
+                .NotEmpty().WithMessage("Comment content is required")
+                .MaximumLength(2000).WithMessage("Comment content cannot exceed 2000 characters");
+        }
+    }
 
 }

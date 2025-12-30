@@ -34,6 +34,10 @@ export const tenantApi = {
     return axiosClient.post("/tenant/invitations/accept", { token });
   },
 
+  removeInvitation: async (tenantId: string, invitationId: string) => {
+    return axiosClient.delete(`/tenant/${tenantId}/invitations/${invitationId}`);
+  },
+
   removeMember: async (tenantId: string, userId: string) => {
     return axiosClient.delete(`/tenant/${tenantId}/members/${userId}`);
   },
@@ -58,7 +62,7 @@ export const tenantApi = {
     return axiosClient.get("/tenant/roles");
   },
 
-  dateTenantMemberRole: async (tenantId: string, userId: string, role: number) => {
+  updateTenantMemberRole: async (tenantId: string, userId: string, role: number) => {
     return axiosClient.patch(`/tenant/${tenantId}/members/${userId}/role`, { role });
   }
 };

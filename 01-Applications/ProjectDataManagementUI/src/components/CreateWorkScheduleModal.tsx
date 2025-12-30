@@ -21,6 +21,13 @@ import {
   Divider,
   Badge,
   Flex,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
+  Checkbox,
+  Textarea,
 } from "@chakra-ui/react";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { projectApi } from "../api/projectApi";
@@ -47,6 +54,12 @@ interface WorkPeriodFormData {
   tempId: string;
   startDate: string;
   endDate: string;
+  isClosed: boolean;
+}
+
+interface WorkCommentFormData {
+  tempId: string;
+  content: string;
 }
 
 interface WorkFormData {
@@ -56,6 +69,7 @@ interface WorkFormData {
   colorRgb: string;
   periods: WorkPeriodFormData[];
   assignedUserIds: string[];
+  comments: WorkCommentFormData[];
 }
 
 const PRESET_COLORS = [
@@ -140,8 +154,10 @@ export default function CreateWorkScheduleModal({
               tempId: `period-${Date.now()}`,
               startDate: today.toISOString().split("T")[0],
               endDate: tomorrow.toISOString().split("T")[0],
+              isClosed: false,
             }],
             assignedUserIds: [],
+            comments: [],
           };
           return { ...stage, works: [...stage.works, newWork] };
         }
@@ -212,6 +228,7 @@ export default function CreateWorkScheduleModal({
                   tempId: `period-${Date.now()}`,
                   startDate: newStartDate,
                   endDate: newEndDate,
+                  isClosed: false,
                 };
                 return { ...work, periods: [...work.periods, newPeriod] };
               }
@@ -310,6 +327,80 @@ export default function CreateWorkScheduleModal({
     );
   };
 
+  const addComment = (stageTempId: string, workTempId: string) => {
+    setStages(
+      stages.map((stage) => {
+        if (stage.tempId === stageTempId) {
+          return {
+            ...stage,
+            works: stage.works.map((work) => {
+              if (work.tempId === workTempId) {
+                const newComment: WorkCommentFormData = {
+                  tempId: `comment-${Date.now()}`,
+                  content: "",
+                };
+                return { ...work, comments: [...work.comments, newComment] };
+              }
+              return work;
+            }),
+          };
+        }
+        return stage;
+      })
+    );
+  };
+
+  const updateComment = (
+    stageTempId: string,
+    workTempId: string,
+    commentTempId: string,
+    content: string
+  ) => {
+    setStages(
+      stages.map((stage) => {
+        if (stage.tempId === stageTempId) {
+          return {
+            ...stage,
+            works: stage.works.map((work) => {
+              if (work.tempId === workTempId) {
+                return {
+                  ...work,
+                  comments: work.comments.map((c) =>
+                    c.tempId === commentTempId ? { ...c, content } : c
+                  ),
+                };
+              }
+              return work;
+            }),
+          };
+        }
+        return stage;
+      })
+    );
+  };
+
+  const removeComment = (stageTempId: string, workTempId: string, commentTempId: string) => {
+    setStages(
+      stages.map((stage) => {
+        if (stage.tempId === stageTempId) {
+          return {
+            ...stage,
+            works: stage.works.map((work) => {
+              if (work.tempId === workTempId) {
+                return {
+                  ...work,
+                  comments: work.comments.filter((c) => c.tempId !== commentTempId),
+                };
+              }
+              return work;
+            }),
+          };
+        }
+        return stage;
+      })
+    );
+  };
+
   // Drag & Drop dla etapów
   const handleStageDragStart = (e: React.DragEvent, tempId: string) => {
     setDraggedStage(tempId);
@@ -391,89 +482,44 @@ export default function CreateWorkScheduleModal({
       return;
     }
 
-    if (stages.length === 0) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Dodaj co najmniej jeden etap",
-        status: "error",
-        duration: 3000,
-      });
-      return;
-    }
-
+    // Walidacja tylko dla wypełnionych etapów
     for (const stage of stages) {
-      if (!stage.name.trim()) {
-        toast({
-          title: "Błąd walidacji",
-          description: "Wszystkie etapy muszą mieć nazwę",
-          status: "error",
-          duration: 3000,
-        });
-        return;
-      }
+      if (stage.name.trim() && stage.works.length > 0) {
+        for (const work of stage.works) {
+          if (work.name.trim() && work.periods.length > 0) {
+            for (const period of work.periods) {
+              if (new Date(period.startDate) > new Date(period.endDate)) {
+                toast({
+                  title: "Błąd walidacji",
+                  description: `Data rozpoczęcia nie może być późniejsza niż data zakończenia w pracy "${work.name}"`,
+                  status: "error",
+                  duration: 3000,
+                });
+                return;
+              }
+            }
 
-      if (stage.works.length === 0) {
-        toast({
-          title: "Błąd walidacji",
-          description: `Etap "${stage.name}" musi mieć co najmniej jedną pracę`,
-          status: "error",
-          duration: 3000,
-        });
-        return;
-      }
+            // Check for overlapping periods
+            for (let i = 0; i < work.periods.length; i++) {
+              for (let j = i + 1; j < work.periods.length; j++) {
+                const period1 = work.periods[i];
+                const period2 = work.periods[j];
+                const start1 = new Date(period1.startDate);
+                const end1 = new Date(period1.endDate);
+                const start2 = new Date(period2.startDate);
+                const end2 = new Date(period2.endDate);
 
-      for (const work of stage.works) {
-        if (!work.name.trim()) {
-          toast({
-            title: "Błąd walidacji",
-            description: `Wszystkie prace w etapie "${stage.name}" muszą mieć nazwę`,
-            status: "error",
-            duration: 3000,
-          });
-          return;
-        }
-
-        if (work.periods.length === 0) {
-          toast({
-            title: "Błąd walidacji",
-            description: `Zakres robót "${work.name}" musi mieć co najmniej jeden okres`,
-            status: "error",
-            duration: 3000,
-          });
-          return;
-        }
-
-        for (const period of work.periods) {
-          if (new Date(period.startDate) > new Date(period.endDate)) {
-            toast({
-              title: "Błąd walidacji",
-              description: `Data rozpoczęcia nie może być późniejsza niż data zakończenia w pracy "${work.name}"`,
-              status: "error",
-              duration: 3000,
-            });
-            return;
-          }
-        }
-
-        // Check for overlapping periods
-        for (let i = 0; i < work.periods.length; i++) {
-          for (let j = i + 1; j < work.periods.length; j++) {
-            const period1 = work.periods[i];
-            const period2 = work.periods[j];
-            const start1 = new Date(period1.startDate);
-            const end1 = new Date(period1.endDate);
-            const start2 = new Date(period2.startDate);
-            const end2 = new Date(period2.endDate);
-
-            // Check if periods overlap
-            if (start1 <= end2 && start2 <= end1) {
-              toast({
-                title: "Błąd walidacji",
-                description: `Okresy pracy "${work.name}" nie mogą nachodzić na siebie`,
-                status: "error",
-                duration: 3000,
-              });
-              return;
+                // Check if periods overlap
+                if (start1 <= end2 && start2 <= end1) {
+                  toast({
+                    title: "Błąd walidacji",
+                    description: `Okresy pracy "${work.name}" nie mogą nachodzić na siebie`,
+                    status: "error",
+                    duration: 3000,
+                  });
+                  return;
+                }
+              }
             }
           }
         }
@@ -494,8 +540,14 @@ export default function CreateWorkScheduleModal({
             periods: work.periods.map((period) => ({
               startDate: new Date(period.startDate).toISOString(),
               endDate: new Date(period.endDate).toISOString(),
+              isClosed: period.isClosed,
             })),
             assignedUserIds: work.assignedUserIds,
+            comments: work.comments
+              .filter((c) => c.content.trim())
+              .map((c) => ({
+                content: c.content.trim(),
+              })),
           })),
         })),
       };
@@ -559,89 +611,108 @@ export default function CreateWorkScheduleModal({
               </HStack>
 
               <VStack spacing={4} align="stretch">
-                {stages.map((stage, stageIndex) => (
-                  <Box
-                    key={stage.tempId}
-                    p={4}
-                    borderWidth="2px"
-                    borderRadius="lg"
-                    borderColor={draggedStage === stage.tempId ? "blue.400" : borderColor}
-                    bg={bgColor}
-                    draggable
-                    onDragStart={(e) => handleStageDragStart(e, stage.tempId)}
-                    onDragOver={handleStageDragOver}
-                    onDrop={(e) => handleStageDrop(e, stage.tempId)}
-                    cursor="move"
-                    transition="all 0.2s"
-                    _hover={{ borderColor: "blue.300" }}
-                  >
-                    <HStack spacing={3} mb={3}>
-                      <Box cursor="grab" _active={{ cursor: "grabbing" }}>
-                        <GripVertical size={20} />
-                      </Box>
-                      <Badge colorScheme="blue">Etap {stageIndex + 1}</Badge>
-                      <Input
-                        placeholder="Nazwa etapu"
-                        value={stage.name}
-                        onChange={(e) => updateStageName(stage.tempId, e.target.value)}
-                        flex={1}
-                      />
-                      <IconButton
-                        aria-label="Usuń etap"
-                        icon={<Trash2 size={16} />}
-                        colorScheme="red"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeStage(stage.tempId)}
-                      />
-                    </HStack>
+                <Accordion allowMultiple>
+                  {stages.map((stage, stageIndex) => (
+                    <AccordionItem
+                      key={stage.tempId}
+                      borderWidth="2px"
+                      borderRadius="lg"
+                      borderColor={draggedStage === stage.tempId ? "blue.400" : borderColor}
+                      bg={bgColor}
+                      mb={3}
+                    >
+                      <AccordionButton
+                        p={4}
+                        _hover={{ bg: hoverBg }}
+                        draggable
+                        onDragStart={(e) => handleStageDragStart(e, stage.tempId)}
+                        onDragOver={handleStageDragOver}
+                        onDrop={(e) => handleStageDrop(e, stage.tempId)}
+                      >
+                        <HStack spacing={3} flex={1}>
+                          <Box cursor="grab" _active={{ cursor: "grabbing" }}>
+                            <GripVertical size={20} />
+                          </Box>
+                          <Badge colorScheme="blue">Etap {stageIndex + 1}</Badge>
+                          <Input
+                            placeholder="Nazwa etapu"
+                            value={stage.name}
+                            onChange={(e) => updateStageName(stage.tempId, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            flex={1}
+                          />
+                          <IconButton
+                            aria-label="Usuń etap"
+                            icon={<Trash2 size={16} />}
+                            colorScheme="red"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeStage(stage.tempId);
+                            }}
+                          />
+                        </HStack>
+                        <AccordionIcon ml={2} />
+                      </AccordionButton>
 
-                    <VStack spacing={3} align="stretch" pl={8}>
-                      {stage.works.map((work, workIndex) => (
-                        <Box
-                          key={work.tempId}
-                          p={3}
-                          borderWidth="1px"
-                          borderRadius="md"
-                          borderColor={borderColor}
-                          bg={useColorModeValue("gray.50", "gray.700")}
-                          draggable
-                          onDragStart={(e) => handleWorkDragStart(e, stage.tempId, work.tempId)}
-                          onDragOver={handleStageDragOver}
-                          onDrop={(e) => handleWorkDrop(e, stage.tempId, work.tempId)}
-                          cursor="move"
-                          _hover={{ bg: hoverBg }}
-                        >
-                          <HStack spacing={2} mb={2}>
-                            <Box cursor="grab" _active={{ cursor: "grabbing" }}>
-                              <GripVertical size={16} />
-                            </Box>
-                            <Badge colorScheme="green" fontSize="xs">
-                              Zakres robót {workIndex + 1}
-                            </Badge>
-                            <Input
-                              placeholder="Nazwa zakresu robót"
-                              size="sm"
-                              value={work.name}
-                              onChange={(e) =>
-                                updateWork(stage.tempId, work.tempId, { name: e.target.value })
-                              }
-                              flex={1}
-                            />
-                            <IconButton
-                              aria-label="Usuń pracę"
-                              icon={<Trash2 size={14} />}
-                              colorScheme="red"
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => removeWork(stage.tempId, work.tempId)}
-                            />
-                          </HStack>
+                      <AccordionPanel pb={4} pt={2}>
+                        <VStack spacing={3} align="stretch" pl={8}>
+                          <Accordion allowMultiple>
+                            {stage.works.map((work, workIndex) => (
+                              <AccordionItem
+                                key={work.tempId}
+                                borderWidth="1px"
+                                borderRadius="md"
+                                borderColor={borderColor}
+                                bg={useColorModeValue("gray.50", "gray.700")}
+                                mb={2}
+                              >
+                                <AccordionButton
+                                  p={3}
+                                  _hover={{ bg: hoverBg }}
+                                  draggable
+                                  onDragStart={(e) => handleWorkDragStart(e, stage.tempId, work.tempId)}
+                                  onDragOver={handleStageDragOver}
+                                  onDrop={(e) => handleWorkDrop(e, stage.tempId, work.tempId)}
+                                >
+                                  <HStack spacing={2} flex={1}>
+                                    <Box cursor="grab" _active={{ cursor: "grabbing" }}>
+                                      <GripVertical size={16} />
+                                    </Box>
+                                    <Badge colorScheme="green" fontSize="xs">
+                                      Zakres robót {workIndex + 1}
+                                    </Badge>
+                                    <Input
+                                      placeholder="Nazwa zakresu robót"
+                                      size="sm"
+                                      value={work.name}
+                                      onChange={(e) =>
+                                        updateWork(stage.tempId, work.tempId, { name: e.target.value })
+                                      }
+                                      onClick={(e) => e.stopPropagation()}
+                                      flex={1}
+                                    />
+                                    <IconButton
+                                      aria-label="Usuń pracę"
+                                      icon={<Trash2 size={14} />}
+                                      colorScheme="red"
+                                      size="xs"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeWork(stage.tempId, work.tempId);
+                                      }}
+                                    />
+                                  </HStack>
+                                  <AccordionIcon ml={2} />
+                                </AccordionButton>
 
-                          <VStack spacing={2} align="stretch">
-                            <FormControl size="sm">
-                              <HStack justify="space-between" mb={1}>
-                                <FormLabel fontSize="xs" mb={0}>Okresy pracy</FormLabel>
+                                <AccordionPanel pb={3} pt={2}>
+                                  <VStack spacing={2} align="stretch">
+                                    <FormControl size="sm">
+                                      <HStack justify="space-between" mb={1}>
+                                        <FormLabel fontSize="xs" mb={0}>Okresy pracy</FormLabel>
                                 <Button
                                   size="xs"
                                   leftIcon={<Plus size={12} />}
@@ -654,40 +725,54 @@ export default function CreateWorkScheduleModal({
                               </HStack>
                               <VStack spacing={2} align="stretch">
                                 {work.periods.map((period, periodIdx) => (
-                                  <HStack key={period.tempId} spacing={2}>
-                                    <Text fontSize="xs" minW="20px">{periodIdx + 1}.</Text>
-                                    <Input
-                                      type="date"
+                                  <VStack key={period.tempId} spacing={1} align="stretch">
+                                    <HStack spacing={2}>
+                                      <Text fontSize="xs" minW="20px">{periodIdx + 1}.</Text>
+                                      <Input
+                                        type="date"
+                                        size="sm"
+                                        value={period.startDate}
+                                        onChange={(e) =>
+                                          updatePeriod(stage.tempId, work.tempId, period.tempId, {
+                                            startDate: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Od"
+                                      />
+                                      <Input
+                                        type="date"
+                                        size="sm"
+                                        value={period.endDate}
+                                        onChange={(e) =>
+                                          updatePeriod(stage.tempId, work.tempId, period.tempId, {
+                                            endDate: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Do"
+                                      />
+                                      <IconButton
+                                        aria-label="Usuń okres"
+                                        icon={<Trash2 size={14} />}
+                                        size="sm"
+                                        colorScheme="red"
+                                        variant="ghost"
+                                        onClick={() => removePeriod(stage.tempId, work.tempId, period.tempId)}
+                                        isDisabled={work.periods.length === 1}
+                                      />
+                                    </HStack>
+                                    <Checkbox
                                       size="sm"
-                                      value={period.startDate}
+                                      isChecked={period.isClosed}
                                       onChange={(e) =>
                                         updatePeriod(stage.tempId, work.tempId, period.tempId, {
-                                          startDate: e.target.value,
+                                          isClosed: e.target.checked,
                                         })
                                       }
-                                      placeholder="Od"
-                                    />
-                                    <Input
-                                      type="date"
-                                      size="sm"
-                                      value={period.endDate}
-                                      onChange={(e) =>
-                                        updatePeriod(stage.tempId, work.tempId, period.tempId, {
-                                          endDate: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Do"
-                                    />
-                                    <IconButton
-                                      aria-label="Usuń okres"
-                                      icon={<Trash2 size={14} />}
-                                      size="sm"
-                                      colorScheme="red"
-                                      variant="ghost"
-                                      onClick={() => removePeriod(stage.tempId, work.tempId, period.tempId)}
-                                      isDisabled={work.periods.length === 1}
-                                    />
-                                  </HStack>
+                                      ml={6}
+                                    >
+                                      <Text fontSize="xs">Okres wykonany</Text>
+                                    </Checkbox>
+                                  </VStack>
                                 ))}
                               </VStack>
                             </FormControl>
@@ -812,32 +897,78 @@ export default function CreateWorkScheduleModal({
                                 ))}
                               </Flex>
                             </FormControl>
+
+                            <FormControl size="sm">
+                              <HStack justify="space-between" mb={1}>
+                                <FormLabel fontSize="xs" mb={0}>Komentarze</FormLabel>
+                                <Button
+                                  size="xs"
+                                  leftIcon={<Plus size={12} />}
+                                  onClick={() => addComment(stage.tempId, work.tempId)}
+                                  colorScheme="purple"
+                                  variant="ghost"
+                                >
+                                  Dodaj komentarz
+                                </Button>
+                              </HStack>
+                              <VStack spacing={2} align="stretch">
+                                {work.comments.map((comment, commentIdx) => (
+                                  <HStack key={comment.tempId} spacing={2} align="flex-start">
+                                    <Text fontSize="xs" minW="20px" mt={2}>{commentIdx + 1}.</Text>
+                                    <Textarea
+                                      size="sm"
+                                      value={comment.content}
+                                      onChange={(e) =>
+                                        updateComment(stage.tempId, work.tempId, comment.tempId, e.target.value)
+                                      }
+                                      placeholder="Treść komentarza (max 2000 znaków)"
+                                      maxLength={2000}
+                                      resize="vertical"
+                                      minH="60px"
+                                    />
+                                    <IconButton
+                                      aria-label="Usuń komentarz"
+                                      icon={<Trash2 size={14} />}
+                                      size="sm"
+                                      colorScheme="red"
+                                      variant="ghost"
+                                      onClick={() => removeComment(stage.tempId, work.tempId, comment.tempId)}
+                                      mt={1}
+                                    />
+                                  </HStack>
+                                ))}
+                              </VStack>
+                            </FormControl>
                           </VStack>
-                        </Box>
+                          </AccordionPanel>
+                        </AccordionItem>
                       ))}
+                    </Accordion>
 
-                      <Button
-                        leftIcon={<Plus size={14} />}
-                        size="sm"
-                        variant="outline"
-                        colorScheme="green"
-                        onClick={() => addWork(stage.tempId)}
-                      >
-                        Dodaj zakres robót
-                      </Button>
-                    </VStack>
-                  </Box>
-                ))}
+                    <Button
+                      leftIcon={<Plus size={14} />}
+                      size="sm"
+                      variant="outline"
+                      colorScheme="green"
+                      onClick={() => addWork(stage.tempId)}
+                    >
+                      Dodaj zakres robót
+                    </Button>
+                  </VStack>
+                </AccordionPanel>
+              </AccordionItem>
+            ))}
+          </Accordion>
 
-                {stages.length === 0 && (
-                  <Box textAlign="center" py={8} color="gray.500">
-                    <Text>Brak etapów. Kliknij "Dodaj etap" aby rozpocząć.</Text>
-                  </Box>
-                )}
-              </VStack>
+          {stages.length === 0 && (
+            <Box textAlign="center" py={8} color="gray.500">
+              <Text>Brak etapów. Kliknij "Dodaj etap" aby rozpocząć.</Text>
             </Box>
-          </VStack>
-        </ModalBody>
+          )}
+        </VStack>
+      </Box>
+    </VStack>
+  </ModalBody>
 
         <ModalFooter>
           <Button variant="ghost" mr={3} onClick={onClose} isDisabled={submitting}>

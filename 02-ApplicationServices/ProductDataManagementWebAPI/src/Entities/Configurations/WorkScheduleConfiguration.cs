@@ -86,4 +86,26 @@ namespace Entities.Configurations
                    .OnDelete(DeleteBehavior.Restrict);
         }
     }
+
+    public class WorkScheduleStageWorkCommentConfiguration : IEntityTypeConfiguration<WorkScheduleStageWorkComment>
+    {
+        public void Configure(EntityTypeBuilder<WorkScheduleStageWorkComment> builder)
+        {
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.Content).IsRequired().HasMaxLength(2000);
+            builder.Property(c => c.CreatedAt).IsRequired();
+
+            builder.HasOne(c => c.Work)
+                   .WithMany(w => w.Comments)
+                   .HasForeignKey(c => c.WorkScheduleStageWorkId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(c => c.CreatedBy)
+                   .WithMany()
+                   .HasForeignKey(c => c.CreatedByUserId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasIndex(c => new { c.WorkScheduleStageWorkId, c.CreatedAt });
+        }
+    }
 }

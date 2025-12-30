@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -25,13 +25,17 @@ import {
   SliderTrack,
   SliderFilledTrack,
   SliderThumb,
+  useToast,
+  Textarea,
+  Checkbox,
 } from "@chakra-ui/react";
-import { ArrowLeft, Edit, Clock, User, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Edit, Clock, User, AlertTriangle, CalendarDays, ChevronDown, Plus, Trash2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi } from "../api/projectApi";
 import EditWorkScheduleModal from "../components/EditWorkScheduleModal";
+import WorkDetailsModal from "../components/WorkDetailsModal";
 import { AuthContext } from "../context/AuthContext";
-import type { WorkScheduleDetailsWeb } from "../types/workSchedule.types";
+import type { WorkScheduleDetailsWeb, WorkScheduleStageWorkWeb } from "../types/workSchedule.types";
 
 type TimeScale = "days" | "weeks" | "months";
 
@@ -39,7 +43,9 @@ export default function WorkScheduleView() {
   const { projectId, workScheduleId } = useParams<{ projectId: string; workScheduleId: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const toast = useToast();
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
+  const { isOpen: isWorkDetailsOpen, onOpen: onWorkDetailsOpen, onClose: onWorkDetailsClose } = useDisclosure();
 
   const [schedule, setSchedule] = useState<WorkScheduleDetailsWeb | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -51,6 +57,13 @@ export default function WorkScheduleView() {
     stage: 200,
     description: 350,
   });
+  const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
+  const [selectedWork, setSelectedWork] = useState<WorkScheduleStageWorkWeb | null>(null);
+  const [showComments, setShowComments] = useState(false);
+  const [editableSchedule, setEditableSchedule] = useState<WorkScheduleDetailsWeb | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  const todayColumnRef = useRef<HTMLTableCellElement>(null);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -61,6 +74,13 @@ export default function WorkScheduleView() {
     fetchSchedule();
     fetchMembers();
   }, [user?.activeTenantId, projectId, workScheduleId]);
+
+  useEffect(() => {
+    if (schedule) {
+      setEditableSchedule(JSON.parse(JSON.stringify(schedule)));
+      setIsDirty(false);
+    }
+  }, [schedule]);
 
   const fetchSchedule = async () => {
     if (!user?.activeTenantId || !projectId || !workScheduleId) return;
@@ -266,6 +286,181 @@ export default function WorkScheduleView() {
     fetchSchedule();
   };
 
+  const toggleWorkClosed = (workId: string) => {
+    if (!editableSchedule) return;
+
+    const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
+    
+    for (const stage of updatedSchedule.stages) {
+      const work = stage.works.find((w: any) => w.id === workId);
+      if (work) {
+        const newClosedState = !work.isClosed;
+        work.isClosed = newClosedState;
+        
+        // Synchronizuj okresy - jeśli zamykamy pracę, zamknij wszystkie okresy
+        if (newClosedState) {
+          work.periods.forEach((p: any) => p.isClosed = true);
+        }
+        break;
+      }
+    }
+    
+    setEditableSchedule(updatedSchedule);
+    setIsDirty(true);
+  };
+
+  const togglePeriodClosed = (workId: string, periodId: string | number) => {
+    if (!editableSchedule) return;
+
+    const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
+    
+    for (const stage of updatedSchedule.stages) {
+      const work = stage.works.find((w: any) => w.id === workId);
+      if (work) {
+        let period;
+        // Jeśli periodId to liczba (indeks), znajdź po indeksie
+        if (typeof periodId === 'number') {
+          period = work.periods[periodId];
+        } else {
+          // W przeciwnym razie znajdź po ID
+          period = work.periods.find((p: any) => p.id === periodId);
+        }
+        
+        if (period) {
+          period.isClosed = !period.isClosed;
+          
+          // Sprawdź czy wszystkie okresy są zamknięte
+          const allPeriodsClosed = work.periods.every((p: any) => p.isClosed);
+          work.isClosed = allPeriodsClosed;
+        }
+        break;
+      }
+    }
+    
+    setEditableSchedule(updatedSchedule);
+    setIsDirty(true);
+  };
+
+  const addWorkComment = (workId: string) => {
+    if (!editableSchedule) return;
+
+    const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
+    
+    for (const stage of updatedSchedule.stages) {
+      const work = stage.works.find((w: any) => w.id === workId);
+      if (work) {
+        if (!work.comments) work.comments = [];
+        work.comments.push({
+          id: undefined,
+          content: "",
+          createdAt: new Date().toISOString(),
+          createdByUserId: user?.id || "",
+          createdByUserName: user?.firstName + " " + user?.lastName || "Użytkownik",
+        });
+        break;
+      }
+    }
+    
+    setEditableSchedule(updatedSchedule);
+    setIsDirty(true);
+  };
+
+  const updateWorkComment = (workId: string, commentId: string | undefined, content: string) => {
+    if (!editableSchedule) return;
+
+    const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
+    
+    for (const stage of updatedSchedule.stages) {
+      const work = stage.works.find((w: any) => w.id === workId);
+      if (work && work.comments) {
+        const comment = work.comments.find((c: any) => 
+          commentId ? c.id === commentId : c.id === undefined
+        );
+        if (comment) {
+          comment.content = content;
+        }
+        break;
+      }
+    }
+    
+    setEditableSchedule(updatedSchedule);
+    setIsDirty(true);
+  };
+
+  const removeWorkComment = (workId: string, commentId: string | undefined) => {
+    if (!editableSchedule) return;
+
+    const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
+    
+    for (const stage of updatedSchedule.stages) {
+      const work = stage.works.find((w: any) => w.id === workId);
+      if (work && work.comments) {
+        work.comments = work.comments.filter((c: any) => 
+          commentId ? c.id !== commentId : c.id !== undefined
+        );
+        break;
+      }
+    }
+    
+    setEditableSchedule(updatedSchedule);
+    setIsDirty(true);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!editableSchedule || !user?.activeTenantId || !projectId || !workScheduleId) return;
+    
+    try {
+      const command = {
+        name: editableSchedule.name,
+        stages: editableSchedule.stages.map((stage: any) => ({
+          id: stage.id,
+          name: stage.name,
+          order: stage.order,
+          works: stage.works.map((work: any) => ({
+            id: work.id,
+            name: work.name,
+            order: work.order,
+            colorRgb: work.colorRgb,
+            isClosed: work.isClosed,
+            periods: work.periods.map((period: any) => ({
+              id: period.id,
+              startDate: period.startDate,
+              endDate: period.endDate,
+              isClosed: period.isClosed,
+            })),
+            assignedUserIds: work.assignees.map((a: any) => a.userId),
+            comments: (work.comments || [])
+              .filter((c: any) => c.content && c.content.trim())
+              .map((c: any) => ({
+                id: c.id,
+                content: c.content.trim(),
+              })),
+          })),
+        })),
+      };
+
+      await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+
+      toast({
+        title: "Sukces",
+        description: "Zmiany zostały zapisane",
+        status: "success",
+        duration: 3000,
+      });
+
+      fetchSchedule();
+      setIsDirty(false);
+    } catch (error) {
+      console.error("Błąd zapisywania zmian:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zapisać zmian",
+        status: "error",
+        duration: 3000,
+      });
+    }
+  };
+
   const handleResizeStart = (e: React.MouseEvent, column: 'stage' | 'description') => {
     e.preventDefault();
     const startX = e.clientX;
@@ -286,7 +481,65 @@ export default function WorkScheduleView() {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  const scrollToToday = () => {
+    if (todayColumnRef.current) {
+      todayColumnRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  };
+
+  const toggleStage = (stageId: string) => {
+    setExpandedStages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stageId)) {
+        newSet.delete(stageId);
+      } else {
+        newSet.add(stageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleWorkClick = (work: WorkScheduleStageWorkWeb) => {
+    setSelectedWork(work);
+    onWorkDetailsOpen();
+  };
+
+  const getStageDataRange = (stage: any) => {
+    let minDate: Date | null = null;
+    let maxDate: Date | null = null;
+
+    stage.works.forEach((work: any) => {
+      work.periods.forEach((period: any) => {
+        const start = new Date(period.startDate);
+        const end = new Date(period.endDate);
+        
+        if (!minDate || start < minDate) minDate = start;
+        if (!maxDate || end > maxDate) maxDate = end;
+      });
+    });
+
+    return { minDate, maxDate };
+  };
+
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+  };
+
   const { dates, dateGroups } = getTimelineData();
+
+  // Scroll do dzisiejszej daty po załadowaniu
+  useEffect(() => {
+    if (!loading && schedule) {
+      setTimeout(scrollToToday, 100);
+    }
+  }, [loading, schedule]);
 
   if (loading) {
     return (
@@ -349,9 +602,41 @@ export default function WorkScheduleView() {
 
             <HStack spacing={3}>
               <Button
+                size="sm"
+                variant={showComments ? "solid" : "outline"}
+                colorScheme="purple"
+                onClick={() => setShowComments(!showComments)}
+              >
+                {showComments ? "Ukryj komentarze" : "Pokaż komentarze"}
+              </Button>
+              
+              {isDirty && (
+                <>
+                  <Button
+                    colorScheme="green"
+                    onClick={handleSaveChanges}
+                    size="sm"
+                  >
+                    Zapisz zmiany
+                  </Button>
+                  <Button
+                    colorScheme="gray"
+                    onClick={() => {
+                      setEditableSchedule(JSON.parse(JSON.stringify(schedule)));
+                      setIsDirty(false);
+                    }}
+                    size="sm"
+                  >
+                    Anuluj
+                  </Button>
+                </>
+              )}
+
+              <Button
                 leftIcon={<Edit size={18} />}
                 colorScheme="purple"
                 onClick={handleEditMode}
+                size="sm"
               >
                 Edytuj
               </Button>
@@ -367,7 +652,7 @@ export default function WorkScheduleView() {
             borderRadius="lg"
           >
             <VStack spacing={4} align="stretch">
-              <HStack spacing={6} justify="space-between">
+              <HStack spacing={6} justify="space-between" flexWrap="wrap">
                 <HStack spacing={4}>
                   <Text fontWeight="medium">Skala czasu:</Text>
                   <HStack spacing={2}>
@@ -397,6 +682,14 @@ export default function WorkScheduleView() {
                     </Button>
                   </HStack>
                 </HStack>
+                <Button
+                  size="sm"
+                  leftIcon={<CalendarDays size={16} />}
+                  colorScheme="blue"
+                  onClick={scrollToToday}
+                >
+                  Wróć do dzisiejszej daty
+                </Button>
               </HStack>
 
               {/* Time Range Slider */}
@@ -558,14 +851,19 @@ export default function WorkScheduleView() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {schedule.stages
+                    {(editableSchedule || schedule)?.stages
                       .sort((a, b) => a.order - b.order)
-                      .map((stage) => {
+                      .map((stage, stageIdx) => {
                         const sortedWorks = stage.works.sort((a, b) => a.order - b.order);
+                        const { minDate, maxDate } = getStageDataRange(stage);
+                        const isLastStage = stageIdx === (editableSchedule || schedule)!.stages.length - 1;
+                        const isExpanded = expandedStages.has(stage.id);
+                        
                         return sortedWorks.map((work, workIdx) => {
                           const workStatus = getWorkStatus(work.periods);
                           const warningBg = useColorModeValue("yellow.50", "yellow.900");
                           const completedBg = useColorModeValue("green.50", "green.900");
+                          const isLastWork = workIdx === sortedWorks.length - 1;
                           
                           let rowBg = undefined;
                           if (work.isClosed) {
@@ -577,16 +875,24 @@ export default function WorkScheduleView() {
                             rowBg = warningBg;
                           }
                           
+                          // Renderuj tylko jeśli etap jest rozwinięty lub to pierwszy wiersz (nagłówek etapu)
+                          if (!isExpanded && workIdx > 0) {
+                            return null;
+                          }
+
                           return (
                             <Tr 
                               key={work.id}
                               bg={rowBg}
                               _hover={{ bg: hoverBg }}
+                              borderBottomWidth={!isLastStage && isLastWork ? "4px" : undefined}
+                              borderBottomColor={!isLastStage && isLastWork ? "purple.500" : undefined}
+                              display={!isExpanded && workIdx > 0 ? "none" : undefined}
                             >
                               {/* Stage name - merged vertically for all works */}
                               {workIdx === 0 && (
                                 <Td 
-                                  rowSpan={sortedWorks.length}
+                                  rowSpan={isExpanded ? sortedWorks.length : 1}
                                   position="sticky"
                                   left={0}
                                   w={`${columnWidths.stage}px`}
@@ -598,8 +904,37 @@ export default function WorkScheduleView() {
                                   px={2}
                                   verticalAlign="top"
                                   borderRightWidth="2px"
+                                  borderBottomWidth={!isLastStage && (isExpanded ? isLastWork : true) ? "4px" : undefined}
+                                  borderBottomColor={!isLastStage && (isExpanded ? isLastWork : true) ? "purple.500" : undefined}
+                                  cursor="pointer"
+                                  onClick={() => toggleStage(stage.id)}
+                                  _hover={{ bg: useColorModeValue("blue.100", "blue.800") }}
                                 >
-                                  <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
+                                  <HStack spacing={2}>
+                                    <IconButton
+                                      aria-label={isExpanded ? "Zwiń etap" : "Rozwiń etap"}
+                                      icon={<ChevronDown size={16} style={{ transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }} />}
+                                      size="xs"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleStage(stage.id);
+                                      }}
+                                    />
+                                    <VStack align="flex-start" spacing={1} flex={1}>
+                                      <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
+                                      {minDate && maxDate && (
+                                        <Text fontSize="2xs" color="gray.500">
+                                          {formatDate(minDate)} - {formatDate(maxDate)}
+                                        </Text>
+                                      )}
+                                      {!isExpanded && (
+                                        <Badge colorScheme="purple" fontSize="2xs">
+                                          {sortedWorks.length} {sortedWorks.length === 1 ? 'praca' : sortedWorks.length < 5 ? 'prace' : 'prac'}
+                                        </Badge>
+                                      )}
+                                    </VStack>
+                                  </HStack>
                                 </Td>
                               )}
                               {/* Work details */}
@@ -615,51 +950,116 @@ export default function WorkScheduleView() {
                                 px={2}
                                 borderRightWidth="2px"
                               >
-                                <VStack align="flex-start" spacing={1}>
-                                  <HStack spacing={2}>
-                                    {work.isClosed ? (
-                                      <Badge colorScheme="green" fontSize="2xs">
-                                        Zakończone
-                                      </Badge>
-                                    ) : (
-                                      <>
-                                        {workStatus === 'expired' && (
-                                          <Tooltip label="Praca przeterminowana">
-                                            <Box color="red.500">
-                                              <AlertTriangle size={12} />
-                                            </Box>
-                                          </Tooltip>
+                                <VStack align="flex-start" spacing={2}>
+                                  <HStack spacing={2} width="100%">
+                                    <Checkbox
+                                      size="sm"
+                                      isChecked={work.isClosed}
+                                      onChange={() => toggleWorkClosed(work.id)}
+                                      colorScheme="green"
+                                    />
+                                    <VStack align="flex-start" spacing={1} flex={1}>
+                                      <HStack spacing={2}>
+                                        {work.isClosed ? (
+                                          <Badge colorScheme="green" fontSize="2xs">
+                                            Zakończone
+                                          </Badge>
+                                        ) : (
+                                          <>
+                                            {workStatus === 'expired' && (
+                                              <Tooltip label="Praca przeterminowana">
+                                                <Box color="red.500">
+                                                  <AlertTriangle size={12} />
+                                                </Box>
+                                              </Tooltip>
+                                            )}
+                                            {workStatus === 'warning' && (
+                                              <Tooltip label="Zakończenie za 5 dni lub mniej">
+                                                <Box color="yellow.600">
+                                                  <AlertTriangle size={12} />
+                                                </Box>
+                                              </Tooltip>
+                                            )}
+                                          </>
                                         )}
-                                        {workStatus === 'warning' && (
-                                          <Tooltip label="Zakończenie za 5 dni lub mniej">
-                                            <Box color="yellow.600">
-                                              <AlertTriangle size={12} />
-                                            </Box>
-                                          </Tooltip>
-                                        )}
-                                      </>
-                                    )}
-                                    <Text fontSize="sm">{work.name}</Text>
-                                  </HStack>
-                                  {work.periods.length > 0 && (
-                                    <VStack align="flex-start" spacing={0.5} fontSize="2xs" color="gray.500">
-                                      {work.periods.map((period, pIdx) => (
-                                        <Text key={pIdx}>
-                                          {work.periods.length > 1 ? `${pIdx + 1}. ` : ''}
-                                          {formatDate(period.startDate)} - {formatDate(period.endDate)}
-                                        </Text>
-                                      ))}
+                                        <Text fontSize="sm" fontWeight="medium">{work.name}</Text>
+                                      </HStack>
+                                      
+                                      {work.periods.length > 0 && (
+                                        <VStack align="flex-start" spacing={1} fontSize="2xs" color="gray.500" width="100%">
+                                          {work.periods.map((period: any, pIdx: number) => (
+                                            <HStack key={period.id || pIdx} spacing={2} width="100%" justify="space-between">
+                                              <Text>
+                                                {work.periods.length > 1 ? `${pIdx + 1}. ` : ''}
+                                                {formatDate(period.startDate)} - {formatDate(period.endDate)}
+                                              </Text>
+                                              <Checkbox
+                                                size="sm"
+                                                isChecked={period.isClosed}
+                                                onChange={() => togglePeriodClosed(work.id, period.id || pIdx)}
+                                                colorScheme="green"
+                                              />
+                                            </HStack>
+                                          ))}
+                                        </VStack>
+                                      )}
+                                      
+                                      {work.assignees.length > 0 && (
+                                        <HStack spacing={1} flexWrap="wrap" mt={1}>
+                                          {work.assignees.map((assignee: any) => (
+                                            <Badge key={assignee.userId} colorScheme="purple" fontSize="2xs">
+                                              {assignee.userName}
+                                            </Badge>
+                                          ))}
+                                        </HStack>
+                                      )}
+                                      
+                                      {showComments && (
+                                        <VStack align="flex-start" spacing={2} width="100%" mt={2} pt={2} borderTopWidth="1px">
+                                          <HStack justify="space-between" width="100%">
+                                            <Text fontSize="xs" fontWeight="bold">Komentarze</Text>
+                                            <IconButton
+                                              aria-label="Dodaj komentarz"
+                                              icon={<Plus size={12} />}
+                                              size="xs"
+                                              variant="ghost"
+                                              colorScheme="purple"
+                                              onClick={() => addWorkComment(work.id)}
+                                            />
+                                          </HStack>
+                                          {work.comments && work.comments.length > 0 ? (
+                                            <VStack spacing={2} align="stretch" width="100%">
+                                              {work.comments.map((comment: any, cIdx: number) => (
+                                                <HStack key={comment.id || cIdx} spacing={2} align="flex-start" width="100%">
+                                                  <Textarea
+                                                    size="xs"
+                                                    value={comment.content}
+                                                    onChange={(e) => updateWorkComment(work.id, comment.id, e.target.value)}
+                                                    placeholder="Treść komentarza..."
+                                                    maxLength={2000}
+                                                    resize="vertical"
+                                                    minH="50px"
+                                                    fontSize="xs"
+                                                    flex={1}
+                                                  />
+                                                  <IconButton
+                                                    aria-label="Usuń komentarz"
+                                                    icon={<Trash2 size={12} />}
+                                                    size="xs"
+                                                    colorScheme="red"
+                                                    variant="ghost"
+                                                    onClick={() => removeWorkComment(work.id, comment.id)}
+                                                  />
+                                                </HStack>
+                                              ))}
+                                            </VStack>
+                                          ) : (
+                                            <Text fontSize="xs" color="gray.500">Brak komentarzy</Text>
+                                          )}
+                                        </VStack>
+                                      )}
                                     </VStack>
-                                  )}
-                                  {work.assignees.length > 0 && (
-                                    <HStack spacing={1} flexWrap="wrap" mt={1}>
-                                      {work.assignees.map((assignee) => (
-                                        <Badge key={assignee.userId} colorScheme="purple" fontSize="2xs">
-                                          {assignee.userName}
-                                        </Badge>
-                                      ))}
-                                    </HStack>
-                                  )}
+                                  </HStack>
                                 </VStack>
                               </Td>
                               {/* Timeline cells */}
@@ -669,17 +1069,22 @@ export default function WorkScheduleView() {
                                 const isActive = work.periods.some(period => 
                                   isWorkInPeriod(period.startDate, period.endDate, periodStart, periodEnd)
                                 );
+                                const isTodayColumn = isToday(periodStart);
                                 
                                 return (
                                   <Td 
                                     key={idx}
+                                    ref={isTodayColumn ? todayColumnRef : undefined}
                                     p={0}
-                                    bg={isActive ? work.colorRgb : undefined}
+                                    bg={isActive ? work.colorRgb : (isTodayColumn ? useColorModeValue("blue.100", "blue.800") : undefined)}
                                     position="relative"
+                                    borderLeftWidth={isTodayColumn ? "2px" : undefined}
+                                    borderRightWidth={isTodayColumn ? "2px" : undefined}
+                                    borderColor={isTodayColumn ? "blue.500" : undefined}
                                   >
                                     {isActive && (
                                       <Tooltip 
-                                        label={`${work.name}${work.periods.length > 1 ? ` (${work.periods.length} okresów)` : ''}`}
+                                        label={`${work.name}${work.periods.length > 1 ? ` (${work.periods.length} okresów)` : ''} - Kliknij aby edytować`}
                                       >
                                         <Box
                                           h="100%"
@@ -688,9 +1093,13 @@ export default function WorkScheduleView() {
                                           bg={work.colorRgb}
                                           cursor="pointer"
                                           transition="opacity 0.2s"
+                                          onClick={() => handleWorkClick(work)}
                                           _hover={{
                                             opacity: 0.85,
                                           }}
+                                          borderLeftWidth={isTodayColumn ? "2px" : undefined}
+                                          borderRightWidth={isTodayColumn ? "2px" : undefined}
+                                          borderColor={isTodayColumn ? "blue.500" : undefined}
                                         />
                                       </Tooltip>
                                     )}
@@ -719,6 +1128,17 @@ export default function WorkScheduleView() {
               onScheduleUpdated={handleScheduleUpdated}
             />
           )}
+
+          {/* Work Details Modal */}
+          <WorkDetailsModal
+            isOpen={isWorkDetailsOpen}
+            onClose={onWorkDetailsClose}
+            tenantId={user?.activeTenantId || ""}
+            projectId={projectId || ""}
+            workScheduleId={workScheduleId || ""}
+            work={selectedWork}
+            onWorkUpdated={handleScheduleUpdated}
+          />
         </VStack>
       </Box>
     </MainLayout>

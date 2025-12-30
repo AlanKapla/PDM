@@ -24,7 +24,7 @@ import {
   Input,
   IconButton,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, Plus, Eye } from "lucide-react";
+import { FolderKanban, User, Calendar, Plus } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { handleApiError } from "../utils/handleApiError";
@@ -209,6 +209,13 @@ export default function Projects() {
                 borderWidth="1px"
                 borderColor={borderColor}
                 overflow="hidden"
+                cursor="pointer"
+                onClick={() => navigate(`/projects/${project.id}`)}
+                _hover={{
+                  shadow: "lg",
+                  borderColor: "blue.500",
+                }}
+                transition="all 0.2s"
               >
                 <Box p={4}>
                   <HStack justify="space-between" align="center" spacing={3}>
@@ -241,14 +248,6 @@ export default function Projects() {
                         </HStack>
                       </VStack>
                     </HStack>
-                    <Button
-                      size="sm"
-                      colorScheme="blue"
-                      leftIcon={<Eye size={14} />}
-                      onClick={() => navigate(`/projects/${project.id}`)}
-                    >
-                      Szczegóły
-                    </Button>
                   </HStack>
                 </Box>
               </Box>

@@ -250,6 +250,7 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<WorkScheduleStage>, Repository<WorkScheduleStage>>();
             services.AddScoped<IRepository<WorkScheduleStageWork>, Repository<WorkScheduleStageWork>>();
             services.AddScoped<IRepository<WorkScheduleStageWorkAssignment>, Repository<WorkScheduleStageWorkAssignment>>();
+            services.AddScoped<IRepository<WorkScheduleStageWorkComment>, Repository<WorkScheduleStageWorkComment>>();
             services.AddScoped<IReadRepository<ProjectCost>, ReadRepository<ProjectCost>>();
             services.AddScoped<IRepository<ProjectCost>, Repository<ProjectCost>>();
             services.AddScoped<IReadRepository<SharedProjectCost>, ReadRepository<SharedProjectCost>>();

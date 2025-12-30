@@ -43,7 +43,12 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                             .ThenInclude(w => w.Assignments)
                                 .ThenInclude(a => a.ProjectMember)
                                     .ThenInclude(pm => pm.TenantMember)
-                                        .ThenInclude(tm => tm.User)))!;
+                                        .ThenInclude(tm => tm.User),
+                include => include
+                    .Include(ws => ws.Stages)
+                        .ThenInclude(s => s.Works)
+                            .ThenInclude(w => w.Comments)
+                                .ThenInclude(c => c.CreatedBy)))!;
 
             var result = new WorkScheduleDetailsWeb(
                 Id: workSchedule.Id,
@@ -71,13 +76,24 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                                     .OrderBy(p => p.StartDate)
                                     .Select(p => new WorkScheduleStageWorkPeriodWeb(
                                         StartDate: p.StartDate,
-                                        EndDate: p.EndDate
+                                        EndDate: p.EndDate,
+                                        IsClosed: p.IsClosed
                                     ))
                                     .ToList(),
                                 Assignees: w.Assignments
                                     .Select(a => new WorkScheduleStageWorkAssigneeWeb(
                                         UserId: a.UserId,
                                         UserName: $"{a.ProjectMember.TenantMember.User.FirstName} {a.ProjectMember.TenantMember.User.LastName}".Trim()
+                                    ))
+                                    .ToList(),
+                                Comments: w.Comments
+                                    .OrderBy(c => c.CreatedAt)
+                                    .Select(c => new WorkScheduleStageWorkCommentWeb(
+                                        Id: c.Id,
+                                        Content: c.Content,
+                                        CreatedByUserId: c.CreatedByUserId,
+                                        CreatedByUserName: $"{c.CreatedBy.FirstName} {c.CreatedBy.LastName}".Trim(),
+                                        CreatedAt: c.CreatedAt
                                     ))
                                     .ToList()
                             ))

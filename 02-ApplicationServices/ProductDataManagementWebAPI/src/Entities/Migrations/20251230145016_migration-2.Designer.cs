@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251230145016_migration-2")]
+    partial class migration2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1107,38 +1110,6 @@ namespace Entities.Migrations
                     b.ToTable("WorkScheduleStageWorkAssignments");
                 });
 
-            modelBuilder.Entity("Entities.Models.WorkScheduleStageWorkComment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("WorkScheduleStageWorkId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("WorkScheduleStageWorkId", "CreatedAt");
-
-                    b.ToTable("WorkScheduleStageWorkComments");
-                });
-
             modelBuilder.Entity("Entities.Models.TenantPreferencesProfile", b =>
                 {
                     b.HasBaseType("Entities.Models.UserProfileBase");
@@ -1712,25 +1683,6 @@ namespace Entities.Migrations
                     b.Navigation("Work");
                 });
 
-            modelBuilder.Entity("Entities.Models.WorkScheduleStageWorkComment", b =>
-                {
-                    b.HasOne("Entities.Models.User", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Entities.Models.WorkScheduleStageWork", "Work")
-                        .WithMany("Comments")
-                        .HasForeignKey("WorkScheduleStageWorkId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("Work");
-                });
-
             modelBuilder.Entity("Entities.Models.Chat", b =>
                 {
                     b.Navigation("Members");
@@ -1811,8 +1763,6 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.WorkScheduleStageWork", b =>
                 {
                     b.Navigation("Assignments");
-
-                    b.Navigation("Comments");
                 });
 #pragma warning restore 612, 618
         }

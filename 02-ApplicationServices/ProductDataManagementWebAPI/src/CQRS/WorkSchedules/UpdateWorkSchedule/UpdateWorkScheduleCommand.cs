@@ -8,14 +8,14 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         Guid ProjectId,
         Guid WorkScheduleId,
         string Name,
-        List<UpdateStageDto> Stages
+        List<UpdateStageDto>? Stages
     ) : IRequestCommand<WorkScheduleDetailsWeb>;
 
     public record UpdateStageDto(
         Guid? Id,
         string Name,
         int Order,
-        List<UpdateWorkDto> Works
+        List<UpdateWorkDto>? Works
     );
 
     public record UpdateWorkDto(
@@ -24,13 +24,20 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         int Order,
         string ColorRgb,
         bool IsClosed,
-        List<UpdateWorkPeriodDto> Periods,
-        List<Guid> AssignedUserIds
+        List<UpdateWorkPeriodDto>? Periods,
+        List<Guid>? AssignedUserIds,
+        List<UpdateWorkCommentDto>? Comments
     );
 
     public record UpdateWorkPeriodDto(
         Guid? Id,
         DateTime StartDate,
-        DateTime EndDate
+        DateTime EndDate,
+        bool IsClosed
+    );
+
+    public record UpdateWorkCommentDto(
+        Guid? Id,
+        string Content
     );
 }

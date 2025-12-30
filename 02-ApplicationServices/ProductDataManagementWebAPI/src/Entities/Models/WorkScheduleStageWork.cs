@@ -14,5 +14,6 @@ namespace Entities.Models
         public WorkScheduleStage Stage { get; set; } = default!;
         public ICollection<WorkScheduleStageWorkPeriod> Periods { get; set; } = new List<WorkScheduleStageWorkPeriod>();
         public ICollection<WorkScheduleStageWorkAssignment> Assignments { get; set; } = new List<WorkScheduleStageWorkAssignment>();
+        public ICollection<WorkScheduleStageWorkComment> Comments { get; set; } = new List<WorkScheduleStageWorkComment>();
     }
 }
