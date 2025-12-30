@@ -131,8 +131,7 @@ export default function CostEstimates() {
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
-        {/* BACK BUTTON */}
-        {/* HEADER */
+
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={FileText} boxSize={8} color="green.600" />
