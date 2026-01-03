@@ -17,7 +17,7 @@ import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getUserTenants, getActiveTenant, changeActiveTenant } from "../services/tenantService";
 import type { TenantDetails } from "../types/auth.types";
-import { getTenantRoleName, getTenantRoleColor } from "../types/auth.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function CollaboratingTenants() {
   const [tenants, setTenants] = useState<TenantDetails[]>([]);
@@ -151,8 +151,8 @@ export default function CollaboratingTenants() {
                                   <Text fontSize="xs" color="gray.500">
                                     Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
                                   </Text>
-                                  <Badge colorScheme={getTenantRoleColor(tenant.role)} fontSize="xs">
-                                    {getTenantRoleName(tenant.role)}
+                                  <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
+                                    {getRoleName(tenant.roleCode)}
                                   </Badge>
                                 </Stack>
                               </VStack>

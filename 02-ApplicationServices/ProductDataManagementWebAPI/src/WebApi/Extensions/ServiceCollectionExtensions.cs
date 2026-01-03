@@ -26,7 +26,6 @@ using Repositiories.Repository.Interfaces;
 using Repositiories.Repository.Repositories;
 using Repositories.Repository.Interfaces;
 using WebApi.Authorization;
-using WebApi.Constants;
 using WebApi.Services;
 
 namespace WebApi.Extensions
@@ -146,6 +145,7 @@ namespace WebApi.Extensions
         {
             services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(AppDomain.CurrentDomain.GetAssemblies()));
             return services;
@@ -227,6 +227,8 @@ namespace WebApi.Extensions
             services.AddScoped<IReadRepository<UserSession>, ReadRepository<UserSession>>();
             services.AddScoped<IReadRepository<TenantPreferencesProfile>, ReadRepository<TenantPreferencesProfile>>();
             services.AddScoped<IRepository<TenantPreferencesProfile>, Repository<TenantPreferencesProfile>>();
+            services.AddScoped<IReadRepository<PermissionsVersionProfile>, ReadRepository<PermissionsVersionProfile>>();
+            services.AddScoped<IRepository<PermissionsVersionProfile>, Repository<PermissionsVersionProfile>>();
             services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
             services.AddScoped<IReadRepository<Notification>, ReadRepository<Notification>>();
             services.AddScoped<IRepository<Notification>, Repository<Notification>>();
@@ -259,13 +261,23 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
             services.AddScoped<IReadRepository<CostEstimate>, ReadRepository<CostEstimate>>();
             services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
+            services.AddScoped<IReadRepository<Role>, ReadRepository<Role>>();
+            services.AddScoped<IRepository<Role>, Repository<Role>>();
+            services.AddScoped<IReadRepository<Permission>, ReadRepository<Permission>>();
+            services.AddScoped<IRepository<Permission>, Repository<Permission>>();
+            services.AddScoped<IRepository<RolePermission>, Repository<RolePermission>>();
             return services;
         }
 
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
             services.AddScoped<ICurrentUser, CurrentUser>();
-            services.AddScoped<IAccessService, AccessService>();
+            
+            // New permission-based services
+            services.AddSingleton<IUserContextCache, InMemoryUserContextCache>();
+            services.AddScoped<AccessService>();
+            services.AddScoped<PermissionsVersionService>();
+            
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
             services.AddScoped<IEmailSender, QueuedEmailSender>();
@@ -275,20 +287,21 @@ namespace WebApi.Extensions
             services.AddSingleton<IQueueStorageService, QueueStorageService>();
             services.AddHostedService<EmailWorker>();
 
-            services.AddSingleton<INotificationDispatcher, WebApi.Services.SignalRNotificationDispatcher>();
+            services.AddSingleton<INotificationDispatcher, SignalRNotificationDispatcher>();
             services.AddHostedService<NotificationWorker>();
             services.AddScoped<INotificationSender, QueuedNotificationSender>();
 
-            services.AddSingleton<INotificationMarkAsReadDispatcher, WebApi.Services.SignalRNotificationMarkAsReadDispatcher>();
+            services.AddSingleton<INotificationMarkAsReadDispatcher, SignalRNotificationMarkAsReadDispatcher>();
             services.AddHostedService<NotificationMarkAsReadWorker>();
             services.AddScoped<INotificationMarkAsReadSender, QueuedNotificationMarkAsReadSender>();
 
-            services.AddSingleton<IMessageDispatcher, WebApi.Services.SignalRMessageDispatcher>();
+            services.AddSingleton<IMessageDispatcher, SignalRMessageDispatcher>();
             services.AddHostedService<MessageWorker>();
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
 
             services.AddHostedService<StartupSeederService>();
+            services.AddHostedService<RolePermissionSeederService>();
 
             return services;
         }
@@ -375,23 +388,18 @@ namespace WebApi.Extensions
         {
             services.AddAuthorization(options =>
             {
-                options.AddPolicy(Policies.TenantAdmin, policy => policy.Requirements.Add(new TenantAdminRequirement()));
-                options.AddPolicy(Policies.TenantMember, policy => policy.Requirements.Add(new TenantMemberRequirement()));
-                options.AddPolicy(Policies.TenantAdminOrOwner, policy => policy.Requirements.Add(new TenantAdminOrOwnerRequirement()));
-                options.AddPolicy(Policies.ProjectAdmin, policy => policy.Requirements.Add(new ProjectAdminRequirement()));
-                options.AddPolicy(Policies.ProjectMember, policy => policy.Requirements.Add(new ProjectMemberRequirement()));
-                options.AddPolicy(Policies.ProjectMemberOrAdmin, policy => policy.Requirements.Add(new ProjectMemberOrAdminRequirement()));
-                options.AddPolicy(Policies.ProjectEditor, policy => policy.Requirements.Add(new ProjectEditorRequirement()));
-                options.AddPolicy(Policies.ProjectViewer, policy => policy.Requirements.Add(new ProjectViewerRequirement()));
+                // Auto-register all permission-based policies with their scopes
+                foreach (var permissionCode in PermissionCodes.All)
+                {
+                    var scope = PermissionScopes.Get(permissionCode);
+                    options.AddPolicy(permissionCode, policy =>
+                        policy.Requirements.Add(new PermissionRequirement(permissionCode, scope)));
+                }
             });
-            services.AddScoped<IAuthorizationHandler, TenantAdminHandler>();
-            services.AddScoped<IAuthorizationHandler, TenantMemberHandler>();
-            services.AddScoped<IAuthorizationHandler, TenantAdminOrOwnerHandler>();
-            services.AddScoped<IAuthorizationHandler, ProjectAdminHandler>();
-            services.AddScoped<IAuthorizationHandler, ProjectMemberHandler>();
-            services.AddScoped<IAuthorizationHandler, ProjectMemberOrAdminHandler>();
-            services.AddScoped<IAuthorizationHandler, ProjectEditorHandler>();
-            services.AddScoped<IAuthorizationHandler, ProjectViewerHandler>();
+
+            // Permission-based handler
+            services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
             return services;
         }
     }

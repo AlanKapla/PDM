@@ -30,24 +30,12 @@ import MainLayout from "../layout/MainLayout";
 import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
-import { TenantRole } from "../types/auth.types";
-import { ProjectRole } from "../types/project.types";
-import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import type { ProjectDetailsWeb } from "../types/project.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import { useModal } from "../hooks/useModal";
 import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
-
-interface ProjectDetailsWeb {
-  id: string;
-  tenantId: string;
-  name: string;
-  isActive: boolean;
-  createdAt: string;
-  createdByUserId: string;
-  createdByUserName: string;
-  userRole: number;
-  membersCount: number;
-}
 
 export default function Projects() {
   const location = useLocation();
@@ -56,12 +44,12 @@ export default function Projects() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTenantId, setActiveTenantId] = useState<string | null | undefined>(undefined);
-  const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
   
   const createModal = useModal();
   const { showSuccess, showError } = useToastNotification();
+  const permissions = useTenantPermissions();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -89,13 +77,6 @@ export default function Projects() {
           console.log("✅ Tenant aktywny - pobieram projekty");
           setActiveTenantId(activeTenantData.activeTenantId);
           
-          // Znajdź rolę użytkownika w aktywnym tenancie
-          const tenants = tenantsResponse.data;
-          const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
-          if (activeTenant) {
-            setUserTenantRole(activeTenant.role);
-          }
-          
           // Pobierz projekty
           try {
             const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
@@ -108,7 +89,6 @@ export default function Projects() {
           // Brak aktywnego tenanta
           console.log("❌ Brak aktywnego tenanta - NIE pobieram projektów");
           setActiveTenantId(null);
-          setUserTenantRole(null);
         }
       } catch (err) {
         console.error("Błąd pobierania danych:", err);
@@ -160,8 +140,6 @@ export default function Projects() {
     }
   };
 
-  const isAdmin = userTenantRole === TenantRole.Admin;
-
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
@@ -169,7 +147,7 @@ export default function Projects() {
           <Heading size={{ base: "lg", md: "xl" }}>
             Projekty
           </Heading>
-          {isAdmin && (
+          {permissions.canCreateProject && (
             <Button
               leftIcon={<Plus size={20} />}
               colorScheme="blue"
@@ -191,7 +169,7 @@ export default function Projects() {
             title="Nie masz jeszcze żadnych projektów"
             description="Stwórz swój pierwszy projekt, aby zacząć pracę"
             action={
-              userTenantRole === TenantRole.Admin && activeTenantId && (
+              permissions.canCreateProject && activeTenantId && (
                 <Button leftIcon={<Icon as={Plus} />} colorScheme="blue" onClick={createModal.onOpen}>
                   Utwórz projekt
                 </Button>
@@ -229,8 +207,8 @@ export default function Projects() {
                           <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="xs">
                             {project.isActive ? "Aktywny" : "Nieaktywny"}
                           </Badge>
-                          <Badge colorScheme={getProjectRoleColor(project.userRole)} fontSize="xs">
-                            {getProjectRoleName(project.userRole)}
+                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize="xs">
+                            {getRoleName(project.userRoleCode)}
                           </Badge>
                         </HStack>
                         <HStack spacing={4} fontSize="sm" color="gray.600">

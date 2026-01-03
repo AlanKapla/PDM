@@ -1,7 +1,7 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
-using Entities.Enums;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -34,7 +34,7 @@ namespace CQRS.Tenants.UpdateTenant
                 Id = tenant.Id,
                 Name = tenant.Name,
                 CreatedAt = tenant.CreatedAt,
-                Role = TenantRole.Admin
+                RoleCode = RoleCodes.TenantAdmin
             };
         }
     }

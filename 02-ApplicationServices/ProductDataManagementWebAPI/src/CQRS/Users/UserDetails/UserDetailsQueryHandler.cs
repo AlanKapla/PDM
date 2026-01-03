@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Users;
-using Entities.Enums;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -23,17 +23,45 @@ namespace CQRS.Users.UserDetails
 
         public async Task<UserDetailsWeb> Handle(UserDetailsQuery request, CancellationToken cancellationToken)
         {
-            var projectRoles = new Dictionary<Guid, ProjectRole>();
+            var projectRoleCodes = new Dictionary<Guid, string>();
+            var projectPermissions = new Dictionary<Guid, HashSet<string>>();
+            var activeTenantPermissions = new HashSet<string>();
 
-            if (currentUser.IsAuthenticated && currentUser.ActiveTenantId.HasValue)
+            if (currentUser.IsAuthenticated)
             {
-                var projectMemberships = await projectMemberRepo.GetBySearch(
-                    pm => pm.UserId == currentUser.Id && 
-                          pm.TenantId == currentUser.ActiveTenantId.Value &&
-                          pm.Project.IsActive,
-                    include => include.Include(pm => pm.Project));
+                // Get active tenant permissions
+                if (currentUser.ActiveTenantId.HasValue)
+                {
+                    var tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
+                    if (tenantSnapshot != null)
+                    {
+                        activeTenantPermissions = tenantSnapshot.TenantPermissionCodes;
+                    }
 
-                projectRoles = projectMemberships.ToDictionary(pm => pm.ProjectId, pm => pm.Role);
+                    // Get project memberships with permissions
+                    var projectMemberships = await projectMemberRepo.GetBySearch(
+                        pm => pm.UserId == currentUser.Id && 
+                              pm.TenantId == currentUser.ActiveTenantId.Value &&
+                              pm.Project.IsActive,
+                        include => include.Include(pm => pm.Project).Include(pm => pm.MemberRole));
+
+                    foreach (var pm in projectMemberships)
+                    {
+                        // Store role code
+                        projectRoleCodes[pm.ProjectId] = pm.MemberRole?.Code ?? RoleCodes.ProjectMember;
+
+                        // Get project permissions snapshot
+                        var projectSnapshot = await currentUser.GetProjectSnapshotAsync(pm.ProjectId, cancellationToken);
+                        if (projectSnapshot != null)
+                        {
+                            projectPermissions[pm.ProjectId] = projectSnapshot.ProjectPermissionCodes;
+                        }
+                        else
+                        {
+                            projectPermissions[pm.ProjectId] = new HashSet<string>();
+                        }
+                    }
+                }
             }
 
             return new UserDetailsWeb(
@@ -42,7 +70,9 @@ namespace CQRS.Users.UserDetails
                 currentUser.LastName, 
                 currentUser.Email, 
                 currentUser.ActiveTenantId,
-                projectRoles);
+                activeTenantPermissions,
+                projectRoleCodes,
+                projectPermissions);
         }
     }
 }

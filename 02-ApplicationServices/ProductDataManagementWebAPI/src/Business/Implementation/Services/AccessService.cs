@@ -1,308 +1,263 @@
-﻿using Business.Interfaces.Model;
-using Business.Interfaces.Services;
-using Entities.Enums;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
 using Entities.Models;
-using Microsoft.AspNetCore.Http;
-using Repositories.Repository.Interfaces;
+using Microsoft.Extensions.Logging;
+using Repositiories.Repository.Interfaces;
 
-namespace Business.Implementation.Services
+namespace Business.Implementation.Services;
+
+public sealed class AccessService
 {
-    public class AccessService : IAccessService
+    private readonly ILogger<AccessService> logger;
+    private readonly IReadRepository<Tenant> tenantRepo;
+    private readonly IReadRepository<Project> projectRepo;
+
+    public AccessService(
+        ILogger<AccessService> logger,
+        IReadRepository<Tenant> tenantRepo,
+        IReadRepository<Project> projectRepo)
     {
-        private readonly ICurrentUser currentUser;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IRepository<ProjectFile> projectFileRepo;
-        private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
+        this.logger = logger;
+        this.tenantRepo = tenantRepo;
+        this.projectRepo = projectRepo;
+    }
 
-        public AccessService(
-            ICurrentUser currentUser,
-            IRepository<TenantMember> tenantMemberRepo,
-            IRepository<ProjectMember> projectMemberRepo,
-            IRepository<ProjectFile> projectFileRepo,
-            IRepository<SharedProjectFile> sharedProjectFileRepo)
+    public async Task<bool> AuthorizeAsync(
+        ICurrentUser user,
+        string permissionCode,
+        ResourceRef resource,
+        CancellationToken cancellationToken = default)
+    {
+        if (!user.IsAuthenticated)
         {
-            this.currentUser = currentUser;
-            this.tenantMemberRepo = tenantMemberRepo;
-            this.projectMemberRepo = projectMemberRepo;
-            this.projectFileRepo = projectFileRepo;
-            this.sharedProjectFileRepo = sharedProjectFileRepo;
+            logger.LogWarning("Authorization failed: User not authenticated");
+            return false;
         }
 
-        public bool IsActiveTenant(Guid tenantId)
+        var scope = PermissionScopes.Get(permissionCode);
+
+        // SuperAdmin bypass (but still needs ActiveTenantId if scope requires it)
+        if (user.IsSuperAdmin)
         {
-            if (!IsUserAuthenticated())
+            if (RequiresActiveTenantId(scope) && !user.ActiveTenantId.HasValue)
             {
+                logger.LogWarning(
+                    "Authorization failed: SuperAdmin missing ActiveTenantId for permission {Permission} with scope {Scope}", 
+                    permissionCode, 
+                    scope);
+                return false;
+            }
+            
+            logger.LogDebug("Authorization granted: SuperAdmin bypass for {Permission} (scope: {Scope})", permissionCode, scope);
+            return true;
+        }
+
+        // Handle Global scope permissions
+        if (scope == PermissionScope.Global)
+        {
+            return await AuthorizeGlobalPermissionAsync(user, permissionCode, cancellationToken);
+        }
+
+        // For non-global scopes, ActiveTenantId is required
+        if (!user.ActiveTenantId.HasValue)
+        {
+            logger.LogWarning(
+                "Authorization failed: ActiveTenantId required for permission {Permission} with scope {Scope}", 
+                permissionCode, 
+                scope);
+            return false;
+        }
+
+        // Validate ActiveTenantId matches resource TenantId (if resource has TenantId set)
+        if (resource.TenantId != Guid.Empty && user.ActiveTenantId.Value != resource.TenantId)
+        {
+            logger.LogWarning(
+                "Authorization failed: ActiveTenantId {ActiveTenantId} does not match resource TenantId {ResourceTenantId}",
+                user.ActiveTenantId.Value,
+                resource.TenantId);
+            return false;
+        }
+
+        // Get appropriate context snapshot
+        if (resource.ProjectId.HasValue || scope == PermissionScope.Project)
+        {
+            return await AuthorizeProjectPermissionAsync(user, permissionCode, resource, cancellationToken);
+        }
+        else
+        {
+            return await AuthorizeTenantPermissionAsync(user, permissionCode, resource, cancellationToken);
+        }
+    }
+
+    private Task<bool> AuthorizeGlobalPermissionAsync(
+        ICurrentUser user,
+        string permissionCode,
+        CancellationToken cancellationToken)
+    {
+        // For global permissions, we check if user has the permission in ANY of their tenants
+        // This is used for operations like listing available tenants
+        
+        // For TENANT.LIST.AVAILABLE, any authenticated user should have access
+        if (permissionCode == PermissionCodes.TenantListAvailable)
+        {
+            logger.LogDebug(
+                "Authorization granted: User {UserId} has global permission {Permission}",
+                user.Id,
+                permissionCode);
+            return Task.FromResult(true);
+        }
+
+        // For other global permissions, check if user has it in any tenant context
+        // This would require loading user's tenant memberships
+        logger.LogWarning(
+            "Authorization failed: Global permission {Permission} not implemented for user {UserId}",
+            permissionCode,
+            user.Id);
+        return Task.FromResult(false);
+    }
+
+    private async Task<bool> AuthorizeTenantPermissionAsync(
+        ICurrentUser user,
+        string permissionCode,
+        ResourceRef resource,
+        CancellationToken cancellationToken)
+    {
+        var tenantSnapshot = await user.GetActiveTenantSnapshotAsync(cancellationToken);
+        
+        if (tenantSnapshot == null)
+        {
+            logger.LogWarning("Authorization failed: User {UserId} has no tenant context", user.Id);
+            return false;
+        }
+
+        // Check if user has permission
+        if (!tenantSnapshot.TenantPermissionCodes.Contains(permissionCode))
+        {
+            logger.LogWarning(
+                "Authorization failed: User {UserId} lacks permission {Permission} in tenant {TenantId}",
+                user.Id,
+                permissionCode,
+                resource.TenantId);
+            return false;
+        }
+
+        // Determine which tenantId to check (from resource or from user's active tenant)
+        var tenantIdToCheck = resource.TenantId != Guid.Empty ? resource.TenantId : user.ActiveTenantId!.Value;
+
+        // Check Tenant.IsActive (only for non-admin members)
+        if (!tenantSnapshot.IsTenantAdmin)
+        {
+            var tenant = await tenantRepo.GetFirstBySearch(
+                t => t.Id == tenantIdToCheck,
+                cancellationToken);
+
+            if (tenant == null)
+            {
+                logger.LogWarning("Authorization failed: Tenant {TenantId} not found", tenantIdToCheck);
                 return false;
             }
 
-            return currentUser.ActiveTenantId.HasValue && currentUser.ActiveTenantId.Value == tenantId;
-        }
-
-        public async Task<bool> IsTenantMemberAsync(Guid tenantId, CancellationToken cancellationToken = default)
-        {
-            if (!ValidateUserAndTenant(tenantId))
+            if (!tenant.IsActive)
             {
+                logger.LogWarning(
+                    "Authorization failed: Tenant {TenantId} is inactive and user is not admin",
+                    tenant.Id);
                 return false;
             }
-
-            var membership = await GetTenantMembershipAsync(tenantId);
-            return membership != null;
         }
 
-        public async Task<bool> IsTenantAdminAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        logger.LogDebug(
+            "Authorization granted: User {UserId} has permission {Permission} in tenant {TenantId}",
+            user.Id,
+            permissionCode,
+            tenantIdToCheck);
+        
+        return true;
+    }
+
+    private async Task<bool> AuthorizeProjectPermissionAsync(
+        ICurrentUser user,
+        string permissionCode,
+        ResourceRef resource,
+        CancellationToken cancellationToken)
+    {
+        if (!resource.ProjectId.HasValue)
         {
-            if (!ValidateUserAndTenant(tenantId))
+            logger.LogWarning("Authorization failed: ProjectId is required but was null");
+            return false;
+        }
+
+        var projectSnapshot = await user.GetProjectSnapshotAsync(resource.ProjectId.Value, cancellationToken);
+        
+        if (projectSnapshot == null)
+        {
+            // User might still have tenant-level permission
+            var tenantSnapshot = await user.GetActiveTenantSnapshotAsync(cancellationToken);
+            
+            if (tenantSnapshot != null && tenantSnapshot.IsTenantAdmin && tenantSnapshot.TenantPermissionCodes.Contains(permissionCode))
             {
+                logger.LogDebug(
+                    "Authorization granted: User {UserId} has tenant admin permission {Permission}",
+                    user.Id,
+                    permissionCode);
+                return await CheckProjectActiveAsync(resource.ProjectId.Value, false, cancellationToken);
+            }
+
+            logger.LogWarning("Authorization failed: User {UserId} has no project context for {ProjectId}", user.Id, resource.ProjectId.Value);
+            return false;
+        }
+
+        // Check if user has permission
+        if (!projectSnapshot.ProjectPermissionCodes.Contains(permissionCode))
+        {
+            logger.LogWarning(
+                "Authorization failed: User {UserId} lacks permission {Permission} in project {ProjectId}",
+                user.Id,
+                permissionCode,
+                resource.ProjectId.Value);
+            return false;
+        }
+
+        // Check Project.IsActive (only for non-admin members)
+        if (!projectSnapshot.IsProjectAdmin)
+        {
+            var isActive = await CheckProjectActiveAsync(resource.ProjectId.Value, true, cancellationToken);
+            
+            if (!isActive)
+            {
+                logger.LogWarning(
+                    "Authorization failed: Project {ProjectId} is inactive and user is not admin",
+                    resource.ProjectId.Value);
                 return false;
             }
-
-            var membership = await tenantMemberRepo.GetFirstBySearch(
-                m => m.TenantId == tenantId &&
-                     m.UserId == currentUser.Id &&
-                     m.IsActive &&
-                     m.Role == TenantRole.Admin);
-
-            return membership != null;
         }
 
-        public async Task<bool> IsTenantAdminOrOwnerAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        logger.LogDebug(
+            "Authorization granted: User {UserId} has permission {Permission} in project {ProjectId}",
+            user.Id,
+            permissionCode,
+            resource.ProjectId.Value);
+        
+        return true;
+    }
+
+    private async Task<bool> CheckProjectActiveAsync(Guid projectId, bool required, CancellationToken cancellationToken)
+    {
+        var project = await projectRepo.GetFirstBySearch(
+            p => p.Id == projectId,
+            cancellationToken);
+
+        if (project == null)
         {
-            // Special case: Does NOT validate ActiveTenantId
-            // Allows managing ALL tenants where user is admin, including inactive ones
-            if (!IsUserAuthenticated())
-            {
-                return false;
-            }
-
-            var membership = await tenantMemberRepo.GetFirstBySearch(
-                m => m.TenantId == tenantId &&
-                     m.UserId == currentUser.Id &&
-                     m.IsActive &&
-                     m.Role == TenantRole.Admin);
-
-            return membership != null;
+            logger.LogWarning("Project {ProjectId} not found", projectId);
+            return false;
         }
 
-        public async Task<bool> IsProjectMemberAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken = default)
-        {
-            if (!ValidateUserAndTenant(tenantId))
-            {
-                return false;
-            }
+        return !required || project.IsActive;
+    }
 
-            if (!await HasTenantMembershipAsync(tenantId))
-            {
-                return false;
-            }
-
-            var projectMembership = await GetProjectMembershipAsync(tenantId, projectId);
-            return projectMembership != null;
-        }
-
-        public async Task<bool> IsProjectAdminAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken = default)
-        {
-            if (!ValidateUserAndTenant(tenantId))
-            {
-                return false;
-            }
-
-            if (!await HasTenantMembershipAsync(tenantId))
-            {
-                return false;
-            }
-
-            var projectMembership = await projectMemberRepo.GetFirstBySearch(
-                pm => pm.TenantId == tenantId &&
-                      pm.ProjectId == projectId &&
-                      pm.UserId == currentUser.Id &&
-                      pm.Role == ProjectRole.Admin);
-
-            return projectMembership != null;
-        }
-
-        public async Task<bool> IsProjectMemberOrAdminAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken = default)
-        {
-            if (!ValidateUserAndTenant(tenantId))
-            {
-                return false;
-            }
-
-            // Check if user is tenant admin
-            if (await IsProjectAdminAsync(tenantId, projectId, cancellationToken))
-            {
-                return true;
-            }
-
-            // Check if user is project member
-            return await IsProjectMemberAsync(tenantId, projectId, cancellationToken);
-        }
-
-        public async Task<ProjectRole?> GetProjectRoleAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken = default)
-        {
-            if (!ValidateUserAndTenant(tenantId))
-            {
-                return null;
-            }
-
-            var projectMembership = await GetProjectMembershipAsync(tenantId, projectId);
-            return projectMembership?.Role;
-        }
-
-        public async Task<bool> HasProjectRoleAtLeastAsync(Guid tenantId, Guid projectId, ProjectRole minimumRole, CancellationToken cancellationToken = default)
-        {
-            bool isProjectAdmin = await IsProjectAdminAsync(tenantId, projectId, cancellationToken);
-            bool isTenantAdmin = await IsTenantAdminAsync(tenantId, cancellationToken);
-
-            if (isTenantAdmin || isProjectAdmin)
-            {
-                return true;
-            }
-
-            var currentRole = await GetProjectRoleAsync(tenantId, projectId, cancellationToken);
-
-            if (!currentRole.HasValue)
-            {
-                return false;
-            }
-
-            return GetRoleLevel(currentRole.Value) <= GetRoleLevel(minimumRole);
-        }
-
-        public async Task<bool> CanEditProjectAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken = default)
-        {
-            return await HasProjectRoleAtLeastAsync(tenantId, projectId, ProjectRole.Editor, cancellationToken);
-        }
-
-        public async Task<bool> CanEditProjectFileAsync(Guid tenantId, Guid projectId, Guid fileId, CancellationToken cancellationToken = default)
-        {
-            // First check if user has Editor/Admin role in the project
-            if (!await CanEditProjectAsync(tenantId, projectId, cancellationToken))
-            {
-                return false;
-            }
-
-            // Check if user owns the file
-            var file = await projectFileRepo.GetFirstBySearch(
-                f => f.Id == fileId &&
-                     f.TenantId == tenantId &&
-                     f.ProjectId == projectId &&
-                     !f.IsDeleted);
-
-            if (file == null)
-            {
-                return false;
-            }
-
-            // User owns the file
-            if (file.OwnerId == currentUser.Id)
-            {
-                return true;
-            }
-
-            // Check if file is shared with the user
-            var sharedFile = await sharedProjectFileRepo.GetFirstBySearch(
-                sf => sf.ProjectFileId == fileId &&
-                      sf.TenantId == tenantId &&
-                      sf.ProjectId == projectId &&
-                      sf.SharedWithUserId == currentUser.Id);
-
-            return sharedFile != null;
-        }
-
-        public (Guid TenantId, Guid ProjectId) GetRouteIds(object? httpContextResource)
-        {
-            if (httpContextResource is not HttpContext httpContext)
-            {
-                return (Guid.Empty, Guid.Empty);
-            }
-
-            Guid tenantId = Guid.Empty;
-            Guid projectId = Guid.Empty;
-
-            if (httpContext.Request.RouteValues.TryGetValue("tenantId", out var rawTenantId) &&
-                rawTenantId is string tenantString &&
-                Guid.TryParse(tenantString, out var parsedTenantId))
-            {
-                tenantId = parsedTenantId;
-            }
-
-            if (httpContext.Request.RouteValues.TryGetValue("projectId", out var rawProjectId) &&
-                rawProjectId is string projectString &&
-                Guid.TryParse(projectString, out var parsedProjectId))
-            {
-                projectId = parsedProjectId;
-            }
-
-            return (tenantId, projectId);
-        }
-
-        public Guid GetRouteTenantId(object? httpContextResource)
-        {
-            if (httpContextResource is not HttpContext httpContext)
-            {
-                return Guid.Empty;
-            }
-
-            if (httpContext.Request.RouteValues.TryGetValue("tenantId", out var rawTenantId) &&
-                rawTenantId is string tenantString &&
-                Guid.TryParse(tenantString, out var parsedTenantId))
-            {
-                return parsedTenantId;
-            }
-
-            return Guid.Empty;
-        }
-
-        public bool IsUserAuthenticated()
-        {
-            return currentUser.IsAuthenticated && currentUser.Id != Guid.Empty;
-        }
-
-        public bool HasActiveTenant()
-        {
-            return currentUser.ActiveTenantId.HasValue;
-        }
-
-        private bool ValidateUserAndTenant(Guid tenantId)
-        {
-            return IsUserAuthenticated() && IsActiveTenant(tenantId);
-        }
-
-        private async Task<TenantMember?> GetTenantMembershipAsync(Guid tenantId)
-        {
-            return await tenantMemberRepo.GetFirstBySearch(
-                m => m.TenantId == tenantId &&
-                     m.UserId == currentUser.Id &&
-                     m.IsActive &&
-                     m.Tenant.IsActive);
-        }
-
-        private async Task<bool> HasTenantMembershipAsync(Guid tenantId)
-        {
-            var membership = await GetTenantMembershipAsync(tenantId);
-            return membership != null;
-        }
-
-        private async Task<ProjectMember?> GetProjectMembershipAsync(Guid tenantId, Guid projectId)
-        {
-            return await projectMemberRepo.GetFirstBySearch(
-                pm => pm.TenantId == tenantId &&
-                      pm.ProjectId == projectId &&
-                      pm.UserId == currentUser.Id &&
-                      pm.Project.IsActive);
-        }
-
-        private static int GetRoleLevel(ProjectRole role)
-        {
-            return role switch
-            {
-                ProjectRole.Admin => 0,
-                ProjectRole.Editor => 1,
-                ProjectRole.Viewer => 2,
-                ProjectRole.Member => 3,
-                _ => int.MaxValue
-            };
-        }
+    private static bool RequiresActiveTenantId(PermissionScope scope)
+    {
+        return scope != PermissionScope.Global;
     }
 }

@@ -1,7 +1,9 @@
 ﻿using Business.Interfaces.Model;
+using CQRS.Extensions;
 using Entities.Enums;
 using Entities.Models;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
@@ -61,12 +63,13 @@ namespace CQRS.Files.DeleteProjectFile
                     var membership = await projectMemberRepo.GetFirstBySearch(
                         pm => pm.ProjectId == command.ProjectId &&
                               pm.TenantId == command.TenantId &&
-                              pm.UserId == currentUser.Id);
+                              pm.UserId == currentUser.Id,
+                        include => include.Include(pm => pm.MemberRole));
 
                     if (membership == null) return false;
 
                     bool isFileOwner = file.OwnerId == currentUser.Id;
-                    bool isProjectAdmin = membership.Role == ProjectRole.Admin;
+                    bool isProjectAdmin = membership.MemberRole?.Code.IsProjectAdmin() == true;
 
                     return isFileOwner || isProjectAdmin;
                 })

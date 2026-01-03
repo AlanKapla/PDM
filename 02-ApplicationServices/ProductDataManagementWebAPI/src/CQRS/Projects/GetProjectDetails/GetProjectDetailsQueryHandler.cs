@@ -1,6 +1,7 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
-using Entities.Enums;
+using CQRS.Extensions;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -32,10 +33,11 @@ namespace CQRS.Projects.GetProjectDetails
                 pm => pm.TenantId == request.TenantId 
                     && pm.ProjectId == request.ProjectId 
                     && pm.UserId == currentUser.Id
-                    && (pm.Role == ProjectRole.Admin || pm.Project.IsActive),
+                    && (pm.MemberRole!.Code == RoleCodes.ProjectAdmin || pm.Project.IsActive),
                 include => include.Include(pm => pm.Project)
                                  .ThenInclude(p => p.CreatedBy)
                                  .ThenInclude(cb => cb.User)
+                                 .Include(pm => pm.MemberRole)
             );
 
             ProjectMember projectMember = projectMembers.First();
@@ -52,7 +54,7 @@ namespace CQRS.Projects.GetProjectDetails
                 CreatedAt: project.CreatedAt,
                 CreatedByUserId: project.CreatedByUserId,
                 CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
-                UserRole: projectMember.Role,
+                UserRoleCode: projectMember.MemberRole?.Code ?? RoleCodes.ProjectMember,
                 MembersCount: membersCount.Count()
             );
 

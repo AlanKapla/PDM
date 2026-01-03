@@ -30,8 +30,6 @@ namespace Entities.Configurations
         {
             builder.HasKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId});
 
-            builder.Property(p => p.Role).HasConversion<string>();
-
             builder.HasOne(pm => pm.Project)
                    .WithMany(p => p.Members)
                    .HasForeignKey(pm => pm.ProjectId)
@@ -41,6 +39,11 @@ namespace Entities.Configurations
                    .WithMany(u => u.ProjectMembers)
                    .HasForeignKey(a => new { a.TenantId, a.UserId})
                    .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(pm => pm.MemberRole)
+                   .WithMany()
+                   .HasForeignKey(pm => pm.RoleId)
+                   .OnDelete(DeleteBehavior.SetNull);
         }
     }
 

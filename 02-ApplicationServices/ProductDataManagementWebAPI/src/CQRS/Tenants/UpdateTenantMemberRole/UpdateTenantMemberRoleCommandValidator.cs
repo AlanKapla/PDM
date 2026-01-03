@@ -12,15 +12,18 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
     {
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
+        private readonly IReadRepository<Role> roleRepo;
         private readonly ICurrentUser currentUser;
 
         public UpdateTenantMemberRoleCommandValidator(
             IReadRepository<Tenant> tenantRepo,
             IRepository<TenantMember> tenantMemberRepo,
+            IReadRepository<Role> roleRepo,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.tenantMemberRepo = tenantMemberRepo;
+            this.roleRepo = roleRepo;
             this.currentUser = currentUser;
 
             RuleFor(x => x.TenantId)
@@ -31,9 +34,11 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                 .NotEmpty()
                 .WithMessage("UserId is required");
 
-            RuleFor(x => x.Role)
-                .IsInEnum()
-                .WithMessage("Invalid role value");
+            RuleFor(x => x.RoleId)
+                .NotEmpty()
+                .WithMessage("RoleId is required")
+                .MustAsync(RoleExistsAndIsTenantScope)
+                .WithMessage("Role not found or is not a Tenant-scoped role");
 
             RuleFor(x => x.TenantId)
                 .MustAsync(TenantExists)
@@ -46,6 +51,15 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
             RuleFor(x => x.UserId)
                 .Must(x => x != currentUser.Id)
                 .WithMessage("Cannot change your own role");
+        }
+
+        private async Task<bool> RoleExistsAndIsTenantScope(Guid roleId, CancellationToken cancellationToken)
+        {
+            Role? role = await roleRepo.GetFirstBySearch(
+                r => r.Id == roleId && r.Scope == RoleScope.Tenant && r.IsActive,
+                cancellationToken);
+
+            return role is not null;
         }
 
         private async Task<bool> TenantExists(Guid tenantId, CancellationToken cancellationToken)

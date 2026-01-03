@@ -1,11 +1,11 @@
-﻿using CQRS.WorkSchedules.CreateWorkSchedule;
+﻿using Business.Interfaces.Constants;
+using CQRS.WorkSchedules.CreateWorkSchedule;
 using CQRS.WorkSchedules.GetUserWorkSchedules;
 using CQRS.WorkSchedules.GetWorkSchedule;
 using CQRS.WorkSchedules.UpdateWorkSchedule;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using WebApi.Constants;
 using CQRS.WorkSchedules.GetUserAssignedWorks;
 
 namespace WebApi.Controllers
@@ -25,7 +25,7 @@ namespace WebApi.Controllers
         /// <param name="command">The work schedule creation details</param>
         /// <returns>The created work schedule with all stages and works</returns>
         [HttpPost]
-        [Authorize(Policy = Policies.ProjectEditor)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         public async Task<IActionResult> CreateWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -45,7 +45,7 @@ namespace WebApi.Controllers
         /// <param name="command">The work schedule update details</param>
         /// <returns>The updated work schedule with all stages and works</returns>
         [HttpPut("{workScheduleId}")]
-        [Authorize(Policy = Policies.ProjectEditor)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         public async Task<IActionResult> UpdateWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -64,7 +64,7 @@ namespace WebApi.Controllers
         /// <param name="projectId">The project ID</param>
         /// <returns>List of work schedules created by the current user</returns>
         [HttpGet("my")]
-        [Authorize(Policy = Policies.ProjectEditor)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         public async Task<IActionResult> GetMyWorkSchedules(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -82,7 +82,7 @@ namespace WebApi.Controllers
         /// <param name="workScheduleId">The work schedule ID</param>
         /// <returns>The work schedule with all details</returns>
         [HttpGet("{workScheduleId}")]
-        [Authorize(Policy = Policies.ProjectEditor)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesRead)]
         public async Task<IActionResult> GetWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -100,7 +100,7 @@ namespace WebApi.Controllers
         /// <param name="tenantId">The active tenant ID</param>
         /// <returns>Hierarchically grouped assigned works with periods</returns>
         [HttpGet("~/api/tenants/{tenantId}/my-assigned-works")]
-        [Authorize(Policy = Policies.TenantMember)]
+        [Authorize(Policy = PermissionCodes.TenantView)]
         public async Task<IActionResult> GetMyAssignedWorks([FromRoute] Guid tenantId)
         {
             var query = new GetUserAssignedWorksQuery(tenantId);

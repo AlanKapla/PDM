@@ -1,7 +1,5 @@
-﻿using Business.Interfaces.Exceptions;
-using Business.Interfaces.Model;
-using Business.Interfaces.Services;
-using Entities.Enums;
+﻿using Business.Interfaces.Model;
+using CQRS.Extensions;
 using Entities.Models;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -14,20 +12,17 @@ namespace CQRS.CostEstimates.CopyCostEstimate
         private readonly IRepository<CostEstimate> costEstimateRepo;
         private readonly IRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IAccessService accessService;
         private readonly ICurrentUser currentUser;
 
         public CopyCostEstimateCommandValidator(
             IRepository<CostEstimate> costEstimateRepo,
             IRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IAccessService accessService,
             ICurrentUser currentUser)
         {
             this.costEstimateRepo = costEstimateRepo;
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.accessService = accessService;
             this.currentUser = currentUser;
 
             RuleFor(x => x.TenantId)
@@ -80,7 +75,8 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         return true;
 
                     // Check if user is tenant admin
-                    bool isTenantAdmin = await accessService.IsTenantAdminAsync(command.TenantId, cancellationToken);
+                    var tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
+                    bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
 
                     if (isTenantAdmin)
                     {
@@ -100,7 +96,7 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         pm => pm.TenantId == command.TenantId
                             && command.TargetProjectIds.Contains(pm.ProjectId)
                             && pm.UserId == currentUser.Id,
-                        q => q.Include(pm => pm.Project));
+                        q => q.Include(pm => pm.Project).Include(pm => pm.MemberRole));
 
                     var membershipsList = userProjectMemberships.ToList();
 
@@ -118,7 +114,7 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         if (!project.IsActive)
                         {
                             // Inactive project - only project admin can copy
-                            if (membership.Role != ProjectRole.Admin)
+                            if (membership.MemberRole?.Code.IsProjectAdmin() != true)
                             {
                                 return false;
                             }
@@ -126,7 +122,7 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         else
                         {
                             // Active project - editor or admin can copy
-                            if (membership.Role != ProjectRole.Editor && membership.Role != ProjectRole.Admin)
+                            if (membership.MemberRole?.Code.IsProjectAdminOrEditor() != true)
                             {
                                 return false;
                             }

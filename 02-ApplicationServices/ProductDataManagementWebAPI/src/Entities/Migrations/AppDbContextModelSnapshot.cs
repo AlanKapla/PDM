@@ -301,6 +301,58 @@ namespace Entities.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("Entities.Models.Permission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsBuiltIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Scope");
+
+                    b.ToTable("Permissions");
+                });
+
             modelBuilder.Entity("Entities.Models.Project", b =>
                 {
                     b.Property<Guid>("Id")
@@ -698,15 +750,89 @@ namespace Entities.Migrations
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("RoleId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("TenantId", "ProjectId", "UserId");
+
+                    b.HasIndex("RoleId");
 
                     b.HasIndex("TenantId", "UserId");
 
                     b.ToTable("ProjectMembers");
+                });
+
+            modelBuilder.Entity("Entities.Models.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsBuiltIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Scope");
+
+                    b.HasIndex("Scope", "Code")
+                        .IsUnique();
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("Entities.Models.RolePermission", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PermissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("RoleId", "PermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("RolePermissions");
                 });
 
             modelBuilder.Entity("Entities.Models.SharedProjectCost", b =>
@@ -869,11 +995,12 @@ namespace Entities.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("RoleId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("TenantId", "UserId");
+
+                    b.HasIndex("RoleId");
 
                     b.HasIndex("UserId");
 
@@ -1137,6 +1264,16 @@ namespace Entities.Migrations
                     b.HasIndex("WorkScheduleStageWorkId", "CreatedAt");
 
                     b.ToTable("WorkScheduleStageWorkComments");
+                });
+
+            modelBuilder.Entity("Entities.Models.PermissionsVersionProfile", b =>
+                {
+                    b.HasBaseType("Entities.Models.UserProfileBase");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasDiscriminator().HasValue("PermissionsVersion");
                 });
 
             modelBuilder.Entity("Entities.Models.TenantPreferencesProfile", b =>
@@ -1477,15 +1614,41 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Entities.Models.Role", "MemberRole")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Entities.Models.TenantMember", "TenantMember")
                         .WithMany("ProjectMembers")
                         .HasForeignKey("TenantId", "UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("MemberRole");
+
                     b.Navigation("Project");
 
                     b.Navigation("TenantMember");
+                });
+
+            modelBuilder.Entity("Entities.Models.RolePermission", b =>
+                {
+                    b.HasOne("Entities.Models.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.Role", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("Entities.Models.SharedProjectCost", b =>
@@ -1579,6 +1742,11 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.TenantMember", b =>
                 {
+                    b.HasOne("Entities.Models.Role", "MemberRole")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Entities.Models.Tenant", "Tenant")
                         .WithMany("Members")
                         .HasForeignKey("TenantId")
@@ -1590,6 +1758,8 @@ namespace Entities.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("MemberRole");
 
                     b.Navigation("Tenant");
 
@@ -1738,6 +1908,11 @@ namespace Entities.Migrations
                     b.Navigation("Messages");
                 });
 
+            modelBuilder.Entity("Entities.Models.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
             modelBuilder.Entity("Entities.Models.Project", b =>
                 {
                     b.Navigation("Groups");
@@ -1775,6 +1950,11 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.ProjectMember", b =>
                 {
                     b.Navigation("ProjectGroupMembers");
+                });
+
+            modelBuilder.Entity("Entities.Models.Role", b =>
+                {
+                    b.Navigation("RolePermissions");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenant", b =>

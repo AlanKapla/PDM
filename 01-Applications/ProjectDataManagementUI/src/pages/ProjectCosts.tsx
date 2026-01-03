@@ -36,7 +36,7 @@ import { formatDate } from "../utils/formatters";
 import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
 import CopyCostEstimateModal from "../components/CopyCostEstimateModal";
 import type { CostEstimateListItem, CostEstimateStatus } from "../types/costEstimate.types";
-import { canEditProject, canViewProject } from "../types/project.types";
+import { useProjectPermissions } from "../hooks/useProjectPermissions";
 
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
   [0]: "Szkic",
@@ -79,8 +79,7 @@ export default function ProjectCosts() {
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
 
-  const userCanEdit = canEditProject(project?.userRole);
-  const userCanView = canViewProject(project?.userRole);
+  const permissions = useProjectPermissions(projectId);
 
   useEffect(() => {
     fetchData();
@@ -176,7 +175,7 @@ export default function ProjectCosts() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {userCanEdit && (
+          {permissions.canWriteResources && (
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="blue"
@@ -187,7 +186,7 @@ export default function ProjectCosts() {
           )}
         </HStack>
 
-        {!project || !userCanView ? (
+        {!project || !permissions.canReadResources ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={FileText}
@@ -198,7 +197,7 @@ export default function ProjectCosts() {
         ) : (
         <Tabs colorScheme="blue" variant="enclosed">
           <TabList>
-            {userCanEdit && (
+            {permissions.canWriteResources && (
               <Tab fontWeight="bold">
                 <HStack spacing={2}>
                   <Icon as={FileText} boxSize={4} />
@@ -207,7 +206,7 @@ export default function ProjectCosts() {
                 </HStack>
               </Tab>
             )}
-            {userCanView && (
+            {permissions.canReadResources && (
               <Tab fontWeight="bold">
                 <HStack spacing={2}>
                   <Icon as={FileText} boxSize={4} />
@@ -220,7 +219,7 @@ export default function ProjectCosts() {
 
           <TabPanels>
             {/* TAB 1: MOJE KOSZTORYSY */}
-            {userCanEdit && (
+            {permissions.canWriteResources && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -322,7 +321,7 @@ export default function ProjectCosts() {
             )}
 
             {/* TAB 2: UDOSTĘPNIONE KOSZTORYSY */}
-            {userCanView && (
+            {permissions.canReadResources && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">

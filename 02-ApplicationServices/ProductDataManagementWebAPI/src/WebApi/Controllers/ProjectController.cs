@@ -1,4 +1,5 @@
-﻿using CQRS.Projects.AddProjectMember;
+﻿using Business.Interfaces.Constants;
+using CQRS.Projects.AddProjectMember;
 using CQRS.Projects.CreateProject;
 using CQRS.Projects.GetProjectDetails;
 using CQRS.Projects.GetProjectMembers;
@@ -8,12 +9,9 @@ using CQRS.Projects.RemoveProjectMember;
 using CQRS.Projects.ToggleProjectStatus;
 using CQRS.Projects.UpdateProject;
 using CQRS.Projects.UpdateProjectMemberRole;
-using Entities.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using WebApi.Constants;
-using Business.Interfaces.Helpers;
 
 namespace WebApi.Controllers
 {
@@ -22,7 +20,7 @@ namespace WebApi.Controllers
     public class ProjectController(IMediator mediator) : BaseApiController(mediator)
     {
         [HttpGet]
-        [Authorize(Policy = Policies.TenantMember)]
+        [Authorize(Policy = PermissionCodes.TenantView)]
         public async Task<IActionResult> GetTenantProjects([FromRoute] Guid tenantId)
         {
             var query = new GetTenantProjectsQuery(tenantId);
@@ -30,16 +28,8 @@ namespace WebApi.Controllers
             return Ok(result);
         }
 
-        /// <summary>
-        /// Get projects dictionary (Id => Name)
-        /// Tenant admins see all projects (including inactive with [Nieaktywny] suffix)
-        /// Project admins see their projects (active and inactive)
-        /// Project editors see only active projects where they have Editor role
-        /// </summary>
-        /// <param name="tenantId">Tenant identifier</param>
-        /// <returns>Dictionary of project IDs and names</returns>
         [HttpGet("dictionary")]
-        [Authorize(Policy = Policies.TenantMember)]
+        [Authorize(Policy = PermissionCodes.TenantView)]
         public async Task<IActionResult> GetProjectsDictionary([FromRoute] Guid tenantId)
         {
             var query = new GetProjectsDictionaryQuery(tenantId);
@@ -48,7 +38,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = Policies.TenantAdmin)]
+        [Authorize(Policy = PermissionCodes.TenantProjectCreate)]
         public async Task<IActionResult> CreateProject([FromRoute] Guid tenantId, [FromBody] CreateProjectCommand command)
         {
             var result = await Send(command);
@@ -56,26 +46,18 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{projectId}")]
-        [Authorize(Policy = Policies.ProjectMemberOrAdmin)]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> GetProjectDetails(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
         {
             var query = new GetProjectDetailsQuery(tenantId, projectId);
             var result = await Send(query);
-            
             return Ok(result);
         }
 
-        /// <summary>
-        /// Update project details
-        /// </summary>
-        /// <param name="tenantId">Tenant identifier</param>
-        /// <param name="projectId">Project identifier</param>
-        /// <param name="command">Update project command</param>
-        /// <returns>Updated project details</returns>
         [HttpPut("{projectId}")]
-        [Authorize(Policy = Policies.ProjectAdmin)]
+        [Authorize(Policy = PermissionCodes.ProjectEdit)]
         public async Task<IActionResult> UpdateProject(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -87,7 +69,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{projectId}/members")]
-        [Authorize(Policy = Policies.ProjectViewer)]
+        [Authorize(Policy = PermissionCodes.ProjectMembersView)]
         public async Task<IActionResult> GetProjectMembers(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -98,20 +80,19 @@ namespace WebApi.Controllers
         }
 
         [HttpPost("{projectId}/members")]
-        [Authorize(Policy = Policies.ProjectAdmin)]
+        [Authorize(Policy = PermissionCodes.ProjectMembersManage)]
         public async Task<IActionResult> AddProjectMember(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
             [FromBody] AddProjectMemberCommand command)
         {
             command = command with { TenantId = tenantId, ProjectId = projectId };  
-
             await Send(command);
             return NoContent();
         }
 
         [HttpDelete("{projectId}/members/{userId}")]
-        [Authorize(Policy = Policies.ProjectAdmin)]
+        [Authorize(Policy = PermissionCodes.ProjectMembersManage)]
         public async Task<IActionResult> RemoveProjectMember(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -122,8 +103,8 @@ namespace WebApi.Controllers
             return NoContent();
         }
 
-        [HttpPatch("{projectId}/toggle-status")]
-        [Authorize(Policy = Policies.ProjectAdmin)]
+        [HttpPatch("{projectId}/status")]
+        [Authorize(Policy = PermissionCodes.ProjectStatusManage)]
         public async Task<IActionResult> ToggleProjectStatus(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -134,31 +115,8 @@ namespace WebApi.Controllers
             return NoContent();
         }
 
-        /// <summary>
-        /// Get available project roles dictionary
-        /// </summary>
-        /// <returns>Dictionary of project roles</returns>
-        [HttpGet("roles")]
-        [Authorize(Policy = Policies.TenantMember)]
-        public IActionResult GetProjectRoles()
-        {
-            var roles = Enum.GetValues<ProjectRole>()
-                .Select(r => new { Value = (int)r, Name = r.GetDisplayName() })
-                .ToList();
-
-            return Ok(roles);
-        }
-
-        /// <summary>
-        /// Update project member role
-        /// </summary>
-        /// <param name="tenantId">Tenant identifier</param>
-        /// <param name="projectId">Project identifier</param>
-        /// <param name="userId">User identifier</param>
-        /// <param name="request">New role information</param>
-        /// <returns>No content</returns>
         [HttpPatch("{projectId}/members/{userId}/role")]
-        [Authorize(Policy = Policies.ProjectAdmin)]
+        [Authorize(Policy = PermissionCodes.ProjectMembersManage)]
         public async Task<IActionResult> UpdateProjectMemberRole(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

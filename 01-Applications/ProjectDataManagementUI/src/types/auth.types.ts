@@ -26,6 +26,21 @@ export interface UserProfile {
   firstName: string;
   lastName: string;
   activeTenantId?: string | null;
+  
+  /**
+   * Permissions in the active tenant (empty if no active tenant)
+   */
+  activeTenantPermissions: string[];
+  
+  /**
+   * Project role codes mapped by projectId (e.g., "PROJECT.ADMIN", "PROJECT.EDITOR")
+   */
+  projectRoleCodes: Record<string, string>;
+  
+  /**
+   * Permissions in each project mapped by projectId
+   */
+  projectPermissions: Record<string, string[]>;
 }
 
 export interface PasswordResetRequest {
@@ -79,7 +94,7 @@ export interface TenantMemberDetails {
   email: string;
   firstName: string;
   lastName: string;
-  role: number;
+  roleCode: string;
   isActive: boolean;
   joinedAt: string;
 }
@@ -88,7 +103,7 @@ export interface TenantDetails {
   id: string;
   name: string;
   createdAt: string;
-  role: number;
+  roleCode: string;
   isActive: boolean;
   members: TenantMemberDetails[];
   invitations: TenantInvitationWeb[];

@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Models;
@@ -45,6 +46,7 @@ namespace CQRS.Projects.UpdateProject
                 include => include.Include(pm => pm.Project)
                                  .ThenInclude(p => p.CreatedBy)
                                  .ThenInclude(cb => cb.User)
+                                 .Include(pm => pm.MemberRole)
             );
 
             IEnumerable<ProjectMember> membersCount = await projectMemberRepo.GetBySearch(
@@ -60,7 +62,7 @@ namespace CQRS.Projects.UpdateProject
                 CreatedByUserName: projectMember?.Project?.CreatedBy?.User != null 
                     ? $"{projectMember.Project.CreatedBy.User.FirstName} {projectMember.Project.CreatedBy.User.LastName}".Trim()
                     : "Unknown",
-                UserRole: projectMember?.Role ?? Entities.Enums.ProjectRole.Member,
+                UserRoleCode: projectMember?.MemberRole?.Code ?? RoleCodes.ProjectMember,
                 MembersCount: membersCount.Count()
             );
         }

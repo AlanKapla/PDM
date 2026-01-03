@@ -1,4 +1,4 @@
-import { axiosClient } from "./axiosClient";
+﻿import { axiosClient } from "./axiosClient";
 
 export const tenantApi = {
   getUserTenants: async () => {
@@ -58,11 +58,8 @@ export const tenantApi = {
     return axiosClient.get(`/tenant/${tenantId}/members`);
   },
 
-  getTenantRoles: async () => {
-    return axiosClient.get("/tenant/roles");
-  },
 
-  updateTenantMemberRole: async (tenantId: string, userId: string, role: number) => {
-    return axiosClient.patch(`/tenant/${tenantId}/members/${userId}/role`, { role });
+  updateTenantMemberRole: async (tenantId: string, userId: string, roleId: string) => {
+    return axiosClient.patch(`/tenant/${tenantId}/members/${userId}/role`, { roleId });
   }
 };

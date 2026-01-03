@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.Model;
-using Business.Interfaces.Services;
-using Entities.Enums;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using CQRS.Extensions;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -12,18 +12,15 @@ namespace CQRS.Projects.GetProjectsDictionary
     {
         private readonly IRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IAccessService accessService;
         private readonly ICurrentUser currentUser;
 
         public GetProjectsDictionaryQueryHandler(
             IRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IAccessService accessService,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.accessService = accessService;
             this.currentUser = currentUser;
         }
 
@@ -31,7 +28,9 @@ namespace CQRS.Projects.GetProjectsDictionary
         {
             Guid tenantId = request.TenantId;
 
-            bool isTenantAdmin = await accessService.IsTenantAdminAsync(tenantId, cancellationToken);
+            // Check if user is tenant admin
+            var tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
+            bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
 
             IEnumerable<Project> projects;
 
@@ -47,8 +46,8 @@ namespace CQRS.Projects.GetProjectsDictionary
                 var userProjectMemberships = await projectMemberRepo.GetBySearch(
                     pm => pm.TenantId == tenantId 
                         && pm.UserId == currentUser.Id
-                        && (pm.Role == ProjectRole.Editor || pm.Role == ProjectRole.Admin),
-                    q => q.Include(pm => pm.Project));
+                        && (pm.MemberRole!.Code == RoleCodes.ProjectEditor || pm.MemberRole.Code == RoleCodes.ProjectAdmin),
+                    q => q.Include(pm => pm.Project).Include(pm => pm.MemberRole));
 
                 var membershipsList = userProjectMemberships.ToList();
 
@@ -56,7 +55,7 @@ namespace CQRS.Projects.GetProjectsDictionary
                 // - Admin projektu widzi projekt (aktywny lub nieaktywny)
                 // - Editor widzi tylko aktywny projekt
                 projects = membershipsList
-                    .Where(pm => pm.Role == ProjectRole.Admin || pm.Project.IsActive)
+                    .Where(pm => pm.MemberRole?.Code.IsProjectAdmin() == true || pm.Project.IsActive)
                     .Select(pm => pm.Project)
                     .Distinct()
                     .ToList();

@@ -31,48 +31,39 @@ import {
 import { ArrowLeft, Users, UserPlus, Trash2, Shield, Save, X } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
-import { AuthContext } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
+import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
-import { tenantApi } from "../api/tenantApi";
-import { ProjectRole, isProjectAdmin, canViewProject } from "../types/project.types";
-import { isTenantAdmin as checkIsTenantAdmin } from "../types/auth.types";
-import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
-
-interface ProjectRoleOption {
-  value: number;
-  name: string;
-}
+import { roleApi, type RoleWeb } from "../api/roleApi";
+import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function ProjectMembers() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
+  const permissions = useProjectPermissions(projectId);
   const { showSuccess, showError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
 
   const [loading, setLoading] = useState(true);
-  const [members, setMembers] = useState<any[]>([]);
-  const [project, setProject] = useState<any | null>(null);
-  const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
+  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
+  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
 
   const [editingRoleMemberId, setEditingRoleMemberId] = useState<string | null>(null);
-  const [editedRole, setEditedRole] = useState<number>(1);
+  const [editedRoleId, setEditedRoleId] = useState<string>("");
   const [updatingRole, setUpdatingRole] = useState(false);
-  const [availableRoles, setAvailableRoles] = useState<ProjectRoleOption[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<RoleWeb[]>([]);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-
-  const userIsProjectAdmin = project && isProjectAdmin(project.userRole);
-  const userCanView = project && canViewProject(project.userRole);
-  const isTenantAdmin = userTenantRole !== null && checkIsTenantAdmin(userTenantRole);
 
   useEffect(() => {
     fetchData();
@@ -80,11 +71,9 @@ export default function ProjectMembers() {
   }, [projectId]);
 
   const fetchRoles = async () => {
-    if (!user?.activeTenantId) return;
-
     try {
-      const response = await projectApi.getProjectRoles(user.activeTenantId);
-      setAvailableRoles(response.data);
+      const roles = await roleApi.getAvailableRoles('project');
+      setAvailableRoles(roles);
     } catch (error) {
       console.error("Błąd ładowania ról:", error);
     }
@@ -95,15 +84,13 @@ export default function ProjectMembers() {
 
     setLoading(true);
     try {
-      const [projectRes, membersRes, tenantRes] = await Promise.all([
+      const [projectRes, membersRes] = await Promise.all([
         projectApi.getProjectDetails(user.activeTenantId, projectId),
         projectApi.getProjectMembers(user.activeTenantId, projectId),
-        tenantApi.getActiveTenant(),
       ])
 
       setProject(projectRes.data);
       setMembers(membersRes.data);
-      setUserTenantRole(tenantRes.data.userRole);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -152,14 +139,11 @@ export default function ProjectMembers() {
         user.activeTenantId,
         projectId,
         userId,
-        editedRole
+        editedRoleId
       );
 
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.userId === userId ? { ...m, role: editedRole } : m
-        )
-      );
+      // Odśwież dane po zmianie
+      await fetchData();
       setEditingRoleMemberId(null);
       showSuccess("Zaktualizowano rolę członka");
     } catch (error) {
@@ -182,7 +166,7 @@ export default function ProjectMembers() {
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
-        {!userCanView ? (
+        {!permissions.canViewMembers ? (
           <Box bg={cardBg} p={8} rounded="lg" borderWidth="1px" borderColor={borderColor}>
             <VStack spacing={4}>
               <Heading size="md" color="red.500">Brak dostępu</Heading>
@@ -200,7 +184,7 @@ export default function ProjectMembers() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {userIsProjectAdmin && (
+          {permissions.canManageMembers && (
             <Button
               leftIcon={<UserPlus size={18} />}
               colorScheme="blue"
@@ -242,8 +226,8 @@ export default function ProjectMembers() {
                     </Td>
                     <Td>{member.email}</Td>
                     <Td>
-                      <Badge colorScheme={getProjectRoleColor(member.role)}>
-                        {getProjectRoleName(member.role)}
+                      <Badge colorScheme={getRoleColor(member.roleCode)}>
+                        {getRoleName(member.roleCode)}
                       </Badge>
                     </Td>
                     <Td>{formatDate(member.joinedAt)}</Td>
@@ -252,13 +236,13 @@ export default function ProjectMembers() {
                         <HStack spacing={2}>
                           <Select
                             size="sm"
-                            value={editedRole}
-                            onChange={(e) => setEditedRole(Number(e.target.value))}
+                            value={editedRoleId}
+                            onChange={(e) => setEditedRoleId(e.target.value)}
                             isDisabled={updatingRole}
                             width="150px"
                           >
                             {availableRoles.map((role) => (
-                              <option key={role.value} value={role.value}>
+                              <option key={role.id} value={role.id}>
                                 {role.name}
                               </option>
                             ))}
@@ -282,7 +266,7 @@ export default function ProjectMembers() {
                         </HStack>
                       ) : (
                         <HStack spacing={2}>
-                          {userIsProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                          {permissions.canManageMembers && member.email.toLowerCase() !== user?.email.toLowerCase() && (
                             <Tooltip label="Zmień rolę">
                               <IconButton
                                 aria-label="Edytuj rolę"
@@ -291,12 +275,14 @@ export default function ProjectMembers() {
                                 variant="ghost"
                                 onClick={() => {
                                   setEditingRoleMemberId(member.userId);
-                                  setEditedRole(member.role);
+                                  // Znajdź role ID na podstawie roleCode
+                                  const role = availableRoles.find(r => r.code === member.roleCode);
+                                  setEditedRoleId(role?.id || "");
                                 }}
                               />
                             </Tooltip>
                           )}
-                          {userIsProjectAdmin && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                          {permissions.canManageMembers && member.email.toLowerCase() !== user?.email.toLowerCase() && (
                             <Tooltip label="Usuń członka">
                               <IconButton
                                 aria-label="Usuń członka"

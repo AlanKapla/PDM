@@ -1,4 +1,5 @@
-﻿using CQRS.Chats.CreateChat;
+﻿using Business.Interfaces.Constants;
+using CQRS.Chats.CreateChat;
 using CQRS.Chats.GetProjectChats;
 using CQRS.Messages.GetChatMessages;
 using CQRS.Messages.MarkMessagesAsRead;
@@ -6,7 +7,6 @@ using CQRS.Messages.SendMessage;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using WebApi.Constants;
 
 namespace WebApi.Controllers
 {
@@ -15,7 +15,7 @@ namespace WebApi.Controllers
     public class ChatController(IMediator mediator) : BaseApiController(mediator)
     {
         [HttpGet]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> GetProjectChats([FromRoute] Guid projectId)
         {
             var query = new GetProjectChatsQuery(projectId);
@@ -24,7 +24,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> CreateChat(
             [FromRoute] Guid projectId,
             [FromBody] CreateChatCommand command)
@@ -34,7 +34,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{chatId}/messages")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> GetChatMessages(
             [FromRoute] Guid chatId,
             [FromQuery] int pageNumber = 1,
@@ -46,7 +46,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost("{chatId}/messages")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> SendMessage(
             [FromRoute] Guid chatId,
             [FromBody] SendMessageCommand command)
@@ -56,7 +56,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{chatId}/read")]
-        [Authorize(Policy = Policies.ProjectMember)]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> MarkMessagesAsRead([FromRoute] Guid chatId)
         {
             var command = new MarkMessagesAsReadCommand(chatId);

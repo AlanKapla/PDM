@@ -39,7 +39,8 @@ import { getUserTenants, createTenant, removeTenantMember } from "../services/te
 import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
 import type { TenantDetails } from "../types/auth.types";
-import { TenantRole, getTenantRoleName, getTenantRoleColor, InvitationStatus, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
+import { InvitationStatus, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
+import { RoleCodes } from "../constants/roleCodes";
 
 export default function ManagedTenants() {
   const navigate = useNavigate();
@@ -63,7 +64,7 @@ export default function ManagedTenants() {
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
   // Tylko organizacje zarządzane
-  const managedTenants = tenants.filter(t => t.role === TenantRole.Admin);
+  const managedTenants = tenants.filter(t => t.roleCode === RoleCodes.TENANT_ADMIN);
 
   useEffect(() => {
     async function load() {

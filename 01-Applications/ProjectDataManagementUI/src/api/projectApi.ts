@@ -347,13 +347,8 @@ export const projectApi = {
     });
   },
 
-  // Pobierz dostępne role projektowe
-  getProjectRoles: async (tenantId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/Project/roles`);
-  },
-
   // Zmień rolę członka projektu
-  updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, role: number) => {
-    return axiosClient.patch(`/tenants/${tenantId}/Project/${projectId}/members/${userId}/role`, { role });
+  updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, roleId: string) => {
+      return axiosClient.patch(`/tenants/${tenantId}/Project/${projectId}/members/${userId}/role`, { roleId });
   },
 };

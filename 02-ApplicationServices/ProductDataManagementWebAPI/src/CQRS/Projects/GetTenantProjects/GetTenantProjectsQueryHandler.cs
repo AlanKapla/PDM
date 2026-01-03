@@ -1,7 +1,7 @@
-﻿using Business.Interfaces.WebModels.Projects;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.Projects;
 using Business.Interfaces.Model;
 using Entities.Models;
-using Entities.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositiories.Repository.Interfaces;
@@ -32,10 +32,11 @@ namespace CQRS.Projects.GetTenantProjects
             var userProjectMembers = await projectMemberRepo.GetBySearch(
                 pm => pm.TenantId == request.TenantId 
                     && pm.UserId == currentUser.Id
-                    && (pm.Role == ProjectRole.Admin || pm.Project.IsActive),
+                    && (pm.MemberRole!.Code == RoleCodes.ProjectAdmin || pm.Project.IsActive),
                 include => include.Include(pm => pm.Project)
                                  .ThenInclude(p => p.CreatedBy)
-                                 .ThenInclude(cb => cb.User));
+                                 .ThenInclude(cb => cb.User)
+                                 .Include(pm => pm.MemberRole));
 
             // Pobierz wszystkich członków dla tych projektów w jednym zapytaniu
             var projectIds = userProjectMembers.Select(pm => pm.ProjectId).ToList();
@@ -62,7 +63,7 @@ namespace CQRS.Projects.GetTenantProjects
                         CreatedAt: project.CreatedAt,
                         CreatedByUserId: project.CreatedByUserId,
                         CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
-                        UserRole: projectMember.Role,
+                        UserRoleCode: projectMember.MemberRole?.Code ?? RoleCodes.ProjectMember,
                         MembersCount: membersCount
                     );
                 })

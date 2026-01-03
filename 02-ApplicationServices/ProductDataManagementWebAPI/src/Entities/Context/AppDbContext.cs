@@ -32,6 +32,9 @@ namespace Entities.Context
         public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
         public DbSet<CostEstimate> CostEstimates => Set<CostEstimate>();
+        public DbSet<Role> Roles => Set<Role>();
+        public DbSet<Permission> Permissions => Set<Permission>();
+        public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,7 +48,8 @@ namespace Entities.Context
                  .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasDiscriminator<string>("ProfileType")
-                 .HasValue<TenantPreferencesProfile>("TenantPreferences");
+                 .HasValue<TenantPreferencesProfile>("TenantPreferences")
+                 .HasValue<PermissionsVersionProfile>("PermissionsVersion");
             });
         }
     }

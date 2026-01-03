@@ -11,15 +11,18 @@ namespace CQRS.Projects.UpdateProjectMemberRole
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IReadRepository<Role> roleRepo;
         private readonly ICurrentUser currentUser;
 
         public UpdateProjectMemberRoleCommandValidator(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
+            IReadRepository<Role> roleRepo,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
+            this.roleRepo = roleRepo;
             this.currentUser = currentUser;
 
             RuleFor(x => x.TenantId)
@@ -34,9 +37,11 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 .NotEmpty()
                 .WithMessage("UserId is required");
 
-            RuleFor(x => x.Role)
-                .IsInEnum()
-                .WithMessage("Invalid role value");
+            RuleFor(x => x.RoleId)
+                .NotEmpty()
+                .WithMessage("RoleId is required")
+                .MustAsync(RoleExistsAndIsProjectScope)
+                .WithMessage("Role not found or is not a Project-scoped role");
 
             RuleFor(x => x)
                 .MustAsync(ProjectExists)
@@ -49,6 +54,15 @@ namespace CQRS.Projects.UpdateProjectMemberRole
             RuleFor(x => x.UserId)
                 .Must(x => x != currentUser.Id)
                 .WithMessage("Cannot change your own role");
+        }
+
+        private async Task<bool> RoleExistsAndIsProjectScope(Guid roleId, CancellationToken cancellationToken)
+        {
+            Role? role = await roleRepo.GetFirstBySearch(
+                r => r.Id == roleId && r.Scope == RoleScope.Project && r.IsActive,
+                cancellationToken);
+
+            return role is not null;
         }
 
         private async Task<bool> ProjectExists(UpdateProjectMemberRoleCommand command, CancellationToken cancellationToken)

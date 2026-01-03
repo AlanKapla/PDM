@@ -22,7 +22,7 @@ import { Building2, CheckCircle2, Plus, Edit2, UserPlus, Eye } from "lucide-reac
 import MainLayout from "../layout/MainLayout";
 import { getUserTenants, getActiveTenant, changeActiveTenant, createTenant, updateTenant, inviteTenantMember } from "../services/tenantService";
 import type { TenantDetails } from "../types/auth.types";
-import { TenantRole, getTenantRoleName, getTenantRoleColor } from "../types/auth.types";
+import { getRoleName, getRoleColor, RoleCodes } from "../constants/roleCodes";
 
 export default function Tenants() {
   const navigate = useNavigate();
@@ -52,8 +52,8 @@ export default function Tenants() {
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
   // Podział na tenantów zarządzanych i współpracujących
-  const managedTenants = tenants.filter(t => t.role === TenantRole.Admin);
-  const collaboratingTenants = tenants.filter(t => t.role !== TenantRole.Admin);
+  const managedTenants = tenants.filter(t => t.roleCode === RoleCodes.TENANT_ADMIN);
+  const collaboratingTenants = tenants.filter(t => t.roleCode !== RoleCodes.TENANT_ADMIN);
 
   useEffect(() => {
     async function load() {
@@ -398,8 +398,8 @@ export default function Tenants() {
                                   <Text fontSize="xs" color="gray.500">
                                     Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
                                   </Text>
-                                  <Badge colorScheme={getTenantRoleColor(tenant.role)} fontSize="xs">
-                                    {getTenantRoleName(tenant.role)}
+                                  <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
+                                    {getRoleName(tenant.roleCode)}
                                   </Badge>
                                 </HStack>
                               </VStack>

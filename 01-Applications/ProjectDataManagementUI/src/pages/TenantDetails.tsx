@@ -35,11 +35,13 @@ import {
 } from "@chakra-ui/react";
 import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getUserTenants, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, getTenantRoles, updateTenantMemberRole, type TenantRoleOption } from "../services/tenantService";
+import { getUserTenants, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberRole } from "../services/tenantService";
 import type { TenantDetails as TenantDetailsType } from "../types/auth.types";
-import { getTenantRoleName, getTenantRoleColor, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
+import { getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useAuth } from "../context/AuthContext";
 import { tenantApi } from "../api/tenantApi";
+import { roleApi, type RoleWeb } from "../api/roleApi";
 import { handleApiError } from "../utils/handleApiError";
 
 export default function TenantDetails() {
@@ -68,9 +70,9 @@ export default function TenantDetails() {
   const [togglingStatus, setTogglingStatus] = useState(false);
   
   const [editingRoleMemberId, setEditingRoleMemberId] = useState<string | null>(null);
-  const [editedRole, setEditedRole] = useState<number>(1);
+  const [editedRoleId, setEditedRoleId] = useState<string>("");
   const [updatingRole, setUpdatingRole] = useState(false);
-  const [availableRoles, setAvailableRoles] = useState<TenantRoleOption[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<RoleWeb[]>([]);
   
   const { isOpen: isMemberDeleteOpen, onOpen: onMemberDeleteOpen, onClose: onMemberDeleteClose } = useDisclosure();
   const { isOpen: isInvitationDeleteOpen, onOpen: onInvitationDeleteOpen, onClose: onInvitationDeleteClose } = useDisclosure();
@@ -122,8 +124,12 @@ export default function TenantDetails() {
     }
 
     async function loadRoles() {
-      const roles = await getTenantRoles();
-      setAvailableRoles(roles);
+      try {
+        const roles = await roleApi.getAvailableRoles('tenant');
+        setAvailableRoles(roles);
+      } catch (error) {
+        console.error('Failed to load roles:', error);
+      }
     }
 
     loadTenant();
@@ -343,26 +349,19 @@ export default function TenantDetails() {
 
     setUpdatingRole(true);
     try {
-      const success = await updateTenantMemberRole(tenantId, userId, editedRole);
+      const success = await updateTenantMemberRole(tenantId, userId, editedRoleId);
 
       if (success) {
-        setTenant((prev) =>
-          prev
-            ? {
-                ...prev,
-                members: prev.members.map((m) =>
-                  m.userId === userId ? { ...m, role: editedRole } : m
-                ),
-              }
-            : null
-        );
         setEditingRoleMemberId(null);
         toast({
           title: "Zaktualizowano rolę",
           description: "Rola członka została zmieniona",
           status: "success",
           duration: 3000,
+          isClosable: true,
         });
+        // Przeładuj dane
+        window.location.reload();
       } else {
         toast({
           title: "Błąd",
@@ -551,8 +550,8 @@ export default function TenantDetails() {
                   <Text fontSize="sm" color="gray.500">
                     Utworzono: {new Date(tenant.createdAt).toLocaleDateString("pl-PL")}
                   </Text>
-                  <Badge colorScheme={getTenantRoleColor(tenant.role)}>
-                    {getTenantRoleName(tenant.role)}
+                  <Badge colorScheme={getRoleColor(tenant.roleCode)}>
+                    {getRoleName(tenant.roleCode)}
                   </Badge>
                 </VStack>
               )}
@@ -668,8 +667,8 @@ export default function TenantDetails() {
                           </Td>
                           <Td>{member.email}</Td>
                           <Td>
-                            <Badge colorScheme={getTenantRoleColor(member.role)}>
-                              {getTenantRoleName(member.role)}
+                            <Badge colorScheme={getRoleColor(member.roleCode)}>
+                              {getRoleName(member.roleCode)}
                             </Badge>
                           </Td>
                           <Td>{new Date(member.joinedAt).toLocaleDateString("pl-PL")}</Td>
@@ -678,13 +677,13 @@ export default function TenantDetails() {
                               <HStack spacing={2}>
                                 <Select
                                   size="sm"
-                                  value={editedRole}
-                                  onChange={(e) => setEditedRole(Number(e.target.value))}
+                                  value={editedRoleId}
+                                  onChange={(e) => setEditedRoleId(e.target.value)}
                                   isDisabled={updatingRole}
                                   width="150px"
                                 >
                                   {availableRoles.map((role) => (
-                                    <option key={role.value} value={role.value}>
+                                    <option key={role.id} value={role.id}>
                                       {role.name}
                                     </option>
                                   ))}
@@ -716,8 +715,9 @@ export default function TenantDetails() {
                                       size="sm"
                                       variant="ghost"
                                       onClick={() => {
+                                        const role = availableRoles.find(r => r.code === member.roleCode);
                                         setEditingRoleMemberId(member.userId);
-                                        setEditedRole(member.role);
+                                        setEditedRoleId(role?.id || member.roleCode);
                                       }}
                                     />
                                   </Tooltip>

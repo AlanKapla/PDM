@@ -3,16 +3,7 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
 import { notificationHubService } from "../services/notificationHubService";
-
-interface UserProfile {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  isActive: boolean;
-  systemRole: string;
-  activeTenantId?: string;
-}
+import type { UserProfile } from "../types/auth.types";
 
 interface AuthContextType {
   isAuthenticated: boolean;

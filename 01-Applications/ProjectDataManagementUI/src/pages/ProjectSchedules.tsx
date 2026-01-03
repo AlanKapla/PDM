@@ -19,7 +19,7 @@ import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
-import { canEditProject } from "../types/project.types";
+import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 
 export default function ProjectSchedules() {
@@ -38,7 +38,7 @@ export default function ProjectSchedules() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const userCanEdit = canEditProject(project?.userRole);
+  const permissions = useProjectPermissions(projectId);
 
   useEffect(() => {
     fetchData();
@@ -86,7 +86,7 @@ export default function ProjectSchedules() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {userCanEdit && (
+          {permissions.canWriteResources && (
             <Button
               leftIcon={<Calendar size={18} />}
               colorScheme="purple"
@@ -97,7 +97,7 @@ export default function ProjectSchedules() {
           )}
         </HStack>
 
-        {!userCanEdit ? (
+        {!permissions.canWriteResources ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={Calendar}

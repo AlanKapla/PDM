@@ -37,12 +37,24 @@ export { TenantRole } from './auth.types';
 
 // ===== Interfaces =====
 
+export interface ProjectDetailsWeb {
+  id: string;
+  tenantId: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  userRoleCode: string;
+  membersCount: number;
+}
+
 export interface TenantMemberWeb {
   userId: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: number;
+  roleCode: string;
   isActive: boolean;
   joinedAt: string;
 }
@@ -58,7 +70,7 @@ export interface ProjectMemberWeb {
   email: string;
   firstName: string;
   lastName: string;
-  role: number;
+  roleCode: string;
   joinedAt: string;
 }
 

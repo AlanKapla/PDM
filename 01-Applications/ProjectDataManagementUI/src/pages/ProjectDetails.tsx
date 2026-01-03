@@ -46,19 +46,18 @@ import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
 import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
-import { AuthContext } from "../context/AuthContext";
-import { useContext } from "react";
-import { ProjectRole } from "../types/project.types";
-import { isProjectAdmin, canEditProject, canViewProject } from "../types/project.types";
-import { isTenantAdmin } from "../types/auth.types";
-import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import { useAuth } from "../context/AuthContext";
+import { useProjectPermissions } from "../hooks/useProjectPermissions";
+import type { ProjectDetailsWeb } from "../types/project.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../types/project.types";
 
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
+  const permissions = useProjectPermissions(projectId);
   const { isOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   const { isOpen: isUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
@@ -66,7 +65,7 @@ export default function ProjectDetails() {
   const { isOpen: isWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
   const toast = useToast();
 
-  const [project, setProject] = useState<any | null>(null);
+  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setLoadingMembers] = useState(false);
@@ -77,7 +76,6 @@ export default function ProjectDetails() {
   const [editedName, setEditedName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
   const [, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [, setSharedFiles] = useState<SharedProjectFilePackageWeb[]>([]);
   const [, setExpandedFileIds] = useState<Set<string>>(new Set());
@@ -119,13 +117,6 @@ export default function ProjectDetails() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const labelColor = useColorModeValue("gray.700", "gray.300");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-
-  const userIsProjectAdmin = project && isProjectAdmin(project.userRole);
-  const userCanEdit = project && canEditProject(project.userRole);
-  const userCanView = project && canViewProject(project.userRole);
-  const isTenantAdmin = userTenantRole === 0; // TenantRole.Admin
-  
-  console.log("🔍 userTenantRole:", userTenantRole, "isTenantAdmin:", isTenantAdmin);
 
   const fetchProjectDetails = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -633,35 +624,6 @@ export default function ProjectDetails() {
   useEffect(() => {
     fetchProjectDetails();
     fetchMembers();
-    
-    // Pobierz rolę użytkownika w tenancie
-    const fetchUserTenantRole = async () => {
-      if (!user?.activeTenantId) {
-        console.log("🔴 Brak activeTenantId");
-        return;
-      }
-      
-      try {
-        const response = await tenantApi.getUserTenants();
-        
-        console.log("🔵 getUserTenants response:", response.status);
-        
-        const tenants = response.data;
-        console.log("🔵 User tenants:", tenants);
-        
-        // Znajdź aktywny tenant i pobierz rolę
-        const activeTenant = tenants.find((t: any) => t.id === user.activeTenantId);
-        if (activeTenant) {
-          console.log("🔵 Active tenant:", activeTenant);
-          console.log("🔵 User role in tenant:", activeTenant.role);
-          setUserTenantRole(activeTenant.role);
-        }
-      } catch (error) {
-        console.error("❌ Błąd pobierania roli tenanta:", error);
-      }
-    };
-    
-    fetchUserTenantRole();
   }, [projectId, user?.activeTenantId]);
 
   const _handleRemoveMemberClick = (userId: string, memberName: string) => {
@@ -805,7 +767,7 @@ export default function ProjectDetails() {
                   <HStack spacing={2}>
                     {!isEditingName && (
                       <>
-                        {userIsProjectAdmin && (
+                        {permissions.canManageStatus && (
                           <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
                             <Button
                               size="sm"
@@ -818,7 +780,7 @@ export default function ProjectDetails() {
                             </Button>
                           </Tooltip>
                         )}
-                        {userIsProjectAdmin && (
+                        {permissions.canEdit && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -886,8 +848,8 @@ export default function ProjectDetails() {
                     <Text fontSize="sm" color="gray.500">
                       Utworzono: {formatDate(project.createdAt)}
                     </Text>
-                    <Badge colorScheme={getProjectRoleColor(project.userRole)}>
-                      {getProjectRoleName(project.userRole)}
+                    <Badge colorScheme={getRoleColor(project.userRoleCode)}>
+                      {getRoleName(project.userRoleCode)}
                     </Badge>
                   </VStack>
                 )}
@@ -896,7 +858,7 @@ export default function ProjectDetails() {
 
             {/* ====================== SZYBKI DOSTĘP ======================= */}
             <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-              {userCanView && (
+              {permissions.canViewMembers && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -916,7 +878,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {userCanEdit && (
+              {permissions.canWriteResources && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -936,7 +898,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {userCanView && (
+              {permissions.canReadResources && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -956,7 +918,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {userCanView && (
+              {permissions.canReadResources && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -976,7 +938,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {userCanView && (
+              {permissions.canReadResources && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -1012,7 +974,7 @@ export default function ProjectDetails() {
             tenantId={project.tenantId}
             projectId={project.id}
             projectName={project.name}
-            isAdmin={userIsProjectAdmin}
+            isAdmin={permissions.canManageMembers}
             onMemberAdded={() => {
               fetchMembers();
               fetchProjectDetails();

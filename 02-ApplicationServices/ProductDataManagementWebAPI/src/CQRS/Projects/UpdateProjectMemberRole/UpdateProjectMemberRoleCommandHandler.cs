@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.DTO;
+﻿using Business.Implementation.Services;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -16,6 +17,8 @@ namespace CQRS.Projects.UpdateProjectMemberRole
         private readonly IReadRepository<Project> projectRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IReadRepository<Role> roleRepo;
+        private readonly PermissionsVersionService permissionsVersionService;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -23,12 +26,16 @@ namespace CQRS.Projects.UpdateProjectMemberRole
             IReadRepository<Project> projectRepo,
             IReadRepository<User> userRepo,
             IRepository<ProjectMember> projectMemberRepo,
+            IReadRepository<Role> roleRepo,
+            PermissionsVersionService permissionsVersionService,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.userRepo = userRepo;
             this.projectMemberRepo = projectMemberRepo;
+            this.roleRepo = roleRepo;
+            this.permissionsVersionService = permissionsVersionService;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
@@ -43,10 +50,21 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 m => m.ProjectId == request.ProjectId 
                     && m.UserId == request.UserId))!;
 
-            ProjectRole oldRole = projectMember.Role;
-            projectMember.Role = request.Role;
+            // Verify role exists and is a Project scope role
+            var newRole = await roleRepo.GetFirstBySearch(
+                r => r.Id == request.RoleId && r.Scope == RoleScope.Project,
+                cancellationToken);
+
+            if (newRole == null)
+                throw new NotFoundApiException("Role", request.RoleId.ToString());
+
+            var oldRoleId = projectMember.RoleId;
+            projectMember.RoleId = newRole.Id;
 
             await projectMemberRepo.Update(projectMember);
+
+            // Bump permissions version for the user whose role changed
+            await permissionsVersionService.BumpVersionAsync(request.UserId, cancellationToken);
 
             User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId);
 
@@ -59,15 +77,17 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.Info,
                 Title = "Zmieniono Twoją rolę w projekcie",
-                Message = $"Twoja rola w projekcie '{project.Name}' została zmieniona z {oldRole} na {request.Role}.",
+                Message = $"Twoja rola w projekcie '{project.Name}' została zmieniona na {newRole.Name}.",
                 CreatedAt = DateTimeOffset.UtcNow,
                 Readed = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "projectId", request.ProjectId },
                     { "projectName", project.Name },
-                    { "oldRole", oldRole.ToString() },
-                    { "newRole", request.Role.ToString() },
+                    { "oldRoleId", oldRoleId },
+                    { "newRoleId", newRole.Id },
+                    { "newRoleCode", newRole.Code },
+                    { "newRoleName", newRole.Name },
                     { "changedByUserId", currentUser.Id }
                 }
             };

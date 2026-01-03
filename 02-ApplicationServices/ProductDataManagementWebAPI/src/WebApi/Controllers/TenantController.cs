@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.WebModels.Tenants;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.AcceptTenantInvitation;
 using CQRS.Tenants.ActiveInvitations;
 using CQRS.Tenants.ActiveTenant;
@@ -12,12 +13,9 @@ using CQRS.Tenants.ToggleTenantStatus;
 using CQRS.Tenants.UpdateTenant;
 using CQRS.Tenants.UserTenants;
 using CQRS.Tenants.UpdateTenantMemberRole;
-using Entities.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using WebApi.Constants;
-using Business.Interfaces.Helpers;
 
 namespace WebApi.Controllers
 {
@@ -34,7 +32,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("user-tenants")]
-        [Authorize]
+        [Authorize(Policy = PermissionCodes.TenantListAvailable)]
         public async Task<IActionResult> GetUserTenants()
         {
             IEnumerable<TenantDetailsWeb> result = await Send(new UserTenantsQuery());
@@ -58,21 +56,19 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{tenantId}")]
-        [Authorize(Policy = Policies.TenantAdmin)]
+        [Authorize(Policy = PermissionCodes.TenantEdit)]
         public async Task<IActionResult> UpdateTenant(Guid tenantId, [FromBody] UpdateTenantCommand request)
         {
             request = request with { TenantId = tenantId };
-
             TenantDetailsWeb result = await Send(request);
             return Ok(result);
         }
 
         [HttpPost("{tenantId}/invitations")]
-        [Authorize(Policy = Policies.TenantAdmin)]
+        [Authorize(Policy = PermissionCodes.TenantMembersManage)]
         public async Task<IActionResult> InviteTenantMember(Guid tenantId, [FromBody] InviteTenantMemberCommand request)
         {
             request = request with { TenantId = tenantId };
-
             await Send(request);
             return Ok();
         }
@@ -94,7 +90,7 @@ namespace WebApi.Controllers
         }
 
         [HttpDelete("{tenantId}/invitations/{invitationId}")]
-        [Authorize(Policy = Policies.TenantAdmin)]
+        [Authorize(Policy = PermissionCodes.TenantMembersManage)]
         public async Task<IActionResult> RemoveInvitation(Guid tenantId, Guid invitationId)
         {
             RemoveTenantInvitationCommand command = new(tenantId, invitationId);
@@ -103,17 +99,16 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{tenantId}/members")]
-        [Authorize(Policy = Policies.TenantAdmin)]
+        [Authorize(Policy = PermissionCodes.TenantView)]
         public async Task<IActionResult> GetTenantMembers(Guid tenantId)
         {
             GetTenantMembersQuery query = new(tenantId);
             IEnumerable<TenantMemberWeb> result = await Send(query);
-
             return Ok(result);
         }
 
         [HttpDelete("{tenantId}/members/{userId}")]
-        [Authorize(Policy = Policies.TenantAdmin)]
+        [Authorize(Policy = PermissionCodes.TenantMembersManage)]
         public async Task<IActionResult> RemoveTenantMember(Guid tenantId, Guid userId)
         {
             await Send(new RemoveTenantMemberCommand(tenantId, userId));
@@ -121,7 +116,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{tenantId}/status")]
-        [Authorize(Policy = Policies.TenantAdminOrOwner)]
+        [Authorize(Policy = PermissionCodes.TenantStatusManage)]
         public async Task<IActionResult> ToggleTenantStatus([FromRoute] Guid tenantId, [FromQuery] bool isActive)
         {
             ToggleTenantStatusCommand command = new ToggleTenantStatusCommand(tenantId, isActive);
@@ -129,30 +124,8 @@ namespace WebApi.Controllers
             return NoContent();
         }
 
-        /// <summary>
-        /// Get available tenant roles dictionary
-        /// </summary>
-        /// <returns>Dictionary of tenant roles</returns>
-        [HttpGet("roles")]
-        [Authorize]
-        public IActionResult GetTenantRoles()
-        {
-            var roles = Enum.GetValues<TenantRole>()
-                .Select(r => new { Value = (int)r, Name = r.GetDisplayName() })
-                .ToList();
-
-            return Ok(roles);
-        }
-
-        /// <summary>
-        /// Update tenant member role
-        /// </summary>
-        /// <param name="tenantId">Tenant identifier</param>
-        /// <param name="userId">User identifier</param>
-        /// <param name="request">New role information</param>
-        /// <returns>No content</returns>
         [HttpPatch("{tenantId}/members/{userId}/role")]
-        [Authorize(Policy = Policies.TenantAdmin)]
+        [Authorize(Policy = PermissionCodes.TenantMembersManage)]
         public async Task<IActionResult> UpdateTenantMemberRole(
             Guid tenantId,
             Guid userId,

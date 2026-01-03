@@ -1,7 +1,10 @@
-using Entities.Enums;
+﻿using Entities.Enums;
 
 namespace Business.Interfaces.WebModels.Projects
 {
+    /// <summary>
+    /// Project details with role code instead of enum
+    /// </summary>
     public record ProjectDetailsWeb(
         Guid Id,
         Guid TenantId,
@@ -10,7 +13,7 @@ namespace Business.Interfaces.WebModels.Projects
         DateTime CreatedAt,
         Guid CreatedByUserId,
         string CreatedByUserName,
-        ProjectRole UserRole,
+        string UserRoleCode,  // Changed from ProjectRole enum
         int MembersCount
     );
 }

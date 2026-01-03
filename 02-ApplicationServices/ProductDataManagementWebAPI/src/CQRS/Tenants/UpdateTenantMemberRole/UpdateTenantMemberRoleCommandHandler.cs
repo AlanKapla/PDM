@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.DTO;
+﻿using Business.Implementation.Services;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -16,6 +17,8 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
+        private readonly IReadRepository<Role> roleRepo;
+        private readonly PermissionsVersionService permissionsVersionService;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -23,12 +26,16 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
             IReadRepository<Tenant> tenantRepo,
             IReadRepository<User> userRepo,
             IRepository<TenantMember> tenantMemberRepo,
+            IReadRepository<Role> roleRepo,
+            PermissionsVersionService permissionsVersionService,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.userRepo = userRepo;
             this.tenantMemberRepo = tenantMemberRepo;
+            this.roleRepo = roleRepo;
+            this.permissionsVersionService = permissionsVersionService;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
@@ -43,10 +50,21 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                     && m.UserId == request.UserId 
                     && m.IsActive))!;
 
-            TenantRole oldRole = tenantMember.Role;
-            tenantMember.Role = request.Role;
+            // Verify role exists and is a Tenant scope role
+            var newRole = await roleRepo.GetFirstBySearch(
+                r => r.Id == request.RoleId && r.Scope == RoleScope.Tenant,
+                cancellationToken);
+
+            if (newRole == null)
+                throw new NotFoundApiException("Role", request.RoleId.ToString());
+
+            var oldRoleId = tenantMember.RoleId;
+            tenantMember.RoleId = newRole.Id;
 
             await tenantMemberRepo.Update(tenantMember);
+
+            // Bump permissions version for the user whose role changed
+            await permissionsVersionService.BumpVersionAsync(request.UserId, cancellationToken);
 
             User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId);
 
@@ -59,15 +77,17 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                 AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.TenantRoleChanged,
                 Title = "Zmieniono Twoją rolę w organizacji",
-                Message = $"Twoja rola w organizacji '{tenant.Name}' została zmieniona z {oldRole} na {request.Role}.",
+                Message = $"Twoja rola w organizacji '{tenant.Name}' została zmieniona na {newRole.Name}.",
                 CreatedAt = DateTimeOffset.UtcNow,
                 Readed = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "tenantId", request.TenantId },
                     { "tenantName", tenant.Name },
-                    { "oldRole", oldRole.ToString() },
-                    { "newRole", request.Role.ToString() },
+                    { "oldRoleId", oldRoleId },
+                    { "newRoleId", newRole.Id },
+                    { "newRoleCode", newRole.Code },
+                    { "newRoleName", newRole.Name },
                     { "changedByUserId", currentUser.Id }
                 }
             };

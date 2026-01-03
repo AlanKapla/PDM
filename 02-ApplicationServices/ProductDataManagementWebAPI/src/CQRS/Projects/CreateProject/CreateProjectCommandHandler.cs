@@ -1,3 +1,5 @@
+﻿using Business.Implementation.Services;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Enums;
@@ -14,17 +16,23 @@ namespace CQRS.Projects.CreateProject
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
+        private readonly IReadRepository<Role> roleRepo;
+        private readonly PermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
         public CreateProjectCommandHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
             IRepository<TenantMember> tenantMemberRepo,
+            IReadRepository<Role> roleRepo,
+            PermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.tenantMemberRepo = tenantMemberRepo;
+            this.roleRepo = roleRepo;
+            this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
 
@@ -47,17 +55,27 @@ namespace CQRS.Projects.CreateProject
 
             await projectRepo.Insert(project);
 
+            // Get PROJECT.ADMIN role
+            var adminRole = await roleRepo.GetFirstBySearch(
+                r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectAdmin,
+                cancellationToken);
+
+            if (adminRole == null)
+                throw new InvalidOperationException("PROJECT.ADMIN role not found");
 
             ProjectMember projectMember = new ProjectMember
             {
                 TenantId = tenantId,
                 ProjectId = project.Id,
                 UserId = currentUser.Id,
-                Role = ProjectRole.Admin,
+                RoleId = adminRole.Id,
                 JoinedAt = DateTime.UtcNow
             };
 
             await projectMemberRepo.Insert(projectMember);
+
+            // Bump permissions version
+            await permissionsVersionService.BumpVersionAsync(currentUser.Id, cancellationToken);
 
             string createdByUserName = $"{tenantMember!.User?.FirstName} {tenantMember.User?.LastName}".Trim();
 
@@ -69,7 +87,7 @@ namespace CQRS.Projects.CreateProject
                 CreatedAt: project.CreatedAt,
                 CreatedByUserId: project.CreatedByUserId,
                 CreatedByUserName: createdByUserName,
-                UserRole: ProjectRole.Admin,
+                UserRoleCode: RoleCodes.ProjectAdmin,
                 MembersCount: 1
             );
         }

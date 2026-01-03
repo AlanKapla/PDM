@@ -1,5 +1,7 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
+using CQRS.Extensions;
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
@@ -30,13 +32,13 @@ namespace CQRS.Tenants.UserTenants
                 m => m.UserId == currentUser.Id 
                      && m.IsActive 
                      && m.Tenant != null 
-                     && (m.Role == TenantRole.Admin || m.Tenant.IsActive),
-                q => q.Include(m => m.Tenant)
+                     && (m.MemberRole!.Code == RoleCodes.TenantAdmin || m.Tenant.IsActive),
+                q => q.Include(m => m.Tenant).Include(m => m.MemberRole)
             );
 
             // Id tenantów gdzie użytkownik jest Adminem
             List<Guid> adminTenantIds = memberships
-                .Where(m => m.Role == TenantRole.Admin)
+                .Where(m => m.MemberRole?.Code.IsTenantAdmin() == true)
                 .Select(m => m.TenantId)
                 .Distinct()
                 .ToList();
@@ -48,7 +50,7 @@ namespace CQRS.Tenants.UserTenants
             {
                 IEnumerable<TenantMember> adminTenantsMembers = await tenantMemberRepo.GetBySearch(
                     tm => adminTenantIds.Contains(tm.TenantId) && tm.IsActive,
-                    q => q.Include(m => m.User)
+                    q => q.Include(m => m.User).Include(m => m.MemberRole)
                 );
 
                 foreach (TenantMember member in adminTenantsMembers)
@@ -64,7 +66,7 @@ namespace CQRS.Tenants.UserTenants
                         Email: member.User.Email,
                         FirstName: member.User.FirstName,
                         LastName: member.User.LastName,
-                        Role: member.Role,
+                        RoleCode: member.MemberRole?.Code ?? RoleCodes.TenantMember,
                         IsActive: member.IsActive,
                         JoinedAt: member.CreatedAt
                     ));
@@ -91,14 +93,14 @@ namespace CQRS.Tenants.UserTenants
                     {
                         InvitationId = invite.Id,
                         TenantId = invite.TenantId,
-                        TenantName = string.Empty, // niepotrzebne wewnątrz szczegółów tenanta
+                        TenantName = string.Empty,
                         Email = invite.Email,
                         InvitedByUserEmail = invite.InvitedByUser?.Email ?? string.Empty,
                         InvitedByUserName = invite.InvitedByUser == null ? string.Empty : $"{invite.InvitedByUser.FirstName} {invite.InvitedByUser.LastName}",
                         CreatedAt = invite.CreatedAt,
                         ExpiresAt = invite.ExpiresAt,
                         Status = invite.Status,
-                        Token = string.Empty // nie ujawniamy tokenu w widoku administratora
+                        Token = string.Empty
                     });
                 }
             }
@@ -110,7 +112,7 @@ namespace CQRS.Tenants.UserTenants
                     Name = m.Tenant!.Name,
                     CreatedAt = m.Tenant.CreatedAt,
                     IsActive = m.Tenant.IsActive,
-                    Role = m.Role,
+                    RoleCode = m.MemberRole?.Code ?? RoleCodes.TenantMember,
                     Members = membersPerTenant.TryGetValue(m.TenantId, out var members) ? members : new List<TenantMemberWeb>(),
                     Invitations = invitationsPerTenant.TryGetValue(m.TenantId, out var invs) ? invs : new List<TenantInvitationWeb>()
                 })

@@ -18,7 +18,7 @@ import {
 import { UserPlus, Check } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
-import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { LoadingSpinner, EmptyState, UserAvatar, DataCard } from "./common";
 import type { TenantMemberWeb, ProjectMemberWeb } from "../types/project.types";
@@ -195,8 +195,8 @@ export default function AddProjectMemberModal({
                               <Text fontWeight="medium" fontSize="sm">
                                 {member.firstName} {member.lastName}
                               </Text>
-                              <Badge colorScheme={getProjectRoleColor(member.role)} fontSize="xs">
-                                {getProjectRoleName(member.role)}
+                              <Badge colorScheme={getRoleColor(member.roleCode)} fontSize="xs">
+                                {getRoleName(member.roleCode)}
                               </Badge>
                             </HStack>
                             <Text fontSize="xs" color="gray.500">
