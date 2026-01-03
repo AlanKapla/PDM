@@ -65,7 +65,7 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
         private async Task<bool> TenantExists(Guid tenantId, CancellationToken cancellationToken)
         {
             Tenant? tenant = await tenantRepo.GetFirstBySearch(
-                t => t.Id == tenantId && t.IsActive);
+                t => t.Id == tenantId);
 
             return tenant is not null;
         }

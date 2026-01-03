@@ -11,7 +11,9 @@ using CQRS.Tenants.InviteTenantMember;
 using CQRS.Tenants.RemoveTenantMember;
 using CQRS.Tenants.ToggleTenantStatus;
 using CQRS.Tenants.UpdateTenant;
-using CQRS.Tenants.UserTenants;
+using CQRS.Tenants.GetUserTenants;
+using CQRS.Tenants.GetAdminTenants;
+using CQRS.Tenants.GetTenantDetails;
 using CQRS.Tenants.UpdateTenantMemberRole;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -31,11 +33,37 @@ namespace WebApi.Controllers
             return Ok(result);
         }
 
-        [HttpGet("user-tenants")]
+        /// <summary>
+        /// Get all tenants where current user is a member (admins see inactive, members see only active)
+        /// </summary>
+        [HttpGet("my-tenants")]
         [Authorize(Policy = PermissionCodes.TenantListAvailable)]
-        public async Task<IActionResult> GetUserTenants()
+        public async Task<IActionResult> GetMyTenants()
         {
-            IEnumerable<TenantDetailsWeb> result = await Send(new UserTenantsQuery());
+            IEnumerable<UserTenantWeb> result = await Send(new GetUserTenantsQuery());
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get all tenants where current user is admin (includes active and inactive)
+        /// </summary>
+        [HttpGet("admin-tenants")]
+        [Authorize(Policy = PermissionCodes.TenantAdminListAvailable)]
+        public async Task<IActionResult> GetAdminTenants()
+        {
+            IEnumerable<TenantBasicWeb> result = await Send(new GetAdminTenantsQuery());
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get detailed tenant information including members and invitations (admin only)
+        /// </summary>
+        [HttpGet("{tenantId}/details")]
+        [Authorize(Policy = PermissionCodes.TenantEdit)]
+        public async Task<IActionResult> GetTenantDetails(Guid tenantId)
+        {
+            GetTenantDetailsQuery query = new(tenantId);
+            TenantDetailsWeb result = await Send(query);
             return Ok(result);
         }
 
@@ -44,14 +72,6 @@ namespace WebApi.Controllers
         public async Task<IActionResult> ChangeActiveTenant([FromBody] ChangeActiveTenantCommand request)
         {
             ActiveTenantWeb result = await Send(request);
-            return Ok(result);
-        }
-
-        [HttpGet("active")]
-        [Authorize]
-        public async Task<IActionResult> GetActiveTenant()
-        {
-            ActiveTenantWeb result = await Send(new ActiveTenantQuery());
             return Ok(result);
         }
 

@@ -35,16 +35,16 @@ import {
 } from "@chakra-ui/react";
 import { Building2, Plus, Trash2, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getUserTenants, createTenant, removeTenantMember } from "../services/tenantService";
+import { getAdminTenants, createTenant, removeTenantMember } from "../services/tenantService";
 import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
-import type { TenantDetails } from "../types/auth.types";
+import type { TenantBasic, TenantDetails } from "../types/auth.types";
 import { InvitationStatus, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
 import { RoleCodes } from "../constants/roleCodes";
 
 export default function ManagedTenants() {
   const navigate = useNavigate();
-  const [tenants, setTenants] = useState<TenantDetails[]>([]);
+  const [tenants, setTenants] = useState<TenantBasic[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [isCreatingTenant, setIsCreatingTenant] = useState(false);
@@ -63,13 +63,11 @@ export default function ManagedTenants() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
-  // Tylko organizacje zarządzane
-  const managedTenants = tenants.filter(t => t.roleCode === RoleCodes.TENANT_ADMIN);
-
+  // Pobierz tylko tenanty gdzie user jest adminem
   useEffect(() => {
     async function load() {
       try {
-        const tenantsData = await getUserTenants();
+        const tenantsData = await getAdminTenants();
         setTenants(tenantsData);
       } catch (error) {
         console.error("Błąd ładowania danych:", error);
@@ -147,18 +145,6 @@ export default function ManagedTenants() {
       const success = await removeTenantMember(tenantId, userId);
       
       if (success) {
-        // Aktualizacja lokalnej listy tenantów
-        setTenants(prevTenants =>
-          prevTenants.map(tenant =>
-            tenant.id === tenantId
-              ? {
-                  ...tenant,
-                  members: tenant.members.filter(m => m.userId !== userId),
-                }
-              : tenant
-          )
-        );
-        
         toast({
           title: "✅ Członek usunięty pomyślnie",
           description: `${name} nie ma już dostępu do tej organizacji`,
@@ -270,7 +256,7 @@ export default function ManagedTenants() {
           {/* Lista organizacji zarządzanych */}
           <Box>
             <Heading size="md" mb={4}>Twoje organizacje</Heading>
-            {managedTenants.length === 0 ? (
+            {tenants.length === 0 ? (
               <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
                 <Text color="gray.500" textAlign="center">
                   Nie zarządzasz jeszcze żadną organizacją. Utwórz nową!
@@ -278,7 +264,7 @@ export default function ManagedTenants() {
               </Box>
             ) : (
               <Stack spacing={4}>
-                {managedTenants.map((tenant) => (
+                {tenants.map((tenant) => (
                   <Box
                     key={tenant.id}
                     bg={cardBg}

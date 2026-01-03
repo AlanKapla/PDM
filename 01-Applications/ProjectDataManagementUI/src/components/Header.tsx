@@ -38,7 +38,7 @@ export default function Header() {
     const fetchActiveTenant = async () => {
       try {
         const [activeTenantResponse, tenantsResponse] = await Promise.all([
-          tenantApi.getActiveTenant(),
+          Promise.resolve({ data: { activeTenantId: user?.activeTenantId } }),
           tenantApi.getUserTenants(),
         ]);
 

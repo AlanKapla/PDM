@@ -101,10 +101,7 @@ export default function ProjectCosts() {
       const projectResponse = await projectApi.getProjectDetails(user.activeTenantId, projectId);
       setProject(projectResponse.data);
       
-      const userRole = projectResponse.data.userRole;
-      const canEdit = canEditProject(userRole);
-      
-      if (canEdit) {
+      if (permissions.canReadResources) {
         const costEstimates = await costEstimateApi.getCostEstimates(user.activeTenantId, projectId);
         console.log("Data fetched successfully:", { projectResponse, costEstimates });
 

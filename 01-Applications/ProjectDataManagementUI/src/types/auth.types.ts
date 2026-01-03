@@ -1,4 +1,4 @@
-// Typy dla API User/Auth
+﻿// Typy dla API User/Auth
 
 export interface LoginRequest {
   email: string;
@@ -99,6 +99,31 @@ export interface TenantMemberDetails {
   joinedAt: string;
 }
 
+/**
+ * Basic tenant info for user tenant list
+ */
+export interface UserTenant {
+  id: string;
+  name: string;
+  createdAt: string;
+  isActive: boolean;
+  roleCode: string;
+  isActiveTenant: boolean;
+}
+
+/**
+ * Basic tenant info for admin tenant list
+ */
+export interface TenantBasic {
+  id: string;
+  name: string;
+  createdAt: string;
+  isActive: boolean;
+}
+
+/**
+ * Detailed tenant info with members and invitations
+ */
 export interface TenantDetails {
   id: string;
   name: string;

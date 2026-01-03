@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { projectApi } from "../api/projectApi";
-import { tenantApi } from "../api/tenantApi";
+import { useAuth } from "../context/AuthContext";
 
 interface BreadcrumbSegment {
   label: string;
@@ -14,6 +14,7 @@ interface BreadcrumbSegment {
 export default function Breadcrumbs() {
   const location = useLocation();
   const params = useParams();
+  const { user } = useAuth();
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbSegment[]>([]);
   const [projectName, setProjectName] = useState<string>("");
 
@@ -28,16 +29,13 @@ export default function Breadcrumbs() {
       ];
 
       // Pobierz nazwę projektu jeśli jest w URL
-      if (params.projectId) {
+      if (params.projectId && user?.activeTenantId) {
         try {
-          const activeTenant = await tenantApi.getActiveTenant();
-          if (activeTenant.data.activeTenantId) {
-            const projectDetails = await projectApi.getProjectDetails(
-              activeTenant.data.activeTenantId,
-              params.projectId
-            );
-            setProjectName(projectDetails.data.name);
-          }
+          const projectDetails = await projectApi.getProjectDetails(
+            user.activeTenantId,
+            params.projectId
+          );
+          setProjectName(projectDetails.data.name);
         } catch (error) {
           console.error("Błąd pobierania nazwy projektu:", error);
         }

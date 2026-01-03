@@ -20,13 +20,15 @@ import {
 } from "@chakra-ui/react";
 import { Building2, CheckCircle2, Plus, Edit2, UserPlus, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getUserTenants, getActiveTenant, changeActiveTenant, createTenant, updateTenant, inviteTenantMember } from "../services/tenantService";
-import type { TenantDetails } from "../types/auth.types";
+import { useAuth } from "../context/AuthContext";
+import { getUserTenants, changeActiveTenant, createTenant, updateTenant, inviteTenantMember } from "../services/tenantService";
+import type { UserTenant } from "../types/auth.types";
 import { getRoleName, getRoleColor, RoleCodes } from "../constants/roleCodes";
 
 export default function Tenants() {
   const navigate = useNavigate();
-  const [tenants, setTenants] = useState<TenantDetails[]>([]);
+  const { user, refreshUser } = useAuth();
+  const [tenants, setTenants] = useState<UserTenant[]>([]);
   const [activeTenantId, setActiveTenantId] = useState<string>("");
   const [changingTenant, setChangingTenant] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -58,15 +60,12 @@ export default function Tenants() {
   useEffect(() => {
     async function load() {
       try {
-        const [tenantsData, activeTenant] = await Promise.all([
-          getUserTenants(),
-          getActiveTenant(),
-        ]);
-        
+        const tenantsData = await getUserTenants();
         setTenants(tenantsData);
         
-        if (activeTenant?.activeTenantId) {
-          setActiveTenantId(activeTenant.activeTenantId);
+        // Ustaw activeTenantId z user (już jest w AuthContext z /me)
+        if (user?.activeTenantId) {
+          setActiveTenantId(user.activeTenantId);
         }
       } catch (error) {
         console.error("Błąd ładowania danych:", error);
@@ -75,7 +74,7 @@ export default function Tenants() {
       }
     }
     load();
-  }, []);
+  }, [user?.activeTenantId]);
 
   const handleTenantChange = async (newTenantId: string) => {
     if (newTenantId === activeTenantId) return;
@@ -85,6 +84,9 @@ export default function Tenants() {
       const success = await changeActiveTenant(newTenantId);
       
       if (success) {
+        // Odśwież dane użytkownika z /me (zawiera nowy activeTenantId)
+        await refreshUser();
+        
         setActiveTenantId(newTenantId);
         toast({
           title: "Organizacja zmieniona",
@@ -94,9 +96,10 @@ export default function Tenants() {
           isClosable: true,
         });
         
+        // Przeładuj stronę aby odświeżyć wszystkie dane
         setTimeout(() => {
           window.location.reload();
-        }, 1000);
+        }, 500);
       } else {
         toast({
           title: "Błąd zmiany organizacji",

@@ -12,6 +12,7 @@ public static class PermissionScopes
         // These permissions do not require tenantId or projectId in route
         
         [PermissionCodes.TenantListAvailable] = PermissionScope.Global,
+        [PermissionCodes.TenantAdminListAvailable] = PermissionScope.Global,
         [PermissionCodes.RoleList] = PermissionScope.Global,
         
         

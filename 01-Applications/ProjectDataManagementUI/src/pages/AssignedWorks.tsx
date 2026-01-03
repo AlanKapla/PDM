@@ -27,12 +27,13 @@ import {
 import { Briefcase, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi } from "../api/projectApi";
-import { tenantApi } from "../api/tenantApi";
+import { useAuth } from "../context/AuthContext";
 import type { UserAssignedWorksGroupedWeb } from "../types/workSchedule.types";
 
 type TimeScale = "days" | "weeks" | "months";
 
 export default function AssignedWorks() {
+  const { user } = useAuth();
   const [assignedWorks, setAssignedWorks] = useState<UserAssignedWorksGroupedWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,22 +55,18 @@ export default function AssignedWorks() {
 
   useEffect(() => {
     const fetchAssignedWorks = async () => {
+      if (!user?.activeTenantId || user.activeTenantId === "00000000-0000-0000-0000-000000000000") {
+        setError("Brak aktywnego tenanta. Wybierz organizację.");
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
-        // Pobierz aktywny tenant
-        const activeTenantResponse = await tenantApi.getActiveTenant();
-        const activeTenantData = activeTenantResponse.data;
-
-        if (!activeTenantData.activeTenantId || activeTenantData.activeTenantId === "00000000-0000-0000-0000-000000000000") {
-          setError("Brak aktywnego tenanta. Wybierz organizację.");
-          setLoading(false);
-          return;
-        }
-
         // Pobierz zaplanowane prace
-        const response = await projectApi.getMyAssignedWorks(activeTenantData.activeTenantId);
+        const response = await projectApi.getMyAssignedWorks(user.activeTenantId);
         setAssignedWorks(response.data);
       } catch (err: any) {
         console.error("Błąd pobierania zaplanowanych prac:", err);
@@ -80,7 +77,7 @@ export default function AssignedWorks() {
     };
 
     fetchAssignedWorks();
-  }, []);
+  }, [user]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

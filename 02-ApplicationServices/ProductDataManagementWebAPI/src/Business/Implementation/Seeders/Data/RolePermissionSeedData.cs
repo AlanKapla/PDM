@@ -24,6 +24,7 @@ public static class RolePermissionSeedData
     {
         // GLOBAL
         new PermissionSeed(RoleScope.Tenant, PermissionCodes.TenantListAvailable, "List available tenants", "Lista tenantów dostępnych dla usera (do switchera)"),
+        new PermissionSeed(RoleScope.Tenant, PermissionCodes.TenantAdminListAvailable, "List admin tenants", "Lista tenantów gdzie użytkownik jest adminem"),
         new PermissionSeed(RoleScope.Tenant, PermissionCodes.RoleList, "List available roles", "Lista dostępnych ról do przypisywania (dla adminów)"),
 
         // TENANT – OPERACJE
@@ -60,6 +61,7 @@ public static class RolePermissionSeedData
         {
             // TENANT.ADMIN
             RP(RoleCodes.TenantAdmin, PermissionCodes.TenantListAvailable),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.TenantAdminListAvailable),
             RP(RoleCodes.TenantAdmin, PermissionCodes.RoleList),  // ✅ NEW: Admin może listować role
             RP(RoleCodes.TenantAdmin, PermissionCodes.TenantView),
             RP(RoleCodes.TenantAdmin, PermissionCodes.TenantEdit),

@@ -34,12 +34,14 @@ import type { ProjectDetailsWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { useTenantPermissions } from "../hooks/useTenantPermissions";
+import { useAuth as useAuthContext } from "../context/AuthContext";
 import { useModal } from "../hooks/useModal";
 import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
 
 export default function Projects() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuthContext();
   const [projects, setProjects] = useState<ProjectDetailsWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,50 +58,35 @@ export default function Projects() {
 
   // Pobierz aktywnego tenanta i projekty
   useEffect(() => {
+    const activeTenantId = user?.activeTenantId;
+    
+    // Jeśli nie ma aktywnego tenanta - wyświetl info i zatrzymaj
+    if (!activeTenantId || activeTenantId === "00000000-0000-0000-0000-000000000000" || activeTenantId.trim() === "") {
+      setActiveTenantId(null);
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       
       try {
-        const [activeTenantResponse, tenantsResponse] = await Promise.all([
-          tenantApi.getActiveTenant(),
-          tenantApi.getUserTenants(),
-        ]);
-
-        const activeTenantData = activeTenantResponse.data;
-        
-        console.log("🔍 Active tenant data:", activeTenantData);
-        console.log("🔍 activeTenantId value:", activeTenantData.activeTenantId);
-        console.log("🔍 activeTenantId type:", typeof activeTenantData.activeTenantId);
-        
-        // Jeśli jest aktywny tenant (sprawdź czy to prawdziwy string z wartością)
-        if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
-          console.log("✅ Tenant aktywny - pobieram projekty");
-          setActiveTenantId(activeTenantData.activeTenantId);
-          
-          // Pobierz projekty
-          try {
-            const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
-            setProjects(projectsResponse.data);
-          } catch (projectErr) {
-            console.error("Błąd pobierania projektów:", projectErr);
-            setError("Nie udało się pobrać projektów");
-          }
-        } else {
-          // Brak aktywnego tenanta
-          console.log("❌ Brak aktywnego tenanta - NIE pobieram projektów");
-          setActiveTenantId(null);
-        }
+        setActiveTenantId(activeTenantId);
+        const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
+        setProjects(projectsResponse.data);
       } catch (err) {
-        console.error("Błąd pobierania danych:", err);
-        setError("Błąd połączenia z serwerem");
+        console.error("Błąd pobierania projektów:", err);
+        setError("Nie udało się pobrać projektów");
+        setProjects([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [location.key]);
+  }, [user?.activeTenantId]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pl-PL", {
@@ -161,6 +148,12 @@ export default function Projects() {
 
         {loading ? (
           <LoadingSpinner />
+        ) : !activeTenantId ? (
+          <EmptyState 
+            icon={FolderKanban}
+            title="Nie wybrano aktywnej organizacji"
+            description="Wybierz organizację z menu, aby zobaczyć jej projekty"
+          />
         ) : error ? (
           <ErrorAlert description={error} />
         ) : projects.length === 0 ? (

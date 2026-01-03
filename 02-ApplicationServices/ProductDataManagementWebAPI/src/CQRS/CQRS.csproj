@@ -61,6 +61,7 @@
     <Folder Include="Messages\GetProjectMessages\" />
     <Folder Include="Notifications\GetUserNotifications\" />
     <Folder Include="Tenants\GetProjectsDictionary\" />
+    <Folder Include="Tenants\UserTenants\" />
     <Folder Include="Validators\Base\" />
   </ItemGroup>
 

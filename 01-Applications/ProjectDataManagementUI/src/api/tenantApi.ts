@@ -2,11 +2,15 @@
 
 export const tenantApi = {
   getUserTenants: async () => {
-    return axiosClient.get("/tenant/user-tenants");
+    return axiosClient.get("/tenant/my-tenants");
   },
 
-  getActiveTenant: async () => {
-    return axiosClient.get("/tenant/active");
+  getAdminTenants: async () => {
+    return axiosClient.get("/tenant/admin-tenants");
+  },
+
+  getTenantDetails: async (tenantId: string) => {
+    return axiosClient.get(`/tenant/${tenantId}/details`);
   },
 
   changeActiveTenant: async (tenantId: string) => {
@@ -57,7 +61,6 @@ export const tenantApi = {
   getTenantMembers: async (tenantId: string) => {
     return axiosClient.get(`/tenant/${tenantId}/members`);
   },
-
 
   updateTenantMemberRole: async (tenantId: string, userId: string, roleId: string) => {
     return axiosClient.patch(`/tenant/${tenantId}/members/${userId}/role`, { roleId });

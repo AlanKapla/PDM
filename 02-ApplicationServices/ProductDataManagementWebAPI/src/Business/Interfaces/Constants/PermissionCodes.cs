@@ -4,6 +4,7 @@ public static class PermissionCodes
 {
     // TENANT – LIST/CONTEXT
     public const string TenantListAvailable = "TENANT.LIST.AVAILABLE";
+    public const string TenantAdminListAvailable = "TENANT.ADMIN.LIST.AVAILABLE";
     
     // ROLE – LIST
     public const string RoleList = "ROLE.LIST";
@@ -35,6 +36,7 @@ public static class PermissionCodes
     public static readonly string[] All = new[]
     {
         TenantListAvailable,
+        TenantAdminListAvailable,
         RoleList,
         TenantView,
         TenantEdit,

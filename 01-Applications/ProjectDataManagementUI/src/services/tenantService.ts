@@ -1,12 +1,12 @@
 ﻿import { tenantApi } from "../api/tenantApi";
-import type { TenantDetails, ActiveTenant } from "../types/auth.types";
+import type { UserTenant, TenantBasic, TenantDetails, ActiveTenant } from "../types/auth.types";
 
 /**
  * Service layer for tenant operations
  * Converted to axios - returns response.data instead of response.ok/json()
  */
 
-export const getUserTenants = async (): Promise<TenantDetails[]> => {
+export const getUserTenants = async (): Promise<UserTenant[]> => {
   try {
     const response = await tenantApi.getUserTenants();
     return response.data;
@@ -16,12 +16,22 @@ export const getUserTenants = async (): Promise<TenantDetails[]> => {
   }
 };
 
-export const getActiveTenant = async (): Promise<ActiveTenant | null> => {
+export const getAdminTenants = async (): Promise<TenantBasic[]> => {
   try {
-    const response = await tenantApi.getActiveTenant();
+    const response = await tenantApi.getAdminTenants();
     return response.data;
   } catch (error) {
-    console.error("Error fetching active tenant:", error);
+    console.error("Error fetching admin tenants:", error);
+    return [];
+  }
+};
+
+export const getTenantDetails = async (tenantId: string): Promise<TenantDetails | null> => {
+  try {
+    const response = await tenantApi.getTenantDetails(tenantId);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching tenant details:", error);
     return null;
   }
 };
@@ -36,7 +46,7 @@ export const changeActiveTenant = async (tenantId: string): Promise<boolean> => 
   }
 };
 
-export const createTenant = async (name: string): Promise<TenantDetails | null> => {
+export const createTenant = async (name: string): Promise<UserTenant | null> => {
   try {
     const response = await tenantApi.createTenant(name);
     return response.data;
@@ -46,7 +56,7 @@ export const createTenant = async (name: string): Promise<TenantDetails | null> 
   }
 };
 
-export const updateTenant = async (tenantId: string, name: string): Promise<TenantDetails | null> => {
+export const updateTenant = async (tenantId: string, name: string): Promise<UserTenant | null> => {
   try {
     const response = await tenantApi.updateTenant(tenantId, name);
     return response.data;

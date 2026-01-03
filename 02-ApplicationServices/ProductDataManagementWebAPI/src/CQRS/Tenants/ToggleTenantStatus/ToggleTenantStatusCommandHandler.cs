@@ -1,9 +1,12 @@
-﻿using Business.Interfaces.DTO;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Extensions;
 using Entities.Models;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
@@ -48,16 +51,32 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
         tenant.IsActive = request.IsActive;
         await tenantRepo.Update(tenant);
 
-        // Jeśli tenant został dezaktywowany, wyczyść ActiveTenantId z profili użytkowników
+        // Jeśli tenant został dezaktywowany, wyczyść ActiveTenantId TYLKO dla non-adminów
         if (!request.IsActive)
         {
+            // Pobierz wszystkich członków tenanta z ich rolami
+            IEnumerable<TenantMember> allMembers = await tenantMemberRepo.GetBySearch(
+                tm => tm.TenantId == request.TenantId && tm.IsActive,
+                q => q.Include(tm => tm.MemberRole)
+            );
+
+            // Pobierz profile użytkowników którzy mają ten tenant jako aktywny
             IEnumerable<TenantPreferencesProfile> profilesWithActiveTenant = await tenantPrefsRepo.GetBySearch(
                 p => p.ActiveTenantId == request.TenantId);
 
             foreach (TenantPreferencesProfile profile in profilesWithActiveTenant)
             {
-                profile.ActiveTenantId = null;
-                await tenantPrefsRepo.Update(profile);
+                // Sprawdź czy użytkownik jest adminem tego tenanta
+                TenantMember? membership = allMembers.FirstOrDefault(m => m.UserId == profile.UserId);
+                bool isAdmin = membership?.MemberRole?.Code == RoleCodes.TenantAdmin;
+
+                // Wyczyść ActiveTenantId TYLKO dla non-adminów
+                if (!isAdmin)
+                {
+                    profile.ActiveTenantId = null;
+                    await tenantPrefsRepo.Update(profile);
+                }
+                // Admini zachowują swój ActiveTenantId
             }
         }
 

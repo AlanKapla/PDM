@@ -35,7 +35,7 @@ import {
 } from "@chakra-ui/react";
 import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getUserTenants, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberRole } from "../services/tenantService";
+import { getTenantDetails, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberRole } from "../services/tenantService";
 import type { TenantDetails as TenantDetailsType } from "../types/auth.types";
 import { getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
@@ -94,10 +94,9 @@ export default function TenantDetails() {
       }
 
       try {
-        const tenants = await getUserTenants();
-        const found = tenants.find((t) => t.id === tenantId);
+        const tenantData = await getTenantDetails(tenantId);
 
-        if (!found) {
+        if (!tenantData) {
           toast({
             title: "Błąd",
             description: "Nie znaleziono organizacji",
@@ -108,8 +107,8 @@ export default function TenantDetails() {
           return;
         }
 
-        setTenant(found);
-        setEditedName(found.name);
+        setTenant(tenantData);
+        setEditedName(tenantData.name);
       } catch (error) {
         console.error("Błąd ładowania tenanta:", error);
         toast({
@@ -154,7 +153,8 @@ export default function TenantDetails() {
       const updated = await updateTenant(tenantId, editedName);
 
       if (updated) {
-        setTenant(updated);
+        // Aktualizuj tylko nazwę w istniejącym stanie (nie zastępuj całego obiektu)
+        setTenant(prev => prev ? { ...prev, name: updated.name } : null);
         setIsEditingName(false);
         toast({
           title: "Zaktualizowano",
@@ -213,8 +213,7 @@ export default function TenantDetails() {
 
       if (success) {
         // Odśwież dane tenanta aby pobrać nowe zaproszenie
-        const tenants = await getUserTenants();
-        const updated = tenants.find((t) => t.id === tenantId);
+        const updated = await getTenantDetails(tenantId);
         if (updated) {
           setTenant(updated);
         }
@@ -404,8 +403,7 @@ export default function TenantDetails() {
       onToggleStatusClose();
       
       // Odśwież dane tenanta
-      const tenants = await getUserTenants();
-      const updated = tenants.find((t) => t.id === tenantId);
+      const updated = await getTenantDetails(tenantId);
       if (updated) {
         setTenant(updated);
       }

@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   user: UserProfile | null;
   loading: boolean;
+  refreshUser: () => Promise<void>;
   setIsAuthenticated: (value: boolean) => void;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   googleLogin: (token: string) => Promise<{ success: boolean; message?: string }>;
@@ -20,6 +21,7 @@ export const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   user: null,
   loading: true,
+  refreshUser: async () => {},
   setIsAuthenticated: () => {},
   login: async () => ({ success: false }),
   googleLogin: async () => ({ success: false }),
@@ -272,12 +274,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.warn("setIsAuthenticated is deprecated with Azure AD B2C");
   };
 
+  // Refresh user data from /user/me (po zmianie aktywnego tenanta)
+  const refreshUser = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const response = await axiosClient.get("/user/me");
+      setUser(response.data);
+    } catch (error) {
+      console.error("❌ Error refreshing user:", error);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         isAuthenticated,
         user,
         loading,
+        refreshUser,
         setIsAuthenticated,
         login,
         googleLogin,
