@@ -46,28 +46,25 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
 
         public async Task<Unit> Handle(UpdateTenantMemberRoleCommand request, CancellationToken cancellationToken)
         {
-            Tenant tenant = (await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId))
+            Tenant tenant = await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId)
                 ?? throw new NotFoundApiException(nameof(Tenant), request.TenantId.ToString());
 
-            TenantMember tenantMember = (await tenantMemberRepo.GetFirstBySearch(
+            TenantMember tenantMember = await tenantMemberRepo.GetFirstBySearch(
                 m => m.TenantId == request.TenantId 
                     && m.UserId == request.UserId 
-                    && m.IsActive))!;
+                    && m.IsActive)
+                ?? throw new NotFoundApiException(nameof(TenantMember), $"Tenant: {request.TenantId}, User: {request.UserId}");
 
-            // Verify role exists and is a Tenant scope role
-            var newRole = await roleRepo.GetFirstBySearch(
-                r => r.Id == request.RoleId && r.Scope == RoleScope.Tenant,
-                cancellationToken);
-
-            if (newRole == null)
-                throw new NotFoundApiException("Role", request.RoleId.ToString());
+            Role newRole = await roleRepo.GetFirstBySearch(
+                r => r.Id == request.RoleId && r.Scope == RoleScope.Tenant && r.IsActive,
+                cancellationToken)
+                ?? throw new NotFoundApiException(nameof(Role), request.RoleId.ToString());
 
             var oldRoleId = tenantMember.RoleId;
             tenantMember.RoleId = newRole.Id;
 
             await tenantMemberRepo.Update(tenantMember);
 
-            // Jeśli tenant jest nieaktywny i nowa rola NIE jest adminem, usuń ActiveTenantId
             if (!tenant.IsActive && newRole.Code != RoleCodes.TenantAdmin)
             {
                 var userProfile = await tenantPrefsRepo.GetFirstBySearch(
@@ -80,7 +77,6 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                 }
             }
 
-            // Bump permissions version for the user whose role changed
             await permissionsVersionService.BumpVersionAsync(request.UserId, cancellationToken);
 
             User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId);

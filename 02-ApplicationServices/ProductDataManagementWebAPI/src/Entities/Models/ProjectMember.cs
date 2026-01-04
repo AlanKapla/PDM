@@ -13,7 +13,7 @@ namespace Entities.Models
 
         public Project Project { get; set; } = default!;
         public TenantMember TenantMember { get; set; } = default!;
-        public Entities.Models.Role? MemberRole { get; set; }
+        public Role? MemberRole { get; set; }
         public ICollection<ProjectGroupMember> ProjectGroupMembers { get; set; } = new List<ProjectGroupMember>();
     }
 }

@@ -8,16 +8,13 @@ namespace CQRS.Projects.AddProjectMember
 {
     public class AddProjectMemberCommandValidator : AbstractValidator<AddProjectMemberCommand>
     {
-        private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
 
         public AddProjectMemberCommandValidator(
-            IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
             IRepository<TenantMember> tenantMemberRepo)
         {
-            this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.tenantMemberRepo = tenantMemberRepo;
 
@@ -30,11 +27,6 @@ namespace CQRS.Projects.AddProjectMember
             RuleFor(x => x.UserId)
                 .NotEmpty().WithMessage("UserId is required");
 
-            // Validate project exists and is active in one rule to avoid duplicate queries
-            RuleFor(x => x)
-                .MustAsync(ProjectMustExistAndBeActive)
-                .WithMessage("Project not found or is inactive");
-
             // Validate user must be active tenant member
             RuleFor(x => x)
                 .MustAsync(UserMustBeTenantMember)
@@ -44,16 +36,6 @@ namespace CQRS.Projects.AddProjectMember
             RuleFor(x => x)
                 .MustAsync(UserMustNotBeProjectMember)
                 .WithMessage("User is already a member of this project");
-        }
-
-        private async Task<bool> ProjectMustExistAndBeActive(AddProjectMemberCommand command, CancellationToken cancellationToken)
-        {
-            // Combined check to avoid fetching project twice
-            Project? project = await projectRepo.GetFirstBySearch(
-                p => p.Id == command.ProjectId && p.TenantId == command.TenantId,
-                cancellationToken);
-
-            return project != null && project.IsActive;
         }
 
         private async Task<bool> UserMustBeTenantMember(AddProjectMemberCommand command, CancellationToken cancellationToken)

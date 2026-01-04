@@ -3,33 +3,30 @@ using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using CQRS.Extensions;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Tenants.ToggleTenantStatus;
 
-/// <summary>
-/// Handler zmieniający status aktywności tenanta
-/// </summary>
 public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStatusCommand, Unit>
 {
-    private readonly IReadRepository<Tenant> tenantRepo;
+    private readonly IRepository<Tenant> tenantRepo;
     private readonly IReadRepository<User> userRepo;
     private readonly IRepository<TenantMember> tenantMemberRepo;
     private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
+    private readonly IReadRepository<Role> roleRepo;
     private readonly INotificationSender notificationSender;
     private readonly ICurrentUser currentUser;
 
     public ToggleTenantStatusCommandHandler(
-        IReadRepository<Tenant> tenantRepo,
+        IRepository<Tenant> tenantRepo,
         IReadRepository<User> userRepo,
         IRepository<TenantMember> tenantMemberRepo,
         IRepository<TenantPreferencesProfile> tenantPrefsRepo,
+        IReadRepository<Role> roleRepo,
         INotificationSender notificationSender,
         ICurrentUser currentUser)
     {
@@ -37,50 +34,48 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
         this.userRepo = userRepo;
         this.tenantMemberRepo = tenantMemberRepo;
         this.tenantPrefsRepo = tenantPrefsRepo;
+        this.roleRepo = roleRepo;
         this.notificationSender = notificationSender;
         this.currentUser = currentUser;
     }
 
     public async Task<Unit> Handle(ToggleTenantStatusCommand request, CancellationToken cancellationToken)
     {
-        // Pobierz tenanta - może być aktywny lub nieaktywny
-        Tenant? tenant = await tenantRepo.GetById(request.TenantId)
+        Tenant? tenant = await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId)
             ?? throw new NotFoundApiException(nameof(Tenant), request.TenantId.ToString());
 
-        // Zmień status tenanta
         tenant.IsActive = request.IsActive;
         await tenantRepo.Update(tenant);
 
-        // Jeśli tenant został dezaktywowany, wyczyść ActiveTenantId TYLKO dla non-adminów
         if (!request.IsActive)
         {
-            // Pobierz wszystkich członków tenanta z ich rolami
             IEnumerable<TenantMember> allMembers = await tenantMemberRepo.GetBySearch(
-                tm => tm.TenantId == request.TenantId && tm.IsActive,
-                q => q.Include(tm => tm.MemberRole)
-            );
+                tm => tm.TenantId == request.TenantId && tm.IsActive);
 
-            // Pobierz profile użytkowników którzy mają ten tenant jako aktywny
+            var memberRoleIds = allMembers.Where(m => m.RoleId.HasValue).Select(m => m.RoleId!.Value).Distinct().ToList();
+            var roles = await roleRepo.GetBySearch(r => memberRoleIds.Contains(r.Id));
+            var roleDict = roles.ToDictionary(r => r.Id);
+
             IEnumerable<TenantPreferencesProfile> profilesWithActiveTenant = await tenantPrefsRepo.GetBySearch(
                 p => p.ActiveTenantId == request.TenantId);
 
             foreach (TenantPreferencesProfile profile in profilesWithActiveTenant)
             {
-                // Sprawdź czy użytkownik jest adminem tego tenanta
                 TenantMember? membership = allMembers.FirstOrDefault(m => m.UserId == profile.UserId);
-                bool isAdmin = membership?.MemberRole?.Code == RoleCodes.TenantAdmin;
-
-                // Wyczyść ActiveTenantId TYLKO dla non-adminów
-                if (!isAdmin)
+                
+                if (membership != null && membership.RoleId.HasValue && roleDict.TryGetValue(membership.RoleId.Value, out var role))
                 {
-                    profile.ActiveTenantId = null;
-                    await tenantPrefsRepo.Update(profile);
+                    bool isAdmin = role.Code == RoleCodes.TenantAdmin;
+
+                    if (!isAdmin)
+                    {
+                        profile.ActiveTenantId = null;
+                        await tenantPrefsRepo.Update(profile);
+                    }
                 }
-                // Admini zachowują swój ActiveTenantId
             }
         }
 
-        // Pobierz wszystkich aktywnych członków tenanta do wysłania notyfikacji
         IEnumerable<TenantMember> tenantMembers = await tenantMemberRepo.GetBySearch(
             tm => tm.TenantId == request.TenantId && tm.IsActive);
 

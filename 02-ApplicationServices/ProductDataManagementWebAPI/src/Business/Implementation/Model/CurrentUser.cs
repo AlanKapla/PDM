@@ -19,7 +19,7 @@ namespace Business.Implementation.Model
         private readonly IReadRepository<PermissionsVersionProfile> permissionsVersionRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IReadRepository<Role> roleRepo;
+        private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<RolePermission> rolePermissionRepo;
         private readonly IUserContextCache cache;
 
@@ -37,7 +37,7 @@ namespace Business.Implementation.Model
             IReadRepository<PermissionsVersionProfile> permissionsVersionRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IReadRepository<Role> roleRepo,
+            IReadRepository<Project> projectRepo,
             IRepository<RolePermission> rolePermissionRepo,
             IUserContextCache cache)
         {
@@ -47,7 +47,7 @@ namespace Business.Implementation.Model
             this.permissionsVersionRepo = permissionsVersionRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.roleRepo = roleRepo;
+            this.projectRepo = projectRepo;
             this.rolePermissionRepo = rolePermissionRepo;
             this.cache = cache;
         }
@@ -179,11 +179,24 @@ namespace Business.Implementation.Model
                 q => q.Include(tm => tm.MemberRole!));
 
             if (membership?.RoleId == null)
+            {
+                // If not a member but is SuperAdmin, grant read-only permissions
+                if (_systemRole == SystemRole.SuperAdmin)
+                {
+                    return new TenantCtxSnapshot(
+                        tenantId,
+                        Guid.Empty, // No role ID for non-member SuperAdmin
+                        SuperAdminFallbackPermissions.TenantReadOnly,
+                        false // Not a tenant admin (no membership)
+                    );
+                }
+
                 throw new InvalidOperationException("User is not a member of the tenant");
+            }
 
             var permissions = await GetRolePermissionsAsync(membership.RoleId.Value, cancellationToken);
 
-            var isTenantAdmin = membership.MemberRole?.Code == RoleCodes.TenantAdmin;
+            var isTenantAdmin = membership.MemberRole?.Code == RoleCodes.TenantAdmin || membership.MemberRole?.Code == RoleCodes.SystemSuperAdmin;
 
             return new TenantCtxSnapshot(
                 tenantId,
@@ -196,20 +209,54 @@ namespace Business.Implementation.Model
         {
             var membership = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == projectId && pm.UserId == _id,
-                q => q.Include(pm => pm.MemberRole!).Include(pm => pm.Project));
+                q => q.Include(pm => pm.MemberRole!));
 
             if (membership == null)
+            {
+                // If not a member but is SuperAdmin, grant read-only permissions
+                if (_systemRole == SystemRole.SuperAdmin)
+                {
+                    // Get project to obtain tenantId
+                    var project = await projectRepo.GetFirstBySearch(
+                        p => p.Id == projectId,
+                        cancellationToken);
+                    
+                    if (project == null)
+                    {
+                        throw new InvalidOperationException($"Project {projectId} not found");
+                    }
+
+                    return new ProjectCtxSnapshot(
+                        projectId,
+                        project.TenantId,
+                        null, // No role ID for non-member SuperAdmin
+                        SuperAdminFallbackPermissions.ProjectReadOnly,
+                        false // Not a project admin (no membership)
+                    );
+                }
+
                 throw new InvalidOperationException("User is not a member of the project");
+            }
+
+            // Get project to obtain tenantId
+            var projectEntity = await projectRepo.GetFirstBySearch(
+                p => p.Id == projectId,
+                cancellationToken);
+
+            if (projectEntity == null)
+            {
+                throw new InvalidOperationException($"Project {projectId} not found");
+            }
 
             var permissions = membership.RoleId.HasValue
                 ? await GetRolePermissionsAsync(membership.RoleId.Value, cancellationToken)
                 : new HashSet<string>();
 
-            var isProjectAdmin = membership.MemberRole?.Code == RoleCodes.ProjectAdmin;
+            var isProjectAdmin = membership.MemberRole?.Code == RoleCodes.ProjectAdmin || membership.MemberRole?.Code == RoleCodes.SystemSuperAdmin;
 
             return new ProjectCtxSnapshot(
                 projectId,
-                membership.Project.TenantId,
+                projectEntity.TenantId,
                 membership.RoleId,
                 permissions,
                 isProjectAdmin);

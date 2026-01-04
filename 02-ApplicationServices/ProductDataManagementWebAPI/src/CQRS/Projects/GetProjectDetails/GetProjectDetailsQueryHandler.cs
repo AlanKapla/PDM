@@ -1,7 +1,7 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
-using CQRS.Extensions;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -10,55 +10,65 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.GetProjectDetails
 {
-    public class GetProjectDetailsQueryHandler : IRequestHandler<GetProjectDetailsQuery, ProjectDetailsWeb?>
+    public class GetProjectDetailsQueryHandler : IRequestHandler<GetProjectDetailsQuery, ProjectDetailsWeb>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly ICurrentUser currentUser;
 
         public GetProjectDetailsQueryHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
+            IRepository<TenantMember> tenantMemberRepo,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
+            this.tenantMemberRepo = tenantMemberRepo;
             this.currentUser = currentUser;
         }
 
-        public async Task<ProjectDetailsWeb?> Handle(GetProjectDetailsQuery request, CancellationToken cancellationToken)
+        public async Task<ProjectDetailsWeb> Handle(GetProjectDetailsQuery request, CancellationToken cancellationToken)
         {
-            // Wszystkie walidacje wykonane w validatorze
-            IEnumerable<ProjectMember> projectMembers = await projectMemberRepo.GetBySearch(
-                pm => pm.TenantId == request.TenantId 
-                    && pm.ProjectId == request.ProjectId 
-                    && pm.UserId == currentUser.Id
-                    && (pm.MemberRole!.Code == RoleCodes.ProjectAdmin || pm.Project.IsActive),
-                include => include.Include(pm => pm.Project)
-                                 .ThenInclude(p => p.CreatedBy)
-                                 .ThenInclude(cb => cb.User)
-                                 .Include(pm => pm.MemberRole)
+            Project project = await projectRepo.GetFirstBySearch(
+                p => p.TenantId == request.TenantId && p.Id == request.ProjectId)
+                ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
+
+            // Get current user's project membership with role
+            ProjectMember? projectMember = await projectMemberRepo.GetFirstBySearch(
+                pm => pm.ProjectId == request.ProjectId && pm.UserId == currentUser.Id,
+                include => include.Include(pm => pm.MemberRole)
             );
 
-            ProjectMember projectMember = projectMembers.First();
-            Project project = projectMember.Project;
+            // Get creator info separately
+            TenantMember? creatorMember = await tenantMemberRepo.GetFirstBySearch(
+                tm => tm.TenantId == request.TenantId 
+                    && tm.UserId == project.CreatedByUserId,
+                include => include.Include(tm => tm.User)
+            );
 
-            IEnumerable<ProjectMember> membersCount = await projectMemberRepo.GetBySearch(
-                pm => pm.ProjectId == project.Id);
+            // Get members count
+            IEnumerable<ProjectMember> allMembers = await projectMemberRepo.GetBySearch(
+                pm => pm.ProjectId == request.ProjectId);
 
-            ProjectDetailsWeb result = new(
+            string userRoleCode = projectMember != null
+                ? (projectMember.MemberRole?.Code ?? RoleCodes.ProjectMember)
+                : RoleCodes.ProjectMember;
+
+            return new ProjectDetailsWeb(
                 Id: project.Id,
                 TenantId: project.TenantId,
                 Name: project.Name,
                 IsActive: project.IsActive,
                 CreatedAt: project.CreatedAt,
                 CreatedByUserId: project.CreatedByUserId,
-                CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
-                UserRoleCode: projectMember.MemberRole?.Code ?? RoleCodes.ProjectMember,
-                MembersCount: membersCount.Count()
+                CreatedByUserName: creatorMember?.User != null 
+                    ? $"{creatorMember.User.FirstName} {creatorMember.User.LastName}".Trim()
+                    : "Unknown",
+                UserRoleCode: userRoleCode,
+                MembersCount: allMembers.Count()
             );
-
-            return result;
         }
     }
 }

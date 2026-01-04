@@ -1,4 +1,7 @@
-﻿using MediatR;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using CQRS.Interfaces;
+using MediatR;
 
 namespace CQRS.Tenants.UpdateTenantMemberRole
 {
@@ -9,5 +12,10 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
         Guid TenantId,
         Guid UserId,
         Guid RoleId  // Changed from TenantRole enum to Guid RoleId
-    ) : IRequestCommand<Unit>;
+    ) : IRequestCommand<Unit>, IAuthorizableRequest
+    {
+        public string PermissionCode => PermissionCodes.TenantMembersManage;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId);
+    }
 }

@@ -38,7 +38,7 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
     public async Task<Unit> Handle(ToggleProjectStatusCommand request, CancellationToken cancellationToken)
     {
         // Pobierz projekt - może być aktywny lub nieaktywny
-        Project? project = await projectRepo.GetFirstBySearch(
+        Project project = await projectRepo.GetFirstBySearch(
             p => p.Id == request.ProjectId && p.TenantId == request.TenantId)
             ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 

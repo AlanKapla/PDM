@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -40,7 +40,7 @@ import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
 import type { TenantBasic, TenantDetails } from "../types/auth.types";
 import { InvitationStatus, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
-import { RoleCodes } from "../constants/roleCodes";
+import { getRoleName, getRoleColor, RoleCodes } from "../constants/roleCodes";
 
 export default function ManagedTenants() {
   const navigate = useNavigate();
@@ -289,6 +289,9 @@ export default function ManagedTenants() {
                           <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>{tenant.name}</Text>
                           <Badge colorScheme={tenant.isActive ? "green" : "gray"} fontSize="xs">
                             {tenant.isActive ? "Aktywna" : "Nieaktywna"}
+                          </Badge>
+                          <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
+                            {getRoleName(tenant.roleCode)}
                           </Badge>
                         </HStack>
                         <Text fontSize="xs" color="gray.500">

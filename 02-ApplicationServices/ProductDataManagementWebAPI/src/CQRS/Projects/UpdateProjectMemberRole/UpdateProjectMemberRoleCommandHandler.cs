@@ -42,21 +42,19 @@ namespace CQRS.Projects.UpdateProjectMemberRole
 
         public async Task<Unit> Handle(UpdateProjectMemberRoleCommand request, CancellationToken cancellationToken)
         {
-            Project project = (await projectRepo.GetFirstBySearch(
-                p => p.Id == request.ProjectId && p.TenantId == request.TenantId && p.IsActive))
+            Project project = await projectRepo.GetFirstBySearch(
+                p => p.Id == request.ProjectId && p.TenantId == request.TenantId)
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            ProjectMember projectMember = (await projectMemberRepo.GetFirstBySearch(
+            ProjectMember projectMember = await projectMemberRepo.GetFirstBySearch(
                 m => m.ProjectId == request.ProjectId 
-                    && m.UserId == request.UserId))!;
+                    && m.UserId == request.UserId)
+                ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
-            // Verify role exists and is a Project scope role
-            var newRole = await roleRepo.GetFirstBySearch(
-                r => r.Id == request.RoleId && r.Scope == RoleScope.Project,
-                cancellationToken);
-
-            if (newRole == null)
-                throw new NotFoundApiException("Role", request.RoleId.ToString());
+            Role newRole = await roleRepo.GetFirstBySearch(
+                r => r.Id == request.RoleId && r.Scope == RoleScope.Project && r.IsActive,
+                cancellationToken)
+                ?? throw new NotFoundApiException(nameof(Role), request.RoleId.ToString());
 
             var oldRoleId = projectMember.RoleId;
             projectMember.RoleId = newRole.Id;

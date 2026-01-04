@@ -2,11 +2,10 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
-using CQRS.Extensions;
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
+using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.GetTenantDetails
@@ -16,17 +15,23 @@ namespace CQRS.Tenants.GetTenantDetails
         private readonly IRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IRepository<TenantInvitation> invitationRepo;
+        private readonly IReadRepository<User> userRepo;
+        private readonly IReadRepository<Role> roleRepo;
         private readonly ICurrentUser currentUser;
 
         public GetTenantDetailsQueryHandler(
             IRepository<Tenant> tenantRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IRepository<TenantInvitation> invitationRepo,
+            IReadRepository<User> userRepo,
+            IReadRepository<Role> roleRepo,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.invitationRepo = invitationRepo;
+            this.userRepo = userRepo;
+            this.roleRepo = roleRepo;
             this.currentUser = currentUser;
         }
 
@@ -36,59 +41,86 @@ namespace CQRS.Tenants.GetTenantDetails
                 t => t.Id == request.TenantId
             ) ?? throw new NotFoundApiException(nameof(Tenant), request.TenantId.ToString());
 
-            // Jedno zapytanie pobierające wszystkich członków tenanta
             IEnumerable<TenantMember> members = await tenantMemberRepo.GetBySearch(
-                tm => tm.TenantId == request.TenantId && tm.IsActive,
-                q => q.Include(tm => tm.User).Include(tm => tm.MemberRole)
-            );
+                tm => tm.TenantId == request.TenantId && tm.IsActive);
 
-            // Sprawdzenie czy current user jest adminem na pobranej kolekcji
             TenantMember? currentUserMembership = members
                 .FirstOrDefault(m => m.UserId == currentUser.Id);
 
-            if (currentUserMembership == null || !currentUserMembership.MemberRole!.Code.IsTenantAdmin())
-                throw new ForbiddenApiException("Only tenant admins can view tenant details");
+            var memberUserIds = members.Select(m => m.UserId).ToList();
+            var users = await userRepo.GetBySearch(u => memberUserIds.Contains(u.Id));
+            var userDict = users.ToDictionary(u => u.Id);
+
+            var memberRoleIds = members.Where(m => m.RoleId.HasValue).Select(m => m.RoleId!.Value).Distinct().ToList();
+            var roles = await roleRepo.GetBySearch(r => memberRoleIds.Contains(r.Id));
+            var roleDict = roles.ToDictionary(r => r.Id);
 
             IEnumerable<TenantInvitation> invitations = await invitationRepo.GetBySearch(
                 i => i.TenantId == request.TenantId
                      && i.IsActive
                      && i.Status == InvitationStatus.Pending
-                     && i.ExpiresAt > DateTime.UtcNow,
-                q => q.Include(i => i.InvitedByUser)
-            );
+                     && i.ExpiresAt > DateTime.UtcNow);
+
+            var inviterUserIds = invitations.Select(i => i.InvitedByUserId).ToList();
+            var inviterUsers = await userRepo.GetBySearch(u => inviterUserIds.Contains(u.Id));
+            var inviterDict = inviterUsers.ToDictionary(u => u.Id);
 
             List<TenantMemberWeb> memberDtos = members
-                .Select(m => new TenantMemberWeb(
-                    UserId: m.UserId,
-                    Email: m.User.Email,
-                    FirstName: m.User.FirstName,
-                    LastName: m.User.LastName,
-                    RoleCode: m.MemberRole?.Code ?? RoleCodes.TenantMember,
-                    IsActive: m.IsActive,
-                    JoinedAt: m.CreatedAt
-                ))
+                .Select(m =>
+                {
+                    userDict.TryGetValue(m.UserId, out var user);
+                    
+                    string roleCode = RoleCodes.TenantMember;
+                    if (m.RoleId.HasValue && roleDict.TryGetValue(m.RoleId.Value, out var role))
+                    {
+                        roleCode = role.Code;
+                    }
+
+                    return new TenantMemberWeb(
+                        UserId: m.UserId,
+                        Email: user?.Email ?? string.Empty,
+                        FirstName: user?.FirstName ?? string.Empty,
+                        LastName: user?.LastName ?? string.Empty,
+                        RoleCode: roleCode,
+                        IsActive: m.IsActive,
+                        JoinedAt: m.CreatedAt
+                    );
+                })
                 .OrderBy(m => m.LastName)
                 .ThenBy(m => m.FirstName)
                 .ToList();
 
             List<TenantInvitationWeb> invitationDtos = invitations
-                .Select(i => new TenantInvitationWeb
+                .Select(i =>
                 {
-                    InvitationId = i.Id,
-                    TenantId = i.TenantId,
-                    TenantName = tenant.Name,
-                    Email = i.Email,
-                    InvitedByUserEmail = i.InvitedByUser?.Email ?? string.Empty,
-                    InvitedByUserName = i.InvitedByUser == null 
-                        ? string.Empty 
-                        : $"{i.InvitedByUser.FirstName} {i.InvitedByUser.LastName}",
-                    CreatedAt = i.CreatedAt,
-                    ExpiresAt = i.ExpiresAt,
-                    Status = i.Status,
-                    Token = string.Empty
+                    inviterDict.TryGetValue(i.InvitedByUserId, out var inviter);
+
+                    return new TenantInvitationWeb
+                    {
+                        InvitationId = i.Id,
+                        TenantId = i.TenantId,
+                        TenantName = tenant.Name,
+                        Email = i.Email,
+                        InvitedByUserEmail = inviter?.Email ?? string.Empty,
+                        InvitedByUserName = inviter == null 
+                            ? string.Empty 
+                            : $"{inviter.FirstName} {inviter.LastName}",
+                        CreatedAt = i.CreatedAt,
+                        ExpiresAt = i.ExpiresAt,
+                        Status = i.Status,
+                        Token = string.Empty
+                    };
                 })
                 .OrderByDescending(i => i.CreatedAt)
                 .ToList();
+
+            string currentUserRoleCode = RoleCodes.TenantMember;
+            
+            if (currentUserMembership != null && currentUserMembership.RoleId.HasValue 
+                && roleDict.TryGetValue(currentUserMembership.RoleId.Value, out var currentRole))
+            {
+                currentUserRoleCode = currentRole.Code;
+            }
 
             return new TenantDetailsWeb
             {
@@ -96,7 +128,7 @@ namespace CQRS.Tenants.GetTenantDetails
                 Name = tenant.Name,
                 CreatedAt = tenant.CreatedAt,
                 IsActive = tenant.IsActive,
-                RoleCode = currentUserMembership.MemberRole?.Code ?? RoleCodes.TenantMember,
+                RoleCode = currentUserRoleCode,
                 Members = memberDtos,
                 Invitations = invitationDtos
             };

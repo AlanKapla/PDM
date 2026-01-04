@@ -1,4 +1,7 @@
-﻿using Business.Interfaces.WebModels.Projects;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.Projects;
+using CQRS.Interfaces;
 
 namespace CQRS.Projects.UpdateProject
 {
@@ -6,5 +9,10 @@ namespace CQRS.Projects.UpdateProject
         Guid TenantId,
         Guid ProjectId,
         string Name
-    ) : IRequestCommand<ProjectDetailsWeb>;
+    ) : IRequestCommand<ProjectDetailsWeb>, IAuthorizableRequest
+    {
+        public string PermissionCode => PermissionCodes.ProjectEdit;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+    }
 }

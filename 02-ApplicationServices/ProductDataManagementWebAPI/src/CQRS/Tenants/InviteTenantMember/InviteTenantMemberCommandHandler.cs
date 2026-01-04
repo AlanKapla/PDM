@@ -1,5 +1,5 @@
-﻿using Business.Interfaces.Services;
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -8,14 +8,13 @@ using Microsoft.Extensions.Options;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.DTO;
 using DtoNotificationType = Business.Interfaces.DTO.NotificationType;
-using Business.Interfaces.Exceptions;
+using Business.Interfaces.Model;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
     public class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly ICurrentUser currentUser;
@@ -26,7 +25,6 @@ namespace CQRS.Tenants.InviteTenantMember
 
         public InviteTenantMemberCommandHandler(
             IRepository<TenantInvitation> invitationRepo,
-            IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<User> userRepo,
             IReadRepository<Tenant> tenantRepo,
             ICurrentUser currentUser,
@@ -36,7 +34,6 @@ namespace CQRS.Tenants.InviteTenantMember
             ITokenGenerator tokenGenerator)
         {
             this.invitationRepo = invitationRepo;
-            this.tenantMemberRepo = tenantMemberRepo;
             this.userRepo = userRepo;
             this.tenantRepo = tenantRepo;
             this.currentUser = currentUser;
@@ -48,13 +45,13 @@ namespace CQRS.Tenants.InviteTenantMember
 
         public async Task<Unit> Handle(InviteTenantMemberCommand request, CancellationToken cancellationToken)
         {
-            // Wszystkie walidacje są wykonane w validatorze
+            Tenant tenant = await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId)
+                ?? throw new NotFoundApiException(nameof(Tenant), request.TenantId.ToString());
+
             string normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
-            // Sprawdź czy użytkownik już istnieje w systemie
             User? existingUser = await userRepo.GetFirstBySearch(u => u.Email == normalizedEmail && u.IsActive);
 
-            // Utwórz nowe zaproszenie
             string token = tokenGenerator.GenerateToken();
             TenantInvitation invitation = new TenantInvitation
             {
@@ -71,12 +68,8 @@ namespace CQRS.Tenants.InviteTenantMember
 
             await invitationRepo.Insert(invitation);
 
-            Tenant tenant = await tenantRepo.GetFirstBySearch(t => t.Id == request.TenantId && t.IsActive)
-                ?? throw new NotFoundApiException(nameof(Tenant), request.TenantId.ToString());
-
             string tenantName = tenant.Name;
 
-            // Jeśli użytkownik NIE ISTNIEJE w systemie - wyślij email z instrukcją rejestracji
             if (existingUser == null)
             {
                 string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
@@ -95,7 +88,6 @@ namespace CQRS.Tenants.InviteTenantMember
                         <p>To zaproszenie wygaśnie za 7 dni.</p>"
                 }, cancellationToken);
             }
-            // Jeśli użytkownik ISTNIEJE - wyślij tylko notyfikację
             else
             {
                 await notificationSender.EnqueueAsync(new NotificationDto

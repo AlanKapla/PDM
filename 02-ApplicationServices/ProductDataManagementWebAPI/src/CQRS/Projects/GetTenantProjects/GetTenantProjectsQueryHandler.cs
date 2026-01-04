@@ -1,6 +1,6 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.WebModels.Projects;
 using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.Projects;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -13,23 +13,88 @@ namespace CQRS.Projects.GetTenantProjects
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly ICurrentUser currentUser;
 
         public GetTenantProjectsQueryHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
+            IRepository<TenantMember> tenantMemberRepo,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
+            this.tenantMemberRepo = tenantMemberRepo;
             this.currentUser = currentUser;
         }
 
         public async Task<IEnumerable<ProjectDetailsWeb>> Handle(GetTenantProjectsQuery request, CancellationToken cancellationToken)
         {
-            // Pobierz projekty użytkownika z filtrowaniem w bazie danych
-            // Admin projektu widzi wszystkie projekty, member tylko aktywne
-            var userProjectMembers = await projectMemberRepo.GetBySearch(
+            // SuperAdmin sees all projects in tenant with membership roles where applicable
+            if (currentUser.IsSuperAdmin)
+            {
+                // Get all projects in tenant
+                var allProjects = await projectRepo.GetBySearch(p => p.TenantId == request.TenantId);
+                var projectIds = allProjects.Select(p => p.Id).ToList();
+
+                // Get user's project memberships to show actual roles
+                var userProjectMemberships = await projectMemberRepo.GetBySearch(
+                    pm => pm.UserId == currentUser.Id && projectIds.Contains(pm.ProjectId),
+                    include => include.Include(pm => pm.MemberRole)
+                );
+
+                var membershipDict = userProjectMemberships.ToDictionary(pm => pm.ProjectId);
+
+                // Get all members for member count
+                var allProjectMembers = await projectMemberRepo.GetBySearch(
+                    pm => projectIds.Contains(pm.ProjectId));
+
+                var membersCountDict = allProjectMembers
+                    .GroupBy(pm => pm.ProjectId)
+                    .ToDictionary(g => g.Key, g => g.Count());
+
+                // Get creators info
+                var creatorUserIds = allProjects.Select(p => p.CreatedByUserId).Distinct().ToList();
+                var creators = await tenantMemberRepo.GetBySearch(
+                    tm => tm.TenantId == request.TenantId && creatorUserIds.Contains(tm.UserId),
+                    include => include.Include(tm => tm.User));
+
+                var creatorsDict = creators.ToDictionary(tm => tm.UserId);
+
+                return allProjects
+                    .Select(project =>
+                    {
+                        int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
+                        
+                        var creator = creatorsDict.TryGetValue(project.CreatedByUserId, out var creatorMember) 
+                            ? creatorMember 
+                            : null;
+
+                        // If has membership, use membership role; otherwise SYSTEM.SUPERADMIN
+                        string userRoleCode = membershipDict.TryGetValue(project.Id, out var membership)
+                            ? (membership.MemberRole?.Code ?? RoleCodes.ProjectMember)
+                            : RoleCodes.SystemSuperAdmin;
+
+                        return new ProjectDetailsWeb(
+                            Id: project.Id,
+                            TenantId: project.TenantId,
+                            Name: project.Name,
+                            IsActive: project.IsActive,
+                            CreatedAt: project.CreatedAt,
+                            CreatedByUserId: project.CreatedByUserId,
+                            CreatedByUserName: creator?.User != null 
+                                ? $"{creator.User.FirstName} {creator.User.LastName}".Trim()
+                                : "Unknown",
+                            UserRoleCode: userRoleCode,
+                            MembersCount: membersCount
+                        );
+                    })
+                    .OrderByDescending(p => p.CreatedAt)
+                    .ToList();
+            }
+
+            // Regular users see only their projects (admins see inactive, members only active)
+            var regularUserProjectMembers = await projectMemberRepo.GetBySearch(
                 pm => pm.TenantId == request.TenantId 
                     && pm.UserId == currentUser.Id
                     && (pm.MemberRole!.Code == RoleCodes.ProjectAdmin || pm.Project.IsActive),
@@ -38,22 +103,20 @@ namespace CQRS.Projects.GetTenantProjects
                                  .ThenInclude(cb => cb.User)
                                  .Include(pm => pm.MemberRole));
 
-            // Pobierz wszystkich członków dla tych projektów w jednym zapytaniu
-            var projectIds = userProjectMembers.Select(pm => pm.ProjectId).ToList();
+            var regularProjectIds = regularUserProjectMembers.Select(pm => pm.ProjectId).ToList();
             
-            var allProjectMembers = await projectMemberRepo.GetBySearch(
-                pm => projectIds.Contains(pm.ProjectId));
+            var regularAllProjectMembers = await projectMemberRepo.GetBySearch(
+                pm => regularProjectIds.Contains(pm.ProjectId));
 
-            // Zbuduj słownik z liczbą członków dla każdego projektu
-            var membersCountDict = allProjectMembers
+            var regularMembersCountDict = regularAllProjectMembers
                 .GroupBy(pm => pm.ProjectId)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            var result = userProjectMembers
+            return regularUserProjectMembers
                 .Select(projectMember =>
                 {
                     var project = projectMember.Project;
-                    int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
+                    int membersCount = regularMembersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
 
                     return new ProjectDetailsWeb(
                         Id: project.Id,
@@ -69,8 +132,6 @@ namespace CQRS.Projects.GetTenantProjects
                 })
                 .OrderByDescending(p => p.CreatedAt)
                 .ToList();
-
-            return result;
         }
     }
 }

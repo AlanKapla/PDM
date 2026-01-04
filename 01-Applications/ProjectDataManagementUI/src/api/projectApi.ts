@@ -1,37 +1,50 @@
 ﻿import { axiosClient } from "./axiosClient";
 
 export const projectApi = {
+  // Pobierz wszystkie projekty w tenancie
+  getTenantProjects: async (tenantId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/projects`);
+  },
+
   // Pobierz szczegóły projektu
   getProjectDetails: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/Project/${projectId}`);
+    return axiosClient.get(`/tenants/${tenantId}/projects/${projectId}`);
   },
 
   // Pobierz projekt (alias)
   getProject: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/Project/${projectId}`);
+    return axiosClient.get(`/tenants/${tenantId}/projects/${projectId}`);
+  },
+
+  // Utwórz nowy projekt
+  createProject: async (tenantId: string, name: string) => {
+    return axiosClient.post(`/tenants/${tenantId}/projects`, { 
+      tenantId, 
+      name 
+    });
   },
 
   // Pobierz członków projektu
   getProjectMembers: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/Project/${projectId}/members`);
+    return axiosClient.get(`/tenants/${tenantId}/projects/${projectId}/members`);
   },
 
   // Pobierz słownik projektów (id -> nazwa) dla tenanta
   getProjectsDictionary: async (tenantId: string): Promise<Record<string, string>> => {
-    const response = await axiosClient.get<Record<string, string>>(`/tenants/${tenantId}/Project/dictionary`);
+    const response = await axiosClient.get<Record<string, string>>(`/tenants/${tenantId}/projects/dictionary`);
     return response.data;
   },
 
   // Dodaj członka do projektu
   addProjectMember: async (tenantId: string, projectId: string, userId: string) => {
-    return axiosClient.post(`/tenants/${tenantId}/Project/${projectId}/members`, { 
+    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/members`, { 
       tenantId, projectId, userId 
     });
   },
 
   // Usuń członka z projektu
   removeProjectMember: async (tenantId: string, projectId: string, userId: string) => {
-    return axiosClient.delete(`/tenants/${tenantId}/Project/${projectId}/members/${userId}`);
+    return axiosClient.delete(`/tenants/${tenantId}/projects/${projectId}/members/${userId}`);
   },
 
   // Utwórz paczkę i upload plików
@@ -163,12 +176,12 @@ export const projectApi = {
 
   // Zmień status projektu (aktywuj/dezaktywuj)
   toggleProjectStatus: async (tenantId: string, projectId: string, isActive: boolean) => {
-    return axiosClient.patch(`/tenants/${tenantId}/Project/${projectId}/toggle-status?isActive=${isActive}`);
+    return axiosClient.patch(`/tenants/${tenantId}/projects/${projectId}/status?isActive=${isActive}`);
   },
 
   // Aktualizuj projekt (nazwa)
   updateProject: async (tenantId: string, projectId: string, data: { Name: string }) => {
-    return axiosClient.put(`/tenants/${tenantId}/Project/${projectId}`, data);
+    return axiosClient.put(`/tenants/${tenantId}/projects/${projectId}`, data);
   },
 
   // Utwórz harmonogram prac
@@ -349,6 +362,6 @@ export const projectApi = {
 
   // Zmień rolę członka projektu
   updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, roleId: string) => {
-      return axiosClient.patch(`/tenants/${tenantId}/Project/${projectId}/members/${userId}/role`, { roleId });
+      return axiosClient.patch(`/tenants/${tenantId}/projects/${projectId}/members/${userId}/role`, { roleId });
   },
 };

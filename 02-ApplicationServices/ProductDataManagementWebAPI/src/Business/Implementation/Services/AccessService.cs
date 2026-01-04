@@ -41,22 +41,6 @@ public sealed class AccessService
 
         var scope = PermissionScopes.Get(permissionCode);
 
-        // SuperAdmin bypass (but still needs ActiveTenantId if scope requires it)
-        if (user.IsSuperAdmin)
-        {
-            if (RequiresActiveTenantId(scope, permissionCode) && !user.ActiveTenantId.HasValue)
-            {
-                logger.LogWarning(
-                    "Authorization failed: SuperAdmin missing ActiveTenantId for permission {Permission} with scope {Scope}", 
-                    permissionCode, 
-                    scope);
-                return false;
-            }
-            
-            logger.LogDebug("Authorization granted: SuperAdmin bypass for {Permission} (scope: {Scope})", permissionCode, scope);
-            return true;
-        }
-
         // Handle Global scope permissions
         if (scope == PermissionScope.Global)
         {
@@ -97,7 +81,9 @@ public sealed class AccessService
             return false;
         }
 
-        // Get appropriate context snapshot
+        // Get appropriate context snapshot (works for both regular users and SuperAdmin)
+        // SuperAdmin will get membership-based permissions if they are a member,
+        // or fallback read-only permissions if they are not
         if (resource.ProjectId.HasValue || scope == PermissionScope.Project)
         {
             return await AuthorizeProjectPermissionAsync(user, permissionCode, resource, cancellationToken);
@@ -206,6 +192,7 @@ public sealed class AccessService
         }
 
         // Check Tenant.IsActive (only for non-admin members)
+        // SuperAdmin without membership (fallback permissions) can access inactive tenants if they have the permission
         if (!tenantSnapshot.IsTenantAdmin)
         {
             var tenant = await tenantRepo.GetFirstBySearch(
@@ -218,10 +205,11 @@ public sealed class AccessService
                 return false;
             }
 
-            if (!tenant.IsActive)
+            // Skip IsActive check for SuperAdmin (even without admin membership)
+            if (!tenant.IsActive && !user.IsSuperAdmin)
             {
                 logger.LogWarning(
-                    "Authorization failed: Tenant {TenantId} is inactive and user is not admin",
+                    "Authorization failed: Tenant {TenantId} is inactive and user is not admin or SuperAdmin",
                     tenant.Id);
                 return false;
             }
@@ -280,14 +268,24 @@ public sealed class AccessService
         }
 
         // Check Project.IsActive (only for non-admin members)
+        // SuperAdmin without membership (fallback permissions) can access inactive projects if they have the permission
         if (!projectSnapshot.IsProjectAdmin)
         {
-            var isActive = await CheckProjectActiveAsync(resource.ProjectId.Value, true, cancellationToken);
-            
-            if (!isActive)
+            var project = await projectRepo.GetFirstBySearch(
+                p => p.Id == resource.ProjectId.Value,
+                cancellationToken);
+
+            if (project == null)
+            {
+                logger.LogWarning("Authorization failed: Project {ProjectId} not found", resource.ProjectId.Value);
+                return false;
+            }
+
+            // Skip IsActive check for SuperAdmin (even without admin membership)
+            if (!project.IsActive && !user.IsSuperAdmin)
             {
                 logger.LogWarning(
-                    "Authorization failed: Project {ProjectId} is inactive and user is not admin",
+                    "Authorization failed: Project {ProjectId} is inactive and user is not admin or SuperAdmin",
                     resource.ProjectId.Value);
                 return false;
             }

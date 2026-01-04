@@ -4,6 +4,7 @@ using Business.Interfaces.WebModels.Tenants;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.GetAdminTenants
@@ -23,19 +24,21 @@ namespace CQRS.Tenants.GetAdminTenants
 
         public async Task<IEnumerable<TenantBasicWeb>> Handle(GetAdminTenantsQuery request, CancellationToken cancellationToken)
         {
+            // Get admin memberships (works for both regular users and SuperAdmin)
             IEnumerable<TenantMember> adminMemberships = await tenantMemberRepo.GetBySearch(
                 m => m.UserId == currentUser.Id
-                     && m.IsActive
-                     && m.MemberRole!.Code == RoleCodes.TenantAdmin,
-                q => q.Include(m => m.Tenant)
+                    && m.IsActive
+                    && m.MemberRole!.Code == RoleCodes.TenantAdmin,
+                include => include.Include(m => m.Tenant).Include(m => m.MemberRole)
             );
 
             return adminMemberships
                 .Select(m => new TenantBasicWeb(
-                    Id: m.TenantId,
+                    Id: m.Tenant.Id,
                     Name: m.Tenant.Name,
                     CreatedAt: m.Tenant.CreatedAt,
-                    IsActive: m.Tenant.IsActive
+                    IsActive: m.Tenant.IsActive,
+                    RoleCode: RoleCodes.TenantAdmin
                 ))
                 .OrderBy(t => t.Name)
                 .ToList();

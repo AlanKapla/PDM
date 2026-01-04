@@ -119,6 +119,7 @@ export interface TenantBasic {
   name: string;
   createdAt: string;
   isActive: boolean;
+  roleCode: string;
 }
 
 /**

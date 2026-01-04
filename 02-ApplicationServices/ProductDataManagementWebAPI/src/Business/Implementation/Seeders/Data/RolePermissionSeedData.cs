@@ -8,6 +8,9 @@ public static class RolePermissionSeedData
 {
     public static RoleSeed[] GetRoles() => new[]
     {
+        // SYSTEM
+        new RoleSeed(RoleScope.System, RoleCodes.SystemSuperAdmin, "System SuperAdmin", "Administrator systemowy z dostępem read-only do wszystkich zasobów", IsBuiltIn: true),
+
         // TENANT
         new RoleSeed(RoleScope.Tenant, RoleCodes.TenantAdmin, "Tenant Admin", "Administrator tenanta", IsBuiltIn: true),
         new RoleSeed(RoleScope.Tenant, RoleCodes.TenantMember, "Tenant Member", "Członek tenanta", IsBuiltIn: true),
@@ -59,6 +62,16 @@ public static class RolePermissionSeedData
 
         return new[]
         {
+            // SYSTEM.SUPERADMIN - READ-ONLY ACCESS TO EVERYTHING
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.TenantListAvailable),
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.TenantAdminListAvailable),
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.RoleList),
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.TenantView),
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.ProjectView),
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.ProjectMembersView),
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.ProjectResourcesRead),
+            RP(RoleCodes.SystemSuperAdmin, PermissionCodes.ProjectResourcesReadShared),
+
             // TENANT.ADMIN
             RP(RoleCodes.TenantAdmin, PermissionCodes.TenantListAvailable),
             RP(RoleCodes.TenantAdmin, PermissionCodes.TenantAdminListAvailable),

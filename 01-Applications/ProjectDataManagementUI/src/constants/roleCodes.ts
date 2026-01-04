@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Role and Permission codes matching backend
  * 
  * Backend sources:
@@ -9,6 +9,9 @@
 // ===== ROLE CODES =====
 
 export const RoleCodes = {
+  // System roles
+  SYSTEM_SUPERADMIN: "SYSTEM.SUPERADMIN",
+  
   // Tenant roles
   TENANT_ADMIN: "TENANT.ADMIN",
   TENANT_MEMBER: "TENANT.MEMBER",
@@ -67,6 +70,8 @@ export type PermissionCode = typeof PermissionCodes[keyof typeof PermissionCodes
  */
 export const getRoleName = (roleCode: string): string => {
   const roleNames: Record<string, string> = {
+    [RoleCodes.SYSTEM_SUPERADMIN]: 'SuperAdmin',
+    
     [RoleCodes.TENANT_ADMIN]: 'Administrator',
     [RoleCodes.TENANT_MEMBER]: 'Członek',
     
@@ -85,6 +90,8 @@ export const getRoleName = (roleCode: string): string => {
  */
 export const getRoleColor = (roleCode: string): string => {
   const roleColors: Record<string, string> = {
+    [RoleCodes.SYSTEM_SUPERADMIN]: 'red',
+    
     [RoleCodes.TENANT_ADMIN]: 'purple',
     [RoleCodes.TENANT_MEMBER]: 'gray',
     
@@ -129,6 +136,13 @@ export const hasAllPermissions = (
 ): boolean => {
   if (!permissions) return false;
   return requiredPermissions.every(p => permissions.includes(p));
+};
+
+/**
+ * Check if role code is system super admin
+ */
+export const isSuperAdminRole = (roleCode: string): boolean => {
+  return roleCode === RoleCodes.SYSTEM_SUPERADMIN;
 };
 
 /**

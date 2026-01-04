@@ -22,7 +22,7 @@ export const tenantApi = {
   },
 
   updateTenant: async (tenantId: string, name: string) => {
-    return axiosClient.put(`/tenant/${tenantId}`, { tenantId, name });
+    return axiosClient.put(`/tenant/${tenantId}`, { name });
   },
 
   toggleTenantStatus: async (tenantId: string, isActive: boolean) => {
@@ -30,11 +30,10 @@ export const tenantApi = {
   },
 
   inviteMember: async (tenantId: string, email: string) => {
-    return axiosClient.post(`/tenant/${tenantId}/invitations`, { tenantId, email });
+    return axiosClient.post(`/tenant/${tenantId}/invitations`, { email });
   },
 
   acceptInvitation: async (token: string) => {
-    console.log("[API] acceptInvitation - Token:", token);
     return axiosClient.post("/tenant/invitations/accept", { token });
   },
 
@@ -48,14 +47,6 @@ export const tenantApi = {
 
   getActiveInvitations: async () => {
     return axiosClient.get("/tenant/invitations");
-  },
-
-  getTenantProjects: async (tenantId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/Project`);
-  },
-
-  createProject: async (tenantId: string, name: string) => {
-    return axiosClient.post(`/tenants/${tenantId}/Project`, { name });
   },
 
   getTenantMembers: async (tenantId: string) => {

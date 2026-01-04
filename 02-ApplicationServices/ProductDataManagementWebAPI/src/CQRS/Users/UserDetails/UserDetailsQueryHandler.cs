@@ -61,6 +61,32 @@ namespace CQRS.Users.UserDetails
                             projectPermissions[pm.ProjectId] = new HashSet<string>();
                         }
                     }
+
+                    // For SuperAdmin, add fallback permissions for projects without membership
+                    // This allows UI to enable read-only features for non-member projects
+                    if (currentUser.IsSuperAdmin)
+                    {
+                        // Get all active projects in tenant
+                        var allProjects = await projectMemberRepo.GetBySearch(
+                            pm => pm.TenantId == currentUser.ActiveTenantId.Value && pm.Project.IsActive,
+                            include => include.Include(pm => pm.Project));
+
+                        var allProjectIds = allProjects.Select(pm => pm.ProjectId).Distinct().ToList();
+                        var memberProjectIds = projectMemberships.Select(pm => pm.ProjectId).ToHashSet();
+
+                        // Add fallback permissions for projects where SuperAdmin is not a member
+                        foreach (var projectId in allProjectIds)
+                        {
+                            if (!memberProjectIds.Contains(projectId))
+                            {
+                                // SuperAdmin fallback role
+                                projectRoleCodes[projectId] = RoleCodes.SystemSuperAdmin;
+
+                                // SuperAdmin fallback permissions (read-only)
+                                projectPermissions[projectId] = new HashSet<string>(SuperAdminFallbackPermissions.ProjectReadOnly);
+                            }
+                        }
+                    }
                 }
             }
 

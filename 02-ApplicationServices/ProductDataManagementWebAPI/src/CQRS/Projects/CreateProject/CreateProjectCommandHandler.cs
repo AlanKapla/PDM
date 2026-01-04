@@ -40,10 +40,6 @@ namespace CQRS.Projects.CreateProject
         {
             Guid tenantId = currentUser.ActiveTenantId!.Value;
 
-            TenantMember tenantMember = (await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == tenantId && tm.UserId == currentUser.Id,
-                include => include.Include(tm => tm.User)))!;
-
             Project project = new Project
             {
                 TenantId = tenantId,
@@ -58,10 +54,8 @@ namespace CQRS.Projects.CreateProject
             // Get PROJECT.ADMIN role
             var adminRole = await roleRepo.GetFirstBySearch(
                 r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectAdmin,
-                cancellationToken);
-
-            if (adminRole == null)
-                throw new InvalidOperationException("PROJECT.ADMIN role not found");
+                cancellationToken)
+                ?? throw new InvalidOperationException($"{RoleCodes.ProjectAdmin} role not found");
 
             ProjectMember projectMember = new ProjectMember
             {
@@ -77,7 +71,7 @@ namespace CQRS.Projects.CreateProject
             // Bump permissions version
             await permissionsVersionService.BumpVersionAsync(currentUser.Id, cancellationToken);
 
-            string createdByUserName = $"{tenantMember!.User?.FirstName} {tenantMember.User?.LastName}".Trim();
+            string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
             return new ProjectDetailsWeb(
                 Id: project.Id,

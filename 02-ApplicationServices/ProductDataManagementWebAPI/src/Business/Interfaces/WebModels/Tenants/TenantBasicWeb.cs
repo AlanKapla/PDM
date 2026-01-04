@@ -4,6 +4,7 @@
         Guid Id,
         string Name,
         DateTime CreatedAt,
-        bool IsActive
+        bool IsActive,
+        string RoleCode
     );
 }

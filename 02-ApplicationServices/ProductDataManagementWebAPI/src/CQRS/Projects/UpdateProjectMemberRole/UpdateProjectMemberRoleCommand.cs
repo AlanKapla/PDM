@@ -1,4 +1,7 @@
-﻿using MediatR;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using CQRS.Interfaces;
+using MediatR;
 
 namespace CQRS.Projects.UpdateProjectMemberRole
 {
@@ -10,5 +13,10 @@ namespace CQRS.Projects.UpdateProjectMemberRole
         Guid ProjectId,
         Guid UserId,
         Guid RoleId  // Changed from ProjectRole enum to Guid RoleId
-    ) : IRequestCommand<Unit>;
+    ) : IRequestCommand<Unit>, IAuthorizableRequest
+    {
+        public string PermissionCode => PermissionCodes.ProjectMembersManage;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+    }
 }

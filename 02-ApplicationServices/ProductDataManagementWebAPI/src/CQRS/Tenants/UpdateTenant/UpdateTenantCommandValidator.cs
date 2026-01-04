@@ -1,4 +1,4 @@
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace CQRS.Tenants.UpdateTenant
 {
@@ -7,11 +7,14 @@ namespace CQRS.Tenants.UpdateTenant
         public UpdateTenantCommandValidator()
         {
             RuleFor(c => c.TenantId)
-                .NotEmpty();
+                .NotEmpty()
+                .WithMessage("TenantId is required");
 
             RuleFor(c => c.Name)
                 .NotEmpty()
-                .MaximumLength(200);
+                .WithMessage("Name is required")
+                .MaximumLength(200)
+                .WithMessage("Name cannot exceed 200 characters");
         }
     }
 }

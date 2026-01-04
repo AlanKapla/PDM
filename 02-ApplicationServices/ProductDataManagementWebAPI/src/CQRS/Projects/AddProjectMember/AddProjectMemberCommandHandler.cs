@@ -1,4 +1,6 @@
-﻿using Business.Interfaces.DTO;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Enums;
@@ -15,6 +17,7 @@ namespace CQRS.Projects.AddProjectMember
         private readonly IReadRepository<Project> projectRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IReadRepository<Role> roleRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -22,36 +25,44 @@ namespace CQRS.Projects.AddProjectMember
             IReadRepository<Project> projectRepo,
             IReadRepository<User> userRepo,
             IRepository<ProjectMember> projectMemberRepo,
+            IReadRepository<Role> roleRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.userRepo = userRepo;
             this.projectMemberRepo = projectMemberRepo;
+            this.roleRepo = roleRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
 
         public async Task<Unit> Handle(AddProjectMemberCommand request, CancellationToken cancellationToken)
         {
-            // Pobierz projekt do użycia w notyfikacji (walidacja już wykonana w validatorze)
-            Project project = (await projectRepo.GetFirstBySearch(
-                p => p.Id == request.ProjectId && p.TenantId == request.TenantId && p.IsActive,
-                cancellationToken))!;
+            Project project = await projectRepo.GetFirstBySearch(
+                p => p.Id == request.ProjectId && p.TenantId == request.TenantId,
+                cancellationToken)
+                ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            // Utwórz nowego członka projektu z rolą Member
+            // Get PROJECT.MEMBER role
+            var memberRole = await roleRepo.GetFirstBySearch(
+                r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectMember && r.IsActive,
+                cancellationToken)
+                ?? throw new InvalidOperationException($"{RoleCodes.ProjectMember} role not found");
+
             ProjectMember newMember = new ProjectMember
             {
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
-                UserId = request.UserId
+                UserId = request.UserId,
+                RoleId = memberRole.Id,
+                JoinedAt = DateTime.UtcNow
             };
 
             await projectMemberRepo.Insert(newMember);
 
             User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
 
-            // Wyślij notyfikację do użytkownika
             NotificationDto notification = new NotificationDto
             {
                 Id = Guid.NewGuid(),

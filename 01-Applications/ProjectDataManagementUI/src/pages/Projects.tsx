@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Box,
   Heading,
@@ -28,7 +28,6 @@ import { FolderKanban, User, Calendar, Plus } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { handleApiError } from "../utils/handleApiError";
-import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
 import type { ProjectDetailsWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
@@ -74,7 +73,7 @@ export default function Projects() {
       
       try {
         setActiveTenantId(activeTenantId);
-        const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
+        const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
         setProjects(projectsResponse.data);
       } catch (err) {
         console.error("Błąd pobierania projektów:", err);
@@ -109,14 +108,14 @@ export default function Projects() {
 
     setCreating(true);
     try {
-      await tenantApi.createProject(activeTenantId, newProjectName.trim());
+      await projectApi.createProject(activeTenantId, newProjectName.trim());
 
       showSuccess("Projekt utworzony");
       setNewProjectName("");
       createModal.onClose();
       
       // Odśwież listę projektów
-      const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
+      const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
       setProjects(projectsResponse.data);
     } catch (error) {
       console.error("Błąd podczas tworzenia projektu:", error);
