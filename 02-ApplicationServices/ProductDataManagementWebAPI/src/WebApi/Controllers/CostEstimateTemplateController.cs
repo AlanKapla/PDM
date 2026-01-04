@@ -13,7 +13,7 @@ namespace WebApi.Controllers
     /// Controller for managing cost estimate templates
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/cost-estimate-template")]
     [Authorize]
     public class CostEstimateTemplateController : BaseApiController
     {

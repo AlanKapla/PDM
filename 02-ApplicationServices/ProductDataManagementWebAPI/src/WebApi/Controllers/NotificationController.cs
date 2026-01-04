@@ -1,4 +1,4 @@
-using CQRS.Notifications.GetUnreadNotifications;
+﻿using CQRS.Notifications.GetUnreadNotifications;
 using CQRS.Notifications.GetAllNotifications;
 using CQRS.Notifications.MarkNotificationAsRead;
 using MediatR;
@@ -9,7 +9,7 @@ namespace WebApi.Controllers
 {
     [ApiController]
     [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/notification")]
     public class NotificationController : BaseApiController
     {
         public NotificationController(IMediator mediator) : base(mediator) { }

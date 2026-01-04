@@ -3,19 +3,19 @@ using Business.Interfaces.Model;
 using CQRS.Interfaces;
 using MediatR;
 
-namespace CQRS.Files.ShareProjectFiles
+namespace CQRS.ProjectCosts.ShareProjectCosts
 {
     /// <summary>
-    /// Command do udostępnienia plików wielu członkom projektu
+    /// Command do udostępnienia wielu kosztów wybranym członkom projektu
     /// </summary>
-    public record ShareProjectFilesCommand : IRequestCommand<Unit>, IAuthorizableRequest
+    public record ShareProjectCostsCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
         public Guid TenantId { get; init; }
         public Guid ProjectId { get; init; }
-        public List<Guid> ProjectFileIds { get; init; } = new();
+        public List<Guid> ProjectCostIds { get; init; } = new();
         
         /// <summary>
-        /// Lista ID użytkowników (członków projektu), którym zostaną udostępnione pliki
+        /// Lista ID użytkowników (członków projektu), którym zostaną udostępnione koszty
         /// </summary>
         public List<Guid> SharedWithUserIds { get; init; } = new();
 

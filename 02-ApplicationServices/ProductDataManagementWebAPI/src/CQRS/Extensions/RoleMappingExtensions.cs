@@ -22,11 +22,6 @@ public static class RoleCodeExtensions
         return roleCode == RoleCodes.ProjectEditor;
     }
 
-    public static bool IsProjectCollaborator(this string? roleCode)
-    {
-        return roleCode == RoleCodes.ProjectCollaborator;
-    }
-
     public static bool IsProjectViewer(this string? roleCode)
     {
         return roleCode == RoleCodes.ProjectViewer;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -89,7 +89,7 @@ export default function ShareCostModal({
     // Backend sam zarządza dodawaniem i usuwaniem udostępnień
     setLoading(true);
     try {
-      await projectApi.shareProjectCost(tenantId, projectId, cost.id, selectedUserIds);
+      await projectApi.updateCostShare(tenantId, projectId, cost.id, selectedUserIds);
 
       toast({
         title: "Sukces",

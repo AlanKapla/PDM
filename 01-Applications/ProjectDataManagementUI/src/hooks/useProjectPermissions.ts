@@ -14,7 +14,6 @@ export function useProjectPermissions(projectId: string | undefined) {
     return {
       canView: false,
       canEdit: false,
-      canDelete: false,
       canViewMembers: false,
       canManageMembers: false,
       canManageStatus: false,
@@ -22,6 +21,7 @@ export function useProjectPermissions(projectId: string | undefined) {
       canWriteResources: false,
       canReadSharedResources: false,
       canWriteSharedResources: false,
+      hasAnyResourceAccess: false,
       canReadMessages: false,
       canWriteMessages: false,
       canDeleteMessages: false,
@@ -34,11 +34,16 @@ export function useProjectPermissions(projectId: string | undefined) {
   const permissions = user.projectPermissions?.[projectId] || [];
   const roleCode = user.projectRoleCodes?.[projectId];
   
+  const hasAnyResourceAccess = 
+    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ) ||
+    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE) ||
+    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_SHARED) ||
+    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_SHARED);
+  
   return {
     // Project basic permissions
     canView: hasPermission(permissions, PermissionCodes.PROJECT_VIEW),
     canEdit: hasPermission(permissions, PermissionCodes.PROJECT_EDIT),
-    canDelete: hasPermission(permissions, PermissionCodes.PROJECT_DELETE),
     
     // Project members permissions
     canViewMembers: hasPermission(permissions, PermissionCodes.PROJECT_MEMBERS_VIEW),
@@ -54,6 +59,9 @@ export function useProjectPermissions(projectId: string | undefined) {
     // Project resources - udostępnione (shared)
     canReadSharedResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_SHARED),
     canWriteSharedResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_SHARED),
+    
+    // Combined - has ANY access to resources (own or shared, read or write)
+    hasAnyResourceAccess,
     
     // Project messages/chat permissions
     canReadMessages: hasPermission(permissions, PermissionCodes.PROJECT_MESSAGES_READ),

@@ -1,4 +1,6 @@
-﻿using CQRS;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using CQRS.Interfaces;
 using MediatR;
 
 namespace CQRS.Files.AddFileVersionComment
@@ -6,7 +8,7 @@ namespace CQRS.Files.AddFileVersionComment
     /// <summary>
     /// Command do dodawania komentarza do konkretnej wersji pliku
     /// </summary>
-    public record AddFileVersionCommentCommand : IRequestCommand<Unit>
+    public record AddFileVersionCommentCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
         /// <summary>
         /// ID tenanta (z route)
@@ -32,5 +34,9 @@ namespace CQRS.Files.AddFileVersionComment
         /// Treść komentarza
         /// </summary>
         public string Comment { get; init; } = string.Empty;
+
+        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

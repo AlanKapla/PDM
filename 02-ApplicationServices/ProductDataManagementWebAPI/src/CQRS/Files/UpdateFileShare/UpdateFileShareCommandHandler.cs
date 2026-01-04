@@ -1,9 +1,9 @@
 ﻿using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 using NotifType = Business.Interfaces.DTO.NotificationType;
@@ -37,16 +37,26 @@ namespace CQRS.Files.UpdateFileShare
 
         public async Task<Unit> Handle(UpdateFileShareCommand request, CancellationToken cancellationToken)
         {
-            // Get file with current shares
-            var file = (await projectFileRepo.GetFirstBySearch(
+            // 1. Get file
+            var file = await projectFileRepo.GetFirstBySearch(
                 pf => pf.Id == request.FileId
                     && pf.ProjectId == request.ProjectId
                     && pf.TenantId == request.TenantId
-                    && !pf.IsDeleted,
-                include => include.Include(pf => pf.SharedWith)
-                                  .Include(pf => pf.Owner)))!;
+                    && !pf.IsDeleted);
 
-            var currentShares = file.SharedWith.ToList();
+            if (file == null)
+                throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
+
+            // 2. Check ownership - only owner can manage sharing
+            if (file.OwnerId != currentUser.Id)
+            {
+                throw new ForbiddenApiException("Only file owner can manage sharing");
+            }
+
+            // 3. Get current shares separately
+            var currentShares = await sharedProjectFileRepo.GetBySearch(
+                spf => spf.ProjectFileId == request.FileId);
+
             var currentUserIds = currentShares.Select(s => s.SharedWithUserId).ToHashSet();
             var newUserIds = request.SharedWithUserIds.ToHashSet();
 
@@ -56,11 +66,13 @@ namespace CQRS.Files.UpdateFileShare
             // Users to remove (in current but not in new list)
             var usersToRemove = currentUserIds.Except(newUserIds).ToList();
 
+            // 4. Get owner info for notifications
+            var owner = await userRepo.GetFirstBySearch(u => u.Id == file.OwnerId);
+            string ownerName = owner != null ? $"{owner.FirstName} {owner.LastName}" : "Unknown";
+
             // Get user details for notifications
             var affectedUserIds = usersToAdd.Concat(usersToRemove).ToList();
-            var users = (await userRepo.GetBySearch(
-                u => affectedUserIds.Contains(u.Id)))
-                .ToList();
+            var users = await userRepo.GetBySearch(u => affectedUserIds.Contains(u.Id));
             var userDict = users.ToDictionary(u => u.Id);
 
             // Add new shares
@@ -90,7 +102,7 @@ namespace CQRS.Files.UpdateFileShare
                         AzureAdB2CObjectId = user.AzureAdB2CObjectId,
                         Type = NotifType.Info,
                         Title = "Udostępniono Ci plik",
-                        Message = $"{file.Owner.FirstName} {file.Owner.LastName} udostępnił Ci plik \"{file.DisplayName}\"",
+                        Message = $"{ownerName} udostępnił Ci plik \"{file.DisplayName}\"",
                         Readed = false,
                         CreatedAt = DateTimeOffset.UtcNow,
                         Metadata = new Dictionary<string, object?>
@@ -126,7 +138,7 @@ namespace CQRS.Files.UpdateFileShare
                             AzureAdB2CObjectId = user.AzureAdB2CObjectId,
                             Type = NotifType.Warning,
                             Title = "Cofnięto dostęp do pliku",
-                            Message = $"{file.Owner.FirstName} {file.Owner.LastName} cofnął Ci dostęp do pliku \"{file.DisplayName}\"",
+                            Message = $"{ownerName} cofnął Ci dostęp do pliku \"{file.DisplayName}\"",
                             Readed = false,
                             CreatedAt = DateTimeOffset.UtcNow,
                             Metadata = new Dictionary<string, object?>

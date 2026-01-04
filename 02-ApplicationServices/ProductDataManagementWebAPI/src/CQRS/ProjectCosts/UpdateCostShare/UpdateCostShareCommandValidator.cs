@@ -3,15 +3,15 @@ using Entities.Models;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
 
-namespace CQRS.ProjectCosts.ShareProjectCost
+namespace CQRS.ProjectCosts.UpdateCostShare
 {
-    public class ShareProjectCostCommandValidator : AbstractValidator<ShareProjectCostCommand>
+    public class UpdateCostShareCommandValidator : AbstractValidator<UpdateCostShareCommand>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly ICurrentUser currentUser;
 
-        public ShareProjectCostCommandValidator(
+        public UpdateCostShareCommandValidator(
             IRepository<ProjectCost> projectCostRepo,
             IRepository<ProjectMember> projectMemberRepo,
             ICurrentUser currentUser)
@@ -38,7 +38,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
                 .When(x => x.SharedWithUserIds.Any());
         }
 
-        private async Task<bool> BeValidCostAndOwner(ShareProjectCostCommand command, Guid costId, CancellationToken cancellationToken)
+        private async Task<bool> BeValidCostAndOwner(UpdateCostShareCommand command, Guid costId, CancellationToken cancellationToken)
         {
             var cost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == costId 
@@ -50,7 +50,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             return cost != null;
         }
 
-        private async Task<bool> AllUsersBeProjectMembers(ShareProjectCostCommand command, CancellationToken cancellationToken)
+        private async Task<bool> AllUsersBeProjectMembers(UpdateCostShareCommand command, CancellationToken cancellationToken)
         {
             // User cannot share with themselves
             if (command.SharedWithUserIds.Contains(currentUser.Id))

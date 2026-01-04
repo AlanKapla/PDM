@@ -42,10 +42,16 @@ export default function ProjectSchedules() {
 
   useEffect(() => {
     fetchData();
-  }, [projectId]);
+  }, [projectId, permissions.canWriteResources]);
 
   const fetchData = async () => {
     if (!user?.activeTenantId || !projectId) return;
+    
+    // Harmonogramy są dostępne tylko dla użytkowników z uprawnieniem WRITE
+    if (!permissions.canWriteResources) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     try {

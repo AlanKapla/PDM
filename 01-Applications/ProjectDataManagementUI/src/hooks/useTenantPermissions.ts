@@ -13,8 +13,6 @@ export function useTenantPermissions() {
     return {
       canView: false,
       canEdit: false,
-      canDelete: false,
-      canViewMembers: false,
       canManageMembers: false,
       canCreateProject: false,
       canManageStatus: false,
@@ -28,10 +26,8 @@ export function useTenantPermissions() {
     // Tenant basic permissions
     canView: hasPermission(permissions, PermissionCodes.TENANT_VIEW),
     canEdit: hasPermission(permissions, PermissionCodes.TENANT_EDIT),
-    canDelete: hasPermission(permissions, PermissionCodes.TENANT_DELETE),
     
     // Tenant members permissions
-    canViewMembers: hasPermission(permissions, PermissionCodes.TENANT_MEMBERS_VIEW),
     canManageMembers: hasPermission(permissions, PermissionCodes.TENANT_MEMBERS_MANAGE),
     
     // Tenant project permissions

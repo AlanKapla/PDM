@@ -1,19 +1,20 @@
-﻿using Business.Interfaces.WebModels.Files;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.Files;
+using CQRS.Interfaces;
 
 namespace CQRS.Files.GetSharedFiles
 {
     /// <summary>
     /// Query do pobierania plików udostępnionych użytkownikowi, zgrupowanych po paczkach
     /// </summary>
-    public record GetSharedFilesQuery : IRequestQuery<List<SharedProjectFilePackageWeb>>
+    public sealed record GetSharedFilesQuery(
+        Guid TenantId,
+        Guid ProjectId
+    ) : IRequestQuery<List<SharedProjectFilePackageWeb>>, IAuthorizableRequest
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
-
-        public GetSharedFilesQuery(Guid tenantId, Guid projectId)
-        {
-            TenantId = tenantId;
-            ProjectId = projectId;
-        }
+        public string PermissionCode => PermissionCodes.ProjectResourcesReadShared;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

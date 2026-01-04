@@ -1,4 +1,4 @@
-import { axiosClient } from "./axiosClient";
+﻿import { axiosClient } from "./axiosClient";
 import type {
   CostEstimateListItem,
   CostEstimateDetails,
@@ -27,7 +27,7 @@ export const costEstimateApi = {
    */
   getCostEstimates: async (tenantId: string, projectId: string): Promise<CostEstimateListItem[]> => {
     const response = await axiosClient.get<CostEstimateListItem[]>(
-      `/tenants/${tenantId}/projects/${projectId}/cost-estimates`
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate`
     );
     return response.data;
   },
@@ -41,7 +41,7 @@ export const costEstimateApi = {
     id: string
   ): Promise<CostEstimateDetails> => {
     const response = await axiosClient.get<CostEstimateDetails>(
-      `/tenants/${tenantId}/projects/${projectId}/cost-estimates/${id}`
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${id}`
     );
     return response.data;
   },
@@ -55,7 +55,7 @@ export const costEstimateApi = {
     data: CreateCostEstimateRequest
   ): Promise<string> => {
     const response = await axiosClient.post<string>(
-      `/tenants/${tenantId}/projects/${projectId}/cost-estimates`,
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate`,
       data
     );
     return response.data;
@@ -70,14 +70,14 @@ export const costEstimateApi = {
     id: string,
     data: UpdateCostEstimateRequest
   ): Promise<void> => {
-    await axiosClient.put(`/tenants/${tenantId}/projects/${projectId}/cost-estimates/${id}`, data);
+    await axiosClient.put(`/tenants/${tenantId}/project/${projectId}/cost-estimate/${id}`, data);
   },
 
   /**
    * Delete cost estimate (soft delete)
    */
   deleteCostEstimate: async (tenantId: string, projectId: string, id: string): Promise<void> => {
-    await axiosClient.delete(`/tenants/${tenantId}/projects/${projectId}/cost-estimates/${id}`);
+    await axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/cost-estimate/${id}`);
   },
 
   /**
@@ -90,7 +90,7 @@ export const costEstimateApi = {
     targetProjectIds: string[]
   ): Promise<string[]> => {
     const response = await axiosClient.post<string[]>(
-      `/tenants/${tenantId}/projects/${projectId}/cost-estimates/${id}/copy`,
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${id}/copy`,
       { targetProjectIds }
     );
     return response.data;

@@ -23,8 +23,6 @@ public static class SuperAdminFallbackPermissions
     public static readonly HashSet<string> ProjectReadOnly = new()
     {
         PermissionCodes.ProjectView,
-        PermissionCodes.ProjectMembersView,
-        PermissionCodes.ProjectResourcesRead,
-        PermissionCodes.ProjectResourcesReadShared
+        PermissionCodes.ProjectMembersView
     };
 }

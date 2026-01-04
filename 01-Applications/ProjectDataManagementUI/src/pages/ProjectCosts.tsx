@@ -83,7 +83,7 @@ export default function ProjectCosts() {
 
   useEffect(() => {
     fetchData();
-  }, [projectId]);
+  }, [projectId, permissions.hasAnyResourceAccess]);
 
   const fetchData = async () => {
     console.log("=== fetchData CALLED ===");
@@ -101,7 +101,7 @@ export default function ProjectCosts() {
       const projectResponse = await projectApi.getProjectDetails(user.activeTenantId, projectId);
       setProject(projectResponse.data);
       
-      if (permissions.canReadResources) {
+      if (permissions.hasAnyResourceAccess) {
         const costEstimates = await costEstimateApi.getCostEstimates(user.activeTenantId, projectId);
         console.log("Data fetched successfully:", { projectResponse, costEstimates });
 
@@ -203,7 +203,7 @@ export default function ProjectCosts() {
                 </HStack>
               </Tab>
             )}
-            {permissions.canReadResources && (
+            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
               <Tab fontWeight="bold">
                 <HStack spacing={2}>
                   <Icon as={FileText} boxSize={4} />
@@ -318,7 +318,7 @@ export default function ProjectCosts() {
             )}
 
             {/* TAB 2: UDOSTĘPNIONE KOSZTORYSY */}
-            {permissions.canReadResources && (
+            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">

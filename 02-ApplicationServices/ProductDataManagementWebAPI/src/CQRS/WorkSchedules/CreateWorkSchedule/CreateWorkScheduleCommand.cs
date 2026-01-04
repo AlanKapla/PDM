@@ -1,13 +1,21 @@
-﻿using Business.Interfaces.WebModels.WorkSchedules;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.WorkSchedules;
+using CQRS.Interfaces;
 
 namespace CQRS.WorkSchedules.CreateWorkSchedule
 {
-    public record CreateWorkScheduleCommand(
+    public sealed record CreateWorkScheduleCommand(
         Guid TenantId,
         Guid ProjectId,
         string Name,
         List<CreateStageDto>? Stages
-    ) : IRequestCommand<WorkScheduleDetailsWeb>;
+    ) : IRequestCommand<WorkScheduleDetailsWeb>, IAuthorizableRequest
+    {
+        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+    }
 
     public record CreateStageDto(
         string Name,

@@ -1,4 +1,7 @@
-﻿using MediatR;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using CQRS.Interfaces;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 
 namespace CQRS.ProjectCosts.UpdateProjectCost
@@ -6,7 +9,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
     /// <summary>
     /// Command do aktualizacji kosztu projektu
     /// </summary>
-    public record UpdateProjectCostCommand : IRequestCommand<Unit>
+    public record UpdateProjectCostCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
         public Guid TenantId { get; init; }
         public Guid ProjectId { get; init; }
@@ -21,5 +24,9 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
         public bool IsClosed { get; init; }
         public IFormFile? Document { get; init; }
         public bool RemoveDocument { get; init; }
+
+        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

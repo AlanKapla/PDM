@@ -1,9 +1,9 @@
 ﻿using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
@@ -38,7 +38,23 @@ namespace CQRS.Files.ShareProjectFiles
 
         public async Task<Unit> Handle(ShareProjectFilesCommand request, CancellationToken cancellationToken)
         {
-            // Get all existing shares for all users and files in one query
+            // 1. Pobierz pliki i sprawdź ownership
+            var projectFiles = await projectFileRepo.GetBySearch(
+                pf => request.ProjectFileIds.Contains(pf.Id) && !pf.IsDeleted);
+
+            if (projectFiles.Count() != request.ProjectFileIds.Count())
+            {
+                throw new NotFoundApiException(nameof(ProjectFile), "One or more files not found");
+            }
+
+            // 2. Sprawdź czy user jest właścicielem WSZYSTKICH plików
+            var notOwnedFiles = projectFiles.Where(pf => pf.OwnerId != currentUser.Id).ToList();
+            if (notOwnedFiles.Any())
+            {
+                throw new ForbiddenApiException($"You can only share files you own. {notOwnedFiles.Count} files are not owned by you.");
+            }
+
+            // 3. Get all existing shares for all users and files in one query
             var existingShares = await sharedProjectFileRepo.GetBySearch(
                 spf => request.SharedWithUserIds.Contains(spf.SharedWithUserId) &&
                        request.ProjectFileIds.Contains(spf.ProjectFileId));
@@ -49,10 +65,6 @@ namespace CQRS.Files.ShareProjectFiles
                     g => g.Key,
                     g => g.Select(spf => spf.ProjectFileId).ToHashSet()
                 );
-
-            // Get file details for notification once
-            var projectFiles = await projectFileRepo.GetBySearch(
-                pf => request.ProjectFileIds.Contains(pf.Id) && !pf.IsDeleted);
 
             var fileNamesDict = projectFiles.ToDictionary(pf => pf.Id, pf => pf.DisplayName);
 

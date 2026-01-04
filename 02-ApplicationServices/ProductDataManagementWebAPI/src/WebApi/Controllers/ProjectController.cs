@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers
 {
-    [Route("api/tenants/{tenantId}/projects")]
+    [Route("api/tenants/{tenantId}/project")]
     [ApiController]
     public class ProjectController(IMediator mediator) : BaseApiController(mediator)
     {

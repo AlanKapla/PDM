@@ -10,9 +10,9 @@ using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
-namespace CQRS.ProjectCosts.ShareProjectCost
+namespace CQRS.ProjectCosts.UpdateCostShare
 {
-    public class ShareProjectCostCommandHandler : IRequestHandler<ShareProjectCostCommand, Unit>
+    public class UpdateCostShareCommandHandler : IRequestHandler<UpdateCostShareCommand, Unit>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
@@ -20,16 +20,16 @@ namespace CQRS.ProjectCosts.ShareProjectCost
         private readonly IReadRepository<User> userRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
-        private readonly ILogger<ShareProjectCostCommandHandler> logger;
+        private readonly ILogger<UpdateCostShareCommandHandler> logger;
 
-        public ShareProjectCostCommandHandler(
+        public UpdateCostShareCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
             IRepository<SharedProjectCost> sharedProjectCostRepo,
             IRepository<Project> projectRepo,
             IReadRepository<User> userRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
-            ILogger<ShareProjectCostCommandHandler> logger)
+            ILogger<UpdateCostShareCommandHandler> logger)
         {
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
@@ -40,7 +40,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             this.logger = logger;
         }
 
-        public async Task<Unit> Handle(ShareProjectCostCommand request, CancellationToken cancellationToken)
+        public async Task<Unit> Handle(UpdateCostShareCommand request, CancellationToken cancellationToken)
         {
             // ProjectMemberHandler already validated tenant isolation and project membership
             // Validator already checked cost ownership
@@ -61,7 +61,7 @@ namespace CQRS.ProjectCosts.ShareProjectCost
             // Verify ownership
             if (cost.UserId != currentUser.Id)
             {
-                throw new ForbiddenApiException("Only the cost owner can share it");
+                throw new ForbiddenApiException("Only the cost owner can update sharing");
             }
 
             // Get project name separately only if needed for notifications

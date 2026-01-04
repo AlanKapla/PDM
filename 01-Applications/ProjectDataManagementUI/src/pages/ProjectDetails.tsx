@@ -898,7 +898,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {permissions.canReadResources && (
+              {permissions.hasAnyResourceAccess && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -918,7 +918,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {permissions.canReadResources && (
+              {permissions.hasAnyResourceAccess && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -938,7 +938,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {permissions.canReadResources && (
+              {permissions.hasAnyResourceAccess && (
                 <Box
                   as="button"
                   bg={cardBg}

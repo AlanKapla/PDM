@@ -1,11 +1,14 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using CQRS.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace CQRS.ProjectCosts.CreateProjectCost
 {
     /// <summary>
     /// Command do tworzenia nowego kosztu projektu
     /// </summary>
-    public record CreateProjectCostCommand : IRequestCommand<Guid>
+    public record CreateProjectCostCommand : IRequestCommand<Guid>, IAuthorizableRequest
     {
         public Guid TenantId { get; init; }
         public Guid ProjectId { get; init; }
@@ -17,5 +20,9 @@ namespace CQRS.ProjectCosts.CreateProjectCost
         public decimal? VatRate { get; init; }
         public decimal? GrossAmount { get; init; }
         public IFormFile? Document { get; init; }
+
+        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

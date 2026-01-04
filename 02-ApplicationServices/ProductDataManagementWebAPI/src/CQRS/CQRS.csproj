@@ -63,6 +63,7 @@
   <ItemGroup>
     <Folder Include="Messages\GetProjectMessages\" />
     <Folder Include="Notifications\GetUserNotifications\" />
+    <Folder Include="ProjectCosts\ShareProjectCost\" />
     <Folder Include="Validators\Base\" />
   </ItemGroup>
 

@@ -17,7 +17,7 @@ namespace WebApi.Controllers
     /// <summary>
     /// Dedicated controller for managing project files
     /// </summary>
-    [Route("api/tenants/{tenantId}/projects/{projectId}/[controller]")]
+    [Route("api/tenants/{tenantId}/project/{projectId}/file")]
     [ApiController]
     public class FileController(IMediator mediator) : BaseApiController(mediator)
     {

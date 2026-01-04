@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace WebApi.Controllers
 {
     [ApiController]
-    [Route("api/tenants/{tenantId:guid}/projects/{projectId:guid}/cost-estimates")]
+    [Route("api/tenants/{tenantId:guid}/project/{projectId:guid}/cost-estimate")]
     public class CostEstimateController : BaseApiController
     {
         public CostEstimateController(IMediator mediator) : base(mediator)

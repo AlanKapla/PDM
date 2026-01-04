@@ -75,10 +75,16 @@ export default function ProjectFiles() {
 
   useEffect(() => {
     fetchData();
-  }, [projectId]);
+  }, [projectId, permissions.hasAnyResourceAccess]);
 
   const fetchData = async () => {
     if (!user?.activeTenantId || !projectId) return;
+    
+    // Sprawdź czy user ma JAKIEKOLWIEK uprawnienia do zasobów
+    if (!permissions.hasAnyResourceAccess) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -483,7 +489,7 @@ export default function ProjectFiles() {
           </HStack>
         </HStack>
 
-        {!project || !permissions.canReadResources ? (
+        {!project || !permissions.hasAnyResourceAccess ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={FileText}
@@ -503,7 +509,7 @@ export default function ProjectFiles() {
                 </HStack>
               </Tab>
             )}
-            {permissions.canReadResources && (
+            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
               <Tab fontWeight="bold">
                 <HStack spacing={2}>
                   <Icon as={Share2} boxSize={4} />
@@ -583,7 +589,7 @@ export default function ProjectFiles() {
             )}
 
             {/* TAB 2: PLIKI UDOSTĘPNIONE */}
-            {permissions.canReadResources && (
+            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">

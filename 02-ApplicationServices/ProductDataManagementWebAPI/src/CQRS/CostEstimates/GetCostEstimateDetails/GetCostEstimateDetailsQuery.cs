@@ -1,4 +1,7 @@
-﻿using Entities.Models;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using CQRS.Interfaces;
+using Entities.Models;
 using Entities.Models.CostEstimateData;
 
 namespace CQRS.CostEstimates.GetCostEstimateDetails
@@ -6,12 +9,16 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
     /// <summary>
     /// Query do pobrania szczegółów kosztorysu
     /// </summary>
-    public record GetCostEstimateDetailsQuery(
+    public sealed record GetCostEstimateDetailsQuery(
         Guid CostEstimateId
-    ) : IRequestQuery<CostEstimateDetails>
+    ) : IRequestQuery<CostEstimateDetails>, IAuthorizableRequest
     {
         public Guid TenantId { get; init; }
         public Guid ProjectId { get; init; }
+
+        public string PermissionCode => PermissionCodes.ProjectResourcesRead;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
     
     /// <summary>

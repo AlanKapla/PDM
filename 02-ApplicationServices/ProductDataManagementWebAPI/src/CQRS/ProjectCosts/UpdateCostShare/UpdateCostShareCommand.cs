@@ -3,19 +3,20 @@ using Business.Interfaces.Model;
 using CQRS.Interfaces;
 using MediatR;
 
-namespace CQRS.Files.ShareProjectFiles
+namespace CQRS.ProjectCosts.UpdateCostShare
 {
     /// <summary>
-    /// Command do udostępnienia plików wielu członkom projektu
+    /// Command to update cost sharing - add or remove access for specific users
     /// </summary>
-    public record ShareProjectFilesCommand : IRequestCommand<Unit>, IAuthorizableRequest
+    public record UpdateCostShareCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
         public Guid TenantId { get; init; }
         public Guid ProjectId { get; init; }
-        public List<Guid> ProjectFileIds { get; init; } = new();
+        public Guid CostId { get; init; }
         
         /// <summary>
-        /// Lista ID użytkowników (członków projektu), którym zostaną udostępnione pliki
+        /// Lista ID użytkowników, którzy powinni mieć dostęp do kosztu
+        /// Użytkownicy nie na liście zostaną usunięci z udostępnienia
         /// </summary>
         public List<Guid> SharedWithUserIds { get; init; } = new();
 

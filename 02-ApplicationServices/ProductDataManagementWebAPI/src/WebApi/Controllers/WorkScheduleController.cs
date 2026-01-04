@@ -13,7 +13,7 @@ namespace WebApi.Controllers
     /// <summary>
     /// Controller for managing work schedules within projects
     /// </summary>
-    [Route("api/tenants/{tenantId}/projects/{projectId}/work-schedules")]
+    [Route("api/tenants/{tenantId}/project/{projectId}/work-schedule")]
     [ApiController]
     public class WorkScheduleController(IMediator mediator) : BaseApiController(mediator)
     {

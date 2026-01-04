@@ -3,7 +3,8 @@ using CQRS.ProjectCosts.CreateProjectCost;
 using CQRS.ProjectCosts.DeleteProjectCost;
 using CQRS.ProjectCosts.GetProjectUserCosts;
 using CQRS.ProjectCosts.GetSharedProjectCosts;
-using CQRS.ProjectCosts.ShareProjectCost;
+using CQRS.ProjectCosts.ShareProjectCosts;
+using CQRS.ProjectCosts.UpdateCostShare;
 using CQRS.ProjectCosts.UpdateProjectCost;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -14,7 +15,7 @@ namespace WebApi.Controllers
     /// <summary>
     /// Controller do zarządzania kosztami projektu
     /// </summary>
-    [Route("api/tenants/{tenantId}/projects/{projectId}/costs")]
+    [Route("api/tenants/{tenantId}/project/{projectId}/cost")]
     [ApiController]
     public class ProjectCostController(IMediator mediator) : BaseApiController(mediator)
     {
@@ -27,12 +28,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
         {
-            var query = new GetProjectUserCostsQuery
-            {
-                TenantId = tenantId,
-                ProjectId = projectId
-            };
-
+            var query = new GetProjectUserCostsQuery(tenantId, projectId);
             var result = await Send(query);
             return Ok(result);
         }
@@ -46,12 +42,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
         {
-            var query = new GetSharedProjectCostsQuery
-            {
-                TenantId = tenantId,
-                ProjectId = projectId
-            };
-
+            var query = new GetSharedProjectCostsQuery(tenantId, projectId);
             var result = await Send(query);
             return Ok(result);
         }
@@ -66,10 +57,10 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromForm] CreateProjectCostCommand command)
         {
-            command = command with 
-            { 
-                TenantId = tenantId, 
-                ProjectId = projectId 
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId
             };
 
             var costId = await Send(command);
@@ -87,9 +78,9 @@ namespace WebApi.Controllers
             [FromRoute] Guid costId,
             [FromForm] UpdateProjectCostCommand command)
         {
-            command = command with 
-            { 
-                TenantId = tenantId, 
+            command = command with
+            {
+                TenantId = tenantId,
                 ProjectId = projectId,
                 CostId = costId
             };
@@ -108,11 +99,25 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid costId)
         {
-            var command = new DeleteProjectCostCommand
+            var command = new DeleteProjectCostCommand(tenantId, projectId, costId);
+            await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Udostępnia wiele kosztów wybranym członkom projektu (grupowe udostępnianie)
+        /// </summary>
+        [HttpPost("share")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> ShareProjectCosts(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] ShareProjectCostsCommand command)
+        {
+            command = command with
             {
                 TenantId = tenantId,
-                ProjectId = projectId,
-                CostId = costId
+                ProjectId = projectId
             };
 
             await Send(command);
@@ -120,17 +125,15 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Ustawia listę użytkowników, którym udostępniono koszt.
-        /// Dodaje nowych użytkowników i usuwa tych, którzy nie są na liście.
-        /// Pusta lista usuwa wszystkie udostępnienia.
+        /// Aktualizuje udostępnienie pojedynczego kosztu - dodaje lub usuwa dostęp dla konkretnych użytkowników
         /// </summary>
-        [HttpPost("{costId}/share")]
+        [HttpPut("{costId}/share")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
-        public async Task<IActionResult> ShareProjectCost(
+        public async Task<IActionResult> UpdateCostShare(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
             [FromRoute] Guid costId,
-            [FromBody] ShareProjectCostCommand command)
+            [FromBody] UpdateCostShareCommand command)
         {
             command = command with
             {

@@ -7,23 +7,27 @@ using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
+using Repositiories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.UpdateProjectCost
 {
     public class UpdateProjectCostCommandHandler : IRequestHandler<UpdateProjectCostCommand, Unit>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
+        private readonly IReadRepository<SharedProjectCost> sharedProjectCostRepo;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UpdateProjectCostCommandHandler> logger;
 
         public UpdateProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
+            IReadRepository<SharedProjectCost> sharedProjectCostRepo,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<UpdateProjectCostCommandHandler> logger)
         {
             this.projectCostRepo = projectCostRepo;
+            this.sharedProjectCostRepo = sharedProjectCostRepo;
             this.blobStorageService = blobStorageService;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -31,9 +35,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
 
         public async Task<Unit> Handle(UpdateProjectCostCommand request, CancellationToken cancellationToken)
         {
-            // ProjectMemberHandler already validated tenant isolation and project membership
-
-            // Get existing cost
+            // 1. Get existing cost
             var projectCost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId 
                     && pc.TenantId == request.TenantId 
@@ -42,13 +44,23 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
 
             if (projectCost == null)
             {
-                throw new NotFoundApiException("ProjectCost", request.CostId.ToString());
+                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
             }
 
-            // Verify ownership - only the user who created the cost can update it
-            if (projectCost.UserId != currentUser.Id)
+            // 2. Check ownership
+            bool isOwner = projectCost.UserId == currentUser.Id;
+
+            // 3. If not owner, check if cost is shared with user
+            if (!isOwner)
             {
-                throw new ForbiddenApiException("Only the cost owner can update it");
+                var share = await sharedProjectCostRepo.GetFirstBySearch(
+                    spc => spc.ProjectCostId == request.CostId 
+                        && spc.SharedWithUserId == currentUser.Id);
+
+                if (share == null)
+                {
+                    throw new ForbiddenApiException("You don't have access to this cost");
+                }
             }
 
             // Calculate amounts using helper

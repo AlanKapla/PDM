@@ -1,4 +1,7 @@
-﻿using Business.Interfaces.WebModels.ProjectCosts;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.ProjectCosts;
+using CQRS.Interfaces;
 using System;
 using System.Collections.Generic;
 
@@ -7,9 +10,13 @@ namespace CQRS.ProjectCosts.GetProjectUserCosts
     /// <summary>
     /// Query do pobierania listy kosztów zalogowanego użytkownika w projekcie
     /// </summary>
-    public record GetProjectUserCostsQuery : IRequestQuery<IEnumerable<ProjectCostListItemWeb>>
+    public sealed record GetProjectUserCostsQuery(
+        Guid TenantId,
+        Guid ProjectId
+    ) : IRequestQuery<IEnumerable<ProjectCostListItemWeb>>, IAuthorizableRequest
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
+        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

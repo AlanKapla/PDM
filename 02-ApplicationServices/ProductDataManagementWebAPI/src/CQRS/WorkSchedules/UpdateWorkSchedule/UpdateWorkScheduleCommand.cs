@@ -1,15 +1,22 @@
-﻿using Business.Interfaces.WebModels.WorkSchedules;
-using CQRS;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.WorkSchedules;
+using CQRS.Interfaces;
 
 namespace CQRS.WorkSchedules.UpdateWorkSchedule
 {
-    public record UpdateWorkScheduleCommand(
+    public sealed record UpdateWorkScheduleCommand(
         Guid TenantId,
         Guid ProjectId,
         Guid WorkScheduleId,
         string Name,
         List<UpdateStageDto>? Stages
-    ) : IRequestCommand<WorkScheduleDetailsWeb>;
+    ) : IRequestCommand<WorkScheduleDetailsWeb>, IAuthorizableRequest
+    {
+        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+    }
 
     public record UpdateStageDto(
         Guid? Id,
