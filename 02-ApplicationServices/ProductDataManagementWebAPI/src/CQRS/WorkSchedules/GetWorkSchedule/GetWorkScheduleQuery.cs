@@ -14,7 +14,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
         Guid WorkScheduleId
     ) : IRequestQuery<WorkScheduleDetailsWeb>, IAuthorizableRequest
     {
-        public string PermissionCode => PermissionCodes.ProjectResourcesRead;
+        public string PermissionCode => PermissionCodes.ProjectResourcesReadSingle;
         
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

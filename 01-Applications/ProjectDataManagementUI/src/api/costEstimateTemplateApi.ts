@@ -41,7 +41,7 @@ export const costEstimateTemplateApi = {
    */
   getTemplates: async (): Promise<CostEstimateTemplateListItem[]> => {
     const response = await axiosClient.get<CostEstimateTemplateListItem[]>(
-      "/CostEstimateTemplate"
+      "/cost-estimate-template"
     );
     return response.data;
   },
@@ -51,7 +51,7 @@ export const costEstimateTemplateApi = {
    */
   getTemplateDetails: async (id: string): Promise<CostEstimateTemplateDetails> => {
     const response = await axiosClient.get<CostEstimateTemplateDetails>(
-      `/CostEstimateTemplate/${id}`
+      `/cost-estimate-template/${id}`
     );
     return response.data;
   },
@@ -60,7 +60,7 @@ export const costEstimateTemplateApi = {
    * Create new template
    */
   createTemplate: async (data: CreateCostEstimateTemplateRequest): Promise<string> => {
-    const response = await axiosClient.post<string>("/CostEstimateTemplate", data);
+    const response = await axiosClient.post<string>("/cost-estimate-template", data);
     return response.data;
   },
 
@@ -68,13 +68,13 @@ export const costEstimateTemplateApi = {
    * Update existing template
    */
   updateTemplate: async (id: string, data: UpdateCostEstimateTemplateRequest): Promise<void> => {
-    await axiosClient.put(`/CostEstimateTemplate/${id}`, data);
+    await axiosClient.put(`/cost-estimate-template/${id}`, data);
   },
 
   /**
    * Delete template (soft delete)
    */
   deleteTemplate: async (id: string): Promise<void> => {
-    await axiosClient.delete(`/CostEstimateTemplate/${id}`);
+    await axiosClient.delete(`/cost-estimate-template/${id}`);
   },
 };

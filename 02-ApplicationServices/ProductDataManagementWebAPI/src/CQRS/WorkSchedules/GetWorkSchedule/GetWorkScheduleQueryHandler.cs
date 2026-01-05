@@ -29,8 +29,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
             var workSchedule = (await workScheduleRepo.GetFirstBySearch(
                 ws => ws.Id == request.WorkScheduleId &&
                       ws.ProjectId == request.ProjectId &&
-                      ws.TenantId == request.TenantId &&
-                      ws.CreatedByUserId == currentUser.Id,
+                      ws.TenantId == request.TenantId,
                 include => include
                     .Include(ws => ws.CreatedBy)
                         .ThenInclude(tm => tm.User)
@@ -49,6 +48,11 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                         .ThenInclude(s => s.Works)
                             .ThenInclude(w => w.Comments)
                                 .ThenInclude(c => c.CreatedBy)))!;
+
+            if (!currentUser.IsSuperAdmin && workSchedule.CreatedByUserId != currentUser.Id)
+            {
+                throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
+            }
 
             var result = new WorkScheduleDetailsWeb(
                 Id: workSchedule.Id,

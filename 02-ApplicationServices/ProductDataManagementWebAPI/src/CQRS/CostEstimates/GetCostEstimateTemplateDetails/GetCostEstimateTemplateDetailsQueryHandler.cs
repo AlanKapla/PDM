@@ -26,13 +26,22 @@ namespace CQRS.CostEstimates.GetCostEstimateTemplateDetails
 
         public async Task<CostEstimateTemplateDetails> Handle(GetCostEstimateTemplateDetailsQuery request, CancellationToken cancellationToken)
         {
-            // Get template with Owner - filter by OwnerId in database
+            // Get template with Owner
+            // SuperAdmin can access templates without ownership check for monitoring purposes
+            // Regular users are filtered by OwnerId in the authorization layer
             var template = await templateRepository.GetFirstBySearch(
-                t => t.Id == request.TemplateId && t.OwnerId == currentUser.Id && !t.IsDeleted,
+                t => t.Id == request.TemplateId && !t.IsDeleted,
                 cancellationToken,
                 q => q.Include(t => t.Owner));
 
             if (template == null)
+            {
+                throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
+            }
+
+            // Additional ownership check for non-SuperAdmin users
+            // SuperAdmin can view any template for monitoring/auditing
+            if (!currentUser.IsSuperAdmin && template.OwnerId != currentUser.Id)
             {
                 throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
             }

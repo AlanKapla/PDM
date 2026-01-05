@@ -43,11 +43,19 @@ public static class PermissionScopes
         // PROJECT - STATUS
         [PermissionCodes.ProjectStatusManage] = PermissionScope.Project,
         
-        // PROJECT - ZASOBY
+        // PROJECT - ZASOBY (własne i udostępnione)
         [PermissionCodes.ProjectResourcesRead] = PermissionScope.Project,
         [PermissionCodes.ProjectResourcesWrite] = PermissionScope.Project,
+        [PermissionCodes.ProjectResourcesShare] = PermissionScope.Project,
         [PermissionCodes.ProjectResourcesReadShared] = PermissionScope.Project,
         [PermissionCodes.ProjectResourcesWriteShared] = PermissionScope.Project,
+        
+        // PROJECT - ZASOBY (wszystkie - tylko dla ProjectAdmin)
+        [PermissionCodes.ProjectResourcesReadAll] = PermissionScope.Project,
+        [PermissionCodes.ProjectResourcesWriteAll] = PermissionScope.Project,
+        
+        // PROJECT - ZASOBY (pojedynczy obiekt - dla SuperAdmin i wszyscy)
+        [PermissionCodes.ProjectResourcesReadSingle] = PermissionScope.Project,
         
         
         // ==================== RESOURCE SCOPE ====================
