@@ -32,22 +32,32 @@ export default function Breadcrumbs() {
     }
   );
 
+  // Pobierz nazwę projektu jeśli jest w URL
   useEffect(() => {
-    const generateBreadcrumbs = async () => {
-      const pathSegments = location.pathname.split("/").filter(Boolean);
-      const segments: BreadcrumbSegment[] = [
-        { label: "Panel główny", path: "/dashboard" }
-      ];
-
-      // Pobierz nazwę projektu jeśli jest w URL (użyj cache!)
+    const fetchProjectName = async () => {
       if (params.projectId && user?.activeTenantId) {
         try {
           const projectDetails = await projectDetailsCache.fetch();
           setProjectName(projectDetails.name);
         } catch (error) {
           console.error("Błąd pobierania nazwy projektu:", error);
+          setProjectName("");
         }
+      } else {
+        setProjectName("");
       }
+    };
+
+    fetchProjectName();
+  }, [params.projectId, user?.activeTenantId]);
+
+  // Generuj breadcrumbs po załadowaniu nazwy projektu
+  useEffect(() => {
+    const generateBreadcrumbs = () => {
+      const pathSegments = location.pathname.split("/").filter(Boolean);
+      const segments: BreadcrumbSegment[] = [
+        { label: "Panel główny", path: "/dashboard" }
+      ];
 
       // Mapowanie ścieżek
       if (pathSegments[0] === "tenants") {
@@ -109,7 +119,7 @@ export default function Breadcrumbs() {
     };
 
     generateBreadcrumbs();
-  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId]);
+  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, projectName]);
 
   if (breadcrumbs.length <= 1) {
     return null;

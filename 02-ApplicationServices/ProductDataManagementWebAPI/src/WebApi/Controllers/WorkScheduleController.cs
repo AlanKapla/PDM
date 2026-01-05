@@ -84,7 +84,7 @@ namespace WebApi.Controllers
         /// <param name="workScheduleId">The work schedule ID</param>
         /// <returns>The work schedule with all details</returns>
         [HttpGet("details/{workScheduleId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesReadShared)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesReadSingle)]
         public async Task<IActionResult> GetWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

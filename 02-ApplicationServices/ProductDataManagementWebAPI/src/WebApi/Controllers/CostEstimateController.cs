@@ -47,7 +47,7 @@ namespace WebApi.Controllers
         /// <param name="id">Cost estimate ID</param>
         /// <returns>Cost estimate details with full data</returns>
         [HttpGet("details/{id:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesRead)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesReadSingle)]
         [ProducesResponseType(typeof(CostEstimateDetails), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]

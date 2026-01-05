@@ -25,12 +25,12 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
 
         public async Task<CostEstimateDetails> Handle(GetCostEstimateDetailsQuery request, CancellationToken cancellationToken)
         {
-            // Get cost estimate with template and owner - filter by TenantId, ProjectId and OwnerId
+            // Get cost estimate with template and owner - filter by TenantId and ProjectId
+            // Don't filter by OwnerId to allow READ_SINGLE permission (e.g., SuperAdmin access)
             var costEstimate = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId && 
                      c.TenantId == request.TenantId &&
                      c.ProjectId == request.ProjectId &&
-                     c.OwnerId == currentUser.Id &&
                      !c.IsDeleted,
                 cancellationToken,
                 q => q.Include(c => c.Template).Include(c => c.Owner).Include(c => c.Project));

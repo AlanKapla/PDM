@@ -35,6 +35,7 @@ public static class PermissionCodes
     public const string ProjectResourcesWriteShared = "PROJECT.RESOURCES.WRITE_SHARED";
     public const string ProjectResourcesReadAll = "PROJECT.RESOURCES.READ_ALL";
     public const string ProjectResourcesWriteAll = "PROJECT.RESOURCES.WRITE_ALL";
+    public const string ProjectResourcesReadSingle = "PROJECT.RESOURCES.READ_SINGLE";
 
 
     public static readonly string[] All = new[]
@@ -58,6 +59,7 @@ public static class PermissionCodes
         ProjectResourcesReadShared,
         ProjectResourcesWriteShared,
         ProjectResourcesReadAll,
-        ProjectResourcesWriteAll
+        ProjectResourcesWriteAll,
+        ProjectResourcesReadSingle
     };
 }

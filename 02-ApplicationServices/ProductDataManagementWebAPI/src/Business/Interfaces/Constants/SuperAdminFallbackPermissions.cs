@@ -24,6 +24,7 @@ public static class SuperAdminFallbackPermissions
     {
         PermissionCodes.ProjectView,
         PermissionCodes.ProjectMembersView,
-        PermissionCodes.ProjectResourcesReadAll
+        PermissionCodes.ProjectResourcesReadAll,
+        PermissionCodes.ProjectResourcesReadSingle
     };
 }
