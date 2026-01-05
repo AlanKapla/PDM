@@ -31,6 +31,7 @@ public sealed class AccessService
         ICurrentUser user,
         string permissionCode,
         ResourceRef resource,
+        ResourceScope? resourceScope = null,
         CancellationToken cancellationToken = default)
     {
         if (!user.IsAuthenticated)
@@ -86,7 +87,7 @@ public sealed class AccessService
         // or fallback read-only permissions if they are not
         if (resource.ProjectId.HasValue || scope == PermissionScope.Project)
         {
-            return await AuthorizeProjectPermissionAsync(user, permissionCode, resource, cancellationToken);
+            return await AuthorizeProjectPermissionAsync(user, permissionCode, resource, resourceScope, cancellationToken);
         }
         else
         {
@@ -228,6 +229,7 @@ public sealed class AccessService
         ICurrentUser user,
         string permissionCode,
         ResourceRef resource,
+        ResourceScope? resourceScope,
         CancellationToken cancellationToken)
     {
         if (!resource.ProjectId.HasValue)
@@ -256,15 +258,39 @@ public sealed class AccessService
             return false;
         }
 
-        // Check if user has permission
-        if (!projectSnapshot.ProjectPermissionCodes.Contains(permissionCode))
+        // If ResourceScope is specified, validate specific permissions for that scope
+        if (resourceScope.HasValue)
         {
-            logger.LogWarning(
-                "Authorization failed: User {UserId} lacks permission {Permission} in project {ProjectId}",
-                user.Id,
-                permissionCode,
-                resource.ProjectId.Value);
-            return false;
+            bool hasRequiredPermission = resourceScope.Value switch
+            {
+                ResourceScope.All => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesReadAll),
+                ResourceScope.Mine => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesRead),
+                ResourceScope.Shared => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesReadShared),
+                _ => false
+            };
+
+            if (!hasRequiredPermission)
+            {
+                logger.LogWarning(
+                    "Authorization failed: User {UserId} lacks required permission for ResourceScope {Scope} in project {ProjectId}",
+                    user.Id,
+                    resourceScope.Value,
+                    resource.ProjectId.Value);
+                return false;
+            }
+        }
+        else
+        {
+            // Check if user has the general permission
+            if (!projectSnapshot.ProjectPermissionCodes.Contains(permissionCode))
+            {
+                logger.LogWarning(
+                    "Authorization failed: User {UserId} lacks permission {Permission} in project {ProjectId}",
+                    user.Id,
+                    permissionCode,
+                    resource.ProjectId.Value);
+                return false;
+            }
         }
 
         // Check Project.IsActive (only for non-admin members)
@@ -292,9 +318,10 @@ public sealed class AccessService
         }
 
         logger.LogDebug(
-            "Authorization granted: User {UserId} has permission {Permission} in project {ProjectId}",
+            "Authorization granted: User {UserId} has permission {Permission} (ResourceScope: {Scope}) in project {ProjectId}",
             user.Id,
             permissionCode,
+            resourceScope,
             resource.ProjectId.Value);
         
         return true;

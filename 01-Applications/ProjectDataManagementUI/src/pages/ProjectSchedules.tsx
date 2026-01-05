@@ -8,18 +8,25 @@ import {
   Text,
   Icon,
   Button,
+  Badge,
   useColorModeValue,
   useDisclosure,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
 } from "@chakra-ui/react";
-import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
+import { Calendar, Clock, User } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
 import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
-import { projectApi } from "../api/projectApi";
-import { useProjectPermissions } from "../hooks/useProjectPermissions";
+import { projectApi, ResourceScope } from "../api/projectApi";
+import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import { useTabCache } from "../hooks/useTabCache";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 
 export default function ProjectSchedules() {
@@ -30,45 +37,114 @@ export default function ProjectSchedules() {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [loading, setLoading] = useState(true);
-  const [workSchedules, setWorkSchedules] = useState<WorkScheduleSummaryWeb[]>([]);
   const [project, setProject] = useState<any | null>(null);
   const [members, setMembers] = useState<any[]>([]);
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const permissions = useProjectPermissions(projectId);
+  const resourcePerms = useResourcePermissions(projectId);
+
+  // Tab cache dla Moje harmonogramy
+  const mySchedulesCache = useTabCache<WorkScheduleSummaryWeb[]>(
+    async () => {
+      if (!user?.activeTenantId || !projectId) return [];
+      const res = await projectApi.getWorkSchedules(user.activeTenantId, projectId, ResourceScope.Mine);
+      return res.data;
+    },
+    `schedules-mine-${projectId}`
+  );
+
+  // Tab cache dla Wszystkie harmonogramy
+  const allSchedulesCache = useTabCache<WorkScheduleSummaryWeb[]>(
+    async () => {
+      if (!user?.activeTenantId || !projectId) return [];
+      const res = await projectApi.getWorkSchedules(user.activeTenantId, projectId, ResourceScope.All);
+      return res.data;
+    },
+    `schedules-all-${projectId}`
+  );
 
   useEffect(() => {
-    fetchData();
-  }, [projectId, permissions.canWriteResources]);
+    fetchProjectData();
+  }, [projectId]);
 
-  const fetchData = async () => {
+  const fetchProjectData = async () => {
     if (!user?.activeTenantId || !projectId) return;
     
-    // Harmonogramy są dostępne tylko dla użytkowników z uprawnieniem WRITE
-    if (!permissions.canWriteResources) {
+    if (!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
-      const [projectRes, schedulesRes, membersRes] = await Promise.all([
+      const [projectRes, membersRes] = await Promise.all([
         projectApi.getProjectDetails(user.activeTenantId, projectId),
-        projectApi.getMyWorkSchedules(user.activeTenantId, projectId),
         projectApi.getProjectMembers(user.activeTenantId, projectId),
       ]);
 
       setProject(projectRes.data);
-      setWorkSchedules(schedulesRes.data);
       setMembers(membersRes.data);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshData = () => {
+    mySchedulesCache.clear();
+    allSchedulesCache.clear();
+    fetchProjectData();
+  };
+
+  const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[]) => {
+    if (schedules.length === 0) {
+      return (
+        <EmptyState
+          icon={Calendar}
+          title="Brak harmonogramów"
+          description="Nie znaleziono żadnych harmonogramów"
+        />
+      );
+    }
+
+    return (
+      <VStack spacing={4} align="stretch">
+        {schedules.map((schedule) => (
+          <Box
+            key={schedule.id}
+            bg={cardBg}
+            p={6}
+            borderWidth="1px"
+            borderColor={borderColor}
+            rounded="lg"
+            _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+            transition="all 0.2s"
+            cursor="pointer"
+            onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
+            shadow="sm"
+          >
+            <VStack align="flex-start" spacing={3}>
+              <Text fontWeight="bold" fontSize="xl">{schedule.name}</Text>
+              <HStack spacing={6} fontSize="sm" color="gray.600">
+                <HStack spacing={2}>
+                  <Icon as={User} boxSize={4} />
+                  <Text>{schedule.createdByUserName}</Text>
+                </HStack>
+                <HStack spacing={2}>
+                  <Icon as={Clock} boxSize={4} />
+                  <Text>{formatDate(schedule.createdAt)}</Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </Box>
+        ))}
+      </VStack>
+    );
   };
 
   if (loading) {
@@ -92,7 +168,7 @@ export default function ProjectSchedules() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {permissions.canWriteResources && (
+          {resourcePerms.mine.canCreate && (
             <Button
               leftIcon={<Calendar size={18} />}
               colorScheme="purple"
@@ -103,7 +179,7 @@ export default function ProjectSchedules() {
           )}
         </HStack>
 
-        {!permissions.canWriteResources ? (
+        {(!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={Calendar}
@@ -112,47 +188,49 @@ export default function ProjectSchedules() {
             />
           </Box>
         ) : (
-        <>
-        {workSchedules.length === 0 ? (
-          <EmptyState
-            icon={Calendar}
-            title="Brak harmonogramów"
-            description="Utwórz pierwszy harmonogram prac dla tego projektu"
-          />
-        ) : (
-          <VStack spacing={4} align="stretch">
-            {workSchedules.map((schedule) => (
-              <Box
-                key={schedule.id}
-                bg={cardBg}
-                p={6}
-                borderWidth="1px"
-                borderColor={borderColor}
-                rounded="lg"
-                _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                transition="all 0.2s"
-                cursor="pointer"
-                onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
-                shadow="sm"
-              >
-                <VStack align="flex-start" spacing={3}>
-                  <Text fontWeight="bold" fontSize="xl">{schedule.name}</Text>
-                  <HStack spacing={6} fontSize="sm" color="gray.600">
-                    <HStack spacing={2}>
-                      <Icon as={User} boxSize={4} />
-                      <Text>{schedule.createdByUserName}</Text>
-                    </HStack>
-                    <HStack spacing={2}>
-                      <Icon as={Clock} boxSize={4} />
-                      <Text>{formatDate(schedule.createdAt)}</Text>
-                    </HStack>
+          <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex}>
+            <TabList>
+              {resourcePerms.tabs.showMine && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={Calendar} boxSize={4} />
+                    <Text>Moje harmonogramy</Text>
+                    <Badge colorScheme="blue" ml={2}>{mySchedulesCache.data?.length || 0}</Badge>
                   </HStack>
-                </VStack>
-              </Box>
-            ))}
-          </VStack>
-        )}
-        </>
+                </Tab>
+              )}
+              {resourcePerms.tabs.showAll && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={Calendar} boxSize={4} />
+                    <Text>Wszystkie harmonogramy</Text>
+                    <Badge colorScheme="purple" ml={2}>{allSchedulesCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+            </TabList>
+
+            <TabPanels>
+              {resourcePerms.tabs.showMine && (
+                <TabPanel>
+                  <MySchedulesTab
+                    cache={mySchedulesCache}
+                    isActive={activeTabIndex === 0}
+                    renderSchedulesList={renderSchedulesList}
+                  />
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showAll && (
+                <TabPanel>
+                  <AllSchedulesTab
+                    cache={allSchedulesCache}
+                    isActive={resourcePerms.tabs.showMine ? activeTabIndex === 1 : activeTabIndex === 0}
+                    renderSchedulesList={renderSchedulesList}
+                  />
+                </TabPanel>
+              )}
+            </TabPanels>
+          </Tabs>
         )}
 
         <CreateWorkScheduleModal
@@ -162,9 +240,39 @@ export default function ProjectSchedules() {
           tenantId={user?.activeTenantId || ""}
           projectName={project?.name || ""}
           members={members}
-          onScheduleCreated={fetchData}
+          onScheduleCreated={refreshData}
         />
       </Box>
     </MainLayout>
   );
+}
+
+// Komponent dla tabu "Moje harmonogramy" z lazy loading
+function MySchedulesTab({ cache, isActive, renderSchedulesList }: any) {
+  useEffect(() => {
+    if (isActive && !cache.data) {
+      cache.fetch();
+    }
+  }, [isActive]);
+
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie harmonogramów..." />;
+  }
+
+  return renderSchedulesList(cache.data || []);
+}
+
+// Komponent dla tabu "Wszystkie harmonogramy" z lazy loading
+function AllSchedulesTab({ cache, isActive, renderSchedulesList }: any) {
+  useEffect(() => {
+    if (isActive && !cache.data) {
+      cache.fetch();
+    }
+  }, [isActive]);
+
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie harmonogramów..." />;
+  }
+
+  return renderSchedulesList(cache.data || []);
 }

@@ -20,25 +20,22 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Get all cost estimates for project
+        /// Get cost estimates based on scope (All, Mine, Shared)
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="projectId">Project ID</param>
+        /// <param name="scope">Resource scope (All, Mine, Shared)</param>
         /// <returns>List of cost estimates</returns>
-        [HttpGet]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesRead)]
+        [HttpGet("{scope}")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         [ProducesResponseType(typeof(List<CostEstimateListItem>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetCostEstimates(
             [FromRoute] Guid tenantId, 
-            [FromRoute] Guid projectId)
+            [FromRoute] Guid projectId,
+            [FromRoute] ResourceScope scope)
         {
-            var query = new GetCostEstimatesQuery(projectId) with
-            {
-                TenantId = tenantId,
-                ProjectId = projectId
-            };
-            
+            var query = new GetCostEstimatesQuery(tenantId, projectId, scope);
             return Ok(await Send(query));
         }
 
@@ -49,7 +46,7 @@ namespace WebApi.Controllers
         /// <param name="projectId">Project ID</param>
         /// <param name="id">Cost estimate ID</param>
         /// <returns>Cost estimate details with full data</returns>
-        [HttpGet("{id:guid}")]
+        [HttpGet("details/{id:guid}")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesRead)]
         [ProducesResponseType(typeof(CostEstimateDetails), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -105,7 +102,7 @@ namespace WebApi.Controllers
         /// <param name="command">Updated cost estimate data</param>
         /// <returns>No content</returns>
         [HttpPut("{id:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

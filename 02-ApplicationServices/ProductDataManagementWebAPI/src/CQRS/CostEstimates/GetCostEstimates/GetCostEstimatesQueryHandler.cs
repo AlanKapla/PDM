@@ -1,4 +1,6 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
+using Business.Interfaces.Model;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +9,7 @@ using Repositiories.Repository.Interfaces;
 namespace CQRS.CostEstimates.GetCostEstimates
 {
     /// <summary>
-    /// Handler dla pobrania listy kosztorysów dla projektu
+    /// Handler to get cost estimates based on scope (All, Mine, Shared)
     /// </summary>
     public class GetCostEstimatesQueryHandler : IRequestHandler<GetCostEstimatesQuery, List<CostEstimateListItem>>
     {
@@ -24,13 +26,42 @@ namespace CQRS.CostEstimates.GetCostEstimates
 
         public async Task<List<CostEstimateListItem>> Handle(GetCostEstimatesQuery request, CancellationToken cancellationToken)
         {
-            // Get all cost estimates for project - filter by TenantId, ProjectId and OwnerId
-            var costEstimates = await costEstimateRepository.GetBySearch(
-                c => c.ProjectId == request.ProjectId && 
-                     c.TenantId == request.TenantId && 
-                     c.OwnerId == currentUser.Id &&
-                     !c.IsDeleted,
-                q => q.Include(c => c.Template).Include(c => c.Owner).Include(c => c.Project));
+            // Shared cost estimates are not implemented yet
+            if (request.Scope == ResourceScope.Shared)
+            {
+                throw new ApiException(ApiExceptionReason.InvalidOperation, "Shared cost estimates are not yet supported");
+            }
+
+            IEnumerable<CostEstimate> costEstimates;
+
+            switch (request.Scope)
+            {
+                case ResourceScope.All:
+                    // Get all cost estimates in the project (requires READ_ALL permission)
+                    costEstimates = await costEstimateRepository.GetBySearch(
+                        c => c.ProjectId == request.ProjectId && 
+                             c.TenantId == request.TenantId && 
+                             !c.IsDeleted,
+                        q => q.Include(c => c.Template)
+                              .Include(c => c.Owner)
+                              .Include(c => c.Project));
+                    break;
+
+                case ResourceScope.Mine:
+                    // Get only cost estimates owned by the current user (requires READ permission)
+                    costEstimates = await costEstimateRepository.GetBySearch(
+                        c => c.ProjectId == request.ProjectId && 
+                             c.TenantId == request.TenantId && 
+                             c.OwnerId == currentUser.Id &&
+                             !c.IsDeleted,
+                        q => q.Include(c => c.Template)
+                              .Include(c => c.Owner)
+                              .Include(c => c.Project));
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(request.Scope));
+            }
 
             // Return simple list items
             return costEstimates

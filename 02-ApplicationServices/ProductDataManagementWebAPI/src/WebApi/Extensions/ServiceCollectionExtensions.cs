@@ -90,7 +90,7 @@ namespace WebApi.Extensions
             {
                 c.SwaggerDoc("v1", new OpenApiInfo 
                 { 
-                    Title = "BrickSoft API", 
+                    Title = "Brickly API", 
                     Version = "v1",
                     Description = "API protected by Azure AD B2C authentication"
                 });

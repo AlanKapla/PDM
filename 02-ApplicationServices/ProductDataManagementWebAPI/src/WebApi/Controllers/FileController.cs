@@ -2,8 +2,7 @@
 using CQRS.Files.AddFileVersionComment;
 using CQRS.Files.CreatePackageAndUploadFiles;
 using CQRS.Files.DeleteProjectFile;
-using CQRS.Files.GetSharedFiles;
-using CQRS.Files.GetUserUploadedFiles;
+using CQRS.Files.GetProjectFiles;
 using CQRS.Files.ShareProjectFiles;
 using CQRS.Files.UpdateFileShare;
 using CQRS.Files.UploadProjectFiles;
@@ -76,29 +75,20 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Get files uploaded by current user
+        /// Get project files based on scope (All, Mine, Shared)
         /// </summary>
-        [HttpGet("my")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
-        public async Task<IActionResult> GetMyFiles(
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <param name="scope">Resource scope (All, Mine, Shared)</param>
+        /// <returns>List of file packages</returns>
+        [HttpGet("{scope}")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
+        public async Task<IActionResult> GetProjectFiles(
             [FromRoute] Guid tenantId,
-            [FromRoute] Guid projectId)
+            [FromRoute] Guid projectId,
+            [FromRoute] ResourceScope scope)
         {
-            var query = new GetUserUploadedFilesQuery(tenantId, projectId);
-            var result = await Send(query);
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Get files shared with current user
-        /// </summary>
-        [HttpGet("shared")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesReadShared)]
-        public async Task<IActionResult> GetSharedFiles(
-            [FromRoute] Guid tenantId,
-            [FromRoute] Guid projectId)
-        {
-            var query = new GetSharedFilesQuery(tenantId, projectId);
+            var query = new GetProjectFilesQuery(tenantId, projectId, scope);
             var result = await Send(query);
             return Ok(result);
         }
@@ -107,7 +97,7 @@ namespace WebApi.Controllers
         /// Share files with another project member
         /// </summary>
         [HttpPost("share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
         public async Task<IActionResult> ShareFiles(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -187,7 +177,7 @@ namespace WebApi.Controllers
         /// Update file sharing - add or remove access for specific users
         /// </summary>
         [HttpPut("{fileId}/share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
         public async Task<IActionResult> UpdateFileShare(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

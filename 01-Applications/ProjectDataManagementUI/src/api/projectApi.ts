@@ -1,5 +1,26 @@
 ﻿import { axiosClient } from "./axiosClient";
 
+// Resource scope enum matching backend
+export enum ResourceScope {
+  All = 0,
+  Mine = 1,
+  Shared = 2,
+}
+
+// Helper to convert enum to route string
+const resourceScopeToRoute = (scope: ResourceScope): string => {
+  switch (scope) {
+    case ResourceScope.All:
+      return "all";
+    case ResourceScope.Mine:
+      return "mine";
+    case ResourceScope.Shared:
+      return "shared";
+    default:
+      return "mine";
+  }
+};
+
 export const projectApi = {
   // Pobierz wszystkie projekty w tenancie
   getTenantProjects: async (tenantId: string) => {
@@ -97,9 +118,20 @@ export const projectApi = {
     });
   },
 
-  // Pobierz pliki użytkownika w projekcie
+  // UNIFIED endpoint for getting files based on scope
+  getProjectFiles: async (tenantId: string, projectId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/${scopeRoute}`);
+  },
+
+  // DEPRECATED - use getProjectFiles with ResourceScope.Mine
   getMyFiles: async (tenantId: string, projectId: string) => {
     return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/my`);
+  },
+
+  // DEPRECATED - use getProjectFiles with ResourceScope.Shared
+  getSharedFiles: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/shared`);
   },
 
   // Udostępnij pliki wielu użytkownikom
@@ -130,11 +162,6 @@ export const projectApi = {
       fileId,
       sharedWithUserIds,
     });
-  },
-
-  // Pobierz pliki udostępnione dla użytkownika
-  getSharedFiles: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/shared`);
   },
 
   // Usuń plik z projektu
@@ -214,14 +241,22 @@ export const projectApi = {
     });
   },
 
-  // Pobierz moje harmonogramy prac (lista podsumowań)
+  // ===== Harmonogramy prac =====
+
+  // UNIFIED endpoint for getting work schedules based on scope
+  getWorkSchedules: async (tenantId: string, projectId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/${scopeRoute}`);
+  },
+
+  // DEPRECATED - use getWorkSchedules with ResourceScope.Mine
   getMyWorkSchedules: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/my`);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/mine`);
   },
 
   // Pobierz szczegóły pojedynczego harmonogramu prac
   getWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}`);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/details/${workScheduleId}`);
   },
 
   // Aktualizuj harmonogram prac
@@ -267,9 +302,20 @@ export const projectApi = {
 
   // ===== Koszty projektowe =====
 
-  // Pobierz listę kosztów projektowych
+  // UNIFIED endpoint for getting costs based on scope
+  getProjectCosts: async (tenantId: string, projectId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost/${scopeRoute}`);
+  },
+
+  // DEPRECATED - use getProjectCosts with ResourceScope.Mine
   getProjectUserCosts: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost`);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost/mine`);
+  },
+
+  // DEPRECATED - use getProjectCosts with ResourceScope.Shared
+  getSharedProjectCosts: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost/shared`);
   },
 
   // Utwórz nowy koszt projektowy
@@ -345,38 +391,27 @@ export const projectApi = {
     return axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/cost/${costId}`);
   },
 
-  // Pobierz udostępnione koszty projektowe
-  getSharedProjectCosts: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost/shared`);
-  },
-
-  // Udostępnij wiele kosztów wielu użytkownikom (grupowe udostępnianie)
+  // Udostępnij wiele kosztów wybranym członkom (grupowe udostępnianie)
   shareProjectCosts: async (
     tenantId: string,
     projectId: string,
-    costIds: string[],
-    sharedWithUserIds: string[]
+    data: {
+      costIds: string[];
+      userIds: string[];
+    }
   ) => {
-    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/cost/share`, {
-      tenantId,
-      projectId,
-      projectCostIds: costIds,
-      sharedWithUserIds,
-    });
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/cost/share`, data);
   },
 
-  // Zaktualizuj udostępnienie konkretnego kosztu (dodaj/usuń użytkowników)
+  // Aktualizuj udostępnienie pojedynczego kosztu
   updateCostShare: async (
     tenantId: string,
     projectId: string,
     costId: string,
-    sharedWithUserIds: string[]
+    userIds: string[]
   ) => {
     return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/cost/${costId}/share`, {
-      tenantId,
-      projectId,
-      costId,
-      sharedWithUserIds,
+      userIds,
     });
   },
 

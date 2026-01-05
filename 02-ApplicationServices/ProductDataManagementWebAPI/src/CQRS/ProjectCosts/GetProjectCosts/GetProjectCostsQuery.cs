@@ -2,21 +2,22 @@
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.Interfaces;
-using System;
-using System.Collections.Generic;
 
-namespace CQRS.ProjectCosts.GetProjectUserCosts
+namespace CQRS.ProjectCosts.GetProjectCosts
 {
     /// <summary>
-    /// Query do pobierania listy kosztów zalogowanego użytkownika w projekcie
+    /// Query do pobierania kosztów projektu według zakresu (All, Mine, Shared)
     /// </summary>
-    public sealed record GetProjectUserCostsQuery(
+    public sealed record GetProjectCostsQuery(
         Guid TenantId,
-        Guid ProjectId
+        Guid ProjectId,
+        ResourceScope Scope
     ) : IRequestQuery<IEnumerable<ProjectCostListItemWeb>>, IAuthorizableRequest
     {
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-        
+        public string PermissionCode => PermissionCodes.ProjectView;
+
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+
+        public ResourceScope? GetResourceScope() => Scope;
     }
 }

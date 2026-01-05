@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Remove="Files\ShareProjectFile\**" />
     <Compile Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <Compile Remove="ProjectCosts\ShareProjectCost\**" />
     <Compile Remove="Tenants\UserTenants\**" />
     <Compile Remove="Users\UserActivate\**" />
     <Compile Remove="Users\UserGoogleRegister\**" />
@@ -21,6 +22,7 @@
     <Compile Remove="Users\UserResetPassword\**" />
     <EmbeddedResource Remove="Files\ShareProjectFile\**" />
     <EmbeddedResource Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <EmbeddedResource Remove="ProjectCosts\ShareProjectCost\**" />
     <EmbeddedResource Remove="Tenants\UserTenants\**" />
     <EmbeddedResource Remove="Users\UserActivate\**" />
     <EmbeddedResource Remove="Users\UserGoogleRegister\**" />
@@ -33,6 +35,7 @@
     <EmbeddedResource Remove="Users\UserResetPassword\**" />
     <None Remove="Files\ShareProjectFile\**" />
     <None Remove="ProjectCosts\GetProjectCostDetails\**" />
+    <None Remove="ProjectCosts\ShareProjectCost\**" />
     <None Remove="Tenants\UserTenants\**" />
     <None Remove="Users\UserActivate\**" />
     <None Remove="Users\UserGoogleRegister\**" />
@@ -63,7 +66,6 @@
   <ItemGroup>
     <Folder Include="Messages\GetProjectMessages\" />
     <Folder Include="Notifications\GetUserNotifications\" />
-    <Folder Include="ProjectCosts\ShareProjectCost\" />
     <Folder Include="Validators\Base\" />
   </ItemGroup>
 

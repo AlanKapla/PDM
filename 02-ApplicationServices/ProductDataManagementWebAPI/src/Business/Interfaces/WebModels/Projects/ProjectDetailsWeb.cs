@@ -3,7 +3,7 @@
 namespace Business.Interfaces.WebModels.Projects
 {
     /// <summary>
-    /// Project details with role code instead of enum
+    /// Project details with user's role and permissions
     /// </summary>
     public record ProjectDetailsWeb(
         Guid Id,
@@ -13,7 +13,8 @@ namespace Business.Interfaces.WebModels.Projects
         DateTime CreatedAt,
         Guid CreatedByUserId,
         string CreatedByUserName,
-        string UserRoleCode,  // Changed from ProjectRole enum
-        int MembersCount
+        string UserRoleCode,
+        int MembersCount,
+        HashSet<string> UserPermissions  // User's permissions for this project
     );
 }

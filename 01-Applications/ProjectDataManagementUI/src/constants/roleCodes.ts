@@ -19,9 +19,7 @@ export const RoleCodes = {
   // Project roles
   PROJECT_ADMIN: "PROJECT.ADMIN",
   PROJECT_EDITOR: "PROJECT.EDITOR",
-  PROJECT_COLLABORATOR: "PROJECT.COLLABORATOR",
   PROJECT_VIEWER: "PROJECT.VIEWER",
-  PROJECT_MEMBER: "PROJECT.MEMBER",
 } as const;
 
 export type RoleCode = typeof RoleCodes[keyof typeof RoleCodes];
@@ -53,6 +51,13 @@ export const PermissionCodes = {
   PROJECT_RESOURCES_READ_SHARED: "PROJECT.RESOURCES.READ_SHARED",
   PROJECT_RESOURCES_WRITE_SHARED: "PROJECT.RESOURCES.WRITE_SHARED",
   
+  // Project resources - all (only for ProjectAdmin)
+  PROJECT_RESOURCES_READ_ALL: "PROJECT.RESOURCES.READ_ALL",
+  PROJECT_RESOURCES_WRITE_ALL: "PROJECT.RESOURCES.WRITE_ALL",
+  
+  // Project resources - sharing
+  PROJECT_RESOURCES_SHARE: "PROJECT.RESOURCES.SHARE",
+  
   // Project messages/chat
   PROJECT_MESSAGES_READ: "PROJECT.MESSAGES.READ",
   PROJECT_MESSAGES_WRITE: "PROJECT.MESSAGES.WRITE",
@@ -78,9 +83,7 @@ export const getRoleName = (roleCode: string): string => {
     
     [RoleCodes.PROJECT_ADMIN]: 'Administrator',
     [RoleCodes.PROJECT_EDITOR]: 'Edytor',
-    [RoleCodes.PROJECT_COLLABORATOR]: 'Współpracownik',
     [RoleCodes.PROJECT_VIEWER]: 'Przeglądający',
-    [RoleCodes.PROJECT_MEMBER]: 'Członek',
   };
   
   return roleNames[roleCode] || 'Nieznana rola';
@@ -98,9 +101,7 @@ export const getRoleColor = (roleCode: string): string => {
     
     [RoleCodes.PROJECT_ADMIN]: 'purple',
     [RoleCodes.PROJECT_EDITOR]: 'blue',
-    [RoleCodes.PROJECT_COLLABORATOR]: 'green',
-    [RoleCodes.PROJECT_VIEWER]: 'teal',
-    [RoleCodes.PROJECT_MEMBER]: 'gray',
+    [RoleCodes.PROJECT_VIEWER]: 'green',
   };
   
   return roleColors[roleCode] || 'gray';

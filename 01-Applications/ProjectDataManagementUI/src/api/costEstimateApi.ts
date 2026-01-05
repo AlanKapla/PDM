@@ -6,6 +6,23 @@ import type {
   CostEstimateStatus,
 } from "../types/costEstimate.types";
 
+// Import ResourceScope from projectApi
+import { ResourceScope } from "./projectApi";
+
+// Helper to convert enum to route string
+const resourceScopeToRoute = (scope: ResourceScope): string => {
+  switch (scope) {
+    case ResourceScope.All:
+      return "all";
+    case ResourceScope.Mine:
+      return "mine";
+    case ResourceScope.Shared:
+      return "shared";
+    default:
+      return "mine";
+  }
+};
+
 export interface CreateCostEstimateRequest {
   templateId: string;
   name: string;
@@ -23,11 +40,27 @@ export interface UpdateCostEstimateRequest {
 
 export const costEstimateApi = {
   /**
+   * UNIFIED endpoint for getting cost estimates based on scope
+   */
+  getCostEstimatesByScope: async (
+    tenantId: string,
+    projectId: string,
+    scope: ResourceScope
+  ): Promise<CostEstimateListItem[]> => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    const response = await axiosClient.get<CostEstimateListItem[]>(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${scopeRoute}`
+    );
+    return response.data;
+  },
+
+  /**
+   * DEPRECATED - use getCostEstimatesByScope with ResourceScope.Mine
    * Get all cost estimates for project
    */
   getCostEstimates: async (tenantId: string, projectId: string): Promise<CostEstimateListItem[]> => {
     const response = await axiosClient.get<CostEstimateListItem[]>(
-      `/tenants/${tenantId}/project/${projectId}/cost-estimate`
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/mine`
     );
     return response.data;
   },
@@ -41,7 +74,7 @@ export const costEstimateApi = {
     id: string
   ): Promise<CostEstimateDetails> => {
     const response = await axiosClient.get<CostEstimateDetails>(
-      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${id}`
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/details/${id}`
     );
     return response.data;
   },

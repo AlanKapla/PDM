@@ -12,9 +12,7 @@ public static class RoleCodes
     // PROJECT
     public const string ProjectAdmin = "PROJECT.ADMIN";
     public const string ProjectEditor = "PROJECT.EDITOR";
-    public const string ProjectCollaborator = "PROJECT.COLLABORATOR";
     public const string ProjectViewer = "PROJECT.VIEWER";
-    public const string ProjectMember = "PROJECT.MEMBER";
     
     public static readonly string[] All = new[]
     {
@@ -22,9 +20,7 @@ public static class RoleCodes
         TenantMember,
         ProjectAdmin,
         ProjectEditor,
-        ProjectCollaborator,
-        ProjectViewer,
-        ProjectMember
+        ProjectViewer
         // NOTE: SystemSuperAdmin is NOT included - it's a system-level role, not assignable
     };
 }

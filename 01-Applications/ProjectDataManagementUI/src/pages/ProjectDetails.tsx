@@ -51,7 +51,7 @@ import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import type { ProjectDetailsWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
-import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../types/project.types";
+import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb } from "../types/project.types";
 
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -77,7 +77,7 @@ export default function ProjectDetails() {
   const [updatingName, setUpdatingName] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
-  const [, setSharedFiles] = useState<SharedProjectFilePackageWeb[]>([]);
+  const [, setSharedFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [, setExpandedFileIds] = useState<Set<string>>(new Set());
   const [fileForNewVersion, setFileForNewVersion] = useState<any | null>(null);
   const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
@@ -858,7 +858,7 @@ export default function ProjectDetails() {
 
             {/* ====================== SZYBKI DOSTĘP ======================= */}
             <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-              {permissions.canViewMembers && (
+              {(permissions.canViewMembers || permissions.canManageMembers) && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -878,7 +878,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {permissions.canWriteResources && (
+              {(permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
                 <Box
                   as="button"
                   bg={cardBg}
@@ -938,7 +938,7 @@ export default function ProjectDetails() {
                 </Box>
               )}
 
-              {permissions.hasAnyResourceAccess && (
+              {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
                 <Box
                   as="button"
                   bg={cardBg}

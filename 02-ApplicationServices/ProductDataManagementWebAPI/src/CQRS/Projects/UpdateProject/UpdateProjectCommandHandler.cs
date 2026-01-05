@@ -56,6 +56,14 @@ namespace CQRS.Projects.UpdateProject
             IEnumerable<ProjectMember> allMembers = await projectMemberRepo.GetBySearch(
                 pm => pm.ProjectId == project.Id);
 
+            // Get user's permissions for this project
+            var userPermissions = new HashSet<string>();
+            var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
+            if (projectSnapshot != null)
+            {
+                userPermissions = projectSnapshot.ProjectPermissionCodes;
+            }
+
             return new ProjectDetailsWeb(
                 Id: project.Id,
                 TenantId: project.TenantId,
@@ -66,8 +74,9 @@ namespace CQRS.Projects.UpdateProject
                 CreatedByUserName: creatorMember?.User != null 
                     ? $"{creatorMember.User.FirstName} {creatorMember.User.LastName}".Trim()
                     : "Unknown",
-                UserRoleCode: projectMember?.MemberRole?.Code ?? RoleCodes.ProjectMember,
-                MembersCount: allMembers.Count()
+                UserRoleCode: projectMember?.MemberRole?.Code ?? RoleCodes.ProjectViewer,
+                MembersCount: allMembers.Count(),
+                UserPermissions: userPermissions
             );
         }
     }

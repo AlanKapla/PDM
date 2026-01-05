@@ -16,8 +16,6 @@ export const getProjectRoleName = (role: number): string => {
       return "Edytor";
     case ProjectRole.Viewer:
       return "Przeglądający";
-    case ProjectRole.Member:
-      return "Członek";
     default:
       return "Nieznana rola";
   }
@@ -34,8 +32,6 @@ export const getProjectRoleColor = (role: number): string => {
       return "blue";
     case ProjectRole.Viewer:
       return "green";
-    case ProjectRole.Member:
-      return "gray";
     default:
       return "gray";
   }

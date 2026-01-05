@@ -44,18 +44,18 @@ namespace CQRS.Projects.AddProjectMember
                 cancellationToken)
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            // Get PROJECT.MEMBER role
-            var memberRole = await roleRepo.GetFirstBySearch(
-                r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectMember && r.IsActive,
+            // Get PROJECT.VIEWER role as default
+            var viewerRole = await roleRepo.GetFirstBySearch(
+                r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectViewer && r.IsActive,
                 cancellationToken)
-                ?? throw new InvalidOperationException($"{RoleCodes.ProjectMember} role not found");
+                ?? throw new InvalidOperationException($"{RoleCodes.ProjectViewer} role not found");
 
             ProjectMember newMember = new ProjectMember
             {
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = request.UserId,
-                RoleId = memberRole.Id,
+                RoleId = viewerRole.Id,
                 JoinedAt = DateTime.UtcNow
             };
 

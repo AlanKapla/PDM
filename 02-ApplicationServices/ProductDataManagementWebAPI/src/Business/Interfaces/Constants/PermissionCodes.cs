@@ -27,12 +27,16 @@ public static class PermissionCodes
     // PROJECT – STATUS
     public const string ProjectStatusManage = "PROJECT.STATUS.MANAGE";
     
-    // PROJECT – ZASOBY
+    // PROJECT – RESOURCES
     public const string ProjectResourcesRead = "PROJECT.RESOURCES.READ";
     public const string ProjectResourcesWrite = "PROJECT.RESOURCES.WRITE";
+    public const string ProjectResourcesShare = "PROJECT.RESOURCES.SHARE";
     public const string ProjectResourcesReadShared = "PROJECT.RESOURCES.READ_SHARED";
     public const string ProjectResourcesWriteShared = "PROJECT.RESOURCES.WRITE_SHARED";
-    
+    public const string ProjectResourcesReadAll = "PROJECT.RESOURCES.READ_ALL";
+    public const string ProjectResourcesWriteAll = "PROJECT.RESOURCES.WRITE_ALL";
+
+
     public static readonly string[] All = new[]
     {
         TenantListAvailable,
@@ -50,7 +54,10 @@ public static class PermissionCodes
         ProjectStatusManage,
         ProjectResourcesRead,
         ProjectResourcesWrite,
+        ProjectResourcesShare,
         ProjectResourcesReadShared,
-        ProjectResourcesWriteShared
+        ProjectResourcesWriteShared,
+        ProjectResourcesReadAll,
+        ProjectResourcesWriteAll
     };
 }

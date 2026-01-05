@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+﻿import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -41,9 +41,9 @@ import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
-import { projectApi } from "../api/projectApi";
-import type { ProjectFilePackageWeb, SharedProjectFilePackageWeb } from "../types/project.types";
-import { useProjectPermissions } from "../hooks/useProjectPermissions";
+import { projectApi, ResourceScope } from "../api/projectApi";
+import type { ProjectFilePackageWeb } from "../types/project.types";
+import { useResourcePermissions } from "../hooks/useResourcePermissions";
 
 export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -59,7 +59,8 @@ export default function ProjectFiles() {
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any | null>(null);
   const [myFiles, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
-  const [sharedFiles, setSharedFiles] = useState<SharedProjectFilePackageWeb[]>([]);
+  const [sharedFiles, setSharedFiles] = useState<ProjectFilePackageWeb[]>([]);
+  const [allFiles, setAllFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
   const [fileForNewVersion, setFileForNewVersion] = useState<any | null>(null);
@@ -71,34 +72,59 @@ export default function ProjectFiles() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const permissions = useProjectPermissions(projectId);
+  const resourcePerms = useResourcePermissions(projectId);
 
   useEffect(() => {
     fetchData();
-  }, [projectId, permissions.hasAnyResourceAccess]);
+  }, [projectId, resourcePerms.hasAnyAccess]);
 
   const fetchData = async () => {
     if (!user?.activeTenantId || !projectId) return;
     
-    // Sprawdź czy user ma JAKIEKOLWIEK uprawnienia do zasobów
-    if (!permissions.hasAnyResourceAccess) {
+    if (!resourcePerms.hasAnyAccess) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
-      const [projectRes, membersRes, myFilesRes, sharedFilesRes] = await Promise.all([
-        projectApi.getProjectDetails(user.activeTenantId, projectId),
-        projectApi.getProjectMembers(user.activeTenantId, projectId),
-        projectApi.getMyFiles(user.activeTenantId, projectId),
-        projectApi.getSharedFiles(user.activeTenantId, projectId),
-      ]);
+      const projectRes = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      const membersRes = await projectApi.getProjectMembers(user.activeTenantId, projectId);
       
       setProject(projectRes.data);
       setMembers(membersRes.data);
-      setMyFiles(myFilesRes.data);
-      setSharedFiles(sharedFilesRes.data);
+
+      // Fetch files based on permissions using new unified API
+      const filePromises: Promise<any>[] = [];
+
+      if (resourcePerms.tabs.showMine) {
+        filePromises.push(
+          projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.Mine)
+            .then(res => ({ scope: 'mine', data: res.data }))
+        );
+      }
+
+      if (resourcePerms.tabs.showShared) {
+        filePromises.push(
+          projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.Shared)
+            .then(res => ({ scope: 'shared', data: res.data }))
+        );
+      }
+
+      if (resourcePerms.tabs.showAll) {
+        filePromises.push(
+          projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.All)
+            .then(res => ({ scope: 'all', data: res.data }))
+        );
+      }
+
+      const results = await Promise.all(filePromises);
+      
+      results.forEach(result => {
+        if (result.scope === 'mine') setMyFiles(result.data);
+        if (result.scope === 'shared') setSharedFiles(result.data);
+        if (result.scope === 'all') setAllFiles(result.data);
+      });
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -284,7 +310,7 @@ export default function ProjectFiles() {
                 colorScheme="green"
                 onClick={() => openUploadVersionModal(file)}
               />
-              {!isShared && (
+              {!isShared && resourcePerms.mine.canManageShare && (
                 <IconButton
                   aria-label="Zarządzaj udostępnieniem"
                   icon={<Share2 size={16} />}
@@ -303,7 +329,8 @@ export default function ProjectFiles() {
                 >
                   Wersje ({file.totalVersions})
                 </Button>
-              )}
+              )
+              }
             </HStack>
           </Td>
         </Tr>
@@ -489,7 +516,7 @@ export default function ProjectFiles() {
           </HStack>
         </HStack>
 
-        {!project || !permissions.hasAnyResourceAccess ? (
+        {!project || !resourcePerms.hasAnyAccess ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={FileText}
@@ -500,7 +527,16 @@ export default function ProjectFiles() {
         ) : (
         <Tabs colorScheme="purple" variant="enclosed">
           <TabList>
-            {permissions.canWriteResources && (
+            {resourcePerms.tabs.showAll && (
+              <Tab fontWeight="bold">
+                <HStack spacing={2}>
+                  <Icon as={FileText} boxSize={4} />
+                  <Text>Wszystkie pliki</Text>
+                  <Badge colorScheme="purple" ml={2}>{allFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                </HStack>
+              </Tab>
+            )}
+            {resourcePerms.tabs.showMine && (
               <Tab fontWeight="bold">
                 <HStack spacing={2}>
                   <Icon as={FileText} boxSize={4} />
@@ -509,27 +545,28 @@ export default function ProjectFiles() {
                 </HStack>
               </Tab>
             )}
-            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
+            {resourcePerms.tabs.showShared && (
               <Tab fontWeight="bold">
                 <HStack spacing={2}>
                   <Icon as={Share2} boxSize={4} />
                   <Text>Udostępnione</Text>
-                  <Badge colorScheme="teal" ml={2}>{sharedFiles.reduce((sum, pkg) => sum + pkg.totalSharedFiles, 0)}</Badge>
+                  <Badge colorScheme="teal" ml={2}>{sharedFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                 </HStack>
               </Tab>
             )}
           </TabList>
 
           <TabPanels>
-            {/* TAB 1: MOJE PLIKI */}
-            {permissions.canWriteResources && (
+            {/* TAB 0: WSZYSTKIE PLIKI - tylko dla READ_ALL */}
+            {resourcePerms.tabs.showAll && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <HStack justify="space-between">
                   <Text fontSize="sm" color="gray.600">
-                    Twoje pliki w projekcie
+                    Wszystkie pliki w projekcie (admin)
                   </Text>
                   <HStack spacing={2}>
+                    {resourcePerms.all.canShare && (
                     <Button
                       leftIcon={<Share2 size={18} />}
                       colorScheme="orange"
@@ -538,6 +575,81 @@ export default function ProjectFiles() {
                     >
                       Udostępnij grupowo
                     </Button>
+                    )}
+                    {resourcePerms.all.canCreate && (
+                      <Button
+                        leftIcon={<Upload size={18} />}
+                        colorScheme="green"
+                        onClick={onUploadModalOpen}
+                      >
+                        Dodaj pliki
+                      </Button>
+                    )}
+                  </HStack>
+                </HStack>
+
+                {allFiles.length === 0 ? (
+                  <EmptyState
+                    icon={FileText}
+                    title="Brak plików"
+                    description="Nie ma jeszcze żadnych plików w tym projekcie"
+                  />
+                ) : (
+                  <Accordion allowMultiple>
+                    {allFiles.map((pkg) => (
+                      <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
+                        <AccordionButton py={4} _hover={{ bg: hoverBg }}>
+                          <HStack flex="1" spacing={3}>
+                            <Icon as={FileText} boxSize={5} color="purple.600" />
+                            <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
+                            <Badge colorScheme="purple" fontSize="sm">{pkg.totalFiles}</Badge>
+                            <Text fontSize="sm" color="gray.500">właściciel: {pkg.ownerName}</Text>
+                          </HStack>
+                          <AccordionIcon />
+                        </AccordionButton>
+                        <AccordionPanel pb={4}>
+                          <Table size="sm" variant="simple">
+                            <Thead>
+                              <Tr>
+                                <Th>Nazwa pliku</Th>
+                                <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                                <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                                <Th>Akcje</Th>
+                              </Tr>
+                            </Thead>
+                            <Tbody>
+                              {pkg.files.map((file) => renderFileRow(file, false))}
+                            </Tbody>
+                          </Table>
+                        </AccordionPanel>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                )}
+              </VStack>
+            </TabPanel>
+            )}
+
+            {/* TAB 1 (or 0 if no ALL): MOJE PLIKI */}
+            {resourcePerms.tabs.showMine && (
+            <TabPanel>
+              <VStack spacing={4} align="stretch">
+                <HStack justify="space-between">
+                  <Text fontSize="sm" color="gray.600">
+                    Twoje pliki w projekcie
+                  </Text>
+                  {resourcePerms.mine.canCreate && (
+                  <HStack spacing={2}>
+                    {resourcePerms.mine.canShare && (
+                    <Button
+                      leftIcon={<Share2 size={18} />}
+                      colorScheme="orange"
+                      size="sm"
+                      onClick={onShareFilesModalOpen}
+                    >
+                      Udostępnij grupowo
+                    </Button>
+                    )}
                     <Button
                       leftIcon={<Upload size={18} />}
                       colorScheme="green"
@@ -546,6 +658,7 @@ export default function ProjectFiles() {
                       Dodaj pliki
                     </Button>
                   </HStack>
+                  )}
                 </HStack>
 
                 {myFiles.length === 0 ? (
@@ -588,8 +701,8 @@ export default function ProjectFiles() {
             </TabPanel>
             )}
 
-            {/* TAB 2: PLIKI UDOSTĘPNIONE */}
-            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
+            {/* TAB 2 (or 1 if no ALL, or 0 if no ALL and no MINE): PLIKI UDOSTĘPNIONE */}
+            {resourcePerms.tabs.showShared && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -605,13 +718,13 @@ export default function ProjectFiles() {
                 ) : (
                   <Accordion allowMultiple>
                     {sharedFiles.map((pkg) => (
-                      <AccordionItem key={pkg.packageId} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
+                      <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
                         <AccordionButton py={4} _hover={{ bg: hoverBg }}>
                           <HStack flex="1" spacing={3}>
                             <Icon as={Share2} boxSize={5} color="teal.600" />
-                            <Text fontWeight="bold" fontSize="lg">📦 {pkg.packageName}</Text>
-                            <Badge colorScheme="blue" fontSize="sm">{pkg.totalSharedFiles}</Badge>
-                            <Text fontSize="sm" color="gray.500">od: {pkg.packageOwnerName}</Text>
+                            <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
+                            <Badge colorScheme="blue" fontSize="sm">{pkg.totalFiles}</Badge>
+                            <Text fontSize="sm" color="gray.500">od: {pkg.ownerName}</Text>
                           </HStack>
                           <AccordionIcon />
                         </AccordionButton>

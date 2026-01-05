@@ -87,7 +87,7 @@ export default function Header() {
             fontWeight="bold" 
             color={textColor}
           >
-            BrickSoft
+            Brickly
           </Text>
         </HStack>
 

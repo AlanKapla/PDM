@@ -50,7 +50,9 @@ public sealed class RolePermissionSeederService : IHostedService
     {
         var seedData = RolePermissionSeedData.GetPermissions();
         var existingPermissions = (await repository.GetAll()).ToDictionary(p => p.Code);
+        var seedPermissionCodes = seedData.Select(s => s.Code).ToHashSet();
 
+        // Update or create permissions
         foreach (var seed in seedData)
         {
             if (existingPermissions.TryGetValue(seed.Code, out var existing))
@@ -101,15 +103,29 @@ public sealed class RolePermissionSeederService : IHostedService
             }
         }
 
+        // Remove permissions that no longer exist in seed data (only built-in ones)
+        var permissionsToRemove = existingPermissions.Values
+            .Where(p => p.IsBuiltIn && !seedPermissionCodes.Contains(p.Code))
+            .ToList();
+
+        foreach (var permission in permissionsToRemove)
+        {
+            await repository.Delete(permission);
+            logger.LogWarning("Removed obsolete permission: {Code}", permission.Code);
+        }
+
         await repository.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Seeded {Count} permissions", seedData.Length);
+        logger.LogInformation("Seeded {Count} permissions, removed {RemovedCount} obsolete permissions", 
+            seedData.Length, permissionsToRemove.Count);
     }
 
     private async Task SeedRolesAsync(IRepository<Role> repository, CancellationToken cancellationToken)
     {
         var seedData = RolePermissionSeedData.GetRoles();
         var existingRoles = (await repository.GetAll()).ToDictionary(r => (r.Scope, r.Code));
+        var seedRoleKeys = seedData.Select(s => (s.Scope, s.Code)).ToHashSet();
 
+        // Update or create roles
         foreach (var seed in seedData)
         {
             var key = (seed.Scope, seed.Code);
@@ -156,8 +172,20 @@ public sealed class RolePermissionSeederService : IHostedService
             }
         }
 
+        // Remove roles that no longer exist in seed data (only built-in ones)
+        var rolesToRemove = existingRoles.Values
+            .Where(r => r.IsBuiltIn && !seedRoleKeys.Contains((r.Scope, r.Code)))
+            .ToList();
+
+        foreach (var role in rolesToRemove)
+        {
+            await repository.Delete(role);
+            logger.LogWarning("Removed obsolete role: {Code} (Scope: {Scope})", role.Code, role.Scope);
+        }
+
         await repository.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Seeded {Count} roles", seedData.Length);
+        logger.LogInformation("Seeded {Count} roles, removed {RemovedCount} obsolete roles", 
+            seedData.Length, rolesToRemove.Count);
     }
 
     private async Task SeedRolePermissionsAsync(
@@ -171,12 +199,15 @@ public sealed class RolePermissionSeederService : IHostedService
         var roles = (await roleRepository.GetAll()).ToDictionary(r => r.Code, r => r.Id);
         var permissions = (await permissionRepository.GetAll()).ToDictionary(p => p.Code, p => p.Id);
         
-        var existingMappings = (await rolePermissionRepository.GetAll())
+        var existingMappings = await rolePermissionRepository.GetAll();
+        var existingMappingsSet = existingMappings
             .Select(rp => (rp.RoleId, rp.PermissionId))
             .ToHashSet();
 
         var addedCount = 0;
+        var expectedMappings = new HashSet<(Guid RoleId, Guid PermissionId)>();
 
+        // Add new mappings
         foreach (var seed in seedData)
         {
             if (!roles.TryGetValue(seed.RoleCode, out var roleId))
@@ -191,7 +222,9 @@ public sealed class RolePermissionSeederService : IHostedService
                 continue;
             }
 
-            if (!existingMappings.Contains((roleId, permissionId)))
+            expectedMappings.Add((roleId, permissionId));
+
+            if (!existingMappingsSet.Contains((roleId, permissionId)))
             {
                 var rolePermission = new RolePermission
                 {
@@ -205,14 +238,27 @@ public sealed class RolePermissionSeederService : IHostedService
             }
         }
 
-        if (addedCount > 0)
+        // Remove mappings that are no longer in seed data
+        var mappingsToRemove = existingMappings
+            .Where(rp => !expectedMappings.Contains((rp.RoleId, rp.PermissionId)))
+            .ToList();
+
+        foreach (var mapping in mappingsToRemove)
+        {
+            await rolePermissionRepository.Delete(mapping);
+            logger.LogWarning("Removed obsolete role-permission mapping: RoleId={RoleId}, PermissionId={PermissionId}", 
+                mapping.RoleId, mapping.PermissionId);
+        }
+
+        if (addedCount > 0 || mappingsToRemove.Count > 0)
         {
             await rolePermissionRepository.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Added {Count} new role-permission mappings", addedCount);
+            logger.LogInformation("Added {AddedCount} new role-permission mappings, removed {RemovedCount} obsolete mappings", 
+                addedCount, mappingsToRemove.Count);
         }
         else
         {
-            logger.LogInformation("No new role-permission mappings to add");
+            logger.LogInformation("No changes to role-permission mappings");
         }
     }
 

@@ -37,17 +37,20 @@ public class AuthorizationBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
 
         var permissionCode = authorizableRequest.PermissionCode;
         var resource = authorizableRequest.GetResource();
+        var resourceScope = authorizableRequest.GetResourceScope();
 
         logger.LogDebug(
-            "Authorizing request {RequestType} with permission {Permission} for tenant {TenantId}",
+            "Authorizing request {RequestType} with permission {Permission} for tenant {TenantId}, resourceScope {ResourceScope}",
             typeof(TRequest).Name,
             permissionCode,
-            resource.TenantId);
+            resource.TenantId,
+            resourceScope);
 
         var authorized = await accessService.AuthorizeAsync(
             currentUser,
             permissionCode,
             resource,
+            resourceScope,
             cancellationToken);
 
         if (!authorized)

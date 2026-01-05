@@ -1,10 +1,9 @@
-// ===== Roles =====
+﻿// ===== Roles =====
 
 export const ProjectRole = {
   Admin: 0,
   Editor: 1,
   Viewer: 2,
-  Member: 3,
 } as const;
 
 export type ProjectRoleType = (typeof ProjectRole)[keyof typeof ProjectRole];
@@ -47,6 +46,7 @@ export interface ProjectDetailsWeb {
   createdByUserName: string;
   userRoleCode: string;
   membersCount: number;
+  userPermissions: string[];  // User's permissions for this specific project
 }
 
 export interface TenantMemberWeb {
@@ -132,15 +132,6 @@ export interface ShareProjectFileResult {
   successCount: number;
   failedCount: number;
   errors: string[];
-}
-
-export interface SharedProjectFilePackageWeb {
-  packageId: string;
-  packageName: string;
-  packageOwnerId: string;
-  packageOwnerName: string;
-  files: SharedProjectFileWeb[];
-  totalSharedFiles: number;
 }
 
 export interface SharedProjectFileWeb {

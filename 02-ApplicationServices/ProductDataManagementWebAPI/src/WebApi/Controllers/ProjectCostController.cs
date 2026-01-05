@@ -1,8 +1,7 @@
 ﻿using Business.Interfaces.Constants;
 using CQRS.ProjectCosts.CreateProjectCost;
 using CQRS.ProjectCosts.DeleteProjectCost;
-using CQRS.ProjectCosts.GetProjectUserCosts;
-using CQRS.ProjectCosts.GetSharedProjectCosts;
+using CQRS.ProjectCosts.GetProjectCosts;
 using CQRS.ProjectCosts.ShareProjectCosts;
 using CQRS.ProjectCosts.UpdateCostShare;
 using CQRS.ProjectCosts.UpdateProjectCost;
@@ -20,29 +19,20 @@ namespace WebApi.Controllers
     public class ProjectCostController(IMediator mediator) : BaseApiController(mediator)
     {
         /// <summary>
-        /// Pobiera listę kosztów zalogowanego użytkownika w projekcie
+        /// Get project costs based on scope (All, Mine, Shared)
         /// </summary>
-        [HttpGet]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
-        public async Task<IActionResult> GetProjectUserCosts(
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <param name="scope">Resource scope (All, Mine, Shared)</param>
+        /// <returns>List of project costs</returns>
+        [HttpGet("{scope}")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
+        public async Task<IActionResult> GetProjectCosts(
             [FromRoute] Guid tenantId,
-            [FromRoute] Guid projectId)
+            [FromRoute] Guid projectId,
+            [FromRoute] ResourceScope scope)
         {
-            var query = new GetProjectUserCostsQuery(tenantId, projectId);
-            var result = await Send(query);
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Pobiera listę kosztów udostępnionych zalogowanemu użytkownikowi
-        /// </summary>
-        [HttpGet("shared")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesReadShared)]
-        public async Task<IActionResult> GetSharedProjectCosts(
-            [FromRoute] Guid tenantId,
-            [FromRoute] Guid projectId)
-        {
-            var query = new GetSharedProjectCostsQuery(tenantId, projectId);
+            var query = new GetProjectCostsQuery(tenantId, projectId, scope);
             var result = await Send(query);
             return Ok(result);
         }
@@ -108,7 +98,7 @@ namespace WebApi.Controllers
         /// Udostępnia wiele kosztów wybranym członkom projektu (grupowe udostępnianie)
         /// </summary>
         [HttpPost("share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
         public async Task<IActionResult> ShareProjectCosts(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -128,7 +118,7 @@ namespace WebApi.Controllers
         /// Aktualizuje udostępnienie pojedynczego kosztu - dodaje lub usuwa dostęp dla konkretnych użytkowników
         /// </summary>
         [HttpPut("{costId}/share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
         public async Task<IActionResult> UpdateCostShare(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

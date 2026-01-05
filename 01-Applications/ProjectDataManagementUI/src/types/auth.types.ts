@@ -31,16 +31,6 @@ export interface UserProfile {
    * Permissions in the active tenant (empty if no active tenant)
    */
   activeTenantPermissions: string[];
-  
-  /**
-   * Project role codes mapped by projectId (e.g., "PROJECT.ADMIN", "PROJECT.EDITOR")
-   */
-  projectRoleCodes: Record<string, string>;
-  
-  /**
-   * Permissions in each project mapped by projectId
-   */
-  projectPermissions: Record<string, string[]>;
 }
 
 export interface PasswordResetRequest {

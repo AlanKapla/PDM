@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -18,6 +18,7 @@ import {
 import { UserPlus, Check } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
+import { useProjectCache } from "../hooks/useProjectCache";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { LoadingSpinner, EmptyState, UserAvatar, DataCard } from "./common";
@@ -42,6 +43,7 @@ export default function AddProjectMemberModal({
   onMemberAdded
 }: AddProjectMemberModalProps) {
   const { showSuccess, showError } = useToastNotification();
+  const { invalidateProject } = useProjectCache();
   const [tenantMembers, setTenantMembers] = useState<TenantMemberWeb[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberWeb[]>([]);
   const [loading, setLoading] = useState(false);
@@ -83,6 +85,9 @@ export default function AddProjectMemberModal({
       
       showSuccess("Sukces", "Członek został dodany do projektu");
       
+      // Invalidate project cache - permissions might have changed
+      invalidateProject(projectId);
+      
       // Odśwież listę członków
       await fetchData();
       onMemberAdded?.();
@@ -96,7 +101,7 @@ export default function AddProjectMemberModal({
     }
   };
 
-  const isMemberInProject = (userId: string) => {
+  const isMemberInProject = (userId: String) => {
     return projectMembers.some(pm => pm.userId === userId);
   };
 

@@ -112,7 +112,7 @@ export default function Login() {
           <VStack spacing={6} align="stretch">
             <VStack spacing={2}>
               <Heading size="lg" textAlign="center">
-                BrickSoft
+                Brickly
               </Heading>
               <Text color="gray.600" textAlign="center">
                 Zaloguj się aby kontynuować

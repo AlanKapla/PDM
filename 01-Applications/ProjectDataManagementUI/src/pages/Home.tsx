@@ -38,7 +38,7 @@ export default function Home() {
               pb={2}
               pt={1}
             >
-              BrickSoft
+              Brickly
             </Heading>
             <Text fontSize="xl" color={textColor} maxW="600px">
               Kompleksowe rozwiązanie do zarządzania projektami i danymi w środowisku wielotenantowym

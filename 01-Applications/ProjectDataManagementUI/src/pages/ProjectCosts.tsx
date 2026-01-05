@@ -30,13 +30,14 @@ import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { projectApi } from "../api/projectApi";
+import { projectApi, ResourceScope } from "../api/projectApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { formatDate } from "../utils/formatters";
 import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
 import CopyCostEstimateModal from "../components/CopyCostEstimateModal";
 import type { CostEstimateListItem, CostEstimateStatus } from "../types/costEstimate.types";
-import { useProjectPermissions } from "../hooks/useProjectPermissions";
+import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import { useTabCache } from "../hooks/useTabCache";
 
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
   [0]: "Szkic",
@@ -69,56 +70,72 @@ export default function ProjectCosts() {
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any | null>(null);
-  const [myCostEstimates, setMyCostEstimates] = useState<CostEstimateListItem[]>([]);
-  const [sharedCostEstimates, setSharedCostEstimates] = useState<CostEstimateListItem[]>([]);
   const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItem | null>(null);
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
   const { isOpen: isCopyModalOpen, onOpen: onCopyModalOpen, onClose: onCopyModalClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const permissions = useProjectPermissions(projectId);
+  const resourcePerms = useResourcePermissions(projectId);
+
+  // Tab cache dla Moje kosztorysy
+  const myCostEstimatesCache = useTabCache<CostEstimateListItem[]>(
+    async () => {
+      if (!user?.activeTenantId || !projectId) return [];
+      return await costEstimateApi.getCostEstimatesByScope(
+        user.activeTenantId,
+        projectId,
+        ResourceScope.Mine
+      );
+    },
+    `cost-estimates-mine-${projectId}`
+  );
+
+  // Tab cache dla Wszystkie kosztorysy
+  const allCostEstimatesCache = useTabCache<CostEstimateListItem[]>(
+    async () => {
+      if (!user?.activeTenantId || !projectId) return [];
+      return await costEstimateApi.getCostEstimatesByScope(
+        user.activeTenantId,
+        projectId,
+        ResourceScope.All
+      );
+    },
+    `cost-estimates-all-${projectId}`
+  );
 
   useEffect(() => {
-    fetchData();
-  }, [projectId, permissions.hasAnyResourceAccess]);
+    fetchProjectData();
+  }, [projectId]);
 
-  const fetchData = async () => {
-    console.log("=== fetchData CALLED ===");
-    console.log("user?.activeTenantId:", user?.activeTenantId);
-    console.log("projectId:", projectId);
+  const fetchProjectData = async () => {
+    if (!user?.activeTenantId || !projectId) return;
     
-    if (!user?.activeTenantId || !projectId) {
-      console.log("Missing tenantId or projectId, returning early");
+    if (!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) {
+      setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
-      console.log("Fetching project details and cost estimates...");
       const projectResponse = await projectApi.getProjectDetails(user.activeTenantId, projectId);
       setProject(projectResponse.data);
-      
-      if (permissions.hasAnyResourceAccess) {
-        const costEstimates = await costEstimateApi.getCostEstimates(user.activeTenantId, projectId);
-        console.log("Data fetched successfully:", { projectResponse, costEstimates });
-
-        // Filter my cost estimates (owned by current user)
-        const myCosts = costEstimates.filter((ce) => ce.ownerId === user?.id);
-        setMyCostEstimates(myCosts);
-      }
-
-      // Shared cost estimates (TODO: implement sharing logic)
-      // For now, empty array - will be implemented later
-      setSharedCostEstimates([]);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       showError('Nie udało się załadować danych', error?.message || 'Wystąpił nieoczekiwany błąd');
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshData = () => {
+    myCostEstimatesCache.clear();
+    allCostEstimatesCache.clear();
+    fetchProjectData();
   };
 
   const handleDeleteCostEstimate = async (costEstimateId: string) => {
@@ -128,7 +145,7 @@ export default function ProjectCosts() {
     try {
       await costEstimateApi.deleteCostEstimate(user.activeTenantId, projectId, costEstimateId);
       showSuccess("Kosztorys został usunięty");
-      fetchData();
+      refreshData();
     } catch (error: any) {
       console.error('Error deleting cost estimate:', error);
       showError('Nie udało się usunąć kosztorysu', error?.message || 'Wystąpił nieoczekiwany błąd');
@@ -172,7 +189,7 @@ export default function ProjectCosts() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {permissions.canWriteResources && (
+          {resourcePerms.mine.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="blue"
@@ -183,7 +200,7 @@ export default function ProjectCosts() {
           )}
         </HStack>
 
-        {!project || !permissions.canReadResources ? (
+        {(!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={FileText}
@@ -192,212 +209,67 @@ export default function ProjectCosts() {
             />
           </Box>
         ) : (
-        <Tabs colorScheme="blue" variant="enclosed">
-          <TabList>
-            {permissions.canWriteResources && (
-              <Tab fontWeight="bold">
-                <HStack spacing={2}>
-                  <Icon as={FileText} boxSize={4} />
-                  <Text>Moje kosztorysy</Text>
-                  <Badge colorScheme="blue" ml={2}>{myCostEstimates.length}</Badge>
-                </HStack>
-              </Tab>
-            )}
-            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
-              <Tab fontWeight="bold">
-                <HStack spacing={2}>
-                  <Icon as={FileText} boxSize={4} />
-                  <Text>Udostępnione</Text>
-                  <Badge colorScheme="teal" ml={2}>{sharedCostEstimates.length}</Badge>
-                </HStack>
-              </Tab>
-            )}
-          </TabList>
+          <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
+            <TabList>
+              {resourcePerms.tabs.showMine && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={FileText} boxSize={4} />
+                    <Text>Moje kosztorysy</Text>
+                    <Badge colorScheme="blue" ml={2}>{myCostEstimatesCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+              {resourcePerms.tabs.showAll && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={FileText} boxSize={4} />
+                    <Text>Wszystkie kosztorysy</Text>
+                    <Badge colorScheme="green" ml={2}>{allCostEstimatesCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+            </TabList>
 
-          <TabPanels>
-            {/* TAB 1: MOJE KOSZTORYSY */}
-            {permissions.canWriteResources && (
-            <TabPanel>
-              <VStack spacing={4} align="stretch">
-                <Text fontSize="sm" color="gray.600">
-                  Twoje kosztorysy w projekcie - widoczne tylko dla Ciebie
-                </Text>
-
-                {myCostEstimates.length === 0 ? (
-                  <EmptyState
-                    icon={FileText}
-                    title="Brak kosztorysów"
-                    description="Utwórz swój pierwszy kosztorys na podstawie szablonu"
+            <TabPanels>
+              {resourcePerms.tabs.showMine && (
+                <TabPanel>
+                  <MyCostEstimatesTab
+                    cache={myCostEstimatesCache}
+                    isActive={activeTabIndex === 0}
+                    cardBg={cardBg}
+                    borderColor={borderColor}
+                    hoverBg={hoverBg}
+                    costEstimateStatusLabels={costEstimateStatusLabels}
+                    costEstimateStatusColors={costEstimateStatusColors}
+                    formatDate={formatDate}
+                    handleViewCostEstimate={handleViewCostEstimate}
+                    handleCopyCostEstimate={handleCopyCostEstimate}
+                    handleDeleteCostEstimate={handleDeleteCostEstimate}
+                    resourcePerms={resourcePerms}
                   />
-                ) : (
-                  <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-                    <Table size="sm" variant="simple">
-                      <Thead>
-                        <Tr>
-                          <Th>Nazwa</Th>
-                          <Th>Szablon</Th>
-                          <Th>Status</Th>
-                          <Th isNumeric>Wartość netto</Th>
-                          <Th isNumeric>Wartość brutto</Th>
-                          <Th>Utworzony</Th>
-                          <Th>Aktualizacja</Th>
-                          <Th textAlign="center">Akcje</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {myCostEstimates.map((costEstimate) => (
-                          <Tr key={costEstimate.id} _hover={{ bg: useColorModeValue("gray.50", "gray.700") }}>
-                            <Td fontWeight="medium">
-                              <VStack align="flex-start" spacing={0}>
-                                <Text>{costEstimate.name}</Text>
-                                {costEstimate.description && (
-                                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                                    {costEstimate.description}
-                                  </Text>
-                                )}
-                              </VStack>
-                            </Td>
-                            <Td>
-                              <Text fontSize="sm">{costEstimate.templateName}</Text>
-                            </Td>
-                            <Td>
-                              <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
-                                {costEstimateStatusLabels[costEstimate.status]}
-                              </Badge>
-                            </Td>
-                            <Td isNumeric>
-                              {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
-                            </Td>
-                            <Td isNumeric fontWeight="bold" color="green.600">
-                              {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
-                            </Td>
-                            <Td>
-                              <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
-                            </Td>
-                            <Td>
-                              <Text fontSize="xs">
-                                {costEstimate.updatedAt ? formatDate(costEstimate.updatedAt) : '-'}
-                              </Text>
-                            </Td>
-                            <Td textAlign="center">
-                              <HStack spacing={1} justify="center">
-                                <IconButton
-                                  aria-label="Otwórz"
-                                  icon={<Eye size={14} />}
-                                  size="xs"
-                                  colorScheme="blue"
-                                  variant="ghost"
-                                  onClick={() => handleViewCostEstimate(costEstimate.id)}
-                                />
-                                <IconButton
-                                  aria-label="Kopiuj"
-                                  icon={<Copy size={14} />}
-                                  size="xs"
-                                  colorScheme="purple"
-                                  variant="ghost"
-                                  onClick={() => handleCopyCostEstimate(costEstimate)}
-                                />
-                                <IconButton
-                                  aria-label="Usuń"
-                                  icon={<Trash2 size={14} />}
-                                  size="xs"
-                                  colorScheme="red"
-                                  variant="ghost"
-                                  onClick={() => handleDeleteCostEstimate(costEstimate.id)}
-                                />
-                              </HStack>
-                            </Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </Box>
-                )}
-              </VStack>
-            </TabPanel>
-            )}
-
-            {/* TAB 2: UDOSTĘPNIONE KOSZTORYSY */}
-            {(permissions.canReadSharedResources || permissions.canWriteSharedResources) && (
-            <TabPanel>
-              <VStack spacing={4} align="stretch">
-                <Text fontSize="sm" color="gray.600">
-                  Kosztorysy udostępnione przez innych członków projektu
-                </Text>
-
-                {sharedCostEstimates.length === 0 ? (
-                  <EmptyState
-                    icon={FileText}
-                    title="Brak udostępnionych kosztorysów"
-                    description="Nikt jeszcze nie udostępnił Ci kosztorysów w tym projekcie"
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showAll && (
+                <TabPanel>
+                  <AllCostEstimatesTab
+                    cache={allCostEstimatesCache}
+                    isActive={resourcePerms.tabs.showMine ? activeTabIndex === 1 : activeTabIndex === 0}
+                    cardBg={cardBg}
+                    borderColor={borderColor}
+                    hoverBg={hoverBg}
+                    costEstimateStatusLabels={costEstimateStatusLabels}
+                    costEstimateStatusColors={costEstimateStatusColors}
+                    formatDate={formatDate}
+                    handleViewCostEstimate={handleViewCostEstimate}
+                    handleCopyCostEstimate={handleCopyCostEstimate}
+                    handleDeleteCostEstimate={handleDeleteCostEstimate}
+                    resourcePerms={resourcePerms}
                   />
-                ) : (
-                  <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-                    <Table size="sm" variant="simple">
-                      <Thead>
-                        <Tr>
-                          <Th>Nazwa</Th>
-                          <Th>Właściciel</Th>
-                          <Th>Szablon</Th>
-                          <Th>Status</Th>
-                          <Th isNumeric>Wartość netto</Th>
-                          <Th isNumeric>Wartość brutto</Th>
-                          <Th>Utworzony</Th>
-                          <Th textAlign="center">Akcje</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {sharedCostEstimates.map((costEstimate) => (
-                          <Tr key={costEstimate.id}>
-                            <Td fontWeight="medium">
-                              <VStack align="flex-start" spacing={0}>
-                                <Text>{costEstimate.name}</Text>
-                                {costEstimate.description && (
-                                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                                    {costEstimate.description}
-                                  </Text>
-                                )}
-                              </VStack>
-                            </Td>
-                            <Td>{costEstimate.ownerName}</Td>
-                            <Td>
-                              <Text fontSize="sm">{costEstimate.templateName}</Text>
-                            </Td>
-                            <Td>
-                              <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
-                                {costEstimateStatusLabels[costEstimate.status]}
-                              </Badge>
-                            </Td>
-                            <Td isNumeric>
-                              {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
-                            </Td>
-                            <Td isNumeric fontWeight="bold" color="green.600">
-                              {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
-                            </Td>
-                            <Td>
-                              <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
-                            </Td>
-                            <Td textAlign="center">
-                              <IconButton
-                                aria-label="Podgląd"
-                                icon={<Eye size={14} />}
-                                size="xs"
-                                colorScheme="blue"
-                                variant="ghost"
-                                onClick={() => handleViewCostEstimate(costEstimate.id)}
-                              />
-                            </Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </Box>
-                )}
-              </VStack>
-            </TabPanel>
-            )}
-          </TabPanels>
-        </Tabs>
+                </TabPanel>
+              )}
+            </TabPanels>
+          </Tabs>
         )}
 
         <Box mt={6} p={4} bg="blue.50" rounded="md" borderWidth="1px" borderColor="blue.200">
@@ -413,7 +285,7 @@ export default function ProjectCosts() {
             onClose={onCreateModalClose}
             tenantId={user.activeTenantId}
             projectId={projectId}
-            onCostEstimateCreated={fetchData}
+            onCostEstimateCreated={refreshData}
           />
         )}
 
@@ -430,5 +302,229 @@ export default function ProjectCosts() {
         )}
       </Box>
     </MainLayout>
+  );
+}
+
+// Komponent dla tabu "Moje kosztorysy" z lazy loading
+function MyCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms }: any) {
+  useEffect(() => {
+    if (isActive && !cache.data) {
+      cache.fetch();
+    }
+  }, [isActive]);
+
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie kosztorysów..." />;
+  }
+
+  const costEstimates = cache.data || [];
+
+  if (costEstimates.length === 0) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Brak kosztorysów"
+        description="Utwórz swój pierwszy kosztorys na podstawie szablonu"
+      />
+    );
+  }
+
+  return (
+    <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+      <Table size="sm" variant="simple">
+        <Thead>
+          <Tr>
+            <Th>Nazwa</Th>
+            <Th>Szablon</Th>
+            <Th>Status</Th>
+            <Th isNumeric>Wartość netto</Th>
+            <Th isNumeric>Wartość brutto</Th>
+            <Th>Utworzony</Th>
+            <Th>Aktualizacja</Th>
+            <Th textAlign="center">Akcje</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {costEstimates.map((costEstimate: any) => (
+            <Tr key={costEstimate.id} _hover={{ bg: hoverBg }}>
+              <Td fontWeight="medium">
+                <VStack align="flex-start" spacing={0}>
+                  <Text>{costEstimate.name}</Text>
+                  {costEstimate.description && (
+                    <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                      {costEstimate.description}
+                    </Text>
+                  )}
+                </VStack>
+              </Td>
+              <Td>
+                <Text fontSize="sm">{costEstimate.templateName}</Text>
+              </Td>
+              <Td>
+                <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
+                  {costEstimateStatusLabels[costEstimate.status]}
+                </Badge>
+              </Td>
+              <Td isNumeric>
+                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td isNumeric fontWeight="bold" color="green.600">
+                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td>
+                <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
+              </Td>
+              <Td>
+                <Text fontSize="xs">
+                  {costEstimate.updatedAt ? formatDate(costEstimate.updatedAt) : '-'}
+                </Text>
+              </Td>
+              <Td textAlign="center">
+                <HStack spacing={1} justify="center">
+                  <IconButton
+                    aria-label="Otwórz"
+                    icon={<Eye size={14} />}
+                    size="xs"
+                    colorScheme="blue"
+                    variant="ghost"
+                    onClick={() => handleViewCostEstimate(costEstimate.id)}
+                  />
+                  <IconButton
+                    aria-label="Kopiuj"
+                    icon={<Copy size={14} />}
+                    size="xs"
+                    colorScheme="purple"
+                    variant="ghost"
+                    onClick={() => handleCopyCostEstimate(costEstimate)}
+                  />
+                  {resourcePerms.mine.canDelete && (
+                    <IconButton
+                      aria-label="Usuń"
+                      icon={<Trash2 size={14} />}
+                      size="xs"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
+                    />
+                  )}
+                </HStack>
+              </Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
+    </Box>
+  );
+}
+
+// Komponent dla tabu "Wszystkie kosztorysy" z lazy loading
+function AllCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms }: any) {
+  useEffect(() => {
+    if (isActive && !cache.data) {
+      cache.fetch();
+    }
+  }, [isActive]);
+
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie kosztorysów..." />;
+  }
+
+  const costEstimates = cache.data || [];
+
+  if (costEstimates.length === 0) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Brak kosztorysów"
+        description="Nie znaleziono żadnych kosztorysów"
+      />
+    );
+  }
+
+  return (
+    <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+      <Table size="sm" variant="simple">
+        <Thead>
+          <Tr>
+            <Th>Nazwa</Th>
+            <Th>Szablon</Th>
+            <Th>Status</Th>
+            <Th isNumeric>Wartość netto</Th>
+            <Th isNumeric>Wartość brutto</Th>
+            <Th>Utworzony</Th>
+            <Th>Aktualizacja</Th>
+            <Th textAlign="center">Akcje</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {costEstimates.map((costEstimate: any) => (
+            <Tr key={costEstimate.id} _hover={{ bg: hoverBg }}>
+              <Td fontWeight="medium">
+                <VStack align="flex-start" spacing={0}>
+                  <Text>{costEstimate.name}</Text>
+                  {costEstimate.description && (
+                    <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                      {costEstimate.description}
+                    </Text>
+                  )}
+                </VStack>
+              </Td>
+              <Td>
+                <Text fontSize="sm">{costEstimate.templateName}</Text>
+              </Td>
+              <Td>
+                <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
+                  {costEstimateStatusLabels[costEstimate.status]}
+                </Badge>
+              </Td>
+              <Td isNumeric>
+                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td isNumeric fontWeight="bold" color="green.600">
+                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td>
+                <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
+              </Td>
+              <Td>
+                <Text fontSize="xs">
+                  {costEstimate.updatedAt ? formatDate(costEstimate.updatedAt) : '-'}
+                </Text>
+              </Td>
+              <Td textAlign="center">
+                <HStack spacing={1} justify="center">
+                  <IconButton
+                    aria-label="Otwórz"
+                    icon={<Eye size={14} />}
+                    size="xs"
+                    colorScheme="blue"
+                    variant="ghost"
+                    onClick={() => handleViewCostEstimate(costEstimate.id)}
+                  />
+                  <IconButton
+                    aria-label="Kopiuj"
+                    icon={<Copy size={14} />}
+                    size="xs"
+                    colorScheme="purple"
+                    variant="ghost"
+                    onClick={() => handleCopyCostEstimate(costEstimate)}
+                  />
+                  {resourcePerms.all.canDelete && (
+                    <IconButton
+                      aria-label="Usuń"
+                      icon={<Trash2 size={14} />}
+                      size="xs"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
+                    />
+                  )}
+                </HStack>
+              </Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
+    </Box>
   );
 }

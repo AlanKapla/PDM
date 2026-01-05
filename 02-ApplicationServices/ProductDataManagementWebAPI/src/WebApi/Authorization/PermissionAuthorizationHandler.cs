@@ -46,6 +46,15 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         Guid tenantId = Guid.Empty;
         Guid? projectId = null;
         Guid? resourceId = null;
+        ResourceScope? resourceScope = null;
+
+        // Try to extract ResourceScope from route
+        if (routeData.Values.TryGetValue("scope", out var scopeValue) && 
+            Enum.TryParse<ResourceScope>(scopeValue?.ToString(), true, out var parsedScope))
+        {
+            resourceScope = parsedScope;
+            logger.LogDebug("Extracted ResourceScope {Scope} from route", parsedScope);
+        }
 
         // Extract required identifiers based on permission scope
         switch (requirement.Scope)
@@ -133,16 +142,18 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
                 currentUser,
                 requirement.PermissionCode,
                 resource,
+                resourceScope,
                 httpContext.RequestAborted);
 
             if (authorized)
             {
                 context.Succeed(requirement);
                 logger.LogDebug(
-                    "Authorization succeeded for user {UserId} with permission {Permission} (scope: {Scope}) on tenant {TenantId}, project {ProjectId}, resource {ResourceId}",
+                    "Authorization succeeded for user {UserId} with permission {Permission} (scope: {Scope}, resourceScope: {ResourceScope}) on tenant {TenantId}, project {ProjectId}, resource {ResourceId}",
                     currentUser.Id,
                     requirement.PermissionCode,
                     requirement.Scope,
+                    resourceScope,
                     tenantId,
                     projectId,
                     resourceId);
@@ -150,10 +161,11 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
             else
             {
                 logger.LogWarning(
-                    "Authorization failed for user {UserId} with permission {Permission} (scope: {Scope}) on tenant {TenantId}, project {ProjectId}, resource {ResourceId}",
+                    "Authorization failed for user {UserId} with permission {Permission} (scope: {Scope}, resourceScope: {ResourceScope}) on tenant {TenantId}, project {ProjectId}, resource {ResourceId}",
                     currentUser.Id,
                     requirement.PermissionCode,
                     requirement.Scope,
+                    resourceScope,
                     tenantId,
                     projectId,
                     resourceId);

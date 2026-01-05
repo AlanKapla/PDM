@@ -16,8 +16,12 @@ export const formatFileSize = (bytes: number): string => {
 /**
  * Format date to Polish locale format
  */
-export const formatDate = (dateString: string | Date, includeTime = true): string => {
+export const formatDate = (dateString: string | Date | null | undefined, includeTime = true): string => {
+  if (!dateString) return "-";
+  
   const date = typeof dateString === "string" ? new Date(dateString) : dateString;
+  
+  if (isNaN(date.getTime())) return "-";
   
   const options: Intl.DateTimeFormatOptions = {
     year: "numeric",
@@ -36,8 +40,13 @@ export const formatDate = (dateString: string | Date, includeTime = true): strin
 /**
  * Format date to short format (DD.MM.YYYY)
  */
-export const formatDateShort = (dateString: string | Date): string => {
+export const formatDateShort = (dateString: string | Date | null | undefined): string => {
+  if (!dateString) return "-";
+  
   const date = typeof dateString === "string" ? new Date(dateString) : dateString;
+  
+  if (isNaN(date.getTime())) return "-";
+  
   return date.toLocaleDateString("pl-PL", {
     year: "numeric",
     month: "2-digit",
@@ -55,8 +64,13 @@ export const formatDateForInput = (date: Date = new Date()): string => {
 /**
  * Get relative time (e.g., "2 godziny temu")
  */
-export const getRelativeTime = (dateString: string | Date): string => {
+export const getRelativeTime = (dateString: string | Date | null | undefined): string => {
+  if (!dateString) return "-";
+  
   const date = typeof dateString === "string" ? new Date(dateString) : dateString;
+  
+  if (isNaN(date.getTime())) return "-";
+  
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
@@ -102,7 +116,7 @@ export const isPdfFile = (filename: string): boolean => {
 /**
  * Format currency amount with locale format
  */
-export const formatCurrency = (amount: number | undefined, currency: string = 'PLN'): string => {
+export const formatCurrency = (amount: number | null | undefined, currency: string = 'PLN'): string => {
   if (amount === undefined || amount === null) return `0.00 ${currency}`;
   return `${amount.toFixed(2)} ${currency}`;
 };

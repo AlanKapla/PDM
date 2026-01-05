@@ -61,36 +61,56 @@ namespace CQRS.Projects.GetTenantProjects
 
                 var creatorsDict = creators.ToDictionary(tm => tm.UserId);
 
-                return allProjects
-                    .Select(project =>
+                // Build list with permissions for each project
+                var result = new List<ProjectDetailsWeb>();
+                foreach (var project in allProjects)
+                {
+                    int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
+                    
+                    var creator = creatorsDict.TryGetValue(project.CreatedByUserId, out var creatorMember) 
+                        ? creatorMember 
+                        : null;
+
+                    // Determine user role code:
+                    // 1. If SuperAdmin has project membership -> use membership role
+                    // 2. If SuperAdmin without membership -> use SYSTEM.SUPERADMIN
+                    string userRoleCode;
+                    if (membershipDict.TryGetValue(project.Id, out var membership))
                     {
-                        int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
-                        
-                        var creator = creatorsDict.TryGetValue(project.CreatedByUserId, out var creatorMember) 
-                            ? creatorMember 
-                            : null;
+                        // SuperAdmin has membership - use membership role
+                        userRoleCode = membership.MemberRole?.Code ?? RoleCodes.ProjectViewer;
+                    }
+                    else
+                    {
+                        // SuperAdmin without membership - use SYSTEM.SUPERADMIN
+                        userRoleCode = RoleCodes.SystemSuperAdmin;
+                    }
 
-                        // If has membership, use membership role; otherwise SYSTEM.SUPERADMIN
-                        string userRoleCode = membershipDict.TryGetValue(project.Id, out var membership)
-                            ? (membership.MemberRole?.Code ?? RoleCodes.ProjectMember)
-                            : RoleCodes.SystemSuperAdmin;
+                    // Get user's permissions for this project
+                    var userPermissions = new HashSet<string>();
+                    var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
+                    if (projectSnapshot != null)
+                    {
+                        userPermissions = projectSnapshot.ProjectPermissionCodes;
+                    }
 
-                        return new ProjectDetailsWeb(
-                            Id: project.Id,
-                            TenantId: project.TenantId,
-                            Name: project.Name,
-                            IsActive: project.IsActive,
-                            CreatedAt: project.CreatedAt,
-                            CreatedByUserId: project.CreatedByUserId,
-                            CreatedByUserName: creator?.User != null 
-                                ? $"{creator.User.FirstName} {creator.User.LastName}".Trim()
-                                : "Unknown",
-                            UserRoleCode: userRoleCode,
-                            MembersCount: membersCount
-                        );
-                    })
-                    .OrderByDescending(p => p.CreatedAt)
-                    .ToList();
+                    result.Add(new ProjectDetailsWeb(
+                        Id: project.Id,
+                        TenantId: project.TenantId,
+                        Name: project.Name,
+                        IsActive: project.IsActive,
+                        CreatedAt: project.CreatedAt,
+                        CreatedByUserId: project.CreatedByUserId,
+                        CreatedByUserName: creator?.User != null 
+                            ? $"{creator.User.FirstName} {creator.User.LastName}".Trim()
+                            : "Unknown",
+                        UserRoleCode: userRoleCode,
+                        MembersCount: membersCount,
+                        UserPermissions: userPermissions
+                    ));
+                }
+
+                return result.OrderByDescending(p => p.CreatedAt).ToList();
             }
 
             // Regular users see only their projects (admins see inactive, members only active)
@@ -112,26 +132,36 @@ namespace CQRS.Projects.GetTenantProjects
                 .GroupBy(pm => pm.ProjectId)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            return regularUserProjectMembers
-                .Select(projectMember =>
-                {
-                    var project = projectMember.Project;
-                    int membersCount = regularMembersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
+            // Build list with permissions for each project
+            var regularResult = new List<ProjectDetailsWeb>();
+            foreach (var projectMember in regularUserProjectMembers)
+            {
+                var project = projectMember.Project;
+                int membersCount = regularMembersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
 
-                    return new ProjectDetailsWeb(
-                        Id: project.Id,
-                        TenantId: project.TenantId,
-                        Name: project.Name,
-                        IsActive: project.IsActive,
-                        CreatedAt: project.CreatedAt,
-                        CreatedByUserId: project.CreatedByUserId,
-                        CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
-                        UserRoleCode: projectMember.MemberRole?.Code ?? RoleCodes.ProjectMember,
-                        MembersCount: membersCount
-                    );
-                })
-                .OrderByDescending(p => p.CreatedAt)
-                .ToList();
+                // Get user's permissions for this project
+                var userPermissions = new HashSet<string>();
+                var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
+                if (projectSnapshot != null)
+                {
+                    userPermissions = projectSnapshot.ProjectPermissionCodes;
+                }
+
+                regularResult.Add(new ProjectDetailsWeb(
+                    Id: project.Id,
+                    TenantId: project.TenantId,
+                    Name: project.Name,
+                    IsActive: project.IsActive,
+                    CreatedAt: project.CreatedAt,
+                    CreatedByUserId: project.CreatedByUserId,
+                    CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
+                    UserRoleCode: projectMember.MemberRole?.Code ?? RoleCodes.ProjectViewer,
+                    MembersCount: membersCount,
+                    UserPermissions: userPermissions
+                ));
+            }
+
+            return regularResult.OrderByDescending(p => p.CreatedAt).ToList();
         }
     }
 }

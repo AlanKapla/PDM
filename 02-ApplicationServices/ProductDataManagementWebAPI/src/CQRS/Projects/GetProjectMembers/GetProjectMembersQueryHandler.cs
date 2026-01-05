@@ -33,7 +33,7 @@ namespace CQRS.Projects.GetProjectMembers
                     Email: pm.TenantMember.User.Email,
                     FirstName: pm.TenantMember.User.FirstName,
                     LastName: pm.TenantMember.User.LastName,
-                    RoleCode: pm.MemberRole?.Code ?? RoleCodes.ProjectMember,
+                    RoleCode: pm.MemberRole?.Code ?? RoleCodes.ProjectViewer,
                     JoinedAt: pm.JoinedAt
                 ))
                 .OrderBy(m => m.LastName)

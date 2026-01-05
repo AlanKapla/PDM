@@ -28,15 +28,17 @@ import {
 } from "@chakra-ui/react";
 import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { projectApi } from "../api/projectApi";
+import { projectApi, ResourceScope } from "../api/projectApi";
 import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate, formatCurrency } from "../utils/formatters";
 import ShareCostModal from "../components/ShareCostModal";
+import { ManageCostShareModal } from "../components/ManageCostShareModal";
+import ShareCostsModal from "../components/ShareCostsModal";
 import type { ProjectCostListItemWeb, SharedProjectCostWeb } from "../types/project.types";
-import { canEditProject, canViewProject } from "../types/project.types";
+import { useResourcePermissions } from "../hooks/useResourcePermissions";
 
 export default function ProjectSimpleCosts() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -46,6 +48,7 @@ export default function ProjectSimpleCosts() {
 
   const [projectCosts, setProjectCosts] = useState<ProjectCostListItemWeb[]>([]);
   const [sharedCosts, setSharedCosts] = useState<SharedProjectCostWeb[]>([]);
+  const [allCosts, setAllCosts] = useState<ProjectCostListItemWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingShared, setLoadingShared] = useState(false);
   const [project, setProject] = useState<any | null>(null);
@@ -57,10 +60,14 @@ export default function ProjectSimpleCosts() {
   const [savingCost, setSavingCost] = useState(false);
   const [deletingCostId, setDeletingCostId] = useState<string | null>(null);
   const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
+  const [costToManageShare, setCostToManageShare] = useState<ProjectCostListItemWeb | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
 
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
+  const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
+  const { isOpen: isShareCostsModalOpen, onOpen: onShareCostsModalOpen, onClose: onShareCostsModalClose } = useDisclosure();
 
   const [newCostData, setNewCostData] = useState({
     name: '',
@@ -75,66 +82,63 @@ export default function ProjectSimpleCosts() {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
-  const userCanEdit = canEditProject(project?.userRole);
-  const userCanView = canViewProject(project?.userRole);
+  const resourcePerms = useResourcePermissions(projectId);
 
   useEffect(() => {
     if (projectId && user?.activeTenantId) {
       fetchProjectDetails();
     }
-  }, [projectId, user?.activeTenantId]);
+  }, [projectId, user?.activeTenantId, resourcePerms.hasAnyAccess]);
 
   const fetchProjectDetails = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
     setLoading(true);
     try {
-      const response = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      setProject(response.data);
-      setProjectName(response.data.name);
+      const [projectResponse, membersResponse] = await Promise.all([
+        projectApi.getProjectDetails(user.activeTenantId, projectId),
+        projectApi.getProjectMembers(user.activeTenantId, projectId),
+      ]);
       
-      // Po załadowaniu projektu, pobierz odpowiednie dane
-      const userRole = response.data.userRole;
-      const canEdit = canEditProject(userRole);
-      const canView = canViewProject(userRole);
+      setProject(projectResponse.data);
+      setProjectName(projectResponse.data.name);
+      setMembers(membersResponse.data);
       
-      if (canEdit) {
-        await fetchProjectCosts();
+      // Fetch costs based on permissions using new unified API
+      const costPromises: Promise<any>[] = [];
+
+      if (resourcePerms.tabs.showMine) {
+        costPromises.push(
+          projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.Mine)
+            .then(res => ({ scope: 'mine', data: res.data }))
+        );
       }
-      
-      if (canView) {
-        await fetchSharedCosts();
+
+      if (resourcePerms.tabs.showShared) {
+        costPromises.push(
+          projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.Shared)
+            .then(res => ({ scope: 'shared', data: res.data }))
+        );
       }
+
+      if (resourcePerms.tabs.showAll) {
+        costPromises.push(
+          projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.All)
+            .then(res => ({ scope: 'all', data: res.data }))
+        );
+      }
+
+      const results = await Promise.all(costPromises);
+      
+      results.forEach(result => {
+        if (result.scope === 'mine') setProjectCosts(result.data);
+        if (result.scope === 'shared') setSharedCosts(result.data);
+        if (result.scope === 'all') setAllCosts(result.data);
+      });
     } catch (error) {
       console.error("Błąd podczas pobierania projektu:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchProjectCosts = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    try {
-      const response = await projectApi.getProjectUserCosts(user.activeTenantId, projectId);
-      setProjectCosts(response.data);
-    } catch (error) {
-      console.error("Błąd podczas pobierania kosztów:", error);
-      showError("Wystąpił błąd podczas pobierania kosztów");
-    }
-  };
-
-  const fetchSharedCosts = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoadingShared(true);
-    try {
-      const response = await projectApi.getSharedProjectCosts(user.activeTenantId, projectId);
-      setSharedCosts(response.data);
-    } catch (error) {
-      console.error("Błąd podczas pobierania udostępnionych kosztów:", error);
-    } finally {
-      setLoadingShared(false);
     }
   };
 
@@ -174,7 +178,7 @@ export default function ProjectSimpleCosts() {
       });
       setDocumentFile(null);
       setShowNewCostRow(false);
-      fetchProjectCosts();
+      fetchProjectDetails();
     } catch (error) {
       console.error("Błąd podczas dodawania kosztu:", error);
       showError("Wystąpił błąd podczas dodawania kosztu");
@@ -222,7 +226,7 @@ export default function ProjectSimpleCosts() {
       setEditingCostId(null);
       setEditingCostData(null);
       setEditDocumentFile(null);
-      fetchProjectCosts();
+      fetchProjectDetails();
     } catch (error) {
       console.error("Błąd podczas aktualizacji kosztu:", error);
       showError("Wystąpił błąd podczas aktualizacji kosztu");
@@ -240,7 +244,7 @@ export default function ProjectSimpleCosts() {
       await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
 
       showSuccess("Koszt został usunięty");
-      fetchProjectCosts();
+      fetchProjectDetails();
     } catch (error) {
       console.error("Błąd podczas usuwania kosztu:", error);
       showError("Wystąpił błąd podczas usuwania kosztu");
@@ -252,6 +256,16 @@ export default function ProjectSimpleCosts() {
   const handleShareCost = (cost: ProjectCostListItemWeb) => {
     setCostToShare(cost);
     onShareModalOpen();
+  };
+
+  const handleManageShare = (cost: ProjectCostListItemWeb) => {
+    setCostToManageShare(cost);
+    onManageShareModalOpen();
+  };
+
+  const handleShareUpdated = () => {
+    fetchProjectDetails();
+    onManageShareModalClose();
   };
 
   if (loading) {
@@ -275,7 +289,7 @@ export default function ProjectSimpleCosts() {
               {projectName && <Text fontSize="sm" color="gray.600">{projectName}</Text>}
             </VStack>
           </HStack>
-          {userCanEdit && (
+          {resourcePerms.mine.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="blue"
@@ -287,7 +301,7 @@ export default function ProjectSimpleCosts() {
           )}
         </HStack>
 
-        {!project || !userCanView ? (
+        {!project || !resourcePerms.hasAnyAccess ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={DollarSign}
@@ -298,7 +312,16 @@ export default function ProjectSimpleCosts() {
         ) : (
         <Tabs colorScheme="blue" variant="enclosed">
           <TabList>
-            {userCanEdit && (
+            {resourcePerms.tabs.showAll && (
+            <Tab fontWeight="bold">
+              <HStack spacing={2}>
+                <Icon as={DollarSign} boxSize={4} />
+                <Text>Wszystkie koszty</Text>
+                <Badge colorScheme="purple" ml={2}>{allCosts.length}</Badge>
+              </HStack>
+            </Tab>
+            )}
+            {resourcePerms.tabs.showMine && (
             <Tab fontWeight="bold">
               <HStack spacing={2}>
                 <Icon as={DollarSign} boxSize={4} />
@@ -307,7 +330,7 @@ export default function ProjectSimpleCosts() {
               </HStack>
             </Tab>
             )}
-            {userCanView && (
+            {resourcePerms.tabs.showShared && (
             <Tab fontWeight="bold">
               <HStack spacing={2}>
                 <Icon as={Share2} boxSize={4} />
@@ -319,13 +342,139 @@ export default function ProjectSimpleCosts() {
           </TabList>
 
           <TabPanels>
-            {/* TAB 1: MOJE KOSZTY */}
-            {userCanEdit && (
+            {/* TAB 0: WSZYSTKIE KOSZTY - tylko dla READ_ALL/WRITE_ALL */}
+            {resourcePerms.tabs.showAll && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
-                <Text fontSize="sm" color="gray.600">
-                  Proste koszty projektu - faktury, paragony, wydatki
-                </Text>
+                <HStack justify="space-between">
+                  <Text fontSize="sm" color="gray.600">
+                    Wszystkie koszty w projekcie (admin)
+                  </Text>
+                  <HStack spacing={2}>
+                    {resourcePerms.all.canShare && (
+                      <Button
+                        leftIcon={<Share2 size={18} />}
+                        colorScheme="orange"
+                        size="sm"
+                        onClick={onShareCostsModalOpen}
+                      >
+                        Udostępnij grupowo
+                      </Button>
+                    )}
+                    {resourcePerms.all.canCreate && (
+                      <Button
+                        leftIcon={<Plus size={18} />}
+                        colorScheme="blue"
+                        onClick={() => setShowNewCostRow(true)}
+                        isDisabled={showNewCostRow}
+                      >
+                        Dodaj koszt
+                      </Button>
+                    )}
+                  </HStack>
+                </HStack>
+
+                {allCosts.length === 0 ? (
+                  <EmptyState
+                    icon={DollarSign}
+                    title="Brak kosztów"
+                    description="Nie ma jeszcze żadnych kosztów w tym projekcie"
+                  />
+                ) : (
+                  <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+                    <Table size="sm" variant="simple">
+                      <Thead>
+                        <Tr>
+                          <Th>Nazwa</Th>
+                          <Th>Właściciel</Th>
+                          <Th>Miejsce</Th>
+                          <Th>Data</Th>
+                          <Th>Opis</Th>
+                          <Th isNumeric>Netto</Th>
+                          <Th isNumeric>VAT %</Th>
+                          <Th isNumeric>Brutto</Th>
+                          <Th textAlign="center">Dokument</Th>
+                          {resourcePerms.all.canManageShare && <Th textAlign="center">Akcje</Th>}
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {allCosts.map((cost) => (
+                          <Tr key={cost.id} _hover={{ bg: useColorModeValue("gray.50", "gray.700") }}>
+                            <Td fontWeight="medium">{cost.name}</Td>
+                            <Td fontSize="sm" color="gray.600">{cost.userName || "-"}</Td>
+                            <Td>{cost.place || "-"}</Td>
+                            <Td>{formatDate(cost.date)}</Td>
+                            <Td>{cost.description || "-"}</Td>
+                            <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
+                            <Td isNumeric>{cost.vatRate ?? 0}%</Td>
+                            <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                            <Td textAlign="center">
+                              {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
+                                <HStack spacing={1} justify="center">
+                                  <IconButton
+                                    aria-label="Podgląd"
+                                    icon={<Eye size={14} />}
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="purple"
+                                    onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                                    title={`Podgląd: ${cost.documentFileName}`}
+                                  />
+                                  <IconButton
+                                    aria-label="Pobierz"
+                                    icon={<Download size={14} />}
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="green"
+                                    onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                                    title={`Pobierz: ${cost.documentFileName}`}
+                                  />
+                                </HStack>
+                              ) : (
+                                <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
+                              )}
+                            </Td>
+                            {resourcePerms.all.canManageShare && (
+                              <Td textAlign="center">
+                                <IconButton
+                                  aria-label="Zarządzaj udostępnieniem"
+                                  icon={<Share2 size={14} />}
+                                  size="xs"
+                                  variant="ghost"
+                                  colorScheme="orange"
+                                  onClick={() => handleManageShare(cost)}
+                                />
+                              </Td>
+                            )}
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </Box>
+                )}
+              </VStack>
+            </TabPanel>
+            )}
+
+            {/* TAB 1 (or 0 if no ALL): MOJE KOSZTY */}
+            {resourcePerms.tabs.showMine && (
+            <TabPanel>
+              <VStack spacing={4} align="stretch">
+                <HStack justify="space-between">
+                  <Text fontSize="sm" color="gray.600">
+                    Proste koszty projektu - faktury, paragony, wydatki
+                  </Text>
+                  {resourcePerms.mine.canShare && (
+                    <Button
+                      leftIcon={<Share2 size={18} />}
+                      colorScheme="orange"
+                      size="sm"
+                      onClick={onShareCostsModalOpen}
+                    >
+                      Udostępnij grupowo
+                    </Button>
+                  )}
+                </HStack>
 
                 {projectCosts.length === 0 && !showNewCostRow ? (
                   <EmptyState
@@ -487,7 +636,9 @@ export default function ProjectSimpleCosts() {
                               <Td textAlign="center">
                                 <HStack spacing={1} justify="center">
                                   <IconButton aria-label="Edytuj" icon={<Edit2 size={14} />} size="xs" variant="ghost" onClick={() => handleEditCost(cost)} />
-                                  <IconButton aria-label="Udostępnij" icon={<Share2 size={14} />} size="xs" variant="ghost" colorScheme="blue" onClick={() => handleShareCost(cost)} />
+                                  {resourcePerms.mine.canManageShare && (
+                                    <IconButton aria-label="Zarządzaj udostępnieniem" icon={<Share2 size={14} />} size="xs" variant="ghost" colorScheme="orange" onClick={() => handleManageShare(cost)} />
+                                  )}
                                   <IconButton aria-label="Usuń" icon={<Trash2 size={14} />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDeleteCost(cost.id)} isLoading={deletingCostId === cost.id} />
                                 </HStack>
                               </Td>
@@ -503,7 +654,7 @@ export default function ProjectSimpleCosts() {
             )}
 
             {/* TAB 2: UDOSTĘPNIONE KOSZTY */}
-            {userCanView && (
+            {resourcePerms.tabs.showShared && (
             <TabPanel>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.600">
@@ -590,7 +741,37 @@ export default function ProjectSimpleCosts() {
           </Text>
         </Box>
 
-        {/* MODAL: SHARE COST */}
+        {/* MODAL: MANAGE COST SHARE (pojedynczy koszt) */}
+        {costToManageShare && user?.activeTenantId && projectId && (
+          <ManageCostShareModal
+            isOpen={isManageShareModalOpen}
+            onClose={() => {
+              onManageShareModalClose();
+              setCostToManageShare(null);
+            }}
+            tenantId={user.activeTenantId}
+            projectId={projectId}
+            costId={costToManageShare.id}
+            costName={costToManageShare.name}
+            sharedWithUserIds={costToManageShare.sharedWithUserIds || []}
+            members={members}
+            currentUserId={user?.id || ""}
+            onShareUpdated={handleShareUpdated}
+          />
+        )}
+
+        {/* MODAL: SHARE COSTS (grupowe udostępnianie) */}
+        {user?.activeTenantId && projectId && (
+          <ShareCostsModal
+            isOpen={isShareCostsModalOpen}
+            onClose={onShareCostsModalClose}
+            tenantId={user.activeTenantId}
+            projectId={projectId}
+            onCostsShared={fetchProjectDetails}
+          />
+        )}
+
+        {/* MODAL: SHARE COST (stary komponent dla pojedynczego kosztu - backward compatibility) */}
         {costToShare && user?.activeTenantId && projectId && (
           <ShareCostModal
             isOpen={isShareModalOpen}
@@ -602,7 +783,7 @@ export default function ProjectSimpleCosts() {
             projectId={projectId}
             cost={costToShare}
             onCostShared={() => {
-              fetchProjectCosts();
+              fetchProjectDetails();
             }}
           />
         )}

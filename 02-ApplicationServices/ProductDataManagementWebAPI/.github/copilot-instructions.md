@@ -1,4 +1,4 @@
-﻿This file defines mandatory coding rules for the BrickSoft Web API built with .NET 8, CQRS, multi-tenancy and the Repository pattern. All generated or modified code must strictly follow these rules.
+﻿This file defines mandatory coding rules for the Brickly Web API built with .NET 8, CQRS, multi-tenancy and the Repository pattern. All generated or modified code must strictly follow these rules.
 
 The project structure is fixed and consists of Business (DTOs with *Web suffix, interfaces, helpers, services, exceptions), CQRS (Commands, Queries, Handlers, Validators), Entities (domain entities, DbContext, EF Core configuration), Repositories (Repository pattern) and WebApi (controllers, middleware, authorization, extensions).
 

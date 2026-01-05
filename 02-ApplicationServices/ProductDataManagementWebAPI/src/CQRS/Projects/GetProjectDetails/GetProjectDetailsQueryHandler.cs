@@ -52,9 +52,45 @@ namespace CQRS.Projects.GetProjectDetails
             IEnumerable<ProjectMember> allMembers = await projectMemberRepo.GetBySearch(
                 pm => pm.ProjectId == request.ProjectId);
 
-            string userRoleCode = projectMember != null
-                ? (projectMember.MemberRole?.Code ?? RoleCodes.ProjectMember)
-                : RoleCodes.ProjectMember;
+            // Determine user role code:
+            // 1. If user has project membership -> use membership role
+            // 2. If SuperAdmin without membership -> use SYSTEM.SUPERADMIN
+            // 3. Otherwise -> ProjectViewer (fallback)
+            string userRoleCode;
+            if (projectMember != null)
+            {
+                // Has membership - use membership role (works for both regular users and SuperAdmins)
+                userRoleCode = projectMember.MemberRole?.Code ?? RoleCodes.ProjectViewer;
+            }
+            else if (currentUser.IsSuperAdmin)
+            {
+                // SuperAdmin without membership - use SYSTEM.SUPERADMIN
+                userRoleCode = RoleCodes.SystemSuperAdmin;
+            }
+            else
+            {
+                // Fallback for regular users without membership (shouldn't happen due to authorization)
+                userRoleCode = RoleCodes.ProjectViewer;
+            }
+
+            // Get user's permissions for this project
+            var userPermissions = new HashSet<string>();
+            var projectSnapshot = await currentUser.GetProjectSnapshotAsync(request.ProjectId, cancellationToken);
+            if (projectSnapshot != null)
+            {
+                userPermissions = projectSnapshot.ProjectPermissionCodes;
+            }
+            else
+            {
+                // If no project snapshot, check if user has tenant-level permissions
+                var tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
+                if (tenantSnapshot != null && tenantSnapshot.IsTenantAdmin)
+                {
+                    // Tenant admin has access but through tenant permissions, not project permissions
+                    // Return empty set - tenant permissions are separate
+                    userPermissions = new HashSet<string>();
+                }
+            }
 
             return new ProjectDetailsWeb(
                 Id: project.Id,
@@ -67,7 +103,8 @@ namespace CQRS.Projects.GetProjectDetails
                     ? $"{creatorMember.User.FirstName} {creatorMember.User.LastName}".Trim()
                     : "Unknown",
                 UserRoleCode: userRoleCode,
-                MembersCount: allMembers.Count()
+                MembersCount: allMembers.Count(),
+                UserPermissions: userPermissions
             );
         }
     }

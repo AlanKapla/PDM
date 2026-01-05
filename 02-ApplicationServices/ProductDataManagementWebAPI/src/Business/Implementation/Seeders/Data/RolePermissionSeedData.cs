@@ -16,11 +16,9 @@ public static class RolePermissionSeedData
         new RoleSeed(RoleScope.Tenant, RoleCodes.TenantMember, "Tenant Member", "Członek tenanta", IsBuiltIn: true),
 
         // PROJECT
-        new RoleSeed(RoleScope.Project, RoleCodes.ProjectAdmin, "Project Admin", "Administrator projektu", IsBuiltIn: true),
-        new RoleSeed(RoleScope.Project, RoleCodes.ProjectEditor, "Project Editor", "Edytor projektu - pełny dostęp do zasobów", IsBuiltIn: true),
-        new RoleSeed(RoleScope.Project, RoleCodes.ProjectCollaborator, "Project Collaborator", "Współpracownik - może przeglądać i edytować udostępnione zasoby", IsBuiltIn: true),
+        new RoleSeed(RoleScope.Project, RoleCodes.ProjectAdmin, "Project Admin", "Administrator projektu - pełny dostęp do wszystkich zasobów", IsBuiltIn: true),
+        new RoleSeed(RoleScope.Project, RoleCodes.ProjectEditor, "Project Editor", "Edytor projektu - może tworzyć i edytować własne zasoby oraz przeglądać udostępnione", IsBuiltIn: true),
         new RoleSeed(RoleScope.Project, RoleCodes.ProjectViewer, "Project Viewer", "Przeglądający projekt - może tylko przeglądać udostępnione zasoby", IsBuiltIn: true),
-        new RoleSeed(RoleScope.Project, RoleCodes.ProjectMember, "Project Member", "Członek projektu bez dostępu do danych", IsBuiltIn: true),
     };
 
     public static PermissionSeed[] GetPermissions() => new[]
@@ -48,11 +46,16 @@ public static class RolePermissionSeedData
         // PROJECT – STATUS
         new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectStatusManage, "Manage project status", "Aktywacja/dezaktywacja projektu (wyjątek: bez ActiveTenantId)"),
 
-        // PROJECT – ZASOBY
+        // PROJECT – ZASOBY (własne i udostępnione)
         new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesRead, "Read project resources", "Odczyt własnych zasobów projektu"),
         new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesWrite, "Write project resources", "Zapis własnych zasobów projektu"),
+        new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesShare, "Share project resources", "Udostępnianie zasobów projektu innym członkom"),
         new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesReadShared, "Read shared resources", "Odczyt zasobów udostępnionych"),
-        new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesWriteShared, "Write shared resources", "Edycja zasobów udostępnionych (Collaborator)"),
+        new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesWriteShared, "Write shared resources", "Edycja zasobów udostępnionych"),
+        
+        // PROJECT – ZASOBY (wszystkie - tylko dla ProjectAdmin)
+        new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesReadAll, "Read all project resources", "Odczyt wszystkich zasobów projektu (także nieudostępnionych)"),
+        new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesWriteAll, "Write all project resources", "Edycja wszystkich zasobów projektu (także nieudostępnionych)"),
     };
 
     public static RolePermissionSeed[] GetRolePermissions()
@@ -95,36 +98,34 @@ public static class RolePermissionSeedData
             RP(RoleCodes.TenantMember, PermissionCodes.TenantListAvailable),
             RP(RoleCodes.TenantMember, PermissionCodes.TenantView),
 
-            // PROJECT.ADMIN
-            RP(RoleCodes.ProjectAdmin, PermissionCodes.RoleList),  // ✅ NEW: Project Admin może listować role projektowe
+            // PROJECT.ADMIN - wszystkie uprawnienia projektowe (w tym READ_ALL, WRITE_ALL i SHARE)
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.RoleList),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectView),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectEdit),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectMembersView),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectMembersManage),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectStatusManage),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesRead),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesWrite),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesShare),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesReadShared),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesWriteShared),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesReadAll),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesWriteAll),
 
-            // PROJECT.EDITOR - może tworzyć i edytować własne zasoby
+            // PROJECT.EDITOR - read/write własnych i shared oraz SHARE
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectView),
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectMembersView),
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesRead),
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesWrite),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesShare),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesReadShared),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesWriteShared),
 
-            // PROJECT.COLLABORATOR - może przeglądać i edytować udostępnione zasoby
-            RP(RoleCodes.ProjectCollaborator, PermissionCodes.ProjectView),
-            RP(RoleCodes.ProjectCollaborator, PermissionCodes.ProjectMembersView),
-            RP(RoleCodes.ProjectCollaborator, PermissionCodes.ProjectResourcesReadShared),
-            RP(RoleCodes.ProjectCollaborator, PermissionCodes.ProjectResourcesWriteShared),
-
-            // PROJECT.VIEWER - może tylko przeglądać udostępnione zasoby
+            // PROJECT.VIEWER - tylko read shared
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectView),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectMembersView),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesReadShared),
-
-            // PROJECT.MEMBER - tylko odczyt projektu
-            RP(RoleCodes.ProjectMember, PermissionCodes.ProjectView),
         };
     }
 }

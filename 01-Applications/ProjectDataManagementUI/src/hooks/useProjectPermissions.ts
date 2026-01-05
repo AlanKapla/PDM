@@ -1,16 +1,50 @@
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useProjectCache } from '../context/ProjectCacheContext';
 import { hasPermission, PermissionCodes } from '../constants/roleCodes';
 
 /**
  * Hook do wygodnego sprawdzania uprawnień użytkownika w projekcie
+ * Fetches project details to get user's permissions for the specific project
+ * Uses ProjectCacheContext for caching to avoid redundant API calls
  * 
  * @param projectId - ID projektu do sprawdzenia uprawnień
  * @returns Obiekt z bool flagami dla każdego uprawnienia
  */
 export function useProjectPermissions(projectId: string | undefined) {
   const { user } = useAuth();
+  const { getProjectDetails } = useProjectCache();
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [roleCode, setRoleCode] = useState<string | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
   
-  if (!projectId || !user) {
+  useEffect(() => {
+    const fetchProjectPermissions = async () => {
+      if (!projectId || !user?.activeTenantId || !user?.id) {
+        setPermissions([]);
+        setRoleCode(undefined);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const projectDetails = await getProjectDetails(user.activeTenantId, projectId, user.id);
+        setPermissions(projectDetails.userPermissions || []);
+        setRoleCode(projectDetails.userRoleCode);
+      } catch (error) {
+        console.error('Error fetching project permissions:', error);
+        setPermissions([]);
+        setRoleCode(undefined);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjectPermissions();
+  }, [projectId, user?.activeTenantId, user?.id, getProjectDetails]);
+  
+  if (!projectId || !user || loading) {
     return {
       canView: false,
       canEdit: false,
@@ -21,6 +55,9 @@ export function useProjectPermissions(projectId: string | undefined) {
       canWriteResources: false,
       canReadSharedResources: false,
       canWriteSharedResources: false,
+      canReadAllResources: false,
+      canWriteAllResources: false,
+      canShareResources: false,
       hasAnyResourceAccess: false,
       canReadMessages: false,
       canWriteMessages: false,
@@ -28,17 +65,17 @@ export function useProjectPermissions(projectId: string | undefined) {
       canListRoles: false,
       roleCode: undefined,
       allPermissions: [],
+      loading,
     };
   }
-  
-  const permissions = user.projectPermissions?.[projectId] || [];
-  const roleCode = user.projectRoleCodes?.[projectId];
   
   const hasAnyResourceAccess = 
     hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ) ||
     hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE) ||
     hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_SHARED) ||
-    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_SHARED);
+    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_SHARED) ||
+    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_ALL) ||
+    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_ALL);
   
   return {
     // Project basic permissions
@@ -60,7 +97,14 @@ export function useProjectPermissions(projectId: string | undefined) {
     canReadSharedResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_SHARED),
     canWriteSharedResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_SHARED),
     
-    // Combined - has ANY access to resources (own or shared, read or write)
+    // Project resources - wszystkie (only ProjectAdmin)
+    canReadAllResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_ALL),
+    canWriteAllResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_ALL),
+    
+    // Project resources - sharing
+    canShareResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_SHARE),
+    
+    // Combined - has ANY access to resources (own or shared or all, read or write)
     hasAnyResourceAccess,
     
     // Project messages/chat permissions
@@ -74,5 +118,6 @@ export function useProjectPermissions(projectId: string | undefined) {
     // Role and raw permissions
     roleCode,
     allPermissions: permissions,
+    loading,
   };
 }

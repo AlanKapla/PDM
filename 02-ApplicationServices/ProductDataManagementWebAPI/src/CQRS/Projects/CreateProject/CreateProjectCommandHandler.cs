@@ -73,6 +73,14 @@ namespace CQRS.Projects.CreateProject
 
             string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
+            // Get user's permissions for newly created project
+            var userPermissions = new HashSet<string>();
+            var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
+            if (projectSnapshot != null)
+            {
+                userPermissions = projectSnapshot.ProjectPermissionCodes;
+            }
+
             return new ProjectDetailsWeb(
                 Id: project.Id,
                 TenantId: project.TenantId,
@@ -82,7 +90,8 @@ namespace CQRS.Projects.CreateProject
                 CreatedByUserId: project.CreatedByUserId,
                 CreatedByUserName: createdByUserName,
                 UserRoleCode: RoleCodes.ProjectAdmin,
-                MembersCount: 1
+                MembersCount: 1,
+                UserPermissions: userPermissions
             );
         }
     }

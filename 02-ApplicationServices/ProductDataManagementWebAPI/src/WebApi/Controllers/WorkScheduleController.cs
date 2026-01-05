@@ -1,6 +1,6 @@
 ﻿using Business.Interfaces.Constants;
 using CQRS.WorkSchedules.CreateWorkSchedule;
-using CQRS.WorkSchedules.GetUserWorkSchedules;
+using CQRS.WorkSchedules.GetWorkSchedules;
 using CQRS.WorkSchedules.GetWorkSchedule;
 using CQRS.WorkSchedules.UpdateWorkSchedule;
 using MediatR;
@@ -58,18 +58,20 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Gets work schedules created by the current user in the project
+        /// Get work schedules based on scope (All, Mine, Shared)
         /// </summary>
-        /// <param name="tenantId">The tenant ID</param>
-        /// <param name="projectId">The project ID</param>
-        /// <returns>List of work schedules created by the current user</returns>
-        [HttpGet("my")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
-        public async Task<IActionResult> GetMyWorkSchedules(
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <param name="scope">Resource scope (All, Mine, Shared)</param>
+        /// <returns>List of work schedules</returns>
+        [HttpGet("{scope}")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
+        public async Task<IActionResult> GetWorkSchedules(
             [FromRoute] Guid tenantId,
-            [FromRoute] Guid projectId)
+            [FromRoute] Guid projectId,
+            [FromRoute] ResourceScope scope)
         {
-            var query = new GetUserWorkSchedulesQuery(tenantId, projectId);
+            var query = new GetWorkSchedulesQuery(tenantId, projectId, scope);
             var result = await Send(query);
             return Ok(result);
         }
@@ -81,8 +83,8 @@ namespace WebApi.Controllers
         /// <param name="projectId">The project ID</param>
         /// <param name="workScheduleId">The work schedule ID</param>
         /// <returns>The work schedule with all details</returns>
-        [HttpGet("{workScheduleId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesRead)]
+        [HttpGet("details/{workScheduleId}")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesReadShared)]
         public async Task<IActionResult> GetWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
