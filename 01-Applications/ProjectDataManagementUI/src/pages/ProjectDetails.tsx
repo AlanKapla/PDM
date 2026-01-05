@@ -48,6 +48,7 @@ import { projectApi } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 import type { ProjectDetailsWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
@@ -111,12 +112,33 @@ export default function ProjectDetails() {
   const [, setShowNewCostRow] = useState(false);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [, setSubmittingComment] = useState<string | null>(null);
+  const hasFetchedData = useRef(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const labelColor = useColorModeValue("gray.700", "gray.300");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
+
+  // Globalny cache dla project details (współdzielony z innymi stronami projektu)
+  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
+    `project-details-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
+  // Globalny cache dla project members (współdzielony z innymi stronami projektu)
+  const projectMembersCache = useGlobalCache(
+    `project-members-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
 
   const fetchProjectDetails = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -125,13 +147,9 @@ export default function ProjectDetails() {
     setError(null);
 
     try {
-      const response = await projectApi.getProjectDetails(
-        user.activeTenantId,
-        projectId
-      );
-
-      setProject(response.data);
-      setEditedName(response.data.name);
+      const data = await projectDetailsCache.fetch();
+      setProject(data);
+      setEditedName(data.name);
     } catch (err) {
       console.error(err);
       setError("Błąd podczas pobierania szczegółów projektu");
@@ -146,12 +164,8 @@ export default function ProjectDetails() {
     setLoadingMembers(true);
 
     try {
-      const response = await projectApi.getProjectMembers(
-        user.activeTenantId,
-        projectId
-      );
-
-      setMembers(response.data);
+      const data = await projectMembersCache.fetch();
+      setMembers(data);
     } catch (err) {
       console.error("Błąd pobierania członków projektu:", err);
     } finally {
@@ -622,6 +636,9 @@ export default function ProjectDetails() {
   };
 
   useEffect(() => {
+    if (hasFetchedData.current) return;
+    
+    hasFetchedData.current = true;
     fetchProjectDetails();
     fetchMembers();
   }, [projectId, user?.activeTenantId]);
@@ -646,6 +663,8 @@ export default function ProjectDetails() {
       });
       
       // Odśwież listę
+      projectDetailsCache.clear();
+      projectMembersCache.clear();
       await fetchProjectDetails();
       await fetchMembers();
     } catch (error) {
@@ -679,6 +698,7 @@ export default function ProjectDetails() {
       onToggleStatusClose();
       
       // Odśwież dane projektu
+      projectDetailsCache.clear();
       await fetchProjectDetails();
     } catch (error) {
       console.error("Błąd podczas toggle project status:", error);
@@ -719,6 +739,7 @@ export default function ProjectDetails() {
       });
 
       setIsEditingName(false);
+      projectDetailsCache.clear();
       await fetchProjectDetails();
     } catch (error) {
       console.error("Błąd aktualizacji:", error);

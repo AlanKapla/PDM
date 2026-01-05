@@ -18,6 +18,7 @@ import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { tenantApi } from "../api/tenantApi";
 import NotificationBell from "./NotificationBell";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -31,22 +32,25 @@ export default function Header() {
   const mutedColor = useColorModeValue("gray.600", "gray.400");
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "U";
 
+  // Globalny cache dla my-tenants (współdzielony z innymi komponentami)
+  const tenantsCache = useGlobalCache(
+    'my-tenants',
+    async () => {
+      const res = await tenantApi.getUserTenants();
+      return res.data;
+    }
+  );
+
   // Pobierz nazwę aktywnego tenanta
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const fetchActiveTenant = async () => {
       try {
-        const [activeTenantResponse, tenantsResponse] = await Promise.all([
-          Promise.resolve({ data: { activeTenantId: user?.activeTenantId } }),
-          tenantApi.getUserTenants(),
-        ]);
-
-        const activeTenantData = activeTenantResponse.data;
-        const tenants = tenantsResponse.data;
+        const tenants = await tenantsCache.fetch();
         
-        if (activeTenantData?.activeTenantId) {
-          const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
+        if (user?.activeTenantId) {
+          const activeTenant = tenants.find((t: any) => t.id === user.activeTenantId);
           setActiveTenantName(activeTenant?.name || null);
         } else {
           setActiveTenantName(null);
@@ -58,7 +62,7 @@ export default function Header() {
     };
 
     fetchActiveTenant();
-  }, [isAuthenticated, location.pathname]);
+  }, [isAuthenticated, user?.activeTenantId]);
 
   return (
     <Box

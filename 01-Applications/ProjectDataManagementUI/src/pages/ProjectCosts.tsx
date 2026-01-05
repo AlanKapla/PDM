@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -38,6 +38,7 @@ import CopyCostEstimateModal from "../components/CopyCostEstimateModal";
 import type { CostEstimateListItem, CostEstimateStatus } from "../types/costEstimate.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
   [0]: "Szkic",
@@ -72,6 +73,7 @@ export default function ProjectCosts() {
   const [project, setProject] = useState<any | null>(null);
   const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItem | null>(null);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const hasFetchedProjectData = useRef(false);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
   const { isOpen: isCopyModalOpen, onOpen: onCopyModalOpen, onClose: onCopyModalClose } = useDisclosure();
@@ -108,9 +110,23 @@ export default function ProjectCosts() {
     `cost-estimates-all-${projectId}`
   );
 
+  // Globalny cache dla project details (współdzielony między stronami projektu)
+  const projectDetailsCache = useGlobalCache(
+    `project-details-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
   useEffect(() => {
+    if (resourcePerms.raw.loading) return;
+    if (hasFetchedProjectData.current) return;
+    
+    hasFetchedProjectData.current = true;
     fetchProjectData();
-  }, [projectId]);
+  }, [projectId, resourcePerms.raw.loading]);
 
   const fetchProjectData = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -122,8 +138,8 @@ export default function ProjectCosts() {
 
     setLoading(true);
     try {
-      const projectResponse = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      setProject(projectResponse.data);
+      const projectData = await projectDetailsCache.fetch();
+      setProject(projectData);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       showError('Nie udało się załadować danych', error?.message || 'Wystąpił nieoczekiwany błąd');
@@ -135,8 +151,16 @@ export default function ProjectCosts() {
   const refreshData = () => {
     myCostEstimatesCache.clear();
     allCostEstimatesCache.clear();
+    projectDetailsCache.clear();
+    hasFetchedProjectData.current = false;
     fetchProjectData();
   };
+
+  // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
+  const myCostEstimatesTabIndex = resourcePerms.tabs.showMine ? 0 : -1;
+  const allCostEstimatesTabIndex = 
+    resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 1 : 
+    !resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 0 : -1;
 
   const handleDeleteCostEstimate = async (costEstimateId: string) => {
     if (!user?.activeTenantId || !projectId) return;
@@ -236,7 +260,7 @@ export default function ProjectCosts() {
                 <TabPanel>
                   <MyCostEstimatesTab
                     cache={myCostEstimatesCache}
-                    isActive={activeTabIndex === 0}
+                    isActive={activeTabIndex === myCostEstimatesTabIndex}
                     cardBg={cardBg}
                     borderColor={borderColor}
                     hoverBg={hoverBg}
@@ -254,7 +278,7 @@ export default function ProjectCosts() {
                 <TabPanel>
                   <AllCostEstimatesTab
                     cache={allCostEstimatesCache}
-                    isActive={resourcePerms.tabs.showMine ? activeTabIndex === 1 : activeTabIndex === 0}
+                    isActive={activeTabIndex === allCostEstimatesTabIndex}
                     cardBg={cardBg}
                     borderColor={borderColor}
                     hoverBg={hoverBg}
@@ -307,8 +331,11 @@ export default function ProjectCosts() {
 
 // Komponent dla tabu "Moje kosztorysy" z lazy loading
 function MyCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms }: any) {
+  const hasFetched = useRef(false);
+  
   useEffect(() => {
-    if (isActive && !cache.data) {
+    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
+      hasFetched.current = true;
       cache.fetch();
     }
   }, [isActive]);
@@ -419,8 +446,11 @@ function MyCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, cos
 
 // Komponent dla tabu "Wszystkie kosztorysy" z lazy loading
 function AllCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms }: any) {
+  const hasFetched = useRef(false);
+  
   useEffect(() => {
-    if (isActive && !cache.data) {
+    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
+      hasFetched.current = true;
       cache.fetch();
     }
   }, [isActive]);

@@ -35,6 +35,7 @@ import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
 import { roleApi, type RoleWeb } from "../api/roleApi";
@@ -65,6 +66,26 @@ export default function ProjectMembers() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
+  // Globalny cache dla project details (współdzielony z innymi stronami projektu)
+  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
+    `project-details-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
+  // Globalny cache dla project members (współdzielony z innymi stronami projektu)
+  const projectMembersCache = useGlobalCache<ProjectMemberWeb[]>(
+    `project-members-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
   useEffect(() => {
     fetchData();
     fetchRoles();
@@ -84,13 +105,13 @@ export default function ProjectMembers() {
 
     setLoading(true);
     try {
-      const [projectRes, membersRes] = await Promise.all([
-        projectApi.getProjectDetails(user.activeTenantId, projectId),
-        projectApi.getProjectMembers(user.activeTenantId, projectId),
+      const [projectData, membersData] = await Promise.all([
+        projectDetailsCache.fetch(),
+        projectMembersCache.fetch(),
       ])
 
-      setProject(projectRes.data);
-      setMembers(membersRes.data);
+      setProject(projectData);
+      setMembers(membersData);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -143,6 +164,8 @@ export default function ProjectMembers() {
       );
 
       // Odśwież dane po zmianie
+      projectDetailsCache.clear();
+      projectMembersCache.clear();
       await fetchData();
       setEditingRoleMemberId(null);
       showSuccess("Zaktualizowano rolę członka");

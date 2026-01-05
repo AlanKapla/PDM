@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -27,6 +27,7 @@ import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 
 export default function ProjectSchedules() {
@@ -40,6 +41,7 @@ export default function ProjectSchedules() {
   const [project, setProject] = useState<any | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const hasFetchedProjectData = useRef(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -67,9 +69,23 @@ export default function ProjectSchedules() {
     `schedules-all-${projectId}`
   );
 
+  // Globalny cache dla project details (współdzielony między stronami projektu)
+  const projectDetailsCache = useGlobalCache(
+    `project-details-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
   useEffect(() => {
+    if (resourcePerms.raw.loading) return;
+    if (hasFetchedProjectData.current) return;
+    
+    hasFetchedProjectData.current = true;
     fetchProjectData();
-  }, [projectId]);
+  }, [projectId, resourcePerms.raw.loading]);
 
   const fetchProjectData = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -81,13 +97,8 @@ export default function ProjectSchedules() {
 
     setLoading(true);
     try {
-      const [projectRes, membersRes] = await Promise.all([
-        projectApi.getProjectDetails(user.activeTenantId, projectId),
-        projectApi.getProjectMembers(user.activeTenantId, projectId),
-      ]);
-
-      setProject(projectRes.data);
-      setMembers(membersRes.data);
+      const projectData = await projectDetailsCache.fetch();
+      setProject(projectData);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -98,8 +109,16 @@ export default function ProjectSchedules() {
   const refreshData = () => {
     mySchedulesCache.clear();
     allSchedulesCache.clear();
+    projectDetailsCache.clear();
+    hasFetchedProjectData.current = false;
     fetchProjectData();
   };
+
+  // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
+  const mySchedulesTabIndex = resourcePerms.tabs.showMine ? 0 : -1;
+  const allSchedulesTabIndex = 
+    resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 1 : 
+    !resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 0 : -1;
 
   const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[]) => {
     if (schedules.length === 0) {
@@ -215,7 +234,7 @@ export default function ProjectSchedules() {
                 <TabPanel>
                   <MySchedulesTab
                     cache={mySchedulesCache}
-                    isActive={activeTabIndex === 0}
+                    isActive={activeTabIndex === mySchedulesTabIndex}
                     renderSchedulesList={renderSchedulesList}
                   />
                 </TabPanel>
@@ -224,7 +243,7 @@ export default function ProjectSchedules() {
                 <TabPanel>
                   <AllSchedulesTab
                     cache={allSchedulesCache}
-                    isActive={resourcePerms.tabs.showMine ? activeTabIndex === 1 : activeTabIndex === 0}
+                    isActive={activeTabIndex === allSchedulesTabIndex}
                     renderSchedulesList={renderSchedulesList}
                   />
                 </TabPanel>
@@ -249,8 +268,11 @@ export default function ProjectSchedules() {
 
 // Komponent dla tabu "Moje harmonogramy" z lazy loading
 function MySchedulesTab({ cache, isActive, renderSchedulesList }: any) {
+  const hasFetched = useRef(false);
+  
   useEffect(() => {
-    if (isActive && !cache.data) {
+    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
+      hasFetched.current = true;
       cache.fetch();
     }
   }, [isActive]);
@@ -264,8 +286,11 @@ function MySchedulesTab({ cache, isActive, renderSchedulesList }: any) {
 
 // Komponent dla tabu "Wszystkie harmonogramy" z lazy loading
 function AllSchedulesTab({ cache, isActive, renderSchedulesList }: any) {
+  const hasFetched = useRef(false);
+  
   useEffect(() => {
-    if (isActive && !cache.data) {
+    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
+      hasFetched.current = true;
       cache.fetch();
     }
   }, [isActive]);

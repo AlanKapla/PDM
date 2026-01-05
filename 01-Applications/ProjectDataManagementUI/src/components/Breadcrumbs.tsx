@@ -4,6 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { projectApi } from "../api/projectApi";
 import { useAuth } from "../context/AuthContext";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 
 interface BreadcrumbSegment {
   label: string;
@@ -21,6 +22,16 @@ export default function Breadcrumbs() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const bgColor = useColorModeValue("white", "gray.800");
 
+  // Globalny cache dla project details (współdzielony z innymi komponentami)
+  const projectDetailsCache = useGlobalCache(
+    `project-details-${params.projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !params.projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectDetails(user.activeTenantId, params.projectId);
+      return res.data;
+    }
+  );
+
   useEffect(() => {
     const generateBreadcrumbs = async () => {
       const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -28,14 +39,11 @@ export default function Breadcrumbs() {
         { label: "Panel główny", path: "/dashboard" }
       ];
 
-      // Pobierz nazwę projektu jeśli jest w URL
+      // Pobierz nazwę projektu jeśli jest w URL (użyj cache!)
       if (params.projectId && user?.activeTenantId) {
         try {
-          const projectDetails = await projectApi.getProjectDetails(
-            user.activeTenantId,
-            params.projectId
-          );
-          setProjectName(projectDetails.data.name);
+          const projectDetails = await projectDetailsCache.fetch();
+          setProjectName(projectDetails.name);
         } catch (error) {
           console.error("Błąd pobierania nazwy projektu:", error);
         }
@@ -101,7 +109,7 @@ export default function Breadcrumbs() {
     };
 
     generateBreadcrumbs();
-  }, [location.pathname, params, projectName]);
+  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId]);
 
   if (breadcrumbs.length <= 1) {
     return null;

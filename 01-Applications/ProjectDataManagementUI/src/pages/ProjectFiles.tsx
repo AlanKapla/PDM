@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useContext } from "react";
+﻿import { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -42,8 +42,10 @@ import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
-import type { ProjectFilePackageWeb } from "../types/project.types";
+import type { ProjectFilePackageWeb, ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import { useTabCache } from "../hooks/useTabCache";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 
 export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -58,15 +60,14 @@ export default function ProjectFiles() {
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any | null>(null);
-  const [myFiles, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
-  const [sharedFiles, setSharedFiles] = useState<ProjectFilePackageWeb[]>([]);
-  const [allFiles, setAllFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
   const [fileForNewVersion, setFileForNewVersion] = useState<any | null>(null);
   const [fileToManageShare, setFileToManageShare] = useState<any | null>(null);
   const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
+  const hasFetchedProjectData = useRef(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -74,11 +75,55 @@ export default function ProjectFiles() {
 
   const resourcePerms = useResourcePermissions(projectId);
 
-  useEffect(() => {
-    fetchData();
-  }, [projectId, resourcePerms.hasAnyAccess]);
+  // Tab cache dla Wszystkie pliki
+  const allFilesCache = useTabCache<ProjectFilePackageWeb[]>(
+    async () => {
+      if (!user?.activeTenantId || !projectId) return [];
+      const res = await projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.All);
+      return res.data;
+    },
+    `files-all-${projectId}`
+  );
 
-  const fetchData = async () => {
+  // Tab cache dla Moje pliki
+  const myFilesCache = useTabCache<ProjectFilePackageWeb[]>(
+    async () => {
+      if (!user?.activeTenantId || !projectId) return [];
+      const res = await projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.Mine);
+      return res.data;
+    },
+    `files-mine-${projectId}`
+  );
+
+  // Tab cache dla Udostępnione pliki
+  const sharedFilesCache = useTabCache<ProjectFilePackageWeb[]>(
+    async () => {
+      if (!user?.activeTenantId || !projectId) return [];
+      const res = await projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.Shared);
+      return res.data;
+    },
+    `files-shared-${projectId}`
+  );
+
+  // Globalny cache dla project details (współdzielony między stronami projektu)
+  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
+    `project-details-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
+  useEffect(() => {
+    if (resourcePerms.raw.loading) return;
+    if (hasFetchedProjectData.current) return;
+    
+    hasFetchedProjectData.current = true;
+    fetchProjectData();
+  }, [projectId, resourcePerms.raw.loading]);
+
+  const fetchProjectData = async () => {
     if (!user?.activeTenantId || !projectId) return;
     
     if (!resourcePerms.hasAnyAccess) {
@@ -88,49 +133,271 @@ export default function ProjectFiles() {
 
     setLoading(true);
     try {
-      const projectRes = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      const membersRes = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      
-      setProject(projectRes.data);
-      setMembers(membersRes.data);
-
-      // Fetch files based on permissions using new unified API
-      const filePromises: Promise<any>[] = [];
-
-      if (resourcePerms.tabs.showMine) {
-        filePromises.push(
-          projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.Mine)
-            .then(res => ({ scope: 'mine', data: res.data }))
-        );
-      }
-
-      if (resourcePerms.tabs.showShared) {
-        filePromises.push(
-          projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.Shared)
-            .then(res => ({ scope: 'shared', data: res.data }))
-        );
-      }
-
-      if (resourcePerms.tabs.showAll) {
-        filePromises.push(
-          projectApi.getProjectFiles(user.activeTenantId, projectId, ResourceScope.All)
-            .then(res => ({ scope: 'all', data: res.data }))
-        );
-      }
-
-      const results = await Promise.all(filePromises);
-      
-      results.forEach(result => {
-        if (result.scope === 'mine') setMyFiles(result.data);
-        if (result.scope === 'shared') setSharedFiles(result.data);
-        if (result.scope === 'all') setAllFiles(result.data);
-      });
+      const projectData = await projectDetailsCache.fetch();
+      setProject(projectData);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
       setLoading(false);
     }
   };
+
+  const refreshData = () => {
+    allFilesCache.clear();
+    myFilesCache.clear();
+    sharedFilesCache.clear();
+    projectDetailsCache.clear();
+    hasFetchedProjectData.current = false;
+    fetchProjectData();
+  };
+
+  // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
+  const allFilesTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
+  const myFilesTabIndex = 
+    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 :
+    !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
+  const sharedFilesTabIndex =
+    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 2 :
+    (resourcePerms.tabs.showAll || resourcePerms.tabs.showMine) && resourcePerms.tabs.showShared ? 1 :
+    !resourcePerms.tabs.showAll && !resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 0 : -1;
+
+  // === Tab Components with Lazy Loading ===
+  function AllFilesTab({ isActive }: { isActive: boolean }) {
+    const hasFetched = useRef(false);
+    
+    useEffect(() => {
+      if (isActive && !allFilesCache.data && !allFilesCache.loading && !hasFetched.current) {
+        hasFetched.current = true;
+        allFilesCache.fetch();
+      }
+      // Nie resetujemy hasFetched w cleanup - chcemy zapamiętać że fetch był wykonany
+    }, [isActive]);
+
+    if (allFilesCache.loading) {
+      return <LoadingSpinner />;
+    }
+
+    const files = allFilesCache.data || [];
+
+    return (
+      <VStack spacing={4} align="stretch">
+        <HStack justify="space-between">
+          <Text fontSize="sm" color="gray.600">
+            Wszystkie pliki w projekcie (admin)
+          </Text>
+          <HStack spacing={2}>
+            {resourcePerms.all.canShare && (
+            <Button
+              leftIcon={<Share2 size={18} />}
+              colorScheme="orange"
+              size="sm"
+              onClick={onShareFilesModalOpen}
+            >
+              Udostępnij grupowo
+            </Button>
+            )}
+            {resourcePerms.all.canCreate && (
+              <Button
+                leftIcon={<Upload size={18} />}
+                colorScheme="green"
+                onClick={onUploadModalOpen}
+              >
+                Dodaj pliki
+              </Button>
+            )}
+          </HStack>
+        </HStack>
+
+        {files.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Brak plików"
+            description="Nie ma jeszcze żadnych plików w tym projekcie"
+          />
+        ) : (
+          <Accordion allowMultiple>
+            {files.map((pkg) => (
+              <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
+                <AccordionButton py={4} _hover={{ bg: hoverBg }}>
+                  <HStack flex="1" spacing={3}>
+                    <Icon as={FileText} boxSize={5} color="purple.600" />
+                    <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
+                    <Badge colorScheme="purple" fontSize="sm">{pkg.totalFiles}</Badge>
+                    <Text fontSize="sm" color="gray.500">właściciel: {pkg.ownerName}</Text>
+                  </HStack>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel pb={4}>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Nazwa pliku</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                        <Th>Akcje</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {pkg.files.map((file) => renderFileRow(file, false))}
+                    </Tbody>
+                  </Table>
+                </AccordionPanel>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
+      </VStack>
+    );
+  }
+
+  function MyFilesTab({ isActive }: { isActive: boolean }) {
+    const hasFetched = useRef(false);
+    
+    useEffect(() => {
+      if (isActive && !myFilesCache.data && !myFilesCache.loading && !hasFetched.current) {
+        hasFetched.current = true;
+        myFilesCache.fetch();
+      }
+    }, [isActive]);
+
+    if (myFilesCache.loading) {
+      return <LoadingSpinner />;
+    }
+
+    const files = myFilesCache.data || [];
+
+    return (
+      <VStack spacing={4} align="stretch">
+        <HStack justify="space-between">
+          <Text fontSize="sm" color="gray.600">
+            Twoje pliki w projekcie
+          </Text>
+          {resourcePerms.mine.canCreate && (
+          <HStack spacing={2}>
+            {resourcePerms.mine.canShare && (
+            <Button
+              leftIcon={<Share2 size={18} />}
+              colorScheme="orange"
+              size="sm"
+              onClick={onShareFilesModalOpen}
+            >
+              Udostępnij grupowo
+            </Button>
+            )}
+            <Button
+              leftIcon={<Upload size={18} />}
+              colorScheme="green"
+              onClick={onUploadModalOpen}
+            >
+              Dodaj pliki
+            </Button>
+          </HStack>
+          )}
+        </HStack>
+
+        {files.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Brak plików"
+            description="Nie masz jeszcze żadnych plików w tym projekcie"
+          />
+        ) : (
+          <Accordion allowMultiple>
+            {files.map((pkg) => (
+              <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
+                <AccordionButton py={4} _hover={{ bg: hoverBg }}>
+                  <HStack flex="1" spacing={3}>
+                    <Icon as={FileText} boxSize={5} color="purple.600" />
+                    <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
+                    <Badge colorScheme="blue" fontSize="sm">{pkg.totalFiles}</Badge>
+                  </HStack>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel pb={4}>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Nazwa pliku</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                        <Th>Akcje</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {pkg.files.map((file) => renderFileRow(file, false))}
+                    </Tbody>
+                  </Table>
+                </AccordionPanel>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
+      </VStack>
+    );
+  }
+
+  function SharedFilesTab({ isActive }: { isActive: boolean }) {
+    const hasFetched = useRef(false);
+    
+    useEffect(() => {
+      if (isActive && !sharedFilesCache.data && !sharedFilesCache.loading && !hasFetched.current) {
+        hasFetched.current = true;
+        sharedFilesCache.fetch();
+      }
+    }, [isActive]);
+
+    if (sharedFilesCache.loading) {
+      return <LoadingSpinner />;
+    }
+
+    const files = sharedFilesCache.data || [];
+
+    return (
+      <VStack spacing={4} align="stretch">
+        <Text fontSize="sm" color="gray.600">
+          Pliki udostępnione przez innych członków projektu
+        </Text>
+
+        {files.length === 0 ? (
+          <EmptyState
+            icon={Share2}
+            title="Brak udostępnionych plików"
+            description="Nikt jeszcze nie udostępnił Ci plików w tym projekcie"
+          />
+        ) : (
+          <Accordion allowMultiple>
+            {files.map((pkg) => (
+              <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
+                <AccordionButton py={4} _hover={{ bg: hoverBg }}>
+                  <HStack flex="1" spacing={3}>
+                    <Icon as={Share2} boxSize={5} color="teal.600" />
+                    <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
+                    <Badge colorScheme="blue" fontSize="sm">{pkg.totalFiles}</Badge>
+                    <Text fontSize="sm" color="gray.500">od: {pkg.ownerName}</Text>
+                  </HStack>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel pb={4}>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Nazwa pliku</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                        <Th>Akcje</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {pkg.files.map((file) => renderFileRow(file, true))}
+                    </Tbody>
+                  </Table>
+                </AccordionPanel>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
+      </VStack>
+    );
+  }
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 B";
@@ -195,7 +462,7 @@ export default function ProjectFiles() {
   };
 
   const handleVersionUploaded = () => {
-    fetchData();
+    refreshData();
     onUploadVersionModalClose();
   };
 
@@ -205,7 +472,7 @@ export default function ProjectFiles() {
   };
 
   const handleShareUpdated = () => {
-    fetchData();
+    refreshData();
     onManageShareModalClose();
   };
 
@@ -241,7 +508,7 @@ export default function ProjectFiles() {
         updated.delete(commentKey);
         return updated;
       });
-      await fetchData();
+      await refreshData();
     } catch (error) {
       showError("Nie udało się dodać komentarza");
     } finally {
@@ -516,7 +783,7 @@ export default function ProjectFiles() {
           </HStack>
         </HStack>
 
-        {!project || !resourcePerms.hasAnyAccess ? (
+        {!project || (!resourcePerms.hasAnyAccess && !resourcePerms.raw.loading) ? (
           <Box p={8} textAlign="center">
             <EmptyState
               icon={FileText}
@@ -525,14 +792,14 @@ export default function ProjectFiles() {
             />
           </Box>
         ) : (
-        <Tabs colorScheme="purple" variant="enclosed">
+        <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex}>
           <TabList>
             {resourcePerms.tabs.showAll && (
               <Tab fontWeight="bold">
                 <HStack spacing={2}>
                   <Icon as={FileText} boxSize={4} />
                   <Text>Wszystkie pliki</Text>
-                  <Badge colorScheme="purple" ml={2}>{allFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                  <Badge colorScheme="purple" ml={2}>{(allFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                 </HStack>
               </Tab>
             )}
@@ -541,7 +808,7 @@ export default function ProjectFiles() {
                 <HStack spacing={2}>
                   <Icon as={FileText} boxSize={4} />
                   <Text>Moje pliki</Text>
-                  <Badge colorScheme="blue" ml={2}>{myFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                  <Badge colorScheme="blue" ml={2}>{(myFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                 </HStack>
               </Tab>
             )}
@@ -550,205 +817,27 @@ export default function ProjectFiles() {
                 <HStack spacing={2}>
                   <Icon as={Share2} boxSize={4} />
                   <Text>Udostępnione</Text>
-                  <Badge colorScheme="teal" ml={2}>{sharedFiles.reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                  <Badge colorScheme="teal" ml={2}>{(sharedFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                 </HStack>
               </Tab>
             )}
           </TabList>
 
           <TabPanels>
-            {/* TAB 0: WSZYSTKIE PLIKI - tylko dla READ_ALL */}
             {resourcePerms.tabs.showAll && (
-            <TabPanel>
-              <VStack spacing={4} align="stretch">
-                <HStack justify="space-between">
-                  <Text fontSize="sm" color="gray.600">
-                    Wszystkie pliki w projekcie (admin)
-                  </Text>
-                  <HStack spacing={2}>
-                    {resourcePerms.all.canShare && (
-                    <Button
-                      leftIcon={<Share2 size={18} />}
-                      colorScheme="orange"
-                      size="sm"
-                      onClick={onShareFilesModalOpen}
-                    >
-                      Udostępnij grupowo
-                    </Button>
-                    )}
-                    {resourcePerms.all.canCreate && (
-                      <Button
-                        leftIcon={<Upload size={18} />}
-                        colorScheme="green"
-                        onClick={onUploadModalOpen}
-                      >
-                        Dodaj pliki
-                      </Button>
-                    )}
-                  </HStack>
-                </HStack>
-
-                {allFiles.length === 0 ? (
-                  <EmptyState
-                    icon={FileText}
-                    title="Brak plików"
-                    description="Nie ma jeszcze żadnych plików w tym projekcie"
-                  />
-                ) : (
-                  <Accordion allowMultiple>
-                    {allFiles.map((pkg) => (
-                      <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
-                        <AccordionButton py={4} _hover={{ bg: hoverBg }}>
-                          <HStack flex="1" spacing={3}>
-                            <Icon as={FileText} boxSize={5} color="purple.600" />
-                            <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
-                            <Badge colorScheme="purple" fontSize="sm">{pkg.totalFiles}</Badge>
-                            <Text fontSize="sm" color="gray.500">właściciel: {pkg.ownerName}</Text>
-                          </HStack>
-                          <AccordionIcon />
-                        </AccordionButton>
-                        <AccordionPanel pb={4}>
-                          <Table size="sm" variant="simple">
-                            <Thead>
-                              <Tr>
-                                <Th>Nazwa pliku</Th>
-                                <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                                <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                                <Th>Akcje</Th>
-                              </Tr>
-                            </Thead>
-                            <Tbody>
-                              {pkg.files.map((file) => renderFileRow(file, false))}
-                            </Tbody>
-                          </Table>
-                        </AccordionPanel>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                )}
-              </VStack>
-            </TabPanel>
+              <TabPanel>
+                <AllFilesTab isActive={activeTabIndex === allFilesTabIndex} />
+              </TabPanel>
             )}
-
-            {/* TAB 1 (or 0 if no ALL): MOJE PLIKI */}
             {resourcePerms.tabs.showMine && (
-            <TabPanel>
-              <VStack spacing={4} align="stretch">
-                <HStack justify="space-between">
-                  <Text fontSize="sm" color="gray.600">
-                    Twoje pliki w projekcie
-                  </Text>
-                  {resourcePerms.mine.canCreate && (
-                  <HStack spacing={2}>
-                    {resourcePerms.mine.canShare && (
-                    <Button
-                      leftIcon={<Share2 size={18} />}
-                      colorScheme="orange"
-                      size="sm"
-                      onClick={onShareFilesModalOpen}
-                    >
-                      Udostępnij grupowo
-                    </Button>
-                    )}
-                    <Button
-                      leftIcon={<Upload size={18} />}
-                      colorScheme="green"
-                      onClick={onUploadModalOpen}
-                    >
-                      Dodaj pliki
-                    </Button>
-                  </HStack>
-                  )}
-                </HStack>
-
-                {myFiles.length === 0 ? (
-                  <EmptyState
-                    icon={FileText}
-                    title="Brak plików"
-                    description="Nie masz jeszcze żadnych plików w tym projekcie"
-                  />
-                ) : (
-                  <Accordion allowMultiple>
-                    {myFiles.map((pkg) => (
-                      <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
-                        <AccordionButton py={4} _hover={{ bg: hoverBg }}>
-                          <HStack flex="1" spacing={3}>
-                            <Icon as={FileText} boxSize={5} color="purple.600" />
-                            <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
-                            <Badge colorScheme="blue" fontSize="sm">{pkg.totalFiles}</Badge>
-                          </HStack>
-                          <AccordionIcon />
-                        </AccordionButton>
-                        <AccordionPanel pb={4}>
-                          <Table size="sm" variant="simple">
-                            <Thead>
-                              <Tr>
-                                <Th>Nazwa pliku</Th>
-                                <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                                <Th>Akcje</Th>
-                              </Tr>
-                            </Thead>
-                            <Tbody>
-                              {pkg.files.map((file) => renderFileRow(file, false))}
-                            </Tbody>
-                          </Table>
-                        </AccordionPanel>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                )}
-              </VStack>
-            </TabPanel>
+              <TabPanel>
+                <MyFilesTab isActive={activeTabIndex === myFilesTabIndex} />
+              </TabPanel>
             )}
-
-            {/* TAB 2 (or 1 if no ALL, or 0 if no ALL and no MINE): PLIKI UDOSTĘPNIONE */}
             {resourcePerms.tabs.showShared && (
-            <TabPanel>
-              <VStack spacing={4} align="stretch">
-                <Text fontSize="sm" color="gray.600">
-                  Pliki udostępnione przez innych członków projektu
-                </Text>
-
-                {sharedFiles.length === 0 ? (
-                  <EmptyState
-                    icon={Share2}
-                    title="Brak udostępnionych plików"
-                    description="Nikt jeszcze nie udostępnił Ci plików w tym projekcie"
-                  />
-                ) : (
-                  <Accordion allowMultiple>
-                    {sharedFiles.map((pkg) => (
-                      <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
-                        <AccordionButton py={4} _hover={{ bg: hoverBg }}>
-                          <HStack flex="1" spacing={3}>
-                            <Icon as={Share2} boxSize={5} color="teal.600" />
-                            <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
-                            <Badge colorScheme="blue" fontSize="sm">{pkg.totalFiles}</Badge>
-                            <Text fontSize="sm" color="gray.500">od: {pkg.ownerName}</Text>
-                          </HStack>
-                          <AccordionIcon />
-                        </AccordionButton>
-                        <AccordionPanel pb={4}>
-                          <Table size="sm" variant="simple">
-                            <Thead>
-                              <Tr>
-                                <Th>Nazwa pliku</Th>
-                                <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                                <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                                <Th>Akcje</Th>
-                              </Tr>
-                            </Thead>
-                            <Tbody>
-                              {pkg.files.map((file) => renderFileRow(file, true))}
-                            </Tbody>
-                          </Table>
-                        </AccordionPanel>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                )}
-              </VStack>
-            </TabPanel>
+              <TabPanel>
+                <SharedFilesTab isActive={activeTabIndex === sharedFilesTabIndex} />
+              </TabPanel>
             )}
           </TabPanels>
         </Tabs>
@@ -760,7 +849,7 @@ export default function ProjectFiles() {
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
           projectName={project?.name || ""}
-          onFilesUploaded={fetchData}
+          onFilesUploaded={refreshData}
         />
 
         {fileForNewVersion && (
@@ -794,7 +883,7 @@ export default function ProjectFiles() {
           onClose={onShareFilesModalClose}
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
-          onFilesShared={fetchData}
+          onFilesShared={refreshData}
         />
       </Box>
     </MainLayout>

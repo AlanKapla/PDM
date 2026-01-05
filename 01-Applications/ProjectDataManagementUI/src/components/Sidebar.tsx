@@ -27,6 +27,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getActiveInvitations } from "../services/tenantService";
 import { InvitationStatus } from "../types/auth.types";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -35,11 +36,19 @@ export default function Sidebar() {
 
   const [invitationsCount, setInvitationsCount] = useState(0);
 
+  // Globalny cache dla invitations (współdzielony z ActiveInvitations page)
+  const invitationsCache = useGlobalCache(
+    'invitations',
+    async () => {
+      return await getActiveInvitations();
+    }
+  );
+
   // Pobierz liczbę aktywnych zaproszeń
   useEffect(() => {
     const fetchInvitations = async () => {
       try {
-        const invitations = await getActiveInvitations();
+        const invitations = await invitationsCache.fetch();
         const pending = invitations.filter((inv: { status: number }) => inv.status === InvitationStatus.Pending);
         setInvitationsCount(pending.length);
       } catch (error) {
