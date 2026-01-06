@@ -1,30 +1,16 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
-using Entities.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Repositiories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 
 namespace Business.Implementation.Services;
 
 public sealed class AccessService
 {
     private readonly ILogger<AccessService> logger;
-    private readonly IReadRepository<Tenant> tenantRepo;
-    private readonly IReadRepository<Project> projectRepo;
-    private readonly IRepository<TenantMember> tenantMemberRepo;
 
-    public AccessService(
-        ILogger<AccessService> logger,
-        IReadRepository<Tenant> tenantRepo,
-        IReadRepository<Project> projectRepo,
-        IRepository<TenantMember> tenantMemberRepo)
+    public AccessService(ILogger<AccessService> logger)
     {
         this.logger = logger;
-        this.tenantRepo = tenantRepo;
-        this.projectRepo = projectRepo;
-        this.tenantMemberRepo = tenantMemberRepo;
     }
 
     public async Task<bool> AuthorizeAsync(
@@ -45,47 +31,44 @@ public sealed class AccessService
         // Handle Global scope permissions
         if (scope == PermissionScope.Global)
         {
-            return await AuthorizeGlobalPermissionAsync(user, permissionCode, cancellationToken);
+            logger.LogDebug(
+                "Authorization granted: User {UserId} has global permission {Permission}",
+                user.Id,
+                permissionCode);
+
+            return true;
         }
 
-        // For non-global scopes, check if ActiveTenantId is required
-        bool needsActiveTenantId = RequiresActiveTenantId(scope, permissionCode);
-        
-        if (needsActiveTenantId && !user.ActiveTenantId.HasValue)
+        // For Tenant and Project scopes, resource must have TenantId
+        if (resource.TenantId == Guid.Empty)
         {
             logger.LogWarning(
-                "Authorization failed: ActiveTenantId required for permission {Permission} with scope {Scope}", 
-                permissionCode, 
-                scope);
-            return false;
-        }
-
-        // For permissions that don't require ActiveTenantId, resource MUST have TenantId
-        if (!needsActiveTenantId && resource.TenantId == Guid.Empty)
-        {
-            logger.LogWarning(
-                "Authorization failed: Resource TenantId required for permission {Permission}",
+                "Authorization failed: TenantId is required for permission {Permission}",
                 permissionCode);
             return false;
         }
 
-        // Validate ActiveTenantId matches resource TenantId (if both are set)
-        // Exception: Some tenant management permissions can work across different tenants
-        if (user.ActiveTenantId.HasValue && resource.TenantId != Guid.Empty 
-            && user.ActiveTenantId.Value != resource.TenantId
-            && !CanWorkAcrossTenants(permissionCode))
+        // Standard flow: resource.TenantId must match user's ActiveTenantId
+        // Exception: Some permissions allow cross-tenant access (admin operations)
+        if (!IsCrossTenantEnabled(permissionCode))
         {
-            logger.LogWarning(
-                "Authorization failed: ActiveTenantId {ActiveTenantId} does not match resource TenantId {ResourceTenantId}",
-                user.ActiveTenantId.Value,
-                resource.TenantId);
-            return false;
+            // Standard flow - enforce ActiveTenantId match
+            if (!user.ActiveTenantId.HasValue || resource.TenantId != user.ActiveTenantId.Value)
+            {
+                logger.LogWarning(
+                    "Authorization failed: Resource TenantId {ResourceTenantId} does not match ActiveTenantId {ActiveTenantId} for permission {Permission}",
+                    resource.TenantId,
+                    user.ActiveTenantId,
+                    permissionCode);
+                return false;
+            }
         }
 
-        // Get appropriate context snapshot (works for both regular users and SuperAdmin)
-        // SuperAdmin will get membership-based permissions if they are a member,
-        // or fallback read-only permissions if they are not
-        if (resource.ProjectId.HasValue || scope == PermissionScope.Project)
+        // Route to appropriate authorization method based on scope
+        // For cross-tenant enabled permissions, GetTenantSnapshotAsync handles:
+        // - Validation that user is Tenant Admin of resource.TenantId
+        // - SuperAdmin fallback permissions
+        if (scope == PermissionScope.Project)
         {
             return await AuthorizeProjectPermissionAsync(user, permissionCode, resource, resourceScope, cancellationToken);
         }
@@ -95,33 +78,16 @@ public sealed class AccessService
         }
     }
 
-    private Task<bool> AuthorizeGlobalPermissionAsync(
-        ICurrentUser user,
-        string permissionCode,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Determines if a permission can work across tenants (for Tenant Admins).
+    /// Most permissions require ActiveTenantId match, but some admin operations
+    /// allow cross-tenant access (e.g., managing multiple tenants as admin).
+    /// </summary>
+    private static bool IsCrossTenantEnabled(string permissionCode)
     {
-        // For global permissions, we check if user has the permission in ANY of their tenants
-        // This is used for operations like listing available tenants
-        
-        // For TENANT.LIST.AVAILABLE, any authenticated user should have access
-        if (permissionCode == PermissionCodes.TenantListAvailable
-            || permissionCode == PermissionCodes.TenantAdminListAvailable
-            || permissionCode == PermissionCodes.RoleList)
-        {
-            logger.LogDebug(
-                "Authorization granted: User {UserId} has global permission {Permission}",
-                user.Id,
-                permissionCode);
-            return Task.FromResult(true);
-        }
-
-        // For other global permissions, check if user has it in any tenant context
-        // This would require loading user's tenant memberships
-        logger.LogWarning(
-            "Authorization failed: Global permission {Permission} not implemented for user {UserId}",
-            permissionCode,
-            user.Id);
-        return Task.FromResult(false);
+        return permissionCode == PermissionCodes.TenantEdit
+            || permissionCode == PermissionCodes.TenantMembersManage
+            || permissionCode == PermissionCodes.TenantStatusManage;
     }
 
     private async Task<bool> AuthorizeTenantPermissionAsync(
@@ -130,54 +96,19 @@ public sealed class AccessService
         ResourceRef resource,
         CancellationToken cancellationToken)
     {
-        Guid tenantIdToCheck = resource.TenantId != Guid.Empty ? resource.TenantId : user.ActiveTenantId!.Value;
-
-        // For permissions that don't require ActiveTenantId, load membership directly for the specific tenant
-        if (IsActiveTenantIdOptional(permissionCode) && resource.TenantId != Guid.Empty)
-        {
-            // Load membership directly from database (not cached snapshot)
-            var membership = await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == resource.TenantId
-                     && tm.UserId == user.Id
-                     && tm.IsActive,
-                q => q.Include(tm => tm.MemberRole).Include(tm => tm.Tenant)
-            );
-
-            if (membership == null)
-            {
-                logger.LogWarning(
-                    "Authorization failed: User {UserId} is not a member of tenant {TenantId}",
-                    user.Id,
-                    resource.TenantId);
-                return false;
-            }
-
-            // Check if user is admin of this tenant
-            if (membership.MemberRole?.Code != RoleCodes.TenantAdmin)
-            {
-                logger.LogWarning(
-                    "Authorization failed: User {UserId} is not admin of tenant {TenantId}",
-                    user.Id,
-                    resource.TenantId);
-                return false;
-            }
-
-            // Check if tenant is active (only for non-admins, but since we already know user is admin, skip)
-            logger.LogDebug(
-                "Authorization granted: User {UserId} has permission {Permission} in tenant {TenantId} (cross-tenant check)",
-                user.Id,
-                permissionCode,
-                resource.TenantId);
-            
-            return true;
-        }
-
-        // Standard flow: use cached snapshot
-        var tenantSnapshot = await user.GetActiveTenantSnapshotAsync(cancellationToken);
+        // Use tenant snapshot (cached) - works for both standard flow and cross-tenant
+        // GetTenantSnapshotAsync handles:
+        // - SuperAdmin fallback permissions
+        // - Tenant Admin permissions
+        // - Cross-tenant access validation
+        var tenantSnapshot = await user.GetTenantSnapshotAsync(resource.TenantId, cancellationToken);
         
         if (tenantSnapshot == null)
         {
-            logger.LogWarning("Authorization failed: User {UserId} has no tenant context", user.Id);
+            logger.LogWarning(
+                "Authorization failed: User {UserId} has no access to tenant {TenantId}",
+                user.Id,
+                resource.TenantId);
             return false;
         }
 
@@ -188,40 +119,26 @@ public sealed class AccessService
                 "Authorization failed: User {UserId} lacks permission {Permission} in tenant {TenantId}",
                 user.Id,
                 permissionCode,
-                tenantIdToCheck);
+                resource.TenantId);
             return false;
         }
 
         // Check Tenant.IsActive (only for non-admin members)
         // SuperAdmin without membership (fallback permissions) can access inactive tenants if they have the permission
-        if (!tenantSnapshot.IsTenantAdmin)
+        if (!tenantSnapshot.IsTenantAdmin && !tenantSnapshot.IsActive && !user.IsSuperAdmin)
         {
-            var tenant = await tenantRepo.GetFirstBySearch(
-                t => t.Id == tenantIdToCheck,
-                cancellationToken);
-
-            if (tenant == null)
-            {
-                logger.LogWarning("Authorization failed: Tenant {TenantId} not found", tenantIdToCheck);
-                return false;
-            }
-
-            // Skip IsActive check for SuperAdmin (even without admin membership)
-            if (!tenant.IsActive && !user.IsSuperAdmin)
-            {
-                logger.LogWarning(
-                    "Authorization failed: Tenant {TenantId} is inactive and user is not admin or SuperAdmin",
-                    tenant.Id);
-                return false;
-            }
+            logger.LogWarning(
+                "Authorization failed: Tenant {TenantId} is inactive and user is not admin or SuperAdmin",
+                resource.TenantId);
+            return false;
         }
 
         logger.LogDebug(
             "Authorization granted: User {UserId} has permission {Permission} in tenant {TenantId}",
             user.Id,
             permissionCode,
-            tenantIdToCheck);
-        
+            resource.TenantId);
+
         return true;
     }
 
@@ -242,19 +159,14 @@ public sealed class AccessService
         
         if (projectSnapshot == null)
         {
-            // User might still have tenant-level permission
-            var tenantSnapshot = await user.GetActiveTenantSnapshotAsync(cancellationToken);
-            
-            if (tenantSnapshot != null && tenantSnapshot.IsTenantAdmin && tenantSnapshot.TenantPermissionCodes.Contains(permissionCode))
-            {
-                logger.LogDebug(
-                    "Authorization granted: User {UserId} has tenant admin permission {Permission}",
-                    user.Id,
-                    permissionCode);
-                return await CheckProjectActiveAsync(resource.ProjectId.Value, false, cancellationToken);
-            }
-
-            logger.LogWarning("Authorization failed: User {UserId} has no project context for {ProjectId}", user.Id, resource.ProjectId.Value);
+            // GetProjectSnapshotAsync returns null only when user has NO access to the project:
+            // - Not a project member
+            // - Not a Tenant Admin of project's tenant
+            // - Not a SuperAdmin
+            logger.LogWarning(
+                "Authorization failed: User {UserId} has no access to project {ProjectId}",
+                user.Id,
+                resource.ProjectId.Value);
             return false;
         }
 
@@ -294,27 +206,13 @@ public sealed class AccessService
         }
 
         // Check Project.IsActive (only for non-admin members)
-        // SuperAdmin without membership (fallback permissions) can access inactive projects if they have the permission
-        if (!projectSnapshot.IsProjectAdmin)
+        // Project admins (including Tenant Admins and SuperAdmins) can access inactive projects
+        if (!projectSnapshot.IsProjectAdmin && !projectSnapshot.IsActive && !user.IsSuperAdmin)
         {
-            var project = await projectRepo.GetFirstBySearch(
-                p => p.Id == resource.ProjectId.Value,
-                cancellationToken);
-
-            if (project == null)
-            {
-                logger.LogWarning("Authorization failed: Project {ProjectId} not found", resource.ProjectId.Value);
-                return false;
-            }
-
-            // Skip IsActive check for SuperAdmin (even without admin membership)
-            if (!project.IsActive && !user.IsSuperAdmin)
-            {
-                logger.LogWarning(
-                    "Authorization failed: Project {ProjectId} is inactive and user is not admin or SuperAdmin",
-                    resource.ProjectId.Value);
-                return false;
-            }
+            logger.LogWarning(
+                "Authorization failed: Project {ProjectId} is inactive and user is not admin or SuperAdmin",
+                resource.ProjectId.Value);
+            return false;
         }
 
         logger.LogDebug(
@@ -323,47 +221,7 @@ public sealed class AccessService
             permissionCode,
             resourceScope,
             resource.ProjectId.Value);
-        
+
         return true;
-    }
-
-    private async Task<bool> CheckProjectActiveAsync(Guid projectId, bool required, CancellationToken cancellationToken)
-    {
-        var project = await projectRepo.GetFirstBySearch(
-            p => p.Id == projectId,
-            cancellationToken);
-
-        if (project == null)
-        {
-            logger.LogWarning("Project {ProjectId} not found", projectId);
-            return false;
-        }
-
-        return !required || project.IsActive;
-    }
-
-    private static bool RequiresActiveTenantId(PermissionScope scope, string permissionCode)
-    {
-        // Global scope never requires ActiveTenantId
-        if (scope == PermissionScope.Global)
-            return false;
-
-        // These tenant management permissions don't require ActiveTenantId
-        return !IsActiveTenantIdOptional(permissionCode);
-    }
-
-    private static bool IsActiveTenantIdOptional(string permissionCode)
-    {
-        // Permissions that work without ActiveTenantId (tenant management operations)
-        return permissionCode == PermissionCodes.TenantEdit
-            || permissionCode == PermissionCodes.TenantMembersManage
-            || permissionCode == PermissionCodes.TenantStatusManage;
-    }
-
-    private static bool CanWorkAcrossTenants(string permissionCode)
-    {
-        // Permissions that can work on different tenant than ActiveTenantId
-        // (as long as user is admin of that tenant)
-        return IsActiveTenantIdOptional(permissionCode);
     }
 }

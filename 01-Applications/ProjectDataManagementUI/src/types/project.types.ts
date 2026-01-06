@@ -186,6 +186,7 @@ export interface CreateProjectCostCommand {
   netAmount?: number;
   vatRate?: number;
   grossAmount?: number;
+  isClosed?: boolean;
   document?: File;
 }
 

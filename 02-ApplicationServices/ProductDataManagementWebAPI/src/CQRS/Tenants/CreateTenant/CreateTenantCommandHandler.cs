@@ -43,6 +43,7 @@ namespace CQRS.Tenants.CreateTenant
             };
 
             await tenantRepo.Insert(tenant);
+            await tenantRepo.SaveChangesAsync(cancellationToken);
 
             // Get TENANT.ADMIN role
             var adminRole = await roleRepo.GetFirstBySearch(
@@ -60,6 +61,7 @@ namespace CQRS.Tenants.CreateTenant
             };
 
             await tenantMemberRepo.Insert(ownerMember);
+            await tenantMemberRepo.SaveChangesAsync(cancellationToken);
 
             // Bump permissions version for current user
             await permissionsVersionService.BumpVersionAsync(currentUser.Id, cancellationToken);

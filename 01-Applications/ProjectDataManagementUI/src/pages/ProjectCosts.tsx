@@ -416,14 +416,16 @@ function MyCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, cos
                     variant="ghost"
                     onClick={() => handleViewCostEstimate(costEstimate.id)}
                   />
-                  <IconButton
-                    aria-label="Kopiuj"
-                    icon={<Copy size={14} />}
-                    size="xs"
-                    colorScheme="purple"
-                    variant="ghost"
-                    onClick={() => handleCopyCostEstimate(costEstimate)}
-                  />
+                  {resourcePerms.mine.canEdit && (
+                    <IconButton
+                      aria-label="Kopiuj"
+                      icon={<Copy size={14} />}
+                      size="xs"
+                      colorScheme="purple"
+                      variant="ghost"
+                      onClick={() => handleCopyCostEstimate(costEstimate)}
+                    />
+                  )}
                   {resourcePerms.mine.canDelete && (
                     <IconButton
                       aria-label="Usuń"
@@ -531,14 +533,16 @@ function AllCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, co
                     variant="ghost"
                     onClick={() => handleViewCostEstimate(costEstimate.id)}
                   />
-                  <IconButton
-                    aria-label="Kopiuj"
-                    icon={<Copy size={14} />}
-                    size="xs"
-                    colorScheme="purple"
-                    variant="ghost"
-                    onClick={() => handleCopyCostEstimate(costEstimate)}
-                  />
+                  {resourcePerms.all.canEdit && (
+                    <IconButton
+                      aria-label="Kopiuj"
+                      icon={<Copy size={14} />}
+                      size="xs"
+                      colorScheme="purple"
+                      variant="ghost"
+                      onClick={() => handleCopyCostEstimate(costEstimate)}
+                    />
+                  )}
                   {resourcePerms.all.canDelete && (
                     <IconButton
                       aria-label="Usuń"

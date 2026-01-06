@@ -38,20 +38,28 @@ namespace CQRS.Files.ShareProjectFiles
 
         public async Task<Unit> Handle(ShareProjectFilesCommand request, CancellationToken cancellationToken)
         {
-            // 1. Pobierz pliki i sprawdź ownership
+            // 1. Get files and verify they exist and belong to the correct project/tenant
             var projectFiles = await projectFileRepo.GetBySearch(
-                pf => request.ProjectFileIds.Contains(pf.Id) && !pf.IsDeleted);
+                pf => request.ProjectFileIds.Contains(pf.Id) 
+                    && pf.ProjectId == request.ProjectId
+                    && pf.TenantId == request.TenantId
+                    && !pf.IsDeleted);
 
             if (projectFiles.Count() != request.ProjectFileIds.Count())
             {
                 throw new NotFoundApiException(nameof(ProjectFile), "One or more files not found");
             }
 
-            // 2. Sprawdź czy user jest właścicielem WSZYSTKICH plików
-            var notOwnedFiles = projectFiles.Where(pf => pf.OwnerId != currentUser.Id).ToList();
-            if (notOwnedFiles.Any())
+            // 2. Authorization check: tenant admin OR project admin OR owner of ALL files
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            
+            if (!isAdmin)
             {
-                throw new ForbiddenApiException($"You can only share files you own. {notOwnedFiles.Count} files are not owned by you.");
+                var notOwnedFiles = projectFiles.Where(pf => pf.OwnerId != currentUser.Id).ToList();
+                if (notOwnedFiles.Any())
+                {
+                    throw new NotFoundApiException(nameof(ProjectFile), "One or more files not found");
+                }
             }
 
             // 3. Get all existing shares for all users and files in one query
@@ -70,7 +78,7 @@ namespace CQRS.Files.ShareProjectFiles
 
             var allSharedFilesToInsert = new List<SharedProjectFile>();
 
-            // For each user, determine files to share
+            // 4. For each user, determine files to share
             foreach (var userId in request.SharedWithUserIds)
             {
                 var existingFileIds = existingSharesDict.ContainsKey(userId) 
@@ -80,7 +88,9 @@ namespace CQRS.Files.ShareProjectFiles
                 var filesToShare = request.ProjectFileIds.Where(id => !existingFileIds.Contains(id)).ToList();
 
                 if (!filesToShare.Any())
+                {
                     continue;
+                }
 
                 // Prepare shares for this user
                 foreach (var fileId in filesToShare)
@@ -106,7 +116,7 @@ namespace CQRS.Files.ShareProjectFiles
                 await SendNotificationAsync(request, userId, filesToShare.Count, fileNamesDict, cancellationToken);
             }
 
-            // Insert all shared files in one batch
+            // 5. Insert all shared files in one batch
             if (allSharedFilesToInsert.Any())
             {
                 await sharedProjectFileRepo.InsertRange(allSharedFilesToInsert);
@@ -124,7 +134,9 @@ namespace CQRS.Files.ShareProjectFiles
         {
             var currentUserDetails = await userRepo.GetById(currentUser.Id);
             if (currentUserDetails == null)
+            {
                 return;
+            }
 
             string sharerName = $"{currentUserDetails.FirstName} {currentUserDetails.LastName}".Trim();
 

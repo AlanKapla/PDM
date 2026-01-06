@@ -35,6 +35,7 @@ import { projectApi } from "../api/projectApi";
 import EditWorkScheduleModal from "../components/EditWorkScheduleModal";
 import WorkDetailsModal from "../components/WorkDetailsModal";
 import { AuthContext } from "../context/AuthContext";
+import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { WorkScheduleDetailsWeb, WorkScheduleStageWorkWeb } from "../types/workSchedule.types";
 
 type TimeScale = "days" | "weeks" | "months";
@@ -44,6 +45,7 @@ export default function WorkScheduleView() {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const toast = useToast();
+  const permissions = useResourcePermissions(projectId);
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
   const { isOpen: isWorkDetailsOpen, onOpen: onWorkDetailsOpen, onClose: onWorkDetailsClose } = useDisclosure();
 
@@ -598,7 +600,7 @@ export default function WorkScheduleView() {
                 {showComments ? "Ukryj komentarze" : "Pokaż komentarze"}
               </Button>
               
-              {isDirty && (
+              {isDirty && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
                 <>
                   <Button
                     colorScheme="green"
@@ -625,6 +627,7 @@ export default function WorkScheduleView() {
                 colorScheme="purple"
                 onClick={handleEditMode}
                 size="sm"
+                isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
               >
                 Edytuj
               </Button>
@@ -1013,6 +1016,7 @@ export default function WorkScheduleView() {
                                               variant="ghost"
                                               colorScheme="purple"
                                               onClick={() => addWorkComment(work.id)}
+                                              isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
                                             />
                                           </HStack>
                                           {work.comments && work.comments.length > 0 ? (
@@ -1029,6 +1033,7 @@ export default function WorkScheduleView() {
                                                     minH="50px"
                                                     fontSize="xs"
                                                     flex={1}
+                                                    isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
                                                   />
                                                   <IconButton
                                                     aria-label="Usuń komentarz"
@@ -1037,6 +1042,7 @@ export default function WorkScheduleView() {
                                                     colorScheme="red"
                                                     variant="ghost"
                                                     onClick={() => removeWorkComment(work.id, comment.id)}
+                                                    isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
                                                   />
                                                 </HStack>
                                               ))}

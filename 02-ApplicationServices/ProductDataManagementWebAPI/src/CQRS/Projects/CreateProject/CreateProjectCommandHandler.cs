@@ -50,6 +50,7 @@ namespace CQRS.Projects.CreateProject
             };
 
             await projectRepo.Insert(project);
+            await projectRepo.SaveChangesAsync(cancellationToken);
 
             // Get PROJECT.ADMIN role
             var adminRole = await roleRepo.GetFirstBySearch(
@@ -67,6 +68,7 @@ namespace CQRS.Projects.CreateProject
             };
 
             await projectMemberRepo.Insert(projectMember);
+            await projectMemberRepo.SaveChangesAsync(cancellationToken);
 
             // Bump permissions version
             await permissionsVersionService.BumpVersionAsync(currentUser.Id, cancellationToken);

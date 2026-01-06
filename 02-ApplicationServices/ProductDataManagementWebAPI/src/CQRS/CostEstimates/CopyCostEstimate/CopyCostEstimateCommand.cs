@@ -1,6 +1,5 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
-using CQRS.Interfaces;
 
 namespace CQRS.CostEstimates.CopyCostEstimate
 {

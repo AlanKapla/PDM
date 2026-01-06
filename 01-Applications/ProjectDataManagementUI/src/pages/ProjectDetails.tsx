@@ -415,6 +415,7 @@ export default function ProjectDetails() {
           netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
           vatRate: editingCostData.vatRate ? parseFloat(editingCostData.vatRate) : undefined,
           grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
+          isClosed: editingCostData.isClosed ?? false,
           document: documentFile || undefined,
           removeDocument: editingCostData.removeDocument,
         }

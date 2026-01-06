@@ -9,16 +9,9 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
     public class ShareProjectCostsCommandValidator : AbstractValidator<ShareProjectCostsCommand>
     {
         public ShareProjectCostsCommandValidator(
-            IReadRepository<ProjectCost> projectCostRepo,
             IRepository<ProjectMember> projectMemberRepo,
             ICurrentUser currentUser)
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
             RuleFor(x => x.ProjectCostIds)
                 .NotNull().WithMessage("ProjectCostIds is required")
                 .NotEmpty().WithMessage("You must select at least one cost to share")
@@ -28,28 +21,6 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                 .NotNull().WithMessage("SharedWithUserIds is required")
                 .NotEmpty().WithMessage("You must select at least one user to share with")
                 .Must(ids => ids.Count <= 50).WithMessage("You can share with a maximum of 50 users at once");
-
-            // Check if all costs exist in the project and user is owner
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    // Fetch all costs in one query instead of in a loop
-                    var costs = await projectCostRepo.GetBySearch(
-                        pc => command.ProjectCostIds.Contains(pc.Id) &&
-                              pc.ProjectId == command.ProjectId &&
-                              pc.TenantId == command.TenantId &&
-                              !pc.IsDeleted);
-                    
-                    var costsList = costs.ToList();
-                    
-                    // Check if all requested costs exist
-                    if (costsList.Count != command.ProjectCostIds.Count)
-                        return false;
-                    
-                    // Check if user is owner of all costs
-                    return costsList.All(c => c.UserId == currentUser.Id);
-                })
-                .WithMessage("One or more costs do not exist in this project or you are not the owner");
 
             // Check if all users we're sharing with are members of the project
             RuleFor(x => x)

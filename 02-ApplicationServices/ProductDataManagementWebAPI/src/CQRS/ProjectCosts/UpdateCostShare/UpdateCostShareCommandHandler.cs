@@ -42,32 +42,23 @@ namespace CQRS.ProjectCosts.UpdateCostShare
 
         public async Task<Unit> Handle(UpdateCostShareCommand request, CancellationToken cancellationToken)
         {
-            // ProjectMemberHandler already validated tenant isolation and project membership
-            // Validator already checked cost ownership
-
-            // Get existing cost with shared relationships (without Project to avoid unnecessary data)
+            // 1. Verify cost exists and belongs to the correct project/tenant
             var cost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId 
                     && pc.TenantId == request.TenantId 
                     && pc.ProjectId == request.ProjectId 
                     && !pc.IsDeleted,
-                query => query.Include(pc => pc.SharedWith));
+                query => query.Include(pc => pc.SharedWith))
+                ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
 
-            if (cost == null)
+            // 2. Authorization check: tenant admin OR project admin OR cost owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isCostOwner = cost.UserId == currentUser.Id;
+            
+            if (!isAdmin && !isCostOwner)
             {
-                throw new NotFoundApiException("ProjectCost", request.CostId.ToString());
+                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
             }
-
-            // Verify ownership
-            if (cost.UserId != currentUser.Id)
-            {
-                throw new ForbiddenApiException("Only the cost owner can update sharing");
-            }
-
-            // Get project name separately only if needed for notifications
-            var project = await projectRepo.GetFirstBySearch(p => p.Id == request.ProjectId && p.IsActive);
-
-            string projectName = project?.Name ?? string.Empty;
 
             var existingUserIds = cost.SharedWith.Select(s => s.SharedWithUserId).ToHashSet();
             var requestedUserIds = request.SharedWithUserIds.ToHashSet();
@@ -79,7 +70,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
             var affectedUsers = await userRepo.GetBySearch(u => allAffectedUserIds.Contains(u.Id));
             var userDict = affectedUsers.ToDictionary(u => u.Id);
 
-            // Remove shares that are no longer in the list
+            // 4. Remove shares that are no longer in the list
             if (usersToRemove.Any())
             {
                 var sharesToRemove = cost.SharedWith
@@ -98,7 +89,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         Id = Guid.NewGuid(),
                         TenantId = request.TenantId,
                         ProjectId = request.ProjectId,
-                        ProjectName = projectName,
                         UserId = userId,
                         AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                         Type = NotificationType.Info,
@@ -123,7 +113,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                     request.CostId, usersToRemove.Count);
             }
 
-            // Add new shares
+            // 5. Add new shares
             if (usersToAdd.Any())
             {
                 var newShares = usersToAdd.Select(userId => new SharedProjectCost
@@ -148,7 +138,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         Id = Guid.NewGuid(),
                         TenantId = request.TenantId,
                         ProjectId = request.ProjectId,
-                        ProjectName = projectName,
                         UserId = userId,
                         AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                         Type = NotificationType.Success,
@@ -173,7 +162,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                     request.CostId, usersToAdd.Count);
             }
 
-            // Save all changes (deletes and inserts)
+            // 6. Save all changes
             await sharedProjectCostRepo.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(

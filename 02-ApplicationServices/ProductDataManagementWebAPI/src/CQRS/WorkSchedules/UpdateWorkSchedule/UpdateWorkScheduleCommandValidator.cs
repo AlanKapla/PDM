@@ -8,57 +8,14 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
 {
     public class UpdateWorkScheduleCommandValidator : AbstractValidator<UpdateWorkScheduleCommand>
     {
-        private readonly IReadRepository<Project> projectRepo;
-        private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IRepository<WorkSchedule> workScheduleRepo;
-        private readonly ICurrentUser currentUser;
-
-        public UpdateWorkScheduleCommandValidator(
-            IReadRepository<Project> projectRepo,
-            IRepository<ProjectMember> projectMemberRepo,
-            IRepository<WorkSchedule> workScheduleRepo,
-            ICurrentUser currentUser)
+        public UpdateWorkScheduleCommandValidator(IRepository<ProjectMember> projectMemberRepo)
         {
-            this.projectRepo = projectRepo;
-            this.projectMemberRepo = projectMemberRepo;
-            this.workScheduleRepo = workScheduleRepo;
-            this.currentUser = currentUser;
-
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
             RuleFor(x => x.WorkScheduleId)
                 .NotEmpty().WithMessage("WorkScheduleId is required");
 
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Work schedule name is required")
                 .MaximumLength(200).WithMessage("Work schedule name cannot exceed 200 characters");
-
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellationToken) =>
-                {
-                    WorkSchedule? workSchedule = await workScheduleRepo.GetFirstBySearch(
-                        ws => ws.Id == command.WorkScheduleId
-                            && ws.TenantId == command.TenantId
-                            && ws.ProjectId == command.ProjectId
-                            && ws.CreatedByUserId == currentUser.Id);
-
-                    return workSchedule != null;
-                })
-                .WithMessage("Work schedule not found or does not belong to the tenant and project or current user");
-
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellationToken) =>
-                {
-                    Project? project = await projectRepo.GetFirstBySearch(
-                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId);
-
-                    return project != null;
-                })
-                .WithMessage("Project not found or does not belong to the tenant");
 
             RuleFor(x => x)
                 .MustAsync(async (command, cancellationToken) =>

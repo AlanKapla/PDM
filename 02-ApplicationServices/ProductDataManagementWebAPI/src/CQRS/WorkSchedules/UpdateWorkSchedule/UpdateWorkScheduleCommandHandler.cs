@@ -48,9 +48,9 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             Guid tenantId = request.TenantId;
             Guid projectId = request.ProjectId;
 
-            // Load existing work schedule with all relations including periods and comments
-            WorkSchedule workSchedule = (await workScheduleRepo.GetFirstBySearch(
-                ws => ws.Id == request.WorkScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId && ws.CreatedByUserId == currentUser.Id,
+            // 1. Load existing work schedule with all relations
+            WorkSchedule? workSchedule = await workScheduleRepo.GetFirstBySearch(
+                ws => ws.Id == request.WorkScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId,
                 include => include
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
@@ -63,9 +63,19 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
                             .ThenInclude(w => w.Comments)
-                                .ThenInclude(c => c.CreatedBy)))!;
+                                .ThenInclude(c => c.CreatedBy))
+                ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
 
-            // Update work schedule name
+            // 2. Authorization check: tenant admin OR project admin OR work schedule owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken);
+            bool isOwner = workSchedule.CreatedByUserId == currentUser.Id;
+            
+            if (!isAdmin && !isOwner)
+            {
+                throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
+            }
+
+            // 3. Update work schedule name
             workSchedule.Name = request.Name;
             await workScheduleRepo.Update(workSchedule);
 
@@ -440,7 +450,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             }
             else
             {
-                // If no stages provided, delete all existing stages (which cascades to works and assignments)
+                // If no stages provided, delete all existing stages
                 if (workSchedule.Stages.Any())
                 {
                     // Track removed users

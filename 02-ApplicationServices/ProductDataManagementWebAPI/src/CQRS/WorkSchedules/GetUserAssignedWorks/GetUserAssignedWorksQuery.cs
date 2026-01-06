@@ -1,7 +1,6 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.WorkSchedules;
-using CQRS.Interfaces;
 
 namespace CQRS.WorkSchedules.GetUserAssignedWorks
 {

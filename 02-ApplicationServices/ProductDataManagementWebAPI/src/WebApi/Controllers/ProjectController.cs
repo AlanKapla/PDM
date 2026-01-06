@@ -41,6 +41,8 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.TenantProjectCreate)]
         public async Task<IActionResult> CreateProject([FromRoute] Guid tenantId, [FromBody] CreateProjectCommand command)
         {
+            command = command with { TenantId = tenantId };
+
             var result = await Send(command);
             return CreatedAtAction(nameof(GetTenantProjects), new { tenantId }, result);
         }

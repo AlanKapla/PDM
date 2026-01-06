@@ -13,12 +13,6 @@ namespace CQRS.Files.ShareProjectFiles
             IRepository<ProjectMember> projectMemberRepo,
             ICurrentUser currentUser)
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
             RuleFor(x => x.ProjectFileIds)
                 .NotNull().WithMessage("ProjectFileIds is required")
                 .NotEmpty().WithMessage("You must select at least one file to share")
@@ -28,28 +22,6 @@ namespace CQRS.Files.ShareProjectFiles
                 .NotNull().WithMessage("SharedWithUserIds is required")
                 .NotEmpty().WithMessage("You must select at least one user to share with")
                 .Must(ids => ids.Count <= 50).WithMessage("You can share with a maximum of 50 users at once");
-
-            // Check if all files exist in the project and user is owner
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    // Fetch all files in one query instead of in a loop
-                    var files = await projectFileRepo.GetBySearch(
-                        pf => command.ProjectFileIds.Contains(pf.Id) &&
-                              pf.ProjectId == command.ProjectId &&
-                              pf.TenantId == command.TenantId &&
-                              !pf.IsDeleted);
-                    
-                    var filesList = files.ToList();
-                    
-                    // Check if all requested files exist
-                    if (filesList.Count != command.ProjectFileIds.Count)
-                        return false;
-                    
-                    // Check if user is owner of all files
-                    return filesList.All(f => f.OwnerId == currentUser.Id);
-                })
-                .WithMessage("One or more files do not exist in this project or you are not the owner");
 
             // Check if all users we're sharing with are members of the project
             RuleFor(x => x)

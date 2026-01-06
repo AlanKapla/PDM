@@ -330,6 +330,7 @@ export const projectApi = {
       netAmount?: number;
       vatRate?: number;
       grossAmount?: number;
+      isClosed?: boolean;
       document?: File;
     }
   ) => {
@@ -363,6 +364,7 @@ export const projectApi = {
       netAmount?: number;
       vatRate?: number;
       grossAmount?: number;
+      isClosed: boolean;
       document?: File;
       removeDocument: boolean;
     }
@@ -378,6 +380,7 @@ export const projectApi = {
     if (data.netAmount !== undefined) formData.append("NetAmount", data.netAmount.toString());
     if (data.vatRate !== undefined) formData.append("VatRate", data.vatRate.toString());
     if (data.grossAmount !== undefined) formData.append("GrossAmount", data.grossAmount.toString());
+    formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
     formData.append("RemoveDocument", data.removeDocument.toString());
 

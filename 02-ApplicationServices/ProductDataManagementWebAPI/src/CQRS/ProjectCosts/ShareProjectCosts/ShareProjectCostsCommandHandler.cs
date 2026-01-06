@@ -38,20 +38,28 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
 
         public async Task<Unit> Handle(ShareProjectCostsCommand request, CancellationToken cancellationToken)
         {
-            // 1. Pobierz koszty i sprawdź ownership
+            // 1. Verify costs exist and belong to the correct project/tenant
             var projectCosts = await projectCostRepo.GetBySearch(
-                pc => request.ProjectCostIds.Contains(pc.Id) && !pc.IsDeleted);
+                pc => request.ProjectCostIds.Contains(pc.Id) 
+                    && pc.ProjectId == request.ProjectId
+                    && pc.TenantId == request.TenantId
+                    && !pc.IsDeleted);
 
             if (projectCosts.Count() != request.ProjectCostIds.Count())
             {
                 throw new NotFoundApiException(nameof(ProjectCost), "One or more costs not found");
             }
 
-            // 2. Sprawdź czy user jest właścicielem WSZYSTKICH kosztów
-            var notOwnedCosts = projectCosts.Where(pc => pc.UserId != currentUser.Id).ToList();
-            if (notOwnedCosts.Any())
+            // 2. Authorization check: tenant admin OR project admin OR owner of ALL costs
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            
+            if (!isAdmin)
             {
-                throw new ForbiddenApiException($"You can only share costs you own. {notOwnedCosts.Count} costs are not owned by you.");
+                var notOwnedCosts = projectCosts.Where(pc => pc.UserId != currentUser.Id).ToList();
+                if (notOwnedCosts.Any())
+                {
+                    throw new NotFoundApiException(nameof(ProjectCost), "One or more costs not found");
+                }
             }
 
             // 3. Get all existing shares for all users and costs in one query
@@ -70,7 +78,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
 
             var allSharedCostsToInsert = new List<SharedProjectCost>();
 
-            // For each user, determine costs to share
+            // 4. For each user, determine costs to share
             foreach (var userId in request.SharedWithUserIds)
             {
                 var existingCostIds = existingSharesDict.ContainsKey(userId) 
@@ -80,7 +88,9 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                 var costsToShare = request.ProjectCostIds.Where(id => !existingCostIds.Contains(id)).ToList();
 
                 if (!costsToShare.Any())
+                {
                     continue;
+                }
 
                 // Prepare shares for this user
                 foreach (var costId in costsToShare)
@@ -106,7 +116,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                 await SendNotificationAsync(request, userId, costsToShare.Count, costNamesDict, cancellationToken);
             }
 
-            // Insert all shared costs in one batch
+            // 5. Insert all shared costs in one batch
             if (allSharedCostsToInsert.Any())
             {
                 await sharedProjectCostRepo.InsertRange(allSharedCostsToInsert);
@@ -124,7 +134,9 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
         {
             var currentUserDetails = await userRepo.GetById(currentUser.Id);
             if (currentUserDetails == null)
+            {
                 return;
+            }
 
             string sharerName = $"{currentUserDetails.FirstName} {currentUserDetails.LastName}".Trim();
 

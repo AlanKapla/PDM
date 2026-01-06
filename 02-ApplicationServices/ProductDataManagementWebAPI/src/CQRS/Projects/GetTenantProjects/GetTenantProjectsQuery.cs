@@ -1,8 +1,6 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
-using CQRS;
-using CQRS.Interfaces;
 
 namespace CQRS.Projects.GetTenantProjects
 {

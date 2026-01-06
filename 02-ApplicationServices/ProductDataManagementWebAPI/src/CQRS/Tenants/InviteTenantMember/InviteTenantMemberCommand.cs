@@ -1,7 +1,5 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
-using CQRS;
-using CQRS.Interfaces;
 using MediatR;
 
 namespace CQRS.Tenants.InviteTenantMember

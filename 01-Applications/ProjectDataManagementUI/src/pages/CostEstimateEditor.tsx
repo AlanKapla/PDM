@@ -49,6 +49,7 @@ import type { CostEstimateTemplateDetails } from '../api/costEstimateTemplateApi
 import { useCalculations } from '../hooks/useCalculations';
 import { formatCalculatedValue } from '../utils/calculationEngine';
 import { formatDate } from '../utils/formatters';
+import { useResourcePermissions } from '../hooks/useResourcePermissions';
 
 import { CostEstimateTable } from '../components/CostEstimateTable';
 import { CostEstimateViewer } from '../components/CostEstimateViewer';
@@ -79,6 +80,7 @@ export const CostEstimateEditor: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { user } = useContext(AuthContext);
+  const permissions = useResourcePermissions(projectId);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -584,6 +586,7 @@ export const CostEstimateEditor: React.FC = () => {
               colorScheme={viewMode === 'edit' ? 'blue' : 'gray'}
               variant={viewMode === 'edit' ? 'solid' : 'ghost'}
               onClick={() => setViewMode('edit')}
+              isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
             >
               Edycja
             </Button>
@@ -632,7 +635,7 @@ export const CostEstimateEditor: React.FC = () => {
                 Rozpocznij tworzenie kosztorysu
               </AlertDescription>
             </Alert>
-            {viewMode === 'edit' && (
+            {viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
               <Button
                 leftIcon={<Plus size={16} />}
                 colorScheme="green"
@@ -648,7 +651,7 @@ export const CostEstimateEditor: React.FC = () => {
           <CostEstimateExcelView
             dataModel={dataModel} 
             template={template}
-            editable={viewMode === 'edit'}
+            editable={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit)}
             onDataChange={(updatedDataModel) => {
               const recalculated = calculations.recalculateAll(updatedDataModel);
               setDataModel(recalculated);
@@ -656,16 +659,17 @@ export const CostEstimateEditor: React.FC = () => {
             }}
             onAddGroup={(() => {
               const canAdd = template.templateStructure.canAddGroups;
-              const result = viewMode === 'edit' ? (canAdd ? handleAddGroup : undefined) : undefined;
-              console.log('[CostEstimateEditor] onAddGroup:', { viewMode, canAdd, result: result !== undefined });
+              const hasPermission = permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit;
+              const result = viewMode === 'edit' && hasPermission ? (canAdd ? handleAddGroup : undefined) : undefined;
+              console.log('[CostEstimateEditor] onAddGroup:', { viewMode, canAdd, hasPermission, result: result !== undefined });
               return result;
             })()}
-            onAddSubGroup={viewMode === 'edit' ? (template.templateStructure.canBranchGroups ? handleAddSubGroup : undefined) : undefined}
-            onDeleteGroup={viewMode === 'edit' ? handleDeleteGroup : undefined}
-            onAddWorkScope={viewMode === 'edit' ? handleAddWorkScope : undefined}
-            onDeleteWorkScope={viewMode === 'edit' ? handleDeleteWorkScope : undefined}
-            onAddCollectionItem={viewMode === 'edit' ? handleAddCollectionItem : undefined}
-            onDeleteCollectionItem={viewMode === 'edit' ? handleDeleteCollectionItem : undefined}
+            onAddSubGroup={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? (template.templateStructure.canBranchGroups ? handleAddSubGroup : undefined) : undefined}
+            onDeleteGroup={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleDeleteGroup : undefined}
+            onAddWorkScope={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleAddWorkScope : undefined}
+            onDeleteWorkScope={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleDeleteWorkScope : undefined}
+            onAddCollectionItem={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleAddCollectionItem : undefined}
+            onDeleteCollectionItem={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleDeleteCollectionItem : undefined}
           />
         )}
       </Box>

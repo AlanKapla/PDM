@@ -39,7 +39,7 @@ namespace CQRS.Files.UploadProjectFileVersion
 
         public async Task<Unit> Handle(UploadProjectFileVersionCommand request, CancellationToken cancellationToken)
         {
-            // Pobierz istniejący plik z wersjami
+            // 1. Verify file exists and belongs to the correct project/tenant
             var projectFiles = await projectFileRepo.GetBySearch(
                 pf => pf.Id == request.FileId &&
                       pf.TenantId == request.TenantId &&
@@ -50,39 +50,20 @@ namespace CQRS.Files.UploadProjectFileVersion
                                   .Include(pf => pf.SharedWith)
             );
 
-            ProjectFile? projectFile = projectFiles.FirstOrDefault();
+            ProjectFile? projectFile = projectFiles.FirstOrDefault()
+                ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
-            if (projectFile == null)
-            {
-                throw new NotFoundApiException(
-                    objectType: nameof(ProjectFile),
-                    objectId: request.FileId.ToString(),
-                    message: $"File with ID {request.FileId} does not exist or has been deleted");
-            }
-
-            // Sprawdź uprawnienia: użytkownik musi mieć PROJECT.RESOURCES.WRITE (własny plik)
-            // lub PROJECT.RESOURCES.WRITE_SHARED (plik udostępniony)
-            var projectSnapshot = await currentUser.GetProjectSnapshotAsync(request.ProjectId, cancellationToken);
-            if (projectSnapshot == null)
-            {
-                throw new ForbiddenApiException("You are not a member of this project");
-            }
-
-            bool isOwner = projectFile.OwnerId == currentUser.Id;
-            bool isSharedWithMe = projectFile.SharedWith.Any(sf => sf.SharedWithUserId == currentUser.Id);
+            // 2. Authorization check: tenant admin OR project admin OR file owner OR user with share access
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isFileOwner = projectFile.OwnerId == currentUser.Id;
+            bool hasShareAccess = projectFile.SharedWith.Any(sf => sf.SharedWithUserId == currentUser.Id);
             
-            bool canEdit = (isOwner && projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesWrite)) ||
-                           (isSharedWithMe && projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesWriteShared));
-
-            if (!canEdit)
+            if (!isAdmin && !isFileOwner && !hasShareAccess)
             {
-                throw new ForbiddenApiException(
-                    "You do not have permission to upload a new version of this file. " +
-                    "You must have PROJECT.RESOURCES.WRITE permission and own the file, " +
-                    "or have PROJECT.RESOURCES.WRITE_SHARED permission and have the file shared with you.");
+                throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
             }
 
-            // Sprawdź czy plik ma takie samo rozszerzenie jak oryginał
+            // 3. Verify file extension matches original
             string originalExtension = Path.GetExtension(projectFile.FileName).ToLowerInvariant();
             string newFileExtension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
 
@@ -92,17 +73,15 @@ namespace CQRS.Files.UploadProjectFileVersion
                     $"The new version must have the same extension as the original. Expected: {originalExtension}, received: {newFileExtension}");
             }
 
-            // Oblicz numer następnej wersji
+            // 4. Calculate next version number
             int nextVersionNumber = projectFile.Versions.Any()
                 ? projectFile.Versions.Max(v => v.VersionNumber) + 1
                 : 1;
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
-
-            // Normalizacja nazwy paczki dla blob storage
             string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(projectFile.Package.Name);
 
-            // Utwórz nową wersję
+            // 5. Create new version
             ProjectFileVersion newVersion = new ProjectFileVersion
             {
                 ProjectFileId = request.FileId,
@@ -123,7 +102,7 @@ namespace CQRS.Files.UploadProjectFileVersion
 
             try
             {
-                // Upload pliku do blob storage
+                // 6. Upload file to blob storage
                 using (Stream stream = request.File.OpenReadStream())
                 {
                     await blobStorageService.UploadAsync(
@@ -134,20 +113,22 @@ namespace CQRS.Files.UploadProjectFileVersion
                         cancellationToken);
                 }
 
-                // Zapisz wersję do bazy
+                // 7. Save version to database
                 await projectFileVersionRepo.Insert(newVersion);
 
-                // Zaktualizuj CurrentVersionId w ProjectFile
+                // 8. Update CurrentVersionId in ProjectFile
                 projectFile.CurrentVersionId = versionId;
                 await projectFileRepo.Update(projectFile);
 
-                // Dodaj komentarz jeśli został podany
+                // 9. Add comment if provided
                 if (!string.IsNullOrWhiteSpace(request.Comment))
                 {
                     ProjectFileVersionComment comment = new ProjectFileVersionComment
                     {
                         ProjectFileVersionId = versionId,
+                        ProjectId = request.ProjectId,
                         UserId = currentUser.Id,
+                        TenantId = request.TenantId,
                         Content = request.Comment.Trim(),
                         CreatedAt = DateTime.UtcNow,
                         IsDeleted = false
@@ -156,7 +137,7 @@ namespace CQRS.Files.UploadProjectFileVersion
                     await commentRepo.Insert(comment);
                 }
 
-                // Zapisz wszystkie zmiany
+                // 10. Save all changes
                 await projectFileRepo.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation(
@@ -171,7 +152,7 @@ namespace CQRS.Files.UploadProjectFileVersion
                     "Failed to upload new version for file {FileId} in project {ProjectId}. Version number: {VersionNumber}",
                     request.FileId, request.ProjectId, nextVersionNumber);
 
-                // Próba usunięcia pliku z blob storage jeśli upload się nie powiódł
+                // Cleanup blob storage if upload failed
                 try
                 {
                     await blobStorageService.DeleteAsync(containerName, blobPath, cancellationToken);

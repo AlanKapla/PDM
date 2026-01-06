@@ -569,14 +569,16 @@ export default function ProjectFiles() {
                   }}
                 />
               )}
-              <IconButton
-                aria-label="Nowa wersja"
-                icon={<Upload size={16} />}
-                size="sm"
-                variant="ghost"
-                colorScheme="green"
-                onClick={() => openUploadVersionModal(file)}
-              />
+              {((!isShared && resourcePerms.mine.canEdit) || (isShared && resourcePerms.shared.canEdit)) && (
+                <IconButton
+                  aria-label="Nowa wersja"
+                  icon={<Upload size={16} />}
+                  size="sm"
+                  variant="ghost"
+                  colorScheme="green"
+                  onClick={() => openUploadVersionModal(file)}
+                />
+              )}
               {!isShared && resourcePerms.mine.canManageShare && (
                 <IconButton
                   aria-label="Zarządzaj udostępnieniem"
@@ -723,31 +725,33 @@ export default function ProjectFiles() {
                             </VStack>
                           )}
                           
-                          <HStack spacing={2}>
-                            <Textarea
-                              placeholder="Dodaj komentarz..."
-                              size="sm"
-                              value={newComments.get(`${fileId}-${version.id}`) || ""}
-                              onChange={(e) => {
-                                setNewComments((prev) => {
-                                  const updated = new Map(prev);
-                                  updated.set(`${fileId}-${version.id}`, e.target.value);
-                                  return updated;
-                                });
-                              }}
-                              rows={2}
-                              resize="vertical"
-                            />
-                            <IconButton
-                              aria-label="Wyślij komentarz"
-                              icon={<Send size={16} />}
-                              colorScheme="blue"
-                              size="sm"
-                              onClick={() => handleAddComment(isShared ? file.projectFileId : file.id, version.id)}
-                              isLoading={submittingComment === `${fileId}-${version.id}`}
-                              isDisabled={!newComments.get(`${fileId}-${version.id}`)?.trim()}
-                            />
-                          </HStack>
+                          {((!isShared && resourcePerms.mine.canEdit) || (isShared && resourcePerms.shared.canEdit)) && (
+                            <HStack spacing={2}>
+                              <Textarea
+                                placeholder="Dodaj komentarz..."
+                                size="sm"
+                                value={newComments.get(`${fileId}-${version.id}`) || ""}
+                                onChange={(e) => {
+                                  setNewComments((prev) => {
+                                    const updated = new Map(prev);
+                                    updated.set(`${fileId}-${version.id}`, e.target.value);
+                                    return updated;
+                                  });
+                                }}
+                                rows={2}
+                                resize="vertical"
+                              />
+                              <IconButton
+                                aria-label="Wyślij komentarz"
+                                icon={<Send size={16} />}
+                                colorScheme="blue"
+                                size="sm"
+                                onClick={() => handleAddComment(isShared ? file.projectFileId : file.id, version.id)}
+                                isLoading={submittingComment === `${fileId}-${version.id}`}
+                                isDisabled={!newComments.get(`${fileId}-${version.id}`)?.trim()}
+                              />
+                            </HStack>
+                          )}
                         </Box>
                       </Box>
                     ))}

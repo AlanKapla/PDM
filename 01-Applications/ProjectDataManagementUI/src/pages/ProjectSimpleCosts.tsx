@@ -25,6 +25,7 @@ import {
   useDisclosure,
   Badge,
   Icon,
+  Checkbox,
 } from "@chakra-ui/react";
 import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -64,6 +65,8 @@ export default function ProjectSimpleCosts() {
   const [costToManageShare, setCostToManageShare] = useState<ProjectCostListItemWeb | null>(null);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
+  const [editingSharedCostId, setEditingSharedCostId] = useState<string | null>(null);
+  const [savingSharedCost, setSavingSharedCost] = useState(false);
 
   // Tab cache dla wszystkich kosztów
   const allCostsCache = useTabCache<ProjectCostListItemWeb[]>(
@@ -107,6 +110,7 @@ export default function ProjectSimpleCosts() {
     netAmount: '',
     vatRate: '',
     grossAmount: '',
+    isClosed: false,
   });
 
   const bgColor = useColorModeValue("white", "gray.800");
@@ -197,6 +201,7 @@ export default function ProjectSimpleCosts() {
           netAmount: newCostData.netAmount ? parseFloat(newCostData.netAmount) : undefined,
           vatRate: newCostData.vatRate ? parseFloat(newCostData.vatRate) : undefined,
           grossAmount: parseFloat(newCostData.grossAmount),
+          isClosed: newCostData.isClosed,
           document: documentFile || undefined,
         }
       );
@@ -210,6 +215,7 @@ export default function ProjectSimpleCosts() {
         netAmount: '',
         vatRate: '',
         grossAmount: '',
+        isClosed: false,
       });
       setDocumentFile(null);
       setShowNewCostRow(false);
@@ -232,6 +238,7 @@ export default function ProjectSimpleCosts() {
       netAmount: (cost.netAmount ?? 0).toString(),
       vatRate: (cost.vatRate ?? 0).toString(),
       grossAmount: cost.grossAmount.toString(),
+      isClosed: cost.isClosed,
     });
   };
 
@@ -252,6 +259,7 @@ export default function ProjectSimpleCosts() {
           netAmount: parseFloat(editingCostData.netAmount),
           vatRate: parseFloat(editingCostData.vatRate),
           grossAmount: parseFloat(editingCostData.grossAmount),
+          isClosed: editingCostData.isClosed,
           document: editDocumentFile || undefined,
           removeDocument: editingCostData?.removeDocument || false,
         }
@@ -301,6 +309,49 @@ export default function ProjectSimpleCosts() {
   const handleShareUpdated = () => {
     refreshData();
     onManageShareModalClose();
+  };
+
+  const handleToggleSharedCostClosed = async (costId: string, currentIsClosed: boolean) => {
+    if (!user?.activeTenantId || !projectId) return;
+    if (!resourcePerms.shared.canEdit) return;
+
+    setEditingSharedCostId(costId);
+    setSavingSharedCost(true);
+    try {
+      // Znajdujemy koszt w cache aby pobrać wszystkie dane
+      const cost = sharedCostsCache.data?.find(c => c.projectCostId === costId);
+      if (!cost) {
+        showError("Nie znaleziono kosztu");
+        return;
+      }
+
+      await projectApi.updateProjectCost(
+        user.activeTenantId,
+        projectId,
+        costId,
+        {
+          name: cost.costName,
+          place: cost.costPlace || undefined,
+          date: new Date(cost.costDate),
+          description: cost.costDescription || undefined,
+          netAmount: cost.costNetAmount ?? 0,
+          vatRate: cost.costVatRate ?? 0,
+          grossAmount: cost.costGrossAmount,
+          isClosed: !currentIsClosed,
+          document: undefined,
+          removeDocument: false,
+        }
+      );
+
+      showSuccess("Status rozliczenia został zaktualizowany");
+      refreshData();
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji statusu:", error);
+      showError("Wystąpił błąd podczas aktualizacji statusu");
+    } finally {
+      setEditingSharedCostId(null);
+      setSavingSharedCost(false);
+    }
   };
 
   // === Tab Components with Lazy Loading ===
@@ -371,6 +422,7 @@ export default function ProjectSimpleCosts() {
                   <Th isNumeric>Netto</Th>
                   <Th isNumeric>VAT %</Th>
                   <Th isNumeric>Brutto</Th>
+                  <Th textAlign="center">Rozliczone</Th>
                   <Th textAlign="center">Dokument</Th>
                   {resourcePerms.all.canManageShare && <Th textAlign="center">Akcje</Th>}
                 </Tr>
@@ -386,6 +438,11 @@ export default function ProjectSimpleCosts() {
                     <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                     <Td isNumeric>{cost.vatRate ?? 0}%</Td>
                     <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                    <Td textAlign="center">
+                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
+                        {cost.isClosed ? "Tak" : "Nie"}
+                      </Badge>
+                    </Td>
                     <Td textAlign="center">
                       {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
                         <HStack spacing={1} justify="center">
@@ -485,6 +542,7 @@ export default function ProjectSimpleCosts() {
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>VAT %</Th>
                 <Th isNumeric>Brutto</Th>
+                <Th textAlign="center">Rozliczone</Th>
                 <Th textAlign="center">Dokument</Th>
                 <Th textAlign="center">Akcje</Th>
               </Tr>
@@ -499,6 +557,13 @@ export default function ProjectSimpleCosts() {
                   <Td><Input size="sm" type="number" step="0.01" value={newCostData.netAmount} onChange={(e) => setNewCostData({ ...newCostData, netAmount: e.target.value })} placeholder="0.00" /></Td>
                   <Td><Input size="sm" type="number" step="0.01" value={newCostData.vatRate} onChange={(e) => setNewCostData({ ...newCostData, vatRate: e.target.value })} placeholder="0" /></Td>
                   <Td><Input size="sm" type="number" step="0.01" value={newCostData.grossAmount} onChange={(e) => setNewCostData({ ...newCostData, grossAmount: e.target.value })} placeholder="0.00" /></Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={newCostData.isClosed}
+                      onChange={(e) => setNewCostData({ ...newCostData, isClosed: e.target.checked })}
+                      colorScheme="green"
+                    />
+                  </Td>
                   <Td textAlign="center">
                     <VStack spacing={1}>
                       <Input
@@ -548,6 +613,13 @@ export default function ProjectSimpleCosts() {
                   <Td><Input size="sm" type="number" step="0.01" value={editingCostData.netAmount} onChange={(e) => setEditingCostData({ ...editingCostData, netAmount: e.target.value })} /></Td>
                   <Td><Input size="sm" type="number" step="0.01" value={editingCostData.vatRate} onChange={(e) => setEditingCostData({ ...editingCostData, vatRate: e.target.value })} /></Td>
                   <Td><Input size="sm" type="number" step="0.01" value={editingCostData.grossAmount} onChange={(e) => setEditingCostData({ ...editingCostData, grossAmount: e.target.value })} /></Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={editingCostData.isClosed}
+                      onChange={(e) => setEditingCostData({ ...editingCostData, isClosed: e.target.checked })}
+                      colorScheme="green"
+                    />
+                  </Td>
                   <Td textAlign="center">
                     <VStack spacing={1}>
                       <Input
@@ -599,6 +671,11 @@ export default function ProjectSimpleCosts() {
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                   <Td isNumeric>{cost.vatRate ?? 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                  <Td textAlign="center">
+                    <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
+                      {cost.isClosed ? "Tak" : "Nie"}
+                    </Badge>
+                  </Td>
                   <Td textAlign="center">
                     {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
                       <HStack spacing={1} justify="center">
@@ -705,6 +782,7 @@ export default function ProjectSimpleCosts() {
                   <Th isNumeric>Netto</Th>
                   <Th isNumeric>VAT %</Th>
                   <Th isNumeric>Brutto</Th>
+                  <Th textAlign="center">Rozliczone</Th>
                   <Th textAlign="center">Dokument</Th>
                   <Th>Udostępnione przez</Th>
                 </Tr>
@@ -719,6 +797,20 @@ export default function ProjectSimpleCosts() {
                     <Td isNumeric>{formatCurrency(cost.costNetAmount ?? 0)}</Td>
                     <Td isNumeric>{cost.costVatRate ?? 0}%</Td>
                     <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.costGrossAmount)}</Td>
+                    <Td textAlign="center">
+                      {resourcePerms.shared.canEdit ? (
+                        <Checkbox
+                          isChecked={cost.costIsClosed}
+                          onChange={() => handleToggleSharedCostClosed(cost.projectCostId, cost.costIsClosed)}
+                          colorScheme="green"
+                          isDisabled={editingSharedCostId === cost.projectCostId && savingSharedCost}
+                        />
+                      ) : (
+                        <Badge colorScheme={cost.costIsClosed ? "green" : "gray"} fontSize="xs">
+                          {cost.costIsClosed ? "Tak" : "Nie"}
+                        </Badge>
+                      )}
+                    </Td>
                     <Td textAlign="center">
                       {cost.costHasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
                         <HStack spacing={1} justify="center">

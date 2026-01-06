@@ -14,82 +14,79 @@ namespace CQRS.Projects.GetProjectDetails
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly ICurrentUser currentUser;
 
         public GetProjectDetailsQueryHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IRepository<TenantMember> tenantMemberRepo,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.tenantMemberRepo = tenantMemberRepo;
             this.currentUser = currentUser;
         }
 
         public async Task<ProjectDetailsWeb> Handle(GetProjectDetailsQuery request, CancellationToken cancellationToken)
         {
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 1: Load project with creator info
+            // ─────────────────────────────────────────────────────────────────────
             Project project = await projectRepo.GetFirstBySearch(
-                p => p.TenantId == request.TenantId && p.Id == request.ProjectId)
+                p => p.TenantId == request.TenantId && p.Id == request.ProjectId,
+                include => include.Include(p => p.CreatedBy)
+                                 .ThenInclude(cb => cb.User))
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            // Get current user's project membership with role
-            ProjectMember? projectMember = await projectMemberRepo.GetFirstBySearch(
-                pm => pm.ProjectId == request.ProjectId && pm.UserId == currentUser.Id,
-                include => include.Include(pm => pm.MemberRole)
-            );
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 2: Determine user's role in tenant and project
+            // ─────────────────────────────────────────────────────────────────────
+            var tenantSnapshot = await currentUser.GetTenantSnapshotAsync(request.TenantId, cancellationToken);
+            bool isSuperAdmin = currentUser.IsSuperAdmin;
+            bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
 
-            // Get creator info separately
-            TenantMember? creatorMember = await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == request.TenantId 
-                    && tm.UserId == project.CreatedByUserId,
-                include => include.Include(tm => tm.User)
-            );
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 3: Load project members (for membership check and count)
+            // ─────────────────────────────────────────────────────────────────────
+            var allMembers = await projectMemberRepo.GetBySearch(
+                pm => pm.ProjectId == request.ProjectId,
+                include => include.Include(pm => pm.MemberRole));
 
-            // Get members count
-            IEnumerable<ProjectMember> allMembers = await projectMemberRepo.GetBySearch(
-                pm => pm.ProjectId == request.ProjectId);
+            // Find current user's membership
+            var projectMembership = allMembers.FirstOrDefault(pm => pm.UserId == currentUser.Id);
 
-            // Determine user role code:
-            // 1. If user has project membership -> use membership role
-            // 2. If SuperAdmin without membership -> use SYSTEM.SUPERADMIN
-            // 3. Otherwise -> ProjectViewer (fallback)
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 4: Determine user role code hierarchy
+            // ─────────────────────────────────────────────────────────────────────
+            // 1. Project membership role (if exists)
+            // 2. Tenant Admin (if no project membership)
+            // 3. System SuperAdmin (if no project membership or tenant admin)
             string userRoleCode;
-            if (projectMember != null)
+            if (projectMembership != null)
             {
-                // Has membership - use membership role (works for both regular users and SuperAdmins)
-                userRoleCode = projectMember.MemberRole?.Code ?? RoleCodes.ProjectViewer;
+                userRoleCode = projectMembership.MemberRole?.Code ?? RoleCodes.ProjectViewer;
             }
-            else if (currentUser.IsSuperAdmin)
+            else if (isTenantAdmin)
             {
-                // SuperAdmin without membership - use SYSTEM.SUPERADMIN
+                userRoleCode = RoleCodes.TenantAdmin;
+            }
+            else if (isSuperAdmin)
+            {
                 userRoleCode = RoleCodes.SystemSuperAdmin;
             }
             else
             {
-                // Fallback for regular users without membership (shouldn't happen due to authorization)
+                // Fallback (shouldn't happen due to authorization)
                 userRoleCode = RoleCodes.ProjectViewer;
             }
 
-            // Get user's permissions for this project
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 5: Get user's permissions for this project
+            // ─────────────────────────────────────────────────────────────────────
             var userPermissions = new HashSet<string>();
             var projectSnapshot = await currentUser.GetProjectSnapshotAsync(request.ProjectId, cancellationToken);
             if (projectSnapshot != null)
             {
                 userPermissions = projectSnapshot.ProjectPermissionCodes;
-            }
-            else
-            {
-                // If no project snapshot, check if user has tenant-level permissions
-                var tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
-                if (tenantSnapshot != null && tenantSnapshot.IsTenantAdmin)
-                {
-                    // Tenant admin has access but through tenant permissions, not project permissions
-                    // Return empty set - tenant permissions are separate
-                    userPermissions = new HashSet<string>();
-                }
             }
 
             return new ProjectDetailsWeb(
@@ -99,8 +96,8 @@ namespace CQRS.Projects.GetProjectDetails
                 IsActive: project.IsActive,
                 CreatedAt: project.CreatedAt,
                 CreatedByUserId: project.CreatedByUserId,
-                CreatedByUserName: creatorMember?.User != null 
-                    ? $"{creatorMember.User.FirstName} {creatorMember.User.LastName}".Trim()
+                CreatedByUserName: project.CreatedBy?.User != null 
+                    ? $"{project.CreatedBy.User.FirstName} {project.CreatedBy.User.LastName}".Trim()
                     : "Unknown",
                 UserRoleCode: userRoleCode,
                 MembersCount: allMembers.Count(),

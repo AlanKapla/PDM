@@ -25,25 +25,24 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
 
         public async Task<Unit> Handle(DeleteProjectCostCommand request, CancellationToken cancellationToken)
         {
-            // Get existing cost
+            // 1. Verify cost exists and belongs to the correct project/tenant
             var projectCost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId 
                     && pc.TenantId == request.TenantId 
                     && pc.ProjectId == request.ProjectId 
-                    && !pc.IsDeleted);
+                    && !pc.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
 
-            if (projectCost == null)
+            // 2. Authorization check: tenant admin OR project admin OR cost owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isCostOwner = projectCost.UserId == currentUser.Id;
+            
+            if (!isAdmin && !isCostOwner)
             {
-                throw new NotFoundApiException("ProjectCost", request.CostId.ToString());
+                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
             }
 
-            // Verify ownership - only the user who created the cost can delete it
-            if (projectCost.UserId != currentUser.Id)
-            {
-                throw new ForbiddenApiException("Only the cost owner can delete it");
-            }
-
-            // Soft delete
+            // 3. Soft delete
             projectCost.IsDeleted = true;
             projectCost.DeletedAt = DateTime.UtcNow;
 

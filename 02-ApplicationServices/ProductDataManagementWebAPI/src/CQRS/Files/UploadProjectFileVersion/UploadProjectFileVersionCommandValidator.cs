@@ -7,14 +7,6 @@ namespace CQRS.Files.UploadProjectFileVersion
     {
         public UploadProjectFileVersionCommandValidator()
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty()
-                .WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty()
-                .WithMessage("ProjectId is required");
-
             RuleFor(x => x.FileId)
                 .NotEmpty()
                 .WithMessage("FileId is required");

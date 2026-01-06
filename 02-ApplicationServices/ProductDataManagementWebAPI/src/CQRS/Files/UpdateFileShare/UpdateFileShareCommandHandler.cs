@@ -37,23 +37,24 @@ namespace CQRS.Files.UpdateFileShare
 
         public async Task<Unit> Handle(UpdateFileShareCommand request, CancellationToken cancellationToken)
         {
-            // 1. Get file
+            // 1. Verify file exists and belongs to the correct project/tenant
             var file = await projectFileRepo.GetFirstBySearch(
                 pf => pf.Id == request.FileId
                     && pf.ProjectId == request.ProjectId
                     && pf.TenantId == request.TenantId
-                    && !pf.IsDeleted);
+                    && !pf.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
-            if (file == null)
-                throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
-
-            // 2. Check ownership - only owner can manage sharing
-            if (file.OwnerId != currentUser.Id)
+            // 2. Authorization check: tenant admin OR project admin OR file owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isFileOwner = file.OwnerId == currentUser.Id;
+            
+            if (!isAdmin && !isFileOwner)
             {
-                throw new ForbiddenApiException("Only file owner can manage sharing");
+                throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
             }
 
-            // 3. Get current shares separately
+            // 3. Get current shares
             var currentShares = await sharedProjectFileRepo.GetBySearch(
                 spf => spf.ProjectFileId == request.FileId);
 
@@ -75,7 +76,7 @@ namespace CQRS.Files.UpdateFileShare
             var users = await userRepo.GetBySearch(u => affectedUserIds.Contains(u.Id));
             var userDict = users.ToDictionary(u => u.Id);
 
-            // Add new shares
+            // 5. Add new shares
             foreach (var userId in usersToAdd)
             {
                 var sharedFile = new SharedProjectFile
@@ -118,7 +119,7 @@ namespace CQRS.Files.UpdateFileShare
                     request.FileId, userId, currentUser.Id, request.ProjectId);
             }
 
-            // Remove shares
+            // 6. Remove shares
             foreach (var userId in usersToRemove)
             {
                 var shareToRemove = currentShares.FirstOrDefault(s => s.SharedWithUserId == userId);

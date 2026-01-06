@@ -37,29 +37,30 @@ namespace CQRS.Files.DeleteProjectFile
 
         public async Task<Unit> Handle(DeleteProjectFileCommand request, CancellationToken cancellationToken)
         {
-            // 1. Pobierz plik
+            // 1. Verify file exists and belongs to the correct project/tenant
             ProjectFile? file = await projectFileRepo.GetFirstBySearch(
                 pf => pf.Id == request.FileId &&
                       pf.ProjectId == request.ProjectId &&
                       pf.TenantId == request.TenantId &&
-                      !pf.IsDeleted);
+                      !pf.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
-            if (file == null)
-                throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
-
-            // 2. Sprawdź ownership - tylko owner może usuwać pliki
-            if (file.OwnerId != currentUser.Id)
+            // 3. Authorization check: tenant admin OR project admin OR file owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isFileOwner = file.OwnerId == currentUser.Id;
+            
+            if (!isAdmin && !isFileOwner)
             {
-                throw new ForbiddenApiException("Only file owner can delete the file");
+                throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
             }
 
-            // 3. Pobierz wersje osobno
+            // 4. Get file versions
             var versions = await projectFileVersionRepo.GetBySearch(
                 v => v.ProjectFileId == file.Id && !v.IsDeleted);
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
 
-            // 4. Usuń blobs i soft delete wersji
+            // 5. Delete blobs and soft delete versions
             foreach (var version in versions)
             {
                 try
@@ -78,14 +79,14 @@ namespace CQRS.Files.DeleteProjectFile
                 await projectFileVersionRepo.Update(version);
             }
 
-            // 5. Soft delete pliku
+            // 6. Soft delete file
             file.IsDeleted = true;
             file.DeletedAt = DateTime.UtcNow;
             file.CurrentVersionId = null;
             await projectFileRepo.Update(file);
 
             logger.LogInformation(
-                "File {FileId} with {VersionCount} versions soft deleted from project {ProjectId} by owner {UserId}",
+                "File {FileId} with {VersionCount} versions soft deleted from project {ProjectId} by user {UserId}",
                 request.FileId, versions.Count(), request.ProjectId, currentUser.Id);
 
             return Unit.Value;

@@ -4,7 +4,8 @@ public record TenantCtxSnapshot(
     Guid TenantId,
     Guid TenantRoleId,
     HashSet<string> TenantPermissionCodes,
-    bool IsTenantAdmin
+    bool IsTenantAdmin,
+    bool IsActive
 );
 
 public record ProjectCtxSnapshot(
@@ -12,5 +13,6 @@ public record ProjectCtxSnapshot(
     Guid TenantId,
     Guid? ProjectRoleId,
     HashSet<string> ProjectPermissionCodes,
-    bool IsProjectAdmin
+    bool IsProjectAdmin,
+    bool IsActive
 );

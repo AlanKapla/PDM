@@ -1,7 +1,6 @@
 ﻿using Business.Implementation.Services;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using CQRS.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 

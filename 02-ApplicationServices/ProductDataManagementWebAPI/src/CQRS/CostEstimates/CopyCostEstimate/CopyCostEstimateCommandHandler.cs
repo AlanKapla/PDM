@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Model;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -23,18 +24,27 @@ namespace CQRS.CostEstimates.CopyCostEstimate
         {
             Guid tenantId = request.TenantId;
 
-            // Load source cost estimate
-            CostEstimate sourceCostEstimate = (await costEstimateRepo.GetFirstBySearch(
+            // 1. Verify source cost estimate exists and belongs to the correct project/tenant
+            CostEstimate? sourceCostEstimate = await costEstimateRepo.GetFirstBySearch(
                 ce => ce.Id == request.CostEstimateId
                     && ce.TenantId == tenantId
                     && ce.ProjectId == request.ProjectId
-                    && !ce.IsDeleted
-                    && ce.OwnerId == currentUser.Id))!;
+                    && !ce.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+            // 2. Authorization check: tenant admin OR project admin OR cost estimate owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, request.ProjectId, cancellationToken);
+            bool isOwner = sourceCostEstimate.OwnerId == currentUser.Id;
+            
+            if (!isAdmin && !isOwner)
+            {
+                throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+            }
 
             List<Guid> createdCostEstimateIds = new List<Guid>();
             DateTime now = DateTime.UtcNow;
 
-            // Create copy for each target project
+            // 3. Create copy for each target project
             foreach (Guid targetProjectId in request.TargetProjectIds)
             {
                 CostEstimate copiedCostEstimate = new CostEstimate

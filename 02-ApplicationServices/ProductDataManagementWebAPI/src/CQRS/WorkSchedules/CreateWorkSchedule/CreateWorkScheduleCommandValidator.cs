@@ -7,36 +7,12 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
 {
     public class CreateWorkScheduleCommandValidator : AbstractValidator<CreateWorkScheduleCommand>
     {
-        private readonly IReadRepository<Project> projectRepo;
-        private readonly IRepository<ProjectMember> projectMemberRepo;
-
         public CreateWorkScheduleCommandValidator(
-            IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo)
         {
-            this.projectRepo = projectRepo;
-            this.projectMemberRepo = projectMemberRepo;
-
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Work schedule name is required")
                 .MaximumLength(200).WithMessage("Work schedule name cannot exceed 200 characters");
-
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellationToken) =>
-                {
-                    Project? project = await projectRepo.GetFirstBySearch(
-                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId,
-                        cancellationToken);
-
-                    return project != null;
-                })
-                .WithMessage("Project not found or does not belong to the tenant");
 
             RuleFor(x => x)
                 .MustAsync(async (command, cancellationToken) =>

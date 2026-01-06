@@ -30,114 +30,86 @@ namespace CQRS.Projects.GetTenantProjects
 
         public async Task<IEnumerable<ProjectDetailsWeb>> Handle(GetTenantProjectsQuery request, CancellationToken cancellationToken)
         {
-            // SuperAdmin sees all projects in tenant with membership roles where applicable
-            if (currentUser.IsSuperAdmin)
-            {
-                // Get all projects in tenant
-                var allProjects = await projectRepo.GetBySearch(p => p.TenantId == request.TenantId);
-                var projectIds = allProjects.Select(p => p.Id).ToList();
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 1: Determine user's role in tenant
+            // ─────────────────────────────────────────────────────────────────────
+            var tenantSnapshot = await currentUser.GetTenantSnapshotAsync(request.TenantId, cancellationToken);
+            bool isSuperAdmin = currentUser.IsSuperAdmin;
+            bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
 
-                // Get user's project memberships to show actual roles
-                var userProjectMemberships = await projectMemberRepo.GetBySearch(
-                    pm => pm.UserId == currentUser.Id && projectIds.Contains(pm.ProjectId),
-                    include => include.Include(pm => pm.MemberRole)
-                );
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 2: Load all projects with memberships in single query
+            // ─────────────────────────────────────────────────────────────────────
+            var allProjects = await projectRepo.GetBySearch(
+                p => p.TenantId == request.TenantId,
+                include => include.Include(p => p.CreatedBy)
+                                 .ThenInclude(cb => cb.User));
 
-                var membershipDict = userProjectMemberships.ToDictionary(pm => pm.ProjectId);
+            var projectIds = allProjects.Select(p => p.Id).ToList();
 
-                // Get all members for member count
-                var allProjectMembers = await projectMemberRepo.GetBySearch(
-                    pm => projectIds.Contains(pm.ProjectId));
+            // Load ALL project members in single query (for memberships + counts)
+            var allProjectMembers = await projectMemberRepo.GetBySearch(
+                pm => projectIds.Contains(pm.ProjectId),
+                include => include.Include(pm => pm.MemberRole));
 
-                var membersCountDict = allProjectMembers
-                    .GroupBy(pm => pm.ProjectId)
-                    .ToDictionary(g => g.Key, g => g.Count());
+            // Filter in memory: user's project memberships
+            var userProjectMemberships = allProjectMembers
+                .Where(pm => pm.UserId == currentUser.Id)
+                .ToList();
 
-                // Get creators info
-                var creatorUserIds = allProjects.Select(p => p.CreatedByUserId).Distinct().ToList();
-                var creators = await tenantMemberRepo.GetBySearch(
-                    tm => tm.TenantId == request.TenantId && creatorUserIds.Contains(tm.UserId),
-                    include => include.Include(tm => tm.User));
+            var membershipDict = userProjectMemberships.ToDictionary(pm => pm.ProjectId);
 
-                var creatorsDict = creators.ToDictionary(tm => tm.UserId);
-
-                // Build list with permissions for each project
-                var result = new List<ProjectDetailsWeb>();
-                foreach (var project in allProjects)
-                {
-                    int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
-                    
-                    var creator = creatorsDict.TryGetValue(project.CreatedByUserId, out var creatorMember) 
-                        ? creatorMember 
-                        : null;
-
-                    // Determine user role code:
-                    // 1. If SuperAdmin has project membership -> use membership role
-                    // 2. If SuperAdmin without membership -> use SYSTEM.SUPERADMIN
-                    string userRoleCode;
-                    if (membershipDict.TryGetValue(project.Id, out var membership))
-                    {
-                        // SuperAdmin has membership - use membership role
-                        userRoleCode = membership.MemberRole?.Code ?? RoleCodes.ProjectViewer;
-                    }
-                    else
-                    {
-                        // SuperAdmin without membership - use SYSTEM.SUPERADMIN
-                        userRoleCode = RoleCodes.SystemSuperAdmin;
-                    }
-
-                    // Get user's permissions for this project
-                    var userPermissions = new HashSet<string>();
-                    var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
-                    if (projectSnapshot != null)
-                    {
-                        userPermissions = projectSnapshot.ProjectPermissionCodes;
-                    }
-
-                    result.Add(new ProjectDetailsWeb(
-                        Id: project.Id,
-                        TenantId: project.TenantId,
-                        Name: project.Name,
-                        IsActive: project.IsActive,
-                        CreatedAt: project.CreatedAt,
-                        CreatedByUserId: project.CreatedByUserId,
-                        CreatedByUserName: creator?.User != null 
-                            ? $"{creator.User.FirstName} {creator.User.LastName}".Trim()
-                            : "Unknown",
-                        UserRoleCode: userRoleCode,
-                        MembersCount: membersCount,
-                        UserPermissions: userPermissions
-                    ));
-                }
-
-                return result.OrderByDescending(p => p.CreatedAt).ToList();
-            }
-
-            // Regular users see only their projects (admins see inactive, members only active)
-            var regularUserProjectMembers = await projectMemberRepo.GetBySearch(
-                pm => pm.TenantId == request.TenantId 
-                    && pm.UserId == currentUser.Id
-                    && (pm.MemberRole!.Code == RoleCodes.ProjectAdmin || pm.Project.IsActive),
-                include => include.Include(pm => pm.Project)
-                                 .ThenInclude(p => p.CreatedBy)
-                                 .ThenInclude(cb => cb.User)
-                                 .Include(pm => pm.MemberRole));
-
-            var regularProjectIds = regularUserProjectMembers.Select(pm => pm.ProjectId).ToList();
-            
-            var regularAllProjectMembers = await projectMemberRepo.GetBySearch(
-                pm => regularProjectIds.Contains(pm.ProjectId));
-
-            var regularMembersCountDict = regularAllProjectMembers
+            // Calculate members count from same data
+            var membersCountDict = allProjectMembers
                 .GroupBy(pm => pm.ProjectId)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            // Build list with permissions for each project
-            var regularResult = new List<ProjectDetailsWeb>();
-            foreach (var projectMember in regularUserProjectMembers)
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 3: Filter and build result based on user role
+            // ─────────────────────────────────────────────────────────────────────
+            var result = new List<ProjectDetailsWeb>();
+
+            foreach (var project in allProjects)
             {
-                var project = projectMember.Project;
-                int membersCount = regularMembersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
+                // Determine if user should see this project
+                bool hasProjectMembership = membershipDict.TryGetValue(project.Id, out var membership);
+                bool isProjectAdmin = hasProjectMembership && membership.MemberRole?.Code == RoleCodes.ProjectAdmin;
+
+                // Visibility rules:
+                // - SuperAdmin → sees all projects
+                // - Tenant Admin → sees all projects in their tenant
+                // - Project Admin → sees all projects where they are admin (including inactive)
+                // - Regular members → sees only active projects where they are members
+                bool canSeeProject = isSuperAdmin 
+                    || isTenantAdmin 
+                    || isProjectAdmin 
+                    || (hasProjectMembership && project.IsActive);
+
+                if (!canSeeProject)
+                    continue;
+
+                // Determine user role code hierarchy:
+                // 1. Project membership role (if exists)
+                // 2. Tenant Admin (if no project membership)
+                // 3. System SuperAdmin (if no project membership or tenant admin)
+                string userRoleCode;
+                if (hasProjectMembership)
+                {
+                    userRoleCode = membership!.MemberRole?.Code ?? RoleCodes.ProjectViewer;
+                }
+                else if (isTenantAdmin)
+                {
+                    userRoleCode = RoleCodes.TenantAdmin;
+                }
+                else if (isSuperAdmin)
+                {
+                    userRoleCode = RoleCodes.SystemSuperAdmin;
+                }
+                else
+                {
+                    // Should not happen due to visibility rules above
+                    continue;
+                }
 
                 // Get user's permissions for this project
                 var userPermissions = new HashSet<string>();
@@ -147,21 +119,25 @@ namespace CQRS.Projects.GetTenantProjects
                     userPermissions = projectSnapshot.ProjectPermissionCodes;
                 }
 
-                regularResult.Add(new ProjectDetailsWeb(
+                int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
+
+                result.Add(new ProjectDetailsWeb(
                     Id: project.Id,
                     TenantId: project.TenantId,
                     Name: project.Name,
                     IsActive: project.IsActive,
                     CreatedAt: project.CreatedAt,
                     CreatedByUserId: project.CreatedByUserId,
-                    CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
-                    UserRoleCode: projectMember.MemberRole?.Code ?? RoleCodes.ProjectViewer,
+                    CreatedByUserName: project.CreatedBy?.User != null 
+                        ? $"{project.CreatedBy.User.FirstName} {project.CreatedBy.User.LastName}".Trim()
+                        : "Unknown",
+                    UserRoleCode: userRoleCode,
                     MembersCount: membersCount,
                     UserPermissions: userPermissions
                 ));
             }
 
-            return regularResult.OrderByDescending(p => p.CreatedAt).ToList();
+            return result.OrderByDescending(p => p.CreatedAt).ToList();
         }
     }
 }

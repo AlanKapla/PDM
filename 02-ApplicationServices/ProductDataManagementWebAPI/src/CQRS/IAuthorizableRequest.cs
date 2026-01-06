@@ -1,7 +1,7 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 
-namespace CQRS.Interfaces;
+namespace CQRS;
 
 public interface IAuthorizableRequest
 {
