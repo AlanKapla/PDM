@@ -339,7 +339,11 @@ export default function WorkScheduleView() {
         })),
       };
 
-      await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+      const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+      
+      // Użyj zwróconego modelu zamiast ponownego pobierania
+      setSchedule(response.data);
+      setEditableSchedule(response.data);
       
       toast({
         title: "Sukces",
@@ -347,8 +351,6 @@ export default function WorkScheduleView() {
         status: "success",
         duration: 2000,
       });
-      
-      fetchSchedule();
     } catch (error) {
       console.error("Błąd zapisywania zmian:", error);
       toast({
@@ -421,7 +423,11 @@ export default function WorkScheduleView() {
         })),
       };
 
-      await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+      const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+      
+      // Użyj zwróconego modelu zamiast ponownego pobierania
+      setSchedule(response.data);
+      setEditableSchedule(response.data);
       
       toast({
         title: "Sukces",
@@ -429,8 +435,6 @@ export default function WorkScheduleView() {
         status: "success",
         duration: 2000,
       });
-      
-      fetchSchedule();
     } catch (error) {
       console.error("Błąd zapisywania zmian:", error);
       toast({
@@ -540,7 +544,11 @@ export default function WorkScheduleView() {
         })),
       };
 
-      await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+      const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+
+      // Użyj zwróconego modelu zamiast ponownego pobierania
+      setSchedule(response.data);
+      setEditableSchedule(response.data);
 
       toast({
         title: "Sukces",
@@ -549,7 +557,6 @@ export default function WorkScheduleView() {
         duration: 3000,
       });
 
-      fetchSchedule();
       setIsDirty(false);
     } catch (error) {
       console.error("Błąd zapisywania zmian:", error);
