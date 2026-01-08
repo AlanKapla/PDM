@@ -40,7 +40,7 @@ import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { handleApiError } from "../utils/handleApiError";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
-import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
+import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import ShareCostModal from "../components/ShareCostModal";
 import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
@@ -1093,14 +1093,15 @@ export default function ProjectDetails() {
 
         {/* Modal tworzenia harmonogramu */}
         {project && (
-          <CreateWorkScheduleModal
+          <WorkScheduleFormModal
+            mode="create"
             isOpen={isWorkScheduleModalOpen}
             onClose={onWorkScheduleModalClose}
             tenantId={project.tenantId}
             projectId={project.id}
             projectName={project.name}
             members={members}
-            onScheduleCreated={() => {
+            onSuccess={() => {
               fetchWorkSchedules();
               toast({
                 title: "Sukces",

@@ -106,6 +106,12 @@ namespace Entities.Models.CostEstimateData
         public int Order { get; set; }
         
         /// <summary>
+        /// ID użytkownika przypisanego do tego zakresu robót
+        /// </summary>
+        [JsonPropertyName("assignedUserId")]
+        public string? AssignedUserId { get; set; }
+        
+        /// <summary>
         /// Wartości pól obliczeniowych
         /// Key = nazwa pola (field.Name), Value = wartość
         /// </summary>

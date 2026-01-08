@@ -19,7 +19,7 @@ import {
 } from "@chakra-ui/react";
 import { Calendar, Clock, User } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import CreateWorkScheduleModal from "../components/CreateWorkScheduleModal";
+import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
@@ -79,6 +79,16 @@ export default function ProjectSchedules() {
     }
   );
 
+  // Globalny cache dla członków projektu
+  const membersCache = useGlobalCache(
+    `project-members-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
   useEffect(() => {
     if (resourcePerms.raw.loading) return;
     if (hasFetchedProjectData.current) return;
@@ -99,6 +109,21 @@ export default function ProjectSchedules() {
     try {
       const projectData = await projectDetailsCache.fetch();
       setProject(projectData);
+
+      // Pobierz członków projektu
+      const membersData = await membersCache.fetch();
+      setMembers(membersData);
+
+      // Pobierz wszystkie zakładki równolegle według uprawnień
+      const fetchPromises = [];
+      if (resourcePerms.tabs.showAll) {
+        fetchPromises.push(allSchedulesCache.fetch());
+      }
+      if (resourcePerms.tabs.showMine) {
+        fetchPromises.push(mySchedulesCache.fetch());
+      }
+      
+      await Promise.all(fetchPromises);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -110,15 +135,16 @@ export default function ProjectSchedules() {
     mySchedulesCache.clear();
     allSchedulesCache.clear();
     projectDetailsCache.clear();
+    membersCache.clear();
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };
 
   // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
-  const mySchedulesTabIndex = resourcePerms.tabs.showMine ? 0 : -1;
-  const allSchedulesTabIndex = 
-    resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 1 : 
-    !resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 0 : -1;
+  const allSchedulesTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
+  const mySchedulesTabIndex = 
+    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 : 
+    !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
 
   const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[]) => {
     if (schedules.length === 0) {
@@ -187,15 +213,6 @@ export default function ProjectSchedules() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {resourcePerms.mine.canCreate && (
-            <Button
-              leftIcon={<Calendar size={18} />}
-              colorScheme="purple"
-              onClick={onOpen}
-            >
-              Utwórz harmonogram
-            </Button>
-          )}
         </HStack>
 
         {(!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) ? (
@@ -209,15 +226,6 @@ export default function ProjectSchedules() {
         ) : (
           <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex}>
             <TabList>
-              {resourcePerms.tabs.showMine && (
-                <Tab fontWeight="bold">
-                  <HStack spacing={2}>
-                    <Icon as={Calendar} boxSize={4} />
-                    <Text>Moje harmonogramy</Text>
-                    <Badge colorScheme="blue" ml={2}>{mySchedulesCache.data?.length || 0}</Badge>
-                  </HStack>
-                </Tab>
-              )}
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
@@ -227,24 +235,35 @@ export default function ProjectSchedules() {
                   </HStack>
                 </Tab>
               )}
+              {resourcePerms.tabs.showMine && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={Calendar} boxSize={4} />
+                    <Text>Moje harmonogramy</Text>
+                    <Badge colorScheme="blue" ml={2}>{mySchedulesCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
             </TabList>
 
             <TabPanels>
-              {resourcePerms.tabs.showMine && (
-                <TabPanel>
-                  <MySchedulesTab
-                    cache={mySchedulesCache}
-                    isActive={activeTabIndex === mySchedulesTabIndex}
-                    renderSchedulesList={renderSchedulesList}
-                  />
-                </TabPanel>
-              )}
               {resourcePerms.tabs.showAll && (
                 <TabPanel>
                   <AllSchedulesTab
                     cache={allSchedulesCache}
-                    isActive={activeTabIndex === allSchedulesTabIndex}
                     renderSchedulesList={renderSchedulesList}
+                    onOpen={onOpen}
+                    resourcePerms={resourcePerms}
+                  />
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showMine && (
+                <TabPanel>
+                  <MySchedulesTab
+                    cache={mySchedulesCache}
+                    renderSchedulesList={renderSchedulesList}
+                    onOpen={onOpen}
+                    resourcePerms={resourcePerms}
                   />
                 </TabPanel>
               )}
@@ -252,52 +271,71 @@ export default function ProjectSchedules() {
           </Tabs>
         )}
 
-        <CreateWorkScheduleModal
+        <WorkScheduleFormModal
+          mode="create"
           isOpen={isOpen}
           onClose={onClose}
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
           projectName={project?.name || ""}
           members={members}
-          onScheduleCreated={refreshData}
+          onSuccess={refreshData}
         />
       </Box>
     </MainLayout>
   );
 }
 
-// Komponent dla tabu "Moje harmonogramy" z lazy loading
-function MySchedulesTab({ cache, isActive, renderSchedulesList }: any) {
-  const hasFetched = useRef(false);
-  
-  useEffect(() => {
-    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
-      hasFetched.current = true;
-      cache.fetch();
-    }
-  }, [isActive]);
-
+// Komponent dla tabu "Moje harmonogramy"
+function MySchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: any) {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie harmonogramów..." />;
   }
 
-  return renderSchedulesList(cache.data || []);
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Twoje harmonogramy w projekcie
+        </Text>
+        {resourcePerms.mine.canCreate && (
+          <Button
+            leftIcon={<Calendar size={18} />}
+            colorScheme="purple"
+            onClick={onOpen}
+          >
+            Utwórz harmonogram
+          </Button>
+        )}
+      </HStack>
+      {renderSchedulesList(cache.data || [])}
+    </VStack>
+  );
 }
 
-// Komponent dla tabu "Wszystkie harmonogramy" z lazy loading
-function AllSchedulesTab({ cache, isActive, renderSchedulesList }: any) {
-  const hasFetched = useRef(false);
-  
-  useEffect(() => {
-    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
-      hasFetched.current = true;
-      cache.fetch();
-    }
-  }, [isActive]);
-
+// Komponent dla tabu "Wszystkie harmonogramy"
+function AllSchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: any) {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie harmonogramów..." />;
   }
 
-  return renderSchedulesList(cache.data || []);
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Wszystkie harmonogramy w projekcie (admin)
+        </Text>
+        {resourcePerms.all.canCreate && (
+          <Button
+            leftIcon={<Calendar size={18} />}
+            colorScheme="purple"
+            onClick={onOpen}
+          >
+            Utwórz harmonogram
+          </Button>
+        )}
+      </HStack>
+      {renderSchedulesList(cache.data || [])}
+    </VStack>
+  );
 }

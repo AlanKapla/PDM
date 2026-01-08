@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, memo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -38,10 +38,915 @@ import { formatDate, formatCurrency } from "../utils/formatters";
 import ShareCostModal from "../components/ShareCostModal";
 import { ManageCostShareModal } from "../components/ManageCostShareModal";
 import ShareCostsModal from "../components/ShareCostsModal";
-import type { ProjectCostListItemWeb, SharedProjectCostWeb } from "../types/project.types";
+import type { ProjectCostListItemWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
+
+// === TAB COMPONENTS (poza głównym komponentem aby uniknąć re-tworzenia) ===
+
+interface AllCostsTabProps {
+  costs: ProjectCostListItemWeb[];
+  loading: boolean;
+  showNewCostRow: boolean;
+  newCostData: any;
+  documentFile: File | null;
+  addingNewCost: boolean;
+  resourcePerms: any;
+  editingCostId: string | null;
+  editingCostData: any;
+  editDocumentFile: File | null;
+  deletingCostId: string | null;
+  editingClosedCostId: string | null;
+  savingClosedCost: boolean;
+  onShareCostsModalOpen: () => void;
+  onShowNewCostRow: (show: boolean) => void;
+  onNewCostDataChange: (data: any) => void;
+  onDocumentFileChange: (file: File | null) => void;
+  onAddCost: () => void;
+  onManageShare: (cost: ProjectCostListItemWeb) => void;
+  onEditCost: (cost: ProjectCostListItemWeb) => void;
+  onEditingCostDataChange: (data: any) => void;
+  onEditDocumentFileChange: (file: File | null) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDeleteCost: (id: string) => void;
+  onToggleCostClosed: (costId: string, currentIsClosed: boolean) => void;
+}
+
+const AllCostsTab = memo(function AllCostsTab({
+  costs,
+  loading,
+  showNewCostRow,
+  newCostData,
+  documentFile,
+  addingNewCost,
+  resourcePerms,
+  editingCostId,
+  editingCostData,
+  editDocumentFile,
+  deletingCostId,
+  editingClosedCostId,
+  savingClosedCost,
+  onShareCostsModalOpen,
+  onShowNewCostRow,
+  onNewCostDataChange,
+  onDocumentFileChange,
+  onAddCost,
+  onManageShare,
+  onEditCost,
+  onEditingCostDataChange,
+  onEditDocumentFileChange,
+  onSaveEdit,
+  onCancelEdit,
+  onDeleteCost,
+  onToggleCostClosed,
+}: AllCostsTabProps) {
+  const bgColor = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
+  const newRowBg = useColorModeValue("blue.50", "blue.900");
+  const editRowBg = useColorModeValue("yellow.50", "yellow.900");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Wszystkie koszty w projekcie (admin)
+        </Text>
+        <HStack spacing={2}>
+          {resourcePerms.all.canShare && (
+            <Button
+              leftIcon={<Share2 size={18} />}
+              colorScheme="orange"
+              size="sm"
+              onClick={onShareCostsModalOpen}
+            >
+              Udostępnij grupowo
+            </Button>
+          )}
+          {resourcePerms.all.canCreate && (
+            <Button
+              leftIcon={<Plus size={18} />}
+              colorScheme="green"
+              onClick={() => onShowNewCostRow(true)}
+            >
+              Dodaj koszt
+            </Button>
+          )}
+        </HStack>
+      </HStack>
+
+      {costs.length === 0 && !showNewCostRow ? (
+        <EmptyState
+          icon={DollarSign}
+          title="Brak kosztów"
+          description="Nie ma jeszcze żadnych kosztów w tym projekcie"
+        />
+      ) : (
+        <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Nazwa</Th>
+                <Th>Właściciel</Th>
+                <Th>Miejsce</Th>
+                <Th>Data</Th>
+                <Th>Opis</Th>
+                <Th isNumeric>Netto</Th>
+                <Th isNumeric>VAT %</Th>
+                <Th isNumeric>Brutto</Th>
+                <Th textAlign="center">Rozliczone</Th>
+                <Th textAlign="center">Dokument</Th>
+                {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && <Th textAlign="center">Akcje</Th>}
+              </Tr>
+            </Thead>
+            <Tbody>
+              {showNewCostRow && (
+                <Tr bg={newRowBg}>
+                  <Td><Input size="sm" value={newCostData.name} onChange={(e) => onNewCostDataChange({ ...newCostData, name: e.target.value })} placeholder="Nazwa" /></Td>
+                  <Td>
+                    <Text fontSize="xs" color="gray.500">Ty</Text>
+                  </Td>
+                  <Td><Input size="sm" value={newCostData.place} onChange={(e) => onNewCostDataChange({ ...newCostData, place: e.target.value })} placeholder="Miejsce" /></Td>
+                  <Td><Input size="sm" type="date" value={newCostData.date} onChange={(e) => onNewCostDataChange({ ...newCostData, date: e.target.value })} /></Td>
+                  <Td><Textarea size="sm" value={newCostData.description} onChange={(e) => onNewCostDataChange({ ...newCostData, description: e.target.value })} placeholder="Opis" rows={2} /></Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={newCostData.netAmount} 
+                      onChange={(e) => {
+                        const updates: any = { netAmount: e.target.value };
+                        if (!newCostData.vatRate) updates.vatRate = '0';
+                        onNewCostDataChange({ ...newCostData, ...updates });
+                      }} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      min="0"
+                      max="100"
+                      value={newCostData.vatRate} 
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })} 
+                      placeholder="0"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={newCostData.grossAmount} 
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={newCostData.isClosed}
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
+                      colorScheme="green"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <VStack spacing={1}>
+                      <Input
+                        size="sm"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => onDocumentFileChange(e.target.files?.[0] || null)}
+                        display="none"
+                        id="new-cost-file-all"
+                      />
+                      <Button
+                        as="label"
+                        htmlFor="new-cost-file-all"
+                        size="xs"
+                        leftIcon={<FileUp size={14} />}
+                        variant="outline"
+                        cursor="pointer"
+                      >
+                        {documentFile ? documentFile.name.substring(0, 15) : "Dodaj plik"}
+                      </Button>
+                      {documentFile && (
+                        <IconButton
+                          aria-label="Usuń plik"
+                          icon={<X size={12} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() => onDocumentFileChange(null)}
+                        />
+                      )}
+                    </VStack>
+                  </Td>
+                  {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
+                    <Td textAlign="center">
+                      <HStack spacing={1} justify="center">
+                        <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost}>Zapisz</Button>
+                        <Button size="sm" variant="ghost" onClick={() => { onShowNewCostRow(false); onDocumentFileChange(null); }}>Anuluj</Button>
+                      </HStack>
+                    </Td>
+                  )}
+                </Tr>
+              )}
+              {costs.map((cost) => editingCostId === cost.id ? (
+                <Tr key={cost.id} bg={editRowBg}>
+                  <Td><Input size="sm" value={editingCostData.name} onChange={(e) => onEditingCostDataChange({ ...editingCostData, name: e.target.value })} /></Td>
+                  <Td colSpan={1}><Text fontSize="sm" color="gray.600">{cost.userName || "-"}</Text></Td>
+                  <Td><Input size="sm" value={editingCostData.place} onChange={(e) => onEditingCostDataChange({ ...editingCostData, place: e.target.value })} /></Td>
+                  <Td><Input size="sm" type="date" value={editingCostData.date} onChange={(e) => onEditingCostDataChange({ ...editingCostData, date: e.target.value })} /></Td>
+                  <Td><Textarea size="sm" value={editingCostData.description} onChange={(e) => onEditingCostDataChange({ ...editingCostData, description: e.target.value })} rows={2} /></Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={editingCostData.netAmount} 
+                      onChange={(e) => {
+                        const updates: any = { netAmount: e.target.value };
+                        if (!editingCostData.vatRate) updates.vatRate = '0';
+                        onEditingCostDataChange({ ...editingCostData, ...updates });
+                      }} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      min="0"
+                      max="100"
+                      value={editingCostData.vatRate} 
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })} 
+                      placeholder="0"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={editingCostData.grossAmount} 
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={editingCostData.isClosed}
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, isClosed: e.target.checked })}
+                      colorScheme="green"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <VStack spacing={1}>
+                      <Input
+                        size="sm"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => onEditDocumentFileChange(e.target.files?.[0] || null)}
+                        display="none"
+                        id={`edit-cost-file-${cost.id}`}
+                      />
+                      <Button
+                        as="label"
+                        htmlFor={`edit-cost-file-${cost.id}`}
+                        size="xs"
+                        leftIcon={<FileUp size={14} />}
+                        variant="outline"
+                        cursor="pointer"
+                      >
+                        {editDocumentFile ? editDocumentFile.name.substring(0, 15) : (cost.hasDocument ? `${cost.documentFileName?.substring(0, 15)}` : "Dodaj plik")}
+                      </Button>
+                      {(editDocumentFile || cost.hasDocument) && (
+                        <IconButton
+                          aria-label="Usuń plik"
+                          icon={<X size={12} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() => {
+                            onEditDocumentFileChange(null);
+                            onEditingCostDataChange({ ...editingCostData, removeDocument: true });
+                          }}
+                        />
+                      )}
+                    </VStack>
+                  </Td>
+                  {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
+                    <Td textAlign="center">
+                      <HStack spacing={1} justify="center">
+                        <Button size="sm" colorScheme="green" onClick={onSaveEdit}>Zapisz</Button>
+                        <Button size="sm" variant="ghost" onClick={onCancelEdit}>Anuluj</Button>
+                      </HStack>
+                    </Td>
+                  )}
+                </Tr>
+              ) : (
+                <Tr key={cost.id} _hover={{ bg: hoverBg }}>
+                  <Td fontWeight="medium">{cost.name}</Td>
+                  <Td fontSize="sm" color="gray.600">{cost.userName || "-"}</Td>
+                  <Td>{cost.place || "-"}</Td>
+                  <Td>{formatDate(cost.date)}</Td>
+                  <Td>{cost.description || "-"}</Td>
+                  <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
+                  <Td isNumeric>{cost.vatRate ?? 0}%</Td>
+                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={cost.isClosed}
+                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                      colorScheme="green"
+                      isDisabled={editingClosedCostId === cost.id && savingClosedCost}
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
+                      <HStack spacing={1} justify="center">
+                        <IconButton
+                          aria-label="Podgląd"
+                          icon={<Eye size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="purple"
+                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                          title={`Podgląd: ${cost.documentFileName}`}
+                        />
+                        <IconButton
+                          aria-label="Pobierz"
+                          icon={<Download size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="green"
+                          onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                          title={`Pobierz: ${cost.documentFileName}`}
+                        />
+                      </HStack>
+                    ) : (
+                      <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
+                    )}
+                  </Td>
+                  {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
+                    <Td textAlign="center">
+                      <HStack spacing={1} justify="center">
+                        {resourcePerms.all.canEdit && (
+                          <IconButton
+                            aria-label="Edytuj"
+                            icon={<Edit2 size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="blue"
+                            onClick={() => onEditCost(cost)}
+                          />
+                        )}
+                        {resourcePerms.all.canDelete && (
+                          <IconButton
+                            aria-label="Usuń"
+                            icon={<Trash2 size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={() => onDeleteCost(cost.id)}
+                            isLoading={deletingCostId === cost.id}
+                          />
+                        )}
+                        {resourcePerms.all.canManageShare && (
+                          <IconButton
+                            aria-label="Zarządzaj udostępnieniem"
+                            icon={<Share2 size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="orange"
+                            onClick={() => onManageShare(cost)}
+                          />
+                        )}
+                      </HStack>
+                    </Td>
+                  )}
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </VStack>
+  );
+});
+
+interface MyCostsTabProps {
+  costs: ProjectCostListItemWeb[];
+  loading: boolean;
+  showNewCostRow: boolean;
+  newCostData: any;
+  documentFile: File | null;
+  addingNewCost: boolean;
+  editingCostId: string | null;
+  editingCostData: any;
+  editDocumentFile: File | null;
+  savingCost: boolean;
+  deletingCostId: string | null;
+  editingClosedCostId: string | null;
+  savingClosedCost: boolean;
+  resourcePerms: any;
+  onShareCostsModalOpen: () => void;
+  onShowNewCostRow: (show: boolean) => void;
+  onNewCostDataChange: (data: any) => void;
+  onDocumentFileChange: (file: File | null) => void;
+  onAddCost: () => void;
+  onEditCost: (cost: ProjectCostListItemWeb) => void;
+  onEditingCostDataChange: (data: any) => void;
+  onEditDocumentFileChange: (file: File | null) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onShareCost: (cost: ProjectCostListItemWeb) => void;
+  onDeleteCost: (costId: string) => void;
+  onToggleCostClosed: (costId: string, currentIsClosed: boolean) => void;
+}
+
+const MyCostsTab = memo(function MyCostsTab({
+  costs,
+  loading,
+  showNewCostRow,
+  newCostData,
+  documentFile,
+  addingNewCost,
+  editingCostId,
+  editingCostData,
+  editDocumentFile,
+  savingCost,
+  deletingCostId,
+  editingClosedCostId,
+  savingClosedCost,
+  resourcePerms,
+  onShareCostsModalOpen,
+  onShowNewCostRow,
+  onNewCostDataChange,
+  onDocumentFileChange,
+  onAddCost,
+  onEditCost,
+  onEditingCostDataChange,
+  onEditDocumentFileChange,
+  onSaveEdit,
+  onCancelEdit,
+  onShareCost,
+  onDeleteCost,
+  onToggleCostClosed,
+}: MyCostsTabProps) {
+  const bgColor = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
+  const newRowBg = useColorModeValue("blue.50", "blue.900");
+  const editRowBg = useColorModeValue("yellow.50", "yellow.900");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Twoje koszty w projekcie
+        </Text>
+        <HStack spacing={2}>
+          {resourcePerms.mine.canShare && (
+            <Button
+              leftIcon={<Share2 size={18} />}
+              colorScheme="orange"
+              size="sm"
+              onClick={onShareCostsModalOpen}
+            >
+              Udostępnij grupowo
+            </Button>
+          )}
+          {resourcePerms.mine.canCreate && (
+            <Button
+              leftIcon={<Plus size={18} />}
+              colorScheme="green"
+              onClick={() => onShowNewCostRow(true)}
+            >
+              Dodaj koszt
+            </Button>
+          )}
+        </HStack>
+      </HStack>
+
+      {costs.length === 0 && !showNewCostRow ? (
+        <EmptyState
+          icon={DollarSign}
+          title="Brak kosztów"
+          description="Dodaj pierwszy koszt do projektu"
+        />
+      ) : (
+        <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Nazwa</Th>
+                <Th>Miejsce</Th>
+                <Th>Data</Th>
+                <Th>Opis</Th>
+                <Th isNumeric>Netto</Th>
+                <Th isNumeric>VAT %</Th>
+                <Th isNumeric>Brutto</Th>
+                <Th textAlign="center">Rozliczone</Th>
+                <Th textAlign="center">Dokument</Th>
+                <Th textAlign="center">Akcje</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {showNewCostRow && (
+                <Tr bg={newRowBg}>
+                  <Td><Input size="sm" value={newCostData.name} onChange={(e) => onNewCostDataChange({ ...newCostData, name: e.target.value })} placeholder="Nazwa" /></Td>
+                  <Td><Input size="sm" value={newCostData.place} onChange={(e) => onNewCostDataChange({ ...newCostData, place: e.target.value })} placeholder="Miejsce" /></Td>
+                  <Td><Input size="sm" type="date" value={newCostData.date} onChange={(e) => onNewCostDataChange({ ...newCostData, date: e.target.value })} /></Td>
+                  <Td><Textarea size="sm" value={newCostData.description} onChange={(e) => onNewCostDataChange({ ...newCostData, description: e.target.value })} placeholder="Opis" rows={2} /></Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={newCostData.netAmount} 
+                      onChange={(e) => {
+                        const updates: any = { netAmount: e.target.value };
+                        if (!newCostData.vatRate) updates.vatRate = '0';
+                        onNewCostDataChange({ ...newCostData, ...updates });
+                      }} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      min="0"
+                      max="100"
+                      value={newCostData.vatRate} 
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })} 
+                      placeholder="0"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={newCostData.grossAmount} 
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={newCostData.isClosed}
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
+                      colorScheme="green"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <VStack spacing={1}>
+                      <Input
+                        size="sm"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => onDocumentFileChange(e.target.files?.[0] || null)}
+                        display="none"
+                        id="new-cost-file"
+                      />
+                      <Button
+                        as="label"
+                        htmlFor="new-cost-file"
+                        size="xs"
+                        leftIcon={<FileUp size={14} />}
+                        variant="outline"
+                        cursor="pointer"
+                      >
+                        {documentFile ? documentFile.name.substring(0, 15) : "Dodaj plik"}
+                      </Button>
+                      {documentFile && (
+                        <IconButton
+                          aria-label="Usuń plik"
+                          icon={<X size={12} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() => onDocumentFileChange(null)}
+                        />
+                      )}
+                    </VStack>
+                  </Td>
+                  <Td textAlign="center">
+                    <HStack spacing={1} justify="center">
+                      <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost}>Zapisz</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { onShowNewCostRow(false); onDocumentFileChange(null); }}>Anuluj</Button>
+                    </HStack>
+                  </Td>
+                </Tr>
+              )}
+              {costs.map((cost) => editingCostId === cost.id ? (
+                <Tr key={cost.id} bg={editRowBg}>
+                  <Td><Input size="sm" value={editingCostData.name} onChange={(e) => onEditingCostDataChange({ ...editingCostData, name: e.target.value })} /></Td>
+                  <Td><Input size="sm" value={editingCostData.place} onChange={(e) => onEditingCostDataChange({ ...editingCostData, place: e.target.value })} /></Td>
+                  <Td><Input size="sm" type="date" value={editingCostData.date} onChange={(e) => onEditingCostDataChange({ ...editingCostData, date: e.target.value })} /></Td>
+                  <Td><Textarea size="sm" value={editingCostData.description} onChange={(e) => onEditingCostDataChange({ ...editingCostData, description: e.target.value })} rows={2} /></Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={editingCostData.netAmount} 
+                      onChange={(e) => {
+                        const updates: any = { netAmount: e.target.value };
+                        if (!editingCostData.vatRate) updates.vatRate = '0';
+                        onEditingCostDataChange({ ...editingCostData, ...updates });
+                      }} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      min="0"
+                      max="100"
+                      value={editingCostData.vatRate} 
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })} 
+                      placeholder="0"
+                    />
+                  </Td>
+                  <Td>
+                    <Input 
+                      size="sm" 
+                      type="number" 
+                      step="0.01" 
+                      value={editingCostData.grossAmount} 
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                      placeholder="0.00"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={editingCostData.isClosed}
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, isClosed: e.target.checked })}
+                      colorScheme="green"
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    <VStack spacing={1}>
+                      <Input
+                        size="sm"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => onEditDocumentFileChange(e.target.files?.[0] || null)}
+                        display="none"
+                        id={`edit-cost-file-${cost.id}`}
+                      />
+                      <Button
+                        as="label"
+                        htmlFor={`edit-cost-file-${cost.id}`}
+                        size="xs"
+                        leftIcon={<FileUp size={14} />}
+                        variant="outline"
+                        cursor="pointer"
+                      >
+                        {editDocumentFile ? editDocumentFile.name.substring(0, 15) : cost.documentFileName ? cost.documentFileName.substring(0, 15) : "Dodaj plik"}
+                      </Button>
+                      {(editDocumentFile || cost.hasDocument) && (
+                        <IconButton
+                          aria-label="Usuń plik"
+                          icon={<X size={12} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() => {
+                            onEditDocumentFileChange(null);
+                            onEditingCostDataChange({ ...editingCostData, removeDocument: true });
+                          }}
+                        />
+                      )}
+                    </VStack>
+                  </Td>
+                  <Td textAlign="center">
+                    <HStack spacing={1} justify="center">
+                      <Button size="sm" colorScheme="green" onClick={onSaveEdit} isLoading={savingCost}>Zapisz</Button>
+                      <Button size="sm" variant="ghost" onClick={onCancelEdit}>Anuluj</Button>
+                    </HStack>
+                  </Td>
+                </Tr>
+              ) : (
+                <Tr key={cost.id} _hover={{ bg: hoverBg }}>
+                  <Td fontWeight="medium">{cost.name}</Td>
+                  <Td>{cost.place || "-"}</Td>
+                  <Td>{formatDate(cost.date)}</Td>
+                  <Td>{cost.description || "-"}</Td>
+                  <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
+                  <Td isNumeric>{cost.vatRate ?? 0}%</Td>
+                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                  <Td textAlign="center">
+                    <Checkbox
+                      isChecked={cost.isClosed}
+                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                      colorScheme="green"
+                      isDisabled={editingClosedCostId === cost.id && savingClosedCost}
+                    />
+                  </Td>
+                  <Td textAlign="center">
+                    {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
+                      <HStack spacing={1} justify="center">
+                        <IconButton
+                          aria-label="Podgląd"
+                          icon={<Eye size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="purple"
+                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                          title={`Podgląd: ${cost.documentFileName}`}
+                        />
+                        <IconButton
+                          aria-label="Pobierz"
+                          icon={<Download size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="green"
+                          onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                          title={`Pobierz: ${cost.documentFileName}`}
+                        />
+                      </HStack>
+                    ) : (
+                      <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
+                    )}
+                  </Td>
+                  <Td textAlign="center">
+                    <HStack spacing={1} justify="center">
+                      <IconButton
+                        aria-label="Edytuj"
+                        icon={<Edit2 size={14} />}
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="blue"
+                        onClick={() => onEditCost(cost)}
+                      />
+                      {resourcePerms.mine.canManageShare && (
+                        <IconButton
+                          aria-label="Udostępnij"
+                          icon={<Share2 size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="orange"
+                          onClick={() => onShareCost(cost)}
+                        />
+                      )}
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={14} />}
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="red"
+                        onClick={() => onDeleteCost(cost.id)}
+                        isLoading={deletingCostId === cost.id}
+                      />
+                    </HStack>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </VStack>
+  );
+});
+
+interface SharedCostsTabProps {
+  costs: ProjectCostListItemWeb[];
+  loading: boolean;
+  editingSharedCostId: string | null;
+  savingSharedCost: boolean;
+  resourcePerms: any;
+  onToggleSharedCostClosed: (costId: string, currentIsClosed: boolean) => void;
+}
+
+const SharedCostsTab = memo(function SharedCostsTab({
+  costs,
+  loading,
+  editingSharedCostId,
+  savingSharedCost,
+  resourcePerms,
+  onToggleSharedCostClosed,
+}: SharedCostsTabProps) {
+  const bgColor = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
+  const hoverBg = useColorModeValue("gray.50", "gray.700");
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Text fontSize="sm" color="gray.600">
+        Koszty udostępnione przez innych członków projektu
+      </Text>
+
+      {costs.length === 0 ? (
+        <EmptyState
+          icon={Share2}
+          title="Brak udostępnionych kosztów"
+          description="Nikt jeszcze nie udostępnił Ci kosztów w tym projekcie"
+        />
+      ) : (
+        <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Nazwa</Th>
+                <Th>Miejsce</Th>
+                <Th>Data</Th>
+                <Th>Opis</Th>
+                <Th isNumeric>Netto</Th>
+                <Th isNumeric>VAT %</Th>
+                <Th isNumeric>Brutto</Th>
+                <Th textAlign="center">Rozliczone</Th>
+                <Th textAlign="center">Dokument</Th>
+                <Th>Udostępnione przez</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {costs.map((cost) => (
+                <Tr key={cost.id} _hover={{ bg: hoverBg }}>
+                  <Td fontWeight="medium">{cost.name}</Td>
+                  <Td>{cost.place || "-"}</Td>
+                  <Td>{formatDate(cost.date)}</Td>
+                  <Td>{cost.description || "-"}</Td>
+                  <Td isNumeric>{formatCurrency(cost.netAmount)}</Td>
+                  <Td isNumeric>{cost.vatRate ?? 0}%</Td>
+                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                  <Td textAlign="center">
+                    {resourcePerms.shared.canEdit ? (
+                      <Checkbox
+                        isChecked={cost.isClosed}
+                        onChange={() => onToggleSharedCostClosed(cost.id, cost.isClosed)}
+                        colorScheme="green"
+                        isDisabled={editingSharedCostId === cost.id && savingSharedCost}
+                      />
+                    ) : (
+                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
+                        {cost.isClosed ? "Tak" : "Nie"}
+                      </Badge>
+                    )}
+                  </Td>
+                  <Td textAlign="center">
+                    {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
+                      <HStack spacing={1} justify="center">
+                        <IconButton
+                          aria-label="Podgląd"
+                          icon={<Eye size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="purple"
+                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                          title={`Podgląd: ${cost.documentFileName}`}
+                        />
+                        <IconButton
+                          aria-label="Pobierz"
+                          icon={<Download size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="green"
+                          onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                          title={`Pobierz: ${cost.documentFileName}`}
+                        />
+                      </HStack>
+                    ) : (
+                      <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
+                    )}
+                  </Td>
+                  <Td>{cost.userName}</Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </VStack>
+  );
+});
+
+// === MAIN COMPONENT ===
 
 export default function ProjectSimpleCosts() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -54,7 +959,6 @@ export default function ProjectSimpleCosts() {
   const [project, setProject] = useState<any | null>(null);
   const [projectName, setProjectName] = useState("");
   const hasFetchedProjectData = useRef(false);
-  const [members, setMembers] = useState<any[]>([]);
   const [showNewCostRow, setShowNewCostRow] = useState(false);
   const [addingNewCost, setAddingNewCost] = useState(false);
   const [editingCostId, setEditingCostId] = useState<string | null>(null);
@@ -67,6 +971,8 @@ export default function ProjectSimpleCosts() {
   const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
   const [editingSharedCostId, setEditingSharedCostId] = useState<string | null>(null);
   const [savingSharedCost, setSavingSharedCost] = useState(false);
+  const [editingClosedCostId, setEditingClosedCostId] = useState<string | null>(null);
+  const [savingClosedCost, setSavingClosedCost] = useState(false);
 
   // Tab cache dla wszystkich kosztów
   const allCostsCache = useTabCache<ProjectCostListItemWeb[]>(
@@ -89,7 +995,7 @@ export default function ProjectSimpleCosts() {
   );
 
   // Tab cache dla udostępnionych kosztów
-  const sharedCostsCache = useTabCache<SharedProjectCostWeb[]>(
+  const sharedCostsCache = useTabCache<ProjectCostListItemWeb[]>(
     async () => {
       if (!user?.activeTenantId || !projectId) return [];
       const res = await projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.Shared);
@@ -112,9 +1018,6 @@ export default function ProjectSimpleCosts() {
     grossAmount: '',
     isClosed: false,
   });
-
-  const bgColor = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.600");
 
   const resourcePerms = useResourcePermissions(projectId);
 
@@ -146,6 +1049,40 @@ export default function ProjectSimpleCosts() {
     fetchProjectData();
   }, [projectId, resourcePerms.raw.loading]);
 
+  // Automatyczne wyliczanie kwoty brutto dla nowego kosztu
+  useEffect(() => {
+    const netAmount = parseFloat(newCostData.netAmount);
+    const vatRate = parseFloat(newCostData.vatRate);
+    
+    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0) {
+      const calculatedGross = netAmount * (1 + vatRate / 100);
+      const roundedGross = Math.round(calculatedGross * 100) / 100;
+      
+      setNewCostData(prev => ({
+        ...prev,
+        grossAmount: roundedGross.toFixed(2)
+      }));
+    }
+  }, [newCostData.netAmount, newCostData.vatRate]);
+
+  // Automatyczne wyliczanie kwoty brutto dla edytowanego kosztu
+  useEffect(() => {
+    if (!editingCostData) return;
+    
+    const netAmount = parseFloat(editingCostData.netAmount);
+    const vatRate = parseFloat(editingCostData.vatRate);
+    
+    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0) {
+      const calculatedGross = netAmount * (1 + vatRate / 100);
+      const roundedGross = Math.round(calculatedGross * 100) / 100;
+      
+      setEditingCostData((prev: any) => ({
+        ...prev,
+        grossAmount: roundedGross.toFixed(2)
+      }));
+    }
+  }, [editingCostData?.netAmount, editingCostData?.vatRate]);
+
   const fetchProjectData = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
@@ -155,6 +1092,20 @@ export default function ProjectSimpleCosts() {
       
       setProject(projectData);
       setProjectName(projectData.name);
+
+      // Pobierz wszystkie zakładki równolegle według uprawnień
+      const fetchPromises = [];
+      if (resourcePerms.tabs.showAll) {
+        fetchPromises.push(allCostsCache.fetch());
+      }
+      if (resourcePerms.tabs.showMine) {
+        fetchPromises.push(myCostsCache.fetch());
+      }
+      if (resourcePerms.tabs.showShared) {
+        fetchPromises.push(sharedCostsCache.fetch());
+      }
+      
+      await Promise.all(fetchPromises);
     } catch (error) {
       console.error("Błąd podczas pobierania projektu:", error);
     } finally {
@@ -256,9 +1207,9 @@ export default function ProjectSimpleCosts() {
           place: editingCostData.place || undefined,
           date: new Date(editingCostData.date),
           description: editingCostData.description || undefined,
-          netAmount: parseFloat(editingCostData.netAmount),
-          vatRate: parseFloat(editingCostData.vatRate),
-          grossAmount: parseFloat(editingCostData.grossAmount),
+          netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
+          vatRate: editingCostData.vatRate ? parseFloat(editingCostData.vatRate) : undefined,
+          grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
           isClosed: editingCostData.isClosed,
           document: editDocumentFile || undefined,
           removeDocument: editingCostData?.removeDocument || false,
@@ -276,6 +1227,12 @@ export default function ProjectSimpleCosts() {
     } finally {
       setSavingCost(false);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCostId(null);
+    setEditingCostData(null);
+    setEditDocumentFile(null);
   };
 
   const handleDeleteCost = async (costId: string) => {
@@ -311,15 +1268,14 @@ export default function ProjectSimpleCosts() {
     onManageShareModalClose();
   };
 
-  const handleToggleSharedCostClosed = async (costId: string, currentIsClosed: boolean) => {
+  const handleToggleCostClosed = async (costId: string, currentIsClosed: boolean) => {
     if (!user?.activeTenantId || !projectId) return;
-    if (!resourcePerms.shared.canEdit) return;
 
-    setEditingSharedCostId(costId);
-    setSavingSharedCost(true);
+    setEditingClosedCostId(costId);
+    setSavingClosedCost(true);
     try {
       // Znajdujemy koszt w cache aby pobrać wszystkie dane
-      const cost = sharedCostsCache.data?.find(c => c.projectCostId === costId);
+      const cost = allCostsCache.data?.find(c => c.id === costId) || myCostsCache.data?.find(c => c.id === costId);
       if (!cost) {
         showError("Nie znaleziono kosztu");
         return;
@@ -330,13 +1286,56 @@ export default function ProjectSimpleCosts() {
         projectId,
         costId,
         {
-          name: cost.costName,
-          place: cost.costPlace || undefined,
-          date: new Date(cost.costDate),
-          description: cost.costDescription || undefined,
-          netAmount: cost.costNetAmount ?? 0,
-          vatRate: cost.costVatRate ?? 0,
-          grossAmount: cost.costGrossAmount,
+          name: cost.name,
+          place: cost.place || undefined,
+          date: new Date(cost.date),
+          description: cost.description || undefined,
+          netAmount: cost.netAmount ?? undefined,
+          vatRate: cost.vatRate ?? undefined,
+          grossAmount: cost.grossAmount ?? undefined,
+          isClosed: !currentIsClosed,
+          document: undefined,
+          removeDocument: false,
+        }
+      );
+
+      showSuccess("Status rozliczenia został zaktualizowany");
+      refreshData();
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji statusu:", error);
+      showError("Wystąpił błąd podczas aktualizacji statusu");
+    } finally {
+      setEditingClosedCostId(null);
+      setSavingClosedCost(false);
+    }
+  };
+
+  const handleToggleSharedCostClosed = async (costId: string, currentIsClosed: boolean) => {
+    if (!user?.activeTenantId || !projectId) return;
+    if (!resourcePerms.shared.canEdit) return;
+
+    setEditingSharedCostId(costId);
+    setSavingSharedCost(true);
+    try {
+      // Znajdujemy koszt w cache aby pobrać wszystkie dane
+      const cost = sharedCostsCache.data?.find(c => c.id === costId);
+      if (!cost) {
+        showError("Nie znaleziono kosztu");
+        return;
+      }
+
+      await projectApi.updateProjectCost(
+        user.activeTenantId,
+        projectId,
+        costId,
+        {
+          name: cost.name,
+          place: cost.place || undefined,
+          date: new Date(cost.date),
+          description: cost.description || undefined,
+          netAmount: cost.netAmount ?? undefined,
+          vatRate: cost.vatRate ?? undefined,
+          grossAmount: cost.grossAmount ?? undefined,
           isClosed: !currentIsClosed,
           document: undefined,
           removeDocument: false,
@@ -353,500 +1352,6 @@ export default function ProjectSimpleCosts() {
       setSavingSharedCost(false);
     }
   };
-
-  // === Tab Components with Lazy Loading ===
-  // Note: renderCostRow funkcje nie mogą używać hooks, więc użyjemy inline render
-  
-  function AllCostsTab({ isActive }: { isActive: boolean }) {
-    const hasFetched = useRef(false);
-    
-    useEffect(() => {
-      if (isActive && !allCostsCache.data && !allCostsCache.loading && !hasFetched.current) {
-        hasFetched.current = true;
-        allCostsCache.fetch();
-      }
-    }, [isActive]);
-
-    if (allCostsCache.loading) {
-      return <LoadingSpinner />;
-    }
-
-    const costs = allCostsCache.data || [];
-
-    return (
-      <VStack spacing={4} align="stretch">
-        <HStack justify="space-between">
-          <Text fontSize="sm" color="gray.600">
-            Wszystkie koszty w projekcie (admin)
-          </Text>
-          <HStack spacing={2}>
-            {resourcePerms.all.canShare && (
-              <Button
-                leftIcon={<Share2 size={18} />}
-                colorScheme="orange"
-                size="sm"
-                onClick={onShareCostsModalOpen}
-              >
-                Udostępnij grupowo
-              </Button>
-            )}
-            {resourcePerms.all.canCreate && (
-              <Button
-                leftIcon={<Plus size={18} />}
-                colorScheme="blue"
-                onClick={() => setShowNewCostRow(true)}
-                isDisabled={showNewCostRow}
-              >
-                Dodaj koszt
-              </Button>
-            )}
-          </HStack>
-        </HStack>
-
-        {costs.length === 0 ? (
-          <EmptyState
-            icon={DollarSign}
-            title="Brak kosztów"
-            description="Nie ma jeszcze żadnych kosztów w tym projekcie"
-          />
-        ) : (
-          <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-            <Table size="sm" variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Nazwa</Th>
-                  <Th>Właściciel</Th>
-                  <Th>Miejsce</Th>
-                  <Th>Data</Th>
-                  <Th>Opis</Th>
-                  <Th isNumeric>Netto</Th>
-                  <Th isNumeric>VAT %</Th>
-                  <Th isNumeric>Brutto</Th>
-                  <Th textAlign="center">Rozliczone</Th>
-                  <Th textAlign="center">Dokument</Th>
-                  {resourcePerms.all.canManageShare && <Th textAlign="center">Akcje</Th>}
-                </Tr>
-              </Thead>
-              <Tbody>
-                {costs.map((cost) => (
-                  <Tr key={cost.id} _hover={{ bg: useColorModeValue("gray.50", "gray.700") }}>
-                    <Td fontWeight="medium">{cost.name}</Td>
-                    <Td fontSize="sm" color="gray.600">{cost.userName || "-"}</Td>
-                    <Td>{cost.place || "-"}</Td>
-                    <Td>{formatDate(cost.date)}</Td>
-                    <Td>{cost.description || "-"}</Td>
-                    <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                    <Td isNumeric>{cost.vatRate ?? 0}%</Td>
-                    <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
-                    <Td textAlign="center">
-                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
-                        {cost.isClosed ? "Tak" : "Nie"}
-                      </Badge>
-                    </Td>
-                    <Td textAlign="center">
-                      {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
-                        <HStack spacing={1} justify="center">
-                          <IconButton
-                            aria-label="Podgląd"
-                            icon={<Eye size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="purple"
-                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                            title={`Podgląd: ${cost.documentFileName}`}
-                          />
-                          <IconButton
-                            aria-label="Pobierz"
-                            icon={<Download size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="green"
-                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                            title={`Pobierz: ${cost.documentFileName}`}
-                          />
-                        </HStack>
-                      ) : (
-                        <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
-                      )}
-                    </Td>
-                    {resourcePerms.all.canManageShare && (
-                      <Td textAlign="center">
-                        <IconButton
-                          aria-label="Zarządzaj udostępnieniem"
-                          icon={<Share2 size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="orange"
-                          onClick={() => handleManageShare(cost)}
-                        />
-                      </Td>
-                    )}
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
-        )}
-      </VStack>
-    );
-  }
-
-  function MyCostsTab({ isActive }: { isActive: boolean }) {
-    const hasFetched = useRef(false);
-    
-    useEffect(() => {
-      if (isActive && !myCostsCache.data && !myCostsCache.loading && !hasFetched.current) {
-        hasFetched.current = true;
-        myCostsCache.fetch();
-      }
-    }, [isActive]);
-
-    if (myCostsCache.loading) {
-      return <LoadingSpinner />;
-    }
-
-    const costs = myCostsCache.data || [];
-
-    return <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
-          Proste koszty projektu - faktury, paragony, wydatki
-        </Text>
-        {resourcePerms.mine.canShare && (
-          <Button
-            leftIcon={<Share2 size={18} />}
-            colorScheme="orange"
-            size="sm"
-            onClick={onShareCostsModalOpen}
-          >
-            Udostępnij grupowo
-          </Button>
-        )}
-      </HStack>
-
-      {costs.length === 0 && !showNewCostRow ? (
-        <EmptyState
-          icon={DollarSign}
-          title="Brak kosztów"
-          description="Dodaj pierwszy koszt do projektu"
-        />
-      ) : (
-        <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-          <Table size="sm" variant="simple">
-            <Thead>
-              <Tr>
-                <Th>Nazwa</Th>
-                <Th>Miejsce</Th>
-                <Th>Data</Th>
-                <Th>Opis</Th>
-                <Th isNumeric>Netto</Th>
-                <Th isNumeric>VAT %</Th>
-                <Th isNumeric>Brutto</Th>
-                <Th textAlign="center">Rozliczone</Th>
-                <Th textAlign="center">Dokument</Th>
-                <Th textAlign="center">Akcje</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {showNewCostRow && (
-                <Tr bg={useColorModeValue("blue.50", "blue.900")}>
-                  <Td><Input size="sm" value={newCostData.name} onChange={(e) => setNewCostData({ ...newCostData, name: e.target.value })} placeholder="Nazwa" /></Td>
-                  <Td><Input size="sm" value={newCostData.place} onChange={(e) => setNewCostData({ ...newCostData, place: e.target.value })} placeholder="Miejsce" /></Td>
-                  <Td><Input size="sm" type="date" value={newCostData.date} onChange={(e) => setNewCostData({ ...newCostData, date: e.target.value })} /></Td>
-                  <Td><Textarea size="sm" value={newCostData.description} onChange={(e) => setNewCostData({ ...newCostData, description: e.target.value })} placeholder="Opis" rows={2} /></Td>
-                  <Td><Input size="sm" type="number" step="0.01" value={newCostData.netAmount} onChange={(e) => setNewCostData({ ...newCostData, netAmount: e.target.value })} placeholder="0.00" /></Td>
-                  <Td><Input size="sm" type="number" step="0.01" value={newCostData.vatRate} onChange={(e) => setNewCostData({ ...newCostData, vatRate: e.target.value })} placeholder="0" /></Td>
-                  <Td><Input size="sm" type="number" step="0.01" value={newCostData.grossAmount} onChange={(e) => setNewCostData({ ...newCostData, grossAmount: e.target.value })} placeholder="0.00" /></Td>
-                  <Td textAlign="center">
-                    <Checkbox
-                      isChecked={newCostData.isClosed}
-                      onChange={(e) => setNewCostData({ ...newCostData, isClosed: e.target.checked })}
-                      colorScheme="green"
-                    />
-                  </Td>
-                  <Td textAlign="center">
-                    <VStack spacing={1}>
-                      <Input
-                        size="sm"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
-                        display="none"
-                        id="new-cost-file"
-                      />
-                      <Button
-                        as="label"
-                        htmlFor="new-cost-file"
-                        size="xs"
-                        leftIcon={<FileUp size={14} />}
-                        variant="outline"
-                        cursor="pointer"
-                      >
-                        {documentFile ? documentFile.name.substring(0, 15) : "Dodaj plik"}
-                      </Button>
-                      {documentFile && (
-                        <IconButton
-                          aria-label="Usuń plik"
-                          icon={<X size={12} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={() => setDocumentFile(null)}
-                        />
-                      )}
-                    </VStack>
-                  </Td>
-                  <Td textAlign="center">
-                    <HStack spacing={1} justify="center">
-                      <Button size="sm" colorScheme="green" onClick={handleAddCost} isLoading={addingNewCost}>Zapisz</Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setShowNewCostRow(false); setDocumentFile(null); }}>Anuluj</Button>
-                    </HStack>
-                  </Td>
-                </Tr>
-              )}
-              {costs.map((cost) => editingCostId === cost.id ? (
-                <Tr key={cost.id} bg={useColorModeValue("yellow.50", "yellow.900")}>
-                  <Td><Input size="sm" value={editingCostData.name} onChange={(e) => setEditingCostData({ ...editingCostData, name: e.target.value })} /></Td>
-                  <Td><Input size="sm" value={editingCostData.place} onChange={(e) => setEditingCostData({ ...editingCostData, place: e.target.value })} /></Td>
-                  <Td><Input size="sm" type="date" value={editingCostData.date} onChange={(e) => setEditingCostData({ ...editingCostData, date: e.target.value })} /></Td>
-                  <Td><Textarea size="sm" value={editingCostData.description} onChange={(e) => setEditingCostData({ ...editingCostData, description: e.target.value })} rows={2} /></Td>
-                  <Td><Input size="sm" type="number" step="0.01" value={editingCostData.netAmount} onChange={(e) => setEditingCostData({ ...editingCostData, netAmount: e.target.value })} /></Td>
-                  <Td><Input size="sm" type="number" step="0.01" value={editingCostData.vatRate} onChange={(e) => setEditingCostData({ ...editingCostData, vatRate: e.target.value })} /></Td>
-                  <Td><Input size="sm" type="number" step="0.01" value={editingCostData.grossAmount} onChange={(e) => setEditingCostData({ ...editingCostData, grossAmount: e.target.value })} /></Td>
-                  <Td textAlign="center">
-                    <Checkbox
-                      isChecked={editingCostData.isClosed}
-                      onChange={(e) => setEditingCostData({ ...editingCostData, isClosed: e.target.checked })}
-                      colorScheme="green"
-                    />
-                  </Td>
-                  <Td textAlign="center">
-                    <VStack spacing={1}>
-                      <Input
-                        size="sm"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setEditDocumentFile(e.target.files?.[0] || null)}
-                        display="none"
-                        id={`edit-cost-file-${cost.id}`}
-                      />
-                      <Button
-                        as="label"
-                        htmlFor={`edit-cost-file-${cost.id}`}
-                        size="xs"
-                        leftIcon={<FileUp size={14} />}
-                        variant="outline"
-                        cursor="pointer"
-                      >
-                        {editDocumentFile ? editDocumentFile.name.substring(0, 15) : cost.documentFileName ? cost.documentFileName.substring(0, 15) : "Dodaj plik"}
-                      </Button>
-                      {(editDocumentFile || cost.hasDocument) && (
-                        <IconButton
-                          aria-label="Usuń plik"
-                          icon={<X size={12} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={() => {
-                            setEditDocumentFile(null);
-                            setEditingCostData({ ...editingCostData, removeDocument: true });
-                          }}
-                        />
-                      )}
-                    </VStack>
-                  </Td>
-                  <Td textAlign="center">
-                    <HStack spacing={1} justify="center">
-                      <Button size="sm" colorScheme="green" onClick={handleSaveEdit} isLoading={savingCost}>Zapisz</Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setEditingCostId(null); setEditingCostData(null); setEditDocumentFile(null); }}>Anuluj</Button>
-                    </HStack>
-                  </Td>
-                </Tr>
-              ) : (
-                <Tr key={cost.id} _hover={{ bg: useColorModeValue("gray.50", "gray.700") }}>
-                  <Td fontWeight="medium">{cost.name}</Td>
-                  <Td>{cost.place || "-"}</Td>
-                  <Td>{formatDate(cost.date)}</Td>
-                  <Td>{cost.description || "-"}</Td>
-                  <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric>{cost.vatRate ?? 0}%</Td>
-                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
-                  <Td textAlign="center">
-                    <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
-                      {cost.isClosed ? "Tak" : "Nie"}
-                    </Badge>
-                  </Td>
-                  <Td textAlign="center">
-                    {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
-                      <HStack spacing={1} justify="center">
-                        <IconButton
-                          aria-label="Podgląd"
-                          icon={<Eye size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="purple"
-                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                          title={`Podgląd: ${cost.documentFileName}`}
-                        />
-                        <IconButton
-                          aria-label="Pobierz"
-                          icon={<Download size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="green"
-                          onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                          title={`Pobierz: ${cost.documentFileName}`}
-                        />
-                      </HStack>
-                    ) : (
-                      <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
-                    )}
-                  </Td>
-                  <Td textAlign="center">
-                    <HStack spacing={1} justify="center">
-                      <IconButton
-                        aria-label="Edytuj"
-                        icon={<Edit2 size={14} />}
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="blue"
-                        onClick={() => handleEditCost(cost)}
-                      />
-                      {resourcePerms.mine.canManageShare && (
-                        <IconButton
-                          aria-label="Udostępnij"
-                          icon={<Share2 size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="orange"
-                          onClick={() => handleShareCost(cost)}
-                        />
-                      )}
-                      <IconButton
-                        aria-label="Usuń"
-                        icon={<Trash2 size={14} />}
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="red"
-                        onClick={() => handleDeleteCost(cost.id)}
-                        isLoading={deletingCostId === cost.id}
-                      />
-                    </HStack>
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        </Box>
-      )}
-    </VStack>;
-  }
-
-  function SharedCostsTab({ isActive }: { isActive: boolean }) {
-    const hasFetched = useRef(false);
-    
-    useEffect(() => {
-      if (isActive && !sharedCostsCache.data && !sharedCostsCache.loading && !hasFetched.current) {
-        hasFetched.current = true;
-        sharedCostsCache.fetch();
-      }
-    }, [isActive]);
-
-    if (sharedCostsCache.loading) {
-      return <LoadingSpinner />;
-    }
-
-    const costs = sharedCostsCache.data || [];
-
-    return (
-      <VStack spacing={4} align="stretch">
-        <Text fontSize="sm" color="gray.600">
-          Koszty udostępnione przez innych członków projektu
-        </Text>
-
-        {costs.length === 0 ? (
-          <EmptyState
-            icon={Share2}
-            title="Brak udostępnionych kosztów"
-            description="Nikt jeszcze nie udostępnił Ci kosztów w tym projekcie"
-          />
-        ) : (
-          <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-            <Table size="sm" variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Nazwa</Th>
-                  <Th>Miejsce</Th>
-                  <Th>Data</Th>
-                  <Th>Opis</Th>
-                  <Th isNumeric>Netto</Th>
-                  <Th isNumeric>VAT %</Th>
-                  <Th isNumeric>Brutto</Th>
-                  <Th textAlign="center">Rozliczone</Th>
-                  <Th textAlign="center">Dokument</Th>
-                  <Th>Udostępnione przez</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {costs.map((cost) => (
-                  <Tr key={cost.id} _hover={{ bg: useColorModeValue("gray.50", "gray.700") }}>
-                    <Td fontWeight="medium">{cost.costName}</Td>
-                    <Td>{cost.costPlace || "-"}</Td>
-                    <Td>{formatDate(cost.costDate)}</Td>
-                    <Td>{cost.costDescription || "-"}</Td>
-                    <Td isNumeric>{formatCurrency(cost.costNetAmount ?? 0)}</Td>
-                    <Td isNumeric>{cost.costVatRate ?? 0}%</Td>
-                    <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.costGrossAmount)}</Td>
-                    <Td textAlign="center">
-                      {resourcePerms.shared.canEdit ? (
-                        <Checkbox
-                          isChecked={cost.costIsClosed}
-                          onChange={() => handleToggleSharedCostClosed(cost.projectCostId, cost.costIsClosed)}
-                          colorScheme="green"
-                          isDisabled={editingSharedCostId === cost.projectCostId && savingSharedCost}
-                        />
-                      ) : (
-                        <Badge colorScheme={cost.costIsClosed ? "green" : "gray"} fontSize="xs">
-                          {cost.costIsClosed ? "Tak" : "Nie"}
-                        </Badge>
-                      )}
-                    </Td>
-                    <Td textAlign="center">
-                      {cost.costHasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
-                        <HStack spacing={1} justify="center">
-                          <IconButton
-                            aria-label="Podgląd"
-                            icon={<Eye size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="purple"
-                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                            title={`Podgląd: ${cost.costDocumentFileName}`}
-                          />
-                          <IconButton
-                            aria-label="Pobierz"
-                            icon={<Download size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="green"
-                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                            title={`Pobierz: ${cost.costDocumentFileName}`}
-                          />
-                        </HStack>
-                      ) : (
-                        <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
-                      )}
-                    </Td>
-                    <Td>{cost.sharedByUserName}</Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
-        )}
-      </VStack>
-    );
-  }
 
   if (loading) {
     return (
@@ -869,16 +1374,6 @@ export default function ProjectSimpleCosts() {
               {projectName && <Text fontSize="sm" color="gray.600">{projectName}</Text>}
             </VStack>
           </HStack>
-          {resourcePerms.mine.canCreate && (
-            <Button
-              leftIcon={<Plus size={18} />}
-              colorScheme="blue"
-              onClick={() => setShowNewCostRow(true)}
-              isDisabled={showNewCostRow}
-            >
-              Dodaj koszt
-            </Button>
-          )}
         </HStack>
 
         {!project || !resourcePerms.hasAnyAccess ? (
@@ -924,17 +1419,83 @@ export default function ProjectSimpleCosts() {
           <TabPanels>
             {resourcePerms.tabs.showAll && (
               <TabPanel>
-                <AllCostsTab isActive={activeTabIndex === allCostsTabIndex} />
+                <AllCostsTab
+                  costs={allCostsCache.data || []}
+                  loading={allCostsCache.loading}
+                  showNewCostRow={showNewCostRow}
+                  newCostData={newCostData}
+                  documentFile={documentFile}
+                  addingNewCost={addingNewCost}
+                  resourcePerms={resourcePerms}
+                  editingCostId={editingCostId}
+                  editingCostData={editingCostData}
+                  editDocumentFile={editDocumentFile}
+                  deletingCostId={deletingCostId}
+                  editingClosedCostId={editingClosedCostId}
+                  savingClosedCost={savingClosedCost}
+                  onShareCostsModalOpen={onShareCostsModalOpen}
+                  onShowNewCostRow={setShowNewCostRow}
+                  onNewCostDataChange={setNewCostData}
+                  onDocumentFileChange={setDocumentFile}
+                  onAddCost={handleAddCost}
+                  onManageShare={handleManageShare}
+                  onEditCost={handleEditCost}
+                  onEditingCostDataChange={setEditingCostData}
+                  onEditDocumentFileChange={setEditDocumentFile}
+                  onSaveEdit={handleSaveEdit}
+                  onCancelEdit={handleCancelEdit}
+                  onDeleteCost={handleDeleteCost}
+                  onToggleCostClosed={handleToggleCostClosed}
+                />
               </TabPanel>
             )}
             {resourcePerms.tabs.showMine && (
               <TabPanel>
-                <MyCostsTab isActive={activeTabIndex === myCostsTabIndex} />
+                <MyCostsTab
+                  costs={myCostsCache.data || []}
+                  loading={myCostsCache.loading}
+                  showNewCostRow={showNewCostRow}
+                  newCostData={newCostData}
+                  documentFile={documentFile}
+                  addingNewCost={addingNewCost}
+                  editingCostId={editingCostId}
+                  editingCostData={editingCostData}
+                  editDocumentFile={editDocumentFile}
+                  savingCost={savingCost}
+                  deletingCostId={deletingCostId}
+                  editingClosedCostId={editingClosedCostId}
+                  savingClosedCost={savingClosedCost}
+                  resourcePerms={resourcePerms}
+                  onShareCostsModalOpen={onShareCostsModalOpen}
+                  onShowNewCostRow={setShowNewCostRow}
+                  onNewCostDataChange={setNewCostData}
+                  onDocumentFileChange={setDocumentFile}
+                  onAddCost={handleAddCost}
+                  onEditCost={handleEditCost}
+                  onEditingCostDataChange={setEditingCostData}
+                  onEditDocumentFileChange={setEditDocumentFile}
+                  onSaveEdit={handleSaveEdit}
+                  onCancelEdit={() => {
+                    setEditingCostId(null);
+                    setEditingCostData(null);
+                    setEditDocumentFile(null);
+                  }}
+                  onShareCost={handleShareCost}
+                  onDeleteCost={handleDeleteCost}
+                  onToggleCostClosed={handleToggleCostClosed}
+                />
               </TabPanel>
             )}
             {resourcePerms.tabs.showShared && (
               <TabPanel>
-                <SharedCostsTab isActive={activeTabIndex === sharedCostsTabIndex} />
+                <SharedCostsTab
+                  costs={sharedCostsCache.data || []}
+                  loading={sharedCostsCache.loading}
+                  editingSharedCostId={editingSharedCostId}
+                  savingSharedCost={savingSharedCost}
+                  resourcePerms={resourcePerms}
+                  onToggleSharedCostClosed={handleToggleSharedCostClosed}
+                />
               </TabPanel>
             )}
           </TabPanels>
@@ -960,7 +1521,6 @@ export default function ProjectSimpleCosts() {
             costId={costToManageShare.id}
             costName={costToManageShare.name}
             sharedWithUserIds={costToManageShare.sharedWithUserIds || []}
-            members={members}
             currentUserId={user?.id || ""}
             onShareUpdated={handleShareUpdated}
           />

@@ -76,6 +76,7 @@ export interface CostEstimateGroup {
 export interface CostEstimateWorkScope {
   id: string;
   order: number;
+  assignedUserId?: string;
   calculatedFieldValues: Record<string, any>;
   genericFieldValues: Record<string, any>;
   collectionFieldValues?: Record<string, CostEstimateCollectionItem[]>;

@@ -150,9 +150,9 @@ export default function ShareCostsModal({
 
     try {
       setLoading(true);
-      const costIds = Array.from(selectedCostIds);
-      const userIds = Array.from(selectedUserIds);
-      await projectApi.shareProjectCosts(tenantId, projectId, { costIds, userIds });
+      const projectCostIds = Array.from(selectedCostIds);
+      const sharedWithUserIds = Array.from(selectedUserIds);
+      await projectApi.shareProjectCosts(tenantId, projectId, { projectCostIds, sharedWithUserIds });
 
       toast({
         title: "Sukces",

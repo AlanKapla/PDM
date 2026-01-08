@@ -21,27 +21,29 @@ import {
   Divider,
   Badge,
   Flex,
-  Checkbox,
   Accordion,
   AccordionItem,
   AccordionButton,
   AccordionPanel,
   AccordionIcon,
+  Checkbox,
   Textarea,
 } from "@chakra-ui/react";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { projectApi } from "../api/projectApi";
-import type { WorkScheduleDetailsWeb } from "../types/workSchedule.types";
 import { handleApiError } from "../utils/handleApiError";
+import type { WorkScheduleDetailsWeb } from "../types/workSchedule.types";
 
-interface EditWorkScheduleModalProps {
+interface WorkScheduleFormModalProps {
+  mode: 'create' | 'edit';
   isOpen: boolean;
   onClose: () => void;
   tenantId: string;
   projectId: string;
-  schedule: WorkScheduleDetailsWeb;
+  projectName: string;
   members: any[];
-  onScheduleUpdated?: () => void;
+  schedule?: WorkScheduleDetailsWeb; // Tylko dla trybu 'edit'
+  onSuccess?: () => void;
 }
 
 interface StageFormData {
@@ -83,15 +85,17 @@ const PRESET_COLORS = [
   "#D69E2E", "#00B5D8", "#D53F8C", "#319795", "#718096",
 ];
 
-export default function EditWorkScheduleModal({
+export default function WorkScheduleFormModal({
+  mode,
   isOpen,
   onClose,
   tenantId,
   projectId,
-  schedule,
+  projectName,
   members,
-  onScheduleUpdated,
-}: EditWorkScheduleModalProps) {
+  schedule,
+  onSuccess,
+}: WorkScheduleFormModalProps) {
   const toast = useToast();
   const [scheduleName, setScheduleName] = useState("");
   const [stages, setStages] = useState<StageFormData[]>([]);
@@ -104,12 +108,23 @@ export default function EditWorkScheduleModal({
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   useEffect(() => {
-    if (isOpen && schedule) {
-      loadScheduleData();
+    if (isOpen) {
+      if (mode === 'create') {
+        resetForm();
+      } else if (mode === 'edit' && schedule) {
+        loadScheduleData();
+      }
     }
-  }, [isOpen, schedule]);
+  }, [isOpen, mode, schedule]);
+
+  const resetForm = () => {
+    setScheduleName("");
+    setStages([]);
+  };
 
   const loadScheduleData = () => {
+    if (!schedule) return;
+    
     setScheduleName(schedule.name);
     
     const loadedStages: StageFormData[] = schedule.stages.map((stage) => ({
@@ -145,7 +160,7 @@ export default function EditWorkScheduleModal({
 
   const addStage = () => {
     const newStage: StageFormData = {
-      tempId: `stage-new-${Date.now()}`,
+      tempId: mode === 'create' ? `stage-${Date.now()}` : `stage-new-${Date.now()}`,
       name: "",
       order: stages.length,
       works: [],
@@ -173,13 +188,13 @@ export default function EditWorkScheduleModal({
           tomorrow.setDate(tomorrow.getDate() + 1);
           
           const newWork: WorkFormData = {
-            tempId: `work-new-${Date.now()}`,
+            tempId: mode === 'create' ? `work-${Date.now()}` : `work-new-${Date.now()}`,
             name: "",
             order: stage.works.length,
             colorRgb: PRESET_COLORS[stage.works.length % PRESET_COLORS.length],
             isClosed: false,
             periods: [{
-              tempId: `period-new-${Date.now()}`,
+              tempId: mode === 'create' ? `period-${Date.now()}` : `period-new-${Date.now()}`,
               startDate: today.toISOString().split("T")[0],
               endDate: tomorrow.toISOString().split("T")[0],
               isClosed: false,
@@ -232,7 +247,6 @@ export default function EditWorkScheduleModal({
             ...stage,
             works: stage.works.map((work) => {
               if (work.tempId === workTempId) {
-                // Get last period's endDate and add 1 day for new startDate
                 let newStartDate: string;
                 let newEndDate: string;
                 
@@ -253,12 +267,12 @@ export default function EditWorkScheduleModal({
                 }
                 
                 const newPeriod: WorkPeriodFormData = {
-                  tempId: `period-new-${Date.now()}`,
+                  tempId: mode === 'create' ? `period-${Date.now()}` : `period-new-${Date.now()}`,
                   startDate: newStartDate,
                   endDate: newEndDate,
                   isClosed: false,
                 };
-                return { ...work, periods: [...work.periods, newPeriod] };
+                return { ...work, periods: [...work.periods, newPeriod], isClosed: false };
               }
               return work;
             }),
@@ -309,7 +323,6 @@ export default function EditWorkScheduleModal({
                   periods: work.periods.map((p) => {
                     if (p.tempId === periodTempId) {
                       const updated = { ...p, ...updates };
-                      // Auto-adjust endDate to be startDate + 1 day when startDate changes
                       if (updates.startDate) {
                         const startDate = new Date(updates.startDate);
                         startDate.setDate(startDate.getDate() + 1);
@@ -364,7 +377,7 @@ export default function EditWorkScheduleModal({
             works: stage.works.map((work) => {
               if (work.tempId === workTempId) {
                 const newComment: WorkCommentFormData = {
-                  tempId: `comment-new-${Date.now()}`,
+                  tempId: mode === 'create' ? `comment-${Date.now()}` : `comment-new-${Date.now()}`,
                   content: "",
                 };
                 return { ...work, comments: [...work.comments, newComment] };
@@ -429,7 +442,7 @@ export default function EditWorkScheduleModal({
     );
   };
 
-  // Drag & Drop (kopiowane z CreateWorkScheduleModal)
+  // Drag & Drop
   const handleStageDragStart = (e: React.DragEvent, tempId: string) => {
     setDraggedStage(tempId);
     e.dataTransfer.effectAllowed = "move";
@@ -498,6 +511,7 @@ export default function EditWorkScheduleModal({
   };
 
   const handleSubmit = async () => {
+    // Walidacja nazwy harmonogramu
     if (!scheduleName.trim()) {
       toast({
         title: "Błąd walidacji",
@@ -508,16 +522,70 @@ export default function EditWorkScheduleModal({
       return;
     }
 
-    // Walidacja tylko dla wypełnionych etapów
+    if (scheduleName.length > 200) {
+      toast({
+        title: "Błąd walidacji",
+        description: "Nazwa harmonogramu nie może przekraczać 200 znaków",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Walidacja etapów i prac
     for (const stage of stages) {
-      if (stage.name.trim() && stage.works.length > 0) {
+      // Walidacja nazwy etapu
+      if (!stage.name.trim()) {
+        toast({
+          title: "Błąd walidacji",
+          description: "Nazwa etapu jest wymagana dla wszystkich etapów",
+          status: "error",
+          duration: 3000,
+        });
+        return;
+      }
+
+      if (stage.name.length > 200) {
+        toast({
+          title: "Błąd walidacji",
+          description: `Nazwa etapu "${stage.name}" nie może przekraczać 200 znaków`,
+          status: "error",
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Walidacja prac w etapie
+      if (stage.works.length > 0) {
         for (const work of stage.works) {
-          if (work.name.trim() && work.periods.length > 0) {
+          // Walidacja nazwy pracy
+          if (!work.name.trim()) {
+            toast({
+              title: "Błąd walidacji",
+              description: `Nazwa zakresu robót jest wymagana w etapie "${stage.name}"`,
+              status: "error",
+              duration: 3000,
+            });
+            return;
+          }
+
+          if (work.name.length > 200) {
+            toast({
+              title: "Błąd walidacji",
+              description: `Nazwa zakresu robót "${work.name}" nie może przekraczać 200 znaków`,
+              status: "error",
+              duration: 3000,
+            });
+            return;
+          }
+
+          // Walidacja okresów
+          if (work.periods.length > 0) {
             for (const period of work.periods) {
               if (new Date(period.startDate) > new Date(period.endDate)) {
                 toast({
                   title: "Błąd walidacji",
-                  description: `Data rozpoczęcia nie może być późniejsza niż data zakończenia w pracy "${work.name}"`,
+                  description: `Data rozpoczęcia nie może być późniejsza niż data zakończenia w zakresie robót "${work.name}"`,
                   status: "error",
                   duration: 3000,
                 });
@@ -525,7 +593,7 @@ export default function EditWorkScheduleModal({
               }
             }
 
-            // Check for overlapping periods
+            // Sprawdź nakładające się okresy
             for (let i = 0; i < work.periods.length; i++) {
               for (let j = i + 1; j < work.periods.length; j++) {
                 const period1 = work.periods[i];
@@ -535,17 +603,29 @@ export default function EditWorkScheduleModal({
                 const start2 = new Date(period2.startDate);
                 const end2 = new Date(period2.endDate);
 
-                // Check if periods overlap
                 if (start1 <= end2 && start2 <= end1) {
                   toast({
                     title: "Błąd walidacji",
-                    description: `Okresy pracy "${work.name}" nie mogą nachodzić na siebie`,
+                    description: `Okresy w zakresie robót "${work.name}" nie mogą nachodzić na siebie`,
                     status: "error",
                     duration: 3000,
                   });
                   return;
                 }
               }
+            }
+          }
+
+          // Walidacja komentarzy
+          for (const comment of work.comments) {
+            if (comment.content.trim() && comment.content.length > 2000) {
+              toast({
+                title: "Błąd walidacji",
+                description: `Komentarz w zakresie robót "${work.name}" nie może przekraczać 2000 znaków`,
+                status: "error",
+                duration: 3000,
+              });
+              return;
             }
           }
         }
@@ -557,17 +637,17 @@ export default function EditWorkScheduleModal({
       const command = {
         name: scheduleName,
         stages: stages.map((stage) => ({
-          id: stage.id,
+          ...(mode === 'edit' && stage.id ? { id: stage.id } : {}),
           name: stage.name,
           order: stage.order,
           works: stage.works.map((work) => ({
-            id: work.id,
+            ...(mode === 'edit' && work.id ? { id: work.id } : {}),
             name: work.name,
             order: work.order,
             colorRgb: work.colorRgb,
             isClosed: work.isClosed,
             periods: work.periods.map((period) => ({
-              id: period.id,
+              ...(mode === 'edit' && period.id ? { id: period.id } : {}),
               startDate: new Date(period.startDate).toISOString(),
               endDate: new Date(period.endDate).toISOString(),
               isClosed: period.isClosed,
@@ -576,30 +656,35 @@ export default function EditWorkScheduleModal({
             comments: work.comments
               .filter((c) => c.content.trim())
               .map((c) => ({
-                id: c.id,
+                ...(mode === 'edit' && c.id ? { id: c.id } : {}),
                 content: c.content.trim(),
               })),
           })),
         })),
       };
 
-      const response = await projectApi.updateWorkSchedule(
-        tenantId,
-        projectId,
-        schedule.id,
-        command
-      );
+      if (mode === 'create') {
+        await projectApi.createWorkSchedule(tenantId, projectId, command);
+        toast({
+          title: "Sukces",
+          description: "Harmonogram został utworzony",
+          status: "success",
+          duration: 3000,
+        });
+      } else {
+        await projectApi.updateWorkSchedule(tenantId, projectId, schedule!.id, command);
+        toast({
+          title: "Sukces",
+          description: "Harmonogram został zaktualizowany",
+          status: "success",
+          duration: 3000,
+        });
+      }
 
-      toast({
-        title: "Sukces",
-        description: "Harmonogram został zaktualizowany",
-        status: "success",
-        duration: 3000,
-      });
-      onScheduleUpdated?.();
+      onSuccess?.();
       onClose();
     } catch (error) {
-      console.error("Błąd aktualizacji harmonogramu:", error);
+      console.error(`Błąd ${mode === 'create' ? 'tworzenia' : 'aktualizacji'} harmonogramu:`, error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -612,11 +697,18 @@ export default function EditWorkScheduleModal({
     }
   };
 
+  const modalTitle = mode === 'create' 
+    ? `Utwórz harmonogram prac - ${projectName}`
+    : `Edytuj harmonogram - ${schedule?.name || ''}`;
+
+  const submitButtonText = mode === 'create' ? 'Utwórz harmonogram' : 'Zapisz zmiany';
+  const submitLoadingText = mode === 'create' ? 'Tworzenie...' : 'Zapisywanie...';
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent maxH="90vh">
-        <ModalHeader>Edytuj harmonogram - {schedule.name}</ModalHeader>
+        <ModalHeader>{modalTitle}</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <VStack spacing={6} align="stretch">
@@ -626,7 +718,11 @@ export default function EditWorkScheduleModal({
                 placeholder="Np. Harmonogram budowy - Q1 2025"
                 value={scheduleName}
                 onChange={(e) => setScheduleName(e.target.value)}
+                maxLength={200}
               />
+              <Text fontSize="xs" color="gray.500" mt={1}>
+                {scheduleName.length}/200 znaków
+              </Text>
             </FormControl>
 
             <Divider />
@@ -671,12 +767,17 @@ export default function EditWorkScheduleModal({
                           </Box>
                           <Badge colorScheme="blue">Etap {stageIndex + 1}</Badge>
                           <Input
-                            placeholder="Nazwa etapu"
+                            placeholder="Nazwa etapu (wymagane, max 200 znaków)"
                             value={stage.name}
                             onChange={(e) => updateStageName(stage.tempId, e.target.value)}
                             onClick={(e) => e.stopPropagation()}
                             flex={1}
+                            maxLength={200}
+                            isInvalid={!stage.name.trim()}
                           />
+                          <Text fontSize="xs" color="gray.500" minW="60px" textAlign="right">
+                            {stage.name.length}/200
+                          </Text>
                           <IconButton
                             aria-label="Usuń etap"
                             icon={<Trash2 size={16} />}
@@ -720,7 +821,7 @@ export default function EditWorkScheduleModal({
                                       Zakres robót {workIndex + 1}
                                     </Badge>
                                     <Input
-                                      placeholder="Nazwa zakresu robót"
+                                      placeholder="Nazwa zakresu robót (wymagane, max 200 znaków)"
                                       size="sm"
                                       value={work.name}
                                       onChange={(e) =>
@@ -728,7 +829,12 @@ export default function EditWorkScheduleModal({
                                       }
                                       onClick={(e) => e.stopPropagation()}
                                       flex={1}
+                                      maxLength={200}
+                                      isInvalid={!work.name.trim()}
                                     />
+                                    <Text fontSize="xs" color="gray.500" minW="50px" textAlign="right">
+                                      {work.name.length}/200
+                                    </Text>
                                     <IconButton
                                       aria-label="Usuń pracę"
                                       icon={<Trash2 size={14} />}
@@ -746,278 +852,265 @@ export default function EditWorkScheduleModal({
 
                                 <AccordionPanel pb={3} pt={2}>
                                   <VStack spacing={2} align="stretch">
+                                    {/* Okresy pracy */}
                                     <FormControl size="sm">
                                       <HStack justify="space-between" mb={1}>
                                         <FormLabel fontSize="xs" mb={0}>Okresy pracy</FormLabel>
-                                <Button
-                                  size="xs"
-                                  leftIcon={<Plus size={12} />}
-                                  onClick={() => addPeriod(stage.tempId, work.tempId)}
-                                  colorScheme="green"
-                                  variant="ghost"
-                                >
-                                  Dodaj okres
-                                </Button>
-                              </HStack>
-                              <VStack spacing={2} align="stretch">
-                                {work.periods.map((period, periodIdx) => (
-                                  <VStack key={period.tempId} spacing={1} align="stretch">
-                                    <HStack spacing={2}>
-                                      <Text fontSize="xs" minW="20px">{periodIdx + 1}.</Text>
-                                      <Input
-                                        type="date"
+                                        <Button
+                                          size="xs"
+                                          leftIcon={<Plus size={12} />}
+                                          onClick={() => addPeriod(stage.tempId, work.tempId)}
+                                          colorScheme="green"
+                                          variant="ghost"
+                                        >
+                                          Dodaj okres
+                                        </Button>
+                                      </HStack>
+                                      <VStack spacing={2} align="stretch">
+                                        {work.periods.map((period, periodIdx) => (
+                                          <VStack key={period.tempId} spacing={1} align="stretch">
+                                            <HStack spacing={2}>
+                                              <Text fontSize="xs" minW="20px">{periodIdx + 1}.</Text>
+                                              <Input
+                                                type="date"
+                                                size="sm"
+                                                value={period.startDate}
+                                                onChange={(e) =>
+                                                  updatePeriod(stage.tempId, work.tempId, period.tempId, {
+                                                    startDate: e.target.value,
+                                                  })
+                                                }
+                                                placeholder="Od"
+                                              />
+                                              <Input
+                                                type="date"
+                                                size="sm"
+                                                value={period.endDate}
+                                                onChange={(e) =>
+                                                  updatePeriod(stage.tempId, work.tempId, period.tempId, {
+                                                    endDate: e.target.value,
+                                                  })
+                                                }
+                                                placeholder="Do"
+                                              />
+                                              <IconButton
+                                                aria-label="Usuń okres"
+                                                icon={<Trash2 size={14} />}
+                                                size="sm"
+                                                colorScheme="red"
+                                                variant="ghost"
+                                                onClick={() => removePeriod(stage.tempId, work.tempId, period.tempId)}
+                                                isDisabled={work.periods.length === 1}
+                                              />
+                                            </HStack>
+                                            <Checkbox
+                                              size="sm"
+                                              colorScheme="green"
+                                              isChecked={period.isClosed}
+                                              onChange={(e) => {
+                                                const updatedPeriods = work.periods.map(p => 
+                                                  p.tempId === period.tempId ? { ...p, isClosed: e.target.checked } : p
+                                                );
+                                                const allPeriodsClosed = updatedPeriods.every(p => p.isClosed);
+                                                updateWork(stage.tempId, work.tempId, { 
+                                                  periods: updatedPeriods,
+                                                  isClosed: allPeriodsClosed 
+                                                });
+                                              }}
+                                              ml={6}
+                                            >
+                                              <Text fontSize="xs">Okres wykonany</Text>
+                                            </Checkbox>
+                                          </VStack>
+                                        ))}
+                                      </VStack>
+                                    </FormControl>
+
+                                    {/* Kolor */}
+                                    <FormControl size="sm">
+                                      <FormLabel fontSize="xs" mb={1}>Kolor</FormLabel>
+                                      <HStack spacing={2} flexWrap="wrap">
+                                        {PRESET_COLORS.map((color) => (
+                                          <Box
+                                            key={color}
+                                            w={8}
+                                            h={8}
+                                            bg={color}
+                                            borderRadius="md"
+                                            cursor="pointer"
+                                            borderWidth="3px"
+                                            borderColor={work.colorRgb === color ? "red.500" : "transparent"}
+                                            onClick={() => updateWork(stage.tempId, work.tempId, { colorRgb: color })}
+                                            _hover={{ transform: "scale(1.1)" }}
+                                            transition="all 0.2s"
+                                            position="relative"
+                                            _after={work.colorRgb === color ? {
+                                              content: '""',
+                                              position: "absolute",
+                                              top: 0,
+                                              left: 0,
+                                              right: 0,
+                                              bottom: 0,
+                                              bg: "blackAlpha.300",
+                                              borderRadius: "md",
+                                            } : undefined}
+                                          />
+                                        ))}
+                                        <Box
+                                          position="relative"
+                                          w={8}
+                                          h={8}
+                                          bg={work.colorRgb}
+                                          borderRadius="md"
+                                          borderWidth="3px"
+                                          borderColor={!PRESET_COLORS.includes(work.colorRgb) ? "red.500" : "gray.300"}
+                                          overflow="hidden"
+                                          cursor="pointer"
+                                          _hover={{ transform: "scale(1.1)" }}
+                                          transition="all 0.2s"
+                                          display="flex"
+                                          alignItems="center"
+                                          justifyContent="center"
+                                        >
+                                          <Text fontSize="2xs" fontWeight="bold" color="white" textShadow="0 0 2px black" pointerEvents="none" position="relative" zIndex={1}>
+                                            Inny
+                                          </Text>
+                                          <Input
+                                            type="color"
+                                            value={work.colorRgb}
+                                            onChange={(e) => updateWork(stage.tempId, work.tempId, { colorRgb: e.target.value })}
+                                            position="absolute"
+                                            top={0}
+                                            left={0}
+                                            w="100%"
+                                            h="100%"
+                                            border="none"
+                                            cursor="pointer"
+                                            opacity={0}
+                                            sx={{
+                                              '&::-webkit-color-swatch-wrapper': { padding: 0 },
+                                              '&::-webkit-color-swatch': { border: 'none', borderRadius: 'md' },
+                                            }}
+                                          />
+                                        </Box>
+                                      </HStack>
+                                    </FormControl>
+
+                                    {/* Prace zakończone */}
+                                    <FormControl size="sm">
+                                      <Checkbox
                                         size="sm"
-                                        value={period.startDate}
-                                        onChange={(e) =>
-                                          updatePeriod(stage.tempId, work.tempId, period.tempId, {
-                                            startDate: e.target.value,
-                                          })
-                                        }
-                                        placeholder="Od"
-                                      />
-                                      <Input
-                                        type="date"
-                                        size="sm"
-                                        value={period.endDate}
-                                        onChange={(e) =>
-                                          updatePeriod(stage.tempId, work.tempId, period.tempId, {
-                                            endDate: e.target.value,
-                                          })
-                                        }
-                                        placeholder="Do"
-                                      />
-                                      <IconButton
-                                        aria-label="Usuń okres"
-                                        icon={<Trash2 size={14} />}
-                                        size="sm"
-                                        colorScheme="red"
-                                        variant="ghost"
-                                        onClick={() => removePeriod(stage.tempId, work.tempId, period.tempId)}
-                                        isDisabled={work.periods.length === 1}
-                                      />
-                                    </HStack>
-                                    <Checkbox
-                                      size="sm"
-                                      isChecked={period.isClosed}
-                                      onChange={(e) =>
-                                        updatePeriod(stage.tempId, work.tempId, period.tempId, {
-                                          isClosed: e.target.checked,
-                                        })
-                                      }
-                                      ml={6}
-                                    >
-                                      <Text fontSize="xs">Okres wykonany</Text>
-                                    </Checkbox>
+                                        colorScheme="green"
+                                        isChecked={work.isClosed}
+                                        onChange={(e) => {
+                                          const newClosedState = e.target.checked;
+                                          const updatedPeriods = work.periods.map(p => ({ ...p, isClosed: newClosedState }));
+                                          updateWork(stage.tempId, work.tempId, { isClosed: newClosedState, periods: updatedPeriods });
+                                        }}
+                                      >
+                                        <Text fontSize="xs">Prace zakończone</Text>
+                                      </Checkbox>
+                                    </FormControl>
+
+                                    {/* Przypisani członkowie */}
+                                    <FormControl size="sm">
+                                      <FormLabel fontSize="xs" mb={1}>Przypisani członkowie</FormLabel>
+                                      <Flex flexWrap="wrap" gap={2}>
+                                        {members.map((member) => (
+                                          <Badge
+                                            key={member.userId}
+                                            colorScheme={work.assignedUserIds.includes(member.userId) ? "blue" : "gray"}
+                                            cursor="pointer"
+                                            px={2}
+                                            py={1}
+                                            borderRadius="md"
+                                            onClick={() => toggleAssignedUser(stage.tempId, work.tempId, member.userId)}
+                                            _hover={{ transform: "scale(1.05)" }}
+                                            transition="all 0.2s"
+                                          >
+                                            {member.firstName} {member.lastName}
+                                          </Badge>
+                                        ))}
+                                      </Flex>
+                                    </FormControl>
+
+                                    {/* Komentarze */}
+                                    <FormControl size="sm">
+                                      <HStack justify="space-between" mb={1}>
+                                        <FormLabel fontSize="xs" mb={0}>Komentarze</FormLabel>
+                                        <Button
+                                          size="xs"
+                                          leftIcon={<Plus size={12} />}
+                                          onClick={() => addComment(stage.tempId, work.tempId)}
+                                          colorScheme="purple"
+                                          variant="ghost"
+                                        >
+                                          Dodaj komentarz
+                                        </Button>
+                                      </HStack>
+                                      <VStack spacing={2} align="stretch">
+                                        {work.comments.map((comment, commentIdx) => (
+                                          <VStack key={comment.tempId} spacing={1} align="stretch">
+                                            <HStack spacing={2} align="flex-start">
+                                              <Text fontSize="xs" minW="20px" mt={2}>{commentIdx + 1}.</Text>
+                                              <Textarea
+                                                size="sm"
+                                                value={comment.content}
+                                                onChange={(e) =>
+                                                  updateComment(stage.tempId, work.tempId, comment.tempId, e.target.value)
+                                                }
+                                                placeholder="Treść komentarza (max 2000 znaków)"
+                                                maxLength={2000}
+                                                resize="vertical"
+                                                minH="60px"
+                                              />
+                                              <IconButton
+                                                aria-label="Usuń komentarz"
+                                                icon={<Trash2 size={14} />}
+                                                size="sm"
+                                                colorScheme="red"
+                                                variant="ghost"
+                                                onClick={() => removeComment(stage.tempId, work.tempId, comment.tempId)}
+                                                mt={1}
+                                              />
+                                            </HStack>
+                                            <Text fontSize="xs" color={comment.content.length > 1900 ? "orange.500" : "gray.500"} ml={6}>
+                                              {comment.content.length}/2000 znaków
+                                            </Text>
+                                          </VStack>
+                                        ))}
+                                      </VStack>
+                                    </FormControl>
                                   </VStack>
-                                ))}
-                              </VStack>
-                            </FormControl>
+                                </AccordionPanel>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
 
-                            <FormControl size="sm">
-                              <FormLabel fontSize="xs" mb={1}>
-                                Kolor
-                              </FormLabel>
-                              <HStack spacing={2} flexWrap="wrap">
-                                {PRESET_COLORS.map((color) => (
-                                  <Box
-                                    key={color}
-                                    w={8}
-                                    h={8}
-                                    bg={color}
-                                    borderRadius="md"
-                                    cursor="pointer"
-                                    borderWidth="3px"
-                                    borderColor={
-                                      work.colorRgb === color ? "red.500" : "transparent"
-                                    }
-                                    onClick={() =>
-                                      updateWork(stage.tempId, work.tempId, { colorRgb: color })
-                                    }
-                                    _hover={{ transform: "scale(1.1)" }}
-                                    transition="all 0.2s"
-                                    position="relative"
-                                    _after={work.colorRgb === color ? {
-                                      content: '""',
-                                      position: "absolute",
-                                      top: 0,
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 0,
-                                      bg: "blackAlpha.300",
-                                      borderRadius: "md",
-                                    } : undefined}
-                                  />
-                                ))}
-                                <Box
-                                  position="relative"
-                                  w={8}
-                                  h={8}
-                                  bg={work.colorRgb}
-                                  borderRadius="md"
-                                  borderWidth="3px"
-                                  borderColor={
-                                    !PRESET_COLORS.includes(work.colorRgb) ? "red.500" : "gray.300"
-                                  }
-                                  overflow="hidden"
-                                  cursor="pointer"
-                                  _hover={{ transform: "scale(1.1)" }}
-                                  transition="all 0.2s"
-                                  display="flex"
-                                  alignItems="center"
-                                  justifyContent="center"
-                                >
-                                  <Text
-                                    fontSize="2xs"
-                                    fontWeight="bold"
-                                    color="white"
-                                    textShadow="0 0 2px black"
-                                    pointerEvents="none"
-                                    position="relative"
-                                    zIndex={1}
-                                  >
-                                    Inny
-                                  </Text>
-                                  <Input
-                                    type="color"
-                                    value={work.colorRgb}
-                                    onChange={(e) =>
-                                      updateWork(stage.tempId, work.tempId, { colorRgb: e.target.value })
-                                    }
-                                    position="absolute"
-                                    top={0}
-                                    left={0}
-                                    w="100%"
-                                    h="100%"
-                                    border="none"
-                                    cursor="pointer"
-                                    opacity={0}
-                                    sx={{
-                                      '&::-webkit-color-swatch-wrapper': {
-                                        padding: 0,
-                                      },
-                                      '&::-webkit-color-swatch': {
-                                        border: 'none',
-                                        borderRadius: 'md',
-                                      },
-                                    }}
-                                  />
-                                </Box>
-                              </HStack>
-                            </FormControl>
+                          <Button
+                            leftIcon={<Plus size={14} />}
+                            size="sm"
+                            variant="outline"
+                            colorScheme="green"
+                            onClick={() => addWork(stage.tempId)}
+                          >
+                            Dodaj zakres robót
+                          </Button>
+                        </VStack>
+                      </AccordionPanel>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
 
-                            <FormControl size="sm">
-                              <FormLabel fontSize="xs" mb={1}>
-                                Przypisani członkowie
-                              </FormLabel>
-                              <Flex flexWrap="wrap" gap={2}>
-                                {members.map((member) => (
-                                  <Badge
-                                    key={member.userId}
-                                    colorScheme={
-                                      work.assignedUserIds.includes(member.userId)
-                                        ? "blue"
-                                        : "gray"
-                                    }
-                                    cursor="pointer"
-                                    px={2}
-                                    py={1}
-                                    borderRadius="md"
-                                    onClick={() =>
-                                      toggleAssignedUser(stage.tempId, work.tempId, member.userId)
-                                    }
-                                    _hover={{ transform: "scale(1.05)" }}
-                                    transition="all 0.2s"
-                                  >
-                                    {member.firstName} {member.lastName}
-                                  </Badge>
-                                ))}
-                              </Flex>
-                            </FormControl>
-
-                            <FormControl size="sm">
-                              <HStack justify="space-between" mb={1}>
-                                <FormLabel fontSize="xs" mb={0}>Komentarze</FormLabel>
-                                <Button
-                                  size="xs"
-                                  leftIcon={<Plus size={12} />}
-                                  onClick={() => addComment(stage.tempId, work.tempId)}
-                                  colorScheme="purple"
-                                  variant="ghost"
-                                >
-                                  Dodaj komentarz
-                                </Button>
-                              </HStack>
-                              <VStack spacing={2} align="stretch">
-                                {work.comments.map((comment, commentIdx) => (
-                                  <HStack key={comment.tempId} spacing={2} align="flex-start">
-                                    <Text fontSize="xs" minW="20px" mt={2}>{commentIdx + 1}.</Text>
-                                    <Textarea
-                                      size="sm"
-                                      value={comment.content}
-                                      onChange={(e) =>
-                                        updateComment(stage.tempId, work.tempId, comment.tempId, e.target.value)
-                                      }
-                                      placeholder="Treść komentarza (max 2000 znaków)"
-                                      maxLength={2000}
-                                      resize="vertical"
-                                      minH="60px"
-                                    />
-                                    <IconButton
-                                      aria-label="Usuń komentarz"
-                                      icon={<Trash2 size={14} />}
-                                      size="sm"
-                                      colorScheme="red"
-                                      variant="ghost"
-                                      onClick={() => removeComment(stage.tempId, work.tempId, comment.tempId)}
-                                      mt={1}
-                                    />
-                                  </HStack>
-                                ))}
-                              </VStack>
-                            </FormControl>
-
-                            <FormControl size="sm">
-                              <Checkbox
-                                isChecked={work.isClosed}
-                                onChange={(e) =>
-                                  updateWork(stage.tempId, work.tempId, { isClosed: e.target.checked })
-                                }
-                                colorScheme="green"
-                                size="sm"
-                              >
-                                <Text fontSize="xs">Prace zakończone</Text>
-                              </Checkbox>
-                            </FormControl>
-                          </VStack>
-                        </AccordionPanel>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-
-                  <Button
-                    leftIcon={<Plus size={14} />}
-                    size="sm"
-                    variant="outline"
-                    colorScheme="green"
-                    onClick={() => addWork(stage.tempId)}
-                  >
-                    Dodaj zakres robót
-                  </Button>
-                </VStack>
-              </AccordionPanel>
-            </AccordionItem>
-          ))}
-        </Accordion>
-
-        {stages.length === 0 && (
-          <Box textAlign="center" py={8} color="gray.500">
-            <Text>Brak etapów. Kliknij "Dodaj etap" aby rozpocząć.</Text>
-          </Box>
-        )}
-      </VStack>
-    </Box>
-  </VStack>
-</ModalBody>
+                {stages.length === 0 && (
+                  <Box textAlign="center" py={8} color="gray.500">
+                    <Text>Brak etapów. Kliknij "Dodaj etap" aby rozpocząć.</Text>
+                  </Box>
+                )}
+              </VStack>
+            </Box>
+          </VStack>
+        </ModalBody>
 
         <ModalFooter>
           <Button variant="ghost" mr={3} onClick={onClose} isDisabled={submitting}>
@@ -1027,9 +1120,9 @@ export default function EditWorkScheduleModal({
             colorScheme="blue"
             onClick={handleSubmit}
             isLoading={submitting}
-            loadingText="Zapisywanie..."
+            loadingText={submitLoadingText}
           >
-            Zapisz zmiany
+            {submitButtonText}
           </Button>
         </ModalFooter>
       </ModalContent>

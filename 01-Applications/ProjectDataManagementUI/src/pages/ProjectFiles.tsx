@@ -133,8 +133,23 @@ export default function ProjectFiles() {
 
     setLoading(true);
     try {
+      // Pobierz dane projektu
       const projectData = await projectDetailsCache.fetch();
       setProject(projectData);
+
+      // Pobierz wszystkie zasoby równolegle według uprawnień
+      const fetchPromises = [];
+      if (resourcePerms.tabs.showAll) {
+        fetchPromises.push(allFilesCache.fetch());
+      }
+      if (resourcePerms.tabs.showMine) {
+        fetchPromises.push(myFilesCache.fetch());
+      }
+      if (resourcePerms.tabs.showShared) {
+        fetchPromises.push(sharedFilesCache.fetch());
+      }
+      
+      await Promise.all(fetchPromises);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -161,18 +176,8 @@ export default function ProjectFiles() {
     (resourcePerms.tabs.showAll || resourcePerms.tabs.showMine) && resourcePerms.tabs.showShared ? 1 :
     !resourcePerms.tabs.showAll && !resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 0 : -1;
 
-  // === Tab Components with Lazy Loading ===
-  function AllFilesTab({ isActive }: { isActive: boolean }) {
-    const hasFetched = useRef(false);
-    
-    useEffect(() => {
-      if (isActive && !allFilesCache.data && !allFilesCache.loading && !hasFetched.current) {
-        hasFetched.current = true;
-        allFilesCache.fetch();
-      }
-      // Nie resetujemy hasFetched w cleanup - chcemy zapamiętać że fetch był wykonany
-    }, [isActive]);
-
+  // === Tab Components ===
+  function AllFilesTab() {
     if (allFilesCache.loading) {
       return <LoadingSpinner />;
     }
@@ -250,16 +255,7 @@ export default function ProjectFiles() {
     );
   }
 
-  function MyFilesTab({ isActive }: { isActive: boolean }) {
-    const hasFetched = useRef(false);
-    
-    useEffect(() => {
-      if (isActive && !myFilesCache.data && !myFilesCache.loading && !hasFetched.current) {
-        hasFetched.current = true;
-        myFilesCache.fetch();
-      }
-    }, [isActive]);
-
+  function MyFilesTab() {
     if (myFilesCache.loading) {
       return <LoadingSpinner />;
     }
@@ -335,16 +331,7 @@ export default function ProjectFiles() {
     );
   }
 
-  function SharedFilesTab({ isActive }: { isActive: boolean }) {
-    const hasFetched = useRef(false);
-    
-    useEffect(() => {
-      if (isActive && !sharedFilesCache.data && !sharedFilesCache.loading && !hasFetched.current) {
-        hasFetched.current = true;
-        sharedFilesCache.fetch();
-      }
-    }, [isActive]);
-
+  function SharedFilesTab() {
     if (sharedFilesCache.loading) {
       return <LoadingSpinner />;
     }
@@ -830,17 +817,17 @@ export default function ProjectFiles() {
           <TabPanels>
             {resourcePerms.tabs.showAll && (
               <TabPanel>
-                <AllFilesTab isActive={activeTabIndex === allFilesTabIndex} />
+                <AllFilesTab />
               </TabPanel>
             )}
             {resourcePerms.tabs.showMine && (
               <TabPanel>
-                <MyFilesTab isActive={activeTabIndex === myFilesTabIndex} />
+                <MyFilesTab />
               </TabPanel>
             )}
             {resourcePerms.tabs.showShared && (
               <TabPanel>
-                <SharedFilesTab isActive={activeTabIndex === sharedFilesTabIndex} />
+                <SharedFilesTab />
               </TabPanel>
             )}
           </TabPanels>
@@ -851,8 +838,8 @@ export default function ProjectFiles() {
           isOpen={isUploadModalOpen}
           onClose={onUploadModalClose}
           projectId={projectId || ""}
-          tenantId={user?.activeTenantId || ""}
           projectName={project?.name || ""}
+          tenantId={user?.activeTenantId || ""}
           onFilesUploaded={refreshData}
         />
 

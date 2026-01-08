@@ -32,7 +32,7 @@ import {
 import { ArrowLeft, Edit, Clock, User, AlertTriangle, CalendarDays, ChevronDown, Plus, Trash2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi } from "../api/projectApi";
-import EditWorkScheduleModal from "../components/EditWorkScheduleModal";
+import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import WorkDetailsModal from "../components/WorkDetailsModal";
 import { AuthContext } from "../context/AuthContext";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
@@ -288,8 +288,8 @@ export default function WorkScheduleView() {
     fetchSchedule();
   };
 
-  const toggleWorkClosed = (workId: string) => {
-    if (!editableSchedule) return;
+  const toggleWorkClosed = async (workId: string) => {
+    if (!editableSchedule || !user?.activeTenantId || !projectId || !workScheduleId) return;
 
     const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
     
@@ -299,20 +299,69 @@ export default function WorkScheduleView() {
         const newClosedState = !work.isClosed;
         work.isClosed = newClosedState;
         
-        // Synchronizuj okresy - jeśli zamykamy pracę, zamknij wszystkie okresy
-        if (newClosedState) {
-          work.periods.forEach((p: any) => p.isClosed = true);
-        }
+        // Zaznaczenie zakresu pracy → zamknij wszystkie okresy
+        // Odznaczenie zakresu pracy → otwórz wszystkie okresy
+        work.periods.forEach((p: any) => p.isClosed = newClosedState);
         break;
       }
     }
     
     setEditableSchedule(updatedSchedule);
-    setIsDirty(true);
+    
+    // Automatyczny zapis
+    try {
+      const command = {
+        name: updatedSchedule.name,
+        stages: updatedSchedule.stages.map((stage: any) => ({
+          id: stage.id,
+          name: stage.name,
+          order: stage.order,
+          works: stage.works.map((work: any) => ({
+            id: work.id,
+            name: work.name,
+            order: work.order,
+            colorRgb: work.colorRgb,
+            isClosed: work.isClosed,
+            periods: work.periods.map((period: any) => ({
+              id: period.id,
+              startDate: period.startDate,
+              endDate: period.endDate,
+              isClosed: period.isClosed,
+            })),
+            assignedUserIds: work.assignees.map((a: any) => a.userId),
+            comments: (work.comments || [])
+              .filter((c: any) => c.content && c.content.trim())
+              .map((c: any) => ({
+                id: c.id,
+                content: c.content.trim(),
+              })),
+          })),
+        })),
+      };
+
+      await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+      
+      toast({
+        title: "Sukces",
+        description: "Status pracy został zaktualizowany",
+        status: "success",
+        duration: 2000,
+      });
+      
+      fetchSchedule();
+    } catch (error) {
+      console.error("Błąd zapisywania zmian:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zapisać zmian",
+        status: "error",
+        duration: 3000,
+      });
+    }
   };
 
-  const togglePeriodClosed = (workId: string, periodId: string | number) => {
-    if (!editableSchedule) return;
+  const togglePeriodClosed = async (workId: string, periodId: string | number) => {
+    if (!editableSchedule || !user?.activeTenantId || !projectId || !workScheduleId) return;
 
     const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
     
@@ -340,7 +389,57 @@ export default function WorkScheduleView() {
     }
     
     setEditableSchedule(updatedSchedule);
-    setIsDirty(true);
+    
+    // Automatyczny zapis
+    try {
+      const command = {
+        name: updatedSchedule.name,
+        stages: updatedSchedule.stages.map((stage: any) => ({
+          id: stage.id,
+          name: stage.name,
+          order: stage.order,
+          works: stage.works.map((work: any) => ({
+            id: work.id,
+            name: work.name,
+            order: work.order,
+            colorRgb: work.colorRgb,
+            isClosed: work.isClosed,
+            periods: work.periods.map((period: any) => ({
+              id: period.id,
+              startDate: period.startDate,
+              endDate: period.endDate,
+              isClosed: period.isClosed,
+            })),
+            assignedUserIds: work.assignees.map((a: any) => a.userId),
+            comments: (work.comments || [])
+              .filter((c: any) => c.content && c.content.trim())
+              .map((c: any) => ({
+                id: c.id,
+                content: c.content.trim(),
+              })),
+          })),
+        })),
+      };
+
+      await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
+      
+      toast({
+        title: "Sukces",
+        description: "Status okresu został zaktualizowany",
+        status: "success",
+        duration: 2000,
+      });
+      
+      fetchSchedule();
+    } catch (error) {
+      console.error("Błąd zapisywania zmian:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zapisać zmian",
+        status: "error",
+        duration: 3000,
+      });
+    }
   };
 
   const addWorkComment = (workId: string) => {
@@ -850,6 +949,70 @@ export default function WorkScheduleView() {
                         const isLastStage = stageIdx === (editableSchedule || schedule)!.stages.length - 1;
                         const isExpanded = expandedStages.has(stage.id);
                         
+                        // Jeśli etap nie ma prac, renderuj pusty wiersz nagłówka
+                        if (sortedWorks.length === 0) {
+                          return (
+                            <Tr 
+                              key={stage.id}
+                              borderBottomWidth={!isLastStage ? "4px" : undefined}
+                              borderBottomColor={!isLastStage ? "purple.500" : undefined}
+                            >
+                              <Td 
+                                position="sticky"
+                                left={0}
+                                w={`${columnWidths.stage}px`}
+                                minW={`${columnWidths.stage}px`}
+                                maxW={`${columnWidths.stage}px`}
+                                bg={useColorModeValue("blue.50", "blue.900")}
+                                zIndex={1}
+                                py={2}
+                                px={2}
+                                verticalAlign="top"
+                                borderRightWidth="2px"
+                                borderBottomWidth={!isLastStage ? "4px" : undefined}
+                                borderBottomColor={!isLastStage ? "purple.500" : undefined}
+                              >
+                                <VStack align="flex-start" spacing={1}>
+                                  <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
+                                  <Badge colorScheme="gray" fontSize="2xs">Brak prac</Badge>
+                                </VStack>
+                              </Td>
+                              <Td
+                                position="sticky"
+                                left={`${columnWidths.stage}px`}
+                                w={`${columnWidths.description}px`}
+                                minW={`${columnWidths.description}px`}
+                                maxW={`${columnWidths.description}px`}
+                                bg={cardBg}
+                                zIndex={1}
+                                py={2}
+                                px={2}
+                                borderRightWidth="2px"
+                              >
+                                <Text fontSize="sm" color="gray.500" fontStyle="italic">
+                                  Brak zakresu robót w tym etapie
+                                </Text>
+                              </Td>
+                              {dates.map((periodStart, idx) => {
+                                const isTodayColumn = isToday(periodStart);
+                                return (
+                                  <Td 
+                                    key={idx}
+                                    ref={isTodayColumn ? todayColumnRef : undefined}
+                                    p={0}
+                                    bg={isTodayColumn ? useColorModeValue("blue.100", "blue.800") : undefined}
+                                    borderLeftWidth={isTodayColumn ? "2px" : undefined}
+                                    borderRightWidth={isTodayColumn ? "2px" : undefined}
+                                    borderColor={isTodayColumn ? "blue.500" : undefined}
+                                  >
+                                    <Box h="100%" minH="50px" />
+                                  </Td>
+                                );
+                              })}
+                            </Tr>
+                          );
+                        }
+                        
                         return sortedWorks.map((work, workIdx) => {
                           const workStatus = getWorkStatus(work.periods);
                           const warningBg = useColorModeValue("yellow.50", "yellow.900");
@@ -1112,14 +1275,16 @@ export default function WorkScheduleView() {
 
           {/* Edit Modal */}
           {schedule && (
-            <EditWorkScheduleModal
+            <WorkScheduleFormModal
+              mode="edit"
               isOpen={isEditModalOpen}
               onClose={onEditModalClose}
               tenantId={user?.activeTenantId || ""}
               projectId={projectId || ""}
+              projectName=""
               schedule={schedule}
               members={members}
-              onScheduleUpdated={handleScheduleUpdated}
+              onSuccess={handleScheduleUpdated}
             />
           )}
 

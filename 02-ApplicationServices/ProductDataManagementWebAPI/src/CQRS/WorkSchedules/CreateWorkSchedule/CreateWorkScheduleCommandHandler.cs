@@ -8,6 +8,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 using Repositiories.Repository.Interfaces;
+using CQRS.WorkSchedules.Shared;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.WorkSchedules.CreateWorkSchedule
@@ -88,7 +89,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                 }
 
                 // Create stages and works
-                foreach (CreateStageDto stageDto in request.Stages)
+                foreach (WorkScheduleStageDto stageDto in request.Stages)
                 {
                     WorkScheduleStage stage = new WorkScheduleStage
                     {
@@ -105,8 +106,33 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
 
                     if (stageDto.Works != null)
                     {
-                        foreach (CreateWorkDto workDto in stageDto.Works)
+                        foreach (WorkScheduleWorkDto workDto in stageDto.Works)
                         {
+                            // Build periods collection
+                            List<WorkScheduleStageWorkPeriod> periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
+                            {
+                                StartDate = p.StartDate,
+                                EndDate = p.EndDate,
+                                IsClosed = workDto.IsClosed ? true : p.IsClosed
+                            }).ToList() ?? new List<WorkScheduleStageWorkPeriod>();
+
+                            // Determine work closure status
+                            bool isWorkClosed = false;
+                            if (workDto.IsClosed)
+                            {
+                                // If work is closed, all periods must be closed
+                                foreach (var period in periods)
+                                {
+                                    period.IsClosed = true;
+                                }
+                                isWorkClosed = true;
+                            }
+                            else if (periods.Any() && periods.All(p => p.IsClosed))
+                            {
+                                // If all periods are closed, work should be closed
+                                isWorkClosed = true;
+                            }
+
                             WorkScheduleStageWork work = new WorkScheduleStageWork
                             {
                                 TenantId = tenantId,
@@ -114,13 +140,8 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                                 Name = workDto.Name,
                                 Order = workDto.Order,
                                 ColorRgb = workDto.ColorRgb,
-                                IsClosed = false,
-                                Periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
-                                {
-                                    StartDate = p.StartDate,
-                                    EndDate = p.EndDate,
-                                    IsClosed = p.IsClosed
-                                }).ToList() ?? new List<WorkScheduleStageWorkPeriod>()
+                                IsClosed = isWorkClosed,
+                                Periods = periods
                             };
 
                             await workRepo.Insert(work);
@@ -166,7 +187,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                             if (workDto.Comments != null)
                             {
                                 DateTime now = DateTime.UtcNow;
-                                foreach (CreateWorkCommentDto commentDto in workDto.Comments)
+                                foreach (WorkScheduleWorkCommentDto commentDto in workDto.Comments)
                                 {
                                     WorkScheduleStageWorkComment comment = new WorkScheduleStageWorkComment
                                     {

@@ -13,6 +13,7 @@
   Text,
   Box,
   HStack,
+  Spinner,
 } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
 import type { ProjectMemberWeb } from "../types/project.types";
@@ -28,7 +29,6 @@ interface ManageCostShareModalProps {
   costId: string;
   costName: string;
   sharedWithUserIds: string[];
-  members: ProjectMemberWeb[];
   currentUserId: string;
   onShareUpdated: () => void;
 }
@@ -41,19 +41,43 @@ export const ManageCostShareModal = ({
   costId,
   costName,
   sharedWithUserIds,
-  members,
   currentUserId,
   onShareUpdated,
 }: ManageCostShareModalProps) => {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (isOpen) {
       setSelectedUserIds(new Set(sharedWithUserIds));
+      fetchProjectMembers();
     }
   }, [isOpen, sharedWithUserIds]);
+
+  const fetchProjectMembers = async () => {
+    try {
+      setLoadingMembers(true);
+      const response = await projectApi.getProjectMembers(tenantId, projectId);
+      const data = response.data;
+      // Wyklucz aktualnego użytkownika z listy
+      const filteredMembers = data.filter((member: ProjectMemberWeb) => member.userId !== currentUserId);
+      setMembers(filteredMembers);
+    } catch (error) {
+      console.error("Błąd podczas pobierania członków:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać listy członków projektu",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
 
   const toggleUser = (userId: string) => {
     const newSelection = new Set(selectedUserIds);
@@ -68,8 +92,8 @@ export const ManageCostShareModal = ({
   const handleSave = async () => {
     try {
       setLoading(true);
-      const userIds = Array.from(selectedUserIds);
-      await projectApi.updateCostShare(tenantId, projectId, costId, userIds);
+      const sharedWithUserIds = Array.from(selectedUserIds);
+      await projectApi.updateCostShare(tenantId, projectId, costId, sharedWithUserIds);
 
       toast({
         title: "Sukces",
@@ -95,11 +119,6 @@ export const ManageCostShareModal = ({
     }
   };
 
-  // Filtruj członków - usuń właściciela i obecnego użytkownika
-  const availableMembers = members.filter(
-    (member) => member.userId !== currentUserId
-  );
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <ModalOverlay />
@@ -117,11 +136,16 @@ export const ManageCostShareModal = ({
               </Text>
             </Box>
 
-            {availableMembers.length === 0 ? (
+            {loadingMembers ? (
+              <HStack justify="center" py={4}>
+                <Spinner size="md" />
+                <Text fontSize="sm">Ładowanie członków...</Text>
+              </HStack>
+            ) : members.length === 0 ? (
               <Text color="gray.500">Brak członków projektu do udostępnienia</Text>
             ) : (
               <VStack align="stretch" spacing={2} maxH="300px" overflowY="auto" borderWidth="1px" borderRadius="md" p={3}>
-                {availableMembers.map((member) => (
+                {members.map((member) => (
                   <HStack
                     key={member.userId}
                     p={2}
@@ -159,7 +183,7 @@ export const ManageCostShareModal = ({
             colorScheme="blue"
             onClick={handleSave}
             isLoading={loading}
-            isDisabled={availableMembers.length === 0}
+            isDisabled={loadingMembers}
           >
             Zapisz
           </Button>

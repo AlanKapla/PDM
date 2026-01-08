@@ -217,18 +217,23 @@ export const projectApi = {
     projectId: string,
     command: {
       name: string;
-      stages: Array<{
+      stages?: Array<{
         name: string;
         order: number;
         works: Array<{
           name: string;
           order: number;
           colorRgb: string;
+          isClosed: boolean;
           periods: Array<{
             startDate: string;
             endDate: string;
+            isClosed: boolean;
           }>;
           assignedUserIds: string[];
+          comments: Array<{
+            content: string;
+          }>;
         }>;
       }>;
     }
@@ -266,7 +271,7 @@ export const projectApi = {
     workScheduleId: string,
     command: {
       name: string;
-      stages: Array<{
+      stages?: Array<{
         id?: string;
         name: string;
         order: number;
@@ -280,8 +285,13 @@ export const projectApi = {
             id?: string;
             startDate: string;
             endDate: string;
+            isClosed: boolean;
           }>;
           assignedUserIds: string[];
+          comments: Array<{
+            id?: string;
+            content: string;
+          }>;
         }>;
       }>;
     }
@@ -399,8 +409,8 @@ export const projectApi = {
     tenantId: string,
     projectId: string,
     data: {
-      costIds: string[];
-      userIds: string[];
+      projectCostIds: string[];
+      sharedWithUserIds: string[];
     }
   ) => {
     return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/cost/share`, data);
@@ -411,10 +421,10 @@ export const projectApi = {
     tenantId: string,
     projectId: string,
     costId: string,
-    userIds: string[]
+    sharedWithUserIds: string[]
   ) => {
     return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/cost/${costId}/share`, {
-      userIds,
+      sharedWithUserIds,
     });
   },
 

@@ -140,6 +140,17 @@ export default function ProjectCosts() {
     try {
       const projectData = await projectDetailsCache.fetch();
       setProject(projectData);
+
+      // Pobierz wszystkie zakładki równolegle według uprawnień
+      const fetchPromises = [];
+      if (resourcePerms.tabs.showAll) {
+        fetchPromises.push(allCostEstimatesCache.fetch());
+      }
+      if (resourcePerms.tabs.showMine) {
+        fetchPromises.push(myCostEstimatesCache.fetch());
+      }
+      
+      await Promise.all(fetchPromises);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       showError('Nie udało się załadować danych', error?.message || 'Wystąpił nieoczekiwany błąd');
@@ -157,10 +168,10 @@ export default function ProjectCosts() {
   };
 
   // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
-  const myCostEstimatesTabIndex = resourcePerms.tabs.showMine ? 0 : -1;
-  const allCostEstimatesTabIndex = 
-    resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 1 : 
-    !resourcePerms.tabs.showMine && resourcePerms.tabs.showAll ? 0 : -1;
+  const allCostEstimatesTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
+  const myCostEstimatesTabIndex = 
+    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 : 
+    !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
 
   const handleDeleteCostEstimate = async (costEstimateId: string) => {
     if (!user?.activeTenantId || !projectId) return;
@@ -213,15 +224,6 @@ export default function ProjectCosts() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {resourcePerms.mine.canCreate && (
-            <Button
-              leftIcon={<Plus size={18} />}
-              colorScheme="blue"
-              onClick={onCreateModalOpen}
-            >
-              Nowy kosztorys
-            </Button>
-          )}
         </HStack>
 
         {(!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) ? (
@@ -235,6 +237,15 @@ export default function ProjectCosts() {
         ) : (
           <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
             <TabList>
+              {resourcePerms.tabs.showAll && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={FileText} boxSize={4} />
+                    <Text>Wszystkie kosztorysy</Text>
+                    <Badge colorScheme="purple" ml={2}>{allCostEstimatesCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
               {resourcePerms.tabs.showMine && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
@@ -244,41 +255,13 @@ export default function ProjectCosts() {
                   </HStack>
                 </Tab>
               )}
-              {resourcePerms.tabs.showAll && (
-                <Tab fontWeight="bold">
-                  <HStack spacing={2}>
-                    <Icon as={FileText} boxSize={4} />
-                    <Text>Wszystkie kosztorysy</Text>
-                    <Badge colorScheme="green" ml={2}>{allCostEstimatesCache.data?.length || 0}</Badge>
-                  </HStack>
-                </Tab>
-              )}
             </TabList>
 
             <TabPanels>
-              {resourcePerms.tabs.showMine && (
-                <TabPanel>
-                  <MyCostEstimatesTab
-                    cache={myCostEstimatesCache}
-                    isActive={activeTabIndex === myCostEstimatesTabIndex}
-                    cardBg={cardBg}
-                    borderColor={borderColor}
-                    hoverBg={hoverBg}
-                    costEstimateStatusLabels={costEstimateStatusLabels}
-                    costEstimateStatusColors={costEstimateStatusColors}
-                    formatDate={formatDate}
-                    handleViewCostEstimate={handleViewCostEstimate}
-                    handleCopyCostEstimate={handleCopyCostEstimate}
-                    handleDeleteCostEstimate={handleDeleteCostEstimate}
-                    resourcePerms={resourcePerms}
-                  />
-                </TabPanel>
-              )}
               {resourcePerms.tabs.showAll && (
                 <TabPanel>
                   <AllCostEstimatesTab
                     cache={allCostEstimatesCache}
-                    isActive={activeTabIndex === allCostEstimatesTabIndex}
                     cardBg={cardBg}
                     borderColor={borderColor}
                     hoverBg={hoverBg}
@@ -289,6 +272,25 @@ export default function ProjectCosts() {
                     handleCopyCostEstimate={handleCopyCostEstimate}
                     handleDeleteCostEstimate={handleDeleteCostEstimate}
                     resourcePerms={resourcePerms}
+                    onCreateModalOpen={onCreateModalOpen}
+                  />
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showMine && (
+                <TabPanel>
+                  <MyCostEstimatesTab
+                    cache={myCostEstimatesCache}
+                    cardBg={cardBg}
+                    borderColor={borderColor}
+                    hoverBg={hoverBg}
+                    costEstimateStatusLabels={costEstimateStatusLabels}
+                    costEstimateStatusColors={costEstimateStatusColors}
+                    formatDate={formatDate}
+                    handleViewCostEstimate={handleViewCostEstimate}
+                    handleCopyCostEstimate={handleCopyCostEstimate}
+                    handleDeleteCostEstimate={handleDeleteCostEstimate}
+                    resourcePerms={resourcePerms}
+                    onCreateModalOpen={onCreateModalOpen}
                   />
                 </TabPanel>
               )}
@@ -329,34 +331,38 @@ export default function ProjectCosts() {
   );
 }
 
-// Komponent dla tabu "Moje kosztorysy" z lazy loading
-function MyCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms }: any) {
-  const hasFetched = useRef(false);
-  
-  useEffect(() => {
-    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
-      hasFetched.current = true;
-      cache.fetch();
-    }
-  }, [isActive]);
-
+// Komponent dla tabu "Moje kosztorysy"
+function MyCostEstimatesTab({ cache, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms, onCreateModalOpen }: any) {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie kosztorysów..." />;
   }
 
   const costEstimates = cache.data || [];
 
-  if (costEstimates.length === 0) {
-    return (
-      <EmptyState
-        icon={FileText}
-        title="Brak kosztorysów"
-        description="Utwórz swój pierwszy kosztorys na podstawie szablonu"
-      />
-    );
-  }
-
   return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Twoje kosztorysy w projekcie
+        </Text>
+        {resourcePerms.mine.canCreate && (
+          <Button
+            leftIcon={<Plus size={18} />}
+            colorScheme="blue"
+            onClick={onCreateModalOpen}
+          >
+            Nowy kosztorys
+          </Button>
+        )}
+      </HStack>
+
+      {costEstimates.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Brak kosztorysów"
+          description="Utwórz swój pierwszy kosztorys na podstawie szablonu"
+        />
+      ) : (
     <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
       <Table size="sm" variant="simple">
         <Thead>
@@ -443,37 +449,43 @@ function MyCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, cos
         </Tbody>
       </Table>
     </Box>
+      )}
+    </VStack>
   );
 }
 
-// Komponent dla tabu "Wszystkie kosztorysy" z lazy loading
-function AllCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms }: any) {
-  const hasFetched = useRef(false);
-  
-  useEffect(() => {
-    if (isActive && !cache.data && !cache.loading && !hasFetched.current) {
-      hasFetched.current = true;
-      cache.fetch();
-    }
-  }, [isActive]);
-
+// Komponent dla tabu "Wszystkie kosztorysy"
+function AllCostEstimatesTab({ cache, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms, onCreateModalOpen }: any) {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie kosztorysów..." />;
   }
 
   const costEstimates = cache.data || [];
 
-  if (costEstimates.length === 0) {
-    return (
-      <EmptyState
-        icon={FileText}
-        title="Brak kosztorysów"
-        description="Nie znaleziono żadnych kosztorysów"
-      />
-    );
-  }
-
   return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Wszystkie kosztorysy w projekcie (admin)
+        </Text>
+        {resourcePerms.all.canCreate && (
+          <Button
+            leftIcon={<Plus size={18} />}
+            colorScheme="blue"
+            onClick={onCreateModalOpen}
+          >
+            Nowy kosztorys
+          </Button>
+        )}
+      </HStack>
+
+      {costEstimates.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Brak kosztorysów"
+          description="Nie znaleziono żadnych kosztorysów"
+        />
+      ) : (
     <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
       <Table size="sm" variant="simple">
         <Thead>
@@ -560,5 +572,7 @@ function AllCostEstimatesTab({ cache, isActive, cardBg, borderColor, hoverBg, co
         </Tbody>
       </Table>
     </Box>
+      )}
+    </VStack>
   );
 }

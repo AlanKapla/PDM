@@ -8,6 +8,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 using Repositiories.Repository.Interfaces;
+using CQRS.WorkSchedules.Shared;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.WorkSchedules.UpdateWorkSchedule
@@ -175,7 +176,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 List<WorkScheduleStageWorkComment> allCommentsToInsert = new List<WorkScheduleStageWorkComment>();
 
                 // Process stages
-                foreach (UpdateStageDto stageDto in request.Stages)
+                foreach (WorkScheduleStageDto stageDto in request.Stages)
                 {
                     WorkScheduleStage stage;
 
@@ -206,7 +207,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                     // Process works
                     if (stageDto.Works != null)
                     {
-                        foreach (UpdateWorkDto workDto in stageDto.Works)
+                        foreach (WorkScheduleWorkDto workDto in stageDto.Works)
                         {
                             WorkScheduleStageWork work;
                             HashSet<Guid> previousAssignedUsers = new HashSet<Guid>();
@@ -376,7 +377,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                                 DateTime now = DateTime.UtcNow;
                                 string userName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
-                                foreach (UpdateWorkCommentDto commentDto in workDto.Comments)
+                                foreach (WorkScheduleWorkCommentDto commentDto in workDto.Comments)
                                 {
                                     WorkScheduleStageWorkComment comment = new WorkScheduleStageWorkComment
                                     {
