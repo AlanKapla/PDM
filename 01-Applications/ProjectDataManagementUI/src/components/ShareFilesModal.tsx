@@ -31,6 +31,7 @@ interface ShareFilesModalProps {
   tenantId: string;
   projectId: string;
   onFilesShared: () => void;
+  myPackages?: ProjectFilePackageWeb[];
 }
 
 export default function ShareFilesModal({
@@ -39,6 +40,7 @@ export default function ShareFilesModal({
   tenantId,
   projectId,
   onFilesShared,
+  myPackages,
 }: ShareFilesModalProps) {
   const [packages, setPackages] = useState<ProjectFilePackageWeb[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -52,12 +54,16 @@ export default function ShareFilesModal({
 
   useEffect(() => {
     if (isOpen) {
-      fetchMyPackages();
+      if (myPackages) {
+        setPackages(myPackages);
+      } else {
+        fetchMyPackages();
+      }
       fetchProjectMembers();
       setSelectedUserIds(new Set());
       setSelectedFileIds(new Set());
     }
-  }, [isOpen, tenantId, projectId]);
+  }, [isOpen, tenantId, projectId, myPackages]);
 
   const fetchMyPackages = async () => {
     try {

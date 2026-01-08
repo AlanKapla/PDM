@@ -18,7 +18,6 @@ import LoggedOut from "../pages/LoggedOut";
 import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
 import MyFiles from "../pages/MyFiles";
-import SharedFiles from "../pages/SharedFiles";
 import WorkScheduleView from "../pages/WorkScheduleView";
 import AssignedWorks from "../pages/AssignedWorks";
 import CostEstimateTemplates from "../pages/CostEstimateTemplates";
@@ -250,15 +249,6 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <MyFiles />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tenants/:tenantId/projects/:projectId/shared-files"
-        element={
-          <ProtectedRoute>
-            <SharedFiles />
           </ProtectedRoute>
         }
       />
