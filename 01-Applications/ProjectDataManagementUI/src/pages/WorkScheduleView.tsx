@@ -1118,6 +1118,7 @@ export default function WorkScheduleView() {
                                       isChecked={work.isClosed}
                                       onChange={() => toggleWorkClosed(work.id)}
                                       colorScheme="green"
+                                      isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
                                     />
                                     <VStack align="flex-start" spacing={1} flex={1}>
                                       <HStack spacing={2}>
@@ -1159,6 +1160,7 @@ export default function WorkScheduleView() {
                                                 isChecked={period.isClosed}
                                                 onChange={() => togglePeriodClosed(work.id, period.id || pIdx)}
                                                 colorScheme="green"
+                                                isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
                                               />
                                             </HStack>
                                           ))}
