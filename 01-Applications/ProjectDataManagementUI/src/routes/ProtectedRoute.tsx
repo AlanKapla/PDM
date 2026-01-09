@@ -36,10 +36,10 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
-  // Tylko jeśli MSAL i AuthContext są gotowe i user nie istnieje, przekieruj na login
+  // Tylko jeśli MSAL i AuthContext są gotowe i user nie istnieje, przekieruj na home
   if (!isAuthenticated || !user) {
     // Zapisz aktualny URL w state, aby móc wrócić po zalogowaniu
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

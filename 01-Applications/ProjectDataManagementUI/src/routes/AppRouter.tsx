@@ -1,6 +1,5 @@
 ﻿import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "../pages/Home";
-import Login from "../pages/Login";
 import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -35,20 +34,18 @@ export default function AppRouter() {
       <Route path="/auth/callback" element={<AuthCallback />} />
 
       {/* Post-logout page - handles redirect after MSAL logout */}
-      <Route path="/logged-out" element={<LoggedOut />} />
-
-      {/* Public pages */}
       <Route
-        path="/login"
+        path="/logged-out"
         element={
           <PublicRoute>
-            <Login />
+            <LoggedOut />
           </PublicRoute>
         }
       />
 
-      {/* /register redirects to /login - MSAL handles both flows */}
-      <Route path="/register" element={<Navigate to="/login" replace />} />
+      
+      {/* /register redirects to /home - MSAL handles both flows */}
+      <Route path="/register" element={<Navigate to="/" replace />} />
 
       <Route
         path="/forgot-password"
