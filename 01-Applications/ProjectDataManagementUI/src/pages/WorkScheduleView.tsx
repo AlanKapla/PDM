@@ -828,7 +828,30 @@ export default function WorkScheduleView() {
               borderRadius="lg"
               overflow="hidden"
             >
-              <Box overflowX="auto">
+              <Box 
+                overflowX="auto"
+                sx={{
+                  // Płynne scrollowanie na urządzeniach dotykowych
+                  WebkitOverflowScrolling: 'touch',
+                  // Pozwól na przewijanie w poziomie palcem
+                  touchAction: 'pan-x pan-y',
+                  // Lepsza widoczność scrollbara na mobile
+                  '&::-webkit-scrollbar': {
+                    height: '12px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: 'rgba(0,0,0,0.1)',
+                    borderRadius: '6px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: 'rgba(128,90,213,0.5)',
+                    borderRadius: '6px',
+                    '&:hover': {
+                      background: 'rgba(128,90,213,0.7)',
+                    },
+                  },
+                }}
+              >
                 <Table 
                   variant="simple" 
                   size="sm" 
