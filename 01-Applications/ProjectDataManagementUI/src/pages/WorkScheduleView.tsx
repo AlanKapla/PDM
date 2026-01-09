@@ -831,17 +831,21 @@ export default function WorkScheduleView() {
               <Box 
                 overflowX="auto"
                 sx={{
-                  // Płynne scrollowanie na urządzeniach dotykowych
+                  // Mobile scroll - iOS i Android
                   WebkitOverflowScrolling: 'touch',
-                  // Pozwól na przewijanie w poziomie palcem
                   touchAction: 'pan-x pan-y',
-                  // Lepsza widoczność scrollbara na mobile
+                  overscrollBehavior: 'auto',
+                  
+                  // Optymalizacja dla Android Chrome
+                  scrollBehavior: 'auto', // smooth może spowalniać na słabszych urządzeniach
+                  willChange: 'scroll-position',
+                  
+                  // Scrollbar styling
                   '&::-webkit-scrollbar': {
                     height: '12px',
                   },
                   '&::-webkit-scrollbar-track': {
-                    background: 'rgba(0,0,0,0.1)',
-                    borderRadius: '6px',
+                    background: 'rgba(0,0,0,0.05)',
                   },
                   '&::-webkit-scrollbar-thumb': {
                     background: 'rgba(128,90,213,0.5)',
