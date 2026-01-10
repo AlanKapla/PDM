@@ -6,5 +6,3 @@
  */
 
 export const authApi = {};
-
-export { fetchWithAuth };
