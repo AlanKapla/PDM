@@ -11,3 +11,4 @@ public class GetProjectFilePackagesQueryValidator : AbstractValidator<GetProject
             .IsInEnum()
             .WithMessage("Scope is invalid");
     }
+}
