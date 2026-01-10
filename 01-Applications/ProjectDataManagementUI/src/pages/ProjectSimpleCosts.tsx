@@ -26,8 +26,11 @@ import {
   Badge,
   Icon,
   Checkbox,
+  Select,
+  InputGroup,
+  InputLeftElement,
 } from "@chakra-ui/react";
-import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download } from "lucide-react";
+import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download, Search, SortAsc, ChevronUp, ChevronDown } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { AuthContext } from "../context/AuthContext";
@@ -115,7 +118,7 @@ const AllCostsTab = memo(function AllCostsTab({
 
   return (
     <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
+      <HStack justify="space-between" flexWrap="wrap" gap={4}>
         <Text fontSize="sm" color="gray.600">
           Wszystkie koszty w projekcie (admin)
         </Text>
@@ -140,6 +143,22 @@ const AllCostsTab = memo(function AllCostsTab({
             </Button>
           )}
         </HStack>
+      </HStack>
+
+      {/* Podsumowanie kosztów */}
+      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
+        <Box>
+          <Text fontSize="xs" color="gray.600">Total:</Text>
+          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
+        <Box>
+          <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
+          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
+        <Box>
+          <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
+          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
       </HStack>
 
       {costs.length === 0 && !showNewCostRow ? (
@@ -366,7 +385,7 @@ const AllCostsTab = memo(function AllCostsTab({
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td fontSize="sm" color="gray.600">{cost.userName || "-"}</Td>
                   <Td>{cost.place || "-"}</Td>
-                  <Td>{formatDate(cost.date)}</Td>
+                  <Td>{formatDate(cost.date, false)}</Td>
                   <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                   <Td isNumeric>{cost.vatRate ?? 0}%</Td>
@@ -530,7 +549,7 @@ const MyCostsTab = memo(function MyCostsTab({
 
   return (
     <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
+      <HStack justify="space-between" flexWrap="wrap" gap={4}>
         <Text fontSize="sm" color="gray.600">
           Twoje koszty w projekcie
         </Text>
@@ -555,6 +574,22 @@ const MyCostsTab = memo(function MyCostsTab({
             </Button>
           )}
         </HStack>
+      </HStack>
+
+      {/* Podsumowanie kosztów */}
+      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
+        <Box>
+          <Text fontSize="xs" color="gray.600">Total:</Text>
+          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
+        <Box>
+          <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
+          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
+        <Box>
+          <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
+          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
       </HStack>
 
       {costs.length === 0 && !showNewCostRow ? (
@@ -777,7 +812,7 @@ const MyCostsTab = memo(function MyCostsTab({
                 <Tr key={cost.id} _hover={{ bg: hoverBg }}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td>{cost.place || "-"}</Td>
-                  <Td>{formatDate(cost.date)}</Td>
+                  <Td>{formatDate(cost.date, false)}</Td>
                   <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                   <Td isNumeric>{cost.vatRate ?? 0}%</Td>
@@ -895,6 +930,22 @@ const SharedCostsTab = memo(function SharedCostsTab({
         Koszty udostępnione przez innych członków projektu
       </Text>
 
+      {/* Podsumowanie kosztów */}
+      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
+        <Box>
+          <Text fontSize="xs" color="gray.600">Total:</Text>
+          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
+        <Box>
+          <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
+          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
+        <Box>
+          <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
+          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+        </Box>
+      </HStack>
+
       {costs.length === 0 ? (
         <EmptyState
           icon={Share2}
@@ -923,9 +974,9 @@ const SharedCostsTab = memo(function SharedCostsTab({
                 <Tr key={cost.id} _hover={{ bg: hoverBg }}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td>{cost.place || "-"}</Td>
-                  <Td>{formatDate(cost.date)}</Td>
+                  <Td>{formatDate(cost.date, false)}</Td>
                   <Td>{cost.description || "-"}</Td>
-                  <Td isNumeric>{formatCurrency(cost.netAmount)}</Td>
+                  <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                   <Td isNumeric>{cost.vatRate ?? 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
@@ -1182,8 +1233,8 @@ export default function ProjectSimpleCosts() {
           place: newCostData.place || undefined,
           date: new Date(newCostData.date),
           description: newCostData.description || undefined,
-          netAmount: newCostData.netAmount ? parseFloat(newCostData.netAmount) : undefined,
-          vatRate: newCostData.vatRate ? parseFloat(newCostData.vatRate) : undefined,
+          netAmount: newCostData.netAmount && parseFloat(newCostData.netAmount) !== 0 ? parseFloat(newCostData.netAmount) : null,
+          vatRate: newCostData.vatRate && parseFloat(newCostData.vatRate) !== 0 ? parseFloat(newCostData.vatRate) : null,
           grossAmount: parseFloat(newCostData.grossAmount),
           isClosed: newCostData.isClosed,
           document: documentFile || undefined,
@@ -1240,9 +1291,9 @@ export default function ProjectSimpleCosts() {
           place: editingCostData.place || undefined,
           date: new Date(editingCostData.date),
           description: editingCostData.description || undefined,
-          netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
-          vatRate: editingCostData.vatRate ? parseFloat(editingCostData.vatRate) : undefined,
-          grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
+          netAmount: editingCostData.netAmount && parseFloat(editingCostData.netAmount) !== 0 ? parseFloat(editingCostData.netAmount) : null,
+          vatRate: editingCostData.vatRate && parseFloat(editingCostData.vatRate) !== 0 ? parseFloat(editingCostData.vatRate) : null,
+          grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : null,
           isClosed: editingCostData.isClosed,
           document: editDocumentFile || undefined,
           removeDocument: editingCostData?.removeDocument || false,
@@ -1323,9 +1374,9 @@ export default function ProjectSimpleCosts() {
           place: cost.place || undefined,
           date: new Date(cost.date),
           description: cost.description || undefined,
-          netAmount: cost.netAmount ?? undefined,
-          vatRate: cost.vatRate ?? undefined,
-          grossAmount: cost.grossAmount ?? undefined,
+          netAmount: cost.netAmount ?? null,
+          vatRate: cost.vatRate ?? null,
+          grossAmount: cost.grossAmount ?? null,
           isClosed: !currentIsClosed,
           document: undefined,
           removeDocument: false,
@@ -1366,9 +1417,9 @@ export default function ProjectSimpleCosts() {
           place: cost.place || undefined,
           date: new Date(cost.date),
           description: cost.description || undefined,
-          netAmount: cost.netAmount ?? undefined,
-          vatRate: cost.vatRate ?? undefined,
-          grossAmount: cost.grossAmount ?? undefined,
+          netAmount: cost.netAmount ?? null,
+          vatRate: cost.vatRate ?? null,
+          grossAmount: cost.grossAmount ?? null,
           isClosed: !currentIsClosed,
           document: undefined,
           removeDocument: false,
