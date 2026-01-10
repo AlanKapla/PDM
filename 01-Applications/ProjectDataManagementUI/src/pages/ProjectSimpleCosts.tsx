@@ -107,6 +107,7 @@ const AllCostsTab = memo(function AllCostsTab({
   const newRowBg = useColorModeValue("blue.50", "blue.900");
   const editRowBg = useColorModeValue("yellow.50", "yellow.900");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
+  const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
 
   if (loading) {
     return <LoadingSpinner />;
@@ -212,11 +213,17 @@ const AllCostsTab = memo(function AllCostsTab({
                     />
                   </Td>
                   <Td textAlign="center">
-                    <Checkbox
-                      isChecked={newCostData.isClosed}
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
-                      colorScheme="green"
-                    />
+                    {canEditClosedCost ? (
+                      <Checkbox
+                        isChecked={newCostData.isClosed}
+                        onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
+                        colorScheme="green"
+                      />
+                    ) : (
+                      <Badge colorScheme={newCostData.isClosed ? "green" : "gray"} fontSize="xs">
+                        {newCostData.isClosed ? "Tak" : "Nie"}
+                      </Badge>
+                    )}
                   </Td>
                   <Td textAlign="center">
                     <VStack spacing={1}>
@@ -365,12 +372,18 @@ const AllCostsTab = memo(function AllCostsTab({
                   <Td isNumeric>{cost.vatRate ?? 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
-                    <Checkbox
-                      isChecked={cost.isClosed}
-                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
-                      colorScheme="green"
-                      isDisabled={editingClosedCostId === cost.id && savingClosedCost}
-                    />
+                    {canEditClosedCost ? (
+                      <Checkbox
+                        isChecked={cost.isClosed}
+                        onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                        colorScheme="green"
+                        isDisabled={editingClosedCostId === cost.id && savingClosedCost}
+                      />
+                    ) : (
+                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
+                        {cost.isClosed ? "Tak" : "Nie"}
+                      </Badge>
+                    )}
                   </Td>
                   <Td textAlign="center">
                     {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
@@ -509,6 +522,7 @@ const MyCostsTab = memo(function MyCostsTab({
   const newRowBg = useColorModeValue("blue.50", "blue.900");
   const editRowBg = useColorModeValue("yellow.50", "yellow.900");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
+  const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
 
   if (loading) {
     return <LoadingSpinner />;
@@ -610,11 +624,17 @@ const MyCostsTab = memo(function MyCostsTab({
                     />
                   </Td>
                   <Td textAlign="center">
-                    <Checkbox
-                      isChecked={newCostData.isClosed}
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
-                      colorScheme="green"
-                    />
+                    {canEditClosedCost ? (
+                      <Checkbox
+                        isChecked={newCostData.isClosed}
+                        onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
+                        colorScheme="green"
+                      />
+                    ) : (
+                      <Badge colorScheme={newCostData.isClosed ? "green" : "gray"} fontSize="xs">
+                        {newCostData.isClosed ? "Tak" : "Nie"}
+                      </Badge>
+                    )}
                   </Td>
                   <Td textAlign="center">
                     <VStack spacing={1}>
@@ -699,11 +719,17 @@ const MyCostsTab = memo(function MyCostsTab({
                     />
                   </Td>
                   <Td textAlign="center">
-                    <Checkbox
-                      isChecked={editingCostData.isClosed}
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, isClosed: e.target.checked })}
-                      colorScheme="green"
-                    />
+                    {canEditClosedCost ? (
+                      <Checkbox
+                        isChecked={editingCostData.isClosed}
+                        onChange={(e) => onEditingCostDataChange({ ...editingCostData, isClosed: e.target.checked })}
+                        colorScheme="green"
+                      />
+                    ) : (
+                      <Badge colorScheme={editingCostData.isClosed ? "green" : "gray"} fontSize="xs">
+                        {editingCostData.isClosed ? "Tak" : "Nie"}
+                      </Badge>
+                    )}
                   </Td>
                   <Td textAlign="center">
                     <VStack spacing={1}>
@@ -757,12 +783,18 @@ const MyCostsTab = memo(function MyCostsTab({
                   <Td isNumeric>{cost.vatRate ?? 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
-                    <Checkbox
-                      isChecked={cost.isClosed}
-                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
-                      colorScheme="green"
-                      isDisabled={editingClosedCostId === cost.id && savingClosedCost}
-                    />
+                    {canEditClosedCost ? (
+                      <Checkbox
+                        isChecked={cost.isClosed}
+                        onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                        colorScheme="green"
+                        isDisabled={editingClosedCostId === cost.id && savingClosedCost}
+                      />
+                    ) : (
+                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
+                        {cost.isClosed ? "Tak" : "Nie"}
+                      </Badge>
+                    )}
                   </Td>
                   <Td textAlign="center">
                     {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
@@ -851,6 +883,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
+  const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
 
   if (loading) {
     return <LoadingSpinner />;
@@ -896,7 +929,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
                   <Td isNumeric>{cost.vatRate ?? 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
-                    {resourcePerms.shared.canEdit ? (
+                    {canEditClosedCost ? (
                       <Checkbox
                         isChecked={cost.isClosed}
                         onChange={() => onToggleSharedCostClosed(cost.id, cost.isClosed)}

@@ -19,7 +19,35 @@ import { useProjectPermissions } from "./useProjectPermissions";
  * - Udostępnij (grupowo/pojedynczo) -> SHARE
  */
 
-export const useResourcePermissions = (projectId: string | undefined) => {
+export interface ResourcePermissions {
+  tabs: {
+    showAll: boolean;
+    showMine: boolean;
+    showShared: boolean;
+  };
+  mine: {
+    canCreate: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+    canShare: boolean;
+    canManageShare: boolean;
+  };
+  all: {
+    canCreate: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+    canShare: boolean;
+    canManageShare: boolean;
+  };
+  shared: {
+    canEdit: boolean;
+    canReadOnly: boolean;
+  };
+  hasAnyAccess: boolean;
+  raw: any;
+}
+
+export const useResourcePermissions = (projectId: string | undefined): ResourcePermissions => {
   const permissions = useProjectPermissions(projectId);
 
   return {
