@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Constants;
+using CQRS.WorkSchedules.AnalyzeWorkSchedule;
 using CQRS.WorkSchedules.CreateWorkSchedule;
 using CQRS.WorkSchedules.GetWorkSchedules;
 using CQRS.WorkSchedules.GetWorkSchedule;
@@ -107,6 +108,27 @@ namespace WebApi.Controllers
         {
             var query = new GetUserAssignedWorksQuery(tenantId);
             var result = await Send(query);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Analyzes a work schedule using AI to detect conflicts, resource issues, and provide recommendations
+        /// AI will automatically check for: time conflicts, resource overallocation, unassigned works, and workload imbalances
+        /// Requires ProjectResourcesWrite permission or ownership of the work schedule
+        /// </summary>
+        /// <param name="tenantId">The tenant ID</param>
+        /// <param name="projectId">The project ID</param>
+        /// <param name="workScheduleId">The work schedule ID to analyze</param>
+        /// <returns>Comprehensive AI analysis with findings, recommendations, and detected conflicts</returns>
+        [HttpPost("analyze/{workScheduleId}")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> AnalyzeWorkSchedule(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId)
+        {
+            var command = new AnalyzeWorkScheduleCommand(tenantId, projectId, workScheduleId);
+            var result = await Send(command);
             return Ok(result);
         }
     }

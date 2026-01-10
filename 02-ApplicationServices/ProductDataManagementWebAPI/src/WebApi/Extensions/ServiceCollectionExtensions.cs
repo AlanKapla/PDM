@@ -1,4 +1,6 @@
 ﻿using Azure.Identity;
+using Business.AIAgent; // AI Agent Framework
+using Business.AIAgent.Tools.WorkSchedule; // Work Schedule AI Tools
 using Business.Implementation.Model;
 using Business.Implementation.Services;
 using Business.Interfaces.Configuration;
@@ -13,12 +15,10 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Graph;
-using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -46,7 +46,9 @@ namespace WebApi.Extensions
                 .AddAppRepositories()
                 .AddAppServices()
                 .AddConfigurations(config)
-                .AddFrontendCors(config);
+                .AddFrontendCors(config)
+                .AddAIAgent(config) // AI Agent Framework
+                .AddAIAgentTools(); // Register AI Tools
 
             return services;
         }
@@ -399,6 +401,24 @@ namespace WebApi.Extensions
 
             // Permission-based handler
             services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+            return services;
+        }
+
+        /// <summary>
+        /// Registers all AI Agent tools for various analysis tasks
+        /// </summary>
+        public static IServiceCollection AddAIAgentTools(this IServiceCollection services)
+        {
+            // Example tool from framework
+            services.AddTool<Business.AIAgent.Tools.GetCurrentDateTimeTool>();
+
+            // Work Schedule Analysis Tools
+            services.AddTool<GetWorkScheduleDetailsTool>();
+            services.AddTool<DetectTimeConflictsTool>();
+            services.AddTool<DetectResourceConflictsTool>();
+            services.AddTool<DetectUnassignedPeriodsTool>();
+            services.AddTool<CalculateWorkloadStatsTool>();
 
             return services;
         }
