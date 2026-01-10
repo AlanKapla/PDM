@@ -2,16 +2,18 @@
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Files;
 
-namespace CQRS.Files.GetProjectFiles;
+namespace CQRS.Files.GetFileVersions;
 
 /// <summary>
-/// Query to get project files based on scope (All, Mine, Shared)
+/// Query to get all versions of a specific file based on scope (All, Mine, Shared)
+/// Validates user access to the file based on ResourceScope
 /// </summary>
-public sealed record GetProjectFilesQuery(
+public sealed record GetFileVersionsQuery(
     Guid TenantId,
     Guid ProjectId,
+    Guid FileId,
     ResourceScope Scope
-) : IRequestQuery<List<ProjectFilePackageWeb>>, IAuthorizableRequest
+) : IRequestQuery<List<ProjectFileVersionWeb>>, IAuthorizableRequest
 {
     public string PermissionCode => PermissionCodes.ProjectView;
     

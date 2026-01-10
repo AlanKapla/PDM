@@ -70,4 +70,50 @@ public class Repository<T> : IRepository<T> where T : class
     {
         return await _context.SaveChangesAsync(cancellationToken);
     }
+
+    // Query optimization methods
+    public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet.AnyAsync(predicate, cancellationToken);
+    }
+
+    public async Task<int> CountAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet.CountAsync(predicate, cancellationToken);
+    }
+
+    public async Task<Dictionary<TKey, int>> CountGroupedByAsync<TKey>(
+        Expression<Func<T, bool>> predicate,
+        Expression<Func<T, TKey>> groupBy,
+        CancellationToken cancellationToken = default) where TKey : notnull
+    {
+        return await _dbSet
+            .Where(predicate)
+            .GroupBy(groupBy)
+            .Select(g => new { Key = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+    }
+
+    // Projection methods for optimized queries
+    public async Task<List<TResult>> SelectAsync<TResult>(
+        Expression<Func<T, bool>> predicate,
+        Expression<Func<T, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(predicate)
+            .Select(selector)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<HashSet<TResult>> SelectToHashSetAsync<TResult>(
+        Expression<Func<T, bool>> predicate,
+        Expression<Func<T, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(predicate)
+            .Select(selector)
+            .ToHashSetAsync(cancellationToken);
+    }
 }

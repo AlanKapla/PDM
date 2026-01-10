@@ -9,14 +9,10 @@ import CollaboratingTenants from "../pages/CollaboratingTenants";
 import ManagedTenants from "../pages/ManagedTenants";
 import ActiveInvitations from "../pages/ActiveInvitations";
 import TenantsOverview from "../pages/TenantsOverview";
-import ForgotPassword from "../pages/ForgotPassword";
-import ResetPassword from "../pages/ResetPassword";
-import ActivateAccount from "../pages/ActivateAccount";
 import AuthCallback from "../pages/AuthCallback";
 import LoggedOut from "../pages/LoggedOut";
 import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
-import MyFiles from "../pages/MyFiles";
 import WorkScheduleView from "../pages/WorkScheduleView";
 import AssignedWorks from "../pages/AssignedWorks";
 import CostEstimateTemplates from "../pages/CostEstimateTemplates";
@@ -46,33 +42,6 @@ export default function AppRouter() {
       
       {/* /register redirects to /home - MSAL handles both flows */}
       <Route path="/register" element={<Navigate to="/" replace />} />
-
-      <Route
-        path="/forgot-password"
-        element={
-          <PublicRoute>
-            <ForgotPassword />
-          </PublicRoute>
-        }
-      />
-
-      <Route
-        path="/reset-password"
-        element={
-          <PublicRoute>
-            <ResetPassword />
-          </PublicRoute>
-        }
-      />
-
-      <Route
-        path="/activate"
-        element={
-          <PublicRoute>
-            <ActivateAccount />
-          </PublicRoute>
-        }
-      />
 
       {/* 🔥 Swagger — publiczny, bez autoryzacji */}
       <Route path="/swagger" element={<div />} />
@@ -237,15 +206,6 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <CostEstimateEditor />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tenants/:tenantId/projects/:projectId/my-files"
-        element={
-          <ProtectedRoute>
-            <MyFiles />
           </ProtectedRoute>
         }
       />

@@ -27,7 +27,7 @@ import {
 } from "@chakra-ui/react";
 import { X, Upload, FileText, Package } from "lucide-react";
 import { handleApiError } from "../utils/handleApiError";
-import { projectApi } from "../api/projectApi";
+import { projectApi, ResourceScope } from "../api/projectApi";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { FILE_UPLOAD } from "../utils/constants";
 import { formatFileSize } from "../utils/formatters";
@@ -75,7 +75,7 @@ export default function UploadFilesModal({
   const fetchMyPackages = async () => {
     setLoadingPackages(true);
     try {
-      const response = await projectApi.getMyFiles(tenantId, projectId);
+      const response = await projectApi.getProjectFilePackages(tenantId, projectId, ResourceScope.Mine);
       const data: ProjectFilePackageWeb[] = response.data;
       setPackages(data);
     } catch (error) {

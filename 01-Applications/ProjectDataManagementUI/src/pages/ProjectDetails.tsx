@@ -44,7 +44,7 @@ import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import ShareCostModal from "../components/ShareCostModal";
 import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
-import { projectApi } from "../api/projectApi";
+import { projectApi, ResourceScope } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
@@ -177,7 +177,7 @@ export default function ProjectDetails() {
     if (!user?.activeTenantId || !projectId) return;
 
     try {
-      const response = await projectApi.getMyFiles(user.activeTenantId, projectId);
+      const response = await projectApi.getProjectFilePackages(user.activeTenantId, projectId, ResourceScope.Mine);
       setMyFiles(response.data);
     } catch (err) {
       console.error("Błąd pobierania moich plików:", err);
@@ -188,7 +188,7 @@ export default function ProjectDetails() {
     if (!user?.activeTenantId || !projectId) return;
 
     try {
-      const response = await projectApi.getSharedFiles(user.activeTenantId, projectId);
+      const response = await projectApi.getProjectFilePackages(user.activeTenantId, projectId, ResourceScope.Shared);
       setSharedFiles(response.data);
     } catch (err) {
       console.error("Błąd pobierania udostępnionych plików:", err);

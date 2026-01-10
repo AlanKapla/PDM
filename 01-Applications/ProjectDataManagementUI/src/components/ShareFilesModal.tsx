@@ -20,7 +20,7 @@ import {
   Spinner,
 } from "@chakra-ui/react";
 import { Share2, User, Package } from "lucide-react";
-import { projectApi } from "../api/projectApi";
+import { projectApi, ResourceScope } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectFilePackageWeb } from "../types/project.types";
@@ -68,7 +68,7 @@ export default function ShareFilesModal({
   const fetchMyPackages = async () => {
     try {
       setLoadingPackages(true);
-      const response = await projectApi.getMyFiles(tenantId, projectId);
+      const response = await projectApi.getProjectFilePackages(tenantId, projectId, ResourceScope.Mine);
       const data: ProjectFilePackageWeb[] = response.data;
       setPackages(data);
     } catch (error) {
