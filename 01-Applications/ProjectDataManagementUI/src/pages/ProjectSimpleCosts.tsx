@@ -196,38 +196,38 @@ const AllCostsTab = memo(function AllCostsTab({
                   <Td><Input size="sm" type="date" value={newCostData.date} onChange={(e) => onNewCostDataChange({ ...newCostData, date: e.target.value })} /></Td>
                   <Td><Textarea size="sm" value={newCostData.description} onChange={(e) => onNewCostDataChange({ ...newCostData, description: e.target.value })} placeholder="Opis" rows={2} /></Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={newCostData.netAmount} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={newCostData.netAmount}
                       onChange={(e) => {
                         const updates: any = { netAmount: e.target.value };
                         if (!newCostData.vatRate) updates.vatRate = '0';
                         onNewCostDataChange({ ...newCostData, ...updates });
-                      }} 
+                      }}
                       placeholder="0.00"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
                       min="0"
                       max="100"
-                      value={newCostData.vatRate} 
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })} 
+                      value={newCostData.vatRate}
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
                       placeholder="0"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={newCostData.grossAmount} 
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={newCostData.grossAmount}
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
                       placeholder="0.00"
                     />
                   </Td>
@@ -294,38 +294,38 @@ const AllCostsTab = memo(function AllCostsTab({
                   <Td><Input size="sm" type="date" value={editingCostData.date} onChange={(e) => onEditingCostDataChange({ ...editingCostData, date: e.target.value })} /></Td>
                   <Td><Textarea size="sm" value={editingCostData.description} onChange={(e) => onEditingCostDataChange({ ...editingCostData, description: e.target.value })} rows={2} /></Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={editingCostData.netAmount} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={editingCostData.netAmount}
                       onChange={(e) => {
                         const updates: any = { netAmount: e.target.value };
                         if (!editingCostData.vatRate) updates.vatRate = '0';
                         onEditingCostDataChange({ ...editingCostData, ...updates });
-                      }} 
+                      }}
                       placeholder="0.00"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
                       min="0"
                       max="100"
-                      value={editingCostData.vatRate} 
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })} 
+                      value={editingCostData.vatRate}
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
                       placeholder="0"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={editingCostData.grossAmount} 
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={editingCostData.grossAmount}
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
                       placeholder="0.00"
                     />
                   </Td>
@@ -623,38 +623,38 @@ const MyCostsTab = memo(function MyCostsTab({
                   <Td><Input size="sm" type="date" value={newCostData.date} onChange={(e) => onNewCostDataChange({ ...newCostData, date: e.target.value })} /></Td>
                   <Td><Textarea size="sm" value={newCostData.description} onChange={(e) => onNewCostDataChange({ ...newCostData, description: e.target.value })} placeholder="Opis" rows={2} /></Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={newCostData.netAmount} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={newCostData.netAmount}
                       onChange={(e) => {
                         const updates: any = { netAmount: e.target.value };
                         if (!newCostData.vatRate) updates.vatRate = '0';
                         onNewCostDataChange({ ...newCostData, ...updates });
-                      }} 
+                      }}
                       placeholder="0.00"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
                       min="0"
                       max="100"
-                      value={newCostData.vatRate} 
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })} 
+                      value={newCostData.vatRate}
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
                       placeholder="0"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={newCostData.grossAmount} 
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={newCostData.grossAmount}
+                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
                       placeholder="0.00"
                     />
                   </Td>
@@ -718,38 +718,38 @@ const MyCostsTab = memo(function MyCostsTab({
                   <Td><Input size="sm" type="date" value={editingCostData.date} onChange={(e) => onEditingCostDataChange({ ...editingCostData, date: e.target.value })} /></Td>
                   <Td><Textarea size="sm" value={editingCostData.description} onChange={(e) => onEditingCostDataChange({ ...editingCostData, description: e.target.value })} rows={2} /></Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={editingCostData.netAmount} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={editingCostData.netAmount}
                       onChange={(e) => {
                         const updates: any = { netAmount: e.target.value };
                         if (!editingCostData.vatRate) updates.vatRate = '0';
                         onEditingCostDataChange({ ...editingCostData, ...updates });
-                      }} 
+                      }}
                       placeholder="0.00"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
                       min="0"
                       max="100"
-                      value={editingCostData.vatRate} 
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })} 
+                      value={editingCostData.vatRate}
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
                       placeholder="0"
                     />
                   </Td>
                   <Td>
-                    <Input 
-                      size="sm" 
-                      type="number" 
-                      step="0.01" 
-                      value={editingCostData.grossAmount} 
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })} 
+                    <Input
+                      size="sm"
+                      type="number"
+                      step="0.01"
+                      value={editingCostData.grossAmount}
+                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
                       placeholder="0.00"
                     />
                   </Td>
@@ -1128,7 +1128,7 @@ export default function ProjectSimpleCosts() {
   useEffect(() => {
     if (resourcePerms.raw.loading) return;
     if (hasFetchedProjectData.current) return;
-    
+
     hasFetchedProjectData.current = true;
     fetchProjectData();
   }, [projectId, resourcePerms.raw.loading]);
@@ -1137,11 +1137,11 @@ export default function ProjectSimpleCosts() {
   useEffect(() => {
     const netAmount = parseFloat(newCostData.netAmount);
     const vatRate = parseFloat(newCostData.vatRate);
-    
+
     if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0) {
       const calculatedGross = netAmount * (1 + vatRate / 100);
       const roundedGross = Math.round(calculatedGross * 100) / 100;
-      
+
       setNewCostData(prev => ({
         ...prev,
         grossAmount: roundedGross.toFixed(2)
@@ -1152,14 +1152,14 @@ export default function ProjectSimpleCosts() {
   // Automatyczne wyliczanie kwoty brutto dla edytowanego kosztu
   useEffect(() => {
     if (!editingCostData) return;
-    
+
     const netAmount = parseFloat(editingCostData.netAmount);
     const vatRate = parseFloat(editingCostData.vatRate);
-    
+
     if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0) {
       const calculatedGross = netAmount * (1 + vatRate / 100);
       const roundedGross = Math.round(calculatedGross * 100) / 100;
-      
+
       setEditingCostData((prev: any) => ({
         ...prev,
         grossAmount: roundedGross.toFixed(2)
@@ -1173,7 +1173,7 @@ export default function ProjectSimpleCosts() {
     setLoading(true);
     try {
       const projectData = await projectDetailsCache.fetch();
-      
+
       setProject(projectData);
       setProjectName(projectData.name);
 
@@ -1188,7 +1188,7 @@ export default function ProjectSimpleCosts() {
       if (resourcePerms.tabs.showShared) {
         fetchPromises.push(sharedCostsCache.fetch());
       }
-      
+
       await Promise.all(fetchPromises);
     } catch (error) {
       console.error("Błąd podczas pobierania projektu:", error);
@@ -1208,13 +1208,13 @@ export default function ProjectSimpleCosts() {
 
   // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
   const allCostsTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
-  const myCostsTabIndex = 
+  const myCostsTabIndex =
     resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 :
-    !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
+      !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
   const sharedCostsTabIndex =
     resourcePerms.tabs.showAll && resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 2 :
-    (resourcePerms.tabs.showAll || resourcePerms.tabs.showMine) && resourcePerms.tabs.showShared ? 1 :
-    !resourcePerms.tabs.showAll && !resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 0 : -1;
+      (resourcePerms.tabs.showAll || resourcePerms.tabs.showMine) && resourcePerms.tabs.showShared ? 1 :
+        !resourcePerms.tabs.showAll && !resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 0 : -1;
 
   const handleAddCost = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -1440,7 +1440,7 @@ export default function ProjectSimpleCosts() {
   if (loading) {
     return (
       <MainLayout>
-        <Box p={{ base: 4, md: 10 }} minH="100vh">
+        <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
           <LoadingSpinner message="Ładowanie kosztów..." />
         </Box>
       </MainLayout>
@@ -1449,7 +1449,7 @@ export default function ProjectSimpleCosts() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={DollarSign} boxSize={8} color="red.600" />
@@ -1461,7 +1461,7 @@ export default function ProjectSimpleCosts() {
         </HStack>
 
         {!project || !resourcePerms.hasAnyAccess ? (
-          <Box p={8} textAlign="center">
+          <Box p={{ base: 3, sm: 4, md: 8 }} textAlign="center">
             <EmptyState
               icon={DollarSign}
               title="Brak dostępu"
@@ -1469,121 +1469,121 @@ export default function ProjectSimpleCosts() {
             />
           </Box>
         ) : (
-        <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
-          <TabList>
-            {resourcePerms.tabs.showAll && (
-            <Tab fontWeight="bold">
-              <HStack spacing={2}>
-                <Icon as={DollarSign} boxSize={4} />
-                <Text>Wszystkie koszty</Text>
-                <Badge colorScheme="purple" ml={2}>{allCostsCache.data?.length || 0}</Badge>
-              </HStack>
-            </Tab>
-            )}
-            {resourcePerms.tabs.showMine && (
-            <Tab fontWeight="bold">
-              <HStack spacing={2}>
-                <Icon as={DollarSign} boxSize={4} />
-                <Text>Moje koszty</Text>
-                <Badge colorScheme="blue" ml={2}>{myCostsCache.data?.length || 0}</Badge>
-              </HStack>
-            </Tab>
-            )}
-            {resourcePerms.tabs.showShared && (
-            <Tab fontWeight="bold">
-              <HStack spacing={2}>
-                <Icon as={Share2} boxSize={4} />
-                <Text>Udostępnione</Text>
-                <Badge colorScheme="teal" ml={2}>{sharedCostsCache.data?.length || 0}</Badge>
-              </HStack>
-            </Tab>
-            )}
-          </TabList>
+          <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
+            <TabList>
+              {resourcePerms.tabs.showAll && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={DollarSign} boxSize={4} />
+                    <Text>Wszystkie koszty</Text>
+                    <Badge colorScheme="purple" ml={2}>{allCostsCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+              {resourcePerms.tabs.showMine && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={DollarSign} boxSize={4} />
+                    <Text>Moje koszty</Text>
+                    <Badge colorScheme="blue" ml={2}>{myCostsCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+              {resourcePerms.tabs.showShared && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={Share2} boxSize={4} />
+                    <Text>Udostępnione</Text>
+                    <Badge colorScheme="teal" ml={2}>{sharedCostsCache.data?.length || 0}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+            </TabList>
 
-          <TabPanels>
-            {resourcePerms.tabs.showAll && (
-              <TabPanel>
-                <AllCostsTab
-                  costs={allCostsCache.data || []}
-                  loading={allCostsCache.loading}
-                  showNewCostRow={showNewCostRow}
-                  newCostData={newCostData}
-                  documentFile={documentFile}
-                  addingNewCost={addingNewCost}
-                  resourcePerms={resourcePerms}
-                  editingCostId={editingCostId}
-                  editingCostData={editingCostData}
-                  editDocumentFile={editDocumentFile}
-                  deletingCostId={deletingCostId}
-                  editingClosedCostId={editingClosedCostId}
-                  savingClosedCost={savingClosedCost}
-                  onShareCostsModalOpen={onShareCostsModalOpen}
-                  onShowNewCostRow={setShowNewCostRow}
-                  onNewCostDataChange={setNewCostData}
-                  onDocumentFileChange={setDocumentFile}
-                  onAddCost={handleAddCost}
-                  onManageShare={handleManageShare}
-                  onEditCost={handleEditCost}
-                  onEditingCostDataChange={setEditingCostData}
-                  onEditDocumentFileChange={setEditDocumentFile}
-                  onSaveEdit={handleSaveEdit}
-                  onCancelEdit={handleCancelEdit}
-                  onDeleteCost={handleDeleteCost}
-                  onToggleCostClosed={handleToggleCostClosed}
-                />
-              </TabPanel>
-            )}
-            {resourcePerms.tabs.showMine && (
-              <TabPanel>
-                <MyCostsTab
-                  costs={myCostsCache.data || []}
-                  loading={myCostsCache.loading}
-                  showNewCostRow={showNewCostRow}
-                  newCostData={newCostData}
-                  documentFile={documentFile}
-                  addingNewCost={addingNewCost}
-                  editingCostId={editingCostId}
-                  editingCostData={editingCostData}
-                  editDocumentFile={editDocumentFile}
-                  savingCost={savingCost}
-                  deletingCostId={deletingCostId}
-                  editingClosedCostId={editingClosedCostId}
-                  savingClosedCost={savingClosedCost}
-                  resourcePerms={resourcePerms}
-                  onShareCostsModalOpen={onShareCostsModalOpen}
-                  onShowNewCostRow={setShowNewCostRow}
-                  onNewCostDataChange={setNewCostData}
-                  onDocumentFileChange={setDocumentFile}
-                  onAddCost={handleAddCost}
-                  onEditCost={handleEditCost}
-                  onEditingCostDataChange={setEditingCostData}
-                  onEditDocumentFileChange={setEditDocumentFile}
-                  onSaveEdit={handleSaveEdit}
-                  onCancelEdit={() => {
-                    setEditingCostId(null);
-                    setEditingCostData(null);
-                    setEditDocumentFile(null);
-                  }}
-                  onShareCost={handleShareCost}
-                  onDeleteCost={handleDeleteCost}
-                  onToggleCostClosed={handleToggleCostClosed}
-                />
-              </TabPanel>
-            )}
-            {resourcePerms.tabs.showShared && (
-              <TabPanel>
-                <SharedCostsTab
-                  costs={sharedCostsCache.data || []}
-                  loading={sharedCostsCache.loading}
-                  editingSharedCostId={editingSharedCostId}
-                  savingSharedCost={savingSharedCost}
-                  resourcePerms={resourcePerms}
-                  onToggleSharedCostClosed={handleToggleSharedCostClosed}
-                />
-              </TabPanel>
-            )}
-          </TabPanels>
-        </Tabs>
+            <TabPanels>
+              {resourcePerms.tabs.showAll && (
+                <TabPanel>
+                  <AllCostsTab
+                    costs={allCostsCache.data || []}
+                    loading={allCostsCache.loading}
+                    showNewCostRow={showNewCostRow}
+                    newCostData={newCostData}
+                    documentFile={documentFile}
+                    addingNewCost={addingNewCost}
+                    resourcePerms={resourcePerms}
+                    editingCostId={editingCostId}
+                    editingCostData={editingCostData}
+                    editDocumentFile={editDocumentFile}
+                    deletingCostId={deletingCostId}
+                    editingClosedCostId={editingClosedCostId}
+                    savingClosedCost={savingClosedCost}
+                    onShareCostsModalOpen={onShareCostsModalOpen}
+                    onShowNewCostRow={setShowNewCostRow}
+                    onNewCostDataChange={setNewCostData}
+                    onDocumentFileChange={setDocumentFile}
+                    onAddCost={handleAddCost}
+                    onManageShare={handleManageShare}
+                    onEditCost={handleEditCost}
+                    onEditingCostDataChange={setEditingCostData}
+                    onEditDocumentFileChange={setEditDocumentFile}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={handleCancelEdit}
+                    onDeleteCost={handleDeleteCost}
+                    onToggleCostClosed={handleToggleCostClosed}
+                  />
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showMine && (
+                <TabPanel>
+                  <MyCostsTab
+                    costs={myCostsCache.data || []}
+                    loading={myCostsCache.loading}
+                    showNewCostRow={showNewCostRow}
+                    newCostData={newCostData}
+                    documentFile={documentFile}
+                    addingNewCost={addingNewCost}
+                    editingCostId={editingCostId}
+                    editingCostData={editingCostData}
+                    editDocumentFile={editDocumentFile}
+                    savingCost={savingCost}
+                    deletingCostId={deletingCostId}
+                    editingClosedCostId={editingClosedCostId}
+                    savingClosedCost={savingClosedCost}
+                    resourcePerms={resourcePerms}
+                    onShareCostsModalOpen={onShareCostsModalOpen}
+                    onShowNewCostRow={setShowNewCostRow}
+                    onNewCostDataChange={setNewCostData}
+                    onDocumentFileChange={setDocumentFile}
+                    onAddCost={handleAddCost}
+                    onEditCost={handleEditCost}
+                    onEditingCostDataChange={setEditingCostData}
+                    onEditDocumentFileChange={setEditDocumentFile}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={() => {
+                      setEditingCostId(null);
+                      setEditingCostData(null);
+                      setEditDocumentFile(null);
+                    }}
+                    onShareCost={handleShareCost}
+                    onDeleteCost={handleDeleteCost}
+                    onToggleCostClosed={handleToggleCostClosed}
+                  />
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showShared && (
+                <TabPanel>
+                  <SharedCostsTab
+                    costs={sharedCostsCache.data || []}
+                    loading={sharedCostsCache.loading}
+                    editingSharedCostId={editingSharedCostId}
+                    savingSharedCost={savingSharedCost}
+                    resourcePerms={resourcePerms}
+                    onToggleSharedCostClosed={handleToggleSharedCostClosed}
+                  />
+                </TabPanel>
+              )}
+            </TabPanels>
+          </Tabs>
         )}
 
         <Box mt={6} p={4} bg="blue.50" rounded="md" borderWidth="1px" borderColor="blue.200">
@@ -1622,7 +1622,7 @@ export default function ProjectSimpleCosts() {
         )}
 
         {/* MODAL: SHARE COST (stary komponent dla pojedynczego kosztu - backward compatibility) */}
-        {costToShare && user?.activeTenantId && projectId && (
+        {isShareModalOpen && costToShare && user?.activeTenantId && projectId && (
           <ShareCostModal
             isOpen={isShareModalOpen}
             onClose={() => {
@@ -1637,6 +1637,7 @@ export default function ProjectSimpleCosts() {
             }}
           />
         )}
+
       </Box>
     </MainLayout>
   );

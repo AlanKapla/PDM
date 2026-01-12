@@ -48,10 +48,10 @@ import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
 // === Tab Components jako osobne komponenty z React.memo ===
-const AllFilesTab = React.memo(({ 
-  files, 
-  resourcePerms, 
-  onShareFilesModalOpen, 
+const AllFilesTab = React.memo(({
+  files,
+  resourcePerms,
+  onShareFilesModalOpen,
   onUploadModalOpen,
   renderFileRow,
   cardBg,
@@ -74,14 +74,14 @@ const AllFilesTab = React.memo(({
         </Text>
         <HStack spacing={2}>
           {resourcePerms.all.canShare && (
-          <Button
-            leftIcon={<Share2 size={18} />}
-            colorScheme="orange"
-            size="sm"
-            onClick={onShareFilesModalOpen}
-          >
-            Udostępnij grupowo
-          </Button>
+            <Button
+              leftIcon={<Share2 size={18} />}
+              colorScheme="orange"
+              size="sm"
+              onClick={onShareFilesModalOpen}
+            >
+              Udostępnij grupowo
+            </Button>
           )}
           {resourcePerms.all.canCreate && (
             <Button
@@ -118,19 +118,19 @@ const AllFilesTab = React.memo(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
-                <Table size="sm" variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Nazwa pliku</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                      <Th>Akcje</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
-                  </Tbody>
-                </Table>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Nazwa pliku</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                        <Th>Akcje</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
+                    </Tbody>
+                  </Table>
                 )}
               </AccordionPanel>
             </AccordionItem>
@@ -141,10 +141,10 @@ const AllFilesTab = React.memo(({
   );
 });
 
-const MyFilesTab = React.memo(({ 
-  files, 
-  resourcePerms, 
-  onShareFilesModalOpen, 
+const MyFilesTab = React.memo(({
+  files,
+  resourcePerms,
+  onShareFilesModalOpen,
   onUploadModalOpen,
   renderFileRow,
   cardBg,
@@ -166,25 +166,25 @@ const MyFilesTab = React.memo(({
           Twoje pliki w projekcie
         </Text>
         {resourcePerms.mine.canCreate && (
-        <HStack spacing={2}>
-          {resourcePerms.mine.canShare && (
-          <Button
-            leftIcon={<Share2 size={18} />}
-            colorScheme="orange"
-            size="sm"
-            onClick={onShareFilesModalOpen}
-          >
-            Udostępnij grupowo
-          </Button>
-          )}
-          <Button
-            leftIcon={<Upload size={18} />}
-            colorScheme="green"
-            onClick={onUploadModalOpen}
-          >
-            Dodaj pliki
-          </Button>
-        </HStack>
+          <HStack spacing={2}>
+            {resourcePerms.mine.canShare && (
+              <Button
+                leftIcon={<Share2 size={18} />}
+                colorScheme="orange"
+                size="sm"
+                onClick={onShareFilesModalOpen}
+              >
+                Udostępnij grupowo
+              </Button>
+            )}
+            <Button
+              leftIcon={<Upload size={18} />}
+              colorScheme="green"
+              onClick={onUploadModalOpen}
+            >
+              Dodaj pliki
+            </Button>
+          </HStack>
         )}
       </HStack>
 
@@ -210,18 +210,18 @@ const MyFilesTab = React.memo(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
-                <Table size="sm" variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Nazwa pliku</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                      <Th>Akcje</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
-                  </Tbody>
-                </Table>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Nazwa pliku</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                        <Th>Akcje</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
+                    </Tbody>
+                  </Table>
                 )}
               </AccordionPanel>
             </AccordionItem>
@@ -232,8 +232,8 @@ const MyFilesTab = React.memo(({
   );
 });
 
-const SharedFilesTab = React.memo(({ 
-  files, 
+const SharedFilesTab = React.memo(({
+  files,
   renderFileRow,
   cardBg,
   borderColor,
@@ -276,19 +276,19 @@ const SharedFilesTab = React.memo(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
-                <Table size="sm" variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Nazwa pliku</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                      <Th>Akcje</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, true))}
-                  </Tbody>
-                </Table>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Nazwa pliku</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                        <Th>Akcje</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, true))}
+                    </Tbody>
+                  </Table>
                 )}
               </AccordionPanel>
             </AccordionItem>
@@ -378,14 +378,14 @@ export default function ProjectFiles() {
   useEffect(() => {
     if (resourcePerms.raw.loading) return;
     if (hasFetchedProjectData.current) return;
-    
+
     hasFetchedProjectData.current = true;
     fetchProjectData();
   }, [projectId, resourcePerms.raw.loading]);
 
   const fetchProjectData = async () => {
     if (!user?.activeTenantId || !projectId) return;
-    
+
     if (!resourcePerms.hasAnyAccess) {
       setLoading(false);
       return;
@@ -408,7 +408,7 @@ export default function ProjectFiles() {
       if (resourcePerms.tabs.showShared) {
         fetchPromises.push(sharedFilesCache.fetch());
       }
-      
+
       await Promise.all(fetchPromises);
     } catch (error) {
       showError("Nie udało się pobrać danych");
@@ -422,7 +422,7 @@ export default function ProjectFiles() {
     myFilesCache.clear();
     sharedFilesCache.clear();
     projectDetailsCache.clear();
-    
+
     // Wyczyść lazy loaded data
     setPackageFiles(new Map());
     setFileVersions(new Map());
@@ -430,20 +430,20 @@ export default function ProjectFiles() {
     setExpandedPackageIds(new Set());
     setExpandedVersionIds(new Set());
     setExpandedFileIds(new Set());
-    
+
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };
 
   // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
   const allFilesTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
-  const myFilesTabIndex = 
+  const myFilesTabIndex =
     resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 :
-    !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
+      !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
   const sharedFilesTabIndex =
     resourcePerms.tabs.showAll && resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 2 :
-    (resourcePerms.tabs.showAll || resourcePerms.tabs.showMine) && resourcePerms.tabs.showShared ? 1 :
-    !resourcePerms.tabs.showAll && !resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 0 : -1;
+      (resourcePerms.tabs.showAll || resourcePerms.tabs.showMine) && resourcePerms.tabs.showShared ? 1 :
+        !resourcePerms.tabs.showAll && !resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 0 : -1;
 
   // useMemo dla danych aby zapobiec niepotrzebnym re-renderom tab components
   const allFilesData = useMemo(() => allFilesCache.data || [], [allFilesCache.data]);
@@ -497,7 +497,7 @@ export default function ProjectFiles() {
   };
 
   // === Lazy loading functions ===
-  
+
   const getCurrentScope = (): ResourceScope => {
     if (activeTabIndex === allFilesTabIndex) return ResourceScope.All;
     if (activeTabIndex === myFilesTabIndex) return ResourceScope.Mine;
@@ -507,7 +507,7 @@ export default function ProjectFiles() {
 
   const togglePackage = async (packageId: string) => {
     const isExpanding = !expandedPackageIds.has(packageId);
-    
+
     setExpandedPackageIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(packageId)) {
@@ -545,7 +545,7 @@ export default function ProjectFiles() {
 
   const toggleFileVersionsLazy = async (fileId: string) => {
     const isExpanding = !expandedVersionIds.has(fileId);
-    
+
     setExpandedVersionIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(fileId)) {
@@ -584,7 +584,7 @@ export default function ProjectFiles() {
   const toggleVersionComments = async (fileId: string, versionId: string) => {
     const commentKey = `${fileId}-${versionId}`;
     const isExpanding = !expandedFileIds.has(commentKey);
-    
+
     setExpandedFileIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(commentKey)) {
@@ -683,7 +683,7 @@ export default function ProjectFiles() {
         updated.delete(commentKey);
         return updated;
       });
-      
+
       // Odśwież komentarze dla tej wersji
       const scope = getCurrentScope();
       const commentsRes = await projectApi.getVersionComments(user.activeTenantId, projectId, fileId, versionId, scope);
@@ -697,7 +697,7 @@ export default function ProjectFiles() {
 
   const renderFileRow = (file: any, isShared: boolean = false) => {
     const fileId = isShared ? file.projectFileId : file.id;
-    
+
     return (
       <React.Fragment key={fileId}>
         <Tr>
@@ -771,7 +771,7 @@ export default function ProjectFiles() {
                   size="sm"
                   variant="ghost"
                   onClick={() => toggleFileVersionsLazy(fileId)}
-                  rightIcon={expandedVersionIds.has(fileId) ? <ChevronUp size={16} />  : <ChevronDown size={16} />}
+                  rightIcon={expandedVersionIds.has(fileId) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   isLoading={loadingFiles.has(fileId)}
                 >
                   Wersje ({file.totalVersions})
@@ -788,167 +788,167 @@ export default function ProjectFiles() {
                 {loadingFiles.has(fileId) ? (
                   <LoadingSpinner />
                 ) : (
-                <VStack align="stretch" spacing={3}>
-                  <Heading size="sm" mb={2}>
-                    Historia wersji ({file.totalVersions})
-                  </Heading>
-                  {(fileVersions.get(fileId) || [])
-                    .map((version: any) => (
-                      <Box
-                        key={version.id}
-                        borderWidth="1px"
-                        borderRadius="md"
-                        p={3}
-                        bg={version.id === file.currentVersion?.id ? useColorModeValue("blue.50", "blue.900") : cardBg}
-                        borderColor={version.id === file.currentVersion?.id ? "blue.300" : borderColor}
-                      >
-                        <HStack justify="space-between" mb={2}>
-                          <HStack spacing={2} flexWrap="wrap">
-                            <Badge colorScheme={version.id === file.currentVersion?.id ? "blue" : "gray"}>
-                              Wersja {version.versionNumber}
-                              {version.id === file.currentVersion?.id && " (Aktualna)"}
-                            </Badge>
-                            <Badge colorScheme="purple" fontSize="xs">
-                              {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
-                            </Badge>
-                            <Text fontSize="xs" color="gray.600">
-                              {formatFileSize(version.fileSizeBytes)}
-                            </Text>
-                          </HStack>
-                          <HStack spacing={1}>
-                            {isPreviewSupported(version.contentType) && (
-                              <IconButton
-                                aria-label="Podgląd"
-                                icon={<Eye size={14} />}
-                                size="xs"
-                                colorScheme="purple"
-                                onClick={() => handlePreview(version.sasUrlView)}
-                              />
-                            )}
-                            <Button
-                              size="xs"
-                              leftIcon={<Download size={14} />}
-                              onClick={() => {
-                                const fileName = file.fileName || file.displayName || 'plik';
-                                const isCurrentVersion = version.id === file.currentVersion?.id;
-                                const finalName = isCurrentVersion 
-                                  ? fileName 
-                                  : fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`);
-                                handleDownloadFile(version.sasUrlDownload, finalName);
-                              }}
-                            >
-                              Pobierz
-                            </Button>
-                          </HStack>
-                        </HStack>
-                        <HStack spacing={4} fontSize="xs" color="gray.600" mb={2}>
-                          <HStack spacing={1}>
-                            <User size={12} />
-                            <Text>{version.createdByUserName}</Text>
-                          </HStack>
-                          <HStack spacing={1}>
-                            <Clock size={12} />
-                            <Text>{formatDate(version.createdAt)}</Text>
-                          </HStack>
-                        </HStack>
-                        
-                        {/* Komentarze */}
-                        <Box mt={3}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            leftIcon={<MessageSquare size={14} />}
-                            onClick={() => toggleVersionComments(fileId, version.id)}
-                            rightIcon={expandedFileIds.has(`${fileId}-${version.id}`) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            isLoading={loadingVersions.has(`${fileId}-${version.id}`)}
-                          >
-                            Komentarze
-                          </Button>
-                          
-                          {expandedFileIds.has(`${fileId}-${version.id}`) && (
-                            <Box mt={3}>
-                              {loadingVersions.has(`${fileId}-${version.id}`) ? (
-                                <LoadingSpinner />
-                              ) : (
-                                <>
-                                  {(versionComments.get(`${fileId}-${version.id}`) || []).length > 0 && (
-                                    <VStack align="stretch" spacing={3} mb={3}>
-                                      {(versionComments.get(`${fileId}-${version.id}`) || [])
-                                        .map((comment: any) => {
-                                          const isMyComment = user?.id === comment.userId;
-                                          return (
-                                            <HStack
-                                              key={comment.id}
-                                              justify={isMyComment ? "flex-end" : "flex-start"}
-                                              w="100%"
-                                            >
-                                              <Box
-                                                maxW="75%"
-                                                bg={isMyComment ? "blue.500" : useColorModeValue("gray.100", "gray.700")}
-                                                color={isMyComment ? "white" : useColorModeValue("black", "white")}
-                                                p={3}
-                                                borderRadius="lg"
-                                                borderBottomRightRadius={isMyComment ? "sm" : "lg"}
-                                                borderBottomLeftRadius={isMyComment ? "lg" : "sm"}
-                                              >
-                                                <VStack align="stretch" spacing={1}>
-                                                  <HStack justify="space-between">
-                                                    <Text fontSize="xs" fontWeight="bold" opacity={isMyComment ? 0.9 : 1}>
-                                                      {comment.userName}
-                                                    </Text>
-                                                    {comment.isEdited && (
-                                                      <Badge colorScheme={isMyComment ? "whiteAlpha" : "gray"} fontSize="2xs">
-                                                        Edytowano
-                                                      </Badge>
-                                                    )}
-                                                  </HStack>
-                                                  <Text fontSize="sm">{comment.content}</Text>
-                                                  <Text fontSize="2xs" opacity={0.7} textAlign={isMyComment ? "right" : "left"}>
-                                                    {formatDate(comment.editedAt || comment.createdAt)}
-                                                  </Text>
-                                                </VStack>
-                                              </Box>
-                                            </HStack>
-                                          );
-                                        })}
-                                    </VStack>
-                                  )}
-                                  
-                                  {((!isShared && resourcePerms.mine.canEdit) || (isShared && resourcePerms.shared.canEdit)) && (
-                                    <HStack spacing={2}>
-                                      <Textarea
-                                        placeholder="Dodaj komentarz..."
-                                        size="sm"
-                                        value={newComments.get(`${fileId}-${version.id}`) || ""}
-                                        onChange={(e) => {
-                                          setNewComments((prev) => {
-                                            const updated = new Map(prev);
-                                            updated.set(`${fileId}-${version.id}`, e.target.value);
-                                            return updated;
-                                          });
-                                        }}
-                                        rows={2}
-                                        resize="vertical"
-                                      />
-                                      <IconButton
-                                        aria-label="Wyślij komentarz"
-                                        icon={<Send size={16} />}
-                                        colorScheme="blue"
-                                        size="sm"
-                                        onClick={() => handleAddComment(isShared ? file.projectFileId : file.id, version.id)}
-                                        isLoading={submittingComment === `${fileId}-${version.id}`}
-                                        isDisabled={!newComments.get(`${fileId}-${version.id}`)?.trim()}
-                                      />
-                                    </HStack>
-                                  )}
-                                </>
+                  <VStack align="stretch" spacing={3}>
+                    <Heading size="sm" mb={2}>
+                      Historia wersji ({file.totalVersions})
+                    </Heading>
+                    {(fileVersions.get(fileId) || [])
+                      .map((version: any) => (
+                        <Box
+                          key={version.id}
+                          borderWidth="1px"
+                          borderRadius="md"
+                          p={3}
+                          bg={version.id === file.currentVersion?.id ? useColorModeValue("blue.50", "blue.900") : cardBg}
+                          borderColor={version.id === file.currentVersion?.id ? "blue.300" : borderColor}
+                        >
+                          <HStack justify="space-between" mb={2}>
+                            <HStack spacing={2} flexWrap="wrap">
+                              <Badge colorScheme={version.id === file.currentVersion?.id ? "blue" : "gray"}>
+                                Wersja {version.versionNumber}
+                                {version.id === file.currentVersion?.id && " (Aktualna)"}
+                              </Badge>
+                              <Badge colorScheme="purple" fontSize="xs">
+                                {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
+                              </Badge>
+                              <Text fontSize="xs" color="gray.600">
+                                {formatFileSize(version.fileSizeBytes)}
+                              </Text>
+                            </HStack>
+                            <HStack spacing={1}>
+                              {isPreviewSupported(version.contentType) && (
+                                <IconButton
+                                  aria-label="Podgląd"
+                                  icon={<Eye size={14} />}
+                                  size="xs"
+                                  colorScheme="purple"
+                                  onClick={() => handlePreview(version.sasUrlView)}
+                                />
                               )}
-                            </Box>
-                          )}
+                              <Button
+                                size="xs"
+                                leftIcon={<Download size={14} />}
+                                onClick={() => {
+                                  const fileName = file.fileName || file.displayName || 'plik';
+                                  const isCurrentVersion = version.id === file.currentVersion?.id;
+                                  const finalName = isCurrentVersion
+                                    ? fileName
+                                    : fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`);
+                                  handleDownloadFile(version.sasUrlDownload, finalName);
+                                }}
+                              >
+                                Pobierz
+                              </Button>
+                            </HStack>
+                          </HStack>
+                          <HStack spacing={4} fontSize="xs" color="gray.600" mb={2}>
+                            <HStack spacing={1}>
+                              <User size={12} />
+                              <Text>{version.createdByUserName}</Text>
+                            </HStack>
+                            <HStack spacing={1}>
+                              <Clock size={12} />
+                              <Text>{formatDate(version.createdAt)}</Text>
+                            </HStack>
+                          </HStack>
+
+                          {/* Komentarze */}
+                          <Box mt={3}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              leftIcon={<MessageSquare size={14} />}
+                              onClick={() => toggleVersionComments(fileId, version.id)}
+                              rightIcon={expandedFileIds.has(`${fileId}-${version.id}`) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              isLoading={loadingVersions.has(`${fileId}-${version.id}`)}
+                            >
+                              Komentarze
+                            </Button>
+
+                            {expandedFileIds.has(`${fileId}-${version.id}`) && (
+                              <Box mt={3}>
+                                {loadingVersions.has(`${fileId}-${version.id}`) ? (
+                                  <LoadingSpinner />
+                                ) : (
+                                  <>
+                                    {(versionComments.get(`${fileId}-${version.id}`) || []).length > 0 && (
+                                      <VStack align="stretch" spacing={3} mb={3}>
+                                        {(versionComments.get(`${fileId}-${version.id}`) || [])
+                                          .map((comment: any) => {
+                                            const isMyComment = user?.id === comment.userId;
+                                            return (
+                                              <HStack
+                                                key={comment.id}
+                                                justify={isMyComment ? "flex-end" : "flex-start"}
+                                                w="100%"
+                                              >
+                                                <Box
+                                                  maxW="75%"
+                                                  bg={isMyComment ? "blue.500" : useColorModeValue("gray.100", "gray.700")}
+                                                  color={isMyComment ? "white" : useColorModeValue("black", "white")}
+                                                  p={3}
+                                                  borderRadius="lg"
+                                                  borderBottomRightRadius={isMyComment ? "sm" : "lg"}
+                                                  borderBottomLeftRadius={isMyComment ? "lg" : "sm"}
+                                                >
+                                                  <VStack align="stretch" spacing={1}>
+                                                    <HStack justify="space-between">
+                                                      <Text fontSize="xs" fontWeight="bold" opacity={isMyComment ? 0.9 : 1}>
+                                                        {comment.userName}
+                                                      </Text>
+                                                      {comment.isEdited && (
+                                                        <Badge colorScheme={isMyComment ? "whiteAlpha" : "gray"} fontSize="2xs">
+                                                          Edytowano
+                                                        </Badge>
+                                                      )}
+                                                    </HStack>
+                                                    <Text fontSize="sm">{comment.content}</Text>
+                                                    <Text fontSize="2xs" opacity={0.7} textAlign={isMyComment ? "right" : "left"}>
+                                                      {formatDate(comment.editedAt || comment.createdAt)}
+                                                    </Text>
+                                                  </VStack>
+                                                </Box>
+                                              </HStack>
+                                            );
+                                          })}
+                                      </VStack>
+                                    )}
+
+                                    {((!isShared && resourcePerms.mine.canEdit) || (isShared && resourcePerms.shared.canEdit)) && (
+                                      <HStack spacing={2}>
+                                        <Textarea
+                                          placeholder="Dodaj komentarz..."
+                                          size="sm"
+                                          value={newComments.get(`${fileId}-${version.id}`) || ""}
+                                          onChange={(e) => {
+                                            setNewComments((prev) => {
+                                              const updated = new Map(prev);
+                                              updated.set(`${fileId}-${version.id}`, e.target.value);
+                                              return updated;
+                                            });
+                                          }}
+                                          rows={2}
+                                          resize="vertical"
+                                        />
+                                        <IconButton
+                                          aria-label="Wyślij komentarz"
+                                          icon={<Send size={16} />}
+                                          colorScheme="blue"
+                                          size="sm"
+                                          onClick={() => handleAddComment(isShared ? file.projectFileId : file.id, version.id)}
+                                          isLoading={submittingComment === `${fileId}-${version.id}`}
+                                          isDisabled={!newComments.get(`${fileId}-${version.id}`)?.trim()}
+                                        />
+                                      </HStack>
+                                    )}
+                                  </>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
                         </Box>
-                      </Box>
-                    ))}
-                </VStack>
+                      ))}
+                  </VStack>
                 )}
               </Box>
             </Td>
@@ -970,7 +970,7 @@ export default function ProjectFiles() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={FileText} boxSize={8} color="purple.600" />
@@ -982,7 +982,7 @@ export default function ProjectFiles() {
         </HStack>
 
         {!project || (!resourcePerms.hasAnyAccess && !resourcePerms.raw.loading) ? (
-          <Box p={8} textAlign="center">
+          <Box p={{ base: 3, sm: 4, md: 8 }} textAlign="center">
             <EmptyState
               icon={FileText}
               title="Brak dostępu"
@@ -990,113 +990,116 @@ export default function ProjectFiles() {
             />
           </Box>
         ) : (
-        <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex}>
-          <TabList>
-            {resourcePerms.tabs.showAll && (
-              <Tab fontWeight="bold">
-                <HStack spacing={2}>
-                  <Icon as={FileText} boxSize={4} />
-                  <Text>Wszystkie pliki</Text>
-                  <Badge colorScheme="purple" ml={2}>{(allFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
-                </HStack>
-              </Tab>
-            )}
-            {resourcePerms.tabs.showMine && (
-              <Tab fontWeight="bold">
-                <HStack spacing={2}>
-                  <Icon as={FileText} boxSize={4} />
-                  <Text>Moje pliki</Text>
-                  <Badge colorScheme="blue" ml={2}>{(myFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
-                </HStack>
-              </Tab>
-            )}
-            {resourcePerms.tabs.showShared && (
-              <Tab fontWeight="bold">
-                <HStack spacing={2}>
-                  <Icon as={Share2} boxSize={4} />
-                  <Text>Udostępnione</Text>
-                  <Badge colorScheme="teal" ml={2}>{(sharedFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
-                </HStack>
-              </Tab>
-            )}
-          </TabList>
+          <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex}>
+            <TabList>
+              {resourcePerms.tabs.showAll && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={FileText} boxSize={4} />
+                    <Text>Wszystkie pliki</Text>
+                    <Badge colorScheme="purple" ml={2}>{(allFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+              {resourcePerms.tabs.showMine && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={FileText} boxSize={4} />
+                    <Text>Moje pliki</Text>
+                    <Badge colorScheme="blue" ml={2}>{(myFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+              {resourcePerms.tabs.showShared && (
+                <Tab fontWeight="bold">
+                  <HStack spacing={2}>
+                    <Icon as={Share2} boxSize={4} />
+                    <Text>Udostępnione</Text>
+                    <Badge colorScheme="teal" ml={2}>{(sharedFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                  </HStack>
+                </Tab>
+              )}
+            </TabList>
 
-          <TabPanels>
-            {resourcePerms.tabs.showAll && (
-              <TabPanel>
-                {allFilesCache.loading ? (
-                  <LoadingSpinner />
-                ) : (
-                  <AllFilesTab 
-                    files={allFilesData}
-                    resourcePerms={resourcePerms}
-                    onShareFilesModalOpen={onShareFilesModalOpen}
-                    onUploadModalOpen={onUploadModalOpen}
-                    renderFileRow={renderFileRow}
-                    cardBg={cardBg}
-                    borderColor={borderColor}
-                    hoverBg={hoverBg}
-                    expandedPackageIds={expandedPackageIds}
-                    packageFiles={packageFiles}
-                    loadingPackages={loadingPackages}
-                    onTogglePackage={togglePackage}
-                  />
-                )}
-              </TabPanel>
-            )}
-            {resourcePerms.tabs.showMine && (
-              <TabPanel>
-                {myFilesCache.loading ? (
-                  <LoadingSpinner />
-                ) : (
-                  <MyFilesTab 
-                    files={myFilesData}
-                    resourcePerms={resourcePerms}
-                    onShareFilesModalOpen={onShareFilesModalOpen}
-                    onUploadModalOpen={onUploadModalOpen}
-                    renderFileRow={renderFileRow}
-                    cardBg={cardBg}
-                    borderColor={borderColor}
-                    hoverBg={hoverBg}
-                    expandedPackageIds={expandedPackageIds}
-                    packageFiles={packageFiles}
-                    loadingPackages={loadingPackages}
-                    onTogglePackage={togglePackage}
-                  />
-                )}
-              </TabPanel>
-            )}
-            {resourcePerms.tabs.showShared && (
-              <TabPanel>
-                {sharedFilesCache.loading ? (
-                  <LoadingSpinner />
-                ) : (
-                  <SharedFilesTab 
-                    files={sharedFilesData}
-                    renderFileRow={renderFileRow}
-                    cardBg={cardBg}
-                    borderColor={borderColor}
-                    hoverBg={hoverBg}
-                    expandedPackageIds={expandedPackageIds}
-                    packageFiles={packageFiles}
-                    loadingPackages={loadingPackages}
-                    onTogglePackage={togglePackage}
-                  />
-                )}
-              </TabPanel>
-            )}
-          </TabPanels>
-        </Tabs>
+            <TabPanels>
+              {resourcePerms.tabs.showAll && (
+                <TabPanel>
+                  {allFilesCache.loading ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <AllFilesTab
+                      files={allFilesData}
+                      resourcePerms={resourcePerms}
+                      onShareFilesModalOpen={onShareFilesModalOpen}
+                      onUploadModalOpen={onUploadModalOpen}
+                      renderFileRow={renderFileRow}
+                      cardBg={cardBg}
+                      borderColor={borderColor}
+                      hoverBg={hoverBg}
+                      expandedPackageIds={expandedPackageIds}
+                      packageFiles={packageFiles}
+                      loadingPackages={loadingPackages}
+                      onTogglePackage={togglePackage}
+                    />
+                  )}
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showMine && (
+                <TabPanel>
+                  {myFilesCache.loading ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <MyFilesTab
+                      files={myFilesData}
+                      resourcePerms={resourcePerms}
+                      onShareFilesModalOpen={onShareFilesModalOpen}
+                      onUploadModalOpen={onUploadModalOpen}
+                      renderFileRow={renderFileRow}
+                      cardBg={cardBg}
+                      borderColor={borderColor}
+                      hoverBg={hoverBg}
+                      expandedPackageIds={expandedPackageIds}
+                      packageFiles={packageFiles}
+                      loadingPackages={loadingPackages}
+                      onTogglePackage={togglePackage}
+                    />
+                  )}
+                </TabPanel>
+              )}
+              {resourcePerms.tabs.showShared && (
+                <TabPanel>
+                  {sharedFilesCache.loading ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <SharedFilesTab
+                      files={sharedFilesData}
+                      renderFileRow={renderFileRow}
+                      cardBg={cardBg}
+                      borderColor={borderColor}
+                      hoverBg={hoverBg}
+                      expandedPackageIds={expandedPackageIds}
+                      packageFiles={packageFiles}
+                      loadingPackages={loadingPackages}
+                      onTogglePackage={togglePackage}
+                    />
+                  )}
+                </TabPanel>
+              )}
+            </TabPanels>
+          </Tabs>
         )}
 
-        <UploadFilesModal
-          isOpen={isUploadModalOpen}
-          onClose={onUploadModalClose}
-          projectId={projectId || ""}
-          projectName={project?.name || ""}
-          tenantId={user?.activeTenantId || ""}
-          onFilesUploaded={refreshData}
-        />
+        {isUploadModalOpen && (
+          <UploadFilesModal
+            isOpen={isUploadModalOpen}
+            onClose={onUploadModalClose}
+            projectId={projectId || ""}
+            projectName={project?.name || ""}
+            tenantId={user?.activeTenantId || ""}
+            onFilesUploaded={refreshData}
+          />
+        )}
+
 
         {fileForNewVersion && (
           <UploadNewVersionModal

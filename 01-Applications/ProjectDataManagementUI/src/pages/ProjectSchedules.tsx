@@ -195,7 +195,7 @@ export default function ProjectSchedules() {
   if (loading) {
     return (
       <MainLayout>
-        <Box p={{ base: 4, md: 10 }} minH="100vh">
+        <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
           <LoadingSpinner message="Ładowanie harmonogramów..." />
         </Box>
       </MainLayout>
@@ -204,7 +204,7 @@ export default function ProjectSchedules() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={Calendar} boxSize={8} color="purple.600" />
@@ -216,7 +216,7 @@ export default function ProjectSchedules() {
         </HStack>
 
         {(!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) ? (
-          <Box p={8} textAlign="center">
+          <Box p={{ base: 3, sm: 4, md: 8 }} textAlign="center">
             <EmptyState
               icon={Calendar}
               title="Brak dostępu"
@@ -294,7 +294,7 @@ function MySchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: a
 
   return (
     <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
+      <HStack justify="space-between" flexWrap={{ base: "wrap", md: "nowrap" }} gap={{ base: 2, md: 0 }}>
         <Text fontSize="sm" color="gray.600">
           Twoje harmonogramy w projekcie
         </Text>
@@ -303,6 +303,8 @@ function MySchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: a
             leftIcon={<Calendar size={18} />}
             colorScheme="purple"
             onClick={onOpen}
+            size={{ base: "sm", md: "md" }}
+            fontSize={{ base: "xs", md: "sm" }}
           >
             Utwórz harmonogram
           </Button>
@@ -321,7 +323,7 @@ function AllSchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: 
 
   return (
     <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
+      <HStack justify="space-between" flexWrap={{ base: "wrap", md: "nowrap" }} gap={{ base: 2, md: 0 }}>
         <Text fontSize="sm" color="gray.600">
           Wszystkie harmonogramy w projekcie (admin)
         </Text>
@@ -330,6 +332,8 @@ function AllSchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: 
             leftIcon={<Calendar size={18} />}
             colorScheme="purple"
             onClick={onOpen}
+            size={{ base: "sm", md: "md" }}
+            fontSize={{ base: "xs", md: "sm" }}
           >
             Utwórz harmonogram
           </Button>
