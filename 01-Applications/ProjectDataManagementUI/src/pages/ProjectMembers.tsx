@@ -179,7 +179,7 @@ export default function ProjectMembers() {
   if (loading) {
     return (
       <MainLayout>
-        <Box p={{ base: 4, md: 10 }} minH="100vh">
+        <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
           <LoadingSpinner message="Ładowanie członków..." />
         </Box>
       </MainLayout>
@@ -188,7 +188,7 @@ export default function ProjectMembers() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         {!permissions.canViewMembers ? (
           <Box bg={cardBg} p={8} rounded="lg" borderWidth="1px" borderColor={borderColor}>
             <VStack spacing={4}>
@@ -199,19 +199,21 @@ export default function ProjectMembers() {
           </Box>
         ) : (
           <>
-        <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
-          <HStack spacing={3}>
-            <Icon as={Users} boxSize={8} color="blue.600" />
+        <HStack justify="space-between" mb={{ base: 6, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
+          <HStack spacing={{ base: 2, md: 3 }}>
+            <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="blue.600" />
             <VStack align="flex-start" spacing={0}>
-              <Heading size="lg">Członkowie projektu</Heading>
-              {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
+              <Heading size={{ base: "md", md: "lg" }}>Członkowie projektu</Heading>
+              {project && <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
           {permissions.canManageMembers && (
             <Button
-              leftIcon={<UserPlus size={18} />}
+              leftIcon={<UserPlus size={16} />}
               colorScheme="blue"
               onClick={onOpen}
+              size={{ base: "sm", md: "md" }}
+              fontSize={{ base: "xs", md: "sm" }}
             >
               Dodaj członka
             </Button>
@@ -225,21 +227,29 @@ export default function ProjectMembers() {
             description="Ten projekt nie ma jeszcze żadnych członków"
           />
         ) : (
-          <Box bg={cardBg} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
-            <Table variant="simple" size="sm">
+          <Box 
+            bg={cardBg} 
+            rounded="lg" 
+            shadow="md" 
+            borderWidth="1px" 
+            borderColor={borderColor}
+            overflowX="auto"
+            fontSize={{ base: "xs", md: "sm" }}
+          >
+            <Table variant="simple" size={{ base: "sm", md: "md" }}>
               <Thead>
                 <Tr>
-                  <Th>Imię i nazwisko</Th>
-                  <Th>Email</Th>
-                  <Th>Rola</Th>
-                  <Th>Data dołączenia</Th>
-                  <Th>Akcje</Th>
+                  <Th fontSize={{ base: "10px", md: "sm" }}>Imię i nazwisko</Th>
+                  <Th fontSize={{ base: "10px", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
+                  <Th fontSize={{ base: "10px", md: "sm" }}>Rola</Th>
+                  <Th fontSize={{ base: "10px", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
+                  <Th fontSize={{ base: "10px", md: "sm" }}>Akcje</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {members.map((member) => (
                   <Tr key={member.userId}>
-                    <Td>
+                    <Td fontSize={{ base: "xs", md: "sm" }}>
                       {member.firstName} {member.lastName}
                       {user?.id === member.userId && (
                         <Badge ml={2} colorScheme="green" fontSize="xs">
@@ -247,14 +257,14 @@ export default function ProjectMembers() {
                         </Badge>
                       )}
                     </Td>
-                    <Td>{member.email}</Td>
-                    <Td>
+                    <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>{member.email}</Td>
+                    <Td fontSize={{ base: "xs", md: "sm" }}>
                       <Badge colorScheme={getRoleColor(member.roleCode)}>
                         {getRoleName(member.roleCode)}
                       </Badge>
                     </Td>
-                    <Td>{formatDate(member.joinedAt)}</Td>
-                    <Td>
+                    <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>{formatDate(member.joinedAt)}</Td>
+                    <Td fontSize={{ base: "xs", md: "sm" }}>
                       {editingRoleMemberId === member.userId ? (
                         <HStack spacing={2}>
                           <Select
@@ -340,20 +350,21 @@ export default function ProjectMembers() {
 
         <Modal isOpen={isRemoveModalOpen} onClose={onRemoveModalClose}>
           <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Usuń członka</ModalHeader>
+          <ModalContent mx={{ base: 4, md: 0 }}>
+            <ModalHeader fontSize={{ base: "md", md: "lg" }}>Usuń członka</ModalHeader>
             <ModalCloseButton />
-            <ModalBody>
+            <ModalBody fontSize={{ base: "sm", md: "md" }}>
               Czy na pewno chcesz usunąć <strong>{memberToRemove?.name}</strong> z projektu?
             </ModalBody>
-            <ModalFooter>
-              <Button variant="ghost" mr={3} onClick={onRemoveModalClose}>
+            <ModalFooter gap={2}>
+              <Button variant="ghost" onClick={onRemoveModalClose} size={{ base: "sm", md: "md" }}>
                 Anuluj
               </Button>
               <Button
                 colorScheme="red"
                 onClick={handleRemoveMember}
                 isLoading={removingMember !== null}
+                size={{ base: "sm", md: "md" }}
               >
                 Usuń
               </Button>

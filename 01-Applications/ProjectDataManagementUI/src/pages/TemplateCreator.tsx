@@ -154,7 +154,7 @@ export default function TemplateCreator() {
 
   return (
     <MainLayout>
-      <Box p={6}>
+      <Box p={{ base: 3, sm: 4, md: 6 }}>
         <Heading size="md" mb={4}>
           Kreator szablonu kosztorysu
         </Heading>

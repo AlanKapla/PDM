@@ -12,15 +12,20 @@ import {
   useColorModeValue,
   Icon,
   VStack,
+  IconButton,
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
+import { Database, User as UserIcon, RefreshCw, Building2, Menu as MenuIcon } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { tenantApi } from "../api/tenantApi";
 import NotificationBell from "./NotificationBell";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
-export default function Header() {
+interface HeaderProps {
+  onMenuOpen?: () => void;
+}
+
+export default function Header({ onMenuOpen }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated } = useContext(AuthContext);
@@ -69,27 +74,44 @@ export default function Header() {
       bg={bg}
       borderBottom="1px solid"
       borderColor={border}
-      px={{ base: 4, md: 6 }}
-      py={3}
+      px={{ base: 2, sm: 3, md: 6 }}
+      py={{ base: 1.5, md: 3 }}
       position="fixed"
       top={0}
       left={0}
       right={0}
       zIndex={1000}
+      height="60px"
+      display="flex"
+      alignItems="center"
     >
-      <HStack maxW="100%" mx="auto" justify="space-between">
+      <HStack maxW="100%" mx="auto" justify="space-between" spacing={{ base: 1, sm: 2, md: 4 }} w="100%">
+        {/* Mobile Menu Button */}
+        <IconButton
+          aria-label="Otwórz menu"
+          icon={<MenuIcon size={18} />}
+          onClick={onMenuOpen}
+          display={{ base: "flex", md: "none" }}
+          variant="ghost"
+          size="xs"
+          minW="auto"
+        />
+        
         {/* Nazwa aplikacji */}
         <HStack 
-          spacing={2}
+          spacing={1}
           cursor="pointer"
           _hover={{ opacity: 0.8 }}
           onClick={() => navigate("/dashboard")}
+          flex={1}
         >
-          <Icon as={Database} boxSize={5} color="blue.600" />
+          <Icon as={Database} boxSize={{ base: 5, md: 5 }} color="blue.600" flexShrink={0} />
           <Text 
-            fontSize="lg" 
+            fontSize={{ base: "sm", md: "lg" }}
             fontWeight="bold" 
             color={textColor}
+            display={{ base: "none", sm: "block" }}
+            whiteSpace="nowrap"
           >
             Brickly
           </Text>
@@ -97,23 +119,24 @@ export default function Header() {
 
         {/* Menu użytkownika */}
         {isAuthenticated && user ? (
-          <HStack spacing={2}>
+          <HStack spacing={{ base: 0.5, md: 2 }}>
             <VStack 
               align="flex-end" 
               spacing={0}
-              display={{ base: "none", md: "flex" }}
+              display={{ base: "flex", md: "flex" }}
             >
               <Text 
-                fontSize="sm" 
+                fontSize={{ base: "10px", md: "sm" }}
                 fontWeight="medium" 
                 color={textColor}
+                whiteSpace="nowrap"
               >
                 {user.firstName} {user.lastName}
               </Text>
               {activeTenantName && (
-                <HStack spacing={1} fontSize="xs" color={mutedColor}>
-                  <Icon as={Building2} boxSize={3} />
-                  <Text>{activeTenantName}</Text>
+                <HStack spacing={1} fontSize={{ base: "10px", md: "10px" }} color={mutedColor}>
+                  <Icon as={Building2} boxSize={{ base: 3.5, md: 3 }} />
+                  <Text whiteSpace="nowrap">{activeTenantName}</Text>
                 </HStack>
               )}
             </VStack>
@@ -123,7 +146,7 @@ export default function Header() {
             <Menu placement="bottom-end" strategy="fixed">
               <MenuButton cursor="pointer">
                 <Avatar 
-                  size="sm" 
+                  size={{ base: "xs", md: "sm" }}
                   bg="blue.600" 
                   color="white" 
                   src=""

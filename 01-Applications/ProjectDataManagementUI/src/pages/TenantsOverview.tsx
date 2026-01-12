@@ -51,7 +51,7 @@ export default function TenantsOverview() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack mb={8} spacing={3}>
           <Icon as={Building2} boxSize={8} color="blue.600" />
           <Heading size={{ base: "lg", md: "xl" }}>Organizacje</Heading>

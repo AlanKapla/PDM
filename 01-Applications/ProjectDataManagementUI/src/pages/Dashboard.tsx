@@ -46,12 +46,12 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <Heading mb={8} size={{ base: "lg", md: "xl" }}>
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <Heading mb={{ base: 4, md: 8 }} size={{ base: "md", sm: "lg", md: "xl" }}>
           Panel główny
         </Heading>
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 3, md: 6 }}>
           {menuCards.map((card) => (
             <Card
               key={card.title}
@@ -66,12 +66,12 @@ export default function Dashboard() {
               borderWidth="2px"
               borderColor="transparent"
             >
-              <CardBody>
-                <VStack align="flex-start" spacing={4}>
-                  <Icon as={card.icon} boxSize={10} color={card.color} />
-                  <VStack align="flex-start" spacing={2}>
-                    <Heading size="md">{card.title}</Heading>
-                    <Text color="gray.600" fontSize="sm">
+              <CardBody p={{ base: 3, md: 6 }}>
+                <VStack align="flex-start" spacing={{ base: 3, md: 4 }}>
+                  <Icon as={card.icon} boxSize={{ base: 8, md: 10 }} color={card.color} />
+                  <VStack align="flex-start" spacing={1}>
+                    <Heading size={{ base: "sm", md: "md" }}>{card.title}</Heading>
+                    <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>
                       {card.description}
                     </Text>
                   </VStack>
