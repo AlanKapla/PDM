@@ -110,11 +110,7 @@ public sealed class DetectResourceConflictsTool : ToolBase
                     {
                         if (!userWorkloads.ContainsKey(assignment.UserId))
                         {
-                            userWorkloads[assignment.UserId] = new UserWorkload
-                            {
-                                UserId = assignment.UserId,
-                                UserName = $"{assignment.ProjectMember.TenantMember.User.FirstName} {assignment.ProjectMember.TenantMember.User.LastName}".Trim()
-                            };
+                            userWorkloads[assignment.UserId] = new List<WorkAssignment>();
                         }
 
                         foreach (var period in work.Periods)

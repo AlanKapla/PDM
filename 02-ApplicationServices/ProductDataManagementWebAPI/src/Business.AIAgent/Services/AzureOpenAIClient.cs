@@ -201,7 +201,7 @@ public sealed class AzureOpenAIClient : IAzureOpenAIClient, IAsyncDisposable
                 MessageRole.Assistant when msg.ToolCalls != null && msg.ToolCalls.Count > 0 =>
                     CreateAssistantMessageWithTools(msg),
                 MessageRole.Assistant => new AssistantChatMessage(msg.Content ?? string.Empty),
-                MessageRole.Tool => new ToolChatMessage(msg.ToolCallId ?? string.Empty, msg.Content ?? string.Empty),
+                MessageRole.Tool => CreateToolMessage(msg),
                 _ => throw new ArgumentException($"Unsupported message role: {msg.Role}")
             };
 
@@ -209,6 +209,17 @@ public sealed class AzureOpenAIClient : IAzureOpenAIClient, IAsyncDisposable
         }
 
         return chatMessages;
+    }
+
+    private ToolChatMessage CreateToolMessage(LLMMessage msg)
+    {
+        if (string.IsNullOrWhiteSpace(msg.ToolCallId))
+        {
+            logger.LogError("Tool message has empty ToolCallId. Content: {Content}", msg.Content);
+            throw new ArgumentException("Tool message must have a valid ToolCallId", nameof(msg));
+        }
+
+        return new ToolChatMessage(msg.ToolCallId, msg.Content ?? string.Empty);
     }
 
     private AssistantChatMessage CreateAssistantMessageWithTools(LLMMessage msg)

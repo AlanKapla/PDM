@@ -136,6 +136,17 @@ public sealed class AgentRunner : IAgentRunner
                     // Execute all tool calls in parallel
                     var toolTasks = llmResponse.Message.ToolCalls.Select(async toolCall =>
                     {
+                        // Validate tool call ID
+                        if (string.IsNullOrWhiteSpace(toolCall.Id))
+                        {
+                            logger.LogError("Tool call has empty ID for tool: {ToolName}", toolCall.Function.Name);
+                            return ToolResult.Failure(
+                                "unknown",
+                                toolCall.Function.Name,
+                                $"Tool call ID is missing or empty",
+                                0);
+                        }
+
                         var tool = tools.FirstOrDefault(t => t.Name == toolCall.Function.Name);
 
                         if (tool == null)
@@ -148,8 +159,8 @@ public sealed class AgentRunner : IAgentRunner
                                 0);
                         }
 
-                        logger.LogDebug("Executing tool: {ToolName} with arguments: {Arguments}",
-                            tool.Name, toolCall.Function.Arguments);
+                        logger.LogDebug("Executing tool: {ToolName} with ID: {ToolCallId} and arguments: {Arguments}",
+                            tool.Name, toolCall.Id, toolCall.Function.Arguments);
 
                         var toolStopwatch = Stopwatch.StartNew();
                         try
@@ -157,15 +168,24 @@ public sealed class AgentRunner : IAgentRunner
                             var toolResult = await tool.ExecuteAsync(toolCall.Function.Arguments, cancellationToken);
                             toolStopwatch.Stop();
 
-                            logger.LogInformation("Tool {ToolName} executed successfully in {Time}ms",
-                                tool.Name, toolStopwatch.ElapsedMilliseconds);
+                            // Ensure the tool result has the correct tool call ID
+                            if (string.IsNullOrWhiteSpace(toolResult.ToolCallId))
+                            {
+                                logger.LogWarning("Tool {ToolName} returned empty ToolCallId, setting it to: {ToolCallId}",
+                                    tool.Name, toolCall.Id);
+                                toolResult.ToolCallId = toolCall.Id;
+                            }
+
+                            logger.LogInformation("Tool {ToolName} (ID: {ToolCallId}) executed successfully in {Time}ms",
+                                tool.Name, toolCall.Id, toolStopwatch.ElapsedMilliseconds);
 
                             return toolResult;
                         }
                         catch (Exception ex)
                         {
                             toolStopwatch.Stop();
-                            logger.LogError(ex, "Tool {ToolName} execution failed", tool.Name);
+                            logger.LogError(ex, "Tool {ToolName} (ID: {ToolCallId}) execution failed",
+                                tool.Name, toolCall.Id);
 
                             return ToolResult.Failure(
                                 toolCall.Id,
@@ -181,12 +201,31 @@ public sealed class AgentRunner : IAgentRunner
                     // Add tool results to conversation
                     foreach (var toolResult in toolResults)
                     {
+                        // Validate tool call ID before creating tool message
+                        if (string.IsNullOrWhiteSpace(toolResult.ToolCallId))
+                        {
+                            logger.LogError("ToolResult has empty ToolCallId for tool: {ToolName}. Skipping this tool message.",
+                                toolResult.ToolName);
+                            result.Error = $"Tool {toolResult.ToolName} returned empty ToolCallId";
+                            result.Success = false;
+                            break;
+                        }
+
                         var toolMessage = LLMMessage.Tool(
                             toolResult.ToolCallId,
                             toolResult.ToolName,
                             toolResult.IsSuccess ? toolResult.Content : $"Error: {toolResult.Error}");
 
                         result.ConversationHistory.Add(toolMessage);
+                        
+                        logger.LogDebug("Added tool message to conversation: Tool={ToolName}, ToolCallId={ToolCallId}, Success={Success}",
+                            toolResult.ToolName, toolResult.ToolCallId, toolResult.IsSuccess);
+                    }
+
+                    // If we encountered an error with tool call IDs, stop the loop
+                    if (!string.IsNullOrEmpty(result.Error))
+                    {
+                        break;
                     }
 
                     // Continue loop to get LLM's response to tool results

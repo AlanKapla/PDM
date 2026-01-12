@@ -29,7 +29,7 @@ import {
   Textarea,
   Checkbox,
 } from "@chakra-ui/react";
-import { ArrowLeft, Edit, Clock, User, AlertTriangle, CalendarDays, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Clock, User, AlertTriangle, CalendarDays, ChevronDown, Plus, Trash2, BarChart3 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi } from "../api/projectApi";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
@@ -64,6 +64,7 @@ export default function WorkScheduleView() {
   const [showComments, setShowComments] = useState(false);
   const [editableSchedule, setEditableSchedule] = useState<WorkScheduleDetailsWeb | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [analyzingSchedule, setAnalyzingSchedule] = useState(false);
 
   const todayColumnRef = useRef<HTMLTableCellElement>(null);
 
@@ -286,6 +287,38 @@ export default function WorkScheduleView() {
 
   const handleScheduleUpdated = () => {
     fetchSchedule();
+  };
+
+  const handleAnalyzeSchedule = async () => {
+    if (!user?.activeTenantId || !projectId || !workScheduleId) return;
+
+    setAnalyzingSchedule(true);
+    try {
+      const response = await projectApi.analyzeWorkSchedule(
+        user.activeTenantId,
+        projectId,
+        workScheduleId
+      );
+
+      toast({
+        title: "Sukces",
+        description: "Analiza zakończona pomyślnie",
+        status: "success",
+        duration: 3000,
+      });
+
+      console.log('Wynik analizy:', response.data);
+    } catch (error) {
+      console.error("Błąd analizy harmonogramu:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się przeanalizować harmonogramu",
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setAnalyzingSchedule(false);
+    }
   };
 
   const toggleWorkClosed = async (workId: string) => {
@@ -727,6 +760,17 @@ export default function WorkScheduleView() {
                   </Button>
                 </>
               )}
+
+              <Button
+                leftIcon={<BarChart3 size={18} />}
+                colorScheme="blue"
+                onClick={handleAnalyzeSchedule}
+                size="sm"
+                isLoading={analyzingSchedule}
+                isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
+              >
+                Analizuj
+              </Button>
 
               <Button
                 leftIcon={<Edit size={18} />}

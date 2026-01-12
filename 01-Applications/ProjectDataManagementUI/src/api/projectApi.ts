@@ -264,6 +264,11 @@ export const projectApi = {
     return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/details/${workScheduleId}`);
   },
 
+  // Analizuj harmonogram prac
+  analyzeWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/work-schedule/analyze/${workScheduleId}`);
+  },
+
   // Aktualizuj harmonogram prac
   updateWorkSchedule: async (
     tenantId: string,

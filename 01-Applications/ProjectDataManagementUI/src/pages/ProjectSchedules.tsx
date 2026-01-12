@@ -17,7 +17,7 @@ import {
   Tab,
   TabPanel,
 } from "@chakra-ui/react";
-import { Calendar, Clock, User } from "lucide-react";
+import { Calendar, Clock, User, BarChart3 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import { AuthContext } from "../context/AuthContext";
@@ -34,13 +34,14 @@ export default function ProjectSchedules() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const { showError } = useToastNotification();
+  const { showError, showSuccess } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [analyzingScheduleId, setAnalyzingScheduleId] = useState<string | null>(null);
   const hasFetchedProjectData = useRef(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
@@ -139,14 +140,36 @@ export default function ProjectSchedules() {
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };
+  const handleAnalyzeSchedule = async (scheduleId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Zapobiega nawigacji do szczegółów
+    
+    if (!user?.activeTenantId || !projectId) return;
 
+    setAnalyzingScheduleId(scheduleId);
+    try {
+      const response = await projectApi.analyzeWorkSchedule(user.activeTenantId, projectId, scheduleId);
+      
+      // Wyświetl wynik analizy
+      const analysis = response.data;
+      showSuccess(`Analiza zakończona pomyślnie`);
+      
+      // TODO: Można wyświetlić szczegóły analizy w modalu lub toaście
+      console.log('Wynik analizy:', analysis);
+      
+    } catch (error) {
+      console.error('Błąd analizy harmonogramu:', error);
+      showError('Nie udało się przeanalizować harmonogramu');
+    } finally {
+      setAnalyzingScheduleId(null);
+    }
+  };
   // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
   const allSchedulesTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
   const mySchedulesTabIndex = 
     resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 : 
     !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
 
-  const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[]) => {
+  const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[], showAnalyzeButton: boolean = false) => {
     if (schedules.length === 0) {
       return (
         <EmptyState
@@ -169,23 +192,41 @@ export default function ProjectSchedules() {
             rounded="lg"
             _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
             transition="all 0.2s"
-            cursor="pointer"
-            onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
             shadow="sm"
           >
-            <VStack align="flex-start" spacing={3}>
-              <Text fontWeight="bold" fontSize="xl">{schedule.name}</Text>
-              <HStack spacing={6} fontSize="sm" color="gray.600">
-                <HStack spacing={2}>
-                  <Icon as={User} boxSize={4} />
-                  <Text>{schedule.createdByUserName}</Text>
+            <HStack justify="space-between" align="flex-start">
+              <VStack 
+                align="flex-start" 
+                spacing={3} 
+                flex={1}
+                cursor="pointer"
+                onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
+              >
+                <Text fontWeight="bold" fontSize="xl">{schedule.name}</Text>
+                <HStack spacing={6} fontSize="sm" color="gray.600">
+                  <HStack spacing={2}>
+                    <Icon as={User} boxSize={4} />
+                    <Text>{schedule.createdByUserName}</Text>
+                  </HStack>
+                  <HStack spacing={2}>
+                    <Icon as={Clock} boxSize={4} />
+                    <Text>{formatDate(schedule.createdAt)}</Text>
+                  </HStack>
                 </HStack>
-                <HStack spacing={2}>
-                  <Icon as={Clock} boxSize={4} />
-                  <Text>{formatDate(schedule.createdAt)}</Text>
-                </HStack>
-              </HStack>
-            </VStack>
+              </VStack>
+              {showAnalyzeButton && resourcePerms.mine.canEdit && (
+                <Button
+                  leftIcon={<BarChart3 size={18} />}
+                  colorScheme="purple"
+                  size="md"
+                  onClick={(e) => handleAnalyzeSchedule(schedule.id, e)}
+                  isLoading={analyzingScheduleId === schedule.id}
+                  loadingText="Analizowanie..."
+                >
+                  Analizuj
+                </Button>
+              )}
+            </HStack>
           </Box>
         ))}
       </VStack>
@@ -308,7 +349,7 @@ function MySchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: a
           </Button>
         )}
       </HStack>
-      {renderSchedulesList(cache.data || [])}
+      {renderSchedulesList(cache.data || [], true)}
     </VStack>
   );
 }

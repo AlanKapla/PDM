@@ -9,14 +9,6 @@ public sealed class AnalyzeWorkScheduleCommandValidator : AbstractValidator<Anal
 {
     public AnalyzeWorkScheduleCommandValidator()
     {
-        RuleFor(x => x.TenantId)
-            .NotEmpty()
-            .WithMessage("TenantId is required");
-
-        RuleFor(x => x.ProjectId)
-            .NotEmpty()
-            .WithMessage("ProjectId is required");
-
         RuleFor(x => x.WorkScheduleId)
             .NotEmpty()
             .WithMessage("WorkScheduleId is required");
