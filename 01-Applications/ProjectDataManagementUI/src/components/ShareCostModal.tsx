@@ -19,7 +19,6 @@ import {
   Checkbox,
   Stack,
   Spinner,
-  useBreakpointValue
 } from "@chakra-ui/react";
 import { Share2, User } from "lucide-react";
 import { projectApi } from "../api/projectApi";
@@ -35,8 +34,6 @@ interface ShareCostModalProps {
   cost: ProjectCostListItemWeb;
   onCostShared: () => void;
 }
-
-const shareSize = 20;
 
 export default function ShareCostModal({
   isOpen,
@@ -118,12 +115,12 @@ export default function ShareCostModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleCloseModal} size={{ base: "full", md: "md" }} isCentered>
+    <Modal isOpen={isOpen} onClose={handleCloseModal} size="md" isCentered>
       <ModalOverlay />
-      <ModalContent mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
+      <ModalContent>
+        <ModalHeader>
           <HStack spacing={2}>
-            <Share2 size={shareSize} />
+            <Share2 size={20} />
             <Text>Udostępnij koszt</Text>
           </HStack>
         </ModalHeader>

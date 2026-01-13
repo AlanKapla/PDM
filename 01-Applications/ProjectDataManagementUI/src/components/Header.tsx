@@ -12,20 +12,15 @@ import {
   useColorModeValue,
   Icon,
   VStack,
-  IconButton,
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Database, User as UserIcon, RefreshCw, Building2, Menu as MenuIcon } from "lucide-react";
+import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { tenantApi } from "../api/tenantApi";
 import NotificationBell from "./NotificationBell";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
-interface HeaderProps {
-  onMenuOpen?: () => void;
-}
-
-export default function Header({ onMenuOpen }: HeaderProps) {
+export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated } = useContext(AuthContext);
@@ -74,44 +69,27 @@ export default function Header({ onMenuOpen }: HeaderProps) {
       bg={bg}
       borderBottom="1px solid"
       borderColor={border}
-      px={{ base: 2, sm: 3, md: 6 }}
-      py={{ base: 1.5, md: 3 }}
+      px={{ base: 4, md: 6 }}
+      py={3}
       position="fixed"
       top={0}
       left={0}
       right={0}
       zIndex={1000}
-      height="60px"
-      display="flex"
-      alignItems="center"
     >
-      <HStack maxW="100%" mx="auto" justify="space-between" spacing={{ base: 1, sm: 2, md: 4 }} w="100%">
-        {/* Mobile Menu Button */}
-        <IconButton
-          aria-label="Otwórz menu"
-          icon={<MenuIcon size={18} />}
-          onClick={onMenuOpen}
-          display={{ base: "flex", md: "none" }}
-          variant="ghost"
-          size="xs"
-          minW="auto"
-        />
-        
+      <HStack maxW="100%" mx="auto" justify="space-between">
         {/* Nazwa aplikacji */}
         <HStack 
-          spacing={1}
+          spacing={2}
           cursor="pointer"
           _hover={{ opacity: 0.8 }}
           onClick={() => navigate("/dashboard")}
-          flex={1}
         >
-          <Icon as={Database} boxSize={{ base: 5, md: 5 }} color="blue.600" flexShrink={0} />
+          <Icon as={Database} boxSize={5} color="blue.600" />
           <Text 
-            fontSize={{ base: "sm", md: "lg" }}
+            fontSize="lg" 
             fontWeight="bold" 
             color={textColor}
-            display={{ base: "none", sm: "block" }}
-            whiteSpace="nowrap"
           >
             Brickly
           </Text>
@@ -119,24 +97,23 @@ export default function Header({ onMenuOpen }: HeaderProps) {
 
         {/* Menu użytkownika */}
         {isAuthenticated && user ? (
-          <HStack spacing={{ base: 0.5, md: 2 }}>
+          <HStack spacing={2}>
             <VStack 
               align="flex-end" 
               spacing={0}
-              display={{ base: "flex", md: "flex" }}
+              display={{ base: "none", md: "flex" }}
             >
               <Text 
-                fontSize={{ base: "10px", md: "sm" }}
+                fontSize="sm" 
                 fontWeight="medium" 
                 color={textColor}
-                whiteSpace="nowrap"
               >
                 {user.firstName} {user.lastName}
               </Text>
               {activeTenantName && (
-                <HStack spacing={1} fontSize={{ base: "10px", md: "10px" }} color={mutedColor}>
-                  <Icon as={Building2} boxSize={{ base: 3.5, md: 3 }} />
-                  <Text whiteSpace="nowrap">{activeTenantName}</Text>
+                <HStack spacing={1} fontSize="xs" color={mutedColor}>
+                  <Icon as={Building2} boxSize={3} />
+                  <Text>{activeTenantName}</Text>
                 </HStack>
               )}
             </VStack>
@@ -146,7 +123,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
             <Menu placement="bottom-end" strategy="fixed">
               <MenuButton cursor="pointer">
                 <Avatar 
-                  size={{ base: "xs", md: "sm" }}
+                  size="sm" 
                   bg="blue.600" 
                   color="white" 
                   src=""

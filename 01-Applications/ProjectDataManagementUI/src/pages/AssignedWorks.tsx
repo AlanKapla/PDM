@@ -295,7 +295,7 @@ export default function AssignedWorks() {
   if (error) {
     return (
       <MainLayout>
-      <Box p={{ base: 3, sm: 4, md: 8 }}>
+        <Box p={8}>
           <Alert status="error">
             <AlertIcon />
             {error}
@@ -307,19 +307,19 @@ export default function AssignedWorks() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 3, sm: 4, md: 8 }}>
-        <VStack align="stretch" spacing={{ base: 4, md: 6 }}>
+      <Box p={8}>
+        <VStack align="stretch" spacing={6}>
           {/* Header */}
-          <HStack spacing={{ base: 2, md: 4 }} justify="space-between" flexWrap="wrap" gap={{ base: 2, md: 4 }}>
-            <HStack spacing={{ base: 2, md: 4 }}>
-              <Briefcase size={32} color="orange" />
-              <Heading size={{ base: "md", md: "lg" }}>Zaplanowane prace</Heading>
+          <HStack spacing={4} justify="space-between">
+            <HStack spacing={4}>
+              <Briefcase size={32} />
+              <Heading size="lg">Zaplanowane prace</Heading>
             </HStack>
             <HStack spacing={2}>
-              <Button size={{ base: "xs", md: "sm" }} variant="outline" onClick={expandAll} fontSize={{ base: "10px", md: "sm" }}>
+              <Button size="sm" variant="outline" onClick={expandAll}>
                 Rozwiń wszystkie
               </Button>
-              <Button size={{ base: "xs", md: "sm" }} variant="outline" onClick={collapseAll} fontSize={{ base: "10px", md: "sm" }}>
+              <Button size="sm" variant="outline" onClick={collapseAll}>
                 Zwiń wszystkie
               </Button>
             </HStack>
@@ -333,38 +333,35 @@ export default function AssignedWorks() {
           ) : (
             <>
               {/* Controls */}
-              <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={{ base: 3, md: 4 }}>
+              <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={4}>
                 <VStack spacing={4} align="stretch">
-                  <HStack spacing={{ base: 2, md: 4 }} justify="space-between" flexWrap="wrap" gap={2}>
-                    <HStack spacing={{ base: 2, md: 4 }}>
-                      <Text fontWeight="medium" fontSize={{ base: "10px", md: "sm" }} whiteSpace="nowrap">
+                  <HStack spacing={4} justify="space-between" flexWrap="wrap">
+                    <HStack spacing={4}>
+                      <Text fontWeight="medium" fontSize="sm">
                         Skala czasu:
                       </Text>
                       <HStack spacing={2}>
                         <Button
-                          size={{ base: "xs", md: "sm" }}
+                          size="sm"
                           variant={timeScale === "days" ? "solid" : "outline"}
                           colorScheme="purple"
                           onClick={() => setTimeScale("days")}
-                          fontSize={{ base: "10px", md: "sm" }}
                         >
                           Dni
                         </Button>
                         <Button
-                          size={{ base: "xs", md: "sm" }}
+                          size="sm"
                           variant={timeScale === "weeks" ? "solid" : "outline"}
                           colorScheme="purple"
                           onClick={() => setTimeScale("weeks")}
-                          fontSize={{ base: "10px", md: "sm" }}
                         >
                           Tygodnie
                         </Button>
                         <Button
-                          size={{ base: "xs", md: "sm" }}
+                          size="sm"
                           variant={timeScale === "months" ? "solid" : "outline"}
                           colorScheme="purple"
                           onClick={() => setTimeScale("months")}
-                          fontSize={{ base: "10px", md: "sm" }}
                         >
                           Miesiące
                         </Button>
@@ -372,8 +369,8 @@ export default function AssignedWorks() {
                     </HStack>
                   </HStack>
 
-                  <HStack spacing={4} flexWrap={{ base: "wrap", md: "nowrap" }}>
-                    <Text fontWeight="medium" minW="120px" fontSize={{ base: "10px", md: "sm" }} whiteSpace="nowrap">
+                  <HStack spacing={4}>
+                    <Text fontWeight="medium" minW="120px" fontSize="sm">
                       Zakres czasu:
                     </Text>
                     <Slider

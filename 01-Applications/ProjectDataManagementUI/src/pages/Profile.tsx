@@ -79,10 +79,10 @@ export default function Profile() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 3, sm: 4, md: 10 }} bg={pageBg} minH="100vh">
+      <Box p={{ base: 4, md: 10 }} bg={pageBg} minH="100vh">
         <Box
           bg={cardBg}
-          p={{ base: 4, md: 8 }}
+          p={{ base: 6, md: 8 }}
           rounded="2xl"
           shadow="xl"
           maxW="600px"

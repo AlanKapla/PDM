@@ -705,10 +705,10 @@ export default function WorkScheduleFormModal({
   const submitLoadingText = mode === 'create' ? 'Tworzenie...' : 'Zapisywanie...';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "6xl" }} scrollBehavior="inside">
+    <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
       <ModalOverlay />
-      <ModalContent maxH={{ base: "100vh", md: "90vh" }} mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "md", md: "lg" }}>{modalTitle}</ModalHeader>
+      <ModalContent maxH="90vh">
+        <ModalHeader>{modalTitle}</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <VStack spacing={6} align="stretch">

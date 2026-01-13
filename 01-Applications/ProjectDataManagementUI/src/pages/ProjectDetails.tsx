@@ -638,7 +638,7 @@ export default function ProjectDetails() {
 
   useEffect(() => {
     if (hasFetchedData.current) return;
-
+    
     hasFetchedData.current = true;
     fetchProjectDetails();
     fetchMembers();
@@ -651,18 +651,18 @@ export default function ProjectDetails() {
 
   const handleConfirmRemoveMember = async () => {
     if (!user?.activeTenantId || !projectId || !memberToRemove) return;
-
+    
     setRemovingMember(memberToRemove.userId);
     try {
       await projectApi.removeProjectMember(user.activeTenantId, projectId, memberToRemove.userId);
-
+      
       toast({
         title: "Sukces",
         description: `Użytkownik ${memberToRemove.name} został usunięty z projektu`,
         status: "success",
         duration: 3000,
       });
-
+      
       // Odśwież listę
       projectDetailsCache.clear();
       projectMembersCache.clear();
@@ -683,21 +683,21 @@ export default function ProjectDetails() {
 
     const newStatus = !project.isActive;
     setTogglingStatus(true);
-
+    
     try {
       await projectApi.toggleProjectStatus(user.activeTenantId, projectId, newStatus);
-
+      
       toast({
         title: newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
-        description: newStatus
-          ? "Projekt został pomyślnie aktywowany"
+        description: newStatus 
+          ? "Projekt został pomyślnie aktywowany" 
           : "Projekt został pomyślnie zdezaktywowany",
         status: "success",
         duration: 4000,
       });
-
+      
       onToggleStatusClose();
-
+      
       // Odśwież dane projektu
       projectDetailsCache.clear();
       await fetchProjectDetails();
@@ -758,234 +758,232 @@ export default function ProjectDetails() {
 
   return (
     <MainLayout>
-      <Box bg={pageBg} minH="100vh" p={{ base: 3, sm: 4, md: 6 }}>
+      <Box bg={pageBg} minH="100vh" p={{ base: 4, md: 6 }}>
         <VStack spacing={6} maxW="1200px" mx="auto" align="stretch">
           {/* Header */}
-          {loading ? (
-            <VStack spacing={4} align="center" justify="center" minH="50vh">
-              <Spinner size="xl" color="blue.500" />
-              <Text>Ładowanie szczegółów projektu...</Text>
-            </VStack>
-          ) : error ? (
-            <Alert status="error" rounded="md">
-              <AlertIcon />
-              {error}
-            </Alert>
-          ) : !project ? (
-            <VStack spacing={4} align="center" justify="center" minH="50vh">
-              <Text>Nie znaleziono projektu</Text>
-              <Button onClick={() => navigate("/projects")}>Powrót do listy projektów</Button>
-            </VStack>
-          ) : (
-            <>
-              {/* Informacje podstawowe */}
-              <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
-                <VStack align="stretch" spacing={4}>
-                  <HStack justify="space-between" flexWrap={{ base: "wrap", md: "nowrap" }} gap={{ base: 2, md: 2 }}>
-                    <HStack spacing={3} minW={0}>
-                      <FolderKanban size={32} />
-                      <Heading size="lg" noOfLines={1}>Szczegóły projektu</Heading>
-                    </HStack>
-                    <HStack spacing={{ base: 1, md: 2 }} flexWrap="wrap" justifyContent={{ base: "flex-start", md: "flex-end" }}>
-                      {!isEditingName && (
-                        <>
-                          {permissions.canManageStatus && (
-                            <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
-                              <Button
-                                size={{ base: "xs", md: "sm" }}
-                                variant="ghost"
-                                leftIcon={<Power size={16} />}
-                                colorScheme={project.isActive ? "red" : "green"}
-                                onClick={onToggleStatusOpen}
-                                fontSize={{ base: "10px", md: "sm" }}
-                              >
-                                {project.isActive ? "Dezaktywuj" : "Aktywuj"}
-                              </Button>
-                            </Tooltip>
-                          )}
-                          {permissions.canEdit && (
-                            <Button
-                              size={{ base: "xs", md: "sm" }}
-                              variant="ghost"
-                              leftIcon={<Edit2 size={16} />}
-                              onClick={() => setIsEditingName(true)}
-                              fontSize={{ base: "10px", md: "sm" }}
-                            >
-                              Edytuj
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </HStack>
+        {loading ? (
+          <VStack spacing={4} align="center" justify="center" minH="50vh">
+            <Spinner size="xl" color="blue.500" />
+            <Text>Ładowanie szczegółów projektu...</Text>
+          </VStack>
+        ) : error ? (
+          <Alert status="error" rounded="md">
+            <AlertIcon />
+            {error}
+          </Alert>
+        ) : !project ? (
+          <VStack spacing={4} align="center" justify="center" minH="50vh">
+            <Text>Nie znaleziono projektu</Text>
+            <Button onClick={() => navigate("/projects")}>Powrót do listy projektów</Button>
+          </VStack>
+        ) : (
+          <>
+            {/* Informacje podstawowe */}
+            <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
+              <VStack align="stretch" spacing={4}>
+                <HStack justify="space-between">
+                  <HStack spacing={3}>
+                    <FolderKanban size={32} />
+                    <Heading size="lg">Szczegóły projektu</Heading>
                   </HStack>
+                  <HStack spacing={2}>
+                    {!isEditingName && (
+                      <>
+                        {permissions.canManageStatus && (
+                          <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              leftIcon={<Power size={16} />}
+                              colorScheme={project.isActive ? "red" : "green"}
+                              onClick={onToggleStatusOpen}
+                            >
+                              {project.isActive ? "Dezaktywuj" : "Aktywuj"}
+                            </Button>
+                          </Tooltip>
+                        )}
+                        {permissions.canEdit && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            leftIcon={<Edit2 size={16} />}
+                            onClick={() => setIsEditingName(true)}
+                          >
+                            Edytuj
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </HStack>
+                </HStack>
 
-                  {isEditingName ? (
-                    <VStack spacing={3} align="stretch">
-                      <FormControl>
-                        <FormLabel color={labelColor}>Nazwa projektu</FormLabel>
-                        <Input
-                          value={editedName}
-                          onChange={(e) => setEditedName(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === "Enter" && !updatingName) {
-                              handleUpdateName();
-                            }
-                          }}
-                        />
-                      </FormControl>
-                      <HStack spacing={2}>
-                        <Button
-                          size="sm"
-                          colorScheme="blue"
-                          leftIcon={<Save size={16} />}
-                          onClick={handleUpdateName}
-                          isLoading={updatingName}
-                          flex={1}
-                        >
-                          Zapisz
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          leftIcon={<X size={16} />}
-                          onClick={() => {
-                            setIsEditingName(false);
-                            setEditedName(project.name);
-                          }}
-                          isDisabled={updatingName}
-                          flex={1}
-                        >
-                          Anuluj
-                        </Button>
-                      </HStack>
-                    </VStack>
-                  ) : (
-                    <VStack align="flex-start" spacing={2}>
-                      <HStack>
-                        <Text fontSize="2xl" fontWeight="bold">
-                          {project.name}
-                        </Text>
-                        <Badge colorScheme={project.isActive ? "green" : "gray"}>
-                          {project.isActive ? "Aktywny" : "Nieaktywny"}
-                        </Badge>
-                      </HStack>
-                      <Text fontSize="sm" color="gray.500">
-                        Utworzono: {formatDate(project.createdAt)}
+                {isEditingName ? (
+                  <VStack spacing={3} align="stretch">
+                    <FormControl>
+                      <FormLabel color={labelColor}>Nazwa projektu</FormLabel>
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter" && !updatingName) {
+                            handleUpdateName();
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <HStack spacing={2}>
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        leftIcon={<Save size={16} />}
+                        onClick={handleUpdateName}
+                        isLoading={updatingName}
+                        flex={1}
+                      >
+                        Zapisz
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<X size={16} />}
+                        onClick={() => {
+                          setIsEditingName(false);
+                          setEditedName(project.name);
+                        }}
+                        isDisabled={updatingName}
+                        flex={1}
+                      >
+                        Anuluj
+                      </Button>
+                    </HStack>
+                  </VStack>
+                ) : (
+                  <VStack align="flex-start" spacing={2}>
+                    <HStack>
+                      <Text fontSize="2xl" fontWeight="bold">
+                        {project.name}
                       </Text>
-                      <Badge colorScheme={getRoleColor(project.userRoleCode)}>
-                        {getRoleName(project.userRoleCode)}
+                      <Badge colorScheme={project.isActive ? "green" : "gray"}>
+                        {project.isActive ? "Aktywny" : "Nieaktywny"}
                       </Badge>
-                    </VStack>
-                  )}
-                </VStack>
-              </Box>
-
-              {/* ====================== SZYBKI DOSTĘP ======================= */}
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-                {(permissions.canViewMembers || permissions.canManageMembers) && (
-                  <Box
-                    as="button"
-                    bg={cardBg}
-                    p={6}
-                    rounded="lg"
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    shadow="sm"
-                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                    transition="all 0.2s"
-                    onClick={() => navigate(`/projects/${projectId}/members`)}
-                  >
-                    <VStack spacing={3}>
-                      <Icon as={Users} boxSize={8} color="blue.600" />
-                      <Text fontWeight="bold" fontSize="md">Członkowie</Text>
-                    </VStack>
-                  </Box>
+                    </HStack>
+                    <Text fontSize="sm" color="gray.500">
+                      Utworzono: {formatDate(project.createdAt)}
+                    </Text>
+                    <Badge colorScheme={getRoleColor(project.userRoleCode)}>
+                      {getRoleName(project.userRoleCode)}
+                    </Badge>
+                  </VStack>
                 )}
+              </VStack>
+            </Box>
 
-                {(permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
-                  <Box
-                    as="button"
-                    bg={cardBg}
-                    p={6}
-                    rounded="lg"
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    shadow="sm"
-                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                    transition="all 0.2s"
-                    onClick={() => navigate(`/projects/${projectId}/schedules`)}
-                  >
-                    <VStack spacing={3}>
-                      <Icon as={Calendar} boxSize={8} color="purple.600" />
-                      <Text fontWeight="bold" fontSize="md">Harmonogramy</Text>
-                    </VStack>
-                  </Box>
-                )}
+            {/* ====================== SZYBKI DOSTĘP ======================= */}
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+              {(permissions.canViewMembers || permissions.canManageMembers) && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/members`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={Users} boxSize={8} color="blue.600" />
+                    <Text fontWeight="bold" fontSize="md">Członkowie</Text>
+                  </VStack>
+                </Box>
+              )}
 
-                {permissions.hasAnyResourceAccess && (
-                  <Box
-                    as="button"
-                    bg={cardBg}
-                    p={6}
-                    rounded="lg"
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    shadow="sm"
-                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                    transition="all 0.2s"
-                    onClick={() => navigate(`/projects/${projectId}/files`)}
-                  >
-                    <VStack spacing={3}>
-                      <Icon as={FileText} boxSize={8} color="purple.600" />
-                      <Text fontWeight="bold" fontSize="md">Pliki</Text>
-                    </VStack>
-                  </Box>
-                )}
+              {(permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/schedules`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={Calendar} boxSize={8} color="purple.600" />
+                    <Text fontWeight="bold" fontSize="md">Harmonogramy</Text>
+                  </VStack>
+                </Box>
+              )}
 
-                {permissions.hasAnyResourceAccess && (
-                  <Box
-                    as="button"
-                    bg={cardBg}
-                    p={6}
-                    rounded="lg"
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    shadow="sm"
-                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                    transition="all 0.2s"
-                    onClick={() => navigate(`/projects/${projectId}/costs`)}
-                  >
-                    <VStack spacing={3}>
-                      <Icon as={DollarSign} boxSize={8} color="red.600" />
-                      <Text fontWeight="bold" fontSize="md">Koszty</Text>
-                    </VStack>
-                  </Box>
-                )}
+              {permissions.hasAnyResourceAccess && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/files`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={FileText} boxSize={8} color="purple.600" />
+                    <Text fontWeight="bold" fontSize="md">Pliki</Text>
+                  </VStack>
+                </Box>
+              )}
 
-                {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
-                  <Box
-                    as="button"
-                    bg={cardBg}
-                    p={6}
-                    rounded="lg"
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    shadow="sm"
-                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
-                    transition="all 0.2s"
-                    onClick={() => navigate(`/projects/${projectId}/cost-estimates`)}
-                  >
-                    <VStack spacing={3}>
-                      <Icon as={FileText} boxSize={8} color="orange.600" />
-                      <Text fontWeight="bold" fontSize="md">Kosztorysy</Text>
-                    </VStack>
-                  </Box>
-                )}
-              </SimpleGrid>
+              {permissions.hasAnyResourceAccess && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/costs`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={DollarSign} boxSize={8} color="red.600" />
+                    <Text fontWeight="bold" fontSize="md">Koszty</Text>
+                  </VStack>
+                </Box>
+              )}
 
-              {/* Sekcje przeniesione do dedykowanych stron - dostępne przez karty powyżej */}
-            </>
-          )}
+              {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
+                <Box
+                  as="button"
+                  bg={cardBg}
+                  p={6}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor={borderColor}
+                  shadow="sm"
+                  _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                  transition="all 0.2s"
+                  onClick={() => navigate(`/projects/${projectId}/cost-estimates`)}
+                >
+                  <VStack spacing={3}>
+                    <Icon as={FileText} boxSize={8} color="orange.600" />
+                    <Text fontWeight="bold" fontSize="md">Kosztorysy</Text>
+                  </VStack>
+                </Box>
+              )}
+            </SimpleGrid>
+
+            {/* Sekcje przeniesione do dedykowanych stron - dostępne przez karty powyżej */}
+          </>
+        )}
         </VStack>
 
         {/* Modals - wszystkie sekcje przeniesione na osobne strony */}
@@ -1007,7 +1005,7 @@ export default function ProjectDetails() {
         )}
 
         {/* Modal udostępniania kosztu */}
-        {isShareCostModalOpen && costToShare && user?.activeTenantId && projectId && (
+        {costToShare && user?.activeTenantId && projectId && (
           <ShareCostModal
             isOpen={isShareCostModalOpen}
             onClose={() => {
@@ -1023,7 +1021,6 @@ export default function ProjectDetails() {
             }}
           />
         )}
-
 
         {/* Modal potwierdzenia usunięcia członka */}
         <Modal isOpen={isRemoveModalOpen} onClose={onRemoveModalClose} isCentered>
@@ -1042,16 +1039,16 @@ export default function ProjectDetails() {
               </VStack>
             </ModalBody>
             <ModalFooter>
-              <Button
-                variant="ghost"
-                mr={3}
+              <Button 
+                variant="ghost" 
+                mr={3} 
                 onClick={onRemoveModalClose}
                 isDisabled={removingMember !== null}
               >
                 Anuluj
               </Button>
-              <Button
-                colorScheme="red"
+              <Button 
+                colorScheme="red" 
                 onClick={handleConfirmRemoveMember}
                 isLoading={removingMember !== null}
                 loadingText="Usuwanie..."
@@ -1063,7 +1060,7 @@ export default function ProjectDetails() {
         </Modal>
 
         {/* Modal uploadu plików */}
-        {project && isUploadModalOpen && (
+        {project && (
           <UploadFilesModal
             isOpen={isUploadModalOpen}
             onClose={onUploadModalClose}
@@ -1081,7 +1078,6 @@ export default function ProjectDetails() {
             }}
           />
         )}
-
 
         {/* Modal uploadu nowej wersji pliku */}
         {project && fileForNewVersion && (
@@ -1154,7 +1150,7 @@ export default function ProjectDetails() {
           onClose={onToggleStatusClose}
         >
           <AlertDialogOverlay>
-            <AlertDialogContent maxW={{ base: "90vw", md: "600px" }} mx={{ base: 4, md: 0 }}>
+            <AlertDialogContent maxW="600px">
               <AlertDialogHeader fontSize="lg" fontWeight="bold">
                 {project?.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}
               </AlertDialogHeader>
@@ -1226,14 +1222,14 @@ export default function ProjectDetails() {
               </AlertDialogBody>
 
               <AlertDialogFooter>
-                <Button
-                  ref={cancelRefToggle}
+                <Button 
+                  ref={cancelRefToggle} 
                   onClick={onToggleStatusClose}
                   isDisabled={togglingStatus}
                 >
                   Anuluj
                 </Button>
-                <Button
+                <Button 
                   colorScheme={project?.isActive ? "red" : "green"}
                   onClick={handleToggleProjectStatus}
                   isLoading={togglingStatus}

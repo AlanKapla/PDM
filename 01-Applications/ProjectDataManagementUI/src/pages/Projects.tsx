@@ -128,18 +128,17 @@ export default function Projects() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
-        <HStack justify="space-between" mb={{ base: 4, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
-          <Heading size={{ base: "md", sm: "lg", md: "xl" }}>
+      <Box p={{ base: 4, md: 10 }} minH="100vh">
+        <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
+          <Heading size={{ base: "lg", md: "xl" }}>
             Projekty
           </Heading>
           {permissions.canCreateProject && (
             <Button
-              leftIcon={<Plus size={16} />}
+              leftIcon={<Plus size={20} />}
               colorScheme="blue"
               onClick={createModal.onOpen}
               size={{ base: "sm", md: "md" }}
-              fontSize={{ base: "xs", md: "sm" }}
             >
               Nowy projekt
             </Button>
@@ -170,7 +169,7 @@ export default function Projects() {
             }
           />
         ) : (
-          <VStack spacing={{ base: 2, md: 4 }} align="stretch">
+          <VStack spacing={4} align="stretch">
             {projects.map((project) => (
               <Box
                 key={project.id}
@@ -188,32 +187,32 @@ export default function Projects() {
                 }}
                 transition="all 0.2s"
               >
-                <Box p={{ base: 3, md: 4 }}>
-                  <HStack justify="space-between" align="flex-start" spacing={{ base: 2, md: 3 }} flexWrap={{ base: "wrap", md: "nowrap" }}>
-                    <HStack spacing={{ base: 2, md: 3 }} flex={1} minW="0">
-                      <Icon as={FolderKanban} boxSize={{ base: 5, md: 6 }} color="blue.600" flexShrink={0} />
-                      <VStack align="flex-start" spacing={1} flex={1} minW="0">
-                        <HStack spacing={2} flexWrap="wrap">
-                          <Text fontWeight="bold" fontSize={{ base: "sm", md: "lg" }} noOfLines={1}>
+                <Box p={4}>
+                  <HStack justify="space-between" align="center" spacing={3}>
+                    <HStack spacing={3} flex={1}>
+                      <Icon as={FolderKanban} boxSize={6} color="blue.600" />
+                      <VStack align="flex-start" spacing={1} flex={1}>
+                        <HStack spacing={2}>
+                          <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>
                             {project.name}
                           </Text>
-                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "10px", md: "xs" }}>
+                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="xs">
                             {project.isActive ? "Aktywny" : "Nieaktywny"}
                           </Badge>
-                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize={{ base: "10px", md: "xs" }}>
+                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize="xs">
                             {getRoleName(project.userRoleCode)}
                           </Badge>
                         </HStack>
-                        <HStack spacing={{ base: 2, md: 4 }} fontSize={{ base: "10px", md: "sm" }} color="gray.600" flexWrap="wrap">
-                          <HStack spacing={1}>
+                        <HStack spacing={4} fontSize="sm" color="gray.600">
+                          <HStack>
                             <Icon as={User} boxSize={3} />
-                            <Text noOfLines={1}>{project.createdByUserName}</Text>
+                            <Text>{project.createdByUserName}</Text>
                           </HStack>
-                          <HStack spacing={1}>
+                          <HStack>
                             <Icon as={Calendar} boxSize={3} />
-                            <Text noOfLines={1}>{formatDate(project.createdAt)}</Text>
+                            <Text>{formatDate(project.createdAt)}</Text>
                           </HStack>
-                          <Text noOfLines={1}>
+                          <Text>
                             Członków: {project.membersCount}
                           </Text>
                         </HStack>
@@ -228,14 +227,14 @@ export default function Projects() {
       </Box>
 
       {/* Modal tworzenia projektu */}
-      <Modal isOpen={createModal.isOpen} onClose={createModal.onClose} size={{ base: "full", md: "md" }}>
+      <Modal isOpen={createModal.isOpen} onClose={createModal.onClose}>
         <ModalOverlay />
-        <ModalContent mx={{ base: 0, md: "auto" }}>
-          <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Utwórz nowy projekt</ModalHeader>
+        <ModalContent>
+          <ModalHeader>Utwórz nowy projekt</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <FormControl>
-              <FormLabel fontSize={{ base: "sm", md: "md" }}>Nazwa projektu</FormLabel>
+              <FormLabel>Nazwa projektu</FormLabel>
               <Input
                 placeholder="Wprowadź nazwę projektu"
                 value={newProjectName}
@@ -245,19 +244,17 @@ export default function Projects() {
                     handleCreateProject();
                   }
                 }}
-                fontSize={{ base: "sm", md: "md" }}
               />
             </FormControl>
           </ModalBody>
-          <ModalFooter gap={2}>
-            <Button variant="ghost" onClick={createModal.onClose} isDisabled={creating} size={{ base: "sm", md: "md" }}>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={createModal.onClose} isDisabled={creating}>
               Anuluj
             </Button>
             <Button
               colorScheme="blue"
               onClick={handleCreateProject}
               isLoading={creating}
-              size={{ base: "sm", md: "md" }}
             >
               Utwórz
             </Button>

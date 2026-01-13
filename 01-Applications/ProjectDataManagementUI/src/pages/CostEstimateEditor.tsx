@@ -551,27 +551,27 @@ export const CostEstimateEditor: React.FC = () => {
       </Breadcrumb>
 
       {/* Header */}
-      <HStack justify="space-between" mb={{ base: 4, md: 6 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
-        <HStack spacing={{ base: 2, md: 4 }}>
+      <HStack justify="space-between" mb={6}>
+        <HStack spacing={4}>
           <Box>
-            <HStack spacing={{ base: 2, md: 3 }} mb={1} flexWrap="wrap">
-              <Heading size={{ base: "sm", md: "lg" }}>{estimate.name}</Heading>
-              <Badge colorScheme={costEstimateStatusColors[estimate.status]} fontSize={{ base: "xs", md: "md" }}>
+            <HStack spacing={3} mb={1}>
+              <Heading size="lg">{estimate.name}</Heading>
+              <Badge colorScheme={costEstimateStatusColors[estimate.status]} fontSize="md">
                 {costEstimateStatusLabels[estimate.status]}
               </Badge>
             </HStack>
             {estimate.description && (
-              <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>
+              <Text color="gray.600" fontSize="sm">
                 {estimate.description}
               </Text>
             )}
-            <Text fontSize={{ base: "10px", md: "xs" }} color="gray.500" mt={1}>
+            <Text fontSize="xs" color="gray.500" mt={1}>
               Szablon: {estimate.templateName} • Utworzono: {formatDate(estimate.createdAt)}
             </Text>
           </Box>
         </HStack>
 
-        <HStack spacing={{ base: 2, md: 3 }}>
+        <HStack spacing={3}>
           {hasChanges && (
             <Badge colorScheme="orange" fontSize="sm" p={2}>
               Niezapisane zmiany

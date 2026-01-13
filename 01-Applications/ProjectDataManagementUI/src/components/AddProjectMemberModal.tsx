@@ -108,16 +108,16 @@ export default function AddProjectMemberModal({
   const availableMembers = tenantMembers.filter(m => !isMemberInProject(m.userId));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "xl" }} scrollBehavior="inside">
+    <Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
       <ModalOverlay />
-      <ModalContent mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
+      <ModalContent bg={bgColor}>
+        <ModalHeader>
           <VStack align="flex-start" spacing={1}>
-            <HStack spacing={2}>
-              <Icon as={UserPlus} boxSize={{ base: 4, md: 5 }} />
-              <Text fontSize={{ base: "sm", md: "md" }}>Dodaj członka do projektu</Text>
+            <HStack>
+              <Icon as={UserPlus} boxSize={5} />
+              <Text>Dodaj członka do projektu</Text>
             </HStack>
-            <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="normal" color="gray.500">
+            <Text fontSize="sm" fontWeight="normal" color="gray.500">
               {projectName}
             </Text>
           </VStack>
@@ -132,68 +132,47 @@ export default function AddProjectMemberModal({
               description="Wszystkie osoby z organizacji zostały już dodane do tego projektu"
             />
           ) : (
-            <Box
-              maxH="400px"
-              overflowY="auto"
-              pr={2}
-              css={{
-                '&::-webkit-scrollbar': {
-                  width: '8px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: useColorModeValue('#f1f1f1', '#2d3748'),
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: useColorModeValue('#cbd5e0', '#4a5568'),
-                  borderRadius: '4px',
-                },
-                '&::-webkit-scrollbar-thumb:hover': {
-                  background: useColorModeValue('#a0aec0', '#718096'),
-                },
-              }}
-            >
-              <VStack spacing={2} align="stretch">
-                {availableMembers.map((member) => {
-                  const isAdding = adding === member.userId;
+            <VStack spacing={2} align="stretch">
+              {availableMembers.map((member) => {
+                const isAdding = adding === member.userId;
 
-                  return (
-                    <DataCard
-                      key={member.userId}
-                      p={3}
-                      hoverable
-                    >
-                      <HStack justify="space-between">
-                        <HStack spacing={3}>
-                          <UserAvatar 
-                            firstName={member.firstName}
-                            lastName={member.lastName}
-                          />
-                          <VStack align="flex-start" spacing={0}>
-                            <Text fontWeight="medium" fontSize="sm">
-                              {member.firstName} {member.lastName}
-                            </Text>
-                            <Text fontSize="xs" color="gray.500">
-                              {member.email}
-                            </Text>
-                          </VStack>
-                        </HStack>
-                        <Button
-                          size="sm"
-                          colorScheme="blue"
-                          leftIcon={isAdding ? undefined : <Icon as={UserPlus} />}
-                          onClick={() => handleAddMember(member.userId)}
-                          isLoading={isAdding}
-                          loadingText="Dodawanie..."
-                          isDisabled={adding !== null}
-                        >
-                          Dodaj
-                        </Button>
+                return (
+                  <DataCard
+                    key={member.userId}
+                    p={3}
+                    hoverable
+                  >
+                    <HStack justify="space-between">
+                      <HStack spacing={3}>
+                        <UserAvatar 
+                          firstName={member.firstName}
+                          lastName={member.lastName}
+                        />
+                        <VStack align="flex-start" spacing={0}>
+                          <Text fontWeight="medium" fontSize="sm">
+                            {member.firstName} {member.lastName}
+                          </Text>
+                          <Text fontSize="xs" color="gray.500">
+                            {member.email}
+                          </Text>
+                        </VStack>
                       </HStack>
-                    </DataCard>
-                  );
-                })}
-              </VStack>
-            </Box>
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        leftIcon={isAdding ? undefined : <Icon as={UserPlus} />}
+                        onClick={() => handleAddMember(member.userId)}
+                        isLoading={isAdding}
+                        loadingText="Dodawanie..."
+                        isDisabled={adding !== null}
+                      >
+                        Dodaj
+                      </Button>
+                    </HStack>
+                  </DataCard>
+                );
+              })}
+            </VStack>
           )}
 
           {projectMembers.length > 0 && (
@@ -201,62 +180,41 @@ export default function AddProjectMemberModal({
               <Text fontWeight="semibold" mb={3} fontSize="sm" color="gray.600">
                 Już w projekcie ({projectMembers.length})
               </Text>
-              <Box
-                maxH="300px"
-                overflowY="auto"
-                pr={2}
-                css={{
-                  '&::-webkit-scrollbar': {
-                    width: '8px',
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    background: useColorModeValue('#f1f1f1', '#2d3748'),
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    background: useColorModeValue('#cbd5e0', '#4a5568'),
-                    borderRadius: '4px',
-                  },
-                  '&::-webkit-scrollbar-thumb:hover': {
-                    background: useColorModeValue('#a0aec0', '#718096'),
-                  },
-                }}
-              >
-                <VStack spacing={2} align="stretch">
-                  {projectMembers.map((member) => {
-                    return (
-                      <DataCard
-                        key={member.userId}
-                        p={3}
-                        bg={useColorModeValue("gray.50", "gray.700")}
-                      >
-                        <HStack justify="space-between">
-                          <HStack spacing={3}>
-                            <UserAvatar 
-                              firstName={member.firstName}
-                              lastName={member.lastName}
-                              bg="green.600"
-                            />
-                            <VStack align="flex-start" spacing={0}>
-                              <HStack>
-                                <Text fontWeight="medium" fontSize="sm">
-                                  {member.firstName} {member.lastName}
-                                </Text>
-                                <Badge colorScheme={getRoleColor(member.roleCode)} fontSize="xs">
-                                  {getRoleName(member.roleCode)}
-                                </Badge>
-                              </HStack>
-                              <Text fontSize="xs" color="gray.500">
-                                {member.email}
+              <VStack spacing={2} align="stretch">
+                {projectMembers.map((member) => {
+                  return (
+                    <DataCard
+                      key={member.userId}
+                      p={3}
+                      bg={useColorModeValue("gray.50", "gray.700")}
+                    >
+                      <HStack justify="space-between">
+                        <HStack spacing={3}>
+                          <UserAvatar 
+                            firstName={member.firstName}
+                            lastName={member.lastName}
+                            bg="green.600"
+                          />
+                          <VStack align="flex-start" spacing={0}>
+                            <HStack>
+                              <Text fontWeight="medium" fontSize="sm">
+                                {member.firstName} {member.lastName}
                               </Text>
-                            </VStack>
-                          </HStack>
-                          <Icon as={Check} boxSize={5} color="green.500" />
+                              <Badge colorScheme={getRoleColor(member.roleCode)} fontSize="xs">
+                                {getRoleName(member.roleCode)}
+                              </Badge>
+                            </HStack>
+                            <Text fontSize="xs" color="gray.500">
+                              {member.email}
+                            </Text>
+                          </VStack>
                         </HStack>
-                      </DataCard>
-                    );
-                  })}
-                </VStack>
-              </Box>
+                        <Icon as={Check} boxSize={5} color="green.500" />
+                      </HStack>
+                    </DataCard>
+                  );
+                })}
+              </VStack>
             </Box>
           )}
         </ModalBody>
