@@ -98,7 +98,6 @@ if (import.meta.env.DEV) {
   (window as any).signalRDiag = async () => {
     const { notificationHubService: service } = await import("./services/notificationHubService");
     return {
-      ...service.getConnectionDiagnostics(),
       backendUserId: await service.testConnection()
     };
   };
