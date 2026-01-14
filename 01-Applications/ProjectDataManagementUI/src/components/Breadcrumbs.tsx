@@ -61,14 +61,12 @@ export default function Breadcrumbs() {
 
       // Mapowanie ścieżek
       if (pathSegments[0] === "tenants") {
-        segments.push({ label: "Organizacje", path: "/tenants" });
-        
         if (pathSegments[1] === "invitations") {
-          segments.push({ label: "Aktywne zaproszenia", path: "/tenants/invitations", isCurrentPage: true });
+          segments.push({ label: "Zaproszenia", path: "/tenants/invitations", isCurrentPage: true });
         } else if (pathSegments[1] === "collaborating") {
-          segments.push({ label: "Z którymi współpracujesz", path: "/tenants/collaborating", isCurrentPage: true });
+          segments.push({ label: "Przełącz organizację", path: "/tenants/collaborating", isCurrentPage: true });
         } else if (pathSegments[1] === "managed") {
-          segments.push({ label: "Którymi zarządzasz", path: "/tenants/managed", isCurrentPage: true });
+          segments.push({ label: "Zarządzaj", path: "/tenants/managed", isCurrentPage: true });
         } else if (params.tenantId) {
           segments.push({ label: "Szczegóły organizacji", path: `/tenants/${params.tenantId}`, isCurrentPage: true });
         }
