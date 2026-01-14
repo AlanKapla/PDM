@@ -3,6 +3,7 @@ using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Repositiories.Repository.Interfaces;
@@ -18,6 +19,7 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
     private readonly IRepository<TenantMember> tenantMemberRepo;
     private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
     private readonly IReadRepository<Role> roleRepo;
+    private readonly IReadRepository<Notification> notificationRepo;
     private readonly INotificationSender notificationSender;
     private readonly ICurrentUser currentUser;
 
@@ -27,6 +29,7 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
         IRepository<TenantMember> tenantMemberRepo,
         IRepository<TenantPreferencesProfile> tenantPrefsRepo,
         IReadRepository<Role> roleRepo,
+        IReadRepository<Notification> notificationRepo,
         INotificationSender notificationSender,
         ICurrentUser currentUser)
     {
@@ -35,6 +38,7 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
         this.tenantMemberRepo = tenantMemberRepo;
         this.tenantPrefsRepo = tenantPrefsRepo;
         this.roleRepo = roleRepo;
+        this.notificationRepo = notificationRepo;
         this.notificationSender = notificationSender;
         this.currentUser = currentUser;
     }
@@ -115,7 +119,8 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
         }
 
         return Unit.Value;

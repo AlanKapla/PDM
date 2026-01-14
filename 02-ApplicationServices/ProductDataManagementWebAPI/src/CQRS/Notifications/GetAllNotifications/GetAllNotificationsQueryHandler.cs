@@ -30,9 +30,8 @@ namespace CQRS.Notifications.GetAllNotifications
 
         public async Task<IEnumerable<NotificationWeb>> Handle(GetAllNotificationsQuery request, CancellationToken cancellationToken)
         {
-            logger.LogInformation("📥 Fetching all notifications for user {UserId}, limit={Limit}", currentUser.Id, request.Limit);
+            logger.LogInformation("📥 Fetching all notifications for user {UserId}, take={Take}, skip={Skip}", currentUser.Id, request.Take, request.Skip);
             
-            // Pobierz ostatnie N powiadomień użytkownika (niezależnie od statusu przeczytane/nieprzeczytane)
             IEnumerable<Notification> notifications = await notificationRepo.GetBySearch(
                 n => n.UserId == currentUser.Id,
                 include => include.Include(n => n.Tenant)
@@ -40,7 +39,8 @@ namespace CQRS.Notifications.GetAllNotifications
 
             List<NotificationWeb> items = notifications
                 .OrderByDescending(n => n.CreatedAt)
-                .Take(request.Limit)
+                .Skip(request.Skip)
+                .Take(request.Take)
                 .Select(n => new NotificationWeb(
                     n.Id,
                     n.TenantId,

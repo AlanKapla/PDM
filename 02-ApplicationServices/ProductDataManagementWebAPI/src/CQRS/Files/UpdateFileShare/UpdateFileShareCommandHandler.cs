@@ -2,10 +2,12 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
+using Repositiories.Repository.Interfaces;
 using NotifType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Files.UpdateFileShare
@@ -15,6 +17,7 @@ namespace CQRS.Files.UpdateFileShare
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
         private readonly IRepository<User> userRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly ICurrentUser currentUser;
         private readonly INotificationSender notificationSender;
         private readonly ILogger<UpdateFileShareCommandHandler> logger;
@@ -23,6 +26,7 @@ namespace CQRS.Files.UpdateFileShare
             IRepository<ProjectFile> projectFileRepo,
             IRepository<SharedProjectFile> sharedProjectFileRepo,
             IRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo,
             ICurrentUser currentUser,
             INotificationSender notificationSender,
             ILogger<UpdateFileShareCommandHandler> logger)
@@ -30,6 +34,7 @@ namespace CQRS.Files.UpdateFileShare
             this.projectFileRepo = projectFileRepo;
             this.sharedProjectFileRepo = sharedProjectFileRepo;
             this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
             this.currentUser = currentUser;
             this.notificationSender = notificationSender;
             this.logger = logger;
@@ -94,7 +99,7 @@ namespace CQRS.Files.UpdateFileShare
                 // Send notification to user who received access
                 if (userDict.TryGetValue(userId, out var user))
                 {
-                    await notificationSender.EnqueueAsync(new NotificationDto
+                    var notification = new NotificationDto
                     {
                         Id = Guid.NewGuid(),
                         TenantId = request.TenantId,
@@ -111,7 +116,10 @@ namespace CQRS.Files.UpdateFileShare
                             ["FileId"] = request.FileId,
                             ["EntityType"] = "ProjectFile"
                         }
-                    }, cancellationToken);
+                    };
+
+                    var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                    await notificationSender.EnqueueAsync(payload, cancellationToken);
                 }
 
                 logger.LogInformation(
@@ -130,7 +138,7 @@ namespace CQRS.Files.UpdateFileShare
                     // Send notification to user who lost access
                     if (userDict.TryGetValue(userId, out var user))
                     {
-                        await notificationSender.EnqueueAsync(new NotificationDto
+                        var notification = new NotificationDto
                         {
                             Id = Guid.NewGuid(),
                             TenantId = request.TenantId,
@@ -147,7 +155,10 @@ namespace CQRS.Files.UpdateFileShare
                                 ["FileId"] = request.FileId,
                                 ["EntityType"] = "ProjectFile"
                             }
-                        }, cancellationToken);
+                        };
+
+                        var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                        await notificationSender.EnqueueAsync(payload, cancellationToken);
                     }
 
                     logger.LogInformation(

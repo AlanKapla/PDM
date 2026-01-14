@@ -2,6 +2,7 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IReadRepository<User> userRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<ShareProjectCostsCommandHandler> logger;
@@ -24,6 +26,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
             IRepository<SharedProjectCost> sharedProjectCostRepo,
             IRepository<ProjectCost> projectCostRepo,
             IReadRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<ShareProjectCostsCommandHandler> logger)
@@ -31,6 +34,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
             this.sharedProjectCostRepo = sharedProjectCostRepo;
             this.projectCostRepo = projectCostRepo;
             this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -181,7 +185,8 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                 Readed = false
             };
 
-            await notificationSender.EnqueueAsync(notificationDto, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notificationDto, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             logger.LogInformation(
                 "Notification sent to user {UserId} about {CostCount} shared costs",

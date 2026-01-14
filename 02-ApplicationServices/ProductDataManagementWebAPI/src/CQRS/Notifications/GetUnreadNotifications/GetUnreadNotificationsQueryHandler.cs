@@ -1,4 +1,4 @@
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Notifications;
 using Entities.Models;
@@ -31,6 +31,8 @@ namespace CQRS.Notifications.GetUnreadNotifications
 
             List<NotificationWeb> items = notifications
                 .OrderByDescending(n => n.CreatedAt)
+                .Skip(request.Skip)
+                .Take(request.Take)
                 .Select(n => new NotificationWeb(
                     n.Id,
                     n.TenantId,

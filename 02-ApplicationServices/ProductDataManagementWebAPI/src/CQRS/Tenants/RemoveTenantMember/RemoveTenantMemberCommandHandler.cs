@@ -2,6 +2,7 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Repositiories.Repository.Interfaces;
@@ -15,6 +16,7 @@ namespace CQRS.Tenants.RemoveTenantMember
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -22,12 +24,14 @@ namespace CQRS.Tenants.RemoveTenantMember
             IReadRepository<Tenant> tenantRepo,
             IReadRepository<User> userRepo,
             IRepository<TenantMember> tenantMemberRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.userRepo = userRepo;
             this.tenantMemberRepo = tenantMemberRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
@@ -68,7 +72,8 @@ namespace CQRS.Tenants.RemoveTenantMember
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;
         }

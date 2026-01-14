@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -22,6 +23,7 @@ namespace CQRS.Tenants.InviteTenantMember
         private readonly INotificationSender notificationSender;
         private readonly IOptions<FrontendSettings> frontendSettings;
         private readonly ITokenGenerator tokenGenerator;
+        private readonly IReadRepository<Notification> notificationRepo;
 
         public InviteTenantMemberCommandHandler(
             IRepository<TenantInvitation> invitationRepo,
@@ -31,7 +33,8 @@ namespace CQRS.Tenants.InviteTenantMember
             IEmailSender emailSender,
             INotificationSender notificationSender,
             IOptions<FrontendSettings> frontendSettings,
-            ITokenGenerator tokenGenerator)
+            ITokenGenerator tokenGenerator,
+            IReadRepository<Notification> notificationRepo)
         {
             this.invitationRepo = invitationRepo;
             this.userRepo = userRepo;
@@ -41,6 +44,7 @@ namespace CQRS.Tenants.InviteTenantMember
             this.notificationSender = notificationSender;
             this.frontendSettings = frontendSettings;
             this.tokenGenerator = tokenGenerator;
+            this.notificationRepo = notificationRepo;
         }
 
         public async Task<Unit> Handle(InviteTenantMemberCommand request, CancellationToken cancellationToken)
@@ -90,7 +94,7 @@ namespace CQRS.Tenants.InviteTenantMember
             }
             else
             {
-                await notificationSender.EnqueueAsync(new NotificationDto
+                var notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = request.TenantId,
@@ -108,7 +112,10 @@ namespace CQRS.Tenants.InviteTenantMember
                         { "tenantId", request.TenantId },
                         { "tenantName", tenantName }
                     }
-                }, cancellationToken);
+                };
+                
+                var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                await notificationSender.EnqueueAsync(payload, cancellationToken);
             }
 
             return Unit.Value;
