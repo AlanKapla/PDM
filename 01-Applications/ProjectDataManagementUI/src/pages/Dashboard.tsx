@@ -1,5 +1,5 @@
 import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack } from "@chakra-ui/react";
-import { Building2, FolderKanban, Settings, Briefcase, FileText } from "lucide-react";
+import { Building2, FolderKanban, Settings, Briefcase, FileText, RefreshCw, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 
@@ -8,11 +8,11 @@ export default function Dashboard() {
 
   const menuCards = [
     {
-      title: "Organizacje",
-      description: "Zarządzaj swoimi organizacjami i współpracuj z innymi",
-      icon: Building2,
-      color: "blue.500",
-      path: "/tenants",
+      title: "Przełącz organizację",
+      description: "Zmień aktywną organizację, z którą współpracujesz",
+      icon: RefreshCw,
+      color: "purple.500",
+      path: "/tenants/collaborating",
     },
     {
       title: "Projekty",
@@ -20,6 +20,20 @@ export default function Dashboard() {
       icon: FolderKanban,
       color: "green.500",
       path: "/projects",
+    },
+    {
+      title: "Zarządzaj",
+      description: "Administruj swoimi organizacjami",
+      icon: Building2,
+      color: "blue.500",
+      path: "/tenants/managed",
+    },
+    {
+      title: "Zaproszenia",
+      description: "Zobacz i zaakceptuj zaproszenia do organizacji",
+      icon: Mail,
+      color: "pink.500",
+      path: "/tenants/invitations",
     },
     {
       title: "Zaplanowane prace",

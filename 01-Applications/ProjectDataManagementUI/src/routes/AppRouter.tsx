@@ -8,7 +8,6 @@ import TenantDetails from "../pages/TenantDetails";
 import CollaboratingTenants from "../pages/CollaboratingTenants";
 import ManagedTenants from "../pages/ManagedTenants";
 import ActiveInvitations from "../pages/ActiveInvitations";
-import TenantsOverview from "../pages/TenantsOverview";
 import AuthCallback from "../pages/AuthCallback";
 import LoggedOut from "../pages/LoggedOut";
 import Projects from "../pages/Projects";
@@ -71,15 +70,6 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <Profile />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tenants"
-        element={
-          <ProtectedRoute>
-            <TenantsOverview />
           </ProtectedRoute>
         }
       />

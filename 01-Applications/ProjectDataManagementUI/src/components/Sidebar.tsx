@@ -21,6 +21,8 @@ import {
   Briefcase,
   FileText,
   Settings,
+  RefreshCw,
+  Mail,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -69,22 +71,17 @@ export default function Sidebar() {
 
   const SidebarContent = () => (
     <VStack align="stretch" w="100%" spacing={2}>
-      {/* Organizacje */}
+      {/* Przełącz organizację */}
       <Button
         variant="ghost"
         justifyContent="flex-start"
-        leftIcon={<Building2 size={20} />}
+        leftIcon={<RefreshCw size={20} />}
         w="100%"
-        bg={location.pathname.startsWith("/tenants") ? activeBg : "transparent"}
+        bg={location.pathname === "/tenants/collaborating" ? activeBg : "transparent"}
         _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/tenants")}
+        onClick={() => navigate("/tenants/collaborating")}
       >
-        Organizacje
-        {invitationsCount > 0 && (
-          <Badge colorScheme="red" borderRadius="full" fontSize="xs" ml="auto">
-            {invitationsCount}
-          </Badge>
-        )}
+        Przełącz organizację
       </Button>
 
       {/* Projekty */}
@@ -98,6 +95,37 @@ export default function Sidebar() {
         onClick={() => navigate("/projects")}
       >
         Projekty
+      </Button>
+
+      {/* Zarządzaj organizacjami */}
+      <Button
+        variant="ghost"
+        justifyContent="flex-start"
+        leftIcon={<Building2 size={20} />}
+        w="100%"
+        bg={location.pathname === "/tenants/managed" ? activeBg : "transparent"}
+        _hover={{ bg: hoverBg }}
+        onClick={() => navigate("/tenants/managed")}
+      >
+        Zarządzanie
+      </Button>
+
+      {/* Zaproszenia do organizacji */}
+      <Button
+        variant="ghost"
+        justifyContent="flex-start"
+        leftIcon={<Mail size={20} />}
+        w="100%"
+        bg={location.pathname === "/tenants/invitations" ? activeBg : "transparent"}
+        _hover={{ bg: hoverBg }}
+        onClick={() => navigate("/tenants/invitations")}
+      >
+        Zaproszenia
+        {invitationsCount > 0 && (
+          <Badge colorScheme="red" borderRadius="full" fontSize="xs" ml="auto">
+            {invitationsCount}
+          </Badge>
+        )}
       </Button>
 
       {/* Zaplanowane prace */}
