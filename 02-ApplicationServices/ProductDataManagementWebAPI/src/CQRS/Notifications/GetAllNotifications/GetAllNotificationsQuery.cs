@@ -1,7 +1,6 @@
-using Business.Interfaces.WebModels.Notifications;
-using CQRS;
+﻿using Business.Interfaces.WebModels.Notifications;
 
 namespace CQRS.Notifications.GetAllNotifications
 {
-    public record GetAllNotificationsQuery(int Limit = 50) : IRequestQuery<IEnumerable<NotificationWeb>>;
+    public record GetAllNotificationsQuery(int Take = 50, int Skip = 0) : IRequestQuery<IEnumerable<NotificationWeb>>;
 }

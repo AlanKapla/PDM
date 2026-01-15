@@ -2,6 +2,7 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ namespace CQRS.Files.ShareProjectFiles
         private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IReadRepository<User> userRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<ShareProjectFilesCommandHandler> logger;
@@ -24,6 +26,7 @@ namespace CQRS.Files.ShareProjectFiles
             IRepository<SharedProjectFile> sharedProjectFileRepo,
             IRepository<ProjectFile> projectFileRepo,
             IReadRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<ShareProjectFilesCommandHandler> logger)
@@ -31,6 +34,7 @@ namespace CQRS.Files.ShareProjectFiles
             this.sharedProjectFileRepo = sharedProjectFileRepo;
             this.projectFileRepo = projectFileRepo;
             this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -181,7 +185,8 @@ namespace CQRS.Files.ShareProjectFiles
                 Readed = false
             };
 
-            await notificationSender.EnqueueAsync(notificationDto, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notificationDto, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             logger.LogInformation(
                 "Notification sent to user {UserId} about {FileCount} shared files",

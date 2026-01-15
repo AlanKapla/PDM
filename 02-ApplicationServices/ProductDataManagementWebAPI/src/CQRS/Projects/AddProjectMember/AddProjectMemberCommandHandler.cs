@@ -3,6 +3,7 @@ using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
@@ -18,6 +19,7 @@ namespace CQRS.Projects.AddProjectMember
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -26,6 +28,7 @@ namespace CQRS.Projects.AddProjectMember
             IReadRepository<User> userRepo,
             IRepository<ProjectMember> projectMemberRepo,
             IReadRepository<Role> roleRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
@@ -33,6 +36,7 @@ namespace CQRS.Projects.AddProjectMember
             this.userRepo = userRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.roleRepo = roleRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
@@ -44,7 +48,6 @@ namespace CQRS.Projects.AddProjectMember
                 cancellationToken)
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            // Get PROJECT.VIEWER role as default
             var viewerRole = await roleRepo.GetFirstBySearch(
                 r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectViewer && r.IsActive,
                 cancellationToken)
@@ -83,7 +86,8 @@ namespace CQRS.Projects.AddProjectMember
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;
         }

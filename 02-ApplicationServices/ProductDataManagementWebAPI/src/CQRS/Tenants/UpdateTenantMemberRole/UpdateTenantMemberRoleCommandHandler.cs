@@ -4,6 +4,7 @@ using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
@@ -20,6 +21,7 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
         private readonly IReadRepository<Role> roleRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly PermissionsVersionService permissionsVersionService;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
@@ -30,6 +32,7 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
             IRepository<TenantMember> tenantMemberRepo,
             IRepository<TenantPreferencesProfile> tenantPrefsRepo,
             IReadRepository<Role> roleRepo,
+            IReadRepository<Notification> notificationRepo,
             PermissionsVersionService permissionsVersionService,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
@@ -39,6 +42,7 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
             this.tenantMemberRepo = tenantMemberRepo;
             this.tenantPrefsRepo = tenantPrefsRepo;
             this.roleRepo = roleRepo;
+            this.notificationRepo = notificationRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
@@ -88,7 +92,7 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                 ProjectId = null,
                 UserId = request.UserId,
                 AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
-                Type = NotificationType.TenantRoleChanged,
+                Type = NotificationType.Info,
                 Title = "Zmieniono Twoją rolę w organizacji",
                 Message = $"Twoja rola w organizacji '{tenant.Name}' została zmieniona na {newRole.Name}.",
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -105,7 +109,8 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;
         }

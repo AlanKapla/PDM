@@ -38,53 +38,55 @@ namespace Business.Implementation.Services
             this.projectRepo = projectRepo;
         }
 
-        public async Task EnqueueAsync(NotificationDto notificationDto, CancellationToken cancellationToken = default)
+        public async Task EnqueueAsync(NotificationPayloadDto payload, CancellationToken cancellationToken = default)
         {
             var startTime = DateTimeOffset.UtcNow;
-            logger.LogInformation("📤 [ENQUEUE START] NotificationId={NotificationId}, UserId={UserId}, Type={Type}, Timestamp={Timestamp}",
-                notificationDto.Id, notificationDto.UserId, notificationDto.Type, startTime);
+            var notification = payload.Notification;
+            
+            logger.LogInformation("📤 [ENQUEUE START] NotificationId={NotificationId}, UserId={UserId}, Type={Type}, UnreadCounter={UnreadCounter}, Timestamp={Timestamp}",
+                notification.Id, notification.UserId, notification.Type, payload.UnreadNotificationCounter, startTime);
             
             // Load Tenant and Project to get names
-            Tenant? tenant = await tenantRepo.GetFirstBySearch(t => t.Id == notificationDto.TenantId);
+            Tenant? tenant = await tenantRepo.GetFirstBySearch(t => t.Id == notification.TenantId, cancellationToken);
             if (tenant != null)
             {
-                notificationDto.TenantName = tenant.Name;
+                notification.TenantName = tenant.Name;
             }
 
-            if (notificationDto.ProjectId.HasValue)
+            if (notification.ProjectId.HasValue)
             {
-                Project? project = await projectRepo.GetFirstBySearch(p => p.Id == notificationDto.ProjectId.Value);
+                Project? project = await projectRepo.GetFirstBySearch(p => p.Id == notification.ProjectId.Value, cancellationToken);
                 if (project != null)
                 {
-                    notificationDto.ProjectName = project.Name;
+                    notification.ProjectName = project.Name;
                 }
             }
 
-            // 1) Persist in DB for history and UI read
+            // Persist in DB for history and UI read
             Notification entity = new Notification
             {
-                Id = notificationDto.Id,
-                TenantId = notificationDto.TenantId,
-                ProjectId = notificationDto.ProjectId,
-                UserId = notificationDto.UserId,
-                Type = MapType(notificationDto.Type),
-                Title = notificationDto.Title,
-                Message = notificationDto.Message,
-                CreatedAt = notificationDto.CreatedAt == default ? DateTimeOffset.UtcNow : notificationDto.CreatedAt,
-                Readed = notificationDto.Readed,
-                MetadataJson = notificationDto.Metadata != null ? JsonSerializer.Serialize(notificationDto.Metadata) : null
+                Id = notification.Id,
+                TenantId = notification.TenantId,
+                ProjectId = notification.ProjectId,
+                UserId = notification.UserId,
+                Type = MapType(notification.Type),
+                Title = notification.Title,
+                Message = notification.Message,
+                CreatedAt = notification.CreatedAt == default ? DateTimeOffset.UtcNow : notification.CreatedAt,
+                Readed = notification.Readed,
+                MetadataJson = notification.Metadata != null ? JsonSerializer.Serialize(notification.Metadata) : null
             };
 
-            await notificationRepo.Insert(entity).ConfigureAwait(false);
+            await notificationRepo.Insert(entity);
 
             await queueStorageService.EnsureQueueAsync(QueueNames.NotificationSend, cancellationToken);
 
-            string payload = JsonSerializer.Serialize(notificationDto, JsonOptions);
-            await queueStorageService.EnqueueAsync(QueueNames.NotificationSend, payload, cancellationToken: cancellationToken);
+            string queuePayload = JsonSerializer.Serialize(payload, JsonOptions);
+            await queueStorageService.EnqueueAsync(QueueNames.NotificationSend, queuePayload, cancellationToken: cancellationToken);
             
             var elapsedMs = (DateTimeOffset.UtcNow - startTime).TotalMilliseconds;
-            logger.LogInformation("✅ [ENQUEUE DONE] NotificationId={NotificationId}, Elapsed={ElapsedMs}ms, Timestamp={Timestamp}",
-                notificationDto.Id, elapsedMs, DateTimeOffset.UtcNow);
+            logger.LogInformation("✅ [ENQUEUE DONE] NotificationId={NotificationId}, UnreadCounter={UnreadCounter}, Elapsed={ElapsedMs}ms, Timestamp={Timestamp}",
+                notification.Id, payload.UnreadNotificationCounter, elapsedMs, DateTimeOffset.UtcNow);
         }
 
         private static Entities.Models.NotificationType MapType(Business.Interfaces.DTO.NotificationType type)

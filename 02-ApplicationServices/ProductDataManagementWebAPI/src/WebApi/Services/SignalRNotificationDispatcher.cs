@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
 using Microsoft.AspNetCore.SignalR;
@@ -20,11 +20,14 @@ namespace WebApi.Services
             this.logger = logger;
         }
 
-        public async Task DispatchAsync(NotificationDto notification, CancellationToken cancellationToken)
+        public async Task DispatchAsync(NotificationPayloadDto payload, CancellationToken cancellationToken)
         {
-            logger.LogInformation("📨 [SignalR] Attempting to dispatch notification {NotificationId} to user {AzureAdB2CObjectId}",
+            var notification = payload.Notification;
+            
+            logger.LogInformation("📨 [SignalR] Attempting to dispatch notification {NotificationId} to user {AzureAdB2CObjectId} with unread count {UnreadCount}",
                 notification.Id,
-                notification.AzureAdB2CObjectId);
+                notification.AzureAdB2CObjectId,
+                payload.UnreadNotificationCounter);
 
             if (string.IsNullOrEmpty(notification.AzureAdB2CObjectId))
             {
@@ -38,12 +41,13 @@ namespace WebApi.Services
             try
             {
                 await hubContext.Clients.User(notification.AzureAdB2CObjectId)
-                    .ReceiveNotification(notification);
+                    .ReceiveNotification(payload);
 
                 logger.LogInformation(
-                    "✅ [SignalR] Notification {NotificationId} dispatched to user {AzureAdB2CObjectId}",
+                    "✅ [SignalR] Notification {NotificationId} dispatched to user {AzureAdB2CObjectId} with unread count {UnreadCount}",
                     notification.Id,
-                    notification.AzureAdB2CObjectId);
+                    notification.AzureAdB2CObjectId,
+                    payload.UnreadNotificationCounter);
             }
             catch (Exception ex)
             {

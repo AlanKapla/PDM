@@ -2,6 +2,7 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
         private readonly IRepository<Project> projectRepo;
         private readonly IReadRepository<User> userRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UpdateCostShareCommandHandler> logger;
@@ -27,6 +29,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
             IRepository<SharedProjectCost> sharedProjectCostRepo,
             IRepository<Project> projectRepo,
             IReadRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<UpdateCostShareCommandHandler> logger)
@@ -35,6 +38,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
             this.sharedProjectCostRepo = sharedProjectCostRepo;
             this.projectRepo = projectRepo;
             this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -105,7 +109,8 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         }
                     };
 
-                    await notificationSender.EnqueueAsync(notification, cancellationToken);
+                    var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                    await notificationSender.EnqueueAsync(payload, cancellationToken);
                 }
 
                 logger.LogInformation(
@@ -154,7 +159,8 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         }
                     };
 
-                    await notificationSender.EnqueueAsync(notification, cancellationToken);
+                    var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                    await notificationSender.EnqueueAsync(payload, cancellationToken);
                 }
 
                 logger.LogInformation(

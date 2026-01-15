@@ -1,5 +1,5 @@
-import * as signalR from "@microsoft/signalr";
-import type { NotificationWeb, NotificationMarkAsReadDto } from "../types/notification.types";
+﻿import * as signalR from "@microsoft/signalr";
+import type { NotificationPayloadDto, NotificationMarkAsReadDto } from "../types/notification.types";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
 
@@ -7,13 +7,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 class NotificationHubService {
   private connection: signalR.HubConnection | null = null;
-  private listeners: ((notification: NotificationWeb) => void)[] = [];
+  private payloadListeners: ((payload: NotificationPayloadDto) => void)[] = [];
   private syncListeners: ((dto: NotificationMarkAsReadDto) => void)[] = [];
-  
-  // Cache powiadomień w pamięci
-  private notificationsCache: NotificationWeb[] = [];
-  private unreadCountCache: number = 0;
-  private cacheInitialized: boolean = false;
   
   // Diagnostyka
   private lastNotificationTime: number | null = null;
@@ -132,34 +127,31 @@ class NotificationHubService {
     this.connection.off("ReceiveNotificationMarkAsRead");
 
     // Nasłuchuj na nowe powiadomienia
-    this.connection.on("ReceiveNotification", (notification: NotificationWeb) => {
+    this.connection.on("ReceiveNotification", (payload: NotificationPayloadDto) => {
       const receiveTimestamp = new Date().toISOString();
-      const createdAt = notification.createdAt;
+      const createdAt = payload.notification.createdAt;
       const latencyMs = Date.now() - new Date(createdAt).getTime();
       
       console.log("🔔 [RECEIVE] ReceiveNotification", {
         state: this.connection?.state,
         receiveTimestamp,
-        notificationId: notification.id,
+        notificationId: payload.notification.id,
         createdAt,
         latencyMs: `${latencyMs}ms`,
-        title: notification.title
+        title: payload.notification.title,
+        unreadCounter: payload.unreadNotificationCounter
       });
       
       // Zapisz czas otrzymania
       this.lastNotificationTime = Date.now();
       
-      // Dodaj do cache
-      this.addNotificationToCache(notification);
-      
       // Powiadom listenery
-      this.notifyListeners(notification);
+      this.notifyPayloadListeners(payload);
     });
 
     // 🔄 Nasłuchuj na synchronizację między urządzeniami
     this.connection.on("ReceiveNotificationMarkAsRead", (dto: NotificationMarkAsReadDto) => {
       console.log("🔄 Synchronizacja: Powiadomienie oznaczone jako przeczytane na innym urządzeniu:", dto);
-      this.markAsReadInCache(dto.notificationId);
       this.notifySyncListeners(dto);
     });
 
@@ -256,19 +248,19 @@ class NotificationHubService {
   }
 
   // Subskrybuj na nowe powiadomienia
-  onNotificationReceived(callback: (notification: NotificationWeb) => void): () => void {
-    this.listeners.push(callback);
+  onNotificationReceived(callback: (payload: NotificationPayloadDto) => void): () => void {
+    this.payloadListeners.push(callback);
 
     // Zwróć funkcję do unsubscribe
     return () => {
-      this.listeners = this.listeners.filter(listener => listener !== callback);
+      this.payloadListeners = this.payloadListeners.filter(listener => listener !== callback);
     };
   }
 
-  private notifyListeners(notification: NotificationWeb): void {
-    this.listeners.forEach(listener => {
+  private notifyPayloadListeners(payload: NotificationPayloadDto): void {
+    this.payloadListeners.forEach(listener => {
       try {
-        listener(notification);
+        listener(payload);
       } catch (error) {
         console.error("Error in notification listener:", error);
       }
@@ -364,69 +356,8 @@ class NotificationHubService {
     }
   }
 
-  // Inicjalizuj cache z API (wywołaj raz przy starcie aplikacji)
-  async initializeCache(notifications: NotificationWeb[]): Promise<void> {
-    this.notificationsCache = notifications;
-    this.unreadCountCache = notifications.filter(n => !n.readed).length;
-    this.cacheInitialized = true;
-  }
-
-  // Dodaj nowe powiadomienie do cache (wywołane przez SignalR)
-  addNotificationToCache(notification: NotificationWeb): void {
-    this.notificationsCache = [notification, ...this.notificationsCache];
-    
-    if (!notification.readed) {
-      this.unreadCountCache++;
-    }
-  }
-
-  // Oznacz jako przeczytane w cache
-  markAsReadInCache(notificationId: string): void {
-    const notification = this.notificationsCache.find(n => n.id === notificationId);
-    if (notification && !notification.readed) {
-      notification.readed = true;
-      this.unreadCountCache = Math.max(0, this.unreadCountCache - 1);
-    }
-  }
-
-  // Pobierz nieprzeczytane powiadomienia z cache
-  getUnreadNotificationsFromCache(): NotificationWeb[] {
-    return this.notificationsCache.filter(n => !n.readed);
-  }
-
-  // Pobierz wszystkie powiadomienia z cache
-  getAllNotificationsFromCache(): NotificationWeb[] {
-    return [...this.notificationsCache];
-  }
-
-  // Pobierz licznik nieprzeczytanych z cache
-  getUnreadCountFromCache(): number {
-    return this.unreadCountCache;
-  }
-
-  // Sprawdź czy cache jest zainicjalizowany
-  isCacheInitialized(): boolean {
-    return this.cacheInitialized;
-  }
-  
-  // 🔍 Diagnostyka połączenia (dostępna globalnie dla dev)
-  getConnectionDiagnostics() {
-    return {
-      state: this.connection?.state ?? "no-connection",
-      isConnected: this.connection?.state === signalR.HubConnectionState.Connected,
-      cacheSize: this.notificationsCache.length,
-      unreadCount: this.unreadCountCache,
-      cacheInitialized: this.cacheInitialized,
-      listenersCount: this.listeners.length,
-      lastNotificationAt: this.lastNotificationTime ? new Date(this.lastNotificationTime).toISOString() : "never"
-    };
-  }
-
   // Wyczyść cache (np. przy logout)
   clearCache(): void {
-    this.notificationsCache = [];
-    this.unreadCountCache = 0;
-    this.cacheInitialized = false;
   }
 }
 
