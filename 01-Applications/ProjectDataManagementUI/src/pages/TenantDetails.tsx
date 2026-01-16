@@ -763,18 +763,18 @@ export default function TenantDetails() {
                                   <Select
                                     size="sm"
                                     value={editedRoleId}
-                                    onChange={(e) =>
-                                      setEditedRoleId(e.target.value)
-                                    }
+                                    onChange={(e) => setEditedRoleId(e.target.value)}
                                     isDisabled={updatingRole}
                                     width="150px"
                                   >
                                     {availableRoles.map((role) => (
                                       <option key={role.id} value={role.id}>
-                                        {role.name}
+                                        {getRoleName(role.code)}
                                       </option>
                                     ))}
                                   </Select>
+
+
                                   <IconButton
                                     aria-label="Zapisz rolę"
                                     icon={<Save size={14} />}
