@@ -12,12 +12,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
     {
         public CreateCostEstimateCommandValidator()
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("Tenant ID is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("Project ID is required");
-
             RuleFor(x => x.TemplateId)
                 .NotEmpty().WithMessage("Template ID is required");
 

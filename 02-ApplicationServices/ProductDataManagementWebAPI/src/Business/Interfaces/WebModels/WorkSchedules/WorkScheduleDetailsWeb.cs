@@ -25,16 +25,26 @@
         string ColorRgb,
         bool IsClosed,
         List<WorkScheduleStageWorkPeriodWeb> Periods,
-        List<WorkScheduleStageWorkAssigneeWeb> Assignees
+        List<WorkScheduleStageWorkAssigneeWeb> Assignees,
+        List<WorkScheduleStageWorkCommentWeb> Comments
     );
 
     public record WorkScheduleStageWorkPeriodWeb(
         DateTime StartDate,
-        DateTime EndDate
+        DateTime EndDate,
+        bool IsClosed
     );
 
     public record WorkScheduleStageWorkAssigneeWeb(
         Guid UserId,
         string UserName
+    );
+
+    public record WorkScheduleStageWorkCommentWeb(
+        Guid Id,
+        string Content,
+        Guid CreatedByUserId,
+        string CreatedByUserName,
+        DateTime CreatedAt
     );
 }

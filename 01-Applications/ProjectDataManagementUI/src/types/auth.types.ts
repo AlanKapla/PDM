@@ -1,4 +1,4 @@
-// Typy dla API User/Auth
+﻿// Typy dla API User/Auth
 
 export interface LoginRequest {
   email: string;
@@ -26,6 +26,11 @@ export interface UserProfile {
   firstName: string;
   lastName: string;
   activeTenantId?: string | null;
+  
+  /**
+   * Permissions in the active tenant (empty if no active tenant)
+   */
+  activeTenantPermissions: string[];
 }
 
 export interface PasswordResetRequest {
@@ -40,24 +45,81 @@ export interface ResetPasswordRequest {
 export const TenantRole = {
   Admin: 0,
   Member: 1,
+  Editor: 2,
+  Viewer: 3,
 } as const;
 
 export type TenantRoleType = (typeof TenantRole)[keyof typeof TenantRole];
+
+// Funkcja pomocnicza do określania poziomu roli (im niższa wartość, tym wyższe uprawnienia)
+export const getTenantRoleLevel = (role: number): number => {
+  switch (role) {
+    case TenantRole.Admin: return 0;
+    case TenantRole.Editor: return 1;
+    case TenantRole.Viewer: return 2;
+    case TenantRole.Member: return 3;
+    default: return Number.MAX_SAFE_INTEGER;
+  }
+};
+
+// Funkcje pomocnicze do sprawdzania uprawnień
+export const hasTenantRoleLevel = (userRole: number, requiredRole: number): boolean => {
+  return getTenantRoleLevel(userRole) <= getTenantRoleLevel(requiredRole);
+};
+
+export const isTenantAdmin = (userRole: number): boolean => {
+  return userRole === TenantRole.Admin;
+};
+
+export const canEditTenant = (userRole: number): boolean => {
+  return hasTenantRoleLevel(userRole, TenantRole.Editor);
+};
+
+export const canViewTenant = (userRole: number): boolean => {
+  return hasTenantRoleLevel(userRole, TenantRole.Viewer);
+};
 
 export interface TenantMemberDetails {
   userId: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: number;
+  roleCode: string;
+  isActive: boolean;
   joinedAt: string;
 }
 
+/**
+ * Basic tenant info for user tenant list
+ */
+export interface UserTenant {
+  id: string;
+  name: string;
+  createdAt: string;
+  isActive: boolean;
+  roleCode: string;
+  isActiveTenant: boolean;
+}
+
+/**
+ * Basic tenant info for admin tenant list
+ */
+export interface TenantBasic {
+  id: string;
+  name: string;
+  createdAt: string;
+  isActive: boolean;
+  roleCode: string;
+}
+
+/**
+ * Detailed tenant info with members and invitations
+ */
 export interface TenantDetails {
   id: string;
   name: string;
   createdAt: string;
-  role: number;
+  roleCode: string;
   isActive: boolean;
   members: TenantMemberDetails[];
   invitations: TenantInvitationWeb[];
@@ -129,6 +191,10 @@ export const getTenantRoleName = (role: number): string => {
       return 'Administrator';
     case TenantRole.Member:
       return 'Członek';
+    case TenantRole.Editor:
+      return 'Edytor';
+    case TenantRole.Viewer:
+      return 'Przeglądający';
     default:
       return 'Nieznana rola';
   }
@@ -138,8 +204,12 @@ export const getTenantRoleColor = (role: number): string => {
   switch (role) {
     case TenantRole.Admin:
       return 'purple';
-    case TenantRole.Member:
+    case TenantRole.Editor:
       return 'blue';
+    case TenantRole.Viewer:
+      return 'green';
+    case TenantRole.Member:
+      return 'gray';
     default:
       return 'gray';
   }

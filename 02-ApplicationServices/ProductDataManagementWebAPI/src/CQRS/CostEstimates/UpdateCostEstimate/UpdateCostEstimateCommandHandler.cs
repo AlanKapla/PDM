@@ -25,12 +25,11 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
 
         public async Task<Unit> Handle(UpdateCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            // Get existing cost estimate - filter by TenantId, ProjectId and OwnerId
+            // 1. Verify cost estimate exists and belongs to the correct project/tenant
             var costEstimate = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId && 
                      c.TenantId == request.TenantId &&
                      c.ProjectId == request.ProjectId &&
-                     c.OwnerId == currentUser.Id &&
                      !c.IsDeleted);
 
             if (costEstimate == null)
@@ -38,7 +37,16 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                 throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
             }
 
-            // Update metadata
+            // 2. Authorization check: tenant admin OR project admin OR cost estimate owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isOwner = costEstimate.OwnerId == currentUser.Id;
+            
+            if (!isAdmin && !isOwner)
+            {
+                throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+            }
+
+            // 3. Update metadata
             request.Data.Metadata = new CostEstimateMetadata
             {
                 LastModified = DateTime.UtcNow,
@@ -49,7 +57,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                 WorkScopeCustomizations = request.Data.Metadata?.WorkScopeCustomizations
             };
 
-            // Update properties - Data is automatically serialized by EF Core
+            // 4. Update properties
             costEstimate.Name = request.Name;
             costEstimate.Description = request.Description;
             costEstimate.Status = request.Status;
@@ -61,7 +69,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                 ? DateTime.UtcNow 
                 : costEstimate.LastCalculatedAt;
 
-            // Save changes
+            // 5. Save changes
             await costEstimateRepository.Update(costEstimate);
             await costEstimateRepository.SaveChangesAsync(cancellationToken);
 

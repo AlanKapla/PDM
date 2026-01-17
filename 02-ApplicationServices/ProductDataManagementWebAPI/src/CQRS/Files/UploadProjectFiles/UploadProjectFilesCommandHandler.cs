@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -40,13 +41,21 @@ namespace CQRS.Files.UploadProjectFiles
 
         public async Task<Unit> Handle(UploadProjectFilesCommand request, CancellationToken cancellationToken)
         {
-            // Get existing package by ID (validator ensures it exists and belongs to current user)
-            ProjectFilePackage package = (await projectFilePackageRepo.GetFirstBySearch(
+            // 1. Verify package exists and belongs to the correct project/tenant
+            ProjectFilePackage? package = await projectFilePackageRepo.GetFirstBySearch(
                 pfp => pfp.Id == request.ProjectFilePackageId &&
                        pfp.ProjectId == request.ProjectId &&
                        pfp.TenantId == request.TenantId &&
-                       pfp.OwnerId == currentUser.Id &&
-                       !pfp.IsDeleted))!;
+                       !pfp.IsDeleted) ?? throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
+
+            // 2. Authorization check: tenant admin OR project admin OR package owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isPackageOwner = package.OwnerId == currentUser.Id;
+            
+            if (!isAdmin && !isPackageOwner)
+            {
+                throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
+            }
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
             string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(package.Name);
@@ -61,7 +70,7 @@ namespace CQRS.Files.UploadProjectFiles
                         ? fileItem.DisplayName
                         : Path.GetFileNameWithoutExtension(file.FileName);
 
-                    // Utworzenie ProjectFile - Id jest generowane automatycznie przez BaseEntity
+                    // Create ProjectFile - Id is generated automatically by BaseEntity
                     ProjectFile projectFile = new ProjectFile
                     {
                         TenantId = request.TenantId,
@@ -70,18 +79,17 @@ namespace CQRS.Files.UploadProjectFiles
                         OwnerId = currentUser.Id,
                         FileName = file.FileName,
                         DisplayName = displayName,
-                        CurrentVersionId = null, // Ustawiamy null, zaktualizujemy po utworzeniu wersji
+                        CurrentVersionId = null,
                         CreatedAt = DateTime.UtcNow,
                         IsDeleted = false
                     };
 
-                    // Pobieramy wygenerowane ID
                     Guid fileId = projectFile.Id;
 
                     string fileExtension = Path.GetExtension(file.FileName);
                     int versionNumber = 1;
                     
-                    // Tworzymy ProjectFileVersion - Id jest generowane automatycznie
+                    // Create ProjectFileVersion - Id is generated automatically
                     ProjectFileVersion firstVersion = new ProjectFileVersion
                     {
                         ProjectFileId = fileId,
@@ -97,11 +105,10 @@ namespace CQRS.Files.UploadProjectFiles
                     string blobFileName = $"{versionId}{fileExtension}";
                     string blobPath = $"{request.TenantId}/{request.ProjectId}/{packageNameForBlob}/{fileId}/{versionNumber}/{blobFileName}";
 
-                    // Ustawiamy blob path i nazwę pliku w wersji
                     firstVersion.BlobFileName = blobFileName;
                     firstVersion.BlobPath = blobPath;
 
-                    // Upload pliku do blob storage przed zapisem do bazy
+                    // Upload file to blob storage before saving to database
                     using (Stream stream = file.OpenReadStream())
                     {
                         await blobStorageService.UploadAsync(
@@ -115,10 +122,10 @@ namespace CQRS.Files.UploadProjectFiles
                     await projectFileRepo.Insert(projectFile);
                     await projectFileVersionRepo.Insert(firstVersion);
 
-                    // Zapisujemy zmiany, aby ProjectFile i ProjectFileVersion zostały zapisane przed ustawieniem CurrentVersionId
+                    // Save changes to ensure ProjectFile and ProjectFileVersion are saved before setting CurrentVersionId
                     await projectFileRepo.SaveChangesAsync(cancellationToken);
 
-                    // Teraz ustawiamy CurrentVersionId i aktualizujemy
+                    // Now set CurrentVersionId and update
                     projectFile.CurrentVersionId = versionId;
                     await projectFileRepo.Update(projectFile);
 

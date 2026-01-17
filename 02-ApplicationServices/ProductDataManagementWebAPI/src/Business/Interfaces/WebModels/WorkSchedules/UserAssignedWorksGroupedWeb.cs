@@ -38,6 +38,7 @@
         int WorkOrder,
         string ColorRgb,
         bool IsClosed,
-        List<WorkScheduleStageWorkPeriodWeb> Periods
+        List<WorkScheduleStageWorkPeriodWeb> Periods,
+        List<WorkScheduleStageWorkCommentWeb> Comments
     );
 }

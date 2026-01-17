@@ -14,21 +14,6 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
             IReadRepository<ProjectFilePackage> packageRepo,
             ICurrentUser currentUser)
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    var project = await projectRepo.GetFirstBySearch(
-                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId);
-                    return project != null;
-                })
-                .WithMessage("Project not found");
-
             RuleFor(x => x.PackageName)
                 .NotEmpty().WithMessage("Package name is required")
                 .MaximumLength(FileConstants.MaxPackageNameLength)

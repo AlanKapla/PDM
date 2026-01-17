@@ -76,7 +76,7 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                         ? fileItem.DisplayName
                         : Path.GetFileNameWithoutExtension(file.FileName);
 
-                    // Utworzenie ProjectFile - Id jest generowane automatycznie przez BaseEntity
+                    // Step 1: Create ProjectFile WITHOUT CurrentVersionId to break circular dependency
                     ProjectFile projectFile = new ProjectFile
                     {
                         TenantId = request.TenantId,
@@ -85,18 +85,44 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                         OwnerId = currentUser.Id,
                         FileName = file.FileName,
                         DisplayName = displayName,
-                        CurrentVersionId = null, // Ustawiamy null, zaktualizujemy po utworzeniu wersji
+                        CurrentVersionId = null,
                         CreatedAt = DateTime.UtcNow,
                         IsDeleted = false
                     };
 
-                    // Pobieramy wygenerowane ID
+                    allProjectFiles.Add(projectFile);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex,
+                        "Error preparing file {FileName} for upload to new package in project {ProjectId}",
+                        fileItem.File.FileName, request.ProjectId);
+                    throw;
+                }
+            }
+
+            // Step 2: Insert ProjectFiles first (without CurrentVersionId set)
+            if (allProjectFiles.Any())
+            {
+                await projectFileRepo.InsertRange(allProjectFiles);
+                await projectFileRepo.SaveChangesAsync(cancellationToken);
+            }
+
+            // Step 3: Now create versions and upload files
+            for (int i = 0; i < request.Files.Count; i++)
+            {
+                FileUploadItem fileItem = request.Files[i];
+                ProjectFile projectFile = allProjectFiles[i];
+
+                try
+                {
+                    IFormFile file = fileItem.File;
                     Guid fileId = projectFile.Id;
 
                     string fileExtension = Path.GetExtension(file.FileName);
                     int versionNumber = 1;
                     
-                    // Tworzymy ProjectFileVersion - Id jest generowane automatycznie
+                    // Create ProjectFileVersion now that ProjectFile exists in database
                     ProjectFileVersion firstVersion = new ProjectFileVersion
                     {
                         ProjectFileId = fileId,
@@ -112,11 +138,10 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                     string blobFileName = $"{versionId}{fileExtension}";
                     string blobPath = $"{request.TenantId}/{request.ProjectId}/{packageNameForBlob}/{fileId}/{versionNumber}/{blobFileName}";
 
-                    // Ustawiamy blob path i nazwę pliku w wersji
                     firstVersion.BlobFileName = blobFileName;
                     firstVersion.BlobPath = blobPath;
 
-                    // Upload pliku do blob storage przed zapisem do bazy
+                    // Upload file to blob storage
                     using (Stream stream = file.OpenReadStream())
                     {
                         await blobStorageService.UploadAsync(
@@ -127,10 +152,6 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                             cancellationToken);
                     }
 
-                    // Set CurrentVersionId after version is created
-                    projectFile.CurrentVersionId = versionId;
-
-                    allProjectFiles.Add(projectFile);
                     allProjectFileVersions.Add(firstVersion);
 
                     if (!string.IsNullOrWhiteSpace(fileItem.Comment))
@@ -162,17 +183,21 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                 }
             }
 
-            // Insert all entities in batches
-            if (allProjectFiles.Any())
-            {
-                await projectFileRepo.InsertRange(allProjectFiles);
-            }
-
+            // Step 4: Insert all versions
             if (allProjectFileVersions.Any())
             {
                 await projectFileVersionRepo.InsertRange(allProjectFileVersions);
+                await projectFileVersionRepo.SaveChangesAsync(cancellationToken);
             }
 
+            // Step 5: Update CurrentVersionId on each ProjectFile now that versions exist
+            for (int i = 0; i < allProjectFiles.Count; i++)
+            {
+                allProjectFiles[i].CurrentVersionId = allProjectFileVersions[i].Id;
+                await projectFileRepo.Update(allProjectFiles[i]);
+            }
+
+            // Step 6: Insert comments
             if (allComments.Any())
             {
                 await commentRepo.InsertRange(allComments);

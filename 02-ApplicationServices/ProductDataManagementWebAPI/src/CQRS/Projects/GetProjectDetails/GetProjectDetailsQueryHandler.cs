@@ -1,4 +1,6 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
+using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Models;
 using MediatR;
@@ -8,7 +10,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.GetProjectDetails
 {
-    public class GetProjectDetailsQueryHandler : IRequestHandler<GetProjectDetailsQuery, ProjectDetailsWeb?>
+    public class GetProjectDetailsQueryHandler : IRequestHandler<GetProjectDetailsQuery, ProjectDetailsWeb>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
@@ -24,37 +26,83 @@ namespace CQRS.Projects.GetProjectDetails
             this.currentUser = currentUser;
         }
 
-        public async Task<ProjectDetailsWeb?> Handle(GetProjectDetailsQuery request, CancellationToken cancellationToken)
+        public async Task<ProjectDetailsWeb> Handle(GetProjectDetailsQuery request, CancellationToken cancellationToken)
         {
-            // Wszystkie walidacje wykonane w validatorze
-            IEnumerable<ProjectMember> projectMembers = await projectMemberRepo.GetBySearch(
-                pm => pm.TenantId == request.TenantId 
-                    && pm.ProjectId == request.ProjectId 
-                    && pm.UserId == currentUser.Id,
-                include => include.Include(pm => pm.Project)
-                                 .ThenInclude(p => p.CreatedBy)
-                                 .ThenInclude(cb => cb.User)
-            );
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 1: Load project with creator info
+            // ─────────────────────────────────────────────────────────────────────
+            Project project = await projectRepo.GetFirstBySearch(
+                p => p.TenantId == request.TenantId && p.Id == request.ProjectId,
+                include => include.Include(p => p.CreatedBy)
+                                 .ThenInclude(cb => cb.User))
+                ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            ProjectMember projectMember = projectMembers.First();
-            Project project = projectMember.Project;
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 2: Determine user's role in tenant and project
+            // ─────────────────────────────────────────────────────────────────────
+            var tenantSnapshot = await currentUser.GetTenantSnapshotAsync(request.TenantId, cancellationToken);
+            bool isSuperAdmin = currentUser.IsSuperAdmin;
+            bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
 
-            IEnumerable<ProjectMember> membersCount = await projectMemberRepo.GetBySearch(
-                pm => pm.ProjectId == project.Id);
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 3: Load project members (for membership check and count)
+            // ─────────────────────────────────────────────────────────────────────
+            var allMembers = await projectMemberRepo.GetBySearch(
+                pm => pm.ProjectId == request.ProjectId,
+                include => include.Include(pm => pm.MemberRole));
 
-            ProjectDetailsWeb result = new(
+            // Find current user's membership
+            var projectMembership = allMembers.FirstOrDefault(pm => pm.UserId == currentUser.Id);
+
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 4: Determine user role code hierarchy
+            // ─────────────────────────────────────────────────────────────────────
+            // 1. Project membership role (if exists)
+            // 2. Tenant Admin (if no project membership)
+            // 3. System SuperAdmin (if no project membership or tenant admin)
+            string userRoleCode;
+            if (projectMembership != null)
+            {
+                userRoleCode = projectMembership.MemberRole?.Code ?? RoleCodes.ProjectViewer;
+            }
+            else if (isTenantAdmin)
+            {
+                userRoleCode = RoleCodes.TenantAdmin;
+            }
+            else if (isSuperAdmin)
+            {
+                userRoleCode = RoleCodes.SystemSuperAdmin;
+            }
+            else
+            {
+                // Fallback (shouldn't happen due to authorization)
+                userRoleCode = RoleCodes.ProjectViewer;
+            }
+
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 5: Get user's permissions for this project
+            // ─────────────────────────────────────────────────────────────────────
+            var userPermissions = new HashSet<string>();
+            var projectSnapshot = await currentUser.GetProjectSnapshotAsync(request.ProjectId, cancellationToken);
+            if (projectSnapshot != null)
+            {
+                userPermissions = projectSnapshot.ProjectPermissionCodes;
+            }
+
+            return new ProjectDetailsWeb(
                 Id: project.Id,
                 TenantId: project.TenantId,
                 Name: project.Name,
                 IsActive: project.IsActive,
                 CreatedAt: project.CreatedAt,
                 CreatedByUserId: project.CreatedByUserId,
-                CreatedByUserName: $"{project.CreatedBy?.User?.FirstName} {project.CreatedBy?.User?.LastName}".Trim(),
-                UserRole: projectMember.Role,
-                MembersCount: membersCount.Count()
+                CreatedByUserName: project.CreatedBy?.User != null 
+                    ? $"{project.CreatedBy.User.FirstName} {project.CreatedBy.User.LastName}".Trim()
+                    : "Unknown",
+                UserRoleCode: userRoleCode,
+                MembersCount: allMembers.Count(),
+                UserPermissions: userPermissions
             );
-
-            return result;
         }
     }
 }

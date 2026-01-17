@@ -2,6 +2,11 @@
 export interface CreateWorkPeriodDto {
   startDate: string;
   endDate: string;
+  isClosed: boolean;
+}
+
+export interface CreateWorkCommentDto {
+  content: string;
 }
 
 export interface CreateWorkDto {
@@ -10,6 +15,7 @@ export interface CreateWorkDto {
   colorRgb: string;
   periods: CreateWorkPeriodDto[];
   assignedUserIds: string[];
+  comments: CreateWorkCommentDto[];
 }
 
 export interface CreateStageDto {
@@ -29,6 +35,12 @@ export interface UpdateWorkPeriodDto {
   id?: string;
   startDate: string;
   endDate: string;
+  isClosed: boolean;
+}
+
+export interface UpdateWorkCommentDto {
+  id?: string;
+  content: string;
 }
 
 export interface UpdateWorkDto {
@@ -39,6 +51,7 @@ export interface UpdateWorkDto {
   isClosed: boolean;
   periods: UpdateWorkPeriodDto[];
   assignedUserIds: string[];
+  comments: UpdateWorkCommentDto[];
 }
 
 export interface UpdateStageDto {
@@ -84,8 +97,18 @@ export interface WorkScheduleStageWeb {
 }
 
 export interface WorkScheduleStageWorkPeriodWeb {
+  id: string;
   startDate: string;
   endDate: string;
+  isClosed: boolean;
+}
+
+export interface WorkScheduleStageWorkCommentWeb {
+  id: string;
+  content: string;
+  createdAt: string;
+  createdByUserId: string;
+  createdByUserName: string;
 }
 
 export interface WorkScheduleStageWorkWeb {
@@ -96,6 +119,7 @@ export interface WorkScheduleStageWorkWeb {
   isClosed: boolean;
   periods: WorkScheduleStageWorkPeriodWeb[];
   assignees: WorkScheduleStageWorkAssigneeWeb[];
+  comments: WorkScheduleStageWorkCommentWeb[];
 }
 
 export interface WorkScheduleStageWorkAssigneeWeb {

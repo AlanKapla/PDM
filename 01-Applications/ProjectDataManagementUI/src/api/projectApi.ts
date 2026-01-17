@@ -1,48 +1,71 @@
-import { fetchWithAuth } from "./authApi";
+﻿import { axiosClient } from "./axiosClient";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// Resource scope enum matching backend
+export enum ResourceScope {
+  All = 0,
+  Mine = 1,
+  Shared = 2,
+}
+
+// Helper to convert enum to route string
+const resourceScopeToRoute = (scope: ResourceScope): string => {
+  switch (scope) {
+    case ResourceScope.All:
+      return "all";
+    case ResourceScope.Mine:
+      return "mine";
+    case ResourceScope.Shared:
+      return "shared";
+    default:
+      return "mine";
+  }
+};
 
 export const projectApi = {
+  // Pobierz wszystkie projekty w tenancie
+  getTenantProjects: async (tenantId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project`);
+  },
+
   // Pobierz szczegóły projektu
-  getProjectDetails: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/Project/${projectId}`, {
-      method: "GET",
-      credentials: "include",
-    });
+  getProjectDetails: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}`);
   },
 
   // Pobierz projekt (alias)
-  getProject: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/Project/${projectId}`, {
-      method: "GET",
-      credentials: "include",
+  getProject: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}`);
+  },
+
+  // Utwórz nowy projekt
+  createProject: async (tenantId: string, name: string) => {
+    return axiosClient.post(`/tenants/${tenantId}/project`, { 
+      tenantId, 
+      name 
     });
   },
 
   // Pobierz członków projektu
-  getProjectMembers: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/Project/${projectId}/members`, {
-      method: "GET",
-      credentials: "include",
-    });
+  getProjectMembers: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/members`);
+  },
+
+  // Pobierz słownik projektów (id -> nazwa) dla tenanta
+  getProjectsDictionary: async (tenantId: string): Promise<Record<string, string>> => {
+    const response = await axiosClient.get<Record<string, string>>(`/tenants/${tenantId}/project/dictionary`);
+    return response.data;
   },
 
   // Dodaj członka do projektu
-  addProjectMember: async (tenantId: string, projectId: string, userId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/Project/${projectId}/members`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId, projectId, userId }),
+  addProjectMember: async (tenantId: string, projectId: string, userId: string) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/members`, { 
+      tenantId, projectId, userId 
     });
   },
 
   // Usuń członka z projektu
-  removeProjectMember: async (tenantId: string, projectId: string, userId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/Project/${projectId}/members/${userId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+  removeProjectMember: async (tenantId: string, projectId: string, userId: string) => {
+    return axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/members/${userId}`);
   },
 
   // Utwórz paczkę i upload plików
@@ -51,7 +74,7 @@ export const projectApi = {
     projectId: string, 
     packageName: string, 
     files: Array<{ file: File; displayName?: string; comment?: string }>
-  ): Promise<Response> => {
+  ) => {
     const formData = new FormData();
     formData.append('PackageName', packageName);
     
@@ -65,10 +88,8 @@ export const projectApi = {
       }
     });
 
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/packages/create`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/packages/create`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
 
@@ -78,7 +99,7 @@ export const projectApi = {
     projectId: string, 
     packageId: string,
     files: Array<{ file: File; displayName?: string; comment?: string }>
-  ): Promise<Response> => {
+  ) => {
     const formData = new FormData();
     formData.append('ProjectFilePackageId', packageId);
     
@@ -92,19 +113,35 @@ export const projectApi = {
       }
     });
 
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
 
-  // Pobierz pliki użytkownika w projekcie
-  getMyFiles: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/my`, {
-      method: "GET",
-      credentials: "include",
-    });
+  // 🆕 Hierarchiczne endpointy dla plików (API v2.0)
+  
+  // 1. Pobierz listę paczek plików
+  getProjectFilePackages: async (tenantId: string, projectId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/packages/${scopeRoute}`);
+  },
+
+  // 2. Pobierz pliki w konkretnej paczce
+  getPackageFiles: async (tenantId: string, projectId: string, packageId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/packages/${packageId}/files/${scopeRoute}`);
+  },
+
+  // 3. Pobierz wersje konkretnego pliku
+  getFileVersions: async (tenantId: string, projectId: string, fileId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/files/${fileId}/versions/${scopeRoute}`);
+  },
+
+  // 4. Pobierz komentarze do konkretnej wersji
+  getVersionComments: async (tenantId: string, projectId: string, fileId: string, versionId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/files/${fileId}/versions/${versionId}/comments/${scopeRoute}`);
   },
 
   // Udostępnij pliki wielu użytkownikom
@@ -113,19 +150,12 @@ export const projectApi = {
     projectId: string,
     fileIds: string[],
     sharedWithUserIds: string[]
-  ): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/share`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        tenantId,
-        projectId,
-        projectFileIds: fileIds,
-        sharedWithUserIds,
-      }),
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/share`, {
+      tenantId,
+      projectId,
+      projectFileIds: fileIds,
+      sharedWithUserIds,
     });
   },
 
@@ -135,36 +165,18 @@ export const projectApi = {
     projectId: string,
     fileId: string,
     sharedWithUserIds: string[]
-  ): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}/share`, {
-      method: "PUT",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        tenantId,
-        projectId,
-        fileId,
-        sharedWithUserIds,
-      }),
-    });
-  },
-
-  // Pobierz pliki udostępnione dla użytkownika
-  getSharedFiles: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/shared`, {
-      method: "GET",
-      credentials: "include",
+  ) => {
+    return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/file/${fileId}/share`, {
+      tenantId,
+      projectId,
+      fileId,
+      sharedWithUserIds,
     });
   },
 
   // Usuń plik z projektu
-  deleteFile: async (tenantId: string, projectId: string, fileId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+  deleteFile: async (tenantId: string, projectId: string, fileId: string) => {
+    return axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/file/${fileId}`);
   },
 
   // Upload nowej wersji pliku
@@ -174,17 +186,15 @@ export const projectApi = {
     fileId: string,
     file: File,
     comment?: string
-  ): Promise<Response> => {
+  ) => {
     const formData = new FormData();
     formData.append("File", file);
     if (comment) {
       formData.append("Comment", comment);
     }
 
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}/versions`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/${fileId}/versions`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
 
@@ -195,21 +205,20 @@ export const projectApi = {
     fileId: string,
     versionId: string,
     comment: string
-  ): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/File/${fileId}/versions/${versionId}/comments`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comment }),
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/${fileId}/versions/${versionId}/comments`, {
+      comment
     });
   },
 
   // Zmień status projektu (aktywuj/dezaktywuj)
-  toggleProjectStatus: async (tenantId: string, projectId: string, isActive: boolean): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/Project/${projectId}/toggle-status?isActive=${isActive}`, {
-      method: "PATCH",
-      credentials: "include",
-    });
+  toggleProjectStatus: async (tenantId: string, projectId: string, isActive: boolean) => {
+    return axiosClient.patch(`/tenants/${tenantId}/project/${projectId}/status?isActive=${isActive}`);
+  },
+
+  // Aktualizuj projekt (nazwa)
+  updateProject: async (tenantId: string, projectId: string, data: { Name: string }) => {
+    return axiosClient.put(`/tenants/${tenantId}/project/${projectId}`, data);
   },
 
   // Utwórz harmonogram prac
@@ -218,49 +227,51 @@ export const projectApi = {
     projectId: string,
     command: {
       name: string;
-      stages: Array<{
+      stages?: Array<{
         name: string;
         order: number;
         works: Array<{
           name: string;
           order: number;
           colorRgb: string;
+          isClosed: boolean;
           periods: Array<{
             startDate: string;
             endDate: string;
+            isClosed: boolean;
           }>;
           assignedUserIds: string[];
+          comments: Array<{
+            content: string;
+          }>;
         }>;
       }>;
     }
-  ): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tenantId,
-        projectId,
-        name: command.name,
-        stages: command.stages,
-      }),
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/work-schedule`, {
+      tenantId,
+      projectId,
+      name: command.name,
+      stages: command.stages,
     });
   },
 
-  // Pobierz moje harmonogramy prac (lista podsumowań)
-  getMyWorkSchedules: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules/my`, {
-      method: "GET",
-      credentials: "include",
-    });
+  // ===== Harmonogramy prac =====
+
+  // UNIFIED endpoint for getting work schedules based on scope
+  getWorkSchedules: async (tenantId: string, projectId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/${scopeRoute}`);
+  },
+
+  // DEPRECATED - use getWorkSchedules with ResourceScope.Mine
+  getMyWorkSchedules: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/mine`);
   },
 
   // Pobierz szczegóły pojedynczego harmonogramu prac
-  getWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules/${workScheduleId}`, {
-      method: "GET",
-      credentials: "include",
-    });
+  getWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/work-schedule/details/${workScheduleId}`);
   },
 
   // Aktualizuj harmonogram prac
@@ -270,7 +281,7 @@ export const projectApi = {
     workScheduleId: string,
     command: {
       name: string;
-      stages: Array<{
+      stages?: Array<{
         id?: string;
         name: string;
         order: number;
@@ -284,42 +295,47 @@ export const projectApi = {
             id?: string;
             startDate: string;
             endDate: string;
+            isClosed: boolean;
           }>;
           assignedUserIds: string[];
+          comments: Array<{
+            id?: string;
+            content: string;
+          }>;
         }>;
       }>;
     }
-  ): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/work-schedules/${workScheduleId}`, {
-      method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tenantId,
-        projectId,
-        workScheduleId,
-        name: command.name,
-        stages: command.stages,
-      }),
+  ) => {
+    return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}`, {
+      tenantId,
+      projectId,
+      workScheduleId,
+      name: command.name,
+      stages: command.stages,
     });
   },
 
   // Pobierz prace przypisane do użytkownika
-  getMyAssignedWorks: async (tenantId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/my-assigned-works`, {
-      method: "GET",
-      credentials: "include",
-    });
+  getMyAssignedWorks: async (tenantId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/my-assigned-works`);
   },
 
   // ===== Koszty projektowe =====
 
-  // Pobierz listę kosztów projektowych
-  getProjectUserCosts: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs`, {
-      method: "GET",
-      credentials: "include",
-    });
+  // UNIFIED endpoint for getting costs based on scope
+  getProjectCosts: async (tenantId: string, projectId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost/${scopeRoute}`);
+  },
+
+  // DEPRECATED - use getProjectCosts with ResourceScope.Mine
+  getProjectUserCosts: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost/mine`);
+  },
+
+  // DEPRECATED - use getProjectCosts with ResourceScope.Shared
+  getSharedProjectCosts: async (tenantId: string, projectId: string) => {
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/cost/shared`);
   },
 
   // Utwórz nowy koszt projektowy
@@ -331,12 +347,13 @@ export const projectApi = {
       place?: string;
       date: Date;
       description?: string;
-      netAmount?: number;
-      vatRate?: number;
-      grossAmount?: number;
+      netAmount?: number | null;
+      vatRate?: number | null;
+      grossAmount?: number | null;
+      isClosed?: boolean;
       document?: File;
     }
-  ): Promise<Response> => {
+  ) => {
     const formData = new FormData();
     formData.append("TenantId", tenantId);
     formData.append("ProjectId", projectId);
@@ -344,15 +361,14 @@ export const projectApi = {
     if (data.place) formData.append("Place", data.place);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
-    if (data.netAmount !== undefined) formData.append("NetAmount", data.netAmount.toString());
-    if (data.vatRate !== undefined) formData.append("VatRate", data.vatRate.toString());
-    if (data.grossAmount !== undefined) formData.append("GrossAmount", data.grossAmount.toString());
+    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
+    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString());
+    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
+    if (data.isClosed !== undefined) formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
 
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/cost`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
 
@@ -366,13 +382,14 @@ export const projectApi = {
       place?: string;
       date: Date;
       description?: string;
-      netAmount?: number;
-      vatRate?: number;
-      grossAmount?: number;
+      netAmount?: number | null;
+      vatRate?: number | null;
+      grossAmount?: number | null;
+      isClosed: boolean;
       document?: File;
       removeDocument: boolean;
     }
-  ): Promise<Response> => {
+  ) => {
     const formData = new FormData();
     formData.append("TenantId", tenantId);
     formData.append("ProjectId", projectId);
@@ -381,47 +398,49 @@ export const projectApi = {
     if (data.place) formData.append("Place", data.place);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
-    if (data.netAmount !== undefined) formData.append("NetAmount", data.netAmount.toString());
-    if (data.vatRate !== undefined) formData.append("VatRate", data.vatRate.toString());
-    if (data.grossAmount !== undefined) formData.append("GrossAmount", data.grossAmount.toString());
+    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
+    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString());
+    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
+    formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
     formData.append("RemoveDocument", data.removeDocument.toString());
 
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/${costId}`, {
-      method: "PUT",
-      credentials: "include",
-      body: formData,
+    return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/cost/${costId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
 
   // Usuń koszt projektowy
-  deleteProjectCost: async (tenantId: string, projectId: string, costId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/${costId}`, {
-      method: "DELETE",
-      credentials: "include",
+  deleteProjectCost: async (tenantId: string, projectId: string, costId: string) => {
+    return axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/cost/${costId}`);
+  },
+
+  // Udostępnij wiele kosztów wybranym członkom (grupowe udostępnianie)
+  shareProjectCosts: async (
+    tenantId: string,
+    projectId: string,
+    data: {
+      projectCostIds: string[];
+      sharedWithUserIds: string[];
+    }
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/cost/share`, data);
+  },
+
+  // Aktualizuj udostępnienie pojedynczego kosztu
+  updateCostShare: async (
+    tenantId: string,
+    projectId: string,
+    costId: string,
+    sharedWithUserIds: string[]
+  ) => {
+    return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/cost/${costId}/share`, {
+      sharedWithUserIds,
     });
   },
 
-  // Pobierz udostępnione koszty projektowe
-  getSharedProjectCosts: async (tenantId: string, projectId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/shared`, {
-      method: "GET",
-      credentials: "include",
-    });
-  },
-
-  // Udostępnij koszt projektowy użytkownikom (backend zarządza dodawaniem i usuwaniem)
-  shareProjectCost: async (tenantId: string, projectId: string, costId: string, sharedWithUserIds: string[]): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/tenants/${tenantId}/projects/${projectId}/costs/${costId}/share`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tenantId,
-        projectId,
-        costId,
-        sharedWithUserIds,
-      }),
-    });
+  // Zmień rolę członka projektu
+  updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, roleId: string) => {
+      return axiosClient.patch(`/tenants/${tenantId}/project/${projectId}/members/${userId}/role`, { roleId });
   },
 };

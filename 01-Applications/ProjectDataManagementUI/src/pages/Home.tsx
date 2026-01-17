@@ -1,15 +1,88 @@
-import { Box, Button, Container, Heading, HStack, Text, VStack, useColorModeValue } from "@chakra-ui/react";
-import { LogIn, UserPlus, Building2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Box, Button, Container, Heading, HStack, Text, VStack, useColorModeValue, Flex, Spinner } from "@chakra-ui/react";
+import { LogIn, Building2 } from "lucide-react";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
+import { useMsal, useIsAuthenticated, useAccount } from "@azure/msal-react";
+import { loginRequest } from "../config/authConfig";
 
 export default function Home() {
-  const navigate = useNavigate();
+  const location = useLocation();
+  const { instance, accounts, inProgress } = useMsal();
+  const isAuthenticated = useIsAuthenticated();
+  const account = useAccount(accounts[0] || null);
 
   const bg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
   const textColor = useColorModeValue("gray.700", "gray.200");
   const accentColor = useColorModeValue("blue.600", "blue.400");
 
+  const isLoading = inProgress === "login" || inProgress === "acquireToken";
+  const authLoading = isAuthenticated && !account;
+
+  useEffect(() => {
+    console.log("🔍 Home.tsx state:", {
+      isAuthenticated,
+      isLoading,
+      authLoading,
+      hasUser: !!account,
+    });
+  }, [isAuthenticated, isLoading, authLoading, account]);
+
+
+  const handleLogin = async () => {
+    try {
+      console.log("🚀 Starting login redirect to External ID...");
+      console.log("🔧 Authority:", instance.getConfiguration().auth.authority);
+      console.log("🔧 Scopes:", loginRequest.scopes);
+      
+      // Preserve return URL through OAuth state
+      const returnUrl = (location.state as any)?.from?.pathname || "/dashboard";
+      
+      // Redirect to External ID login/signup page
+      await instance.loginRedirect({
+        ...loginRequest,
+        state: JSON.stringify({ returnUrl }),
+      });
+      
+      // User will be redirected to External ID, then back to /auth/callback
+    } catch (error) {
+      console.error("❌ Login redirect failed:", error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Flex minH="100vh" align="center" justify="center">
+        <VStack spacing={4}>
+          <Spinner size="xl" color="blue.500" thickness="4px" />
+          <Text>Przetwarzanie logowania...</Text>
+        </VStack>
+      </Flex>
+    );
+  }
+  // If authenticated, wait for user profile
+  if (isAuthenticated && authLoading) {
+    return (
+      <Flex minH="100vh" align="center" justify="center">
+        <VStack spacing={4}>
+          <Spinner size="xl" color="green.500" thickness="4px" />
+          <Text>Ładowanie profilu użytkownika...</Text>
+        </VStack>
+      </Flex>
+    );
+  }
+
+  // If fully authenticated with profile, show redirect message
+  if (isAuthenticated && account) {
+    return (
+      <Flex minH="100vh" align="center" justify="center">
+        <VStack spacing={4}>
+          <Spinner size="xl" color="green.500" thickness="4px" />
+          <Text>Przekierowywanie do aplikacji...</Text>
+        </VStack>
+      </Flex>
+    );
+  }
   return (
     <Box bg={bg} minH="100vh" py={10} overflowY="auto">
       <Container maxW="container.md" py={10} pb={40}>
@@ -38,7 +111,7 @@ export default function Home() {
               pb={2}
               pt={1}
             >
-              Project Data Management
+              Brickly
             </Heading>
             <Text fontSize="xl" color={textColor} maxW="600px">
               Kompleksowe rozwiązanie do zarządzania projektami i danymi w środowisku wielotenantowym
@@ -55,36 +128,19 @@ export default function Home() {
             maxW="500px"
           >
             <VStack spacing={6}>
-              <Text fontSize="lg" color={textColor} textAlign="center" fontWeight="medium">
-                Zaloguj się lub utwórz nowe konto, aby rozpocząć
-              </Text>
-
-              <VStack spacing={3} w="100%">
-                <Button
-                  leftIcon={<LogIn size={20} />}
-                  colorScheme="blue"
-                  size="lg"
-                  w="100%"
-                  onClick={() => navigate("/login")}
-                  fontSize="md"
-                  fontWeight="semibold"
-                >
-                  Zaloguj się
-                </Button>
-
-                <Button
-                  leftIcon={<UserPlus size={20} />}
-                  variant="outline"
-                  colorScheme="blue"
-                  size="lg"
-                  w="100%"
-                  onClick={() => navigate("/register")}
-                  fontSize="md"
-                  fontWeight="semibold"
-                >
-                  Zarejestruj się
-                </Button>
-              </VStack>
+              <Button
+                colorScheme="blue"
+                size="lg"
+                w="full"
+                onClick={handleLogin}
+                leftIcon={<LogIn size={20} />}
+                isLoading={isLoading}
+                loadingText="Przekierowywanie..."
+                _hover={{ transform: "translateY(-2px)", shadow: "lg" }}
+                transition="all 0.2s"
+              >
+                Zaloguj się / Zarejestruj się
+              </Button>
             </VStack>
           </Box>
 

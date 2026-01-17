@@ -1,20 +1,27 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Box,
+  Badge,
+  Button,
+  Divider,
+  HStack,
+  Icon,
   IconButton,
   Popover,
   PopoverTrigger,
   PopoverContent,
   PopoverHeader,
   PopoverBody,
-  VStack,
-  HStack,
-  Text,
-  Badge,
-  useColorModeValue,
-  Icon,
-  Divider,
   Spinner,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+  Text,
+  VStack,
+  useColorModeValue,
+  useToast,
 } from "@chakra-ui/react";
 import { Bell, Info, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { notificationApi } from "../api/notificationApi";
@@ -23,122 +30,223 @@ import { handleApiError } from "../utils/handleApiError";
 import { type NotificationWeb, NotificationType } from "../types/notification.types";
 
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<NotificationWeb[]>([]);
+  const [allNotifications, setAllNotifications] = useState<NotificationWeb[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState<NotificationWeb[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [allOffset, setAllOffset] = useState(0);
+  const [unreadOffset, setUnreadOffset] = useState(0);
+  const [hasMoreAll, setHasMoreAll] = useState(true);
+  const [hasMoreUnread, setHasMoreUnread] = useState(true);
+  const toast = useToast();
+
+  const LIMIT = 20;
 
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const unreadBg = useColorModeValue("blue.50", "blue.900");
+  const messageTextColor = useColorModeValue("gray.700", "gray.300");
 
-  // Załaduj powiadomienia z cache (gdy użytkownik otworzy popover)
-  const loadNotificationsFromCache = () => {
-    const cachedNotifications = notificationHubService.getUnreadNotificationsFromCache();
-    const cachedUnreadCount = notificationHubService.getUnreadCountFromCache();
-    
-    setNotifications(cachedNotifications);
-    setUnreadCount(cachedUnreadCount);
-    
-    console.log("🔵 Loaded notifications from cache:", cachedNotifications.length, "| Unread:", cachedUnreadCount);
+  const fetchUnreadCounter = async () => {
+    try {
+      const count = await notificationApi.getUnreadCounter();
+      setUnreadCount(count);
+      console.log("🔵 Unread counter fetched:", count);
+    } catch (error) {
+      console.error("Błąd pobierania licznika:", error);
+    }
   };
 
-  // Inicjalizacja cache z API (tylko raz przy montowaniu)
+  // Inicjalizacja - pobierz licznik nieprzeczytanych
   useEffect(() => {
-    const initializeNotifications = async () => {
-      // Jeśli cache już zainicjalizowany, użyj go
-      if (notificationHubService.isCacheInitialized()) {
-        const cachedUnreadCount = notificationHubService.getUnreadCountFromCache();
-        setUnreadCount(cachedUnreadCount);
-        console.log("🔵 Cache already initialized, unread count:", cachedUnreadCount);
-        return;
-      }
-
-      // Pobierz z API i zainicjalizuj cache
-      setLoading(true);
-      try {
-        const response = await notificationApi.getUnreadNotifications();
-        if (response.ok) {
-          const data: NotificationWeb[] = await response.json();
-          await notificationHubService.initializeCache(data);
-          setUnreadCount(data.filter(n => !n.readed).length);
-          console.log("🔵 Cache initialized from API:", data.length, "notifications");
-        }
-      } catch (error) {
-        console.error("Błąd inicjalizacji powiadomień:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeNotifications();
+    fetchUnreadCounter();
   }, []);
 
-  // Połączenie SignalR i nasłuchiwanie na nowe powiadomienia - TYLKO RAZ
+  // SignalR - nasłuchuj na nowe powiadomienia
   useEffect(() => {
-    let unsubscribeNew: (() => void) | null = null;
-    let unsubscribeSync: (() => void) | null = null;
+    const unsubscribeNew = notificationHubService.onNotificationReceived((payload) => {
+      console.log("🔔 [UI] Otrzymano powiadomienie:", {
+        title: payload.notification.title,
+        oldCounter: unreadCount,
+        newCounter: payload.unreadNotificationCounter,
+      });
+      
+      // Zaktualizuj licznik z backendu (snapshot)
+      setUnreadCount(payload.unreadNotificationCounter);
+      
+      // Pokaż toast
+      toast({
+        title: payload.notification.title,
+        description: payload.notification.message,
+        status: getToastStatus(payload.notification.type),
+        duration: 5000,
+        isClosable: true,
+        position: "top-right",
+      });
+      
+      console.log("✅ [UI] Licznik zaktualizowany na:", payload.unreadNotificationCounter);
+    });
 
-    const initSignalR = async () => {
-      try {
-        // Uruchom połączenie SignalR
-        await notificationHubService.startConnection();
+    const unsubscribeSync = notificationHubService.onNotificationSynced(async () => {
+      console.log("🔄 [UI] Synchronizacja - odśwież licznik");
+      await fetchUnreadCounter();
+    });
 
-        // Subskrybuj na nowe powiadomienia
-        unsubscribeNew = notificationHubService.onNotificationReceived((notification) => {
-          console.log("✅ Nowe powiadomienie otrzymane z SignalR:", notification.title);
-          
-          // ✅ Cache został już zaktualizowany w notificationHubService
-          // Tutaj tylko odświeżamy UI
-          const newUnreadCount = notificationHubService.getUnreadCountFromCache();
-          setUnreadCount(newUnreadCount);
-          
-          // Jeśli popover jest otwarty, odśwież listę
-          if (isOpen) {
-            loadNotificationsFromCache();
-          }
-          
-          console.log("✅ UI zaktualizowane bez API call! Nowy licznik nieprzeczytanych:", newUnreadCount);
-        });
-
-        // 🔄 Subskrybuj na synchronizację między urządzeniami
-        unsubscribeSync = notificationHubService.onNotificationSynced((dto) => {
-          console.log("🔄 Synchronizacja z innego urządzenia - powiadomienie oznaczone jako przeczytane:", {
-            notificationId: dto.notificationId,
-            userId: dto.userId,
-            readAt: dto.readAt
-          });
-          
-          // Cache został już zaktualizowany przez SignalR event handler
-          // Teraz tylko odśwież UI
-          const newUnreadCount = notificationHubService.getUnreadCountFromCache();
-          setUnreadCount(newUnreadCount);
-          
-          // Jeśli popover jest otwarty, odśwież listę
-          if (isOpen) {
-            loadNotificationsFromCache();
-          }
-          
-          console.log("🔄 UI zsynchronizowane z innym urządzeniem! Nowy licznik:", newUnreadCount);
-        });
-      } catch (error) {
-        console.error("Błąd inicjalizacji SignalR:", error);
-      }
-    };
-
-    initSignalR();
-
-    // Cleanup przy unmount - usuń listenery
     return () => {
-      if (unsubscribeNew) {
-        unsubscribeNew();
-      }
-      if (unsubscribeSync) {
-        unsubscribeSync();
-      }
+      unsubscribeNew();
+      unsubscribeSync();
     };
-  }, [isOpen]); // Dodaj isOpen do zależności
+  }, []);
+
+  // Załaduj powiadomienia przy otwarciu popover i zmianie taba
+  useEffect(() => {
+    if (isOpen) {
+      // Pobierz aktualny licznik nieprzeczytanych
+      fetchUnreadCounter();
+      // Załaduj listę powiadomień (resetuj offset)
+      setAllOffset(0);
+      setUnreadOffset(0);
+      setHasMoreAll(true);
+      setHasMoreUnread(true);
+      loadNotifications(true);
+    }
+  }, [isOpen, activeTab]);
+
+  const loadNotifications = async (reset: boolean = false) => {
+    setLoading(true);
+    try {
+      const currentOffset = reset ? 0 : (activeTab === 0 ? allOffset : unreadOffset);
+      
+      if (activeTab === 0) {
+        // Tab "Wszystkie"
+        const notifications = await notificationApi.getAll(LIMIT, currentOffset);
+        
+        if (reset) {
+          setAllNotifications(notifications);
+          setAllOffset(LIMIT);
+        } else {
+          setAllNotifications(prev => [...prev, ...notifications]);
+          setAllOffset(prev => prev + LIMIT);
+        }
+        
+        setHasMoreAll(notifications.length === LIMIT);
+      } else {
+        // Tab "Nieprzeczytane"
+        const notifications = await notificationApi.getUnread(LIMIT, currentOffset);
+        
+        if (reset) {
+          setUnreadNotifications(notifications);
+          setUnreadOffset(LIMIT);
+        } else {
+          setUnreadNotifications(prev => [...prev, ...notifications]);
+          setUnreadOffset(prev => prev + LIMIT);
+        }
+        
+        setHasMoreUnread(notifications.length === LIMIT);
+      }
+    } catch (error) {
+      const { title, description } = handleApiError(error);
+      console.error("❌ Błąd ładowania powiadomień:", title, description);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMoreNotifications = async () => {
+    setLoadingMore(true);
+    try {
+      if (activeTab === 0) {
+        const notifications = await notificationApi.getAll(LIMIT, allOffset);
+        setAllNotifications(prev => [...prev, ...notifications]);
+        setAllOffset(prev => prev + LIMIT);
+        setHasMoreAll(notifications.length === LIMIT);
+      } else {
+        const notifications = await notificationApi.getUnread(LIMIT, unreadOffset);
+        setUnreadNotifications(prev => [...prev, ...notifications]);
+        setUnreadOffset(prev => prev + LIMIT);
+        setHasMoreUnread(notifications.length === LIMIT);
+      }
+    } catch (error) {
+      const { title, description } = handleApiError(error);
+      console.error("❌ Błąd ładowania kolejnych powiadomień:", title, description);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await notificationApi.markAsRead(notificationId);
+      
+      // Odśwież licznik z API
+      await fetchUnreadCounter();
+      
+      // Przeładuj aktualne powiadomienia od początku
+      await loadNotifications(true);
+      
+      console.log("✅ Powiadomienie oznaczone jako przeczytane");
+    } catch (error) {
+      const { title, description } = handleApiError(error);
+      console.error("❌ Błąd oznaczania powiadomienia:", title, description);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const result = await notificationApi.markAllAsRead();
+      
+      if (result.markedCount > 0) {
+        // Refresh notifications and counter
+        await Promise.all([
+          loadNotifications(true),
+          fetchUnreadCounter(),
+        ]);
+        
+        toast({
+          title: "Oznaczono wszystkie jako przeczytane",
+          description: `Oznaczono ${result.markedCount} powiadomień`,
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+      const { title, description } = handleApiError(error);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
 
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -158,39 +266,12 @@ export default function NotificationBell() {
     }
   };
 
-  const handleMarkAsRead = async (notificationId: string) => {
-    console.log("🔵 Oznaczam jako przeczytane:", notificationId);
-    
-    try {
-      // ✅ Najpierw zaktualizuj cache (optimistic update)
-      notificationHubService.markAsReadInCache(notificationId);
-      
-      // ✅ Zaktualizuj UI natychmiast z cache
-      const newUnreadCount = notificationHubService.getUnreadCountFromCache();
-      const updatedNotifications = notificationHubService.getUnreadNotificationsFromCache();
-      
-      setUnreadCount(newUnreadCount);
-      setNotifications(updatedNotifications);
-      
-      console.log("✅ UI zaktualizowane optimistically (bez czekania na API)");
-      
-      // Wyślij request do API w tle (bez blokowania UI)
-      const response = await notificationApi.markAsRead(notificationId);
-      
-      if (!response.ok) {
-        // Jeśli API zwróci błąd, cofnij zmiany w cache
-        console.error("❌ API błąd - cofam zmiany w cache");
-        // Tutaj możesz opcjonalnie dodać logikę rollback
-        // Na razie logujemy tylko błąd
-        const { title, description } = await handleApiError(response);
-        console.error("❌ Błąd API:", response.status, title, description);
-      } else {
-        console.log("✅ API potwierdziło oznaczenie jako przeczytane");
-      }
-    } catch (error) {
-      console.error("❌ Błąd oznaczania powiadomienia jako przeczytane:", error);
-      // W przypadku błędu sieciowego, cache pozostaje zaktualizowany
-      // Można dodać toast z informacją o problemie
+  const getToastStatus = (type: NotificationType): "success" | "warning" | "error" | "info" => {
+    switch (type) {
+      case NotificationType.Success: return "success";
+      case NotificationType.Warning: return "warning";
+      case NotificationType.Error: return "error";
+      default: return "info";
     }
   };
 
@@ -214,13 +295,96 @@ export default function NotificationBell() {
     });
   };
 
+  const renderNotifications = (notifications: NotificationWeb[]) => (
+    loading ? (
+      <Box textAlign="center" py={8}>
+        <Spinner size="lg" color="blue.500" />
+      </Box>
+    ) : notifications.length === 0 ? (
+      <Box textAlign="center" py={8}>
+        <Icon as={Bell} boxSize={12} color="gray.400" mb={2} />
+        <Text color="gray.500" fontSize="sm">
+          Brak powiadomień
+        </Text>
+      </Box>
+    ) : (
+      <VStack spacing={0} align="stretch">
+        {notifications.map((notification) => (
+          <Box
+            key={notification.id}
+            p={3}
+            bg={!notification.readed ? unreadBg : "transparent"}
+            borderBottom="1px"
+            borderColor={borderColor}
+            _hover={{ bg: hoverBg }}
+            transition="background 0.2s"
+            cursor="pointer"
+            onClick={() => !notification.readed && handleMarkAsRead(notification.id)}
+          >
+            <HStack align="flex-start" spacing={3}>
+              <Icon
+                as={getNotificationIcon(notification.type)}
+                boxSize={5}
+                color={`${getNotificationColor(notification.type)}.500`}
+                mt={0.5}
+              />
+              <VStack align="flex-start" spacing={2} flex={1}>
+                <HStack justify="space-between" w="full" align="flex-start">
+                  <Text fontWeight="600" fontSize="sm" noOfLines={2} flex={1}>
+                    {notification.title}
+                  </Text>
+                  {!notification.readed && (
+                    <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
+                      Nowe
+                    </Badge>
+                  )}
+                </HStack>
+                
+                <Text fontSize="sm" color={messageTextColor} noOfLines={2} lineHeight="1.4">
+                  {notification.message}
+                </Text>
+                
+                <VStack align="flex-start" spacing={0.5} w="full" mt={1}>
+                  <HStack spacing={2} fontSize="xs" color="gray.500">
+                    <Text>{formatDate(notification.createdAt)}</Text>
+                    <Text>•</Text>
+                    <Text fontWeight="500">{notification.tenantName}</Text>
+                    {notification.projectName && (
+                      <>
+                        <Text>•</Text>
+                        <Text fontWeight="500">{notification.projectName}</Text>
+                      </>
+                    )}
+                  </HStack>
+                </VStack>
+              </VStack>
+            </HStack>
+          </Box>
+        ))}
+        
+        {/* Przycisk "Załaduj więcej" */}
+        {!loading && notifications.length > 0 && (activeTab === 0 ? hasMoreAll : hasMoreUnread) && (
+          <Box p={3} borderTop="1px" borderColor={borderColor}>
+            <Button
+              size="sm"
+              variant="ghost"
+              colorScheme="blue"
+              onClick={loadMoreNotifications}
+              isLoading={loadingMore}
+              w="full"
+            >
+              Załaduj więcej
+            </Button>
+          </Box>
+        )}
+      </VStack>
+    )
+  );
+
   return (
     <Popover
       isOpen={isOpen}
-      onOpen={() => {
-        setIsOpen(true);
-        loadNotificationsFromCache(); // ✅ Ładuj z cache zamiast API
-      }}
+      onOpen={() => setIsOpen(true)}
       onClose={() => setIsOpen(false)}
       placement="bottom-end"
       strategy="fixed"
@@ -261,83 +425,46 @@ export default function NotificationBell() {
         zIndex={1001}
       >
         <PopoverHeader fontWeight="bold" border="0" pb={2}>
-          <HStack justify="space-between">
-            <Text>Powiadomienia</Text>
+          <VStack align="stretch" spacing={2}>
+            <HStack justify="space-between">
+              <Text>Powiadomienia</Text>
+              {unreadCount > 0 && (
+                <Badge colorScheme="blue">{unreadCount} nowych</Badge>
+              )}
+            </HStack>
             {unreadCount > 0 && (
-              <Badge colorScheme="blue">{unreadCount} nowych</Badge>
+              <Button
+                size="xs"
+                variant="ghost"
+                colorScheme="blue"
+                onClick={handleMarkAllAsRead}
+                leftIcon={<Icon as={CheckCircle} boxSize={3} />}
+                justifyContent="flex-start"
+              >
+                Oznacz wszystkie jako przeczytane
+              </Button>
             )}
-          </HStack>
+          </VStack>
         </PopoverHeader>
         <Divider />
-        <PopoverBody p={0} maxH="400px" overflowY="auto">
-          {loading ? (
-            <Box textAlign="center" py={8}>
-              <Spinner size="lg" color="blue.500" />
-            </Box>
-          ) : notifications.length === 0 ? (
-            <Box textAlign="center" py={8}>
-              <Icon as={Bell} boxSize={12} color="gray.400" mb={2} />
-              <Text color="gray.500" fontSize="sm">
-                Brak nowych powiadomień
-              </Text>
-            </Box>
-          ) : (
-            <VStack spacing={0} align="stretch">
-              {notifications.map((notification) => (
-                <Box
-                  key={notification.id}
-                  p={3}
-                  bg={!notification.readed ? unreadBg : "transparent"}
-                  borderBottom="1px"
-                  borderColor={borderColor}
-                  _hover={{ bg: hoverBg }}
-                  transition="background 0.2s"
-                  cursor="pointer"
-                  onClick={() => !notification.readed && handleMarkAsRead(notification.id)}
-                >
-                  <HStack align="flex-start" spacing={3}>
-                    <Icon
-                      as={getNotificationIcon(notification.type)}
-                      boxSize={5}
-                      color={`${getNotificationColor(notification.type)}.500`}
-                      mt={0.5}
-                    />
-                    <VStack align="flex-start" spacing={2} flex={1}>
-                      <HStack justify="space-between" w="full" align="flex-start">
-                        <Text fontWeight="600" fontSize="sm" noOfLines={2} flex={1}>
-                          {notification.title}
-                        </Text>
-                        {!notification.readed && (
-                          <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
-                            Nowe
-                          </Badge>
-                        )}
-                      </HStack>
-                      
-                      <Text fontSize="sm" color={useColorModeValue("gray.700", "gray.300")} noOfLines={2} lineHeight="1.4">
-                        {notification.message}
-                      </Text>
-                      
-                      <VStack align="flex-start" spacing={0.5} w="full" mt={1}>
-                        <HStack spacing={2} fontSize="xs" color="gray.500">
-                          <Text>{formatDate(notification.createdAt)}</Text>
-                          <Text>•</Text>
-                          <Text fontWeight="500">{notification.tenantName}</Text>
-                          {notification.projectName && (
-                            <>
-                              <Text>•</Text>
-                              <Text fontWeight="500">{notification.projectName}</Text>
-                            </>
-                          )}
-                        </HStack>
-                      </VStack>
-                    </VStack>
-                  </HStack>
-                </Box>
-              ))}
-            </VStack>
-          )}
-        </PopoverBody>
+        <Tabs index={activeTab} onChange={setActiveTab}>
+          <TabList>
+            <Tab>Wszystkie</Tab>
+            <Tab>Nieprzeczytane</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel p={0}>
+              <Box maxH="400px" overflowY="auto">
+                {renderNotifications(allNotifications)}
+              </Box>
+            </TabPanel>
+            <TabPanel p={0}>
+              <Box maxH="400px" overflowY="auto">
+                {renderNotifications(unreadNotifications)}
+              </Box>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </PopoverContent>
     </Popover>
   );

@@ -1,3 +1,4 @@
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Models;
 using MediatR;
@@ -23,6 +24,7 @@ namespace CQRS.Projects.GetProjectMembers
                     && pm.TenantMember.IsActive,
                 include => include.Include(pm => pm.TenantMember)
                                   .ThenInclude(tm => tm.User)
+                                  .Include(pm => pm.MemberRole)
             );
 
             var result = projectMembers
@@ -31,7 +33,7 @@ namespace CQRS.Projects.GetProjectMembers
                     Email: pm.TenantMember.User.Email,
                     FirstName: pm.TenantMember.User.FirstName,
                     LastName: pm.TenantMember.User.LastName,
-                    Role: pm.Role,
+                    RoleCode: pm.MemberRole?.Code ?? RoleCodes.ProjectViewer,
                     JoinedAt: pm.JoinedAt
                 ))
                 .OrderBy(m => m.LastName)

@@ -39,11 +39,11 @@ namespace CQRS.Notifications.MarkNotificationAsRead
             notification.Readed = true;
             await notificationRepo.Update(notification);
 
-            // Enqueue SignalR event
             await notificationMarkAsReadSender.EnqueueAsync(new NotificationMarkAsReadDto
             {
                 NotificationId = notification.Id,
                 UserId = notification.UserId,
+                AzureAdB2CObjectId = currentUser.AzureAdB2CObjectId,
                 ReadAt = DateTimeOffset.UtcNow
             }, cancellationToken);
 

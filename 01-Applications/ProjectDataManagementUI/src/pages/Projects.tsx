@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Box,
   Heading,
@@ -23,116 +23,69 @@ import {
   FormLabel,
   Input,
   IconButton,
-  Tooltip,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, Plus, Power } from "lucide-react";
+import { FolderKanban, User, Calendar, Plus } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { handleApiError } from "../utils/handleApiError";
-import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
-import { TenantRole } from "../types/auth.types";
-import { ProjectRole } from "../types/project.types";
-import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import type { ProjectDetailsWeb } from "../types/project.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { useTenantPermissions } from "../hooks/useTenantPermissions";
+import { useAuth as useAuthContext } from "../context/AuthContext";
 import { useModal } from "../hooks/useModal";
 import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
-
-interface ProjectDetailsWeb {
-  id: string;
-  tenantId: string;
-  name: string;
-  isActive: boolean;
-  createdAt: string;
-  createdByUserId: string;
-  createdByUserName: string;
-  userRole: number;
-  membersCount: number;
-}
 
 export default function Projects() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuthContext();
   const [projects, setProjects] = useState<ProjectDetailsWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTenantId, setActiveTenantId] = useState<string | null | undefined>(undefined);
-  const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [projectToToggle, setProjectToToggle] = useState<ProjectDetailsWeb | null>(null);
-  const [togglingStatus, setTogglingStatus] = useState(false);
   
   const createModal = useModal();
-  const toggleStatusModal = useModal();
   const { showSuccess, showError } = useToastNotification();
+  const permissions = useTenantPermissions();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
 
   // Pobierz aktywnego tenanta i projekty
   useEffect(() => {
+    const activeTenantId = user?.activeTenantId;
+    
+    // Jeśli nie ma aktywnego tenanta - wyświetl info i zatrzymaj
+    if (!activeTenantId || activeTenantId === "00000000-0000-0000-0000-000000000000" || activeTenantId.trim() === "") {
+      setActiveTenantId(null);
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       
       try {
-        const [activeTenantResponse, tenantsResponse] = await Promise.all([
-          tenantApi.getActiveTenant(),
-          tenantApi.getUserTenants(),
-        ]);
-
-        if (activeTenantResponse.ok) {
-          const activeTenantData = await activeTenantResponse.json();
-          
-          console.log("🔍 Active tenant data:", activeTenantData);
-          console.log("🔍 activeTenantId value:", activeTenantData.activeTenantId);
-          console.log("🔍 activeTenantId type:", typeof activeTenantData.activeTenantId);
-          
-          // Jeśli jest aktywny tenant (sprawdź czy to prawdziwy string z wartością)
-          if (activeTenantData.activeTenantId && activeTenantData.activeTenantId !== "00000000-0000-0000-0000-000000000000") {
-            console.log("✅ Tenant aktywny - pobieram projekty");
-            setActiveTenantId(activeTenantData.activeTenantId);
-            
-            // Znajdź rolę użytkownika w aktywnym tenancie
-            if (tenantsResponse.ok) {
-              const tenants = await tenantsResponse.json();
-              const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
-              if (activeTenant) {
-                setUserTenantRole(activeTenant.role);
-              }
-            }
-            
-            // Pobierz projekty
-            try {
-              const projectsResponse = await tenantApi.getTenantProjects(activeTenantData.activeTenantId);
-              if (projectsResponse.ok) {
-                const projectsData = await projectsResponse.json();
-                setProjects(projectsData);
-              }
-            } catch (projectErr) {
-              console.error("Błąd pobierania projektów:", projectErr);
-              setError("Nie udało się pobrać projektów");
-            }
-          } else {
-            // Brak aktywnego tenanta
-            console.log("❌ Brak aktywnego tenanta - NIE pobieram projektów");
-            setActiveTenantId(null);
-            setUserTenantRole(null);
-          }
-        } else {
-          setError("Nie udało się pobrać aktywnego tenanta");
-        }
+        setActiveTenantId(activeTenantId);
+        const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
+        setProjects(projectsResponse.data);
       } catch (err) {
-        console.error("Błąd pobierania danych:", err);
-        setError("Błąd połączenia z serwerem");
+        console.error("Błąd pobierania projektów:", err);
+        setError("Nie udało się pobrać projektów");
+        setProjects([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [location.key]);
+  }, [user?.activeTenantId]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pl-PL", {
@@ -140,50 +93,6 @@ export default function Projects() {
       month: "long",
       day: "numeric",
     });
-  };
-
-  const openToggleStatusModal = (project: ProjectDetailsWeb, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setProjectToToggle(project);
-    toggleStatusModal.onOpen();
-  };
-
-  const handleToggleProjectStatus = async () => {
-    if (!activeTenantId || !projectToToggle) return;
-
-    const newStatus = !projectToToggle.isActive;
-    setTogglingStatus(true);
-    
-    try {
-      const response = await projectApi.toggleProjectStatus(activeTenantId, projectToToggle.id, newStatus);
-      
-      if (response.ok) {
-        showSuccess(
-          newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
-          newStatus 
-            ? "Projekt został pomyślnie aktywowany" 
-            : "Projekt został pomyślnie zdezaktywowany"
-        );
-        
-        toggleStatusModal.onClose();
-        setProjectToToggle(null);
-        
-        // Odśwież listę projektów
-        const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
-        if (projectsResponse.ok) {
-          const projectsData = await projectsResponse.json();
-          setProjects(projectsData);
-        }
-      } else {
-        const { title, description } = await handleApiError(response);
-        showError(title, description);
-      }
-    } catch (error) {
-      console.error("Błąd podczas toggle project status:", error);
-      showError("Błąd", `Wystąpił błąd podczas ${newStatus ? 'aktywacji' : 'dezaktywacji'} projektu`);
-    } finally {
-      setTogglingStatus(false);
-    }
   };
 
   const handleCreateProject = async () => {
@@ -199,31 +108,23 @@ export default function Projects() {
 
     setCreating(true);
     try {
-      const response = await tenantApi.createProject(activeTenantId, newProjectName.trim());
+      await projectApi.createProject(activeTenantId, newProjectName.trim());
 
-      if (response.ok) {
-        showSuccess("Projekt utworzony");
-        setNewProjectName("");
-        createModal.onClose();
-        
-        // Odśwież listę projektów
-        const projectsResponse = await tenantApi.getTenantProjects(activeTenantId);
-        if (projectsResponse.ok) {
-          const data = await projectsResponse.json();
-          setProjects(data);
-        }
-      } else {
-        const { title, description } = await handleApiError(response);
-        showError(title, description);
-      }
-    } catch (err) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      showSuccess("Projekt utworzony");
+      setNewProjectName("");
+      createModal.onClose();
+      
+      // Odśwież listę projektów
+      const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
+      setProjects(projectsResponse.data);
+    } catch (error) {
+      console.error("Błąd podczas tworzenia projektu:", error);
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setCreating(false);
     }
   };
-
-  const isAdmin = userTenantRole === TenantRole.Admin;
 
   return (
     <MainLayout>
@@ -232,7 +133,7 @@ export default function Projects() {
           <Heading size={{ base: "lg", md: "xl" }}>
             Projekty
           </Heading>
-          {isAdmin && (
+          {permissions.canCreateProject && (
             <Button
               leftIcon={<Plus size={20} />}
               colorScheme="blue"
@@ -246,15 +147,21 @@ export default function Projects() {
 
         {loading ? (
           <LoadingSpinner />
+        ) : !activeTenantId ? (
+          <EmptyState 
+            icon={FolderKanban}
+            title="Nie wybrano aktywnej organizacji"
+            description="Wybierz organizację z menu, aby zobaczyć jej projekty"
+          />
         ) : error ? (
           <ErrorAlert description={error} />
         ) : projects.length === 0 ? (
           <EmptyState 
             icon={FolderKanban}
-            title="Nie masz jeszcze żadnych projektów"
-            description="Stwórz swój pierwszy projekt, aby zacząć pracę"
+            title={permissions.canCreateProject ? "Nie masz jeszcze żadnych projektów" : "Brak projektów w tej organizacji"}
+            description={permissions.canCreateProject ? "Stwórz swój pierwszy projekt, aby zacząć pracę" : undefined}
             action={
-              userTenantRole === TenantRole.Admin && activeTenantId && (
+              permissions.canCreateProject && activeTenantId && (
                 <Button leftIcon={<Icon as={Plus} />} colorScheme="blue" onClick={createModal.onOpen}>
                   Utwórz projekt
                 </Button>
@@ -262,79 +169,60 @@ export default function Projects() {
             }
           />
         ) : (
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+          <VStack spacing={4} align="stretch">
             {projects.map((project) => (
-              <Card
+              <Box
                 key={project.id}
                 bg={cardBg}
+                rounded="lg"
+                shadow="md"
                 borderWidth="1px"
                 borderColor={borderColor}
-                cursor={project.isActive ? "pointer" : "not-allowed"}
-                transition="all 0.2s"
-                opacity={project.isActive ? 1 : 0.6}
-                _hover={project.isActive ? {
-                  transform: "translateY(-4px)",
-                  shadow: "xl",
+                overflow="hidden"
+                cursor="pointer"
+                onClick={() => navigate(`/projects/${project.id}`)}
+                _hover={{
+                  shadow: "lg",
                   borderColor: "blue.500",
-                } : {}}
-                onClick={() => project.isActive && navigate(`/projects/${project.id}`)}
+                }}
+                transition="all 0.2s"
               >
-                <CardBody>
-                  <VStack align="flex-start" spacing={4}>
-                    <HStack justify="space-between" w="100%">
-                      <Icon as={FolderKanban} boxSize={8} color="blue.600" />
-                      <HStack spacing={2}>
-                        <Badge
-                          colorScheme={project.isActive ? "green" : "gray"}
-                          fontSize="xs"
-                        >
-                          {project.isActive ? "Aktywny" : "Nieaktywny"}
-                        </Badge>
-                        {project.userRole === ProjectRole.Admin && (
-                          <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
-                            <IconButton
-                              aria-label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}
-                              icon={<Power size={16} />}
-                              size="xs"
-                              colorScheme={project.isActive ? "red" : "green"}
-                              variant="ghost"
-                              onClick={(e) => openToggleStatusModal(project, e)}
-                            />
-                          </Tooltip>
-                        )}
-                      </HStack>
+                <Box p={4}>
+                  <HStack justify="space-between" align="center" spacing={3}>
+                    <HStack spacing={3} flex={1}>
+                      <Icon as={FolderKanban} boxSize={6} color="blue.600" />
+                      <VStack align="flex-start" spacing={1} flex={1}>
+                        <HStack spacing={2}>
+                          <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>
+                            {project.name}
+                          </Text>
+                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize="xs">
+                            {project.isActive ? "Aktywny" : "Nieaktywny"}
+                          </Badge>
+                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize="xs">
+                            {getRoleName(project.userRoleCode)}
+                          </Badge>
+                        </HStack>
+                        <HStack spacing={4} fontSize="sm" color="gray.600">
+                          <HStack>
+                            <Icon as={User} boxSize={3} />
+                            <Text>{project.createdByUserName}</Text>
+                          </HStack>
+                          <HStack>
+                            <Icon as={Calendar} boxSize={3} />
+                            <Text>{formatDate(project.createdAt)}</Text>
+                          </HStack>
+                          <Text>
+                            Członków: {project.membersCount}
+                          </Text>
+                        </HStack>
+                      </VStack>
                     </HStack>
-
-                    <VStack align="flex-start" spacing={2} w="100%">
-                      <Heading size="md" isTruncated w="100%">
-                        {project.name}
-                      </Heading>
-
-                      <Badge colorScheme={getProjectRoleColor(project.userRole)}>
-                        {getProjectRoleName(project.userRole)}
-                      </Badge>
-                    </VStack>
-
-                    <VStack align="flex-start" spacing={1} w="100%" fontSize="sm" color="gray.600">
-                      <HStack>
-                        <Icon as={User} boxSize={4} />
-                        <Text>{project.createdByUserName}</Text>
-                      </HStack>
-
-                      <HStack>
-                        <Icon as={Calendar} boxSize={4} />
-                        <Text>{formatDate(project.createdAt)}</Text>
-                      </HStack>
-
-                      <Text fontWeight="medium">
-                        Członków: {project.membersCount}
-                      </Text>
-                    </VStack>
-                  </VStack>
-                </CardBody>
-              </Card>
+                  </HStack>
+                </Box>
+              </Box>
             ))}
-          </SimpleGrid>
+          </VStack>
         )}
       </Box>
 
@@ -369,100 +257,6 @@ export default function Projects() {
               isLoading={creating}
             >
               Utwórz
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Modal potwierdzenia zmiany statusu projektu */}
-      <Modal isOpen={toggleStatusModal.isOpen} onClose={toggleStatusModal.onClose} isCentered size="lg">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            {projectToToggle?.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack align="flex-start" spacing={4}>
-              <Text>
-                Czy na pewno chcesz {projectToToggle?.isActive ? "zdezaktywować" : "aktywować"} projekt <Text as="span" fontWeight="bold" color="blue.500">{projectToToggle?.name}</Text>?
-              </Text>
-              {projectToToggle?.isActive ? (
-                <Box
-                  p={4}
-                  bg={useColorModeValue("orange.50", "orange.900")}
-                  borderRadius="md"
-                  borderWidth="1px"
-                  borderColor={useColorModeValue("orange.200", "orange.700")}
-                  width="100%"
-                >
-                  <VStack align="flex-start" spacing={3}>
-                    <HStack spacing={2}>
-                      <Icon as={Power} color="orange.500" />
-                      <Text fontWeight="bold" color="orange.600" fontSize="sm">
-                        ⚠️ Ważne informacje:
-                      </Text>
-                    </HStack>
-                    <Text fontSize="sm">
-                      • Zdezaktywowany projekt <Text as="span" fontWeight="bold">nie będzie widoczny</Text> na liście projektów
-                    </Text>
-                    <Text fontSize="sm">
-                      • Wszystkie dane projektu zostaną zachowane
-                    </Text>
-                    <Text fontSize="sm">
-                      • Możesz ponownie aktywować projekt w każdej chwili
-                    </Text>
-                    <Text fontSize="sm" fontWeight="medium" color="orange.700" mt={2}>
-                      Operacja nie usuwa projektu, tylko ukrywa go przed użytkownikami.
-                    </Text>
-                  </VStack>
-                </Box>
-              ) : (
-                <Box
-                  p={4}
-                  bg={useColorModeValue("green.50", "green.900")}
-                  borderRadius="md"
-                  borderWidth="1px"
-                  borderColor={useColorModeValue("green.200", "green.700")}
-                  width="100%"
-                >
-                  <VStack align="flex-start" spacing={3}>
-                    <HStack spacing={2}>
-                      <Icon as={Power} color="green.500" />
-                      <Text fontWeight="bold" color="green.600" fontSize="sm">
-                        ℹ️ Informacje:
-                      </Text>
-                    </HStack>
-                    <Text fontSize="sm">
-                      • Projekt stanie się <Text as="span" fontWeight="bold">widoczny</Text> na liście projektów
-                    </Text>
-                    <Text fontSize="sm">
-                      • Wszyscy członkowie projektu będą mieli dostęp
-                    </Text>
-                    <Text fontSize="sm">
-                      • Wszystkie dane projektu są zachowane
-                    </Text>
-                  </VStack>
-                </Box>
-              )}
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={toggleStatusModal.onClose}
-              isDisabled={togglingStatus}
-            >
-              Anuluj
-            </Button>
-            <Button 
-              colorScheme={projectToToggle?.isActive ? "red" : "green"}
-              onClick={handleToggleProjectStatus}
-              isLoading={togglingStatus}
-              loadingText={projectToToggle?.isActive ? "Dezaktywuję..." : "Aktywuję..."}
-            >
-              {projectToToggle?.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}
             </Button>
           </ModalFooter>
         </ModalContent>

@@ -1,4 +1,4 @@
-using Entities.Models.Base;
+﻿using Entities.Models.Base;
 
 namespace Entities.Models;
 
@@ -11,4 +11,9 @@ public abstract class UserProfileBase : BaseEntity
 public class TenantPreferencesProfile : UserProfileBase
 {
     public Guid? ActiveTenantId { get; set; }
+}
+
+public class PermissionsVersionProfile : UserProfileBase
+{
+    public int Version { get; set; } = 1;
 }

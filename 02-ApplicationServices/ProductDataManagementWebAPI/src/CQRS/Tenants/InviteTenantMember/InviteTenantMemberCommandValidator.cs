@@ -25,11 +25,15 @@ namespace CQRS.Tenants.InviteTenantMember
             this.userRepo = userRepo;
             this.currentUser = currentUser;
 
-            RuleFor(x => x.TenantId).NotEmpty();
+            RuleFor(x => x.TenantId)
+                .NotEmpty()
+                .WithMessage("TenantId is required");
             
             RuleFor(x => x.Email)
                 .NotEmpty()
+                .WithMessage("Email is required")
                 .EmailAddress()
+                .WithMessage("Invalid email format")
                 .Must(email =>
                 {
                     if (string.IsNullOrWhiteSpace(currentUser.Email)) return true;
@@ -37,14 +41,10 @@ namespace CQRS.Tenants.InviteTenantMember
                 })
                 .WithMessage("You cannot invite yourself.");
 
-            // Walidacja roli TenantAdmin usunięta - endpoint chroniony przez politykę TenantAdmin
-
-            // Walidacja: jeśli użytkownik istnieje, nie może już być członkiem
             RuleFor(x => x)
                 .MustAsync(UserMustNotBeAlreadyMember)
                 .WithMessage("User is already a member of this tenant.");
 
-            // Walidacja: nie może istnieć aktywne zaproszenie
             RuleFor(x => x)
                 .MustAsync(InvitationMustNotExist)
                 .WithMessage("An active invitation for this email already exists.");
@@ -58,7 +58,7 @@ namespace CQRS.Tenants.InviteTenantMember
             
             if (existingUser == null)
             {
-                return true; // Użytkownik nie istnieje, więc nie może być członkiem
+                return true;
             }
 
             var existingMembership = await tenantMemberRepo.GetFirstBySearch(

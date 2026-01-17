@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Shared constants for roles, colors, and configuration
  */
 
@@ -12,8 +12,10 @@ export const getProjectRoleName = (role: number): string => {
   switch (role) {
     case ProjectRole.Admin:
       return "Administrator";
-    case ProjectRole.Member:
-      return "Członek";
+    case ProjectRole.Editor:
+      return "Edytor";
+    case ProjectRole.Viewer:
+      return "Przeglądający";
     default:
       return "Nieznana rola";
   }
@@ -25,8 +27,10 @@ export const getProjectRoleName = (role: number): string => {
 export const getProjectRoleColor = (role: number): string => {
   switch (role) {
     case ProjectRole.Admin:
+      return "purple";
+    case ProjectRole.Editor:
       return "blue";
-    case ProjectRole.Member:
+    case ProjectRole.Viewer:
       return "green";
     default:
       return "gray";
@@ -42,6 +46,10 @@ export const getTenantRoleName = (role: number): string => {
       return "Administrator";
     case TenantRole.Member:
       return "Członek";
+    case TenantRole.Editor:
+      return "Edytor";
+    case TenantRole.Viewer:
+      return "Przeglądający";
     default:
       return "Nieznana rola";
   }
@@ -54,8 +62,12 @@ export const getTenantRoleColor = (role: number): string => {
   switch (role) {
     case TenantRole.Admin:
       return "purple";
+    case TenantRole.Editor:
+      return "blue";
+    case TenantRole.Viewer:
+      return "green";
     case TenantRole.Member:
-      return "teal";
+      return "gray";
     default:
       return "gray";
   }

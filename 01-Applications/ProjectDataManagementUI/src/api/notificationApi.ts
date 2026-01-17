@@ -1,21 +1,32 @@
-import { fetchWithAuth } from "./authApi";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+﻿import { axiosClient } from "./axiosClient";
+import type { NotificationWeb } from "../types/notification.types";
 
 export const notificationApi = {
-  // Pobierz nieprzeczytane powiadomienia
-  getUnreadNotifications: async (): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/Notification/unread`, {
-      method: "GET",
-      credentials: "include",
+  async getAll(take: number = 50, skip: number = 0): Promise<NotificationWeb[]> {
+    const response = await axiosClient.get(`/notification`, {
+      params: { take, skip },
     });
+    return response.data;
   },
 
-  // Oznacz powiadomienie jako przeczytane
-  markAsRead: async (notificationId: string): Promise<Response> => {
-    return fetchWithAuth(`${API_BASE_URL}/api/Notification/${notificationId}/mark-as-read`, {
-      method: "PUT",
-      credentials: "include",
+  async getUnread(take: number = 50, skip: number = 0): Promise<NotificationWeb[]> {
+    const response = await axiosClient.get(`/notification/unread`, {
+      params: { take, skip },
     });
+    return response.data;
+  },
+
+  async getUnreadCounter(): Promise<number> {
+    const response = await axiosClient.get(`/notification/unread-counter`);
+    return response.data;
+  },
+
+  async markAsRead(notificationId: string): Promise<void> {
+    await axiosClient.put(`/notification/${notificationId}/mark-as-read`);
+  },
+
+  async markAllAsRead(): Promise<{ markedCount: number }> {
+    const response = await axiosClient.put(`/notification/mark-all-as-read`);
+    return response.data;
   },
 };

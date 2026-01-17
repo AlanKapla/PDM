@@ -9,42 +9,10 @@ namespace CQRS.Files.UploadProjectFiles
 {
     public class UploadProjectFilesCommandValidator : AbstractValidator<UploadProjectFilesCommand>
     {
-        public UploadProjectFilesCommandValidator(
-            IReadRepository<Project> projectRepo,
-            IReadRepository<ProjectFilePackage> packageRepo,
-            ICurrentUser currentUser)
+        public UploadProjectFilesCommandValidator()
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
             RuleFor(x => x.ProjectFilePackageId)
                 .NotEmpty().WithMessage("ProjectFilePackageId is required");
-
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    var project = await projectRepo.GetFirstBySearch(
-                        p => p.Id == command.ProjectId && p.TenantId == command.TenantId);
-                    return project != null;
-                })
-                .WithMessage("Project not found");
-
-            // Check if package exists and belongs to current user
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    var package = await packageRepo.GetFirstBySearch(
-                        pfp => pfp.Id == command.ProjectFilePackageId &&
-                               pfp.TenantId == command.TenantId &&
-                               pfp.ProjectId == command.ProjectId &&
-                               pfp.OwnerId == currentUser.Id &&
-                               !pfp.IsDeleted);
-                    return package != null;
-                })
-                .WithMessage("Package not found or does not belong to you");
 
             RuleFor(x => x.Files)
                 .NotNull().WithMessage("Files list cannot be null")

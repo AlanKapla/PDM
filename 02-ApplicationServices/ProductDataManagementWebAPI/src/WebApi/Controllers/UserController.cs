@@ -1,16 +1,7 @@
-﻿using Business.Interfaces.Services;
-using Business.Interfaces.WebModels.Users;
-using CQRS.Users.UserActivate;
+﻿using Business.Interfaces.WebModels.Users;
 using CQRS.Users.UserAuthStatus;
 using CQRS.Users.UserDetails;
-using CQRS.Users.UserGoogleRegister;
-using CQRS.Users.UserLinkGoogle;
-using CQRS.Users.UserLogin;
-using CQRS.Users.UserLogout;
-using CQRS.Users.UserRefresh;
-using CQRS.Users.UserRegister;
-using CQRS.Users.UserResetPassword;
-using CQRS.Users.UserPasswordResetRequest;
+using CQRS.Users.UserSyncFromB2C;
 using CQRS.Users.UserUpdate;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -19,88 +10,41 @@ using Microsoft.AspNetCore.Mvc;
 namespace WebApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/user")]
 public class UserController : BaseApiController
 {
-    private readonly IHttpCookieService cookieService;
-
-    public UserController(IMediator mediator, IHttpCookieService cookieService) : base(mediator)
+    public UserController(IMediator mediator) : base(mediator)
     {
-        this.cookieService = cookieService;
     }
 
-    [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] UserRegisterCommand request)
+    /// <summary>
+    /// Get current user authentication status
+    /// </summary>
+    [Authorize]
+    [HttpGet("auth-status")]
+    public async Task<IActionResult> GetAuthStatus()
     {
+        UserAuthStatusQuery request = new();
         return Ok(await Send(request));
     }
 
-    [HttpPost("register/google")]
-    public async Task<IActionResult> RegisterGoogle([FromBody] UserGoogleRegisterCommand request)
+    /// <summary>
+    /// Syncs Azure AD B2C user to local database. Called automatically on first login.
+    /// Extracts user information from Azure AD B2C token claims.
+    /// </summary>
+    [Authorize]
+    [HttpPost("sync-b2c")]
+    public async Task<IActionResult> SyncFromB2C()
     {
-        UserAuthWeb userAuthWeb = await Send(request);
+        UserSyncFromB2CCommand command = new();
+        Guid userId = await Send(command);
 
-        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
-        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
-
-        return Ok(userAuthWeb);
+        return Ok(new { userId, message = "User synced successfully" });
     }
 
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] UserLoginCommand request)
-    {
-        UserAuthWeb userAuthWeb = await Send(request);
-
-        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
-        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
-
-        return Ok();
-    }
-
-    [HttpPost("refresh")]
-    public async Task<IActionResult> RefreshToken()
-    {
-        UserRefreshQuery request = new()
-        {
-            RefreshToken = cookieService.GetRefreshToken() ?? string.Empty
-        };
-
-        UserAuthWeb userAuthWeb = await Send(request);
-
-        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
-        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
-
-        return Ok();
-    }
-
-    [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] UserLogoutCommand request)
-    {
-        UserLogoutWeb userLogoutWeb = await Send(request);
-
-        cookieService.ClearAuthCookies();
-
-        return Ok(userLogoutWeb);
-    }
-
-    [HttpPost("reset-password")]
-    public async Task<IActionResult> ResetPassword([FromBody] UserResetPasswordCommand request)
-    {
-        return Ok(await Send(request));
-    }
-
-    [HttpPost("reset-password-request")]
-    public async Task<IActionResult> PasswordResetRequest([FromBody] UserPasswordResetRequestCommand request)
-    {
-        return Ok(await Send(request));
-    }
-
-    [HttpPost("activate-account")]
-    public async Task<IActionResult> ActivateAccount([FromBody] UserActivateCommand request)
-    {
-        return Ok(await Send(request));
-    }
-
+    /// <summary>
+    /// Update current user profile
+    /// </summary>
     [Authorize]
     [HttpPut("me")]
     public async Task<IActionResult> UpdateMe([FromBody] UserUpdateCommand request)
@@ -108,31 +52,14 @@ public class UserController : BaseApiController
         return Ok(await Send(request));
     }
 
+    /// <summary>
+    /// Get current user details
+    /// </summary>
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> GetUserDetails()
     {
         UserDetailsQuery request = new();
-        return Ok(await Send(request));
-    }
-
-    [Authorize]
-    [HttpPost("link-google")]
-    public async Task<IActionResult> LinkGoogle([FromBody] UserLinkGoogleCommand request)
-    {
-        UserAuthWeb userAuthWeb = await Send(request);
-
-        cookieService.SetAccessToken(userAuthWeb.AccessToken, userAuthWeb.AccessTokenExpiresAt);
-        cookieService.SetRefreshToken(userAuthWeb.RefreshToken, userAuthWeb.RefreshTokenExpiresAt);
-
-        return Ok(new { message = "Google account linked successfully" });
-    }
-
-    [Authorize]
-    [HttpGet("auth-status")]
-    public async Task<IActionResult> GetAuthStatus()
-    {
-        UserAuthStatusQuery request = new();
         return Ok(await Send(request));
     }
 }

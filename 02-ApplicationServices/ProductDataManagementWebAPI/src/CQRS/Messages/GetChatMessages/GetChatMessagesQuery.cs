@@ -1,7 +1,19 @@
-﻿using Business.Interfaces.WebModels.Messages;
-using CQRS;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.Messages;
 
 namespace CQRS.Messages.GetChatMessages
 {
-    public record GetChatMessagesQuery(Guid ChatId, int PageNumber = 1, int PageSize = 50) : IRequestQuery<List<MessageWeb>>;
+    public sealed record GetChatMessagesQuery(
+        Guid TenantId,
+        Guid ProjectId,
+        Guid ChatId,
+        int PageNumber = 1,
+        int PageSize = 50
+    ) : IRequestQuery<List<MessageWeb>>, IAuthorizableRequest
+    {
+        public string PermissionCode => PermissionCodes.ProjectResourcesRead;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+    }
 }

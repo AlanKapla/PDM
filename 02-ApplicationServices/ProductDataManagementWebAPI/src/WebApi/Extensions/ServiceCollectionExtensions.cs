@@ -1,4 +1,5 @@
-﻿using Business.Implementation.Model;
+﻿using Azure.Identity;
+using Business.Implementation.Model;
 using Business.Implementation.Services;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
@@ -14,18 +15,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Graph;
+using Microsoft.Identity.Web;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositiories.Repository.Interfaces;
 using Repositiories.Repository.Repositories;
 using Repositories.Repository.Interfaces;
-using Services.Interfaces;
-using System.Text;
-using System.Linq;
 using WebApi.Authorization;
-using WebApi.Constants;
+using WebApi.Services;
 
 namespace WebApi.Extensions
 {
@@ -33,12 +34,15 @@ namespace WebApi.Extensions
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
         {
+            IdentityModelEventSource.ShowPII = true;
+
             services
                 .AddApiBasics()
                 .AddDatabase(config)
                 .AddCqrs()
-                .AddJwt(config)
-                .AddAuthorizationPolicies() // added
+                .AddAzureAdB2C(config)
+                .AddMicrosoftGraph(config)
+                .AddAuthorizationPolicies()
                 .AddAppRepositories()
                 .AddAppServices()
                 .AddConfigurations(config)
@@ -53,10 +57,9 @@ namespace WebApi.Extensions
                 .AddHttpContextAccessor()
                 .AddControllers();
 
-            // Konfiguracja FormOptions dla multipart/form-data uploads (np. pliki)
             services.Configure<FormOptions>(options =>
             {
-                options.MultipartBodyLengthLimit = 52428800; // 50 MB
+                options.MultipartBodyLengthLimit = 52428800;
                 options.ValueLengthLimit = 52428800;
                 options.MultipartHeadersLengthLimit = 52428800;
             });
@@ -64,11 +67,17 @@ namespace WebApi.Extensions
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
             services.AddHealthChecks();
-            services
-                .AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo("/keys"));
-            
-            services.AddSignalR();
+
+            services.AddSignalR(options =>
+            {
+                options.EnableDetailedErrors = false; // Wyłączone w produkcji dla bezpieczeństwa
+                options.KeepAliveInterval = TimeSpan.FromSeconds(10); // Ping co 10s
+                options.ClientTimeoutInterval = TimeSpan.FromSeconds(30); // Timeout po 30s bez odpowiedzi
+                options.HandshakeTimeout = TimeSpan.FromSeconds(15);
+                options.MaximumReceiveMessageSize = 102400; // 100 KB
+            });
+
+            services.AddSingleton<IUserIdProvider, AzureAdB2CUserIdProvider>();
 
             services.AddMemoryCache();
 
@@ -79,25 +88,32 @@ namespace WebApi.Extensions
         {
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo 
+                { 
+                    Title = "Brickly API", 
+                    Version = "v1",
+                    Description = "API protected by Azure AD B2C authentication"
+                });
 
-                var cookieScheme = new OpenApiSecurityScheme
+                var bearerScheme = new OpenApiSecurityScheme
                 {
-                    Name = CookieKeys.AccessToken,
-                    Type = SecuritySchemeType.ApiKey,
-                    In = ParameterLocation.Cookie,
-                    Description = "JWT stored in HttpOnly cookie named `access_token`",
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter Azure AD B2C JWT Bearer token",
                     Reference = new OpenApiReference
                     {
                         Type = ReferenceType.SecurityScheme,
-                        Id = "CookieAuth"
+                        Id = "Bearer"
                     }
                 };
 
-                c.AddSecurityDefinition("CookieAuth", cookieScheme);
+                c.AddSecurityDefinition("Bearer", bearerScheme);
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
-                    { cookieScheme, Array.Empty<string>() }
+                    { bearerScheme, Array.Empty<string>() }
                 });
             });
 
@@ -117,10 +133,7 @@ namespace WebApi.Extensions
                             maxRetryDelay: TimeSpan.FromSeconds(30),
                             errorNumbersToAdd: new[]
                             {
-                                4060,
-                                40197,
-                                40501,
-                                40613,
+                                4060, 40197, 40501, 40613,
                                 10928, 10929,
                                 49918, 49919, 49920
                             });
@@ -132,66 +145,69 @@ namespace WebApi.Extensions
         {
             services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(AppDomain.CurrentDomain.GetAssemblies()));
             return services;
         }
 
-        public static IServiceCollection AddJwt(this IServiceCollection services, IConfiguration config)
+        public static IServiceCollection AddAzureAdB2C(this IServiceCollection services, IConfiguration config)
         {
-            services.AddSingleton<IJwtService, JwtService>();
-            services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>();
 
-            var jwtSection = config.GetSection(JwtSettings.SectionName);
-            var secret = jwtSection.GetValue<string>(nameof(JwtSettings.Secret)) ?? throw new ArgumentNullException(nameof(JwtSettings.Secret));
-            var issuer = jwtSection.GetValue<string>(nameof(JwtSettings.Issuer));
-            var audience = jwtSection.GetValue<string>(nameof(JwtSettings.Audience));
-
-            services.AddAuthentication(options =>
+            if (azureAdB2CSettings == null)
             {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(options =>
-            {
-                options.RequireHttpsMetadata = false;
-                options.SaveToken = true;
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuer = issuer,
-                    ValidateAudience = true,
-                    ValidAudience = audience,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.FromMinutes(1)
-                };
+                throw new InvalidOperationException("AzureAdB2C settings are not configured");
+            }
 
-                options.Events = new JwtBearerEvents
+            var authority = $"{azureAdB2CSettings.Instance.TrimEnd('/')}/{azureAdB2CSettings.TenantId}/v2.0";
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
                 {
-                    OnMessageReceived = context =>
+                    options.Authority = authority;
+                    options.MetadataAddress = $"{authority}/.well-known/openid-configuration";
+                    
+                    options.TokenValidationParameters = new TokenValidationParameters
                     {
-                        // Sprawdź token z cookie
-                        string? accessToken = context.Request.Cookies[CookieKeys.AccessToken];
+                        ValidateIssuer = true,
+                        ValidIssuer = $"https://{azureAdB2CSettings.TenantId}.ciamlogin.com/{azureAdB2CSettings.TenantId}/v2.0",
+                        ValidateAudience = true,
+                        ValidAudiences =
+                        [
+                            azureAdB2CSettings.ClientId,
+                            $"api://{azureAdB2CSettings.ClientId}"
+                        ],
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.FromMinutes(5),
+                        NameClaimType = "name",
+                        RoleClaimType = "roles"
+                    };
 
-                        // Dla SignalR: sprawdź query string (WebSocket nie może przesyłać cookies w nagłówkach)
-                        var path = context.HttpContext.Request.Path;
-                        if (string.IsNullOrEmpty(accessToken) && 
-                            path.StartsWithSegments("/api/hubs"))
+                    options.RefreshOnIssuerKeyNotFound = true;
+                    options.AutomaticRefreshInterval = TimeSpan.FromHours(1);
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
                         {
-                            accessToken = context.Request.Query["access_token"];
-                        }
-
-                        if (!string.IsNullOrEmpty(accessToken))
+                            var accessToken = context.Request.Query["access_token"];
+                            if (!string.IsNullOrEmpty(accessToken))
+                            {
+                                context.Token = accessToken;
+                                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                                logger.LogInformation("Token received from query string for path: {Path}", context.Request.Path);
+                            }
+                            return Task.CompletedTask;
+                        },
+                        OnAuthenticationFailed = context =>
                         {
-                            context.Token = accessToken;
+                            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                            logger.LogError(context.Exception, "Authentication failed for path: {Path}", context.Request.Path);
+                            return Task.CompletedTask;
                         }
-
-                        return Task.CompletedTask;
-                    }
-                };
-            });
+                    };
+                });
 
             return services;
         }
@@ -209,10 +225,10 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<ProjectMember>, Repository<ProjectMember>>();
             services.AddScoped<IRepository<ProjectGroupMember>, Repository<ProjectGroupMember>>();
             services.AddScoped<IReadRepository<UserSession>, ReadRepository<UserSession>>();
-            services.AddScoped<IRepository<UserPasswordReset>, Repository<UserPasswordReset>>();
-            services.AddScoped<IRepository<UserActivation>, Repository<UserActivation>>();
             services.AddScoped<IReadRepository<TenantPreferencesProfile>, ReadRepository<TenantPreferencesProfile>>();
             services.AddScoped<IRepository<TenantPreferencesProfile>, Repository<TenantPreferencesProfile>>();
+            services.AddScoped<IReadRepository<PermissionsVersionProfile>, ReadRepository<PermissionsVersionProfile>>();
+            services.AddScoped<IRepository<PermissionsVersionProfile>, Repository<PermissionsVersionProfile>>();
             services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
             services.AddScoped<IReadRepository<Notification>, ReadRepository<Notification>>();
             services.AddScoped<IRepository<Notification>, Repository<Notification>>();
@@ -236,6 +252,7 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<WorkScheduleStage>, Repository<WorkScheduleStage>>();
             services.AddScoped<IRepository<WorkScheduleStageWork>, Repository<WorkScheduleStageWork>>();
             services.AddScoped<IRepository<WorkScheduleStageWorkAssignment>, Repository<WorkScheduleStageWorkAssignment>>();
+            services.AddScoped<IRepository<WorkScheduleStageWorkComment>, Repository<WorkScheduleStageWorkComment>>();
             services.AddScoped<IReadRepository<ProjectCost>, ReadRepository<ProjectCost>>();
             services.AddScoped<IRepository<ProjectCost>, Repository<ProjectCost>>();
             services.AddScoped<IReadRepository<SharedProjectCost>, ReadRepository<SharedProjectCost>>();
@@ -244,39 +261,74 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
             services.AddScoped<IReadRepository<CostEstimate>, ReadRepository<CostEstimate>>();
             services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
+            services.AddScoped<IReadRepository<Role>, ReadRepository<Role>>();
+            services.AddScoped<IRepository<Role>, Repository<Role>>();
+            services.AddScoped<IReadRepository<Permission>, ReadRepository<Permission>>();
+            services.AddScoped<IRepository<Permission>, Repository<Permission>>();
+            services.AddScoped<IRepository<RolePermission>, Repository<RolePermission>>();
             return services;
         }
 
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
-            services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<ICurrentUser, CurrentUser>();
+            
+            // New permission-based services
+            services.AddSingleton<IUserContextCache, InMemoryUserContextCache>();
+            services.AddScoped<AccessService>();
+            services.AddScoped<PermissionsVersionService>();
+            
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
-            // Application-facing sender enqueues to queue
             services.AddScoped<IEmailSender, QueuedEmailSender>();
-            // Low-level transport actually sends via provider (singleton-safe)
             services.AddSingleton<IEmailTransport, SendGridEmailSender>();
             services.AddScoped<ITokenGenerator, TokenGenerator>();
             services.AddScoped<IBlobStorageService, BlobStorageService>();
-            // Queue storage used by hosted services (singleton-safe)
             services.AddSingleton<IQueueStorageService, QueueStorageService>();
             services.AddHostedService<EmailWorker>();
 
-            // Notification dispatcher via SignalR (singleton-safe)
-            services.AddSingleton<INotificationDispatcher, WebApi.Services.SignalRNotificationDispatcher>();
-            // Notification background worker
+            services.AddSingleton<INotificationDispatcher, SignalRNotificationDispatcher>();
             services.AddHostedService<NotificationWorker>();
             services.AddScoped<INotificationSender, QueuedNotificationSender>();
 
-            // Notification mark as read dispatcher via SignalR (singleton-safe)
-            services.AddSingleton<INotificationMarkAsReadDispatcher, WebApi.Services.SignalRNotificationMarkAsReadDispatcher>();
-            // Notification mark as read background worker
+            services.AddSingleton<INotificationMarkAsReadDispatcher, SignalRNotificationMarkAsReadDispatcher>();
             services.AddHostedService<NotificationMarkAsReadWorker>();
             services.AddScoped<INotificationMarkAsReadSender, QueuedNotificationMarkAsReadSender>();
 
-            services.AddSingleton<IMessageDispatcher, WebApi.Services.SignalRMessageDispatcher>();
+            services.AddSingleton<IMessageDispatcher, SignalRMessageDispatcher>();
             services.AddHostedService<MessageWorker>();
+
+            services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
+
+            services.AddHostedService<StartupSeederService>();
+            services.AddHostedService<RolePermissionSeederService>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddMicrosoftGraph(this IServiceCollection services, IConfiguration config)
+        {
+            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>();
+
+            if (azureAdB2CSettings == null)
+            {
+                throw new InvalidOperationException("AzureAdB2C settings are not configured");
+            }
+
+            if (string.IsNullOrEmpty(azureAdB2CSettings.ClientSecret))
+            {
+                throw new InvalidOperationException("AzureAdB2C:ClientSecret is required for Microsoft Graph API");
+            }
+
+            services.AddSingleton(sp =>
+            {
+                var clientSecretCredential = new ClientSecretCredential(
+                    azureAdB2CSettings.TenantId,
+                    azureAdB2CSettings.ClientId,
+                    azureAdB2CSettings.ClientSecret);
+
+                return new GraphServiceClient(clientSecretCredential);
+            });
 
             return services;
         }
@@ -288,6 +340,8 @@ namespace WebApi.Extensions
             services.Configure<FrontendSettings>(config.GetSection(FrontendSettings.SectionName));
             services.Configure<CorsSettings>(config.GetSection(CorsSettings.SectionName));
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));
+            services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
+            services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
             return services;
         }
 
@@ -303,12 +357,11 @@ namespace WebApi.Extensions
 
             if (origins == null || origins.Length == 0)
             {
-                // Backward compatibility: fallback to single FrontendSettings.BaseUrl
                 var frontendSection = config.GetSection(FrontendSettings.SectionName);
                 string? url = frontendSection.GetValue<string>(nameof(FrontendSettings.BaseUrl));
                 if (!string.IsNullOrWhiteSpace(url))
                 {
-                    origins = new[] { url.Trim().TrimEnd('/') };
+                    origins = [url.Trim().TrimEnd('/')];
                 }
                 else
                 {
@@ -335,17 +388,18 @@ namespace WebApi.Extensions
         {
             services.AddAuthorization(options =>
             {
-                options.AddPolicy(Policies.TenantAdmin, policy => policy.Requirements.Add(new TenantAdminRequirement()));
-                options.AddPolicy(Policies.TenantMember, policy => policy.Requirements.Add(new TenantMemberRequirement()));
-                options.AddPolicy(Policies.TenantAdminOrOwner, policy => policy.Requirements.Add(new TenantAdminOrOwnerRequirement()));
-                options.AddPolicy(Policies.ProjectAdmin, policy => policy.Requirements.Add(new ProjectAdminRequirement()));
-                options.AddPolicy(Policies.ProjectMember, policy => policy.Requirements.Add(new ProjectMemberRequirement()));
+                // Auto-register all permission-based policies with their scopes
+                foreach (var permissionCode in PermissionCodes.All)
+                {
+                    var scope = PermissionScopes.Get(permissionCode);
+                    options.AddPolicy(permissionCode, policy =>
+                        policy.Requirements.Add(new PermissionRequirement(permissionCode, scope)));
+                }
             });
-            services.AddScoped<IAuthorizationHandler, TenantAdminHandler>();
-            services.AddScoped<IAuthorizationHandler, TenantMemberHandler>();
-            services.AddScoped<IAuthorizationHandler, TenantAdminOrOwnerHandler>();
-            services.AddScoped<IAuthorizationHandler, ProjectAdminHandler>();
-            services.AddScoped<IAuthorizationHandler, ProjectMemberHandler>();
+
+            // Permission-based handler
+            services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
             return services;
         }
     }

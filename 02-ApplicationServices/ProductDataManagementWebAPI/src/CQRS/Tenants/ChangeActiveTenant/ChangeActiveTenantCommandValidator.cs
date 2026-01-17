@@ -1,4 +1,4 @@
-using Entities.Models;
+﻿using Entities.Models;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
 using Business.Interfaces.Model;
@@ -21,7 +21,7 @@ namespace CQRS.Tenants.ChangeActiveTenant
 
             RuleFor(x => x.TenantId)
                 .NotEmpty().WithMessage("TenantId is required")
-                .MustAsync(async (tenantId, ct) => await IsMemberAsync(tenantId))
+                .MustAsync(async (tenantId, ct) => await IsMemberAsync(tenantId) || currentUser.IsSuperAdmin)
                 .WithMessage("User is not a member of specified tenant or membership inactive");
         }
 

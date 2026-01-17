@@ -1,23 +1,60 @@
-// ===== Roles =====
+﻿// ===== Roles =====
 
 export const ProjectRole = {
   Admin: 0,
-  Member: 1,
+  Editor: 1,
+  Viewer: 2,
 } as const;
 
 export type ProjectRoleType = (typeof ProjectRole)[keyof typeof ProjectRole];
+
+// Funkcja pomocnicza do określania poziomu roli (im niższa wartość, tym wyższe uprawnienia)
+// Wartości enum są już bezpośrednio poziomami uprawnień
+export const getProjectRoleLevel = (role: number): number => {
+  return role;
+};
+
+// Funkcje pomocnicze do sprawdzania uprawnień
+export const hasProjectRoleLevel = (userRole: number, requiredRole: number): boolean => {
+  return getProjectRoleLevel(userRole) <= getProjectRoleLevel(requiredRole);
+};
+
+export const isProjectAdmin = (userRole: number): boolean => {
+  return userRole === ProjectRole.Admin;
+};
+
+export const canEditProject = (userRole: number): boolean => {
+  return hasProjectRoleLevel(userRole, ProjectRole.Editor);
+};
+
+export const canViewProject = (userRole: number): boolean => {
+  return hasProjectRoleLevel(userRole, ProjectRole.Viewer);
+};
 
 // Re-export TenantRole z auth.types dla wygody
 export { TenantRole } from './auth.types';
 
 // ===== Interfaces =====
 
+export interface ProjectDetailsWeb {
+  id: string;
+  tenantId: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  userRoleCode: string;
+  membersCount: number;
+  userPermissions: string[];  // User's permissions for this specific project
+}
+
 export interface TenantMemberWeb {
   userId: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: number;
+  roleCode: string;
   isActive: boolean;
   joinedAt: string;
 }
@@ -33,7 +70,7 @@ export interface ProjectMemberWeb {
   email: string;
   firstName: string;
   lastName: string;
-  role: number;
+  roleCode: string;
   joinedAt: string;
 }
 
@@ -97,15 +134,6 @@ export interface ShareProjectFileResult {
   errors: string[];
 }
 
-export interface SharedProjectFilePackageWeb {
-  packageId: string;
-  packageName: string;
-  packageOwnerId: string;
-  packageOwnerName: string;
-  files: SharedProjectFileWeb[];
-  totalSharedFiles: number;
-}
-
 export interface SharedProjectFileWeb {
   id: string;
   projectFileId: string;
@@ -158,6 +186,7 @@ export interface CreateProjectCostCommand {
   netAmount?: number;
   vatRate?: number;
   grossAmount?: number;
+  isClosed?: boolean;
   document?: File;
 }
 

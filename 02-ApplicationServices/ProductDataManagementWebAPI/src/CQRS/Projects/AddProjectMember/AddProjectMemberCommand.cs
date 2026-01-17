@@ -1,3 +1,5 @@
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
 using MediatR;
 
 namespace CQRS.Projects.AddProjectMember
@@ -6,5 +8,10 @@ namespace CQRS.Projects.AddProjectMember
         Guid TenantId,
         Guid ProjectId,
         Guid UserId
-    ) : IRequestCommand<Unit>;
+    ) : IRequestCommand<Unit>, IAuthorizableRequest
+    {
+        public string PermissionCode => PermissionCodes.ProjectMembersManage;
+        
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+    }
 }

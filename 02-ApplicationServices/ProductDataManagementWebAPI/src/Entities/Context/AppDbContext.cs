@@ -16,8 +16,6 @@ namespace Entities.Context
         public DbSet<ProjectFileVersion> ProjectFileVersions => Set<ProjectFileVersion>();
         public DbSet<ProjectFileVersionComment> ProjectFileVersionComments => Set<ProjectFileVersionComment>();
         public DbSet<SharedProjectFile> SharedProjectFiles => Set<SharedProjectFile>();
-        public DbSet<UserPasswordReset> UserPasswordResets => Set<UserPasswordReset>();
-        public DbSet<UserActivation> UserActivations => Set<UserActivation>();
         public DbSet<UserProfileBase> UserProfiles => Set<UserProfileBase>();
         public DbSet<TenantPreferencesProfile> TenantPreferencesProfiles => Set<TenantPreferencesProfile>();
         public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
@@ -29,10 +27,14 @@ namespace Entities.Context
         public DbSet<WorkScheduleStage> WorkScheduleStages => Set<WorkScheduleStage>();
         public DbSet<WorkScheduleStageWork> WorkScheduleStageWorks => Set<WorkScheduleStageWork>();
         public DbSet<WorkScheduleStageWorkAssignment> WorkScheduleStageWorkAssignments => Set<WorkScheduleStageWorkAssignment>();
+        public DbSet<WorkScheduleStageWorkComment> WorkScheduleStageWorkComments => Set<WorkScheduleStageWorkComment>();
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
         public DbSet<CostEstimate> CostEstimates => Set<CostEstimate>();
+        public DbSet<Role> Roles => Set<Role>();
+        public DbSet<Permission> Permissions => Set<Permission>();
+        public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -46,7 +48,8 @@ namespace Entities.Context
                  .OnDelete(DeleteBehavior.Cascade);
 
                 b.HasDiscriminator<string>("ProfileType")
-                 .HasValue<TenantPreferencesProfile>("TenantPreferences");
+                 .HasValue<TenantPreferencesProfile>("TenantPreferences")
+                 .HasValue<PermissionsVersionProfile>("PermissionsVersion");
             });
         }
     }

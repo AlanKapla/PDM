@@ -8,11 +8,12 @@ namespace Entities.Models
         public Guid ProjectId { get; set; }
         public Guid UserId { get; set; }
 
-        public ProjectRole Role { get; set; } = ProjectRole.Member;
+        public Guid? RoleId { get; set; }
         public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 
         public Project Project { get; set; } = default!;
         public TenantMember TenantMember { get; set; } = default!;
+        public Role? MemberRole { get; set; }
         public ICollection<ProjectGroupMember> ProjectGroupMembers { get; set; } = new List<ProjectGroupMember>();
     }
 }

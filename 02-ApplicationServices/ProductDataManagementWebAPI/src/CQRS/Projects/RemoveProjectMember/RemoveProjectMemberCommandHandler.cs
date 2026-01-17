@@ -1,6 +1,8 @@
 ﻿using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Repositiories.Repository.Interfaces;
@@ -12,7 +14,9 @@ namespace CQRS.Projects.RemoveProjectMember
     public class RemoveProjectMemberCommandHandler : IRequestHandler<RemoveProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
+        private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -20,36 +24,41 @@ namespace CQRS.Projects.RemoveProjectMember
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
             INotificationSender notificationSender,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IReadRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
+            this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
         }
 
         public async Task<Unit> Handle(RemoveProjectMemberCommand request, CancellationToken cancellationToken)
         {
-            // Pobierz projekt do użycia w notyfikacji (walidacja już wykonana w validatorze)
-            Project project = (await projectRepo.GetFirstBySearch(
-                p => p.Id == request.ProjectId && p.TenantId == request.TenantId && p.IsActive))!;
+            Project project = await projectRepo.GetFirstBySearch(
+                p => p.Id == request.ProjectId && p.TenantId == request.TenantId)
+                ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            // Pobierz członka projektu
-            ProjectMember projectMember = (await projectMemberRepo.GetFirstBySearch(
+            ProjectMember projectMember = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == request.ProjectId
                     && pm.TenantId == request.TenantId
-                    && pm.UserId == request.UserId))!;
+                    && pm.UserId == request.UserId)
+                ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
-            // Usuń członka z projektu
             await projectMemberRepo.Delete(projectMember);
 
-            // Wyślij notyfikację do usuniętego użytkownika
+            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
+
             NotificationDto notification = new NotificationDto
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = request.UserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.Warning,
                 Title = "Usunięto z projektu",
                 Message = $"Zostałeś usunięty z projektu: {project.Name}",
@@ -63,7 +72,8 @@ namespace CQRS.Projects.RemoveProjectMember
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;
         }

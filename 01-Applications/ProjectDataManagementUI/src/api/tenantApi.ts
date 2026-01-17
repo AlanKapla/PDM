@@ -1,118 +1,59 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-const API_URL = `${API_BASE}/api/Tenant`;
+﻿import { axiosClient } from "./axiosClient";
 
 export const tenantApi = {
   getUserTenants: async () => {
-    return fetch(`${API_URL}/user-tenants`, {
-      method: "GET",
-      credentials: "include",
-    });
+    return axiosClient.get("/tenant/my-tenants");
   },
 
-  getActiveTenant: async () => {
-    return fetch(`${API_URL}/active`, {
-      method: "GET",
-      credentials: "include",
-    });
+  getAdminTenants: async () => {
+    return axiosClient.get("/tenant/admin-tenants");
+  },
+
+  getTenantDetails: async (tenantId: string) => {
+    return axiosClient.get(`/tenant/${tenantId}/details`);
   },
 
   changeActiveTenant: async (tenantId: string) => {
-    return fetch(`${API_URL}/active`, {
-      method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId }),
-    });
+    return axiosClient.put("/tenant/active", { tenantId });
   },
 
   createTenant: async (name: string) => {
-    return fetch(`${API_URL}/create`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    return axiosClient.post("/tenant/create", { name });
   },
 
   updateTenant: async (tenantId: string, name: string) => {
-    return fetch(`${API_URL}/${tenantId}`, {
-      method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId, name }),
-    });
+    return axiosClient.put(`/tenant/${tenantId}`, { name });
   },
 
   toggleTenantStatus: async (tenantId: string, isActive: boolean) => {
-    return fetch(`${API_URL}/${tenantId}/status?isActive=${isActive}`, {
-      method: "PATCH",
-      credentials: "include",
-    });
+    return axiosClient.patch(`/tenant/${tenantId}/status?isActive=${isActive}`);
   },
 
   inviteMember: async (tenantId: string, email: string) => {
-    return fetch(`${API_URL}/${tenantId}/invitations`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId, email }),
-    });
+    return axiosClient.post(`/tenant/${tenantId}/invitations`, { email });
   },
 
   acceptInvitation: async (token: string) => {
-    const url = `${API_URL}/invitations/accept`;
-    const body = { token };
-    console.log("[API] acceptInvitation - URL:", url);
-    console.log("[API] acceptInvitation - Token:", token);
-    console.log("[API] acceptInvitation - Body:", JSON.stringify(body));
-    
-    const response = await fetch(url, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    
-    console.log("[API] acceptInvitation - Response status:", response.status);
-    console.log("[API] acceptInvitation - Response OK:", response.ok);
-    
-    return response;
+    return axiosClient.post("/tenant/invitations/accept", { token });
+  },
+
+  removeInvitation: async (tenantId: string, invitationId: string) => {
+    return axiosClient.delete(`/tenant/${tenantId}/invitations/${invitationId}`);
   },
 
   removeMember: async (tenantId: string, userId: string) => {
-    return fetch(`${API_URL}/${tenantId}/members/${userId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    return axiosClient.delete(`/tenant/${tenantId}/members/${userId}`);
   },
 
   getActiveInvitations: async () => {
-    return fetch(`${API_URL}/invitations`, {
-      method: "GET",
-      credentials: "include",
-    });
-  },
-
-  getTenantProjects: async (tenantId: string) => {
-    return fetch(`${API_BASE}/api/tenants/${tenantId}/Project`, {
-      method: "GET",
-      credentials: "include",
-    });
-  },
-
-  createProject: async (tenantId: string, name: string) => {
-    return fetch(`${API_BASE}/api/tenants/${tenantId}/Project`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    return axiosClient.get("/tenant/invitations");
   },
 
   getTenantMembers: async (tenantId: string) => {
-    return fetch(`${API_URL}/${tenantId}/members`, {
-      method: "GET",
-      credentials: "include",
-    });
+    return axiosClient.get(`/tenant/${tenantId}/members`);
   },
+
+  updateTenantMemberRole: async (tenantId: string, userId: string, roleId: string) => {
+    return axiosClient.patch(`/tenant/${tenantId}/members/${userId}/role`, { roleId });
+  }
 };

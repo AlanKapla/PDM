@@ -29,8 +29,10 @@ namespace Entities.Configurations
                    .HasForeignKey(tm => tm.UserId)
                    .OnDelete(DeleteBehavior.Cascade);
 
-            builder.Property(p => p.Role)
-                .HasConversion<string>();
+            builder.HasOne(tm => tm.MemberRole)
+                   .WithMany()
+                   .HasForeignKey(tm => tm.RoleId)
+                   .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

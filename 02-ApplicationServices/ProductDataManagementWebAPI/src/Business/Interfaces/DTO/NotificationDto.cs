@@ -8,6 +8,7 @@
         public string TenantName { get; set; } = string.Empty;
         public string? ProjectName { get; set; }
         public Guid UserId { get; set; }
+        public string? AzureAdB2CObjectId { get; set; }
         public NotificationType Type { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;

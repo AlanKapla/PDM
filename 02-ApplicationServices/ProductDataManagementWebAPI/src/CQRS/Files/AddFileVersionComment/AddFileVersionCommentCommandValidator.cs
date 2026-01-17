@@ -17,14 +17,6 @@ namespace CQRS.Files.AddFileVersionComment
             IRepository<ProjectFileVersion> projectFileVersionRepo,
             ICurrentUser currentUser)
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty()
-                .WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty()
-                .WithMessage("ProjectId is required");
-
             RuleFor(x => x.FileId)
                 .NotEmpty()
                 .WithMessage("FileId is required");
@@ -38,23 +30,6 @@ namespace CQRS.Files.AddFileVersionComment
                 .WithMessage("Comment cannot be empty")
                 .MaximumLength(FileConstants.MaxCommentLength)
                 .WithMessage($"Comment cannot exceed {FileConstants.MaxCommentLength} characters");
-
-            // Verify that the file exists, belongs to the project, and user has access
-            RuleFor(x => x)
-                .MustAsync(async (command, cancellation) =>
-                {
-                    var file = await projectFileRepo.GetFirstBySearch(
-                        pf => pf.Id == command.FileId
-                            && pf.ProjectId == command.ProjectId
-                            && pf.TenantId == command.TenantId
-                            && !pf.IsDeleted
-                            && (pf.OwnerId == currentUser.Id || pf.SharedWith.Any(s => s.SharedWithUserId == currentUser.Id))
-                            && pf.Versions.Any(v => v.Id == command.VersionId));
-
-                    return file != null;
-                        
-                })
-                .WithMessage("File or version does not exist.");
         }
     }
 }

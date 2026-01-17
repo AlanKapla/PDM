@@ -1,14 +1,20 @@
-﻿using MediatR;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Model;
+using MediatR;
 
 namespace CQRS.ProjectCosts.DeleteProjectCost
 {
     /// <summary>
     /// Command do usunięcia kosztu projektu (soft delete)
     /// </summary>
-    public record DeleteProjectCostCommand : IRequestCommand<Unit>
+    public sealed record DeleteProjectCostCommand(
+        Guid TenantId,
+        Guid ProjectId,
+        Guid CostId
+    ) : IRequestCommand<Unit>, IAuthorizableRequest
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
-        public Guid CostId { get; init; }
+        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+
+        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

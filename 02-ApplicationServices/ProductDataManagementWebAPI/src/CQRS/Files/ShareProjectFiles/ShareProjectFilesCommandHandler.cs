@@ -1,9 +1,10 @@
 ﻿using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
@@ -16,6 +17,7 @@ namespace CQRS.Files.ShareProjectFiles
         private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IReadRepository<User> userRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<ShareProjectFilesCommandHandler> logger;
@@ -24,6 +26,7 @@ namespace CQRS.Files.ShareProjectFiles
             IRepository<SharedProjectFile> sharedProjectFileRepo,
             IRepository<ProjectFile> projectFileRepo,
             IReadRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<ShareProjectFilesCommandHandler> logger)
@@ -31,6 +34,7 @@ namespace CQRS.Files.ShareProjectFiles
             this.sharedProjectFileRepo = sharedProjectFileRepo;
             this.projectFileRepo = projectFileRepo;
             this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -38,7 +42,31 @@ namespace CQRS.Files.ShareProjectFiles
 
         public async Task<Unit> Handle(ShareProjectFilesCommand request, CancellationToken cancellationToken)
         {
-            // Get all existing shares for all users and files in one query
+            // 1. Get files and verify they exist and belong to the correct project/tenant
+            var projectFiles = await projectFileRepo.GetBySearch(
+                pf => request.ProjectFileIds.Contains(pf.Id) 
+                    && pf.ProjectId == request.ProjectId
+                    && pf.TenantId == request.TenantId
+                    && !pf.IsDeleted);
+
+            if (projectFiles.Count() != request.ProjectFileIds.Count())
+            {
+                throw new NotFoundApiException(nameof(ProjectFile), "One or more files not found");
+            }
+
+            // 2. Authorization check: tenant admin OR project admin OR owner of ALL files
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            
+            if (!isAdmin)
+            {
+                var notOwnedFiles = projectFiles.Where(pf => pf.OwnerId != currentUser.Id).ToList();
+                if (notOwnedFiles.Any())
+                {
+                    throw new NotFoundApiException(nameof(ProjectFile), "One or more files not found");
+                }
+            }
+
+            // 3. Get all existing shares for all users and files in one query
             var existingShares = await sharedProjectFileRepo.GetBySearch(
                 spf => request.SharedWithUserIds.Contains(spf.SharedWithUserId) &&
                        request.ProjectFileIds.Contains(spf.ProjectFileId));
@@ -50,15 +78,11 @@ namespace CQRS.Files.ShareProjectFiles
                     g => g.Select(spf => spf.ProjectFileId).ToHashSet()
                 );
 
-            // Get file details for notification once
-            var projectFiles = await projectFileRepo.GetBySearch(
-                pf => request.ProjectFileIds.Contains(pf.Id) && !pf.IsDeleted);
-
             var fileNamesDict = projectFiles.ToDictionary(pf => pf.Id, pf => pf.DisplayName);
 
             var allSharedFilesToInsert = new List<SharedProjectFile>();
 
-            // For each user, determine files to share
+            // 4. For each user, determine files to share
             foreach (var userId in request.SharedWithUserIds)
             {
                 var existingFileIds = existingSharesDict.ContainsKey(userId) 
@@ -68,7 +92,9 @@ namespace CQRS.Files.ShareProjectFiles
                 var filesToShare = request.ProjectFileIds.Where(id => !existingFileIds.Contains(id)).ToList();
 
                 if (!filesToShare.Any())
+                {
                     continue;
+                }
 
                 // Prepare shares for this user
                 foreach (var fileId in filesToShare)
@@ -94,7 +120,7 @@ namespace CQRS.Files.ShareProjectFiles
                 await SendNotificationAsync(request, userId, filesToShare.Count, fileNamesDict, cancellationToken);
             }
 
-            // Insert all shared files in one batch
+            // 5. Insert all shared files in one batch
             if (allSharedFilesToInsert.Any())
             {
                 await sharedProjectFileRepo.InsertRange(allSharedFilesToInsert);
@@ -112,7 +138,9 @@ namespace CQRS.Files.ShareProjectFiles
         {
             var currentUserDetails = await userRepo.GetById(currentUser.Id);
             if (currentUserDetails == null)
+            {
                 return;
+            }
 
             string sharerName = $"{currentUserDetails.FirstName} {currentUserDetails.LastName}".Trim();
 
@@ -140,12 +168,15 @@ namespace CQRS.Files.ShareProjectFiles
                 ["FileNames"] = fileNamesDict.Values.Take(5).ToList()
             };
 
+            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == sharedWithUserId, cancellationToken);
+
             var notificationDto = new NotificationDto
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = sharedWithUserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationTypeDto.Info,
                 Title = title,
                 Message = message,
@@ -154,7 +185,8 @@ namespace CQRS.Files.ShareProjectFiles
                 Readed = false
             };
 
-            await notificationSender.EnqueueAsync(notificationDto, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notificationDto, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             logger.LogInformation(
                 "Notification sent to user {UserId} about {FileCount} shared files",

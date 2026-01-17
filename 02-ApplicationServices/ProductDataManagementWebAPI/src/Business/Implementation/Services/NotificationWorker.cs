@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
@@ -31,19 +31,25 @@ namespace Business.Implementation.Services
                     DequeuedMessage? message = await queueStorage.DequeueAsync(QueueNames.NotificationSend, cancellationToken: stoppingToken);
                     if (message is null)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                        // Krótszy delay (100ms zamiast 1s) - szybsza reakcja
+                        await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
                         continue;
                     }
+
+                    logger.LogInformation("📩 Processing notification from queue: {MessageId}", message.MessageId);
 
                     JsonSerializerOptions jsonOptions = new JsonSerializerOptions
                     {
                         PropertyNameCaseInsensitive = true
                     };
-                    NotificationDto? notification = JsonSerializer.Deserialize<NotificationDto>(message.Text, jsonOptions);
+                    NotificationPayloadDto? payload = JsonSerializer.Deserialize<NotificationPayloadDto>(message.Text, jsonOptions);
 
-                    if (notification != null)
+                    if (payload != null)
                     {
-                        await dispatcher.DispatchAsync(notification, stoppingToken);
+                        logger.LogInformation("🔔 Dispatching notification {NotificationId} to user {UserId} with unread count {UnreadCount}", 
+                            payload.Notification.Id, payload.Notification.AzureAdB2CObjectId, payload.UnreadNotificationCounter);
+                        await dispatcher.DispatchAsync(payload, stoppingToken);
+                        logger.LogInformation("✅ Notification {NotificationId} dispatched successfully", payload.Notification.Id);
                     }
                     else
                     {

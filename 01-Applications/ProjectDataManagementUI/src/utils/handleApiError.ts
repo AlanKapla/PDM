@@ -1,3 +1,4 @@
+import { AxiosError } from "axios";
 import { 
   defaultErrorMessage, 
   apiExceptionReasonMessages,
@@ -17,24 +18,34 @@ export interface ApiErrorResult {
   description?: string;
 }
 
-export const handleApiError = async (response: Response): Promise<ApiErrorResult> => {
-  let data: ApiExceptionResponse | null = null;
-
-  try {
-    const text = await response.text();
-    if (text) {
-      data = JSON.parse(text);
-    }
-  } catch {
-    // Response nie zawierał poprawnego JSON
+/**
+ * Obsługuje błędy z Axios (AxiosError)
+ * Axios automatycznie rzuca wyjątki dla 4xx/5xx - używaj w catch block
+ */
+export const handleApiError = (error: unknown): ApiErrorResult => {
+  if (!(error instanceof AxiosError)) {
+    return {
+      title: "Błąd",
+      description: defaultErrorMessage
+    };
   }
+
+  const response = error.response;
+  if (!response) {
+    return {
+      title: "Błąd połączenia",
+      description: "Nie udało się połączyć z serwerem"
+    };
+  }
+
+  const data = response.data as ApiExceptionResponse | null;
 
   // Obsługa struktury ApiException z backendu
   if (data && 'error' in data && typeof data.error === 'string') {
-    const { error, message } = data;
+    const { error: errorCode, message } = data;
     
     // Tytuł z kategorii błędu, opis ze szczegółowego message
-    const title = apiExceptionReasonMessages[error] || error;
+    const title = apiExceptionReasonMessages[errorCode] || errorCode;
     return {
       title,
       description: message || undefined
@@ -50,6 +61,7 @@ export const handleApiError = async (response: Response): Promise<ApiErrorResult
 
   // Ostateczny fallback
   return {
-    title: defaultErrorMessage
+    title: "Błąd",
+    description: defaultErrorMessage
   };
 };

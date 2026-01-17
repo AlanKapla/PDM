@@ -1,7 +1,10 @@
-using Entities.Enums;
+﻿using Entities.Enums;
 
 namespace Business.Interfaces.WebModels.Projects
 {
+    /// <summary>
+    /// Project details with user's role and permissions
+    /// </summary>
     public record ProjectDetailsWeb(
         Guid Id,
         Guid TenantId,
@@ -10,7 +13,8 @@ namespace Business.Interfaces.WebModels.Projects
         DateTime CreatedAt,
         Guid CreatedByUserId,
         string CreatedByUserName,
-        ProjectRole UserRole,
-        int MembersCount
+        string UserRoleCode,
+        int MembersCount,
+        HashSet<string> UserPermissions  // User's permissions for this project
     );
 }

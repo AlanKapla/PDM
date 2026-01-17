@@ -21,7 +21,6 @@ export interface CostEstimateListItem {
   id: string;
   tenantId: string;
   projectId: string;
-  projectName: string;
   templateId: string;
   templateName: string;
   name: string;
@@ -39,9 +38,7 @@ export interface CostEstimateDetails {
   id: string;
   tenantId: string;
   projectId: string;
-  projectName: string;
-  templateId: string;
-  templateName: string;
+  template: CostEstimateTemplateDto;
   name: string;
   description?: string;
   status: CostEstimateStatus;
@@ -51,6 +48,17 @@ export interface CostEstimateDetails {
   createdAt: string;
   updatedAt?: string;
   lastCalculatedAt?: string;
+  ownerId: string;
+  ownerName: string;
+}
+
+export interface CostEstimateTemplateDto {
+  id: string;
+  name: string;
+  description?: string;
+  templateStructure: CostEstimateTemplateStructure;
+  createdAt: string;
+  updatedAt?: string;
   ownerId: string;
   ownerName: string;
 }
@@ -76,6 +84,7 @@ export interface CostEstimateGroup {
 export interface CostEstimateWorkScope {
   id: string;
   order: number;
+  assignedUserId?: string;
   calculatedFieldValues: Record<string, any>;
   genericFieldValues: Record<string, any>;
   collectionFieldValues?: Record<string, CostEstimateCollectionItem[]>;

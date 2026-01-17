@@ -24,24 +24,27 @@ namespace CQRS.CostEstimates.DeleteCostEstimate
 
         public async Task<Unit> Handle(DeleteCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            // Get existing cost estimate - filter by TenantId, ProjectId and OwnerId
+            // 1. Verify cost estimate exists and belongs to the correct project/tenant
             var costEstimate = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId && 
                      c.TenantId == request.TenantId &&
                      c.ProjectId == request.ProjectId &&
-                     c.OwnerId == currentUser.Id &&
-                     !c.IsDeleted);
+                     !c.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            if (costEstimate == null)
+            // 2. Authorization check: tenant admin OR project admin OR cost estimate owner
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isOwner = costEstimate.OwnerId == currentUser.Id;
+            
+            if (!isAdmin && !isOwner)
             {
                 throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
             }
 
-            // Soft delete
+            // 3. Soft delete
             costEstimate.IsDeleted = true;
             costEstimate.DeletedAt = DateTime.UtcNow;
 
-            // Save changes
             await costEstimateRepository.Update(costEstimate);
             await costEstimateRepository.SaveChangesAsync(cancellationToken);
 

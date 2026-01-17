@@ -69,7 +69,7 @@ export default function UploadNewVersionModal({
     setUploading(true);
 
     try {
-      const response = await projectApi.uploadNewVersion(
+      await projectApi.uploadNewVersion(
         tenantId,
         projectId,
         (file as any).projectFileId || file.id,
@@ -77,29 +77,26 @@ export default function UploadNewVersionModal({
         comment || undefined
       );
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: "Nowa wersja pliku została przesłana",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
+      toast({
+        title: "Sukces",
+        description: "Nowa wersja pliku została przesłana",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
 
-        onVersionUploaded();
-        handleClose();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
-      }
+      onVersionUploaded();
+      handleClose();
     } catch (error) {
       console.error("Błąd podczas przesyłania nowej wersji:", error);
+      const { title, description } = handleApiError(error);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
     } finally {
       setUploading(false);
     }

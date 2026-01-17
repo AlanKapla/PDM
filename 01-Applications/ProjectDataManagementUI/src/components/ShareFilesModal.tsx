@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -20,9 +20,9 @@ import {
   Spinner,
 } from "@chakra-ui/react";
 import { Share2, User, Package } from "lucide-react";
-import { projectApi } from "../api/projectApi";
+import { projectApi, ResourceScope } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectFilePackageWeb } from "../types/project.types";
 
 interface ShareFilesModalProps {
@@ -31,6 +31,7 @@ interface ShareFilesModalProps {
   tenantId: string;
   projectId: string;
   onFilesShared: () => void;
+  myPackages?: ProjectFilePackageWeb[];
 }
 
 export default function ShareFilesModal({
@@ -39,6 +40,7 @@ export default function ShareFilesModal({
   tenantId,
   projectId,
   onFilesShared,
+  myPackages,
 }: ShareFilesModalProps) {
   const [packages, setPackages] = useState<ProjectFilePackageWeb[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -48,27 +50,27 @@ export default function ShareFilesModal({
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const toast = useToast();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     if (isOpen) {
-      fetchMyPackages();
+      if (myPackages) {
+        setPackages(myPackages);
+      } else {
+        fetchMyPackages();
+      }
       fetchProjectMembers();
       setSelectedUserIds(new Set());
       setSelectedFileIds(new Set());
     }
-  }, [isOpen, tenantId, projectId]);
+  }, [isOpen, tenantId, projectId, myPackages]);
 
   const fetchMyPackages = async () => {
     try {
       setLoadingPackages(true);
-      const response = await projectApi.getMyFiles(tenantId, projectId);
-      if (response.ok) {
-        const data: ProjectFilePackageWeb[] = await response.json();
-        setPackages(data);
-      } else {
-        throw new Error("Nie udało się pobrać listy plików");
-      }
+      const response = await projectApi.getProjectFilePackages(tenantId, projectId, ResourceScope.Mine);
+      const data: ProjectFilePackageWeb[] = response.data;
+      setPackages(data);
     } catch (error) {
       console.error("Błąd podczas pobierania plików:", error);
       toast({
@@ -87,14 +89,10 @@ export default function ShareFilesModal({
     try {
       setLoadingMembers(true);
       const response = await projectApi.getProjectMembers(tenantId, projectId);
-      if (response.ok) {
-        const data = await response.json();
-        // Wyklucz aktualnego użytkownika z listy
-        const filteredMembers = data.filter((member: ProjectMemberWeb) => member.email !== user?.email);
-        setMembers(filteredMembers);
-      } else {
-        throw new Error("Nie udało się pobrać listy członków");
-      }
+      const data = response.data;
+      // Wyklucz aktualnego użytkownika z listy
+      const filteredMembers = data.filter((member: ProjectMemberWeb) => member.email !== user?.email);
+      setMembers(filteredMembers);
     } catch (error) {
       console.error("Błąd podczas pobierania członków:", error);
       toast({
@@ -175,33 +173,23 @@ export default function ShareFilesModal({
       setLoading(true);
       const fileIds = Array.from(selectedFileIds);
       const userIds = Array.from(selectedUserIds);
-      const response = await projectApi.shareFiles(tenantId, projectId, fileIds, userIds);
+      await projectApi.shareFiles(tenantId, projectId, fileIds, userIds);
 
-      if (response.ok) {
-        toast({
-          title: "Sukces",
-          description: `Udostępniono ${selectedFileIds.size} plik(ów) dla ${selectedUserIds.size} użytkownik(ów)`,
-          status: "success",
-          duration: 5000,
-          isClosable: true,
-        });
-        onFilesShared();
-        onClose();
-      } else {
-        const { title, description } = await handleApiError(response);
-        toast({
-          title,
-          description,
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
-      }
+      toast({
+        title: "Sukces",
+        description: `Udostępniono ${selectedFileIds.size} plik(ów) dla ${selectedUserIds.size} użytkownik(ów)`,
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+      onFilesShared();
+      onClose();
     } catch (error) {
       console.error("Błąd podczas udostępniania plików:", error);
+      const { title, description } = handleApiError(error);
       toast({
-        title: "Błąd",
-        description: "Wystąpił błąd podczas udostępniania plików",
+        title,
+        description,
         status: "error",
         duration: 5000,
         isClosable: true,

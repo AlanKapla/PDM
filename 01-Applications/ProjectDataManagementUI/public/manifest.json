@@ -1,7 +1,7 @@
 {
-  "name": "Project Data Management",
+  "name": "Brickly",
   "short_name": "PDM",
-  "description": "Project Data Management Application",
+  "description": "Brickly Application",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

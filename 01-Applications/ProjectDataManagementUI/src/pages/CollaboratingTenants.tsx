@@ -15,17 +15,18 @@ import {
 } from "@chakra-ui/react";
 import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getUserTenants, getActiveTenant, changeActiveTenant } from "../services/tenantService";
-import type { TenantDetails } from "../types/auth.types";
-import { getTenantRoleName, getTenantRoleColor } from "../types/auth.types";
+import { useAuth } from "../context/AuthContext";
+import { getUserTenants, changeActiveTenant } from "../services/tenantService";
+import type { UserTenant } from "../types/auth.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function CollaboratingTenants() {
-  const [tenants, setTenants] = useState<TenantDetails[]>([]);
+  const { user, refreshUser } = useAuth();
+  const toast = useToast();
+  const [tenants, setTenants] = useState<UserTenant[]>([]);
   const [activeTenantId, setActiveTenantId] = useState<string>("");
   const [changingTenant, setChangingTenant] = useState(false);
   const [loading, setLoading] = useState(true);
-  
-  const toast = useToast();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
@@ -35,15 +36,11 @@ export default function CollaboratingTenants() {
   useEffect(() => {
     async function load() {
       try {
-        const [tenantsData, activeTenant] = await Promise.all([
-          getUserTenants(),
-          getActiveTenant(),
-        ]);
-        
+        const tenantsData = await getUserTenants();
         setTenants(tenantsData);
         
-        if (activeTenant?.activeTenantId) {
-          setActiveTenantId(activeTenant.activeTenantId);
+        if (user?.activeTenantId) {
+          setActiveTenantId(user.activeTenantId);
         }
       } catch (error) {
         console.error("Błąd ładowania danych:", error);
@@ -52,7 +49,7 @@ export default function CollaboratingTenants() {
       }
     }
     load();
-  }, []);
+  }, [user?.activeTenantId]);
 
   const handleTenantChange = async (newTenantId: string) => {
     if (newTenantId === activeTenantId) return;
@@ -64,8 +61,8 @@ export default function CollaboratingTenants() {
       if (success) {
         setActiveTenantId(newTenantId);
         toast({
-          title: "Organizacja zmieniona",
-          description: "Aktywna organizacja została zaktualizowana",
+          title: "Organizacja przełączona",
+          description: "Organizacja została pomyślnie przełączona",
           status: "success",
           duration: 3000,
           isClosable: true,
@@ -76,8 +73,8 @@ export default function CollaboratingTenants() {
         }, 1000);
       } else {
         toast({
-          title: "Błąd zmiany organizacji",
-          description: "Nie udało się zmienić aktywnej organizacji",
+          title: "Błąd przełączania organizacji",
+          description: "Nie udało się przełączyć organizacji",
           status: "error",
           duration: 3000,
           isClosable: true,
@@ -151,8 +148,8 @@ export default function CollaboratingTenants() {
                                   <Text fontSize="xs" color="gray.500">
                                     Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
                                   </Text>
-                                  <Badge colorScheme={getTenantRoleColor(tenant.role)} fontSize="xs">
-                                    {getTenantRoleName(tenant.role)}
+                                  <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
+                                    {getRoleName(tenant.roleCode)}
                                   </Badge>
                                 </Stack>
                               </VStack>
@@ -161,7 +158,7 @@ export default function CollaboratingTenants() {
                           {tenant.id === activeTenantId && (
                             <Badge colorScheme="blue" display="flex" alignItems="center" gap={1} alignSelf={{ base: "flex-start", md: "center" }} ml={{ base: 6, md: 0 }}>
                               <CheckCircle2 size={14} />
-                              Aktywny
+                              Włączona
                             </Badge>
                           )}
                         </Stack>
@@ -174,7 +171,7 @@ export default function CollaboratingTenants() {
                   <HStack mt={4} spacing={2}>
                     <Spinner size="sm" />
                     <Text fontSize="sm" color="gray.500">
-                      Zmiana aktywnej organizacji...
+                      Przełączanie organizacji...
                     </Text>
                   </HStack>
                 )}

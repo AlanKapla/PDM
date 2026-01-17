@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import {
   Box,
   Text,
@@ -15,14 +15,15 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import { tenantApi } from "../api/tenantApi";
 import NotificationBell from "./NotificationBell";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated } = useContext(AuthContext);
   const [activeTenantName, setActiveTenantName] = useState<string | null>(null);
   
   const bg = useColorModeValue("white", "gray.800");
@@ -31,35 +32,37 @@ export default function Header() {
   const mutedColor = useColorModeValue("gray.600", "gray.400");
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "U";
 
+  // Globalny cache dla my-tenants (współdzielony z innymi komponentami)
+  const tenantsCache = useGlobalCache(
+    'my-tenants',
+    async () => {
+      const res = await tenantApi.getUserTenants();
+      return res.data;
+    }
+  );
+
   // Pobierz nazwę aktywnego tenanta
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const fetchActiveTenant = async () => {
       try {
-        const [activeTenantResponse, tenantsResponse] = await Promise.all([
-          tenantApi.getActiveTenant(),
-          tenantApi.getUserTenants(),
-        ]);
-
-        if (activeTenantResponse.ok && tenantsResponse.ok) {
-          const activeTenantData = await activeTenantResponse.json();
-          const tenants = await tenantsResponse.json();
-          
-          if (activeTenantData.activeTenantId) {
-            const activeTenant = tenants.find((t: any) => t.id === activeTenantData.activeTenantId);
-            setActiveTenantName(activeTenant?.name || null);
-          } else {
-            setActiveTenantName(null);
-          }
+        const tenants = await tenantsCache.fetch();
+        
+        if (user?.activeTenantId) {
+          const activeTenant = tenants.find((t: any) => t.id === user.activeTenantId);
+          setActiveTenantName(activeTenant?.name || null);
+        } else {
+          setActiveTenantName(null);
         }
       } catch (err) {
         console.error("Błąd pobierania aktywnego tenanta:", err);
+        setActiveTenantName(null);
       }
     };
 
     fetchActiveTenant();
-  }, [isAuthenticated, location.pathname]);
+  }, [isAuthenticated, user?.activeTenantId]);
 
   return (
     <Box
@@ -88,7 +91,7 @@ export default function Header() {
             fontWeight="bold" 
             color={textColor}
           >
-            Project Data Management
+            Brickly
           </Text>
         </HStack>
 
@@ -138,7 +141,7 @@ export default function Header() {
               </MenuItem>
               <MenuDivider />
               <MenuItem icon={<RefreshCw size={16} />} onClick={() => navigate("/tenants/collaborating")}>
-                Zmień aktywnego tenanta
+                Przełącz organizację
               </MenuItem>
               <MenuDivider />
               <MenuItem 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -18,7 +18,8 @@ import {
 import { UserPlus, Check } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
-import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import { useProjectCache } from "../hooks/useProjectCache";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { LoadingSpinner, EmptyState, UserAvatar, DataCard } from "./common";
 import type { TenantMemberWeb, ProjectMemberWeb } from "../types/project.types";
@@ -42,6 +43,7 @@ export default function AddProjectMemberModal({
   onMemberAdded
 }: AddProjectMemberModalProps) {
   const { showSuccess, showError } = useToastNotification();
+  const { invalidateProject } = useProjectCache();
   const [tenantMembers, setTenantMembers] = useState<TenantMemberWeb[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberWeb[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,15 +65,11 @@ export default function AddProjectMemberModal({
         projectApi.getProjectMembers(tenantId, projectId),
       ]);
 
-      if (tenantMembersRes.ok) {
-        const members: TenantMemberWeb[] = await tenantMembersRes.json();
-        setTenantMembers(members.filter(m => m.isActive));
-      }
+      const members: TenantMemberWeb[] = tenantMembersRes.data;
+      setTenantMembers(members.filter(m => m.isActive));
 
-      if (projectMembersRes.ok) {
-        const members: ProjectMemberWeb[] = await projectMembersRes.json();
-        setProjectMembers(members);
-      }
+      const projectMembers: ProjectMemberWeb[] = projectMembersRes.data;
+      setProjectMembers(projectMembers);
     } catch (error) {
       console.error("Błąd pobierania członków:", error);
       showError("Błąd", "Nie udało się pobrać listy członków");
@@ -83,28 +81,27 @@ export default function AddProjectMemberModal({
   const handleAddMember = async (userId: string) => {
     setAdding(userId);
     try {
-      const response = await projectApi.addProjectMember(tenantId, projectId, userId);
+      await projectApi.addProjectMember(tenantId, projectId, userId);
       
-      if (response.ok) {
-        showSuccess("Sukces", "Członek został dodany do projektu");
-        
-        // Odśwież listę członków
-        await fetchData();
-        onMemberAdded?.();
-      } else {
-        const errorModule = await import("../utils/handleApiError");
-        const { title, description } = await errorModule.handleApiError(response);
-        showError(title, description);
-      }
+      showSuccess("Sukces", "Członek został dodany do projektu");
+      
+      // Invalidate project cache - permissions might have changed
+      invalidateProject(projectId);
+      
+      // Odśwież listę członków
+      await fetchData();
+      onMemberAdded?.();
     } catch (error) {
       console.error("Błąd dodawania członka:", error);
-      showError("Błąd", "Nie udało się dodać członka do projektu");
+      const errorModule = await import("../utils/handleApiError");
+      const { title, description } = errorModule.handleApiError(error);
+      showError(title, description);
     } finally {
       setAdding(null);
     }
   };
 
-  const isMemberInProject = (userId: string) => {
+  const isMemberInProject = (userId: String) => {
     return projectMembers.some(pm => pm.userId === userId);
   };
 
@@ -203,8 +200,8 @@ export default function AddProjectMemberModal({
                               <Text fontWeight="medium" fontSize="sm">
                                 {member.firstName} {member.lastName}
                               </Text>
-                              <Badge colorScheme={getProjectRoleColor(member.role)} fontSize="xs">
-                                {getProjectRoleName(member.role)}
+                              <Badge colorScheme={getRoleColor(member.roleCode)} fontSize="xs">
+                                {getRoleName(member.roleCode)}
                               </Badge>
                             </HStack>
                             <Text fontSize="xs" color="gray.500">

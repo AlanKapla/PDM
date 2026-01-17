@@ -1,9 +1,14 @@
-﻿using WebApi.Extensions;
+﻿using Microsoft.IdentityModel.Logging;
+using WebApi.Extensions;
 
 internal class Program
 {
     private static void Main(string[] args)
     {
+        // Enable PII logging FIRST - before any authentication setup
+        // ⚠️ WARNING: Only for development! Shows sensitive token data in logs
+        IdentityModelEventSource.ShowPII = true;
+
         var builder = WebApplication.CreateBuilder(args);
 
         // Konfiguracja Kestrel - zwiększenie limitów dla upload plików
@@ -11,7 +16,7 @@ internal class Program
         {
             // Maksymalny rozmiar żądania: 50 MB
             options.Limits.MaxRequestBodySize = 52428800; // 50 MB in bytes
-            
+
             // Timeout dla odczytu request body: 5 minut (dla dużych plików)
             options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
             options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(5);
@@ -21,11 +26,16 @@ internal class Program
 
         var app = builder.Build();
 
-        app.UseRouting();
-        
-        app.UseCors("AllowFrontend");
-
         app.UseWebSockets();
+
+        app.UseRouting();
+
+        if(!builder.Environment.IsDevelopment())
+        {
+            app.UseHttpsRedirection();
+        }
+
+        app.UseCors("AllowFrontend");
 
         app.UseGlobalExceptionHandling();
 
@@ -37,10 +47,13 @@ internal class Program
 
         app.MapControllers();
 
-        app.MapHub<WebApi.Hubs.NotificationHub>("api/hubs/notifications")
+        app.MapHub<WebApi.Hubs.NotificationHub>("/api/hubs/notifications")
             .RequireCors("AllowFrontend");
 
-        app.MapHealthChecks("api/health");
+        app.MapHub<WebApi.Hubs.MessageHub>("/api/hubs/messages")
+            .RequireCors("AllowFrontend");
+
+        app.MapHealthChecks("/api/health");
 
         app.Run();
     }

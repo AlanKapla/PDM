@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import {
   Box,
   HStack,
@@ -12,10 +13,10 @@ import {
 } from "@chakra-ui/react";
 import { User as UserIcon, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 
 export default function HeaderUserMenu() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const bg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -56,7 +57,7 @@ export default function HeaderUserMenu() {
           <MenuDivider />
           <MenuItem icon={<RefreshCw size={16} />} onClick={() => navigate("/tenants/managed")}>Zmień aktywnego tenanta</MenuItem>
           <MenuDivider />
-          <MenuItem color="red.500" onClick={async () => { await logout(); navigate("/"); }}>Wyloguj się</MenuItem>
+          <MenuItem color="red.500" onClick={() => logout()}>Wyloguj się</MenuItem>
         </MenuList>
       </Menu>
     </Box>

@@ -7,23 +7,27 @@ using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
+using Repositiories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.UpdateProjectCost
 {
     public class UpdateProjectCostCommandHandler : IRequestHandler<UpdateProjectCostCommand, Unit>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
+        private readonly IReadRepository<SharedProjectCost> sharedProjectCostRepo;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UpdateProjectCostCommandHandler> logger;
 
         public UpdateProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
+            IReadRepository<SharedProjectCost> sharedProjectCostRepo,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<UpdateProjectCostCommandHandler> logger)
         {
             this.projectCostRepo = projectCostRepo;
+            this.sharedProjectCostRepo = sharedProjectCostRepo;
             this.blobStorageService = blobStorageService;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -31,33 +35,61 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
 
         public async Task<Unit> Handle(UpdateProjectCostCommand request, CancellationToken cancellationToken)
         {
-            // ProjectMemberHandler already validated tenant isolation and project membership
-
-            // Get existing cost
+            // 1. Verify cost exists and belongs to the correct project/tenant
             var projectCost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId 
                     && pc.TenantId == request.TenantId 
                     && pc.ProjectId == request.ProjectId 
-                    && !pc.IsDeleted);
+                    && !pc.IsDeleted)
 
-            if (projectCost == null)
+                ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+
+            // 2. Authorization check: tenant admin OR project admin OR cost owner OR user with share access
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isCostOwner = projectCost.UserId == currentUser.Id;
+            
+            bool hasShareAccess = false;
+            if (!isAdmin && !isCostOwner)
             {
-                throw new NotFoundApiException("ProjectCost", request.CostId.ToString());
+                var share = await sharedProjectCostRepo.GetFirstBySearch(
+                    spc => spc.ProjectCostId == request.CostId 
+                        && spc.SharedWithUserId == currentUser.Id);
+                
+                hasShareAccess = share != null;
+                
+                if (!hasShareAccess)
+                {
+                    throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+                }
             }
 
-            // Verify ownership - only the user who created the cost can update it
-            if (projectCost.UserId != currentUser.Id)
+            // 3. Determine edit permissions
+            bool canEditAllFields = isAdmin || isCostOwner;
+            bool canEditOnlyIsClosed = hasShareAccess && !canEditAllFields;
+
+            // 4. Validate edit permissions for shared user
+            if (canEditOnlyIsClosed)
             {
-                throw new ForbiddenApiException("Only the cost owner can update it");
+                // Only update IsClosed for shared users
+                projectCost.IsClosed = request.IsClosed;
+                projectCost.UpdatedAt = DateTime.UtcNow;
+
+                await projectCostRepo.Update(projectCost);
+                await projectCostRepo.SaveChangesAsync(cancellationToken);
+
+                logger.LogInformation(
+                    "Cost {CostId} IsClosed updated to {IsClosed} in project {ProjectId} by shared user {UserId}",
+                    request.CostId, request.IsClosed, request.ProjectId, currentUser.Id);
+
+                return Unit.Value;
             }
 
-            // Calculate amounts using helper
+            // 5. Full update for admin or owner
             var (grossAmount, netAmount, vatRate) = AmountCalculationHelper.CalculateAmounts(
                 request.NetAmount, 
                 request.VatRate, 
                 request.GrossAmount);
 
-            // Update basic fields
             projectCost.Name = request.Name;
             projectCost.Place = request.Place;
             projectCost.Date = request.Date.Date;
@@ -68,7 +100,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             projectCost.IsClosed = request.IsClosed;
             projectCost.UpdatedAt = DateTime.UtcNow;
 
-            // Handle document removal
+            // 6. Handle document removal
             if (request.RemoveDocument && projectCost.HasDocument && !string.IsNullOrWhiteSpace(projectCost.DocumentBlobPath))
             {
                 try
@@ -92,7 +124,6 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                         "Failed to delete document for cost {CostId}, continuing with metadata removal",
                         request.CostId);
                     
-                    // Clear metadata even if blob deletion fails
                     projectCost.HasDocument = false;
                     projectCost.DocumentFileName = null;
                     projectCost.DocumentBlobPath = null;
@@ -101,10 +132,9 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                 }
             }
 
-            // Handle new document upload
+            // 7. Handle new document upload
             if (request.Document != null)
             {
-                // Delete old document if exists
                 if (projectCost.HasDocument && !string.IsNullOrWhiteSpace(projectCost.DocumentBlobPath))
                 {
                     try
@@ -120,7 +150,6 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                     }
                 }
 
-                // Upload new document
                 try
                 {
                     string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.ProjectCosts);
@@ -162,7 +191,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             await projectCostRepo.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
-                "Cost {CostId} updated in project {ProjectId} by user {UserId}",
+                "Cost {CostId} fully updated in project {ProjectId} by user {UserId}",
                 request.CostId, request.ProjectId, currentUser.Id);
 
             return Unit.Value;

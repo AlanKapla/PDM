@@ -1,6 +1,9 @@
-﻿using Business.Interfaces.DTO;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
@@ -13,46 +16,63 @@ namespace CQRS.Projects.AddProjectMember
     public class AddProjectMemberCommandHandler : IRequestHandler<AddProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
+        private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IReadRepository<Role> roleRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
         public AddProjectMemberCommandHandler(
             IReadRepository<Project> projectRepo,
+            IReadRepository<User> userRepo,
             IRepository<ProjectMember> projectMemberRepo,
+            IReadRepository<Role> roleRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
+            this.userRepo = userRepo;
             this.projectMemberRepo = projectMemberRepo;
+            this.roleRepo = roleRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
 
         public async Task<Unit> Handle(AddProjectMemberCommand request, CancellationToken cancellationToken)
         {
-            // Pobierz projekt do użycia w notyfikacji (walidacja już wykonana w validatorze)
-            Project project = (await projectRepo.GetFirstBySearch(
-                p => p.Id == request.ProjectId && p.TenantId == request.TenantId && p.IsActive,
-                cancellationToken))!;
+            Project project = await projectRepo.GetFirstBySearch(
+                p => p.Id == request.ProjectId && p.TenantId == request.TenantId,
+                cancellationToken)
+                ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            // Utwórz nowego członka projektu z rolą Member
+            var viewerRole = await roleRepo.GetFirstBySearch(
+                r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectViewer && r.IsActive,
+                cancellationToken)
+                ?? throw new InvalidOperationException($"{RoleCodes.ProjectViewer} role not found");
+
             ProjectMember newMember = new ProjectMember
             {
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
-                UserId = request.UserId
+                UserId = request.UserId,
+                RoleId = viewerRole.Id,
+                JoinedAt = DateTime.UtcNow
             };
 
             await projectMemberRepo.Insert(newMember);
 
-            // Wyślij notyfikację do użytkownika
+            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
+
             NotificationDto notification = new NotificationDto
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = request.UserId,
+                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.Info,
                 Title = "Dodano do projektu",
                 Message = $"Zostałeś dodany do projektu: {project.Name}",
@@ -66,7 +86,8 @@ namespace CQRS.Projects.AddProjectMember
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;
         }

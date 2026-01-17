@@ -29,6 +29,9 @@ namespace CQRS.WorkSchedules.GetUserAssignedWorks
                     .Include(a => a.Work)
                         .ThenInclude(w => w.Periods)
                     .Include(a => a.Work)
+                        .ThenInclude(w => w.Comments)
+                            .ThenInclude(c => c.CreatedBy)
+                    .Include(a => a.Work)
                         .ThenInclude(w => w.Stage)
                             .ThenInclude(s => s.WorkSchedule)
                                 .ThenInclude(ws => ws.Project));
@@ -76,7 +79,18 @@ namespace CQRS.WorkSchedules.GetUserAssignedWorks
                                                 .OrderBy(p => p.StartDate)
                                                 .Select(p => new WorkScheduleStageWorkPeriodWeb(
                                                     StartDate: p.StartDate,
-                                                    EndDate: p.EndDate
+                                                    EndDate: p.EndDate,
+                                                    IsClosed: p.IsClosed
+                                                ))
+                                                .ToList(),
+                                            Comments: a.Work.Comments
+                                                .OrderBy(c => c.CreatedAt)
+                                                .Select(c => new WorkScheduleStageWorkCommentWeb(
+                                                    Id: c.Id,
+                                                    Content: c.Content,
+                                                    CreatedByUserId: c.CreatedByUserId,
+                                                    CreatedByUserName: $"{c.CreatedBy.FirstName} {c.CreatedBy.LastName}".Trim(),
+                                                    CreatedAt: c.CreatedAt
                                                 ))
                                                 .ToList()
                                         ))

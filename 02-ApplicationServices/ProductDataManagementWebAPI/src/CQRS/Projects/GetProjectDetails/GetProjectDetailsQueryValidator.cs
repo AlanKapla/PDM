@@ -26,33 +26,6 @@ namespace CQRS.Projects.GetProjectDetails
 
             RuleFor(x => x.ProjectId)
                 .NotEmpty().WithMessage("ProjectId is required");
-
-            // Walidacja: projekt musi istnieć
-            RuleFor(x => x)
-                .MustAsync(ProjectMustExist)
-                .WithMessage("Project not found");
-
-            // Walidacja: projekt musi być aktywny
-            RuleFor(x => x)
-                .MustAsync(ProjectMustBeActive)
-                .WithMessage("Project is not active");
-        }
-
-        private async Task<bool> ProjectMustExist(GetProjectDetailsQuery query, CancellationToken cancellationToken)
-        {
-            var project = await projectRepo.GetFirstBySearch(
-                p => p.Id == query.ProjectId && p.TenantId == query.TenantId,
-                cancellationToken);
-
-            return project != null;
-        }
-
-        private async Task<bool> ProjectMustBeActive(GetProjectDetailsQuery query, CancellationToken cancellationToken)
-        {
-            var project = await projectRepo.GetFirstBySearch(
-                p => p.Id == query.ProjectId && p.TenantId == query.TenantId,
-                cancellationToken);
-            return project != null && project.IsActive;
         }
     }
 }

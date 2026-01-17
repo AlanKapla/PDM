@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -19,62 +19,99 @@ import {
   ModalBody,
   ModalFooter,
   ModalCloseButton,
+  Select,
+  Tooltip,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from "@chakra-ui/react";
-import { ArrowLeft, Users, UserPlus, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, UserPlus, Trash2, Shield, Save, X } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthContext";
+import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { useGlobalCache } from "../hooks/useGlobalCache";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
-import { tenantApi } from "../api/tenantApi";
-import { ProjectRole } from "../types/project.types";
-import { getProjectRoleName, getProjectRoleColor } from "../utils/constants";
+import { roleApi, type RoleWeb } from "../api/roleApi";
+import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
+import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function ProjectMembers() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const permissions = useProjectPermissions(projectId);
   const { showSuccess, showError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
 
   const [loading, setLoading] = useState(true);
-  const [members, setMembers] = useState<any[]>([]);
-  const [project, setProject] = useState<any | null>(null);
-  const [userTenantRole, setUserTenantRole] = useState<number | null>(null);
+  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
+  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
+
+  const [editingRoleMemberId, setEditingRoleMemberId] = useState<string | null>(null);
+  const [editedRoleId, setEditedRoleId] = useState<string>("");
+  const [updatingRole, setUpdatingRole] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<RoleWeb[]>([]);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const isProjectAdmin = project && project.userRole === ProjectRole.Admin;
-  const isTenantAdmin = userTenantRole === 0;
+  // Globalny cache dla project details (współdzielony z innymi stronami projektu)
+  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
+    `project-details-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
+
+  // Globalny cache dla project members (współdzielony z innymi stronami projektu)
+  const projectMembersCache = useGlobalCache<ProjectMemberWeb[]>(
+    `project-members-${projectId}`,
+    async () => {
+      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
+      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+      return res.data;
+    }
+  );
 
   useEffect(() => {
     fetchData();
+    fetchRoles();
   }, [projectId]);
+
+  const fetchRoles = async () => {
+    try {
+      const roles = await roleApi.getAvailableRoles('project');
+      setAvailableRoles(roles);
+    } catch (error) {
+      console.error("Błąd ładowania ról:", error);
+    }
+  };
 
   const fetchData = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
     setLoading(true);
     try {
-      const [projectRes, membersRes, tenantRes] = await Promise.all([
-        projectApi.getProjectDetails(user.activeTenantId, projectId),
-        projectApi.getProjectMembers(user.activeTenantId, projectId),
-        tenantApi.getActiveTenant(),
-      ]);
+      const [projectData, membersData] = await Promise.all([
+        projectDetailsCache.fetch(),
+        projectMembersCache.fetch(),
+      ])
 
-      if (projectRes.ok) setProject(await projectRes.json());
-      if (membersRes.ok) setMembers(await membersRes.json());
-      if (tenantRes.ok) {
-        const tenantData = await tenantRes.json();
-        setUserTenantRole(tenantData.userRole);
-      }
+      setProject(projectData);
+      setMembers(membersData);
     } catch (error) {
       showError("Nie udało się pobrać danych");
     } finally {
@@ -92,24 +129,50 @@ export default function ProjectMembers() {
 
     setRemovingMember(memberToRemove.userId);
     try {
-      const response = await projectApi.removeProjectMember(
+      await projectApi.removeProjectMember(
         user.activeTenantId,
         projectId,
         memberToRemove.userId
       );
 
-      if (response.ok) {
-        showSuccess(`Usunięto członka: ${memberToRemove.name}`);
-        setMembers((prev) => prev.filter((m) => m.userId !== memberToRemove.userId));
-        onRemoveModalClose();
-      } else {
-        showError("Nie udało się usunąć członka");
-      }
+      showSuccess(`Usunięto członka: ${memberToRemove.name}`);
+      setMembers((prev) => prev.filter((m) => m.userId !== memberToRemove.userId));
+      onRemoveModalClose();
     } catch (error) {
       showError("Błąd podczas usuwania członka");
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
+    }
+  };
+
+  const handleUpdateMemberRole = async (userId: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    if (user.id === userId) {
+      showError("Nie możesz zmienić własnej roli");
+      return;
+    }
+
+    setUpdatingRole(true);
+    try {
+      await projectApi.updateProjectMemberRole(
+        user.activeTenantId,
+        projectId,
+        userId,
+        editedRoleId
+      );
+
+      // Odśwież dane po zmianie
+      projectDetailsCache.clear();
+      projectMembersCache.clear();
+      await fetchData();
+      setEditingRoleMemberId(null);
+      showSuccess("Zaktualizowano rolę członka");
+    } catch (error) {
+      showError("Nie udało się zmienić roli");
+    } finally {
+      setUpdatingRole(false);
     }
   };
 
@@ -126,15 +189,16 @@ export default function ProjectMembers() {
   return (
     <MainLayout>
       <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <Button
-          leftIcon={<ArrowLeft size={18} />}
-          variant="ghost"
-          mb={6}
-          onClick={() => navigate(`/projects/${projectId}`)}
-        >
-          Wróć do projektu
-        </Button>
-
+        {!permissions.canViewMembers ? (
+          <Box bg={cardBg} p={8} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+            <VStack spacing={4}>
+              <Heading size="md" color="red.500">Brak dostępu</Heading>
+              <Text>Nie masz uprawnień do przeglądania członków tego projektu.</Text>
+              <Text fontSize="sm" color="gray.600">Wymagana rola: co najmniej Przeglądający</Text>
+            </VStack>
+          </Box>
+        ) : (
+          <>
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={Users} boxSize={8} color="blue.600" />
@@ -143,7 +207,7 @@ export default function ProjectMembers() {
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {isProjectAdmin && (
+          {permissions.canManageMembers && (
             <Button
               leftIcon={<UserPlus size={18} />}
               colorScheme="blue"
@@ -161,73 +225,108 @@ export default function ProjectMembers() {
             description="Ten projekt nie ma jeszcze żadnych członków"
           />
         ) : (
-          <VStack spacing={3} align="stretch">
-            {members.map((m) => {
-              const initials = `${m.firstName[0]}${m.lastName[0]}`;
-
-              return (
-                <Box
-                  key={m.userId}
-                  bg={cardBg}
-                  p={6}
-                  borderWidth="1px"
-                  borderColor={borderColor}
-                  rounded="lg"
-                  _hover={{ bg: hoverBg }}
-                  transition="0.15s"
-                  shadow="sm"
-                >
-                  <HStack justify="space-between">
-                    <HStack spacing={4} flex={1}>
-                      <Box
-                        w="56px"
-                        h="56px"
-                        rounded="full"
-                        bg="blue.600"
-                        color="white"
-                        fontWeight="bold"
-                        fontSize="lg"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        {initials}
-                      </Box>
-
-                      <VStack align="flex-start" spacing={1}>
-                        <Text fontWeight="bold" fontSize="lg">
-                          {m.firstName} {m.lastName}
-                        </Text>
-                        <Text fontSize="sm" color="gray.600">
-                          {m.email}
-                        </Text>
-                        <Text fontSize="xs" color="gray.500">
-                          Dołączył: {formatDate(m.joinedAt)}
-                        </Text>
-                      </VStack>
-                    </HStack>
-
-                    <HStack spacing={3}>
-                      <Badge colorScheme={getProjectRoleColor(m.role)} fontSize="md" px={4} py={2}>
-                        {getProjectRoleName(m.role)}
-                      </Badge>
-                      {isTenantAdmin && m.email.toLowerCase() !== user?.email.toLowerCase() && (
-                        <IconButton
-                          aria-label="Usuń członka"
-                          icon={<Trash2 size={18} />}
-                          size="md"
-                          colorScheme="red"
-                          variant="ghost"
-                          isDisabled={removingMember !== null}
-                          onClick={() => handleRemoveMemberClick(m.userId, `${m.firstName} ${m.lastName}`)}
-                        />
+          <Box bg={cardBg} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Imię i nazwisko</Th>
+                  <Th>Email</Th>
+                  <Th>Rola</Th>
+                  <Th>Data dołączenia</Th>
+                  <Th>Akcje</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {members.map((member) => (
+                  <Tr key={member.userId}>
+                    <Td>
+                      {member.firstName} {member.lastName}
+                      {user?.id === member.userId && (
+                        <Badge ml={2} colorScheme="green" fontSize="xs">
+                          Ty
+                        </Badge>
                       )}
-                    </HStack>
-                  </HStack>
-                </Box>
-              );
-            })}
-          </VStack>
+                    </Td>
+                    <Td>{member.email}</Td>
+                    <Td>
+                      <Badge colorScheme={getRoleColor(member.roleCode)}>
+                        {getRoleName(member.roleCode)}
+                      </Badge>
+                    </Td>
+                    <Td>{formatDate(member.joinedAt)}</Td>
+                    <Td>
+                      {editingRoleMemberId === member.userId ? (
+                        <HStack spacing={2}>
+                          <Select
+                            size="sm"
+                            value={editedRoleId}
+                            onChange={(e) => setEditedRoleId(e.target.value)}
+                            isDisabled={updatingRole}
+                            width="150px"
+                          >
+                            {availableRoles.map((role) => (
+                              <option key={role.id} value={role.id}>
+                                {role.name}
+                              </option>
+                            ))}
+                          </Select>
+                          <IconButton
+                            aria-label="Zapisz rolę"
+                            icon={<Save size={14} />}
+                            size="sm"
+                            colorScheme="green"
+                            onClick={() => handleUpdateMemberRole(member.userId)}
+                            isLoading={updatingRole}
+                          />
+                          <IconButton
+                            aria-label="Anuluj"
+                            icon={<X size={14} />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingRoleMemberId(null)}
+                            isDisabled={updatingRole}
+                          />
+                        </HStack>
+                      ) : (
+                        <HStack spacing={2}>
+                          {permissions.canManageMembers && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                            <Tooltip label="Zmień rolę">
+                              <IconButton
+                                aria-label="Edytuj rolę"
+                                icon={<Shield size={14} />}
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingRoleMemberId(member.userId);
+                                  // Znajdź role ID na podstawie roleCode
+                                  const role = availableRoles.find(r => r.code === member.roleCode);
+                                  setEditedRoleId(role?.id || "");
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                          {permissions.canManageMembers && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                            <Tooltip label="Usuń członka">
+                              <IconButton
+                                aria-label="Usuń członka"
+                                icon={<Trash2 size={16} />}
+                                size="sm"
+                                colorScheme="red"
+                                variant="ghost"
+                                onClick={() => handleRemoveMemberClick(member.userId, `${member.firstName} ${member.lastName}`)}
+                              />
+                            </Tooltip>
+                          )}
+                        </HStack>
+                      )}
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+        )}
+        </>
         )}
 
         <AddProjectMemberModal
