@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -37,6 +37,7 @@ import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
 import CopyCostEstimateModal from "../components/CopyCostEstimateModal";
 import type { CostEstimateListItem, CostEstimateStatus } from "../types/costEstimate.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
@@ -57,6 +58,301 @@ const costEstimateStatusColors: Record<CostEstimateStatus, string> = {
   [4]: "red",
   [5]: "purple",
 };
+
+interface TabCacheResult<T> {
+  data: T | null;
+  loading: boolean;
+  fetch: () => Promise<void>;
+  setData: (data: T) => void;
+  clear: () => void;
+}
+
+interface CostEstimatesTabProps {
+  cache: TabCacheResult<CostEstimateListItem[]>;
+  cardBg: string;
+  borderColor: string;
+  hoverBg: string;
+  costEstimateStatusLabels: Record<CostEstimateStatus, string>;
+  costEstimateStatusColors: Record<CostEstimateStatus, string>;
+  formatDate: (date: string | Date | null | undefined) => string;
+  handleViewCostEstimate: (id: string) => void;
+  handleCopyCostEstimate: (costEstimate: CostEstimateListItem) => void;
+  handleDeleteCostEstimate: (id: string) => void;
+  resourcePerms: ResourcePermissions;
+  onCreateModalOpen: () => void;
+}
+
+// Komponent dla tabu "Moje kosztorysy"
+const MyCostEstimatesTab = React.memo<CostEstimatesTabProps>(({
+  cache,
+  cardBg,
+  borderColor,
+  hoverBg,
+  costEstimateStatusLabels,
+  costEstimateStatusColors,
+  formatDate,
+  handleViewCostEstimate,
+  handleCopyCostEstimate,
+  handleDeleteCostEstimate,
+  resourcePerms,
+  onCreateModalOpen,
+}) => {
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie kosztorysów..." />;
+  }
+
+  const costEstimates = cache.data || [];
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Twoje kosztorysy w projekcie
+        </Text>
+        {resourcePerms.mine.canCreate && (
+          <Button
+            leftIcon={<Plus size={18} />}
+            colorScheme="blue"
+            onClick={onCreateModalOpen}
+          >
+            Nowy kosztorys
+          </Button>
+        )}
+      </HStack>
+
+      {costEstimates.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Brak kosztorysów"
+          description="Utwórz swój pierwszy kosztorys na podstawie szablonu"
+        />
+      ) : (
+    <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+      <Table size="sm" variant="simple">
+        <Thead>
+          <Tr>
+            <Th>Nazwa</Th>
+            <Th>Szablon</Th>
+            <Th>Status</Th>
+            <Th isNumeric>Wartość netto</Th>
+            <Th isNumeric>Wartość brutto</Th>
+            <Th>Utworzony</Th>
+            <Th>Aktualizacja</Th>
+            <Th textAlign="center">Akcje</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {costEstimates.map((costEstimate) => (
+            <Tr key={costEstimate.id} _hover={{ bg: hoverBg }}>
+              <Td fontWeight="medium">
+                <VStack align="flex-start" spacing={0}>
+                  <Text>{costEstimate.name}</Text>
+                  {costEstimate.description && (
+                    <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                      {costEstimate.description}
+                    </Text>
+                  )}
+                </VStack>
+              </Td>
+              <Td>
+                <Text fontSize="sm">{costEstimate.templateName}</Text>
+              </Td>
+              <Td>
+                <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
+                  {costEstimateStatusLabels[costEstimate.status]}
+                </Badge>
+              </Td>
+              <Td isNumeric>
+                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td isNumeric fontWeight="bold" color="green.600">
+                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td>
+                <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
+              </Td>
+              <Td>
+                <Text fontSize="xs">
+                  {costEstimate.updatedAt ? formatDate(costEstimate.updatedAt) : '-'}
+                </Text>
+              </Td>
+              <Td textAlign="center">
+                <HStack spacing={1} justify="center">
+                  <IconButton
+                    aria-label="Otwórz"
+                    icon={<Eye size={14} />}
+                    size="xs"
+                    colorScheme="blue"
+                    variant="ghost"
+                    onClick={() => handleViewCostEstimate(costEstimate.id)}
+                  />
+                  {resourcePerms.mine.canEdit && (
+                    <IconButton
+                      aria-label="Kopiuj"
+                      icon={<Copy size={14} />}
+                      size="xs"
+                      colorScheme="purple"
+                      variant="ghost"
+                      onClick={() => handleCopyCostEstimate(costEstimate)}
+                    />
+                  )}
+                  {resourcePerms.mine.canDelete && (
+                    <IconButton
+                      aria-label="Usuń"
+                      icon={<Trash2 size={14} />}
+                      size="xs"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
+                    />
+                  )}
+                </HStack>
+              </Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
+    </Box>
+      )}
+    </VStack>
+  );
+});
+
+// Komponent dla tabu "Wszystkie kosztorysy"
+const AllCostEstimatesTab = React.memo<CostEstimatesTabProps>(({
+  cache,
+  cardBg,
+  borderColor,
+  hoverBg,
+  costEstimateStatusLabels,
+  costEstimateStatusColors,
+  formatDate,
+  handleViewCostEstimate,
+  handleCopyCostEstimate,
+  handleDeleteCostEstimate,
+  resourcePerms,
+  onCreateModalOpen,
+}) => {
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie kosztorysów..." />;
+  }
+
+  const costEstimates = cache.data || [];
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Wszystkie kosztorysy w projekcie (admin)
+        </Text>
+        {resourcePerms.all.canCreate && (
+          <Button
+            leftIcon={<Plus size={18} />}
+            colorScheme="blue"
+            onClick={onCreateModalOpen}
+          >
+            Nowy kosztorys
+          </Button>
+        )}
+      </HStack>
+
+      {costEstimates.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Brak kosztorysów"
+          description="Nie znaleziono żadnych kosztorysów"
+        />
+      ) : (
+    <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+      <Table size="sm" variant="simple">
+        <Thead>
+          <Tr>
+            <Th>Nazwa</Th>
+            <Th>Szablon</Th>
+            <Th>Status</Th>
+            <Th isNumeric>Wartość netto</Th>
+            <Th isNumeric>Wartość brutto</Th>
+            <Th>Utworzony</Th>
+            <Th>Aktualizacja</Th>
+            <Th textAlign="center">Akcje</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {costEstimates.map((costEstimate) => (
+            <Tr key={costEstimate.id} _hover={{ bg: hoverBg }}>
+              <Td fontWeight="medium">
+                <VStack align="flex-start" spacing={0}>
+                  <Text>{costEstimate.name}</Text>
+                  {costEstimate.description && (
+                    <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                      {costEstimate.description}
+                    </Text>
+                  )}
+                </VStack>
+              </Td>
+              <Td>
+                <Text fontSize="sm">{costEstimate.templateName}</Text>
+              </Td>
+              <Td>
+                <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
+                  {costEstimateStatusLabels[costEstimate.status]}
+                </Badge>
+              </Td>
+              <Td isNumeric>
+                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td isNumeric fontWeight="bold" color="green.600">
+                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
+              </Td>
+              <Td>
+                <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
+              </Td>
+              <Td>
+                <Text fontSize="xs">
+                  {costEstimate.updatedAt ? formatDate(costEstimate.updatedAt) : '-'}
+                </Text>
+              </Td>
+              <Td textAlign="center">
+                <HStack spacing={1} justify="center">
+                  <IconButton
+                    aria-label="Otwórz"
+                    icon={<Eye size={14} />}
+                    size="xs"
+                    colorScheme="blue"
+                    variant="ghost"
+                    onClick={() => handleViewCostEstimate(costEstimate.id)}
+                  />
+                  {resourcePerms.all.canEdit && (
+                    <IconButton
+                      aria-label="Kopiuj"
+                      icon={<Copy size={14} />}
+                      size="xs"
+                      colorScheme="purple"
+                      variant="ghost"
+                      onClick={() => handleCopyCostEstimate(costEstimate)}
+                    />
+                  )}
+                  {resourcePerms.all.canDelete && (
+                    <IconButton
+                      aria-label="Usuń"
+                      icon={<Trash2 size={14} />}
+                      size="xs"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
+                    />
+                  )}
+                </HStack>
+              </Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
+    </Box>
+      )}
+    </VStack>
+  );
+});
 
 export default function ProjectCosts() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -328,291 +624,5 @@ export default function ProjectCosts() {
         )}
       </Box>
     </MainLayout>
-  );
-}
-
-interface MyCostEstimatesTabCache {
-  loading: boolean;
-  data?: CostEstimateListItem[] | null;
-}
-
-interface MyCostEstimatesTabProps {
-  cache: MyCostEstimatesTabCache;
-  cardBg: string;
-  borderColor: string;
-  hoverBg: string;
-  costEstimateStatusLabels: Record<CostEstimateStatus, string>;
-  costEstimateStatusColors: Record<CostEstimateStatus, string>;
-  formatDate: (date: string | Date | null | undefined) => string;
-  handleViewCostEstimate: (id: string) => void;
-  handleCopyCostEstimate: (id: string) => void;
-  handleDeleteCostEstimate: (id: string) => void;
-  resourcePerms: {
-    mine: {
-      canCreate: boolean;
-      canRead?: boolean;
-      canUpdate?: boolean;
-      canDelete?: boolean;
-    };
-  };
-  onCreateModalOpen: () => void;
-}
-
-// Komponent dla tabu "Moje kosztorysy"
-function MyCostEstimatesTab({
-  cache,
-  cardBg,
-  borderColor,
-  hoverBg,
-  costEstimateStatusLabels,
-  costEstimateStatusColors,
-  formatDate,
-  handleViewCostEstimate,
-  handleCopyCostEstimate,
-  handleDeleteCostEstimate,
-  resourcePerms,
-  onCreateModalOpen,
-}: MyCostEstimatesTabProps) {
-  if (cache.loading) {
-    return <LoadingSpinner message="Ładowanie kosztorysów..." />;
-  }
-
-  const costEstimates = cache.data || [];
-
-  return (
-    <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
-          Twoje kosztorysy w projekcie
-        </Text>
-        {resourcePerms.mine.canCreate && (
-          <Button
-            leftIcon={<Plus size={18} />}
-            colorScheme="blue"
-            onClick={onCreateModalOpen}
-          >
-            Nowy kosztorys
-          </Button>
-        )}
-      </HStack>
-
-      {costEstimates.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Brak kosztorysów"
-          description="Utwórz swój pierwszy kosztorys na podstawie szablonu"
-        />
-      ) : (
-    <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-      <Table size="sm" variant="simple">
-        <Thead>
-          <Tr>
-            <Th>Nazwa</Th>
-            <Th>Szablon</Th>
-            <Th>Status</Th>
-            <Th isNumeric>Wartość netto</Th>
-            <Th isNumeric>Wartość brutto</Th>
-            <Th>Utworzony</Th>
-            <Th>Aktualizacja</Th>
-            <Th textAlign="center">Akcje</Th>
-          </Tr>
-        </Thead>
-        <Tbody>
-          {costEstimates.map((costEstimate: any) => (
-            <Tr key={costEstimate.id} _hover={{ bg: hoverBg }}>
-              <Td fontWeight="medium">
-                <VStack align="flex-start" spacing={0}>
-                  <Text>{costEstimate.name}</Text>
-                  {costEstimate.description && (
-                    <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                      {costEstimate.description}
-                    </Text>
-                  )}
-                </VStack>
-              </Td>
-              <Td>
-                <Text fontSize="sm">{costEstimate.templateName}</Text>
-              </Td>
-              <Td>
-                <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
-                  {costEstimateStatusLabels[costEstimate.status]}
-                </Badge>
-              </Td>
-              <Td isNumeric>
-                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
-              </Td>
-              <Td isNumeric fontWeight="bold" color="green.600">
-                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
-              </Td>
-              <Td>
-                <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
-              </Td>
-              <Td>
-                <Text fontSize="xs">
-                  {costEstimate.updatedAt ? formatDate(costEstimate.updatedAt) : '-'}
-                </Text>
-              </Td>
-              <Td textAlign="center">
-                <HStack spacing={1} justify="center">
-                  <IconButton
-                    aria-label="Otwórz"
-                    icon={<Eye size={14} />}
-                    size="xs"
-                    colorScheme="blue"
-                    variant="ghost"
-                    onClick={() => handleViewCostEstimate(costEstimate.id)}
-                  />
-                  {resourcePerms.mine.canEdit && (
-                    <IconButton
-                      aria-label="Kopiuj"
-                      icon={<Copy size={14} />}
-                      size="xs"
-                      colorScheme="purple"
-                      variant="ghost"
-                      onClick={() => handleCopyCostEstimate(costEstimate)}
-                    />
-                  )}
-                  {resourcePerms.mine.canDelete && (
-                    <IconButton
-                      aria-label="Usuń"
-                      icon={<Trash2 size={14} />}
-                      size="xs"
-                      colorScheme="red"
-                      variant="ghost"
-                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
-                    />
-                  )}
-                </HStack>
-              </Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
-    </Box>
-      )}
-    </VStack>
-  );
-}
-
-// Komponent dla tabu "Wszystkie kosztorysy"
-function AllCostEstimatesTab({ cache, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms, onCreateModalOpen }: any) {
-  if (cache.loading) {
-    return <LoadingSpinner message="Ładowanie kosztorysów..." />;
-  }
-
-  const costEstimates = cache.data || [];
-
-  return (
-    <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
-          Wszystkie kosztorysy w projekcie (admin)
-        </Text>
-        {resourcePerms.all.canCreate && (
-          <Button
-            leftIcon={<Plus size={18} />}
-            colorScheme="blue"
-            onClick={onCreateModalOpen}
-          >
-            Nowy kosztorys
-          </Button>
-        )}
-      </HStack>
-
-      {costEstimates.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Brak kosztorysów"
-          description="Nie znaleziono żadnych kosztorysów"
-        />
-      ) : (
-    <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
-      <Table size="sm" variant="simple">
-        <Thead>
-          <Tr>
-            <Th>Nazwa</Th>
-            <Th>Szablon</Th>
-            <Th>Status</Th>
-            <Th isNumeric>Wartość netto</Th>
-            <Th isNumeric>Wartość brutto</Th>
-            <Th>Utworzony</Th>
-            <Th>Aktualizacja</Th>
-            <Th textAlign="center">Akcje</Th>
-          </Tr>
-        </Thead>
-        <Tbody>
-          {costEstimates.map((costEstimate: any) => (
-            <Tr key={costEstimate.id} _hover={{ bg: hoverBg }}>
-              <Td fontWeight="medium">
-                <VStack align="flex-start" spacing={0}>
-                  <Text>{costEstimate.name}</Text>
-                  {costEstimate.description && (
-                    <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                      {costEstimate.description}
-                    </Text>
-                  )}
-                </VStack>
-              </Td>
-              <Td>
-                <Text fontSize="sm">{costEstimate.templateName}</Text>
-              </Td>
-              <Td>
-                <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
-                  {costEstimateStatusLabels[costEstimate.status]}
-                </Badge>
-              </Td>
-              <Td isNumeric>
-                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
-              </Td>
-              <Td isNumeric fontWeight="bold" color="green.600">
-                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
-              </Td>
-              <Td>
-                <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
-              </Td>
-              <Td>
-                <Text fontSize="xs">
-                  {costEstimate.updatedAt ? formatDate(costEstimate.updatedAt) : '-'}
-                </Text>
-              </Td>
-              <Td textAlign="center">
-                <HStack spacing={1} justify="center">
-                  <IconButton
-                    aria-label="Otwórz"
-                    icon={<Eye size={14} />}
-                    size="xs"
-                    colorScheme="blue"
-                    variant="ghost"
-                    onClick={() => handleViewCostEstimate(costEstimate.id)}
-                  />
-                  {resourcePerms.all.canEdit && (
-                    <IconButton
-                      aria-label="Kopiuj"
-                      icon={<Copy size={14} />}
-                      size="xs"
-                      colorScheme="purple"
-                      variant="ghost"
-                      onClick={() => handleCopyCostEstimate(costEstimate)}
-                    />
-                  )}
-                  {resourcePerms.all.canDelete && (
-                    <IconButton
-                      aria-label="Usuń"
-                      icon={<Trash2 size={14} />}
-                      size="xs"
-                      colorScheme="red"
-                      variant="ghost"
-                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
-                    />
-                  )}
-                </HStack>
-              </Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
-    </Box>
-      )}
-    </VStack>
   );
 }

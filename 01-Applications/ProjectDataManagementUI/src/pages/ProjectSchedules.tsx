@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -26,9 +26,80 @@ import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
+import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
+
+interface TabCacheResult<T> {
+  data: T | null;
+  loading: boolean;
+  fetch: () => Promise<void>;
+  setData: (data: T) => void;
+  clear: () => void;
+}
+
+interface ScheduleTabProps {
+  cache: TabCacheResult<WorkScheduleSummaryWeb[]>;
+  renderSchedulesList: (schedules: WorkScheduleSummaryWeb[]) => JSX.Element;
+  onOpen: () => void;
+  resourcePerms: ResourcePermissions;
+}
+
+// Komponent dla tabu "Moje harmonogramy"
+const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms }) => {
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie harmonogramów..." />;
+  }
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Twoje harmonogramy w projekcie
+        </Text>
+        {resourcePerms.mine.canCreate && (
+          <Button
+            leftIcon={<Calendar size={18} />}
+            colorScheme="purple"
+            onClick={onOpen}
+          >
+            Utwórz harmonogram
+          </Button>
+        )}
+      </HStack>
+      {renderSchedulesList(cache.data || [])}
+    </VStack>
+  );
+});
+
+// Komponent dla tabu "Wszystkie harmonogramy"
+const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms }) => {
+  if (cache.loading) {
+    return <LoadingSpinner message="Ładowanie harmonogramów..." />;
+  }
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="sm" color="gray.600">
+          Wszystkie harmonogramy w projekcie (admin)
+        </Text>
+        {resourcePerms.all.canCreate && (
+          <Button
+            leftIcon={<Calendar size={18} />}
+            colorScheme="purple"
+            onClick={onOpen}
+          >
+            Utwórz harmonogram
+          </Button>
+        )}
+      </HStack>
+      {renderSchedulesList(cache.data || [])}
+    </VStack>
+  );
+});
 
 export default function ProjectSchedules() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -38,8 +109,8 @@ export default function ProjectSchedules() {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<any | null>(null);
-  const [members, setMembers] = useState<any[]>([]);
+  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
+  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const hasFetchedProjectData = useRef(false);
 
@@ -283,59 +354,5 @@ export default function ProjectSchedules() {
         />
       </Box>
     </MainLayout>
-  );
-}
-
-// Komponent dla tabu "Moje harmonogramy"
-function MySchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: any) {
-  if (cache.loading) {
-    return <LoadingSpinner message="Ładowanie harmonogramów..." />;
-  }
-
-  return (
-    <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
-          Twoje harmonogramy w projekcie
-        </Text>
-        {resourcePerms.mine.canCreate && (
-          <Button
-            leftIcon={<Calendar size={18} />}
-            colorScheme="purple"
-            onClick={onOpen}
-          >
-            Utwórz harmonogram
-          </Button>
-        )}
-      </HStack>
-      {renderSchedulesList(cache.data || [])}
-    </VStack>
-  );
-}
-
-// Komponent dla tabu "Wszystkie harmonogramy"
-function AllSchedulesTab({ cache, renderSchedulesList, onOpen, resourcePerms }: any) {
-  if (cache.loading) {
-    return <LoadingSpinner message="Ładowanie harmonogramów..." />;
-  }
-
-  return (
-    <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
-          Wszystkie harmonogramy w projekcie (admin)
-        </Text>
-        {resourcePerms.all.canCreate && (
-          <Button
-            leftIcon={<Calendar size={18} />}
-            colorScheme="purple"
-            onClick={onOpen}
-          >
-            Utwórz harmonogram
-          </Button>
-        )}
-      </HStack>
-      {renderSchedulesList(cache.data || [])}
-    </VStack>
   );
 }

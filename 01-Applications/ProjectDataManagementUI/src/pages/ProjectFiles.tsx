@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
+﻿import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -44,26 +44,49 @@ import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import type { ProjectFilePackageWeb, ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 import { useAccordionIndex } from "../hooks/useAccordionIndex";
 
-// Custom hook to memoize accordion indices calculation
-const useAccordionIndices = (expandedPackageIds: Set<string>, files: ProjectFilePackageWeb[] | null) => {
-  return useMemo(() => {
-    if (!files) return [];
-    
-    // Create a map for O(1) lookup instead of O(n) findIndex
-    const fileIndexMap = new Map(files.map((file, index) => [file.id, index]));
-    
-    return Array.from(expandedPackageIds)
-      .map(id => fileIndexMap.get(id))
-      .filter((index): index is number => index !== undefined);
-  }, [expandedPackageIds, files]);
-};
+interface FileTabBaseProps {
+  files: ProjectFilePackageWeb[];
+  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
+  cardBg: string;
+  borderColor: string;
+  hoverBg: string;
+  expandedPackageIds: Set<string>;
+  packageFiles: Map<string, any[]>;
+  loadingPackages: Set<string>;
+  onTogglePackage: (packageId: string) => void;
+}
+
+interface AllFilesTabProps extends FileTabBaseProps {
+  resourcePerms: ResourcePermissions;
+  onShareFilesModalOpen: () => void;
+  onUploadModalOpen: () => void;
+}
+
+interface MyFilesTabProps extends FileTabBaseProps {
+  resourcePerms: ResourcePermissions;
+  onShareFilesModalOpen: () => void;
+  onUploadModalOpen: () => void;
+}
+
+interface SharedFilesTabProps {
+  files: ProjectFilePackageWeb[];
+  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
+  cardBg: string;
+  borderColor: string;
+  hoverBg: string;
+  expandedPackageIds: Set<string>;
+  packageFiles: Map<string, any[]>;
+  loadingPackages: Set<string>;
+  onTogglePackage: (packageId: string) => void;
+}
 
 // === Tab Components jako osobne komponenty z React.memo ===
-const AllFilesTab = React.memo(({ 
+const AllFilesTab = React.memo<AllFilesTabProps>(({ 
   files, 
   resourcePerms, 
   onShareFilesModalOpen, 
@@ -76,12 +99,8 @@ const AllFilesTab = React.memo(({
   packageFiles,
   loadingPackages,
   onTogglePackage
-}: any) => {
-  const expandedIndices = useMemo(() => {
-    return Array.from(expandedPackageIds)
-      .map(id => files.findIndex((f: any) => f.id === id))
-      .filter(i => i !== -1);
-  }, [expandedPackageIds, files]);
+}) => {
+  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -124,7 +143,7 @@ const AllFilesTab = React.memo(({
         />
       ) : (
         <Accordion allowMultiple index={expandedIndices}>
-          {files.map((pkg: any) => (
+          {files.map((pkg) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
@@ -149,7 +168,7 @@ const AllFilesTab = React.memo(({
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false))}
                   </Tbody>
                 </Table>
                 )}
@@ -162,7 +181,7 @@ const AllFilesTab = React.memo(({
   );
 });
 
-const MyFilesTab = React.memo(({ 
+const MyFilesTab = React.memo<MyFilesTabProps>(({ 
   files, 
   resourcePerms, 
   onShareFilesModalOpen, 
@@ -175,12 +194,8 @@ const MyFilesTab = React.memo(({
   packageFiles,
   loadingPackages,
   onTogglePackage
-}: any) => {
-  const expandedIndices = useMemo(() => {
-    return Array.from(expandedPackageIds)
-      .map(id => files.findIndex((f: any) => f.id === id))
-      .filter(i => i !== -1);
-  }, [expandedPackageIds, files]);
+}) => {
+  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -223,7 +238,7 @@ const MyFilesTab = React.memo(({
         />
       ) : (
         <Accordion allowMultiple index={expandedIndices}>
-          {files.map((pkg: any) => (
+          {files.map((pkg) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
@@ -246,7 +261,7 @@ const MyFilesTab = React.memo(({
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false))}
                   </Tbody>
                 </Table>
                 )}
@@ -259,7 +274,7 @@ const MyFilesTab = React.memo(({
   );
 });
 
-const SharedFilesTab = React.memo(({ 
+const SharedFilesTab = React.memo<SharedFilesTabProps>(({ 
   files, 
   renderFileRow,
   cardBg,
@@ -269,12 +284,8 @@ const SharedFilesTab = React.memo(({
   packageFiles,
   loadingPackages,
   onTogglePackage
-}: any) => {
-  const expandedIndices = useMemo(() => {
-    return Array.from(expandedPackageIds)
-      .map(id => files.findIndex((f: any) => f.id === id))
-      .filter(i => i !== -1);
-  }, [expandedPackageIds, files]);
+}) => {
+  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -294,7 +305,7 @@ const SharedFilesTab = React.memo(({
         />
       ) : (
         <Accordion allowMultiple index={expandedIndices}>
-          {files.map((pkg: any) => (
+          {files.map((pkg) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
@@ -319,7 +330,7 @@ const SharedFilesTab = React.memo(({
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, true))}
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, true))}
                   </Tbody>
                 </Table>
                 )}
