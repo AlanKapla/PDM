@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated, inProgress]); // Czekaj na MSAL initialization
+  }, [isAuthenticated, inProgress, user]); // Czekaj na MSAL initialization
 
   // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
   useEffect(() => {
