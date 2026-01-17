@@ -49,10 +49,16 @@ import { useGlobalCache } from "../hooks/useGlobalCache";
 
 // Custom hook to memoize accordion indices calculation
 const useAccordionIndices = (expandedPackageIds: Set<string>, files: any[] | null) => {
-  return useMemo(
-    () => files ? Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1) : [],
-    [expandedPackageIds, files]
-  );
+  return useMemo(() => {
+    if (!files) return [];
+    
+    // Create a map for O(1) lookup instead of O(n) findIndex
+    const fileIndexMap = new Map(files.map((file, index) => [file.id, index]));
+    
+    return Array.from(expandedPackageIds)
+      .map(id => fileIndexMap.get(id))
+      .filter((index): index is number => index !== undefined);
+  }, [expandedPackageIds, files]);
 };
 
 // === Tab Components jako osobne komponenty z React.memo ===
