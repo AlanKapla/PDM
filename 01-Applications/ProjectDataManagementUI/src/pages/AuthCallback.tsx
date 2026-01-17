@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus, EventType } from "@azure/msal-browser";
