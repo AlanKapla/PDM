@@ -331,8 +331,48 @@ export default function ProjectCosts() {
   );
 }
 
+interface MyCostEstimatesTabCache {
+  loading: boolean;
+  data?: CostEstimateListItem[] | null;
+}
+
+interface MyCostEstimatesTabProps {
+  cache: MyCostEstimatesTabCache;
+  cardBg: string;
+  borderColor: string;
+  hoverBg: string;
+  costEstimateStatusLabels: Record<CostEstimateStatus, string>;
+  costEstimateStatusColors: Record<CostEstimateStatus, string>;
+  formatDate: (date: string | Date | null | undefined) => string;
+  handleViewCostEstimate: (id: string) => void;
+  handleCopyCostEstimate: (id: string) => void;
+  handleDeleteCostEstimate: (id: string) => void;
+  resourcePerms: {
+    mine: {
+      canCreate: boolean;
+      canRead?: boolean;
+      canUpdate?: boolean;
+      canDelete?: boolean;
+    };
+  };
+  onCreateModalOpen: () => void;
+}
+
 // Komponent dla tabu "Moje kosztorysy"
-function MyCostEstimatesTab({ cache, cardBg, borderColor, hoverBg, costEstimateStatusLabels, costEstimateStatusColors, formatDate, handleViewCostEstimate, handleCopyCostEstimate, handleDeleteCostEstimate, resourcePerms, onCreateModalOpen }: any) {
+function MyCostEstimatesTab({
+  cache,
+  cardBg,
+  borderColor,
+  hoverBg,
+  costEstimateStatusLabels,
+  costEstimateStatusColors,
+  formatDate,
+  handleViewCostEstimate,
+  handleCopyCostEstimate,
+  handleDeleteCostEstimate,
+  resourcePerms,
+  onCreateModalOpen,
+}: MyCostEstimatesTabProps) {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie kosztorysów..." />;
   }
