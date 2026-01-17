@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
