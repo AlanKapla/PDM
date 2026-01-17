@@ -2,6 +2,7 @@
 using Business.Interfaces.Model;
 using Entities.Models;
 using Entities.Models.CostEstimateData;
+using Entities.Models.CostEstimateTemplateDefinitions;
 
 namespace CQRS.CostEstimates.GetCostEstimateDetails
 {
@@ -27,9 +28,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
         Guid Id,
         Guid TenantId,
         Guid ProjectId,
-        string ProjectName,
-        Guid TemplateId,
-        string TemplateName,
+        CostEstimateTemplateDto Template,
         string Name,
         string? Description,
         CostEstimateStatus Status,
@@ -39,6 +38,20 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
         DateTime CreatedAt,
         DateTime? UpdatedAt,
         DateTime? LastCalculatedAt,
+        Guid OwnerId,
+        string OwnerName
+    );
+
+    /// <summary>
+    /// Template DTO embedded in CostEstimateDetails
+    /// </summary>
+    public record CostEstimateTemplateDto(
+        Guid Id,
+        string Name,
+        string? Description,
+        CostEstimateTemplateStructure TemplateStructure,
+        DateTime CreatedAt,
+        DateTime? UpdatedAt,
         Guid OwnerId,
         string OwnerName
     );

@@ -1,10 +1,32 @@
-import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack } from "@chakra-ui/react";
+﻿import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack, Badge, HStack } from "@chakra-ui/react";
 import { Building2, FolderKanban, Settings, Briefcase, FileText, RefreshCw, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import MainLayout from "../layout/MainLayout";
+import { getActiveInvitations } from "../services/tenantService";
+import { InvitationStatus } from "../types/auth.types";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [invitationsCount, setInvitationsCount] = useState(0);
+
+  // Pobierz liczbę aktywnych zaproszeń
+  useEffect(() => {
+    const fetchInvitations = async () => {
+      try {
+        const invitations = await getActiveInvitations();
+        const pending = invitations.filter((inv: { status: number }) => inv.status === InvitationStatus.Pending);
+        setInvitationsCount(pending.length);
+      } catch (error) {
+        console.error("Błąd pobierania zaproszeń:", error);
+      }
+    };
+
+    fetchInvitations();
+    // Odświeżaj co 30 sekund
+    const interval = setInterval(fetchInvitations, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const menuCards = [
     {
@@ -82,7 +104,14 @@ export default function Dashboard() {
             >
               <CardBody p={{ base: 3, md: 6 }}>
                 <VStack align="flex-start" spacing={{ base: 3, md: 4 }}>
-                  <Icon as={card.icon} boxSize={{ base: 8, md: 10 }} color={card.color} />
+                  <HStack spacing={2}>
+                    <Icon as={card.icon} boxSize={{ base: 8, md: 10 }} color={card.color} />
+                    {card.title === "Zaproszenia" && invitationsCount > 0 && (
+                      <Badge colorScheme="red" borderRadius="full" fontSize="sm" px={2}>
+                        {invitationsCount}
+                      </Badge>
+                    )}
+                  </HStack>
                   <VStack align="flex-start" spacing={1}>
                     <Heading size={{ base: "sm", md: "md" }}>{card.title}</Heading>
                     <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>

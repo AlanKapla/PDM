@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Role and Permission codes matching backend
  * 
  * Backend sources:

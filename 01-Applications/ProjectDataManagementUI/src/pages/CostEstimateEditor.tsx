@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+﻿import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -17,9 +17,6 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   Table,
   Tbody,
   Tr,
@@ -37,7 +34,6 @@ import {
   Edit,
 } from 'lucide-react';
 import { costEstimateApi } from '../api/costEstimateApi';
-import { costEstimateTemplateApi } from '../api/costEstimateTemplateApi';
 import type {
   CostEstimateDetails,
   CostEstimateDataModel,
@@ -45,7 +41,6 @@ import type {
   CostEstimateWorkScope,
   CostEstimateStatus,
 } from '../types/costEstimate.types';
-import type { CostEstimateTemplateDetails } from '../api/costEstimateTemplateApi';
 import { useCalculations } from '../hooks/useCalculations';
 import { formatCalculatedValue } from '../utils/calculationEngine';
 import { formatDate } from '../utils/formatters';
@@ -56,24 +51,7 @@ import { CostEstimateViewer } from '../components/CostEstimateViewer';
 import { CostEstimateExcelView } from '../components/CostEstimateExcelView';
 import { AuthContext } from '../context/AuthContext';
 import { convertDataModelFromBackend, convertDataModelForBackend } from '../utils/enumMapper';
-
-const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
-  0: 'Roboczy',
-  1: 'W trakcie',
-  2: 'Do przeglądu',
-  3: 'Zatwierdzony',
-  4: 'Odrzucony',
-  5: 'Zarchiwizowany',
-};
-
-const costEstimateStatusColors: Record<CostEstimateStatus, string> = {
-  0: 'gray',
-  1: 'blue',
-  2: 'orange',
-  3: 'green',
-  4: 'red',
-  5: 'purple',
-};
+import MainLayout from '../layout/MainLayout';
 
 export const CostEstimateEditor: React.FC = () => {
   const { projectId, estimateId } = useParams<{ projectId: string; estimateId: string }>();
@@ -85,16 +63,14 @@ export const CostEstimateEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [estimate, setEstimate] = useState<CostEstimateDetails | null>(null);
-  const [template, setTemplate] = useState<CostEstimateTemplateDetails | null>(null);
   const [dataModel, setDataModel] = useState<CostEstimateDataModel | null>(null);
-  const [projectName, setProjectName] = useState<string>('');
   const [hasChanges, setHasChanges] = useState(false);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
 
   const calculations = useCalculations({
-    calculatedFields: template?.templateStructure.workScopeFieldsDefinition.calculatedFields || [],
-    genericFields: template?.templateStructure.workScopeFieldsDefinition.genericFields || [],
-    summaryConfig: template?.templateStructure.summaryConfiguration,
+    calculatedFields: estimate?.template?.templateStructure.workScopeFieldsDefinition.calculatedFields || [],
+    genericFields: estimate?.template?.templateStructure.workScopeFieldsDefinition.genericFields || [],
+    summaryConfig: estimate?.template?.templateStructure.summaryConfiguration,
   });
 
   // Load estimate and template
@@ -104,7 +80,7 @@ export const CostEstimateEditor: React.FC = () => {
 
       setLoading(true);
       try {
-        // Load estimate details
+        // Load estimate details (zawiera już pełny template)
         const estimateData = await costEstimateApi.getCostEstimateDetails(
           user.activeTenantId,
           projectId,
@@ -113,16 +89,10 @@ export const CostEstimateEditor: React.FC = () => {
         setEstimate(estimateData);
         // Konwertuj numeryczne enumy z backendu na stringi
         const convertedData = convertDataModelFromBackend(estimateData.data);
-        
-        // Load template structure
-        const templateData = await costEstimateTemplateApi.getTemplateDetails(
-          estimateData.templateId
-        );
-        setTemplate(templateData);
 
         // Zapisz oryginalne wartości UnitPriceNet dla każdego workScope
         // To umożliwi przywrócenie wartości po odznaczeniu opcji kolekcji
-        const mainUnitPriceNetField = templateData.templateStructure.workScopeFieldsDefinition.calculatedFields?.find((f: any) => f.type === 0);
+        const mainUnitPriceNetField = estimateData.template.templateStructure.workScopeFieldsDefinition.calculatedFields?.find((f: any) => f.type === 0);
         
         if (mainUnitPriceNetField) {
           const saveOriginalValues = (groups: CostEstimateGroup[]): CostEstimateGroup[] => {
@@ -149,8 +119,6 @@ export const CostEstimateEditor: React.FC = () => {
           const recalculated = calculations.recalculateAll(convertedData);
           setDataModel(recalculated);
         }
-        
-        setProjectName(estimateData.projectName);
       } catch (error: any) {
         toast({
           title: 'Błąd',
@@ -177,10 +145,10 @@ export const CostEstimateEditor: React.FC = () => {
       const recalculated = calculations.recalculateAll(dataModel);
 
       // Znajdź pola ValueNet (4) i ValueGross (5) z summable=true
-      const valueNetField = template?.templateStructure.workScopeFieldsDefinition.calculatedFields.find(
+      const valueNetField = estimate?.template?.templateStructure.workScopeFieldsDefinition.calculatedFields.find(
         f => f.type === 4 && f.summable
       );
-      const valueGrossField = template?.templateStructure.workScopeFieldsDefinition.calculatedFields.find(
+      const valueGrossField = estimate?.template?.templateStructure.workScopeFieldsDefinition.calculatedFields.find(
         f => f.type === 5 && f.summable
       );
 
@@ -229,7 +197,7 @@ export const CostEstimateEditor: React.FC = () => {
 
   // Add new group
   const handleAddGroup = () => {
-    if (!dataModel || !template?.templateStructure.canAddGroups) return;
+    if (!dataModel || !estimate?.template?.templateStructure.canAddGroups) return;
 
     const newGroup: CostEstimateGroup = {
       id: `group-${Date.now()}`,
@@ -400,9 +368,9 @@ export const CostEstimateEditor: React.FC = () => {
 
   // Add collection item
   const handleAddCollectionItem = (groupId: string, workScopeId: string, collectionFieldName: string) => {
-    if (!dataModel || !template) return;
+    if (!dataModel || !estimate?.template) return;
 
-    const genericFields = template.templateStructure.workScopeFieldsDefinition.genericFields || [];
+    const genericFields = estimate.template.templateStructure.workScopeFieldsDefinition.genericFields || [];
     const collectionField = genericFields.find((f) => f.name === collectionFieldName);
     
     if (!collectionField || !collectionField.nestedFields) return;
@@ -510,64 +478,48 @@ export const CostEstimateEditor: React.FC = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minH="400px">
-        <Spinner size="xl" />
-      </Box>
+      <MainLayout>
+        <Box display="flex" justifyContent="center" alignItems="center" minH="400px">
+          <Spinner size="xl" />
+        </Box>
+      </MainLayout>
     );
   }
 
-  if (!estimate || !template || !dataModel) {
+  if (!estimate || !dataModel) {
     return (
-      <Container maxW="container.xl" py={8}>
-        <Alert status="error">
-          <AlertIcon />
-          <AlertTitle>Błąd</AlertTitle>
-          <AlertDescription>Nie można załadować kosztorysu</AlertDescription>
-        </Alert>
-      </Container>
+      <MainLayout>
+        <Container maxW="container.xl" py={8}>
+          <Alert status="error">
+            <AlertIcon />
+            <AlertTitle>Błąd</AlertTitle>
+            <AlertDescription>Nie można załadować kosztorysu</AlertDescription>
+          </Alert>
+        </Container>
+      </MainLayout>
     );
   }
 
   return (
-    <Container maxW="container.xl" py={6}>
-      {/* Breadcrumbs */}
-      <Breadcrumb mb={4} fontSize="sm">
-        <BreadcrumbItem>
-          <BreadcrumbLink onClick={() => navigate('/projects')}>Projekty</BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem>
-          <BreadcrumbLink onClick={() => navigate(`/projects/${projectId}`)}>
-            {projectName}
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem>
-          <BreadcrumbLink onClick={() => navigate(`/projects/${projectId}/cost-estimates`)}>
-            Kosztorysy
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem isCurrentPage>
-          <BreadcrumbLink>{estimate.name}</BreadcrumbLink>
-        </BreadcrumbItem>
-      </Breadcrumb>
-
-      {/* Header */}
+    <MainLayout>
+      <Container maxW="container.xl" py={6}>
+        {/* Header */}
       <HStack justify="space-between" mb={{ base: 4, md: 6 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
         <HStack spacing={{ base: 2, md: 4 }}>
           <Box>
-            <HStack spacing={{ base: 2, md: 3 }} mb={1} flexWrap="wrap">
-              <Heading size={{ base: "sm", md: "lg" }}>{estimate.name}</Heading>
-              <Badge colorScheme={costEstimateStatusColors[estimate.status]} fontSize={{ base: "xs", md: "md" }}>
-                {costEstimateStatusLabels[estimate.status]}
-              </Badge>
-            </HStack>
+            <Heading size={{ base: "sm", md: "lg" }} mb={2}>{estimate.name}</Heading>
             {estimate.description && (
-              <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>
+              <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }} mb={2}>
                 {estimate.description}
               </Text>
             )}
-            <Text fontSize={{ base: "10px", md: "xs" }} color="gray.500" mt={1}>
-              Szablon: {estimate.templateName} • Utworzono: {formatDate(estimate.createdAt)}
-            </Text>
+            <HStack spacing={2} fontSize={{ base: "xs", md: "sm" }} color="gray.600">
+              <Text fontWeight="medium">Szablon:</Text>
+              <Text>
+                {estimate.template.name}
+                {estimate.template.description && ` (${estimate.template.description})`}
+              </Text>
+            </HStack>
           </Box>
         </HStack>
 
@@ -619,9 +571,6 @@ export const CostEstimateEditor: React.FC = () => {
           <HStack spacing={2}>
             <FileText size={20} />
             <Heading size="md">Grupy i pozycje</Heading>
-            {dataModel.groups.length > 0 && (
-              <Badge colorScheme="blue">{dataModel.groups.length} grup</Badge>
-            )}
           </HStack>
         </HStack>
 
@@ -640,7 +589,7 @@ export const CostEstimateEditor: React.FC = () => {
                 leftIcon={<Plus size={16} />}
                 colorScheme="green"
                 onClick={handleAddGroup}
-                isDisabled={!template.templateStructure.canAddGroups}
+                isDisabled={!estimate.template.templateStructure.canAddGroups}
               >
                 Dodaj grupę
               </Button>
@@ -650,7 +599,7 @@ export const CostEstimateEditor: React.FC = () => {
           // Excel-style view - działa w obu trybach
           <CostEstimateExcelView
             dataModel={dataModel} 
-            template={template}
+            template={estimate.template}
             editable={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit)}
             onDataChange={(updatedDataModel) => {
               const recalculated = calculations.recalculateAll(updatedDataModel);
@@ -658,13 +607,13 @@ export const CostEstimateEditor: React.FC = () => {
               setHasChanges(true);
             }}
             onAddGroup={(() => {
-              const canAdd = template.templateStructure.canAddGroups;
+              const canAdd = estimate.template.templateStructure.canAddGroups;
               const hasPermission = permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit;
               const result = viewMode === 'edit' && hasPermission ? (canAdd ? handleAddGroup : undefined) : undefined;
               console.log('[CostEstimateEditor] onAddGroup:', { viewMode, canAdd, hasPermission, result: result !== undefined });
               return result;
             })()}
-            onAddSubGroup={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? (template.templateStructure.canBranchGroups ? handleAddSubGroup : undefined) : undefined}
+            onAddSubGroup={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? (estimate.template.templateStructure.canBranchGroups ? handleAddSubGroup : undefined) : undefined}
             onDeleteGroup={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleDeleteGroup : undefined}
             onAddWorkScope={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleAddWorkScope : undefined}
             onDeleteWorkScope={viewMode === 'edit' && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) ? handleDeleteWorkScope : undefined}
@@ -673,6 +622,7 @@ export const CostEstimateEditor: React.FC = () => {
           />
         )}
       </Box>
-    </Container>
+      </Container>
+    </MainLayout>
   );
 };

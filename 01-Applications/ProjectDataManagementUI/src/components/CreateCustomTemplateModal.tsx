@@ -686,25 +686,19 @@ export default function CreateCustomTemplateModal({
                 <Tab>
                   <HStack spacing={2}>
                     <Tag size={18} />
-                    <Text>Nagłówek grupy ({headerFields.length})</Text>
+                    <Text>Pola grup ({headerFields.length})</Text>
                   </HStack>
                 </Tab>
                 <Tab>
                   <HStack spacing={2}>
                     <List size={18} />
-                    <Text>Pola zakresów prac ({calculatedFields.length + genericFields.length})</Text>
+                    <Text>Pola pozycji ({calculatedFields.length + genericFields.length})</Text>
                   </HStack>
                 </Tab>
                 <Tab>
                   <HStack spacing={2}>
                     <Layout size={18} />
                     <Text>Kolejność pól</Text>
-                  </HStack>
-                </Tab>
-                <Tab>
-                  <HStack spacing={2}>
-                    <AlertCircle size={18} />
-                    <Text>Walidacja ({validationRules.length})</Text>
                   </HStack>
                 </Tab>
                 <Tab>
@@ -771,34 +765,6 @@ export default function CreateCustomTemplateModal({
                         )}
                       </VStack>
                     </Box>
-
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <Text fontSize="md" fontWeight="bold" mb={4}>
-                        Numerowanie grup
-                      </Text>
-                      <VStack spacing={4} align="stretch">
-                        <Checkbox
-                          isChecked={groupAutoNumbered}
-                          onChange={(e) => setGroupAutoNumbered(e.target.checked)}
-                        >
-                          Automatyczne numerowanie grup
-                        </Checkbox>
-
-                        {groupAutoNumbered && (
-                          <FormControl>
-                            <FormLabel>Format numeracji</FormLabel>
-                            <Input
-                              value={groupNumberFormat}
-                              onChange={(e) => setGroupNumberFormat(e.target.value)}
-                              placeholder='"{0}" lub "Etap {0}" lub "{0:00}"'
-                            />
-                            <FormHelperText>
-                              {"{0}"} = numer, {"{0:00}"} = numer z zerami wiodącymi
-                            </FormHelperText>
-                          </FormControl>
-                        )}
-                      </VStack>
-                    </Box>
                   </VStack>
                 </TabPanel>
 
@@ -844,15 +810,6 @@ export default function CreateCustomTemplateModal({
 
                 <TabPanel>
                   {renderFieldLayoutTab()}
-                </TabPanel>
-
-                <TabPanel>
-                  <ValidationRulesEditor
-                    rules={validationRules}
-                    onAdd={handleAddValidationRule}
-                    onRemove={handleRemoveValidationRule}
-                    onUpdate={handleUpdateValidationRule}
-                  />
                 </TabPanel>
 
                 <TabPanel>

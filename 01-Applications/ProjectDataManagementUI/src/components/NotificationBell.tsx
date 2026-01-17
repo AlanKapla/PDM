@@ -34,9 +34,16 @@ export default function NotificationBell() {
   const [unreadNotifications, setUnreadNotifications] = useState<NotificationWeb[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [allOffset, setAllOffset] = useState(0);
+  const [unreadOffset, setUnreadOffset] = useState(0);
+  const [hasMoreAll, setHasMoreAll] = useState(true);
+  const [hasMoreUnread, setHasMoreUnread] = useState(true);
   const toast = useToast();
+
+  const LIMIT = 20;
 
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -100,22 +107,46 @@ export default function NotificationBell() {
     if (isOpen) {
       // Pobierz aktualny licznik nieprzeczytanych
       fetchUnreadCounter();
-      // Załaduj listę powiadomień
-      loadNotifications();
+      // Załaduj listę powiadomień (resetuj offset)
+      setAllOffset(0);
+      setUnreadOffset(0);
+      setHasMoreAll(true);
+      setHasMoreUnread(true);
+      loadNotifications(true);
     }
   }, [isOpen, activeTab]);
 
-  const loadNotifications = async () => {
+  const loadNotifications = async (reset: boolean = false) => {
     setLoading(true);
     try {
+      const currentOffset = reset ? 0 : (activeTab === 0 ? allOffset : unreadOffset);
+      
       if (activeTab === 0) {
         // Tab "Wszystkie"
-        const notifications = await notificationApi.getAll(50, 0);
-        setAllNotifications(notifications);
+        const notifications = await notificationApi.getAll(LIMIT, currentOffset);
+        
+        if (reset) {
+          setAllNotifications(notifications);
+          setAllOffset(LIMIT);
+        } else {
+          setAllNotifications(prev => [...prev, ...notifications]);
+          setAllOffset(prev => prev + LIMIT);
+        }
+        
+        setHasMoreAll(notifications.length === LIMIT);
       } else {
         // Tab "Nieprzeczytane"
-        const notifications = await notificationApi.getUnread(50, 0);
-        setUnreadNotifications(notifications);
+        const notifications = await notificationApi.getUnread(LIMIT, currentOffset);
+        
+        if (reset) {
+          setUnreadNotifications(notifications);
+          setUnreadOffset(LIMIT);
+        } else {
+          setUnreadNotifications(prev => [...prev, ...notifications]);
+          setUnreadOffset(prev => prev + LIMIT);
+        }
+        
+        setHasMoreUnread(notifications.length === LIMIT);
       }
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -132,6 +163,35 @@ export default function NotificationBell() {
     }
   };
 
+  const loadMoreNotifications = async () => {
+    setLoadingMore(true);
+    try {
+      if (activeTab === 0) {
+        const notifications = await notificationApi.getAll(LIMIT, allOffset);
+        setAllNotifications(prev => [...prev, ...notifications]);
+        setAllOffset(prev => prev + LIMIT);
+        setHasMoreAll(notifications.length === LIMIT);
+      } else {
+        const notifications = await notificationApi.getUnread(LIMIT, unreadOffset);
+        setUnreadNotifications(prev => [...prev, ...notifications]);
+        setUnreadOffset(prev => prev + LIMIT);
+        setHasMoreUnread(notifications.length === LIMIT);
+      }
+    } catch (error) {
+      const { title, description } = handleApiError(error);
+      console.error("❌ Błąd ładowania kolejnych powiadomień:", title, description);
+      toast({
+        title,
+        description,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await notificationApi.markAsRead(notificationId);
@@ -139,8 +199,8 @@ export default function NotificationBell() {
       // Odśwież licznik z API
       await fetchUnreadCounter();
       
-      // Przeładuj aktualne powiadomienia
-      await loadNotifications();
+      // Przeładuj aktualne powiadomienia od początku
+      await loadNotifications(true);
       
       console.log("✅ Powiadomienie oznaczone jako przeczytane");
     } catch (error) {
@@ -163,7 +223,7 @@ export default function NotificationBell() {
       if (result.markedCount > 0) {
         // Refresh notifications and counter
         await Promise.all([
-          loadNotifications(),
+          loadNotifications(true),
           fetchUnreadCounter(),
         ]);
         
@@ -301,6 +361,22 @@ export default function NotificationBell() {
             </HStack>
           </Box>
         ))}
+        
+        {/* Przycisk "Załaduj więcej" */}
+        {!loading && notifications.length > 0 && (activeTab === 0 ? hasMoreAll : hasMoreUnread) && (
+          <Box p={3} borderTop="1px" borderColor={borderColor}>
+            <Button
+              size="sm"
+              variant="ghost"
+              colorScheme="blue"
+              onClick={loadMoreNotifications}
+              isLoading={loadingMore}
+              w="full"
+            >
+              Załaduj więcej
+            </Button>
+          </Box>
+        )}
       </VStack>
     )
   );
@@ -349,25 +425,26 @@ export default function NotificationBell() {
         zIndex={1001}
       >
         <PopoverHeader fontWeight="bold" border="0" pb={2}>
-          <HStack justify="space-between">
-            <Text>Powiadomienia</Text>
-            <HStack spacing={2}>
+          <VStack align="stretch" spacing={2}>
+            <HStack justify="space-between">
+              <Text>Powiadomienia</Text>
               {unreadCount > 0 && (
                 <Badge colorScheme="blue">{unreadCount} nowych</Badge>
               )}
-              {unreadCount > 0 && (
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  colorScheme="blue"
-                  onClick={handleMarkAllAsRead}
-                  leftIcon={<Icon as={CheckCircle} boxSize={3} />}
-                >
-                  Oznacz wszystkie
-                </Button>
-              )}
             </HStack>
-          </HStack>
+            {unreadCount > 0 && (
+              <Button
+                size="xs"
+                variant="ghost"
+                colorScheme="blue"
+                onClick={handleMarkAllAsRead}
+                leftIcon={<Icon as={CheckCircle} boxSize={3} />}
+                justifyContent="flex-start"
+              >
+                Oznacz wszystkie jako przeczytane
+              </Button>
+            )}
+          </VStack>
         </PopoverHeader>
         <Divider />
         <Tabs index={activeTab} onChange={setActiveTab}>

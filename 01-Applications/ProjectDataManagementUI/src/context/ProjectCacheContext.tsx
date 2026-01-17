@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useCallback, useRef, type ReactNode } from 'react';
 import type { ProjectDetailsWeb } from '../types/project.types';
 import { projectApi } from '../api/projectApi';
 

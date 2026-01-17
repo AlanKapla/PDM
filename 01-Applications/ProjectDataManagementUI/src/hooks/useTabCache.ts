@@ -34,6 +34,13 @@ export function useTabCache<T>(
   const [data, setDataState] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Przechowuj najnowszą wersję fetchFn w ref, aby uniknąć stale zmieniającego się fetch callback
+  const fetchFnRef = useRef(fetchFn);
+
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+  }, [fetchFn]);
+
   // Przy montowaniu sprawdź czy są dane w globalnym cache
   useEffect(() => {
     const cached = globalCache.get(cacheKey) as CacheEntry<T> | undefined;
@@ -65,7 +72,7 @@ export function useTabCache<T>(
     setLoading(true);
     
     try {
-      const result = await fetchFn();
+      const result = await fetchFnRef.current();
       const cacheEntry: CacheEntry<T> = {
         data: result,
         timestamp: Date.now(),
@@ -80,9 +87,6 @@ export function useTabCache<T>(
       // Usuń flagę fetch in progress
       fetchInProgress.delete(cacheKey);
     }
-    // fetchFn celowo NIE jest w zależnościach - jest closure i zawsze ma najnowszą wersję
-    // Dodanie go powodowałoby niepotrzebne ponowne tworzenie fetch() przy każdym renderze
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey, isCacheValid]);
 
   const setData = useCallback((newData: T) => {

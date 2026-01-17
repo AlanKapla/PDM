@@ -44,14 +44,52 @@ import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import type { ProjectFilePackageWeb, ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useAccordionIndex } from "../hooks/useAccordionIndex";
+
+interface FileTabBaseProps {
+  files: ProjectFilePackageWeb[];
+  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
+  cardBg: string;
+  borderColor: string;
+  hoverBg: string;
+  expandedPackageIds: Set<string>;
+  packageFiles: Map<string, any[]>;
+  loadingPackages: Set<string>;
+  onTogglePackage: (packageId: string) => void;
+}
+
+interface AllFilesTabProps extends FileTabBaseProps {
+  resourcePerms: ResourcePermissions;
+  onShareFilesModalOpen: () => void;
+  onUploadModalOpen: () => void;
+}
+
+interface MyFilesTabProps extends FileTabBaseProps {
+  resourcePerms: ResourcePermissions;
+  onShareFilesModalOpen: () => void;
+  onUploadModalOpen: () => void;
+}
+
+interface SharedFilesTabProps {
+  files: ProjectFilePackageWeb[];
+  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
+  cardBg: string;
+  borderColor: string;
+  hoverBg: string;
+  expandedPackageIds: Set<string>;
+  packageFiles: Map<string, any[]>;
+  loadingPackages: Set<string>;
+  onTogglePackage: (packageId: string) => void;
+}
 
 // === Tab Components jako osobne komponenty z React.memo ===
-const AllFilesTab = React.memo(({
-  files,
-  resourcePerms,
-  onShareFilesModalOpen,
+const AllFilesTab = React.memo<AllFilesTabProps>(({ 
+  files, 
+  resourcePerms, 
+  onShareFilesModalOpen, 
   onUploadModalOpen,
   renderFileRow,
   cardBg,
@@ -61,7 +99,9 @@ const AllFilesTab = React.memo(({
   packageFiles,
   loadingPackages,
   onTogglePackage
-}: any) => {
+}) => {
+  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
+
   if (!files) {
     return <LoadingSpinner />;
   }
@@ -102,8 +142,8 @@ const AllFilesTab = React.memo(({
           description="Nie ma jeszcze żadnych plików w tym projekcie"
         />
       ) : (
-        <Accordion allowMultiple index={Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1)}>
-          {files.map((pkg: any) => (
+        <Accordion allowMultiple index={expandedIndices}>
+          {files.map((pkg) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
@@ -118,19 +158,19 @@ const AllFilesTab = React.memo(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
-                  <Table size="sm" variant="simple">
-                    <Thead>
-                      <Tr>
-                        <Th>Nazwa pliku</Th>
-                        <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                        <Th>Akcje</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
-                    </Tbody>
-                  </Table>
+                <Table size="sm" variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>Nazwa pliku</Th>
+                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                      <Th>Akcje</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false))}
+                  </Tbody>
+                </Table>
                 )}
               </AccordionPanel>
             </AccordionItem>
@@ -141,10 +181,10 @@ const AllFilesTab = React.memo(({
   );
 });
 
-const MyFilesTab = React.memo(({
-  files,
-  resourcePerms,
-  onShareFilesModalOpen,
+const MyFilesTab = React.memo<MyFilesTabProps>(({ 
+  files, 
+  resourcePerms, 
+  onShareFilesModalOpen, 
   onUploadModalOpen,
   renderFileRow,
   cardBg,
@@ -154,7 +194,9 @@ const MyFilesTab = React.memo(({
   packageFiles,
   loadingPackages,
   onTogglePackage
-}: any) => {
+}) => {
+  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
+
   if (!files) {
     return <LoadingSpinner />;
   }
@@ -195,8 +237,8 @@ const MyFilesTab = React.memo(({
           description="Nie masz jeszcze żadnych plików w tym projekcie"
         />
       ) : (
-        <Accordion allowMultiple index={Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1)}>
-          {files.map((pkg: any) => (
+        <Accordion allowMultiple index={expandedIndices}>
+          {files.map((pkg) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
@@ -210,18 +252,18 @@ const MyFilesTab = React.memo(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
-                  <Table size="sm" variant="simple">
-                    <Thead>
-                      <Tr>
-                        <Th>Nazwa pliku</Th>
-                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                        <Th>Akcje</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, false))}
-                    </Tbody>
-                  </Table>
+                <Table size="sm" variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>Nazwa pliku</Th>
+                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                      <Th>Akcje</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false))}
+                  </Tbody>
+                </Table>
                 )}
               </AccordionPanel>
             </AccordionItem>
@@ -232,8 +274,8 @@ const MyFilesTab = React.memo(({
   );
 });
 
-const SharedFilesTab = React.memo(({
-  files,
+const SharedFilesTab = React.memo<SharedFilesTabProps>(({ 
+  files, 
   renderFileRow,
   cardBg,
   borderColor,
@@ -242,7 +284,9 @@ const SharedFilesTab = React.memo(({
   packageFiles,
   loadingPackages,
   onTogglePackage
-}: any) => {
+}) => {
+  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
+
   if (!files) {
     return <LoadingSpinner />;
   }
@@ -260,8 +304,8 @@ const SharedFilesTab = React.memo(({
           description="Nikt jeszcze nie udostępnił Ci plików w tym projekcie"
         />
       ) : (
-        <Accordion allowMultiple index={Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1)}>
-          {files.map((pkg: any) => (
+        <Accordion allowMultiple index={expandedIndices}>
+          {files.map((pkg) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
@@ -276,19 +320,19 @@ const SharedFilesTab = React.memo(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
-                  <Table size="sm" variant="simple">
-                    <Thead>
-                      <Tr>
-                        <Th>Nazwa pliku</Th>
-                        <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                        <Th>Akcje</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {(packageFiles.get(pkg.id) || []).map((file: any) => renderFileRow(file, true))}
-                    </Tbody>
-                  </Table>
+                <Table size="sm" variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>Nazwa pliku</Th>
+                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                      <Th>Akcje</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, true))}
+                  </Tbody>
+                </Table>
                 )}
               </AccordionPanel>
             </AccordionItem>

@@ -15,13 +15,10 @@ namespace Repositiories.Repository.Repositories
             return await _dbSet.IncludeMultiple(includes).FirstOrDefaultAsync(x => x.Id == id);
         }
 
-        public async Task<T?> GetFirstBySearch(Expression<Func<T, bool>> predicate,CancellationToken cancellationToken = default, params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes)
+        public async Task<T?> GetFirstBySearch(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes)
         {
             IQueryable<T> query = _dbSet.IncludeMultiple(includes);
             return await query.FirstOrDefaultAsync(predicate, cancellationToken);
         }
     }
-
-
-
 }

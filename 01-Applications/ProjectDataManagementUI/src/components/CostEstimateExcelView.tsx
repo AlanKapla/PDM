@@ -329,61 +329,59 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
   let columnLayout = template.templateStructure.uiConfiguration?.columnLayout;
   const summaryConfig = template.templateStructure.summaryConfiguration;
 
-  // Nagłówki grup: sortuj TYLKO według columnLayout (ignoruj order)
-  const visibleGroupHeaderFields = columnLayout && columnLayout.length > 0
-    ? groupHeaderFields
-        .filter((f) => f.visible)
-        .sort((a, b) => {
-          const nameA = GroupHeaderFieldType[a.type];
-          const nameB = GroupHeaderFieldType[b.type];
-          const indexA = columnLayout.indexOf(nameA);
-          const indexB = columnLayout.indexOf(nameB);
-          
-          // Oba pola nie są w columnLayout - zostaw w oryginalnej kolejności
-          if (indexA === -1 && indexB === -1) return 0;
-          // A nie jest w columnLayout - daj na koniec
-          if (indexA === -1) return 1;
-          // B nie jest w columnLayout - daj na koniec
-          if (indexB === -1) return -1;
-          // Oba są w columnLayout - sortuj według pozycji
-          return indexA - indexB;
-        })
-    : groupHeaderFields.filter((f) => f.visible);
-  console.log('[CostEstimateExcelView] Header fields sorted:', {
-    columnLayout,
-    fields: visibleGroupHeaderFields.map(f => ({ type: f.type, name: GroupHeaderFieldType[f.type], order: f.order }))
-  });
-
-  // Buduj listę pól do renderowania na podstawie columnLayout
-  // Jeśli w columnLayout jest pole typu kolekcja, rozwiń je na widoczne podpola
-  const sortedAllFields: Array<
+  // Buduj unified list wszystkich kolumn (nagłówki grup + pola zakresów prac)
+  // posortowaną według columnLayout - może być wymieszana kolejność!
+  type ColumnDef =
+    | { fieldType: 'groupHeader'; field: GroupHeaderFieldDefinition }
     | { fieldType: 'calculated'; field: CalculatedFieldDefinition }
     | { fieldType: 'generic'; field: GenericFieldDefinition }
     | { fieldType: 'collection-calculated'; collectionField: GenericFieldDefinition; nestedField: CalculatedFieldDefinition; fullName: string }
-    | { fieldType: 'collection-generic'; collectionField: GenericFieldDefinition; nestedField: GenericFieldDefinition; fullName: string }
-  > = [];
+    | { fieldType: 'collection-generic'; collectionField: GenericFieldDefinition; nestedField: GenericFieldDefinition; fullName: string };
+
+  const allColumns: ColumnDef[] = [];
 
   if (!columnLayout || columnLayout.length === 0) {
-    // Brak columnLayout - użyj domyślnej kolejności (order)
-    const defaultFields = [
-      ...calculatedFields.filter((f) => f.visible).map(f => ({ fieldType: 'calculated' as const, field: f })),
-      ...genericFields.filter((f) => f.visible && f.type !== 10).map(f => ({ fieldType: 'generic' as const, field: f }))
-    ].sort((a, b) => a.field.order - b.field.order);
-    sortedAllFields.push(...defaultFields);
+    // Brak columnLayout - użyj domyślnej kolejności:
+    // 1. Nagłówki grup (po order)
+    // 2. Pola zakresów prac (po order)
+    groupHeaderFields
+      .filter((f) => f.visible)
+      .sort((a, b) => a.order - b.order)
+      .forEach(f => allColumns.push({ fieldType: 'groupHeader', field: f }));
+
+    calculatedFields
+      .filter((f) => f.visible)
+      .sort((a, b) => a.order - b.order)
+      .forEach(f => allColumns.push({ fieldType: 'calculated', field: f }));
+
+    genericFields
+      .filter((f) => f.visible && f.type !== 10)
+      .sort((a, b) => a.order - b.order)
+      .forEach(f => allColumns.push({ fieldType: 'generic', field: f }));
   } else {
-    // Iteruj przez columnLayout i buduj listę pól
+    // Iteruj przez columnLayout i buduj unified list
     columnLayout.forEach(fieldName => {
+      // Sprawdź czy to nagłówek grupy
+      const groupHeaderField = groupHeaderFields.find(f => {
+        const typeName = GroupHeaderFieldType[f.type];
+        return typeName === fieldName && f.visible;
+      });
+      if (groupHeaderField) {
+        allColumns.push({ fieldType: 'groupHeader', field: groupHeaderField });
+        return;
+      }
+
       // Sprawdź czy to pole kalkulowane
       const calcField = calculatedFields.find(f => f.name === fieldName && f.visible);
       if (calcField) {
-        sortedAllFields.push({ fieldType: 'calculated', field: calcField });
+        allColumns.push({ fieldType: 'calculated', field: calcField });
         return;
       }
       
       // Sprawdź czy to pole generyczne (nie-kolekcja)
       const genField = genericFields.find(f => f.name === fieldName && f.visible && f.type !== 10);
       if (genField) {
-        sortedAllFields.push({ fieldType: 'generic', field: genField });
+        allColumns.push({ fieldType: 'generic', field: genField });
         return;
       }
       
@@ -402,14 +400,14 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
         
         allNested.forEach(nested => {
           if (nested.type === 'calc') {
-            sortedAllFields.push({
+            allColumns.push({
               fieldType: 'collection-calculated',
               collectionField,
               nestedField: nested.field,
               fullName: `${collectionField.name}.${nested.field.name}`
             });
           } else {
-            sortedAllFields.push({
+            allColumns.push({
               fieldType: 'collection-generic',
               collectionField,
               nestedField: nested.field,
@@ -420,30 +418,18 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
         return;
       }
     });
-    
-    // Dodaj pola które nie są w columnLayout (na końcu, sortowane według order)
-    const fieldsNotInLayout = [
-      ...calculatedFields.filter((f) => f.visible && !columnLayout.includes(f.name)).map(f => ({ fieldType: 'calculated' as const, field: f })),
-      ...genericFields.filter((f) => f.visible && f.type !== 10 && !columnLayout.includes(f.name)).map(f => ({ fieldType: 'generic' as const, field: f }))
-    ].sort((a, b) => a.field.order - b.field.order);
-    
-    sortedAllFields.push(...fieldsNotInLayout);
   }
-  
-  // Wyodrębnij pola dla kompatybilności z resztą kodu
-  const visibleCalculatedFields = calculatedFields.filter(f => f.visible);
-  const visibleGenericFields = genericFields.filter(f => f.visible && f.type !== 10);
-  const visibleCollectionFields = genericFields.filter(f => f.visible && f.type === 10);
 
-  console.log('[CostEstimateExcelView] All fields sorted (with expanded nested):', {
+  console.log('[CostEstimateExcelView] All columns unified:', {
     columnLayout,
-    sorted: sortedAllFields.map(item => {
-      if (item.fieldType === 'calculated' || item.fieldType === 'generic') {
-        return { name: item.field.name, label: item.field.label, type: item.fieldType, indexInLayout: columnLayout?.indexOf(item.field.name) };
-      } else {
-        return { name: item.fullName, label: item.nestedField.label, type: item.fieldType, indexInLayout: columnLayout?.indexOf(item.fullName) };
-      }
-    })
+    columns: allColumns.map(c => ({ 
+      type: c.fieldType, 
+      name: c.fieldType === 'groupHeader' 
+        ? GroupHeaderFieldType[c.field.type] 
+        : c.fieldType === 'calculated' || c.fieldType === 'generic'
+        ? c.field.name
+        : (c as any).fullName
+    }))
   });
 
   // Spłaszcz strukturę do wierszy tabeli
@@ -728,25 +714,25 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
             Pozycja
           </Th>
 
-          {/* Headery grup - najpierw */}
-          {visibleGroupHeaderFields.map((field) => (
-            <Th
-              key={`header-${field.type}`}
-              borderRightWidth="1px"
-              borderColor="blue.500"
-              color="white"
-              fontSize="sm"
-              py={3}
-              minW="150px"
-              whiteSpace="nowrap"
-            >
-              {field.customLabel || getDefaultGroupHeaderLabel(field.type)}
-            </Th>
-          ))}
-
-          {/* Wszystkie pola work scope (regularne + podpola kolekcji) - posortowane według columnLayout */}
-          {sortedAllFields.map((item, idx) => {
-            if (item.fieldType === 'calculated') {
+          {/* Wszystkie kolumny - nagłówki grup i pola work scope - posortowane według columnLayout */}
+          {allColumns.map((item, idx) => {
+            if (item.fieldType === 'groupHeader') {
+              const field = item.field;
+              return (
+                <Th
+                  key={`header-${field.type}`}
+                  borderRightWidth="1px"
+                  borderColor="blue.500"
+                  color="white"
+                  fontSize="sm"
+                  py={3}
+                  minW="150px"
+                  whiteSpace="nowrap"
+                >
+                  {field.customLabel || getDefaultGroupHeaderLabel(field.type)}
+                </Th>
+              );
+            } else if (item.fieldType === 'calculated') {
               const field = item.field;
               return (
                 <Th
@@ -789,10 +775,11 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
               
               // Sprawdź czy to pierwsze podpole tej kolekcji - jeśli tak, dodaj kolumnę akcji
               const isFirstFieldOfCollection = idx === 0 || 
-                sortedAllFields[idx - 1].fieldType === 'calculated' ||
-                sortedAllFields[idx - 1].fieldType === 'generic' ||
-                (sortedAllFields[idx - 1].fieldType.startsWith('collection-') && 
-                 (sortedAllFields[idx - 1] as any).collectionField.name !== item.collectionField.name);
+                allColumns[idx - 1].fieldType === 'groupHeader' ||
+                allColumns[idx - 1].fieldType === 'calculated' ||
+                allColumns[idx - 1].fieldType === 'generic' ||
+                (allColumns[idx - 1].fieldType.startsWith('collection-') && 
+                 (allColumns[idx - 1] as any).collectionField.name !== item.collectionField.name);
               
               const headers = [];
               
@@ -840,10 +827,11 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
               
               // Sprawdź czy to pierwsze podpole tej kolekcji
               const isFirstFieldOfCollection = idx === 0 || 
-                sortedAllFields[idx - 1].fieldType === 'calculated' ||
-                sortedAllFields[idx - 1].fieldType === 'generic' ||
-                (sortedAllFields[idx - 1].fieldType.startsWith('collection-') && 
-                 (sortedAllFields[idx - 1] as any).collectionField.name !== item.collectionField.name);
+                allColumns[idx - 1].fieldType === 'groupHeader' ||
+                allColumns[idx - 1].fieldType === 'calculated' ||
+                allColumns[idx - 1].fieldType === 'generic' ||
+                (allColumns[idx - 1].fieldType.startsWith('collection-') && 
+                 (allColumns[idx - 1] as any).collectionField.name !== item.collectionField.name);
               
               const headers = [];
               
@@ -912,9 +900,6 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
             Kosztorys
           </Text>
           <HStack spacing={3}>
-            <Badge colorScheme="blue" fontSize="md" p={2}>
-              {template.name}
-            </Badge>
             {editable && (
               <Tooltip 
                 label={!onAddGroup ? "Szablon nie pozwala na dodawanie grup" : ""}
@@ -1067,61 +1052,62 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                         </HStack>
                       </Td>
 
-                      {/* Pola headerów grup - w tym GroupName jako edytowalne */}
-                      {visibleGroupHeaderFields.map((field) => {
-                        const fieldKey = GroupHeaderFieldType[field.type];
-                        const value = row.group?.headerValues?.[fieldKey];
+                      {/* Pola headerów grup i pól work scope - posortowane według columnLayout */}
+                      {allColumns.map((item, colIdx) => {
+                        if (item.fieldType === 'groupHeader') {
+                          // Renderuj pole headera grupy
+                          const field = item.field;
+                          const fieldKey = GroupHeaderFieldType[field.type];
+                          const value = row.group?.headerValues?.[fieldKey];
 
-                        return (
-                          <Td
-                            key={`group-header-${field.type}`}
-                            borderRightWidth="1px"
-                            borderRightColor="gray.200"
-                            py={2}
-                            px={2}
-                            borderBottomWidth="2px"
-                            borderBottomColor={isGroup ? "blue.200" : "teal.200"}
-                          >
-                            {editable && onDataChange ? (
-                              <GroupHeaderFieldRenderer
-                                field={field}
-                                value={value}
-                                onChange={(newValue) => {
-                                  updateGroup(row.groupId!, (group) => ({
-                                    ...group,
-                                    headerValues: {
-                                      ...group.headerValues,
-                                      [fieldKey]: newValue,
-                                    },
-                                  }));
-                                }}
-                                readOnly={false}
-                                compact={true}
-                              />
-                            ) : (
-                              <Text fontSize="sm" fontWeight={field.type === GroupHeaderFieldType.GroupName ? "bold" : "normal"}>
-                                {value !== undefined && value !== null
-                                  ? typeof value === "boolean"
-                                    ? value
-                                      ? "Tak"
-                                      : "Nie"
-                                    : String(value)
-                                  : "-"}
-                              </Text>
-                            )}
-                          </Td>
-                        );
-                      })}
-
-                      {/* Sumy dla wszystkich pól (regularne + podpola kolekcji) - posortowane */}
-                      {sortedAllFields.map((item) => {
-                        // Dla podpól kolekcji nie wyświetlamy sum w wierszach grup
-                        if (item.fieldType === 'collection-calculated' || item.fieldType === 'collection-generic') {
-                          // Sprawdź czy to pierwsze podpole - wtedy dodaj kolumnę akcji
+                          return (
+                            <Td
+                              key={`group-header-${field.type}`}
+                              borderRightWidth="1px"
+                              borderRightColor="gray.200"
+                              py={2}
+                              px={2}
+                              borderBottomWidth="2px"
+                              borderBottomColor={isGroup ? "blue.200" : "teal.200"}
+                            >
+                              {editable && onDataChange ? (
+                                <GroupHeaderFieldRenderer
+                                  field={field}
+                                  value={value}
+                                  onChange={(newValue) => {
+                                    updateGroup(row.groupId!, (group) => ({
+                                      ...group,
+                                      headerValues: {
+                                        ...group.headerValues,
+                                        [fieldKey]: newValue,
+                                      },
+                                    }));
+                                  }}
+                                  readOnly={false}
+                                  compact={true}
+                                />
+                              ) : (
+                                <Text fontSize="sm" fontWeight={field.type === GroupHeaderFieldType.GroupName ? "bold" : "normal"}>
+                                  {value !== undefined && value !== null
+                                    ? typeof value === "boolean"
+                                      ? value
+                                        ? "Tak"
+                                        : "Nie"
+                                      : String(value)
+                                    : "-"}
+                                </Text>
+                              )}
+                            </Td>
+                          );
+                        } else if (item.fieldType === 'collection-calculated' || item.fieldType === 'collection-generic') {
+                          // Dla podpól kolekcji nie wyświetlamy sum w wierszach grup
                           const collectionField = item.collectionField;
-                          const isFirstFieldOfCollection = sortedAllFields.indexOf(item) === 0 ||
-                            !sortedAllFields[sortedAllFields.indexOf(item) - 1]?.fieldType?.startsWith('collection-') ||
-                            (sortedAllFields[sortedAllFields.indexOf(item) - 1] as any)?.collectionField?.name !== collectionField.name;
+                          const isFirstFieldOfCollection = colIdx === 0 ||
+                            allColumns[colIdx - 1].fieldType === 'groupHeader' ||
+                            allColumns[colIdx - 1].fieldType === 'calculated' ||
+                            allColumns[colIdx - 1].fieldType === 'generic' ||
+                            (allColumns[colIdx - 1].fieldType.startsWith('collection-') && 
+                             (allColumns[colIdx - 1] as any).collectionField.name !== collectionField.name);
                           
                           const cells = [];
                           if (isFirstFieldOfCollection && editable) {
@@ -1145,74 +1131,31 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                             />
                           );
                           return cells;
-                        }
-                        
-                        // Dla regularnych pól wyświetl sumy
-                        const field = item.field;
-                        const totalValue = row.totals?.[field.name];
-                        return (
-                          <Td
-                            key={`group-${item.fieldType}-${field.name}`}
-                            isNumeric={item.fieldType === 'calculated'}
-                            borderRightWidth="1px"
-                            borderRightColor="gray.200"
-                            borderBottomWidth="2px"
-                            borderBottomColor={isGroup ? "blue.200" : "teal.200"}
-                            fontWeight="bold"
-                            color={isGroup ? "blue.700" : "teal.700"}
-                          >
-                            {totalValue !== undefined && totalValue !== null ? (
-                              <Text fontSize="sm">
-                                {typeof totalValue === "number"
-                                  ? totalValue.toFixed(2)
-                                  : String(totalValue)}
-                              </Text>
-                            ) : null}
-                          </Td>
-                        );
-                      })}
-
-                      {/* Usuń stare renderowanie kolekcji - już jest w sortedAllFields */}
-                      {false && visibleCollectionFields.flatMap((cf) => {
-                        const headers = [];
-                        
-                        // Dodaj pustą kolumnę dla checkboxa jeśli editable
-                        if (editable) {
-                          headers.push(
+                        } else {
+                          // Dla regularnych pól (calculated/generic) wyświetl sumy
+                          const field = item.field;
+                          const totalValue = row.totals?.[field.name];
+                          return (
                             <Td
-                              key={`empty-coll-select-${cf.name}`}
+                              key={`group-${item.fieldType}-${field.name}`}
+                              isNumeric={item.fieldType === 'calculated'}
                               borderRightWidth="1px"
                               borderRightColor="gray.200"
                               borderBottomWidth="2px"
                               borderBottomColor={isGroup ? "blue.200" : "teal.200"}
-                            />
+                              fontWeight="bold"
+                              color={isGroup ? "blue.700" : "teal.700"}
+                            >
+                              {totalValue !== undefined && totalValue !== null ? (
+                                <Text fontSize="sm">
+                                  {typeof totalValue === "number"
+                                    ? totalValue.toFixed(2)
+                                    : String(totalValue)}
+                                </Text>
+                              ) : null}
+                            </Td>
                           );
                         }
-                        
-                        return [
-                          ...headers,
-                          ...(cf.nestedFields?.calculatedFields?.filter((f) => f.visible) ||
-                            []).map((field) => (
-                            <Td
-                              key={`empty-coll-calc-${cf.name}-${field.name}`}
-                              borderRightWidth="1px"
-                              borderRightColor="gray.200"
-                              borderBottomWidth="2px"
-                              borderBottomColor={isGroup ? "blue.200" : "teal.200"}
-                            />
-                          )),
-                          ...(cf.nestedFields?.genericFields?.filter((f) => f.visible) || []).map(
-                            (field) => (
-                              <Td
-                                key={`empty-coll-gen-${cf.name}-${field.name}`}
-                                borderRightWidth="1px"
-                                borderRightColor="gray.200"
-                                borderBottomWidth="2px"
-                                borderBottomColor={isGroup ? "blue.200" : "teal.200"}
-                              />
-                            )
-                          ),
-                        ];
                       })}
 
                       {/* Kolumna akcji dla grupy */}
@@ -1313,45 +1256,46 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                         {row.workScopeIndex}
                       </Td>
 
-                      {/* Pola headerów grup - tylko widok (read-only) dla wierszy pozycji */}
-                      {visibleGroupHeaderFields.map((field) => {
-                        const fieldKey = GroupHeaderFieldType[field.type];
-                        const value = row.group?.headerValues?.[fieldKey];
+                      {/* Wszystkie kolumny - nagłówki grup i pola work scope - posortowane według columnLayout */}
+                      {allColumns.map((item, colIdx) => {
+                        if (item.fieldType === 'groupHeader') {
+                          // Pola headerów grup - tylko widok (read-only) dla wierszy pozycji
+                          const field = item.field;
+                          const fieldKey = GroupHeaderFieldType[field.type];
+                          const value = row.group?.headerValues?.[fieldKey];
 
-                        return (
-                          <Td
-                            key={`ws-header-${field.type}`}
-                            borderRightWidth="1px"
-                            borderRightColor="gray.200"
-                            py={2}
-                            px={2}
-                            bgGradient="linear(to-b, gray.50, gray.100)"
-                          >
-                            <Text fontSize="sm" color="gray.600">
-                              {value !== undefined && value !== null
-                                ? typeof value === "boolean"
-                                  ? value
-                                    ? "Tak"
-                                    : "Nie"
-                                  : String(value)
-                                : "-"}
-                            </Text>
-                          </Td>
-                        );
-                      })}
-
-                      {/* Wszystkie pola (regularne + podpola kolekcji) - posortowane według columnLayout */}
-                      {sortedAllFields.map((item) => {
-                        // Dla podpól kolekcji renderuj je osobno później
-                        if (item.fieldType === 'collection-calculated' || item.fieldType === 'collection-generic') {
+                          return (
+                            <Td
+                              key={`ws-header-${field.type}`}
+                              borderRightWidth="1px"
+                              borderRightColor="gray.200"
+                              py={2}
+                              px={2}
+                              bgGradient="linear(to-b, gray.50, gray.100)"
+                            >
+                              <Text fontSize="sm" color="gray.600">
+                                {value !== undefined && value !== null
+                                  ? typeof value === "boolean"
+                                    ? value
+                                      ? "Tak"
+                                      : "Nie"
+                                    : String(value)
+                                  : "-"}
+                              </Text>
+                            </Td>
+                          );
+                        } else if (item.fieldType === 'collection-calculated' || item.fieldType === 'collection-generic') {
                           const collectionField = item.collectionField;
                           const nestedField = item.nestedField;
                           const collectionItems = row.workScope!.collectionFieldValues?.[collectionField.name] || [];
                           
                           // Sprawdź czy to pierwsze podpole - wtedy dodaj kolumnę akcji
-                          const isFirstFieldOfCollection = sortedAllFields.indexOf(item) === 0 ||
-                            !sortedAllFields[sortedAllFields.indexOf(item) - 1]?.fieldType?.startsWith('collection-') ||
-                            (sortedAllFields[sortedAllFields.indexOf(item) - 1] as any)?.collectionField?.name !== collectionField.name;
+                          const isFirstFieldOfCollection = colIdx === 0 ||
+                            allColumns[colIdx - 1].fieldType === 'groupHeader' ||
+                            allColumns[colIdx - 1].fieldType === 'calculated' ||
+                            allColumns[colIdx - 1].fieldType === 'generic' ||
+                            (allColumns[colIdx - 1].fieldType.startsWith('collection-') && 
+                             (allColumns[colIdx - 1] as any).collectionField.name !== collectionField.name);
                           
                           const cells = [];
                           
@@ -1653,261 +1597,6 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                         );
                       })}
 
-                      {/* Pola kolekcji już są obsługiwane w sortedAllFields powyżej - stare renderowanie usunięte */}
-                      {false && visibleCollectionFields.map((collectionField) => {
-                        const collectionItems =
-                          row.workScope!.collectionFieldValues?.[
-                            collectionField.name
-                          ] || [];
-
-                        const nestedCalcFields =
-                          collectionField.nestedFields?.calculatedFields?.filter(
-                            (f) => f.visible
-                          ) || [];
-                        const nestedGenFields =
-                          collectionField.nestedFields?.genericFields?.filter(
-                            (f) => f.visible
-                          ) || [];
-
-                        // Renderuj kolumny dla każdego nested field
-                        return (
-                          <React.Fragment key={`ws-coll-${collectionField.name}`}>
-                            {/* Kolumna z checkboxami do zaznaczania itemów */}
-                            {editable && onDataChange && (
-                              <Td
-                                key={`coll-select-${collectionField.name}`}
-                                borderRightWidth="1px"
-                                borderRightColor="gray.200"
-                                py={2}
-                                px={2}
-                                bg="purple.50"
-                              >
-                                {collectionItems.length > 0 ? (
-                                  <VStack spacing={1} align="center">
-                                    {collectionItems.map((item) => (
-                                      <HStack 
-                                        key={item.id} 
-                                        width="100%" 
-                                        justifyContent="center" 
-                                        minHeight="40px" 
-                                        spacing={1}
-                                      >
-                                        {item.isSelected ? (
-                                          <Box
-                                            as="button"
-                                            onClick={() => {
-                                              handleCollectionItemSelect(
-                                                row.groupId!,
-                                                row.workScope!.id,
-                                                collectionField.name,
-                                                item.id,
-                                                false,
-                                                collectionField
-                                              );
-                                            }}
-                                            p={1}
-                                            borderRadius="md"
-                                            bg="purple.500"
-                                            color="white"
-                                            cursor="pointer"
-                                            _hover={{ bg: "purple.600" }}
-                                            display="flex"
-                                            alignItems="center"
-                                            justifyContent="center"
-                                          >
-                                            <Check size={16} />
-                                          </Box>
-                                        ) : (
-                                          <Checkbox
-                                            size="sm"
-                                            colorScheme="blue"
-                                            isChecked={false}
-                                            onChange={(e) => {
-                                              handleCollectionItemSelect(
-                                                row.groupId!,
-                                                row.workScope!.id,
-                                                collectionField.name,
-                                                item.id,
-                                                e.target.checked,
-                                                collectionField
-                                              );
-                                            }}
-                                            sx={{
-                                              "span": {
-                                                bg: "white",
-                                                borderColor: "gray.300",
-                                              }
-                                            }}
-                                          />
-                                        )}
-                                        {onDeleteCollectionItem && (
-                                          <IconButton
-                                            aria-label="Usuń item"
-                                            icon={<Trash2 size={12} />}
-                                            size="xs"
-                                            colorScheme="red"
-                                            variant="ghost"
-                                            borderRadius="md"
-                                            _hover={{ transform: "scale(1.1)", bg: "red.50" }}
-                                            transition="all 0.2s"
-                                            onClick={() =>
-                                              onDeleteCollectionItem(
-                                                row.groupId!,
-                                                row.workScope!.id,
-                                                collectionField.name,
-                                                item.id
-                                              )
-                                            }
-                                          />
-                                        )}
-                                      </HStack>
-                                    ))}
-                                  </VStack>
-                                ) : (
-                                  <Text fontSize="xs" color="gray.400">-</Text>
-                                )}
-                              </Td>
-                            )}
-                            {nestedCalcFields.map((nestedField) => (
-                              <Td
-                                key={`nested-calc-${nestedField.name}`}
-                                isNumeric
-                                borderRightWidth="1px"
-                                borderRightColor="gray.200"
-                                py={2}
-                                px={2}
-                                fontSize="sm"
-                                bg="purple.50"
-                              >
-                                {collectionItems.length > 0 ? (
-                                  <VStack spacing={1} align="end">
-                                    {collectionItems.map((item) => {
-                                      const itemValue =
-                                        item.calculatedFieldValues?.[
-                                          nestedField.name
-                                        ];
-                                      
-                                      // Przygotuj mapę valuesByType dla collection item
-                                      const nestedCalcFieldsAll = collectionField.nestedFields?.calculatedFields || [];
-                                      const valuesByType: Record<number, any> = {};
-                                      nestedCalcFieldsAll.forEach(f => {
-                                        if (f.name in (item.calculatedFieldValues || {})) {
-                                          valuesByType[f.type] = item.calculatedFieldValues![f.name];
-                                        }
-                                      });
-                                      
-                                      const canAutoCalc = canAutoCalculate(nestedField.type, valuesByType);
-                                      
-                                      return (
-                                        <Box key={item.id} width="100%">
-                                          {editable && onDataChange ? (
-                                            <CalculatedFieldRenderer
-                                              field={nestedField}
-                                              value={itemValue}
-                                              onChange={(newValue) => {
-                                                updateCollectionItem(
-                                                  row.groupId!,
-                                                  row.workScope!.id,
-                                                  collectionField.name,
-                                                  item.id,
-                                                  (updatedItem) => ({
-                                                    ...updatedItem,
-                                                    calculatedFieldValues: {
-                                                      ...updatedItem.calculatedFieldValues,
-                                                      [nestedField.name]: newValue,
-                                                    },
-                                                  })
-                                                );
-                                              }}
-                                              readOnly={false}
-                                              canAutoCalculate={canAutoCalc}
-                                              compact
-                                            />
-                                          ) : (
-                                            <Text fontSize="xs">
-                                              {typeof itemValue === "number"
-                                                ? itemValue.toFixed(2)
-                                                : "-"}
-                                            </Text>
-                                          )}
-                                        </Box>
-                                      );
-                                    })}
-                                  </VStack>
-                                ) : (
-                                  <Text fontSize="xs" color="gray.400">
-                                    -
-                                  </Text>
-                                )}
-                              </Td>
-                            ))}
-
-                            {nestedGenFields.map((nestedField) => (
-                              <Td
-                                key={`nested-gen-${nestedField.name}`}
-                                borderRightWidth="1px"
-                                borderRightColor="gray.200"
-                                py={2}
-                                px={2}
-                                fontSize="sm"
-                                bg="purple.50"
-                              >
-                                {collectionItems.length > 0 ? (
-                                  <VStack spacing={1} align="start">
-                                    {collectionItems.map((item) => {
-                                      const itemValue =
-                                        item.genericFieldValues?.[nestedField.name];
-                                      return (
-                                        <Box key={item.id} width="100%">
-                                          {editable && onDataChange ? (
-                                            <GenericFieldRenderer
-                                              field={nestedField}
-                                              value={itemValue}
-                                              onChange={(newValue) => {
-                                                updateCollectionItem(
-                                                  row.groupId!,
-                                                  row.workScope!.id,
-                                                  collectionField.name,
-                                                  item.id,
-                                                  (updatedItem) => ({
-                                                    ...updatedItem,
-                                                    genericFieldValues: {
-                                                      ...updatedItem.genericFieldValues,
-                                                      [nestedField.name]: newValue,
-                                                    },
-                                                  })
-                                                );
-                                              }}
-                                              readOnly={false}
-                                              compact
-                                            />
-                                          ) : (
-                                            <Text fontSize="xs">
-                                              {itemValue !== undefined &&
-                                              itemValue !== null
-                                                ? typeof itemValue === "boolean"
-                                                  ? itemValue
-                                                    ? "Tak"
-                                                    : "Nie"
-                                                  : String(itemValue)
-                                                : "-"}
-                                            </Text>
-                                          )}
-                                        </Box>
-                                      );
-                                    })}
-                                  </VStack>
-                                ) : (
-                                  <Text fontSize="xs" color="gray.400">
-                                    -
-                                  </Text>
-                                )}
-                              </Td>
-                            ))}
-                          </React.Fragment>
-                        );
-                      })}
-
                       {/* Kolumna akcji */}
                       {editable && (
                         <Td
@@ -1967,23 +1656,26 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                     </Badge>
                   </Td>
 
-                  {/* Puste kolumny dla headerów grup */}
-                  {visibleGroupHeaderFields.map((field) => (
-                    <Td
-                      key={`total-header-${field.type}`}
-                      borderRightWidth="1px"
-                      borderRightColor="green.600"
-                    />
-                  ))}
-
-                  {/* Całkowite sumy dla wszystkich pól - posortowane */}
-                  {sortedAllFields.map((item) => {
-                    // Dla podpól kolekcji renderuj puste komórki
-                    if (item.fieldType === 'collection-calculated' || item.fieldType === 'collection-generic') {
+                  {/* Wszystkie kolumny - nagłówki grup i pola work scope - posortowane według columnLayout */}
+                  {allColumns.map((item, colIdx) => {
+                    if (item.fieldType === 'groupHeader') {
+                      // Puste kolumny dla headerów grup
+                      return (
+                        <Td
+                          key={`total-header-${item.field.type}`}
+                          borderRightWidth="1px"
+                          borderRightColor="green.600"
+                        />
+                      );
+                    } else if (item.fieldType === 'collection-calculated' || item.fieldType === 'collection-generic') {
+                      // Dla podpól kolekcji renderuj puste komórki
                       const collectionField = item.collectionField;
-                      const isFirstFieldOfCollection = sortedAllFields.indexOf(item) === 0 ||
-                        !sortedAllFields[sortedAllFields.indexOf(item) - 1]?.fieldType?.startsWith('collection-') ||
-                        (sortedAllFields[sortedAllFields.indexOf(item) - 1] as any)?.collectionField?.name !== collectionField.name;
+                      const isFirstFieldOfCollection = colIdx === 0 ||
+                        allColumns[colIdx - 1].fieldType === 'groupHeader' ||
+                        allColumns[colIdx - 1].fieldType === 'calculated' ||
+                        allColumns[colIdx - 1].fieldType === 'generic' ||
+                        (allColumns[colIdx - 1].fieldType.startsWith('collection-') && 
+                         (allColumns[colIdx - 1] as any).collectionField.name !== collectionField.name);
                       
                       const cells = [];
                       if (isFirstFieldOfCollection && editable) {
@@ -1995,48 +1687,25 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                         <Td key={`total-coll-${item.fullName}`} borderRightWidth="1px" borderRightColor="green.600" />
                       );
                       return cells;
+                    } else {
+                      // Dla regularnych pól (calculated/generic) wyświetl sumy
+                      const field = item.field;
+                      const isCalculated = item.fieldType === 'calculated';
+                      const total = grandTotals[field.name];
+                      return (
+                        <Td
+                          key={`total-${item.fieldType}-${field.name}`}
+                          isNumeric={isCalculated}
+                          borderRightWidth="1px"
+                          borderRightColor="green.600"
+                          py={4}
+                          fontSize="md"
+                          fontWeight="bold"
+                        >
+                          {isCalculated && total !== undefined ? total.toFixed(2) : ""}
+                        </Td>
+                      );
                     }
-                    
-                    // Dla regularnych pól wyświetl sumy
-                    const field = item.field;
-                    const isCalculated = item.fieldType === 'calculated';
-                    const total = grandTotals[field.name];
-                    return (
-                      <Td
-                        key={`total-${item.fieldType}-${field.name}`}
-                        isNumeric={isCalculated}
-                        borderRightWidth="1px"
-                        borderRightColor="green.600"
-                        py={4}
-                        fontSize="md"
-                        fontWeight="bold"
-                      >
-                        {isCalculated && total !== undefined ? total.toFixed(2) : ""}
-                      </Td>
-                    );
-                  })}
-
-                  {/* Usuń stare renderowanie kolekcji - już jest w sortedAllFields */}
-                  {false && visibleCollectionFields.map((collectionField) => {
-                    let nestedCount =
-                      (collectionField.nestedFields?.calculatedFields?.filter(
-                        (f) => f.visible
-                      ).length || 0) +
-                      (collectionField.nestedFields?.genericFields?.filter((f) => f.visible)
-                        .length || 0);
-                    
-                    // Dodaj 1 dla kolumny checkboxa jeśli editable
-                    if (editable) {
-                      nestedCount += 1;
-                    }
-
-                    return Array.from({ length: nestedCount }).map((_, i) => (
-                      <Td
-                        key={`total-coll-${collectionField.name}-${i}`}
-                        borderRightWidth="1px"
-                        borderRightColor="green.600"
-                      />
-                    ));
                   })}
 
                   {/* Pusta kolumna akcji */}

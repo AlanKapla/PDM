@@ -31,7 +31,6 @@ namespace CQRS.CostEstimates.GetCostEstimates
         Guid Id,
         Guid TenantId,
         Guid ProjectId,
-        string ProjectName,
         Guid TemplateId,
         string TemplateName,
         string Name,
