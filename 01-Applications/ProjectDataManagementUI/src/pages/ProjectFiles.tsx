@@ -63,7 +63,11 @@ const AllFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndex = useAccordionIndex(expandedPackageIds, files || []);
+  const expandedIndices = useMemo(() => {
+    return Array.from(expandedPackageIds)
+      .map(id => files.findIndex((f: any) => f.id === id))
+      .filter(i => i !== -1);
+  }, [expandedPackageIds, files]);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -105,7 +109,7 @@ const AllFilesTab = React.memo(({
           description="Nie ma jeszcze żadnych plików w tym projekcie"
         />
       ) : (
-        <Accordion allowMultiple index={accordionIndex}>
+        <Accordion allowMultiple index={expandedIndices}>
           {files.map((pkg: any) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
@@ -158,7 +162,11 @@ const MyFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndex = useAccordionIndex(expandedPackageIds, files || []);
+  const expandedIndices = useMemo(() => {
+    return Array.from(expandedPackageIds)
+      .map(id => files.findIndex((f: any) => f.id === id))
+      .filter(i => i !== -1);
+  }, [expandedPackageIds, files]);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -200,7 +208,7 @@ const MyFilesTab = React.memo(({
           description="Nie masz jeszcze żadnych plików w tym projekcie"
         />
       ) : (
-        <Accordion allowMultiple index={accordionIndex}>
+        <Accordion allowMultiple index={expandedIndices}>
           {files.map((pkg: any) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
@@ -248,7 +256,11 @@ const SharedFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndex = useAccordionIndex(expandedPackageIds, files || []);
+  const expandedIndices = useMemo(() => {
+    return Array.from(expandedPackageIds)
+      .map(id => files.findIndex((f: any) => f.id === id))
+      .filter(i => i !== -1);
+  }, [expandedPackageIds, files]);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -267,7 +279,7 @@ const SharedFilesTab = React.memo(({
           description="Nikt jeszcze nie udostępnił Ci plików w tym projekcie"
         />
       ) : (
-        <Accordion allowMultiple index={accordionIndex}>
+        <Accordion allowMultiple index={expandedIndices}>
           {files.map((pkg: any) => (
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
