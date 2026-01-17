@@ -49,7 +49,7 @@ import { useGlobalCache } from "../hooks/useGlobalCache";
 import { useAccordionIndex } from "../hooks/useAccordionIndex";
 
 // Custom hook to memoize accordion indices calculation
-const useAccordionIndices = (expandedPackageIds: Set<string>, files: any[] | null) => {
+const useAccordionIndices = (expandedPackageIds: Set<string>, files: ProjectFilePackageWeb[] | null) => {
   return useMemo(() => {
     if (!files) return [];
     
