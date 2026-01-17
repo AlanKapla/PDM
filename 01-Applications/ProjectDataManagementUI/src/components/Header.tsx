@@ -141,7 +141,7 @@ export default function Header() {
               </MenuItem>
               <MenuDivider />
               <MenuItem icon={<RefreshCw size={16} />} onClick={() => navigate("/tenants/collaborating")}>
-                Zmień aktywnego tenanta
+                Przełącz organizację
               </MenuItem>
               <MenuDivider />
               <MenuItem 

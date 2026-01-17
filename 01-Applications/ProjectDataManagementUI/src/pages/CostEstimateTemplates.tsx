@@ -13,8 +13,19 @@ import {
   IconButton,
   Tooltip,
   useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
 } from "@chakra-ui/react";
-import { FileText, Plus, Edit, Trash2, Copy } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Copy, AlertTriangle } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
@@ -32,9 +43,12 @@ export default function CostEstimateTemplates() {
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<CostEstimateTemplateDetails | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
+  const { isOpen: isDeleteModalOpen, onOpen: onDeleteModalOpen, onClose: onDeleteModalClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -69,17 +83,27 @@ export default function CostEstimateTemplates() {
     }
   };
 
-  const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("Czy na pewno chcesz usunąć ten szablon?")) return;
+  const handleDeleteTemplate = async () => {
+    if (!templateToDelete) return;
 
+    setDeleting(true);
     try {
-      await costEstimateTemplateApi.deleteTemplate(templateId);
+      await costEstimateTemplateApi.deleteTemplate(templateToDelete.id);
       showSuccess("Szablon został usunięty");
       fetchTemplates();
+      onDeleteModalClose();
+      setTemplateToDelete(null);
     } catch (error: any) {
       console.error('Error deleting template:', error);
       showError('Nie udało się usunąć szablonu', error?.message || 'Wystąpił nieoczekiwany błąd');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const openDeleteModal = (templateId: string, templateName: string) => {
+    setTemplateToDelete({ id: templateId, name: templateName });
+    onDeleteModalOpen();
   };
 
   const handleDuplicateTemplate = async (templateId: string) => {
@@ -186,7 +210,7 @@ export default function CostEstimateTemplates() {
                               colorScheme="red"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteTemplate(template.id);
+                                openDeleteModal(template.id, template.name);
                               }}
                             />
                           </Tooltip>
@@ -231,6 +255,51 @@ export default function CostEstimateTemplates() {
             existingTemplate={selectedTemplate}
           />
         )}
+
+        {/* MODAL: DELETE CONFIRMATION */}
+        <Modal isOpen={isDeleteModalOpen} onClose={onDeleteModalClose} isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>
+              <HStack spacing={2}>
+                <AlertTriangle size={24} color="red" />
+                <Text>Usuń szablon kosztorysu</Text>
+              </HStack>
+            </ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <Text>
+                  Czy na pewno chcesz usunąć szablon <Text as="span" fontWeight="bold">"{templateToDelete?.name}"</Text>?
+                </Text>
+                
+                <Alert status="warning" borderRadius="md">
+                  <AlertIcon />
+                  <Box>
+                    <AlertTitle fontSize="sm">Uwaga!</AlertTitle>
+                    <AlertDescription fontSize="sm">
+                      Usunięcie szablonu spowoduje również usunięcie wszystkich kosztorysów utworzonych na jego podstawie. 
+                      Ta operacja jest nieodwracalna.
+                    </AlertDescription>
+                  </Box>
+                </Alert>
+              </VStack>
+            </ModalBody>
+            <ModalFooter gap={2}>
+              <Button variant="ghost" onClick={onDeleteModalClose} isDisabled={deleting}>
+                Anuluj
+              </Button>
+              <Button 
+                colorScheme="red" 
+                onClick={handleDeleteTemplate}
+                isLoading={deleting}
+                loadingText="Usuwanie..."
+              >
+                Usuń szablon
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Box>
     </MainLayout>
   );

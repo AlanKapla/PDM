@@ -33,6 +33,7 @@ export default function Breadcrumbs() {
   );
 
   // Pobierz nazwę projektu jeśli jest w URL
+  // useGlobalCache zapobiega duplikacji requestów - jeśli cache istnieje, zwraca z cache
   useEffect(() => {
     const fetchProjectName = async () => {
       if (params.projectId && user?.activeTenantId) {
@@ -120,6 +121,11 @@ export default function Breadcrumbs() {
   }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, projectName]);
 
   if (breadcrumbs.length <= 1) {
+    return null;
+  }
+
+  // Nie renderuj breadcrumbs dopóki nazwa projektu się nie załaduje (zapobiega pokazywaniu "Projekt")
+  if (params.projectId && !projectName && projectDetailsCache.loading) {
     return null;
   }
 

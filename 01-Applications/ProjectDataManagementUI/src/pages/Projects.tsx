@@ -158,8 +158,8 @@ export default function Projects() {
         ) : projects.length === 0 ? (
           <EmptyState 
             icon={FolderKanban}
-            title="Nie masz jeszcze żadnych projektów"
-            description="Stwórz swój pierwszy projekt, aby zacząć pracę"
+            title={permissions.canCreateProject ? "Nie masz jeszcze żadnych projektów" : "Brak projektów w tej organizacji"}
+            description={permissions.canCreateProject ? "Stwórz swój pierwszy projekt, aby zacząć pracę" : undefined}
             action={
               permissions.canCreateProject && activeTenantId && (
                 <Button leftIcon={<Icon as={Plus} />} colorScheme="blue" onClick={createModal.onOpen}>

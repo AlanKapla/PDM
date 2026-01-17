@@ -9,6 +9,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
 {
     /// <summary>
     /// Handler dla pobrania szczegółów kosztorysu
+    /// Returns full template object with structure (needed for UI)
     /// </summary>
     public class GetCostEstimateDetailsQueryHandler : IRequestHandler<GetCostEstimateDetailsQuery, CostEstimateDetails>
     {
@@ -25,29 +26,36 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
 
         public async Task<CostEstimateDetails> Handle(GetCostEstimateDetailsQuery request, CancellationToken cancellationToken)
         {
-            // Get cost estimate with template and owner - filter by TenantId and ProjectId
-            // Don't filter by OwnerId to allow READ_SINGLE permission (e.g., SuperAdmin access)
+            // Get cost estimate with template and owner (no Project)
             var costEstimate = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId && 
                      c.TenantId == request.TenantId &&
                      c.ProjectId == request.ProjectId &&
-                     !c.IsDeleted,
+                     !c.IsDeleted && !c.Template.IsDeleted,
                 cancellationToken,
-                q => q.Include(c => c.Template).Include(c => c.Owner).Include(c => c.Project));
+                q => q.Include(c => c.Template)
+                      .ThenInclude(t => t.Owner)
+                      .Include(c => c.Owner));
 
             if (costEstimate == null)
             {
                 throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
             }
 
-            // Data is automatically deserialized by EF Core
             return new CostEstimateDetails(
                 Id: costEstimate.Id,
                 TenantId: costEstimate.TenantId,
                 ProjectId: costEstimate.ProjectId,
-                ProjectName: costEstimate.Project.Name,
-                TemplateId: costEstimate.TemplateId,
-                TemplateName: costEstimate.Template.Name,
+                Template: new CostEstimateTemplateDto(
+                    Id: costEstimate.Template.Id,
+                    Name: costEstimate.Template.Name,
+                    Description: costEstimate.Template.Description,
+                    TemplateStructure: costEstimate.Template.TemplateStructure,
+                    CreatedAt: costEstimate.Template.CreatedAt,
+                    UpdatedAt: costEstimate.Template.UpdatedAt,
+                    OwnerId: costEstimate.Template.OwnerId,
+                    OwnerName: $"{costEstimate.Template.Owner.FirstName} {costEstimate.Template.Owner.LastName}"
+                ),
                 Name: costEstimate.Name,
                 Description: costEstimate.Description,
                 Status: costEstimate.Status,
