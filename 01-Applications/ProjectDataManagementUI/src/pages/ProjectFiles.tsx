@@ -46,6 +46,7 @@ import type { ProjectFilePackageWeb, ProjectDetailsWeb, ProjectMemberWeb } from 
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useAccordionIndex } from "../hooks/useAccordionIndex";
 
 // === Tab Components jako osobne komponenty z React.memo ===
 const AllFilesTab = React.memo(({ 
@@ -62,9 +63,7 @@ const AllFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndex = useMemo(() => {
-    return Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1);
-  }, [expandedPackageIds, files]);
+  const accordionIndex = useAccordionIndex(expandedPackageIds, files || []);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -159,9 +158,7 @@ const MyFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndex = useMemo(() => {
-    return Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1);
-  }, [expandedPackageIds, files]);
+  const accordionIndex = useAccordionIndex(expandedPackageIds, files || []);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -251,9 +248,7 @@ const SharedFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndex = useMemo(() => {
-    return Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1);
-  }, [expandedPackageIds, files]);
+  const accordionIndex = useAccordionIndex(expandedPackageIds, files || []);
 
   if (!files) {
     return <LoadingSpinner />;
