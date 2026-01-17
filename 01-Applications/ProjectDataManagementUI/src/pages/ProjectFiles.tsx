@@ -47,6 +47,14 @@ import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
+// Custom hook to memoize accordion indices calculation
+const useAccordionIndices = (expandedPackageIds: Set<string>, files: any[] | null) => {
+  return useMemo(
+    () => files ? Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1) : [],
+    [expandedPackageIds, files]
+  );
+};
+
 // === Tab Components jako osobne komponenty z React.memo ===
 const AllFilesTab = React.memo(({ 
   files, 
@@ -62,10 +70,7 @@ const AllFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndices = useMemo(
-    () => files ? Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1) : [],
-    [expandedPackageIds, files]
-  );
+  const accordionIndices = useAccordionIndices(expandedPackageIds, files);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -160,10 +165,7 @@ const MyFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndices = useMemo(
-    () => files ? Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1) : [],
-    [expandedPackageIds, files]
-  );
+  const accordionIndices = useAccordionIndices(expandedPackageIds, files);
 
   if (!files) {
     return <LoadingSpinner />;
@@ -253,10 +255,7 @@ const SharedFilesTab = React.memo(({
   loadingPackages,
   onTogglePackage
 }: any) => {
-  const accordionIndices = useMemo(
-    () => files ? Array.from(expandedPackageIds).map(id => files.findIndex((f: any) => f.id === id)).filter(i => i !== -1) : [],
-    [expandedPackageIds, files]
-  );
+  const accordionIndices = useAccordionIndices(expandedPackageIds, files);
 
   if (!files) {
     return <LoadingSpinner />;
