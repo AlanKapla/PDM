@@ -194,7 +194,7 @@ export default function ProjectMembers() {
             <VStack spacing={4}>
               <Heading size="md" color="red.500">Brak dostępu</Heading>
               <Text>Nie masz uprawnień do przeglądania członków tego projektu.</Text>
-              <Text fontSize="sm" color="gray.600">Wymagana rola: conajmniej Przeglądający</Text>
+              <Text fontSize="sm" color="gray.600">Wymagana rola: co najmniej Przeglądający</Text>
             </VStack>
           </Box>
         ) : (
