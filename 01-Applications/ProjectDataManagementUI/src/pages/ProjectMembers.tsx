@@ -276,7 +276,7 @@ export default function ProjectMembers() {
                           >
                             {availableRoles.map((role) => (
                               <option key={role.id} value={role.id}>
-                                {role.name}
+                                {getRoleName(role.code)}
                               </option>
                             ))}
                           </Select>

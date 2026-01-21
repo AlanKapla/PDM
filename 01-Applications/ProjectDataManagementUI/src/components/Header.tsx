@@ -71,62 +71,96 @@ export default function Header({ onMenuOpen }: HeaderProps) {
       bg={bg}
       borderBottom="1px solid"
       borderColor={border}
-      px={{ base: 2, sm: 3, md: 6 }}
-      py={{ base: 1.5, md: 3 }}
+      px={{ base: 1, sm: 3, md: 4 }}
+      py={{ base: 1, md: 2 }}
       position="fixed"
       top={0}
       left={0}
       right={0}
       zIndex={1000}
-      height="60px"
+      minH={{ base: "auto", md: "56px" }}
       display="flex"
       alignItems="center"
+      justifyContent="center"
     >
       <HStack
         maxW="100%"
         mx="auto"
         justify="space-between"
-        spacing={{ base: 1, sm: 2, md: 4 }}
+        spacing={{ base: 1, sm: 2, md: 3 }}
         w="100%"
+        alignItems="center"
       >
-        {/* Logo + nazwa aplikacji (widoczne również na mobile) */}
+        {/* Logo + nazwa aplikacji */}
         <HStack
-          spacing={1}
+          spacing={{ base: 0.5, md: 1 }}
           cursor="pointer"
           _hover={{ opacity: 0.8 }}
           onClick={() => navigate("/dashboard")}
-          flex={1}
+          flexShrink={0}
         >
           <Icon as={Database} boxSize={{ base: 5, md: 5 }} color="blue.600" flexShrink={0} />
 
           <Text
-            fontSize={{ base: "sm", md: "lg" }}
+            fontSize={{ base: "xs", md: "md" }}
             fontWeight="bold"
             color={textColor}
-            display="block"
             whiteSpace="nowrap"
           >
             Brickly
           </Text>
         </HStack>
 
-        {/* Menu użytkownika */}
+        {/* Nazwa tenanta + imię i nazwisko - wycentrowane na mobilach */}
+        {isAuthenticated && user && (
+          <VStack
+            align="center"
+            spacing={0}
+            flex={{ base: 1, md: "unset" }}
+            display={{ base: "flex", md: "none" }}
+          >
+            <Text
+              fontSize={{ base: "10px", md: "sm" }}
+              fontWeight="medium"
+              color={textColor}
+              whiteSpace="nowrap"
+              lineHeight="1"
+            >
+              {user.firstName} {user.lastName}
+            </Text>
+
+            {activeTenantName && (
+              <HStack spacing={0.5} fontSize={{ base: "8px", md: "xs" }} color={mutedColor}>
+                <Icon as={Building2} boxSize={{ base: 3, md: 3 }} flexShrink={0} />
+                <Text whiteSpace="nowrap" noOfLines={1}>{activeTenantName}</Text>
+              </HStack>
+            )}
+          </VStack>
+        )}
+
+        {/* Menu użytkownika - notifications + avatar + tenant (na PC) */}
         {isAuthenticated && user ? (
-          <HStack spacing={{ base: 0.5, md: 2 }}>
-            <VStack align="flex-end" spacing={0}>
+          <HStack spacing={{ base: 1, md: 1.5 }} flexShrink={0}>
+            {/* Nazwa tenanta + imię i nazwisko - tylko na PC */}
+            <VStack
+              align="flex-end"
+              spacing={0}
+              display={{ base: "none", md: "flex" }}
+            >
               <Text
                 fontSize={{ base: "10px", md: "sm" }}
                 fontWeight="medium"
                 color={textColor}
                 whiteSpace="nowrap"
+                lineHeight="1"
               >
                 {user.firstName} {user.lastName}
               </Text>
 
               {activeTenantName && (
-                <HStack spacing={1} fontSize={{ base: "10px", md: "10px" }} color={mutedColor}>
-                  <Icon as={Building2} boxSize={{ base: 3.5, md: 3 }} />
-                  <Text whiteSpace="nowrap">{activeTenantName}</Text>
+                <HStack spacing={0.5} fontSize={{ base: "8px", md: "xs" }} color={mutedColor}>
+                  <Icon as={Building2} boxSize={{ base: 3, md: 3 }} flexShrink={0} />
+                  <Text whiteSpace="nowrap" noOfLines={1}>{activeTenantName}</Text>
                 </HStack>
               )}
             </VStack>
@@ -136,7 +170,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
             <Menu placement="bottom-end" strategy="fixed">
               <MenuButton cursor="pointer">
                 <Avatar
-                  size={{ base: "xs", md: "sm" }}
+                  size={{ base: "sm", md: "sm" }}
                   bg="blue.600"
                   color="white"
                   ignoreFallback
