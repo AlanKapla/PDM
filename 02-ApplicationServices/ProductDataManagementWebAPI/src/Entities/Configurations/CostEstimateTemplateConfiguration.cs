@@ -1,8 +1,6 @@
-﻿using Entities.Models;
-using Entities.Models.CostEstimateTemplateDefinitions;
+﻿using Entities.Models.CostEstimateTemplates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System.Text.Json;
 
 namespace Entities.Configurations
 {
@@ -22,15 +20,6 @@ namespace Entities.Configurations
             builder.Property(t => t.Description)
                 .HasMaxLength(1000);
             
-            // ✅ Configure TemplateStructure as JSON column with value converter
-            builder.Property(t => t.TemplateStructure)
-                .HasColumnType("nvarchar(max)")
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<CostEstimateTemplateStructure>(v, (JsonSerializerOptions?)null)!
-                )
-                .IsRequired();
-            
             builder.Property(t => t.CreatedAt)
                 .IsRequired();
             
@@ -47,6 +36,12 @@ namespace Entities.Configurations
                 .WithMany()
                 .HasForeignKey(t => t.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
+            
+            // Relationship with Versions
+            builder.HasMany(t => t.Versions)
+                .WithOne(v => v.Template)
+                .HasForeignKey(v => v.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
             
             // Index for better query performance
             builder.HasIndex(t => t.OwnerId);

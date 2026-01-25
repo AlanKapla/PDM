@@ -24,8 +24,9 @@ import {
   Spinner,
 } from "@chakra-ui/react";
 import { Plus, FileText } from "lucide-react";
-import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateDetails } from "../api/costEstimateTemplateApi";
+import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
 import { costEstimateApi } from "../api/costEstimateApi";
+import type { ApprovedTemplateVersionItem } from "../types/costEstimate.types";
 
 interface CreateCostEstimateModalProps {
   isOpen: boolean;
@@ -45,70 +46,63 @@ export default function CreateCostEstimateModal({
   const toast = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
-  const [selectedTemplateDetails, setSelectedTemplateDetails] = useState<CostEstimateTemplateDetails | null>(null);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [loadingTemplateDetails, setLoadingTemplateDetails] = useState(false);
+  const [selectedVersionId, setSelectedVersionId] = useState("");
+  const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
+  const [approvedVersions, setApprovedVersions] = useState<ApprovedTemplateVersionItem[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load templates when modal opens
+  // Load approved versions when modal opens
   useEffect(() => {
     if (isOpen) {
-      const loadTemplates = async () => {
-        setLoadingTemplates(true);
+      const loadApprovedVersions = async () => {
+        setLoadingVersions(true);
         try {
-          const data = await costEstimateTemplateApi.getTemplates();
-          setTemplates(Array.isArray(data) ? data : []);
+          const data = await costEstimateTemplateApi.getAllApprovedVersions();
+          setApprovedVersions(Array.isArray(data) ? data : []);
         } catch (error) {
-          console.error("Error loading templates:", error);
+          console.error("Error loading approved versions:", error);
           toast({
             title: "Błąd",
-            description: "Nie udało się pobrać szablonów",
+            description: "Nie udało się pobrać zatwierdzonych wersji szablonów",
             status: "error",
             duration: 5000,
           });
-          setTemplates([]);
+          setApprovedVersions([]);
         } finally {
-          setLoadingTemplates(false);
+          setLoadingVersions(false);
         }
       };
-      loadTemplates();
+      loadApprovedVersions();
     }
   }, [isOpen, toast]);
+
+  // Auto-select default currency when template version changes
+  useEffect(() => {
+    if (selectedVersionId) {
+      const version = approvedVersions.find(v => v.versionId === selectedVersionId);
+      if (version && version.currencies && version.currencies.length > 0) {
+        const defaultCurrency = version.currencies.find(c => c.isDefault);
+        if (defaultCurrency) {
+          setSelectedCurrencyId(defaultCurrency.id);
+        } else {
+          // Jeśli brak domyślnej, wybierz pierwszą
+          setSelectedCurrencyId(version.currencies[0].id);
+        }
+      } else {
+        setSelectedCurrencyId("");
+      }
+    } else {
+      setSelectedCurrencyId("");
+    }
+  }, [selectedVersionId, approvedVersions]);
 
   const handleClose = () => {
     setName("");
     setDescription("");
-    setSelectedTemplateId("");
-    setSelectedTemplateDetails(null);
+    setSelectedVersionId("");
+    setSelectedCurrencyId("");
     onClose();
-  };
-
-  const handleTemplateChange = async (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    
-    if (!templateId) {
-      setSelectedTemplateDetails(null);
-      return;
-    }
-
-    setLoadingTemplateDetails(true);
-    try {
-      const details = await costEstimateTemplateApi.getTemplateDetails(templateId);
-      setSelectedTemplateDetails(details);
-    } catch (error) {
-      console.error('Error loading template details:', error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać szczegółów szablonu",
-        status: "error",
-        duration: 5000,
-      });
-      setSelectedTemplateDetails(null);
-    } finally {
-      setLoadingTemplateDetails(false);
-    }
   };
 
   const handleSubmit = async () => {
@@ -122,10 +116,42 @@ export default function CreateCostEstimateModal({
       return;
     }
 
-    if (!selectedTemplateId) {
+    if (!selectedVersionId) {
       toast({
         title: "Błąd",
-        description: "Wybierz szablon kosztorysu",
+        description: "Wybierz wersję szablonu kosztorysu",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (!selectedCurrencyId) {
+      toast({
+        title: "Błąd",
+        description: "Wybierz walutę kosztorysu",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    const selectedVersion = approvedVersions.find(v => v.versionId === selectedVersionId);
+    if (!selectedVersion) {
+      toast({
+        title: "Błąd",
+        description: "Nie znaleziono wybranej wersji szablonu",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    const selectedCurrency = selectedVersion.currencies?.find(c => c.id === selectedCurrencyId);
+    if (!selectedCurrency) {
+      toast({
+        title: "Błąd",
+        description: "Wybrana waluta nie jest dostępna w tym szablonie",
         status: "error",
         duration: 3000,
       });
@@ -137,7 +163,9 @@ export default function CreateCostEstimateModal({
     try {
       // Backend tworzy pusty kosztorys na podstawie szablonu
       await costEstimateApi.createCostEstimate(tenantId, projectId, {
-        templateId: selectedTemplateId,
+        templateId: selectedVersion.templateId,
+        templateVersionId: selectedVersion.versionId,
+        selectedCurrencyId: selectedCurrencyId,
         name: name.trim(),
         description: description.trim() || undefined,
       });
@@ -167,7 +195,7 @@ export default function CreateCostEstimateModal({
     }
   };
 
-  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+  const selectedVersion = approvedVersions.find((v) => v.versionId === selectedVersionId);
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="xl">
@@ -204,98 +232,131 @@ export default function CreateCostEstimateModal({
 
             <FormControl isRequired>
               <FormLabel>
-                Szablon kosztorysu
+                Wersja szablonu kosztorysu
               </FormLabel>
               <Select
-                value={selectedTemplateId}
-                onChange={(e) => handleTemplateChange(e.target.value)}
-                placeholder="Wybierz szablon"
-                isDisabled={loadingTemplates || loadingTemplateDetails}
-                >
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name}
+                value={selectedVersionId}
+                onChange={(e) => setSelectedVersionId(e.target.value)}
+                placeholder="Wybierz zatwierdzoną wersję szablonu"
+                isDisabled={loadingVersions}
+              >
+                {approvedVersions.map((version) => (
+                  <option key={version.versionId} value={version.versionId}>
+                    {version.templateName} - v{version.versionNumber} ({version.templateCurrency || 'brak waluty'})
                   </option>
                 ))}
-              </Select>              {loadingTemplates && (
+              </Select>
+              {loadingVersions && (
                 <HStack mt={2} spacing={2}>
                   <Spinner size="xs" />
                   <Text fontSize="sm" color="gray.500">
-                    Ładowanie szablonów...
+                    Ładowanie zatwierdzonych wersji...
                   </Text>
                 </HStack>
               )}
               
-              {!loadingTemplates && templates.length === 0 && (
+              {!loadingVersions && approvedVersions.length === 0 && (
                 <Alert status="warning" mt={2} borderRadius="md">
                   <AlertIcon />
                   <Box>
                     <Text fontSize="sm" fontWeight="medium">
-                      Brak dostępnych szablonów
+                      Brak zatwierdzonych wersji szablonów
                     </Text>
                     <Text fontSize="xs" color="gray.600">
-                      Musisz najpierw utworzyć szablon kosztorysu w sekcji Szablony kosztorysów.
+                      Musisz najpierw utworzyć i zatwierdzić wersję szablonu kosztorysu.
                     </Text>
                   </Box>
                 </Alert>
               )}
               
-              {!loadingTemplates && templates.length > 0 && (
+              {!loadingVersions && approvedVersions.length > 0 && (
                 <Text fontSize="xs" color="gray.600" mt={1}>
-                  Znaleziono {templates.length} {templates.length === 1 ? 'szablon' : 'szablonów'}
-                </Text>
-              )}
-              {loadingTemplateDetails && (
-                <Text fontSize="xs" color="gray.500" mt={1}>
-                  Ładowanie szczegółów szablonu...
+                  Znaleziono {approvedVersions.length} {approvedVersions.length === 1 ? 'zatwierdzoną wersję' : 'zatwierdzonych wersji'}
                 </Text>
               )}
             </FormControl>
 
-            {selectedTemplate && (
+            {selectedVersion && selectedVersion.currencies && selectedVersion.currencies.length > 0 && (
+              <FormControl isRequired>
+                <FormLabel>Waluta kosztorysu</FormLabel>
+                <Select
+                  value={selectedCurrencyId}
+                  onChange={(e) => setSelectedCurrencyId(e.target.value)}
+                  placeholder="Wybierz walutę"
+                >
+                  {selectedVersion.currencies.map((currency) => (
+                    <option key={currency.id} value={currency.id}>
+                      {currency.name} ({currency.code}){currency.symbol ? ` - ${currency.symbol}` : ''}{currency.isDefault ? ' [Domyślna]' : ''}
+                    </option>
+                  ))}
+                </Select>
+                <Text fontSize="xs" color="gray.600" mt={1}>
+                  Wybierz walutę, w której będzie prowadzony kosztorys
+                </Text>
+              </FormControl>
+            )}
+
+            {selectedVersion && selectedVersion.currencies && selectedVersion.currencies.length === 0 && (
+              <Alert status="error" borderRadius="md">
+                <AlertIcon />
+                <Text fontSize="sm">
+                  Wybrany szablon nie ma zdefiniowanych walut. Skontaktuj się z administratorem.
+                </Text>
+              </Alert>
+            )}
+
+            {selectedVersion && (
               <Box p={3} borderWidth="1px" borderRadius="md" bg="blue.50" borderColor="blue.200">
                 <Text fontSize="sm" fontWeight="bold" mb={1}>
-                  {selectedTemplate.name}
+                  {selectedVersion.templateName}
                 </Text>
-                {selectedTemplate.description && (
-                  <Text fontSize="xs" color="gray.600" mb={2}>
-                    {selectedTemplate.description}
-                  </Text>
-                )}
-                <HStack spacing={2} flexWrap="wrap">
-                  <Badge colorScheme="blue" fontSize="xs">
-                    Szablon
+                <HStack spacing={2} flexWrap="wrap" mb={2}>
+                  <Badge colorScheme="green" fontSize="xs">
+                    Zatwierdzona v{selectedVersion.versionNumber}
                   </Badge>
-                  <Text fontSize="xs" color="gray.500">
-                    Autor: {selectedTemplate.ownerName}
-                  </Text>
+                  {selectedVersion.templateCurrency && (
+                    <Badge colorScheme="purple" fontSize="xs">
+                      {selectedVersion.templateCurrency}
+                    </Badge>
+                  )}
                 </HStack>
-                
-                {selectedTemplateDetails && (
-                  <Box mt={2} pt={2} borderTopWidth="1px" borderColor="blue.300">
-                    <Text fontSize="xs" color="gray.600">
-                      <strong>Struktura:</strong>
-                    </Text>
+                <VStack align="flex-start" spacing={1} fontSize="xs" color="gray.600">
+                  <Text>
+                    • Zatwierdzona: {new Date(selectedVersion.approvedAt).toLocaleDateString('pl-PL')}
+                  </Text>
+                  <Text>
+                    • Zatwierdził: {selectedVersion.approvedByUserName}
+                  </Text>
+                </VStack>
+                <Box mt={2} pt={2} borderTopWidth="1px" borderColor="blue.300">
+                  <Text fontSize="xs" color="gray.600">
+                    <strong>Struktura:</strong>
+                  </Text>
+                  {selectedVersion.templateStructure ? (
                     <VStack align="stretch" spacing={1} mt={1}>
-                      {selectedTemplateDetails.templateStructure.canAddGroups && (
+                      {selectedVersion.templateStructure.canAddGroups && (
                         <Text fontSize="xs" color="gray.600">
-                          • Można dodawać grupy{selectedTemplateDetails.templateStructure.maxGroupLevel ? ` (maks. poziom: ${selectedTemplateDetails.templateStructure.maxGroupLevel})` : ''}
+                          • Można dodawać grupy{selectedVersion.templateStructure.maxGroupLevel ? ` (maks. poziom: ${selectedVersion.templateStructure.maxGroupLevel})` : ''}
                         </Text>
                       )}
-                      {selectedTemplateDetails.templateStructure.canBranchGroups && (
+                      {selectedVersion.templateStructure.canBranchGroups && (
                         <Text fontSize="xs" color="gray.600">
                           • Można tworzyć podgrupy
                         </Text>
                       )}
                       <Text fontSize="xs" color="gray.600">
-                        • Pola kalkulowane: {selectedTemplateDetails.templateStructure.workScopeFieldsDefinition.calculatedFields.length}
+                        • Pola kalkulowane: {selectedVersion.templateStructure.workScopeFieldsDefinition?.calculatedFields.length ?? 0}
                       </Text>
                       <Text fontSize="xs" color="gray.600">
-                        • Pola dodatkowe: {selectedTemplateDetails.templateStructure.workScopeFieldsDefinition.genericFields.length}
+                        • Pola dodatkowe: {selectedVersion.templateStructure.workScopeFieldsDefinition?.genericFields.length ?? 0}
                       </Text>
                     </VStack>
-                  </Box>
-                )}
+                  ) : (
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      Struktura nie jest zdefiniowana
+                    </Text>
+                  )}
+                </Box>
               </Box>
             )}
 

@@ -19,18 +19,6 @@ namespace CQRS.Tenants.GetAdminTenants
             RuleFor(x => currentUser.Id)
                 .NotEqual(Guid.Empty)
                 .WithMessage("Invalid user");
-
-            RuleFor(x => x)
-                .MustAsync(async (query, ct) =>
-                {
-                    var adminMemberships = await tenantMemberRepo.GetBySearch(
-                        m => m.UserId == currentUser.Id
-                             && m.IsActive
-                             && m.MemberRole!.Code == RoleCodes.TenantAdmin
-                    );
-                    return adminMemberships.Any();
-                })
-                .WithMessage("User must be admin in at least one tenant");
         }
     }
 }

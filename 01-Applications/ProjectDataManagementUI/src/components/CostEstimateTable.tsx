@@ -34,8 +34,7 @@ import type {
   GenericFieldDefinition,
   GroupHeaderFieldDefinition,
 } from '../types/costEstimate.types';
-import { GroupHeaderFieldType } from '../types/costEstimate.types';
-import type { CostEstimateTemplateDetails } from '../api/costEstimateTemplateApi';
+import { GroupHeaderFieldType, type CostEstimateTemplateDto } from '../types/costEstimate.types';
 import {
   CalculatedFieldRenderer,
   GenericFieldRenderer,
@@ -49,7 +48,7 @@ interface CostEstimateTableProps {
   calculatedFields: CalculatedFieldDefinition[];
   genericFields: GenericFieldDefinition[];
   groupHeaderFields: GroupHeaderFieldDefinition[];
-  template: CostEstimateTemplateDetails;
+  template: CostEstimateTemplateDto;
   onGroupChange: (group: CostEstimateGroup) => void;
   onAddWorkScope: () => void;
   onDeleteWorkScope: (workScopeId: string) => void;
@@ -76,8 +75,8 @@ export const CostEstimateTable: React.FC<CostEstimateTableProps> = ({
 }) => {
   const { isOpen, onToggle } = useDisclosure({ defaultIsOpen: true });
 
-  // Pobierz columnLayout z template (jeśli istnieje)
-  const columnLayout = template.templateStructure.uiConfiguration?.columnLayout;
+  // Pobierz columnLayout z template (jeśli istnieje) - zmapuj z columns
+  const columnLayout = template.templateStructure.uiConfiguration?.columns?.map(col => col.fieldName);
 
   // Funkcja sortowania pól według columnLayout lub order (dla pól z 'name')
   const sortFieldsByLayout = <T extends { name: string; order: number }>(fields: T[]): T[] => {
@@ -326,12 +325,12 @@ export const CostEstimateTable: React.FC<CostEstimateTableProps> = ({
     const updatedGroupTotals: Record<string, number> = {};
     
     if (summaryConfig?.showGroupSummary && summaryConfig.groupSummaryFields.length > 0) {
-      summaryConfig.groupSummaryFields.forEach((fieldName) => {
+      summaryConfig.groupSummaryFields.forEach((field) => {
         const sum = updatedWorkScopes.reduce((acc, ws) => {
-          const val = ws.calculatedFieldValues[fieldName];
+          const val = ws.calculatedFieldValues[field.fieldName];
           return acc + (typeof val === 'number' ? val : 0);
         }, 0);
-        updatedGroupTotals[fieldName] = sum;
+        updatedGroupTotals[field.fieldName] = sum;
       });
     }
 
@@ -342,25 +341,51 @@ export const CostEstimateTable: React.FC<CostEstimateTableProps> = ({
     });
   };
 
-  // Obliczanie sum dla grupy - używa konfiguracji z szablonu
-  const calculateGroupTotals = () => {
-    const summaryConfig = template.templateStructure.summaryConfiguration;
+  /**
+   * Pobiera sumy grupy z backendu (totalNet, totalGross, totalVat)
+   * Backend oblicza te wartości - nie obliczamy ich lokalnie
+   */
+  const getGroupTotals = (): Record<string, number> => {
     const totals: Record<string, number> = {};
+    
+    // Jeśli backend zwrócił summaryTotals (nowa struktura), użyj ich bezpośrednio
+    if (group.summaryTotals) {
+      return group.summaryTotals;
+    }
 
-    if (summaryConfig?.showGroupSummary && summaryConfig.groupSummaryFields.length > 0) {
-      summaryConfig.groupSummaryFields.forEach((fieldName) => {
-        const sum = group.workScopes.reduce((acc, ws) => {
-          const value = ws.calculatedFieldValues[fieldName];
-          return acc + (typeof value === 'number' ? value : 0);
-        }, 0);
-        totals[fieldName] = sum;
+    // Fallback: Mapuj stare nazwy (totalNet/totalGross/totalVat) na GUIDy z groupSummaryFields
+    if (summaryConfig?.groupSummaryFields) {
+      // Znajdź fieldName (GUID) dla każdego typu pola
+      const fieldMap: Record<number, string> = {}; // fieldType -> fieldName
+      
+      summaryConfig.groupSummaryFields.forEach((summaryField: any) => {
+        if (summaryField.fieldType !== undefined && summaryField.fieldName) {
+          fieldMap[summaryField.fieldType] = summaryField.fieldName;
+        }
       });
+
+      // Mapuj wartości z group.totalNet/totalGross/totalVat na odpowiednie GUIDy
+      // FieldType: 203=ValueNet, 204=ValueGross, 206=TotalVat
+      if (group.totalNet !== undefined && fieldMap[203]) {
+        totals[fieldMap[203]] = group.totalNet;
+      }
+      if (group.totalGross !== undefined && fieldMap[204]) {
+        totals[fieldMap[204]] = group.totalGross;
+      }
+      if (group.totalVat !== undefined && fieldMap[206]) {
+        totals[fieldMap[206]] = group.totalVat;
+      }
+    }
+
+    // Dodatkowy fallback: użyj groupTotals (deprecated)
+    if (Object.keys(totals).length === 0 && group.groupTotals) {
+      return group.groupTotals;
     }
 
     return totals;
   };
 
-  const groupTotals = calculateGroupTotals();
+  const groupTotals = getGroupTotals();
 
   return (
     <Box mb={6} borderWidth="1px" borderRadius="md" overflow="hidden" bg="white">

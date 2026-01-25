@@ -1,10 +1,13 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Entities.Models;
+using Business.Interfaces.WebModels.CostEstimates;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
+using Entities.Models;
+using Entities.Models.CostEstimates;
+using Entities.Models.CostEstimateTemplates;
 
 namespace CQRS.CostEstimates.GetCostEstimates
 {
@@ -12,7 +15,7 @@ namespace CQRS.CostEstimates.GetCostEstimates
     /// Handler to get cost estimates based on scope (All, Mine, Shared)
     /// Only returns cost estimates where template is NOT deleted
     /// </summary>
-    public class GetCostEstimatesQueryHandler : IRequestHandler<GetCostEstimatesQuery, List<CostEstimateListItem>>
+    public class GetCostEstimatesQueryHandler : IRequestHandler<GetCostEstimatesQuery, List<CostEstimateListItemWeb>>
     {
         private readonly IReadRepository<CostEstimate> costEstimateRepository;
         private readonly IReadRepository<CostEstimateTemplate> templateRepository;
@@ -28,7 +31,7 @@ namespace CQRS.CostEstimates.GetCostEstimates
             this.currentUser = currentUser;
         }
 
-        public async Task<List<CostEstimateListItem>> Handle(GetCostEstimatesQuery request, CancellationToken cancellationToken)
+        public async Task<List<CostEstimateListItemWeb>> Handle(GetCostEstimatesQuery request, CancellationToken cancellationToken)
         {
             // Shared cost estimates are not implemented yet
             if (request.Scope == ResourceScope.Shared)
@@ -69,7 +72,7 @@ namespace CQRS.CostEstimates.GetCostEstimates
 
             if (!costEstimatesList.Any())
             {
-                return new List<CostEstimateListItem>();
+                return new List<CostEstimateListItemWeb>();
             }
 
             // Get unique template IDs from cost estimates
@@ -88,7 +91,7 @@ namespace CQRS.CostEstimates.GetCostEstimates
             // Map to list items
             return costEstimatesList
                 .OrderByDescending(c => c.CreatedAt)
-                .Select(c => new CostEstimateListItem(
+                .Select(c => new CostEstimateListItemWeb(
                     Id: c.Id,
                     TenantId: c.TenantId,
                     ProjectId: c.ProjectId,
@@ -99,6 +102,7 @@ namespace CQRS.CostEstimates.GetCostEstimates
                     Status: c.Status,
                     TotalNet: c.TotalNet,
                     TotalGross: c.TotalGross,
+                    TotalVat: c.TotalVat,
                     CreatedAt: c.CreatedAt,
                     UpdatedAt: c.UpdatedAt,
                     OwnerId: c.OwnerId,

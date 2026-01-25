@@ -1,7 +1,7 @@
 ﻿using Business.Interfaces.Model;
 using Entities.Models;
 using FluentValidation;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.AddProjectMember

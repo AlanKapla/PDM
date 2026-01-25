@@ -5,7 +5,7 @@ using Entities.Enums;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using Business.Interfaces.Exceptions;
 
 namespace CQRS.Tenants.AcceptTenantInvitation

@@ -5,7 +5,7 @@ using Business.Interfaces.WebModels.Projects;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.UpdateProject

@@ -3,7 +3,7 @@ using Business.Interfaces.Model;
 using Entities.Models;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.UploadProjectFiles
 {

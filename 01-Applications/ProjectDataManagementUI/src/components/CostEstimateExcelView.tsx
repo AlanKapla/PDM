@@ -27,8 +27,7 @@ import type {
   GenericFieldDefinition,
   GroupHeaderFieldDefinition,
 } from "../types/costEstimate.types";
-import { GroupHeaderFieldType } from "../types/costEstimate.types";
-import type { CostEstimateTemplateDetails } from "../api/costEstimateTemplateApi";
+import { GroupHeaderFieldType, type CostEstimateTemplateDto } from "../types/costEstimate.types";
 import { calculateWorkScope, canAutoCalculate } from "../utils/calculationEngine";
 import {
   CalculatedFieldRenderer,
@@ -39,7 +38,7 @@ import {
 
 interface CostEstimateViewerProps {
   dataModel: CostEstimateDataModel;
-  template: CostEstimateTemplateDetails;
+  template: CostEstimateTemplateDto;
   onCollectionSelectionChange?: (
     groupId: string,
     workScopeId: string,
@@ -120,39 +119,49 @@ function sortHeaderFieldsByLayout(
   return [...fields].sort((a, b) => a.order - b.order);
 }
 
-// Helper do rekurencyjnego obliczania sum grup
-function calculateGroupTotals(
+/**
+ * Pobiera sumy grupy z backendu
+ * Backend oblicza totalNet, totalGross, totalVat - używamy tych wartości
+ */
+function getGroupTotals(
   group: CostEstimateGroup,
-  calculatedFields: CalculatedFieldDefinition[],
-  genericFields: GenericFieldDefinition[],
-  summaryConfig: any
+  summaryConfig?: any,
+  calculatedFields?: CalculatedFieldDefinition[]
 ): Record<string, number> {
   const totals: Record<string, number> = {};
-
-  // Sumuj pola z konfiguracji (używamy workScopes bezpośrednio, są już przeliczone)
-  if (summaryConfig?.groupSummaryFields?.length > 0) {
-    summaryConfig.groupSummaryFields.forEach((fieldName: string) => {
-      const sum = group.workScopes.reduce((acc, ws) => {
-        const value = ws.calculatedFieldValues[fieldName];
-        return acc + (typeof value === "number" ? value : 0);
-      }, 0);
-      totals[fieldName] = sum;
-    });
+  
+  // Jeśli backend zwrócił summaryTotals (nowa struktura), użyj ich bezpośrednio
+  if (group.summaryTotals) {
+    return group.summaryTotals;
   }
 
-  // Dodaj sumy z podgrup
-  if (group.subGroups && group.subGroups.length > 0) {
-    group.subGroups.forEach((subGroup) => {
-      const subGroupTotals = calculateGroupTotals(
-        subGroup,
-        calculatedFields,
-        genericFields,
-        summaryConfig
-      );
-      Object.entries(subGroupTotals).forEach(([fieldName, value]) => {
-        totals[fieldName] = (totals[fieldName] || 0) + value;
-      });
+  // Fallback: Mapuj stare nazwy (totalNet/totalGross/totalVat) na GUIDy z groupSummaryFields
+  if (summaryConfig?.groupSummaryFields && calculatedFields) {
+    // Znajdź fieldName (GUID) dla każdego typu pola
+    const fieldMap: Record<number, string> = {}; // fieldType -> fieldName
+    
+    summaryConfig.groupSummaryFields.forEach((summaryField: any) => {
+      if (summaryField.fieldType !== undefined && summaryField.fieldName) {
+        fieldMap[summaryField.fieldType] = summaryField.fieldName;
+      }
     });
+
+    // Mapuj wartości z group.totalNet/totalGross/totalVat na odpowiednie GUIDy
+    // FieldType: 203=ValueNet, 204=ValueGross, 206=TotalVat
+    if (group.totalNet !== undefined && fieldMap[203]) {
+      totals[fieldMap[203]] = group.totalNet;
+    }
+    if (group.totalGross !== undefined && fieldMap[204]) {
+      totals[fieldMap[204]] = group.totalGross;
+    }
+    if (group.totalVat !== undefined && fieldMap[206]) {
+      totals[fieldMap[206]] = group.totalVat;
+    }
+  }
+
+  // Dodatkowy fallback: użyj groupTotals (deprecated)
+  if (Object.keys(totals).length === 0 && group.groupTotals) {
+    return group.groupTotals;
   }
 
   return totals;
@@ -180,10 +189,10 @@ function flattenGroups(
       group.headerValues[GroupHeaderFieldType[GroupHeaderFieldType.GroupName]] ||
       "Grupa";
 
-    // Oblicz sumy grupy (dla wszystkich grup i podgrup)
+    // Pobierz sumy grupy z backendu
     const totals =
       summaryConfig?.showGroupSummary && summaryConfig.groupSummaryFields?.length > 0
-        ? calculateGroupTotals(group, calculatedFields, genericFields, summaryConfig)
+        ? getGroupTotals(group, summaryConfig, calculatedFields)
         : {};
 
     // Wiersz nagłówka grupy z sumami
@@ -320,14 +329,22 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
   }, [dataModel]);
   
   const calculatedFields =
-    template.templateStructure.workScopeFieldsDefinition.calculatedFields || [];
+    template.templateStructure?.workScopeFieldsDefinition?.calculatedFields || [];
   const genericFields =
-    template.templateStructure.workScopeFieldsDefinition.genericFields || [];
+    template.templateStructure?.workScopeFieldsDefinition?.genericFields || [];
   const groupHeaderFields =
-    template.templateStructure.groupDefinition.headerFields || [];
+    template.templateStructure?.groupDefinition?.headerFields || [];
 
-  let columnLayout = template.templateStructure.uiConfiguration?.columnLayout;
-  const summaryConfig = template.templateStructure.summaryConfiguration;
+  // Pobierz columnLayout z nowej struktury UiConfigurationWeb
+  let columnLayout: string[] | undefined;
+  if (template.templateStructure?.uiConfiguration?.columns) {
+    columnLayout = template.templateStructure.uiConfiguration.columns
+      .filter(col => col.isVisible)
+      .sort((a, b) => a.order - b.order)
+      .map(col => col.fieldName);
+  }
+  
+  const summaryConfig = template.templateStructure?.summaryConfiguration;
 
   // Buduj unified list wszystkich kolumn (nagłówki grup + pola zakresów prac)
   // posortowaną według columnLayout - może być wymieszana kolejność!
@@ -355,7 +372,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
       .forEach(f => allColumns.push({ fieldType: 'calculated', field: f }));
 
     genericFields
-      .filter((f) => f.visible && f.type !== 10)
+      .filter((f) => f.visible)
       .sort((a, b) => a.order - b.order)
       .forEach(f => allColumns.push({ fieldType: 'generic', field: f }));
   } else {
@@ -378,43 +395,10 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
         return;
       }
       
-      // Sprawdź czy to pole generyczne (nie-kolekcja)
-      const genField = genericFields.find(f => f.name === fieldName && f.visible && f.type !== 10);
+      // Sprawdź czy to pole generyczne
+      const genField = genericFields.find(f => f.name === fieldName && f.visible);
       if (genField) {
         allColumns.push({ fieldType: 'generic', field: genField });
-        return;
-      }
-      
-      // Sprawdź czy to pole kolekcji
-      const collectionField = genericFields.find(f => f.name === fieldName && f.visible && f.type === 10);
-      if (collectionField) {
-        // Rozwiń kolekcję na jej widoczne podpola
-        const nestedCalc = collectionField.nestedFields?.calculatedFields?.filter(nf => nf.visible) || [];
-        const nestedGen = collectionField.nestedFields?.genericFields?.filter(nf => nf.visible) || [];
-        
-        // Sortuj podpola według order
-        const allNested = [
-          ...nestedCalc.map(nf => ({ type: 'calc' as const, field: nf })),
-          ...nestedGen.map(nf => ({ type: 'gen' as const, field: nf }))
-        ].sort((a, b) => a.field.order - b.field.order);
-        
-        allNested.forEach(nested => {
-          if (nested.type === 'calc') {
-            allColumns.push({
-              fieldType: 'collection-calculated',
-              collectionField,
-              nestedField: nested.field,
-              fullName: `${collectionField.name}.${nested.field.name}`
-            });
-          } else {
-            allColumns.push({
-              fieldType: 'collection-generic',
-              collectionField,
-              nestedField: nested.field,
-              fullName: `${collectionField.name}.${nested.field.name}`
-            });
-          }
-        });
         return;
       }
     });
@@ -453,18 +437,18 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
       summaryConfig.totalSummaryFields?.length > 0
     ) {
       // Inicjalizuj wszystkie pola z totalSummaryFields
-      summaryConfig.totalSummaryFields.forEach((fieldName: string) => {
-        totals[fieldName] = 0;
+      summaryConfig.totalSummaryFields.forEach((field) => {
+        totals[field.fieldName] = 0;
       });
 
       // Funkcja rekurencyjna do sumowania grup i podgrup
       const sumGroupRecursively = (group: CostEstimateGroup) => {
         // Sumuj work scopes
         group.workScopes.forEach((ws) => {
-          summaryConfig.totalSummaryFields.forEach((fieldName: string) => {
-            const value = ws.calculatedFieldValues[fieldName];
+          summaryConfig.totalSummaryFields.forEach((field) => {
+            const value = ws.calculatedFieldValues[field.fieldName];
             if (typeof value === 'number') {
-              totals[fieldName] += value;
+              totals[field.fieldName] += value;
             }
           });
         });
@@ -932,18 +916,20 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
           </HStack>
           <VStack spacing={2} align="stretch">
             {summaryConfig.totalSummaryFields
-              .filter((fieldName: string) => fieldName in grandTotals)
-              .map((fieldName: string) => {
+              .filter((field) => field.fieldName in grandTotals)
+              .map((field) => {
+                const fieldName = field.fieldName;
                 const value = grandTotals[fieldName];
-                const field = calculatedFields.find((f: any) => f.name === fieldName);
+                const fieldDef = calculatedFields.find((f: any) => f.name === fieldName);
                 return (
                   <HStack key={fieldName} justify="space-between">
                     <Text fontWeight="bold" fontSize="md">
-                      {field?.label || fieldName}:
+                      {fieldDef?.label || field.fieldLabel || fieldName}:
                     </Text>
                     <Text fontSize="lg" fontWeight="bold">
                       {value !== undefined && value !== null ? value.toFixed(2) : '-'}
-                      {field?.unit && ` ${field.unit}`}
+                      {fieldDef?.unit && ` ${fieldDef.unit}`}
+                      {template.currency && ` ${template.currency}`}
                     </Text>
                   </HStack>
                 );
@@ -1182,11 +1168,11 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                             )}
                             {onAddSubGroup &&
                               row.groupId &&
-                              template.templateStructure.canBranchGroups &&
+                              template.templateStructure?.canBranchGroups &&
                               canAddSubGroup(
                                 row.groupId,
                                 dataModel.groups,
-                                template.templateStructure.maxGroupLevel
+                                template.templateStructure?.maxGroupLevel
                               ) && (
                                 <Tooltip label="Dodaj podgrupę" hasArrow>
                                   <IconButton

@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore; // required for DbContext, DbSet
-using Entities.Models; // domenowe encje
+using Entities.Models;
+using Entities.Models.CostEstimates;
+using Entities.Models.CostEstimateTemplates;
 
 namespace Entities.Context
 {
@@ -31,7 +33,18 @@ namespace Entities.Context
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
+        public DbSet<CostEstimateTemplateVersion> CostEstimateTemplateVersions => Set<CostEstimateTemplateVersion>();
+        public DbSet<CostEstimateTemplateCurrency> CostEstimateTemplateCurrencies => Set<CostEstimateTemplateCurrency>();
+        public DbSet<CostEstimateTemplateUnit> CostEstimateTemplateUnits => Set<CostEstimateTemplateUnit>();
+        public DbSet<CostEstimateTemplateGroupFieldDefinition> CostEstimateTemplateGroupFieldDefinitions => Set<CostEstimateTemplateGroupFieldDefinition>();
+        public DbSet<CostEstimateTemplateItemSystemFieldDefinition> CostEstimateTemplateItemSystemFieldDefinitions => Set<CostEstimateTemplateItemSystemFieldDefinition>();
+        public DbSet<CostEstimateTemplateItemCalculatedFieldDefinition> CostEstimateTemplateItemCalculatedFieldDefinitions => Set<CostEstimateTemplateItemCalculatedFieldDefinition>();
+        public DbSet<CostEstimateTemplateItemGenericFieldDefinition> CostEstimateTemplateItemGenericFieldDefinitions => Set<CostEstimateTemplateItemGenericFieldDefinition>();
         public DbSet<CostEstimate> CostEstimates => Set<CostEstimate>();
+        public DbSet<CostEstimateGroup> CostEstimateGroups => Set<CostEstimateGroup>();
+        public DbSet<CostEstimateGroupFieldValue> CostEstimateGroupFieldValues => Set<CostEstimateGroupFieldValue>();
+        public DbSet<CostEstimateItem> CostEstimateItems => Set<CostEstimateItem>();
+        public DbSet<CostEstimateItemFieldValue> CostEstimateItemFieldValues => Set<CostEstimateItemFieldValue>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();

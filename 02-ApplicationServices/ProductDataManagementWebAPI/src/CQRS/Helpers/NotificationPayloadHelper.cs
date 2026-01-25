@@ -1,6 +1,6 @@
 ﻿using Business.Interfaces.DTO;
 using Entities.Models;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 
 namespace CQRS.Helpers
 {

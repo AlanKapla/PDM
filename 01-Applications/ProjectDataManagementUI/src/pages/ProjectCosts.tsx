@@ -484,6 +484,10 @@ export default function ProjectCosts() {
   };
 
   const handleViewCostEstimate = (costEstimateId: string) => {
+    console.log('[ProjectCosts] handleViewCostEstimate called');
+    console.log('[ProjectCosts] costEstimateId:', costEstimateId);
+    console.log('[ProjectCosts] projectId:', projectId);
+    console.log('[ProjectCosts] Navigating to:', `/projects/${projectId}/cost-estimates/${costEstimateId}`);
     navigate(`/projects/${projectId}/cost-estimates/${costEstimateId}`);
   };
 

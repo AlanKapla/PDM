@@ -27,8 +27,7 @@ import type {
   GenericFieldDefinition,
   GroupHeaderFieldDefinition,
 } from "../types/costEstimate.types";
-import { GroupHeaderFieldType } from "../types/costEstimate.types";
-import type { CostEstimateTemplateDetails } from "../api/costEstimateTemplateApi";
+import { GroupHeaderFieldType, type CostEstimateTemplateDto } from "../types/costEstimate.types";
 import { calculateWorkScope, canAutoCalculate } from "../utils/calculationEngine";
 import {
   CalculatedFieldRenderer,
@@ -39,7 +38,7 @@ import {
 
 interface CostEstimateViewerProps {
   dataModel: CostEstimateDataModel;
-  template: CostEstimateTemplateDetails;
+  template: CostEstimateTemplateDto;
   onCollectionSelectionChange?: (
     groupId: string,
     workScopeId: string,
@@ -124,39 +123,49 @@ function sortHeaderFieldsByLayout(
   });
 }
 
-// Helper do rekurencyjnego obliczania sum grup
-function calculateGroupTotals(
+/**
+ * Pobiera sumy grupy z backendu
+ * Backend oblicza totalNet, totalGross, totalVat - używamy tych wartości
+ */
+function getGroupTotals(
   group: CostEstimateGroup,
-  calculatedFields: CalculatedFieldDefinition[],
-  genericFields: GenericFieldDefinition[],
-  summaryConfig: any
+  summaryConfig?: any,
+  calculatedFields?: CalculatedFieldDefinition[]
 ): Record<string, number> {
   const totals: Record<string, number> = {};
-
-  // Sumuj pola z konfiguracji (używamy workScopes bezpośrednio, są już przeliczone)
-  if (summaryConfig?.groupSummaryFields?.length > 0) {
-    summaryConfig.groupSummaryFields.forEach((fieldName: string) => {
-      const sum = group.workScopes.reduce((acc, ws) => {
-        const value = ws.calculatedFieldValues[fieldName];
-        return acc + (typeof value === "number" ? value : 0);
-      }, 0);
-      totals[fieldName] = sum;
-    });
+  
+  // Jeśli backend zwrócił summaryTotals (nowa struktura), użyj ich bezpośrednio
+  if (group.summaryTotals) {
+    return group.summaryTotals;
   }
 
-  // Dodaj sumy z podgrup
-  if (group.subGroups && group.subGroups.length > 0) {
-    group.subGroups.forEach((subGroup) => {
-      const subGroupTotals = calculateGroupTotals(
-        subGroup,
-        calculatedFields,
-        genericFields,
-        summaryConfig
-      );
-      Object.entries(subGroupTotals).forEach(([fieldName, value]) => {
-        totals[fieldName] = (totals[fieldName] || 0) + value;
-      });
+  // Fallback: Mapuj stare nazwy (totalNet/totalGross/totalVat) na GUIDy z groupSummaryFields
+  if (summaryConfig?.groupSummaryFields && calculatedFields) {
+    // Znajdź fieldName (GUID) dla każdego typu pola
+    const fieldMap: Record<number, string> = {}; // fieldType -> fieldName
+    
+    summaryConfig.groupSummaryFields.forEach((summaryField: any) => {
+      if (summaryField.fieldType !== undefined && summaryField.fieldName) {
+        fieldMap[summaryField.fieldType] = summaryField.fieldName;
+      }
     });
+
+    // Mapuj wartości z group.totalNet/totalGross/totalVat na odpowiednie GUIDy
+    // FieldType: 203=ValueNet, 204=ValueGross, 206=TotalVat
+    if (group.totalNet !== undefined && fieldMap[203]) {
+      totals[fieldMap[203]] = group.totalNet;
+    }
+    if (group.totalGross !== undefined && fieldMap[204]) {
+      totals[fieldMap[204]] = group.totalGross;
+    }
+    if (group.totalVat !== undefined && fieldMap[206]) {
+      totals[fieldMap[206]] = group.totalVat;
+    }
+  }
+
+  // Dodatkowy fallback: użyj groupTotals (deprecated)
+  if (Object.keys(totals).length === 0 && group.groupTotals) {
+    return group.groupTotals;
   }
 
   return totals;
@@ -183,10 +192,10 @@ function flattenGroups(
       group.headerValues[GroupHeaderFieldType[GroupHeaderFieldType.GroupName]] ||
       "Grupa";
 
-    // Oblicz sumy grupy (dla wszystkich grup i podgrup)
+    // Pobierz sumy grupy z backendu
     const totals =
       summaryConfig?.showGroupSummary && summaryConfig.groupSummaryFields?.length > 0
-        ? calculateGroupTotals(group, calculatedFields, genericFields, summaryConfig)
+        ? getGroupTotals(group, summaryConfig, calculatedFields)
         : {};
 
     // Wiersz nagłówka grupy z sumami
@@ -244,13 +253,14 @@ export const CostEstimateViewer: React.FC<CostEstimateViewerProps> = ({
   onDeleteCollectionItem,
 }) => {
   const calculatedFields =
-    template.templateStructure.workScopeFieldsDefinition.calculatedFields || [];
+    template.templateStructure.workScopeFieldsDefinition?.calculatedFields || [];
   const genericFields =
-    template.templateStructure.workScopeFieldsDefinition.genericFields || [];
+    template.templateStructure.workScopeFieldsDefinition?.genericFields || [];
   const groupHeaderFields =
-    template.templateStructure.groupDefinition.headerFields || [];
+    template.templateStructure.groupDefinition?.headerFields || [];
 
-  const columnLayout = template.templateStructure.uiConfiguration?.columnLayout;
+  // Ekstraktuj columnLayout z columns jeśli istnieje (nowe API)
+  const columnLayout = template.templateStructure.uiConfiguration?.columns?.map(col => col.fieldName);
   const summaryConfig = template.templateStructure.summaryConfiguration;
 
   // Sortowanie i filtrowanie pól
@@ -265,14 +275,11 @@ export const CostEstimateViewer: React.FC<CostEstimateViewerProps> = ({
   );
 
   const visibleGenericFields = sortFieldsByLayout(
-    genericFields.filter((f) => f.visible && f.type !== 10),
+    genericFields.filter((f) => f.visible),
     columnLayout
   );
 
-  const visibleCollectionFields = sortFieldsByLayout(
-    genericFields.filter((f) => f.visible && f.type === 10),
-    columnLayout
-  );
+  const visibleCollectionFields: GenericFieldDefinition[] = []; // Kolekcje nie są częścią GenericFieldType (0-5)
 
   // Spłaszcz strukturę do wierszy tabeli
   const flatRows = useMemo(() => {
@@ -294,12 +301,7 @@ export const CostEstimateViewer: React.FC<CostEstimateViewerProps> = ({
       summaryConfig.totalSummaryFields?.length > 0
     ) {
       dataModel.groups.forEach((group) => {
-        const groupTotals = calculateGroupTotals(
-          group,
-          calculatedFields,
-          genericFields,
-          summaryConfig
-        );
+        const groupTotals = getGroupTotals(group, summaryConfig, calculatedFields);
         Object.entries(groupTotals).forEach(([fieldName, value]) => {
           totals[fieldName] = (totals[fieldName] || 0) + value;
         });
@@ -602,7 +604,7 @@ export const CostEstimateViewer: React.FC<CostEstimateViewerProps> = ({
           </Text>
           <HStack spacing={3}>
             <Badge colorScheme="blue" fontSize="md" p={2}>
-              {template.name}
+              {template.name} (v{template.templateVersionNumber})
             </Badge>
             {editable && onAddGroup && (
               <Button
@@ -1347,7 +1349,7 @@ export const CostEstimateViewer: React.FC<CostEstimateViewerProps> = ({
                         fontSize="md"
                         fontWeight="bold"
                       >
-                        {total !== undefined ? total.toFixed(2) : ""}
+                        {total !== undefined ? `${total.toFixed(2)}${template.currency ? ' ' + template.currency : ''}` : ""}
                       </Td>
                     );
                   })}

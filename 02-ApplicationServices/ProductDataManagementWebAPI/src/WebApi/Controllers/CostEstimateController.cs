@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.CostEstimates;
 using CQRS.CostEstimates.CopyCostEstimate;
 using CQRS.CostEstimates.CreateCostEstimate;
 using CQRS.CostEstimates.DeleteCostEstimate;
@@ -28,7 +29,7 @@ namespace WebApi.Controllers
         /// <returns>List of cost estimates</returns>
         [HttpGet("{scope}")]
         [Authorize(Policy = PermissionCodes.ProjectView)]
-        [ProducesResponseType(typeof(List<CostEstimateListItem>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(List<CostEstimateListItemWeb>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetCostEstimates(
             [FromRoute] Guid tenantId, 
@@ -41,6 +42,7 @@ namespace WebApi.Controllers
 
         /// <summary>
         /// Get cost estimate details by ID
+        /// Returns full hierarchy of groups and work scope items
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="projectId">Project ID</param>
@@ -48,7 +50,7 @@ namespace WebApi.Controllers
         /// <returns>Cost estimate details with full data</returns>
         [HttpGet("details/{id:guid}")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesReadSingle)]
-        [ProducesResponseType(typeof(CostEstimateDetails), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(CostEstimateDetailsWeb), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetCostEstimateDetails(
@@ -66,11 +68,12 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Create new empty cost estimate based on template
+        /// Create new cost estimate
+        /// Can create empty cost estimate or with full hierarchy of groups and work scope items
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="projectId">Project ID</param>
-        /// <param name="command">Cost estimate basic data</param>
+        /// <param name="command">Cost estimate data with optional groups hierarchy</param>
         /// <returns>Created cost estimate ID</returns>
         [HttpPost]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
@@ -94,15 +97,17 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Update existing cost estimate
+        /// Update existing cost estimate with full hierarchy
+        /// Replaces all groups and work scope items with provided data
+        /// Groups/items with Id will be updated, without Id will be created, missing will be deleted
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="projectId">Project ID</param>
         /// <param name="id">Cost estimate ID</param>
-        /// <param name="command">Updated cost estimate data</param>
+        /// <param name="command">Updated cost estimate data with full hierarchy</param>
         /// <returns>No content</returns>
         [HttpPut("{id:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -153,8 +158,7 @@ namespace WebApi.Controllers
 
         /// <summary>
         /// Copy cost estimate to other projects
-        /// Tenant admins can copy to any project in tenant
-        /// Regular users can copy only to projects where they have Editor or Admin role
+        /// Creates deep copy of all groups and work scope items
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="projectId">Source project ID</param>

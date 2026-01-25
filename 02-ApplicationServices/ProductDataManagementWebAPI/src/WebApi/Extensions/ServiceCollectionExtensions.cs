@@ -1,6 +1,7 @@
 ﻿using Azure.Identity;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
+using Business.Implementation.Validators;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
@@ -9,6 +10,8 @@ using Business.Interfaces.Services;
 using CQRS.Behaviours;
 using Entities.Context;
 using Entities.Models;
+using Entities.Models.CostEstimates;
+using Entities.Models.CostEstimateTemplates;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,8 +25,8 @@ using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Repositiories.Repository.Interfaces;
-using Repositiories.Repository.Repositories;
+using Repositories.Repository.Interfaces;
+using Repositories.Repository.Repositories;
 using Repositories.Repository.Interfaces;
 using WebApi.Authorization;
 using WebApi.Services;
@@ -259,8 +262,20 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<SharedProjectCost>, Repository<SharedProjectCost>>();
             services.AddScoped<IReadRepository<CostEstimateTemplate>, ReadRepository<CostEstimateTemplate>>();
             services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
+            services.AddScoped<IReadRepository<CostEstimateTemplateVersion>, ReadRepository<CostEstimateTemplateVersion>>();
+            services.AddScoped<IRepository<CostEstimateTemplateVersion>, Repository<CostEstimateTemplateVersion>>();
+            services.AddScoped<IRepository<CostEstimateTemplateCurrency>, Repository<CostEstimateTemplateCurrency>>();
+            services.AddScoped<IRepository<CostEstimateTemplateUnit>, Repository<CostEstimateTemplateUnit>>();
+            services.AddScoped<IRepository<CostEstimateTemplateGroupFieldDefinition>, Repository<CostEstimateTemplateGroupFieldDefinition>>();
+            services.AddScoped<IRepository<CostEstimateTemplateItemSystemFieldDefinition>, Repository<CostEstimateTemplateItemSystemFieldDefinition>>();
+            services.AddScoped<IRepository<CostEstimateTemplateItemCalculatedFieldDefinition>, Repository<CostEstimateTemplateItemCalculatedFieldDefinition>>();
+            services.AddScoped<IRepository<CostEstimateTemplateItemGenericFieldDefinition>, Repository<CostEstimateTemplateItemGenericFieldDefinition>>();
             services.AddScoped<IReadRepository<CostEstimate>, ReadRepository<CostEstimate>>();
             services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
+            services.AddScoped<IRepository<CostEstimateGroup>, Repository<CostEstimateGroup>>();
+            services.AddScoped<IRepository<CostEstimateGroupFieldValue>, Repository<CostEstimateGroupFieldValue>>();
+            services.AddScoped<IRepository<CostEstimateItem>, Repository<CostEstimateItem>>();
+            services.AddScoped<IRepository<CostEstimateItemFieldValue>, Repository<CostEstimateItemFieldValue>>();
             services.AddScoped<IReadRepository<Role>, ReadRepository<Role>>();
             services.AddScoped<IRepository<Role>, Repository<Role>>();
             services.AddScoped<IReadRepository<Permission>, ReadRepository<Permission>>();
@@ -299,6 +314,16 @@ namespace WebApi.Extensions
             services.AddHostedService<MessageWorker>();
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
+            
+            // Cost estimate calculation service
+            services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
+            
+            // Template structure service - used in multiple handlers
+            services.AddScoped<ITemplateStructureService, TemplateStructureService>();
+            
+            // Cost estimate validators
+            services.AddScoped<CostEstimateGroupValidator>();
+            services.AddScoped<CostEstimateItemValidator>();
 
             services.AddHostedService<StartupSeederService>();
             services.AddHostedService<RolePermissionSeederService>();

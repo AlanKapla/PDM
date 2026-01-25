@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using Business.Interfaces.Model;
 using Entities.Models;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.RemoveTenantInvitation

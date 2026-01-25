@@ -1,0 +1,3211 @@
+﻿import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Button,
+  VStack,
+  HStack,
+  Input,
+  FormControl,
+  FormLabel,
+  FormHelperText,
+  Select,
+  Checkbox,
+  IconButton,
+  Box,
+  Text,
+  Textarea,
+  NumberInput,
+  NumberInputField,
+  useToast,
+  Badge,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  Divider,
+  Tooltip,
+  Collapse,
+  useDisclosure,
+  Icon,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  Heading,
+  Alert,
+  AlertIcon,
+  Card,
+  CardBody,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+} from "@chakra-ui/react";
+import {
+  Plus,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  Settings,
+  List,
+  Calculator,
+  Tag,
+  EyeOff,
+  AlertCircle,
+  HelpCircle,
+  FileText,
+  Layers,
+  GripVertical,
+  Layout,
+  Check,
+  History,
+  Eye,
+  ArrowLeft,
+  Save,
+  CheckCircle,
+} from "lucide-react";
+import type {
+  CalculatedFieldDefinition,
+  GenericFieldDefinition,
+  SystemFieldDefinition,
+  CostEstimateTemplateStructure,
+  CostEstimateGroupDefinition,
+  CostEstimateWorkScopeFieldsDefinition,
+  CostEstimateSummaryConfiguration,
+  CostEstimateUiConfiguration,
+  GroupHeaderFieldDefinition,
+  CrossFieldValidationRule,
+  SummaryFieldWeb,
+  ColumnConfigurationWeb,
+  CostEstimateTemplateVersionStructure,
+} from "../types/costEstimate.types";
+import {
+  FieldType,
+  FieldScope,
+  SummaryScope,
+  CalculatedFieldType,
+  GenericFieldType,
+  GroupHeaderFieldType,
+  SystemFieldType,
+} from "../types/costEstimate.types";
+import { fieldTypeLabels, fieldScopeLabels, isSummableField, getFieldScope, convertFieldTypeToLegacy } from "../utils/fieldTypeLabels";
+import { getDefaultGroupHeaderLabel } from "../components/FieldRenderer";
+import type { CostEstimateTemplateDetails } from "../api/costEstimateTemplateApi";
+import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
+import { costEstimateApiNew } from "../api/costEstimateApiNew";
+import { CostEstimateTableView } from "../components/CostEstimate/CostEstimateTableView";
+import type { 
+  CostEstimateDetailsWeb, 
+  CostEstimateGroupWeb, 
+  CostEstimateItemWeb,
+  CostEstimateItemFieldValueWeb,
+  CostEstimateGroupFieldValueWeb,
+} from "../types/costEstimate.types.new";
+import { CostEstimateStatus } from "../types/costEstimate.types.new";
+import MainLayout from "../layout/MainLayout";
+import { LoadingSpinner } from "../components/common";
+
+// Funkcja generująca unikalne GUID dla fieldName
+  const generateFieldGuid = (): string => {
+    return crypto.randomUUID();
+  };
+
+// Backward compatibility labels
+const calculatedFieldTypeLabels: Record<CalculatedFieldType, string> = {
+  [CalculatedFieldType.UnitPriceNet]: fieldTypeLabels[FieldType.ItemCalculatedUnitPriceNet],
+  [CalculatedFieldType.VatRate]: fieldTypeLabels[FieldType.ItemCalculatedVatRate],
+  [CalculatedFieldType.UnitPriceGross]: fieldTypeLabels[FieldType.ItemCalculatedUnitPriceGross],
+  [CalculatedFieldType.ValueNet]: fieldTypeLabels[FieldType.ItemCalculatedValueNet],
+  [CalculatedFieldType.ValueGross]: fieldTypeLabels[FieldType.ItemCalculatedValueGross],
+  [CalculatedFieldType.UnitVat]: fieldTypeLabels[FieldType.ItemCalculatedUnitVat],
+  [CalculatedFieldType.TotalVat]: fieldTypeLabels[FieldType.ItemCalculatedTotalVat],
+};
+
+const genericFieldTypeLabels: Record<GenericFieldType, string> = {
+  [GenericFieldType.Integer]: fieldTypeLabels[FieldType.ItemGenericInteger],
+  [GenericFieldType.Decimal]: fieldTypeLabels[FieldType.ItemGenericDecimal],
+  [GenericFieldType.String]: fieldTypeLabels[FieldType.ItemGenericString],
+  [GenericFieldType.Boolean]: fieldTypeLabels[FieldType.ItemGenericBoolean],
+  [GenericFieldType.Date]: fieldTypeLabels[FieldType.ItemGenericDate],
+  [GenericFieldType.DateTime]: fieldTypeLabels[FieldType.ItemGenericDateTime],
+};
+
+const groupHeaderFieldTypeLabels: Record<GroupHeaderFieldType, string> = {
+  [GroupHeaderFieldType.GroupName]: fieldTypeLabels[FieldType.GroupName],
+  [GroupHeaderFieldType.GroupDescription]: fieldTypeLabels[FieldType.GroupDescription],
+  [GroupHeaderFieldType.GroupNumber]: fieldTypeLabels[FieldType.GroupNumber],
+  [GroupHeaderFieldType.StartDate]: fieldTypeLabels[FieldType.GroupStartDate],
+  [GroupHeaderFieldType.EndDate]: fieldTypeLabels[FieldType.GroupEndDate],
+  [GroupHeaderFieldType.Status]: fieldTypeLabels[FieldType.GroupStatus],
+  [GroupHeaderFieldType.Notes]: fieldTypeLabels[FieldType.GroupNotes],
+  [GroupHeaderFieldType.Responsible]: fieldTypeLabels[FieldType.GroupResponsible],
+  [GroupHeaderFieldType.Budget]: fieldTypeLabels[FieldType.GroupBudget],
+  [GroupHeaderFieldType.Priority]: fieldTypeLabels[FieldType.GroupPriority],
+};
+
+const summaryScopeLabels: Record<SummaryScope, string> = {
+  [SummaryScope.Group]: "W grupie",
+  [SummaryScope.Total]: "W całości",
+  [SummaryScope.Both]: "W grupie i całości",
+};
+
+export default function CostEstimateTemplateEditor() {
+  const { templateId } = useParams<{ templateId: string }>();
+  const navigate = useNavigate();
+  const toast = useToast();
+  
+  const [loading, setLoading] = useState(true);
+  const [template, setTemplate] = useState<CostEstimateTemplateDetails | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Waluty i jednostki
+  const [currencies, setCurrencies] = useState<Array<{
+    code: string;
+    name: string;
+    symbol?: string;
+    isDefault: boolean;
+    order: number;
+  }>>([]);
+  const [units, setUnits] = useState<Array<{
+    code: string;
+    name: string;
+    symbol: string;
+    category?: string;
+    isDefault: boolean;
+    order: number;
+  }>>([]);
+
+  const { isOpen: isConfirmSaveOpen, onOpen: onConfirmSaveOpen, onClose: onConfirmSaveClose } = useDisclosure();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // Preview state
+  const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
+  const [previewData, setPreviewData] = useState<CostEstimateDetailsWeb | null>(null);
+
+  // Template Structure State
+  const [canAddGroups, setCanAddGroups] = useState(true);
+  const [canBranchGroups, setCanBranchGroups] = useState(true);
+  const [maxGroupLevel, setMaxGroupLevel] = useState<number | undefined>(undefined);
+
+  // Group Definition State
+  const [groupAutoNumbered, setGroupAutoNumbered] = useState(true);
+  const [groupNumberFormat, setGroupNumberFormat] = useState("");
+  const [headerFields, setHeaderFields] = useState<GroupHeaderFieldDefinition[]>([
+    {
+      type: GroupHeaderFieldType.GroupName,
+      required: true,
+      visible: true,
+      order: 0,
+      readOnly: false,
+    },
+  ]);
+
+  // Work Scope Fields State
+  const [systemFields, setSystemFields] = useState<SystemFieldDefinition[]>([]);
+  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>([]);
+  const [genericFields, setGenericFields] = useState<GenericFieldDefinition[]>([]);
+  const [validationRules, setValidationRules] = useState<CrossFieldValidationRule[]>([]);
+
+  // Summary Configuration State
+  const [showGroupSummary, setShowGroupSummary] = useState(true);
+  const [showTotalSummary, setShowTotalSummary] = useState(true);
+  const [groupSummaryFields, setGroupSummaryFields] = useState<string[]>([]);
+  const [totalSummaryFields, setTotalSummaryFields] = useState<string[]>([]);
+
+  // UI Configuration State
+  const [columns, setColumns] = useState<ColumnConfigurationWeb[]>([]);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Field Type Configurations (loaded from BE)
+  const [fieldTypeConfigs, setFieldTypeConfigs] = useState<Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>({});
+  const [configsLoaded, setConfigsLoaded] = useState(false);
+
+  // Fetch field type configurations on mount
+  useEffect(() => {
+    loadFieldConfigurations();
+  }, []);
+
+  const loadFieldConfigurations = async () => {
+    try {
+      const configs = await costEstimateApiNew.getFieldTypeConfigurations();
+      setFieldTypeConfigs(configs);
+      setConfigsLoaded(true);
+    } catch (err) {
+      console.warn('Failed to load field type configurations, using fallback', err);
+      setConfigsLoaded(true); // Continue anyway
+    }
+  };
+
+  // Fetch template details when editing
+  useEffect(() => {
+    if (templateId) {
+      fetchTemplateDetails();
+    } else {
+      setLoading(false);
+    }
+  }, [templateId]);
+
+  const fetchTemplateDetails = async () => {
+    if (!templateId) return;
+    
+    setLoading(true);
+    try {
+
+      const details = await costEstimateTemplateApi.getTemplateDetails(templateId);
+      setTemplate(details);
+      
+      setTemplateName(details.name);
+      setTemplateDescription(details.description ?? "");
+
+      // Użyj versionStructure z nowego API
+      if (details.versionStructure) {
+        const struct = details.versionStructure;
+        
+        // Podstawowe ustawienia (z głównego obiektu details)
+        setCanAddGroups(details.canAddGroups);
+        setCanBranchGroups(details.canBranchGroups);
+        setMaxGroupLevel(details.maxGroupLevel);
+        setGroupAutoNumbered(details.autoNumberGroups);
+        setGroupNumberFormat(details.groupNumberFormat ?? "");
+
+        // Pola nagłówka grupy - mapuj z GroupHeaderFieldWeb na GroupHeaderFieldDefinition
+        setHeaderFields(struct.groupHeaderFields.map(f => {
+          // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
+          const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 0;
+          return {
+          id: f.id,
+          name: f.fieldName, // GUID pola
+          type: fieldType as GroupHeaderFieldType, // Already in correct range 0-9
+          customLabel: f.customLabel,
+          required: f.isRequired,
+          visible: f.isVisible,
+          order: f.order,
+          readOnly: f.isReadOnly,
+          defaultValue: f.defaultValue,
+          allowedValues: f.allowedValues,
+          placeholder: f.placeholder,
+          displayFormat: f.displayFormat,
+          helpText: f.helpText,
+          helpUrl: f.helpUrl,
+          icon: f.icon,
+          color: f.color,
+          fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
+        };
+        }));
+
+        // Pola systemowe - mapuj z SystemFieldWeb na SystemFieldDefinition
+        setSystemFields(struct.systemFields.map(f => {
+          // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
+          const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 100;
+          return {
+          id: f.id,
+          type: convertFieldTypeToLegacy(fieldType), // FieldType (100-104) → SystemFieldType (0-4)
+          name: f.fieldName,
+          label: f.label,
+          description: f.description,
+          required: f.isRequired,
+          visible: f.isVisible,
+          order: f.order,
+          defaultValue: f.defaultValue,
+          helpText: f.helpText,
+          helpUrl: f.helpUrl,
+          sortable: f.isSortable,
+          filterable: f.isFilterable,
+          fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
+          // Mapuj childFields jeśli istnieją (dla pola Options)
+          childFields: f.childFields?.map(child => {
+            // Pobierz fieldType z fieldTypeConfig jeśli child.fieldType nie istnieje
+            const childFieldType = child.fieldType ?? child.fieldTypeConfig?.fieldType ?? 100;
+            const childLegacyType = convertFieldTypeToLegacy(childFieldType);
+            const childScope = child.fieldTypeConfig?.fieldScope ?? Math.floor(childFieldType / 100);
+            
+            if (childScope === 1) {
+              // System field
+              return {
+                name: child.fieldName,
+                label: child.label,
+                type: childLegacyType,
+                order: child.order ?? 0,
+                required: child.isRequired,
+                visible: child.isVisible,
+                sortable: child.isSortable,
+                filterable: child.isFilterable,
+                fieldTypeConfig: child.fieldTypeConfig,
+              } as SystemFieldDefinition;
+            } else if (childScope === 2) {
+              // Calculated field
+              return {
+                name: child.fieldName,
+                label: child.label,
+                type: childLegacyType,
+                order: child.order ?? 0,
+                required: child.isRequired,
+                visible: child.isVisible,
+                sortable: child.isSortable,
+                filterable: child.isFilterable,
+                summable: false,
+                summaryScope: SummaryScope.Both,
+                autoCalculated: false,
+                readOnly: false,
+                fieldTypeConfig: child.fieldTypeConfig,
+              } as CalculatedFieldDefinition;
+            } else {
+              // Generic field
+              return {
+                name: child.fieldName,
+                label: child.label,
+                type: childLegacyType,
+                order: child.order ?? 0,
+                required: child.isRequired,
+                visible: child.isVisible,
+                sortable: child.isSortable,
+                filterable: child.isFilterable,
+                fieldTypeConfig: child.fieldTypeConfig,
+              } as GenericFieldDefinition;
+            }
+          }),
+        };
+        }));
+
+        // Pola kalkulowane - mapuj z CalculatedFieldWeb na CalculatedFieldDefinition
+        setCalculatedFields(struct.calculatedFields.map(f => {
+          // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
+          const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 200;
+          const legacyType = convertFieldTypeToLegacy(fieldType); // FieldType (200-206) → CalculatedFieldType (0-6)
+          // Jeśli backend nie zwraca isSummable, ustaw domyślną wartość bazując na typie pola
+          const summable = f.isSummable !== undefined 
+            ? f.isSummable 
+            : (legacyType === CalculatedFieldType.ValueNet || 
+               legacyType === CalculatedFieldType.ValueGross || 
+               legacyType === CalculatedFieldType.TotalVat);
+          
+          return {
+            id: f.id,
+            type: legacyType,
+            name: f.fieldName, // Użyj fieldName z API zamiast generować
+            label: f.label,
+            description: f.description,
+            unit: f.unit,
+            displayFormat: f.displayFormat,
+            sortable: f.isSortable,
+            filterable: f.isFilterable,
+            summable: summable,
+            summaryScope: f.summaryScope,
+            autoCalculated: f.isAutoCalculated,
+            calculationFormula: f.calculationFormula,
+            readOnly: f.isReadOnly,
+            required: f.isRequired,
+            visible: f.isVisible,
+            order: f.order,
+            defaultValue: f.defaultValue,
+            helpText: f.helpText,
+            helpUrl: f.helpUrl,
+            fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
+          };
+        }));
+
+        // Pola generyczne - mapuj z GenericFieldWeb na GenericFieldDefinition
+        setGenericFields(struct.genericFields.map(f => {
+          // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
+          const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 300;
+          return {
+          id: f.id,
+          type: convertFieldTypeToLegacy(fieldType), // FieldType (300-305) → GenericFieldType (0-5)
+          name: f.fieldName,
+          label: f.label,
+          description: f.description,
+          displayFormat: f.displayFormat,
+          sortable: f.isSortable,
+          filterable: f.isFilterable,
+          minValue: f.minValue,
+          maxValue: f.maxValue,
+          minLength: f.minLength,
+          maxLength: f.maxLength,
+          pattern: f.pattern,
+          required: f.isRequired,
+          visible: f.isVisible,
+          order: f.order,
+          defaultValue: f.defaultValue,
+          allowedValues: f.allowedValues,
+          placeholder: f.placeholder,
+          helpText: f.helpText,
+          helpUrl: f.helpUrl,
+          fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
+        };
+        }));
+
+        setValidationRules([]);
+
+        // Konfiguracja podsumowań
+        setShowGroupSummary(struct.summaryConfiguration?.showGroupSummary ?? true);
+        setShowTotalSummary(struct.summaryConfiguration?.showTotalSummary ?? true);
+        setGroupSummaryFields(struct.summaryConfiguration?.groupSummaryFields.map(f => f.fieldName) ?? []);
+        setTotalSummaryFields(struct.summaryConfiguration?.totalSummaryFields.map(f => f.fieldName) ?? []);
+
+        // Konfiguracja UI
+        setColumns(struct.uiConfiguration?.columns ?? []);
+        
+        // Załaduj waluty i jednostki
+        setCurrencies(struct.currencies.map(c => ({
+          code: c.code,
+          name: c.name,
+          symbol: c.symbol,
+          isDefault: c.isDefault,
+          order: c.order,
+        })));
+        setUnits(struct.units.map(u => ({
+          code: u.code,
+          name: u.name,
+          symbol: u.symbol,
+          category: u.category,
+          isDefault: u.isDefault,
+          order: u.order,
+        })));
+      }
+    } catch (error: any) {
+      console.error("Błąd pobierania szczegółów szablonu:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się załadować szablonu",
+        status: "error",
+        duration: 5000,
+      });
+      navigate("/cost-estimate-templates");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Funkcja generująca przykładowy kosztorys z szablonu (nowy format CostEstimateDetailsWeb)
+  const generateSampleCostEstimate = (): CostEstimateDetailsWeb => {
+    const sampleGroups: CostEstimateGroupWeb[] = [];
+    const now = new Date().toISOString();
+
+    // Generuj 2 przykładowe grupy
+    for (let i = 0; i < 2; i++) {
+      const groupId = `sample-group-${i}`;
+      const items: CostEstimateItemWeb[] = [];
+      
+      // Generuj 3 przykładowe pozycje w grupie
+      for (let j = 0; j < 3; j++) {
+        const itemId = `sample-item-${i}-${j}`;
+        const fieldValues: CostEstimateItemFieldValueWeb[] = [];
+
+        // Dodaj wartości dla pól systemowych
+        systemFields.forEach((field) => {
+          const fieldType = field.fieldTypeConfig?.fieldType ?? (field.type + 100);
+          const fieldScope = field.fieldTypeConfig?.fieldScope ?? 1;
+          
+          let value: string | undefined;
+          if (field.type === SystemFieldType.Name) {
+            value = `Pozycja ${i + 1}.${j + 1}`;
+          } else if (field.type === SystemFieldType.Quantity) {
+            value = String(10 + j * 5);
+          } else if (field.type === SystemFieldType.Unit) {
+            value = units[0]?.code || 'szt';
+          }
+
+          if (value !== undefined) {
+            fieldValues.push({
+              id: `fv-sys-${i}-${j}-${field.name}`,
+              fieldDefinitionId: field.id || field.name,
+              fieldType,
+              fieldScope,
+              fieldName: field.name,
+              fieldLabel: field.label,
+              value,
+            });
+          }
+        });
+
+        // Dodaj wartości dla pól kalkulowanych
+        calculatedFields.forEach((field) => {
+          const fieldType = field.fieldTypeConfig?.fieldType ?? (field.type + 200);
+          const fieldScope = field.fieldTypeConfig?.fieldScope ?? 2;
+          
+          let value: number | undefined;
+          if (field.type === CalculatedFieldType.UnitPriceNet) {
+            value = 100 + j * 50;
+          } else if (field.type === CalculatedFieldType.VatRate) {
+            value = 23;
+          } else if (field.type === CalculatedFieldType.UnitPriceGross) {
+            const unitPriceNet = 100 + j * 50;
+            value = unitPriceNet * 1.23;
+          } else if (field.type === CalculatedFieldType.ValueNet) {
+            const unitPriceNet = 100 + j * 50;
+            const quantity = 10 + j * 5;
+            value = unitPriceNet * quantity;
+          } else if (field.type === CalculatedFieldType.ValueGross) {
+            const unitPriceNet = 100 + j * 50;
+            const quantity = 10 + j * 5;
+            value = unitPriceNet * quantity * 1.23;
+          } else if (field.type === CalculatedFieldType.UnitVat) {
+            const unitPriceNet = 100 + j * 50;
+            value = unitPriceNet * 0.23;
+          } else if (field.type === CalculatedFieldType.TotalVat) {
+            const unitPriceNet = 100 + j * 50;
+            const quantity = 10 + j * 5;
+            value = unitPriceNet * quantity * 0.23;
+          }
+
+          if (value !== undefined) {
+            fieldValues.push({
+              id: `fv-calc-${i}-${j}-${field.name}`,
+              fieldDefinitionId: field.id || field.name,
+              fieldType,
+              fieldScope,
+              fieldName: field.name,
+              fieldLabel: field.label,
+              value: String(value),
+            });
+          }
+        });
+
+        // Dodaj wartości dla pól generycznych
+        genericFields.forEach((field) => {
+          const fieldType = field.fieldTypeConfig?.fieldType ?? (field.type + 300);
+          const fieldScope = field.fieldTypeConfig?.fieldScope ?? 3;
+          
+          let value: string | undefined;
+          if (field.type === GenericFieldType.String) {
+            value = `Przykładowy tekst ${j + 1}`;
+          } else if (field.type === GenericFieldType.Integer) {
+            value = String(10 + j);
+          } else if (field.type === GenericFieldType.Decimal) {
+            value = String(10.5 + j);
+          } else if (field.type === GenericFieldType.Boolean) {
+            value = j % 2 === 0 ? 'true' : 'false';
+          } else if (field.type === GenericFieldType.Date) {
+            const date = new Date();
+            date.setDate(date.getDate() + j);
+            value = date.toISOString().split('T')[0];
+          } else if (field.type === GenericFieldType.DateTime) {
+            const date = new Date();
+            date.setDate(date.getDate() + j);
+            value = date.toISOString();
+          }
+
+          if (value !== undefined) {
+            fieldValues.push({
+              id: `fv-gen-${i}-${j}-${field.name}`,
+              fieldDefinitionId: field.id || field.name,
+              fieldType,
+              fieldScope,
+              fieldName: field.name,
+              fieldLabel: field.label,
+              value,
+            });
+          }
+        });
+
+        items.push({
+          id: itemId,
+          groupId,
+          order: j,
+          fieldValues,
+          options: [],
+          createdAt: now,
+        });
+      }
+
+      // Wartości nagłówka grupy
+      const groupFieldValues: CostEstimateGroupFieldValueWeb[] = [];
+      headerFields.forEach((field) => {
+        const fieldType = field.fieldTypeConfig?.fieldType ?? field.type;
+        
+        let value: string | undefined;
+        if (field.type === GroupHeaderFieldType.GroupName) {
+          value = `Przykładowa grupa ${i + 1}`;
+        } else if (field.type === GroupHeaderFieldType.GroupNumber) {
+          value = `${i + 1}`;
+        } else if (field.type === GroupHeaderFieldType.GroupDescription) {
+          value = `Opis przykładowej grupy ${i + 1}`;
+        }
+
+        if (value !== undefined) {
+          groupFieldValues.push({
+            id: `gfv-${i}-${field.name}`,
+            fieldDefinitionId: field.id || field.name || `header-${field.type}`,
+            fieldType,
+            fieldScope: 4, // Group scope
+            fieldLabel: field.customLabel || groupHeaderFieldTypeLabels[field.type],
+            value,
+          });
+        }
+      });
+
+      // Oblicz sumy dla grupy
+      let groupTotalNet = 0;
+      let groupTotalGross = 0;
+      let groupTotalVat = 0;
+      
+      items.forEach(item => {
+        const valueNetField = item.fieldValues.find(fv => fv.fieldName && calculatedFields.some(cf => cf.name === fv.fieldName && cf.type === CalculatedFieldType.ValueNet));
+        const valueGrossField = item.fieldValues.find(fv => fv.fieldName && calculatedFields.some(cf => cf.name === fv.fieldName && cf.type === CalculatedFieldType.ValueGross));
+        const totalVatField = item.fieldValues.find(fv => fv.fieldName && calculatedFields.some(cf => cf.name === fv.fieldName && cf.type === CalculatedFieldType.TotalVat));
+        
+        if (valueNetField?.value) groupTotalNet += parseFloat(valueNetField.value) || 0;
+        if (valueGrossField?.value) groupTotalGross += parseFloat(valueGrossField.value) || 0;
+        if (totalVatField?.value) groupTotalVat += parseFloat(totalVatField.value) || 0;
+      });
+
+      sampleGroups.push({
+        id: groupId,
+        level: 0,
+        order: i,
+        fieldValues: groupFieldValues,
+        totalNet: groupTotalNet,
+        totalGross: groupTotalGross,
+        totalVat: groupTotalVat,
+        lastCalculatedAt: now,
+        childGroups: [],
+        items,
+        createdAt: now,
+      });
+    }
+
+    // Oblicz sumy całkowite
+    const totalNet = sampleGroups.reduce((sum, g) => sum + (g.totalNet || 0), 0);
+    const totalGross = sampleGroups.reduce((sum, g) => sum + (g.totalGross || 0), 0);
+    const totalVat = sampleGroups.reduce((sum, g) => sum + (g.totalVat || 0), 0);
+
+    // Zbuduj templateStructure na podstawie aktualnej konfiguracji
+    const templateStructure: CostEstimateTemplateVersionStructure = {
+      versionId: template?.selectedVersion?.id || 'preview-version',
+      versionNumber: template?.selectedVersion?.versionNumber || 1,
+      versionName: templateName || 'Podgląd',
+      canAddGroups,
+      canBranchGroups,
+      maxGroupLevel,
+      autoNumberGroups: groupAutoNumbered,
+      groupNumberFormat,
+      currencies: currencies.map((c, idx) => ({
+        id: c.code,
+        code: c.code,
+        name: c.name,
+        symbol: c.symbol,
+        isDefault: c.isDefault,
+        order: idx,
+      })),
+      units: units.map((u, idx) => ({
+        id: u.code,
+        code: u.code,
+        name: u.name,
+        symbol: u.symbol,
+        category: u.category,
+        isDefault: u.isDefault,
+        order: idx,
+      })),
+      groupHeaderFields: headerFields.map((f, idx) => ({
+        id: f.id || f.name || `header-${f.type}`,
+        fieldName: f.name || `header-${f.type}`,
+        fieldType: f.type,
+        customLabel: f.customLabel,
+        isRequired: f.required,
+        isVisible: f.visible,
+        isReadOnly: f.readOnly || false,
+        order: idx,
+        fieldTypeConfig: f.fieldTypeConfig,
+      })),
+      systemFields: systemFields.map((f, idx) => ({
+        id: f.id || f.name,
+        fieldName: f.name,
+        fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 100),
+        label: f.label,
+        isRequired: f.required,
+        isVisible: f.visible,
+        isSortable: f.sortable || false,
+        isFilterable: f.filterable || false,
+        order: idx,
+        fieldTypeConfig: f.fieldTypeConfig,
+        childFields: f.childFields?.map((cf, cfIdx) => ({
+          id: cf.id || cf.name,
+          fieldName: cf.name,
+          fieldType: cf.fieldTypeConfig?.fieldType ?? ((cf as any).type + 100),
+          label: cf.label,
+          isRequired: (cf as any).required || false,
+          isVisible: (cf as any).visible !== false,
+          isSortable: cf.sortable || false,
+          isFilterable: cf.filterable || false,
+          order: cfIdx,
+          fieldTypeConfig: cf.fieldTypeConfig,
+        })),
+      })),
+      calculatedFields: calculatedFields.map((f, idx) => ({
+        id: f.id || f.name,
+        fieldName: f.name,
+        fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 200),
+        label: f.label,
+        isRequired: f.required || false,
+        isVisible: f.visible,
+        isSortable: f.sortable || false,
+        isFilterable: f.filterable || false,
+        isSummable: f.summable || false,
+        summaryScope: f.summaryScope,
+        isAutoCalculated: f.autoCalculated || false,
+        isReadOnly: f.readOnly || false,
+        order: idx,
+        fieldTypeConfig: f.fieldTypeConfig,
+      })),
+      genericFields: genericFields.map((f, idx) => ({
+        id: f.id || f.name,
+        fieldName: f.name,
+        fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 300),
+        label: f.label,
+        isRequired: f.required,
+        isVisible: f.visible,
+        isSortable: f.sortable || false,
+        isFilterable: f.filterable || false,
+        order: idx,
+        fieldTypeConfig: f.fieldTypeConfig,
+      })),
+      summaryConfiguration: {
+        showGroupSummary,
+        showTotalSummary,
+        groupSummaryFields: groupSummaryFields.map((fieldName, idx) => {
+          const field = calculatedFields.find(f => f.name === fieldName);
+          return {
+            fieldId: field?.id || fieldName,
+            fieldName,
+            fieldType: field?.fieldTypeConfig?.fieldType ?? ((field?.type || 0) + 200),
+            fieldLabel: field?.label || fieldName,
+            fieldSource: 2, // FieldScope.Calculated
+            order: idx,
+          };
+        }),
+        totalSummaryFields: totalSummaryFields.map((fieldName, idx) => {
+          const field = calculatedFields.find(f => f.name === fieldName);
+          return {
+            fieldId: field?.id || fieldName,
+            fieldName,
+            fieldType: field?.fieldTypeConfig?.fieldType ?? ((field?.type || 0) + 200),
+            fieldLabel: field?.label || fieldName,
+            fieldSource: 2, // FieldScope.Calculated
+            order: idx,
+          };
+        }),
+      },
+      uiConfiguration: {
+        columns: columns,
+      },
+    };
+
+    return {
+      id: 'preview-cost-estimate',
+      tenantId: 'preview-tenant',
+      projectId: 'preview-project',
+      templateId: template?.id || 'preview-template',
+      templateName: templateName || 'Nowy szablon',
+      templateVersionId: template?.selectedVersion?.id || 'preview-version',
+      templateVersionNumber: template?.selectedVersion?.versionNumber || 1,
+      selectedCurrencyId: currencies[0]?.code || 'PLN',
+      selectedCurrencyCode: currencies[0]?.code || 'PLN',
+      selectedCurrencySymbol: currencies[0]?.symbol || 'zł',
+      name: 'Przykładowy kosztorys',
+      description: 'Podgląd szablonu z przykładowymi danymi',
+      status: CostEstimateStatus.Draft,
+      rootGroups: sampleGroups,
+      totalNet,
+      totalGross,
+      totalVat,
+      createdAt: now,
+      lastCalculatedAt: now,
+      ownerId: 'preview-user',
+      ownerName: 'Użytkownik podglądu',
+      templateStructure,
+    };
+  };
+
+  const handlePreview = () => {
+    const sampleData = generateSampleCostEstimate();
+    setPreviewData(sampleData);
+    onPreviewOpen();
+  };
+
+  const createDefaultCalculatedField = (type: CalculatedFieldType): CalculatedFieldDefinition => {
+    const isAutoCalculated = [
+      CalculatedFieldType.UnitPriceGross,
+      CalculatedFieldType.ValueNet,
+      CalculatedFieldType.ValueGross,
+      CalculatedFieldType.UnitVat,
+      CalculatedFieldType.TotalVat,
+    ].includes(type);
+
+    // Tylko ValueNet (4), ValueGross (5) i TotalVat (7) mogą być sumowalne
+    const isSummable = type === CalculatedFieldType.ValueNet ||
+                       type === CalculatedFieldType.ValueGross ||
+                       type === CalculatedFieldType.TotalVat;
+
+    // Pobierz konfigurację z BE (FieldType = CalculatedFieldType + 200)
+    const fieldTypeForConfig = type + 200;
+    const config = (fieldTypeConfigs[2] || []).find(c => c.fieldType === fieldTypeForConfig);
+    const label = config?.namePl || calculatedFieldTypeLabels[type];
+
+    return {
+      name: generateFieldGuid(),
+      label: label,
+      type: type,
+      order: calculatedFields.length + genericFields.length,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      summable: isSummable,
+      summaryScope: SummaryScope.Both,
+      autoCalculated: isAutoCalculated,
+      readOnly: isAutoCalculated,
+      fieldTypeConfig: config, // Zachowaj config z BE
+    };
+  };
+
+  const createDefaultSystemField = (type: SystemFieldType): SystemFieldDefinition => {
+    const systemFieldTypeLabels: Record<SystemFieldType, string> = {
+      [SystemFieldType.Name]: "Nazwa pozycji",
+      [SystemFieldType.Quantity]: "Ilość",
+      [SystemFieldType.Unit]: "Jednostka miary",
+      [SystemFieldType.Options]: "Opcje",
+      [SystemFieldType.Selected]: "Zaznaczenie",
+    };
+
+    // Pobierz konfigurację z BE (FieldType = SystemFieldType + 100)
+    const fieldTypeForConfig = type + 100;
+    const config = (fieldTypeConfigs[1] || []).find(c => c.fieldType === fieldTypeForConfig);
+    const label = config?.namePl || systemFieldTypeLabels[type];
+
+    return {
+      name: generateFieldGuid(),
+      label: label,
+      type: type,
+      order: systemFields.length,
+      required: type === SystemFieldType.Name,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      fieldTypeConfig: config, // Zachowaj config z BE
+    };
+  };
+
+  const createDefaultGenericField = (type: GenericFieldType): GenericFieldDefinition => {
+    // Pobierz konfigurację z BE (FieldType = GenericFieldType + 300)
+    const fieldTypeForConfig = type + 300;
+    const config = (fieldTypeConfigs[3] || []).find(c => c.fieldType === fieldTypeForConfig);
+    const label = config?.namePl || genericFieldTypeLabels[type];
+
+    return {
+      name: generateFieldGuid(),
+      label: label,
+      type: type,
+      order: calculatedFields.length + genericFields.length,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      fieldTypeConfig: config, // Zachowaj config z BE
+    };
+  };
+
+  const handleAddHeaderField = (type: GroupHeaderFieldType) => {
+    // Pobierz konfigurację z BE (scope 4 = group header, FieldType = type bezpośrednio)
+    const config = (fieldTypeConfigs[4] || []).find(c => c.fieldType === type);
+    const label = config?.namePl || groupHeaderFieldTypeLabels[type];
+
+    const newField: GroupHeaderFieldDefinition = {
+      name: generateFieldGuid(),
+      type: type,
+      customLabel: label,
+      required: false,
+      visible: true,
+      order: headerFields.length,
+      readOnly: false,
+      sortable: true,
+      filterable: true,
+      fieldTypeConfig: config, // Zachowaj config z BE
+    };
+    setHeaderFields([...headerFields, newField]);
+  };
+
+  const handleRemoveHeaderField = (index: number) => {
+    const updatedFields = headerFields.filter((_, i) => i !== index);
+    updatedFields.forEach((field, i) => {
+      field.order = i;
+    });
+    setHeaderFields(updatedFields);
+  };
+
+  const handleUpdateHeaderField = (
+    index: number,
+    updates: Partial<GroupHeaderFieldDefinition>
+  ) => {
+    const updatedFields = [...headerFields];
+    updatedFields[index] = { ...updatedFields[index], ...updates };
+    setHeaderFields(updatedFields);
+  };
+
+  const handleAddSystemField = (type: SystemFieldType) => {
+    const newField = createDefaultSystemField(type);
+    setSystemFields([...systemFields, newField]);
+  };
+
+  const handleRemoveSystemField = (index: number) => {
+    const updatedFields = systemFields.filter((_, i) => i !== index);
+    updatedFields.forEach((field, i) => {
+      field.order = i;
+    });
+    setSystemFields(updatedFields);
+  };
+
+  const handleUpdateSystemField = (
+    index: number,
+    updates: Partial<SystemFieldDefinition>
+  ) => {
+    const updatedFields = [...systemFields];
+    updatedFields[index] = { ...updatedFields[index], ...updates };
+    setSystemFields(updatedFields);
+  };
+
+  const handleAddCalculatedField = (type: CalculatedFieldType) => {
+    const newField = createDefaultCalculatedField(type);
+    setCalculatedFields([...calculatedFields, newField]);
+  };
+
+  const handleRemoveCalculatedField = (index: number) => {
+    const updatedFields = calculatedFields.filter((_, i) => i !== index);
+    const allFields = [...updatedFields, ...genericFields];
+    allFields.sort((a, b) => a.order - b.order);
+    allFields.forEach((field, i) => {
+      field.order = i;
+    });
+    setCalculatedFields(updatedFields);
+  };
+
+  const handleUpdateCalculatedField = (
+    index: number,
+    updates: Partial<CalculatedFieldDefinition>
+  ) => {
+    const updatedFields = [...calculatedFields];
+    updatedFields[index] = { ...updatedFields[index], ...updates };
+    setCalculatedFields(updatedFields);
+  };
+
+  const handleAddGenericField = (type: GenericFieldType) => {
+    const newField = createDefaultGenericField(type);
+    setGenericFields([...genericFields, newField]);
+  };
+
+  const handleRemoveGenericField = (index: number) => {
+    const updatedFields = genericFields.filter((_, i) => i !== index);
+    const allFields = [...calculatedFields, ...updatedFields];
+    allFields.sort((a, b) => a.order - b.order);
+    allFields.forEach((field, i) => {
+      field.order = i;
+    });
+    setGenericFields(updatedFields);
+  };
+
+  const handleUpdateGenericField = (
+    index: number,
+    updates: Partial<GenericFieldDefinition>
+  ) => {
+    const updatedFields = [...genericFields];
+    updatedFields[index] = { ...updatedFields[index], ...updates };
+    setGenericFields(updatedFields);
+  };
+
+  const handleAddValidationRule = () => {
+    const newRule: CrossFieldValidationRule = {
+      ruleName: `rule_${validationRules.length + 1}`,
+      expression: "",
+      errorMessage: "",
+      isActive: true,
+    };
+    setValidationRules([...validationRules, newRule]);
+  };
+
+  const handleRemoveValidationRule = (index: number) => {
+    setValidationRules(validationRules.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateValidationRule = (
+    index: number,
+    updates: Partial<CrossFieldValidationRule>
+  ) => {
+    const updatedRules = [...validationRules];
+    updatedRules[index] = { ...updatedRules[index], ...updates };
+    setValidationRules(updatedRules);
+  };
+
+  const validateTemplate = (): boolean => {
+    if (!templateName.trim()) {
+      toast({
+        title: "Błąd walidacji",
+        description: "Nazwa szablonu jest wymagana",
+        status: "error",
+        duration: 3000,
+      });
+      return false;
+    }
+
+    if (calculatedFields.length === 0 && genericFields.length === 0) {
+      toast({
+        title: "Błąd walidacji",
+        description: "Szablon musi zawierać przynajmniej jedno pole",
+        status: "error",
+        duration: 3000,
+      });
+      return false;
+    }
+
+    const allFieldNames = [...calculatedFields.map((f) => f.name), ...genericFields.map((f) => f.name)];
+    const duplicateNames = allFieldNames.filter(
+      (name, index) => allFieldNames.indexOf(name) !== index
+    );
+    if (duplicateNames.length > 0) {
+      toast({
+        title: "Błąd walidacji",
+        description: `Znaleziono duplikaty nazw pól: ${duplicateNames.join(", ")}`,
+        status: "error",
+        duration: 3000,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Helper do mapowania pól z childFields na DTO
+  const mapFieldToDto = (field: SystemFieldDefinition | CalculatedFieldDefinition | GenericFieldDefinition): any => {
+    // Użyj fieldType bezpośrednio z fieldTypeConfig jeśli dostępne
+    let fieldType: number | null = field.fieldTypeConfig?.fieldType ?? null;
+    
+    // Jeśli nie ma fieldTypeConfig, oblicz fieldType na podstawie scope i type
+    if (fieldType === null) {
+      const fieldScope = field.fieldTypeConfig?.fieldScope;
+      
+      if (fieldScope === 1) {
+        fieldType = (field as SystemFieldDefinition).type + 100;
+      } else if (fieldScope === 2) {
+        fieldType = (field as CalculatedFieldDefinition).type + 200;
+      } else if (fieldScope === 3) {
+        fieldType = (field as GenericFieldDefinition).type + 300;
+      } else {
+        // Fallback: użyj heurystyki bazując na właściwościach
+        const hasCalculatedProps = 'summable' in field || 'autoCalculated' in field || 'summaryScope' in field;
+        const hasGenericProps = 'minValue' in field || 'maxValue' in field || 'minLength' in field || 'maxLength' in field || 'pattern' in field;
+        
+        if (hasCalculatedProps) {
+          fieldType = (field as CalculatedFieldDefinition).type + 200;
+        } else if (hasGenericProps) {
+          fieldType = (field as GenericFieldDefinition).type + 300;
+        } else {
+          // Domyślnie traktuj jako system field (tylko jeśli type <= 4)
+          const sysField = field as SystemFieldDefinition;
+          if (sysField.type >= 0 && sysField.type <= 4) {
+            fieldType = sysField.type + 100;
+          }
+        }
+      }
+    }
+
+    return {
+      fieldName: field.name,
+      fieldType,
+      label: field.label,
+      isSortable: 'sortable' in field ? field.sortable || false : false,
+      isFilterable: 'filterable' in field ? field.filterable || false : false,
+    };
+  };
+
+  const handleSubmitClick = () => {
+    if (!validateTemplate()) return;
+
+    if (template?.selectedVersion?.status === 1) {
+      onConfirmSaveOpen();
+      return;
+    }
+
+    handleSubmit();
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+
+    try {
+      if (templateId && template) {
+        const isApprovedVersion = template.selectedVersion?.status === 1;
+        
+        await costEstimateTemplateApi.updateTemplate(templateId, {
+          templateId: templateId,
+          currentVersionId: template.selectedVersion!.id,
+          name: templateName,
+          description: templateDescription || undefined,
+          category: undefined,  // TODO: dodać pole category w UI
+          canAddGroups,
+          canBranchGroups,
+          maxGroupLevel,
+          autoNumberGroups: groupAutoNumbered,
+          groupNumberFormat: groupNumberFormat || undefined,
+          updateStructure: true, // Aktualizujemy strukturę
+          currencies: currencies,
+          units: units,
+          groupHeaderFields: headerFields.map(f => ({
+            fieldName: f.name || generateFieldGuid(),
+            fieldType: f.fieldTypeConfig?.fieldType ?? f.type, // Użyj z config lub fallback
+            label: f.customLabel || groupHeaderFieldTypeLabels[f.type],
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+          })),
+          systemFields: systemFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 100), // Użyj z config lub oblicz
+            label: f.label,
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+            childFields: f.childFields?.map(mapFieldToDto) || undefined,
+          })),
+          calculatedFields: calculatedFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 200), // Użyj z config lub oblicz
+            label: f.label,
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+          })),
+          genericFields: genericFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 300), // Użyj z config lub oblicz
+            label: f.label,
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+          })),
+          summaryConfiguration: {
+            showGroupSummary,
+            showTotalSummary,
+            groupSummaryFields: groupSummaryFields.length > 0 ? groupSummaryFields : [],
+            totalSummaryFields: totalSummaryFields.length > 0 ? totalSummaryFields : [],
+          },
+          uiConfiguration: {
+            columnLayout: columns.length > 0 ? columns.map(c => c.fieldName) : undefined,
+            columnWidths: undefined,
+          },
+        });
+
+        toast({
+          title: "Sukces",
+          description: isApprovedVersion
+            ? "Utworzono nową wersję szkicu szablonu (edycja zatwierdzonej wersji)" 
+            : "Wersja szkicu została zaktualizowana",
+          status: "success",
+          duration: 3000,
+        });
+      } else {
+        // Krok 1: Utwórz nowy szablon z nazwą i opisem
+        const newTemplateId = await costEstimateTemplateApi.createTemplate({
+          name: templateName,
+          description: templateDescription || undefined,
+        });
+
+        // Krok 2: Zaktualizuj szablon pełną strukturą
+        const newTemplateDetails = await costEstimateTemplateApi.getTemplateDetails(newTemplateId);
+        const draftVersionId = newTemplateDetails.selectedVersion?.id;
+        
+        if (!draftVersionId) {
+          toast({
+            title: "Błąd",
+            description: "Nie można znaleźć wersji Draft nowego szablonu",
+            status: "error",
+            duration: 5000,
+          });
+          return;
+        }
+        
+        await costEstimateTemplateApi.updateTemplate(newTemplateId, {
+          templateId: newTemplateId,
+          currentVersionId: draftVersionId,
+          name: templateName,
+          description: templateDescription || undefined,
+          category: undefined,
+          canAddGroups,
+          canBranchGroups,
+          maxGroupLevel,
+          autoNumberGroups: groupAutoNumbered,
+          groupNumberFormat: groupNumberFormat || undefined,
+          updateStructure: true,
+          currencies: currencies,
+          units: units,
+          groupHeaderFields: headerFields.map(f => ({
+            fieldName: f.name || generateFieldGuid(),
+            fieldType: f.fieldTypeConfig?.fieldType ?? f.type, // Użyj z config lub fallback
+            label: f.customLabel || groupHeaderFieldTypeLabels[f.type],
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+          })),
+          systemFields: systemFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 100), // Użyj z config lub oblicz
+                        childFields: f.childFields?.map(mapFieldToDto) || undefined,
+            label: f.label,
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+          })),
+          calculatedFields: calculatedFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 200), // Użyj z config lub oblicz
+            label: f.label,
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+          })),
+          genericFields: genericFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 300), // Użyj z config lub oblicz
+            label: f.label,
+            isSortable: f.sortable || false,
+            isFilterable: f.filterable || false,
+          })),
+          summaryConfiguration: {
+            showGroupSummary,
+            showTotalSummary,
+            groupSummaryFields: groupSummaryFields.length > 0 ? groupSummaryFields : [],
+            totalSummaryFields: totalSummaryFields.length > 0 ? totalSummaryFields : [],
+          },
+          uiConfiguration: {
+            columnLayout: columns.length > 0 ? columns.map(c => c.fieldName) : undefined,
+            columnWidths: undefined,
+          },
+        });
+
+        toast({
+          title: "Sukces",
+          description: "Szablon został utworzony",
+          status: "success",
+          duration: 3000,
+        });
+      }
+
+      navigate("/cost-estimate-templates");
+    } catch (error) {
+      console.error("Błąd podczas zapisywania szablonu:", error);
+      toast({
+        title: "Błąd",
+        description: templateId
+          ? "Nie udało się zaktualizować szablonu"
+          : "Nie udało się utworzyć szablonu",
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const confirmSaveApprovedVersion = async () => {
+    onConfirmSaveClose();
+    await handleSubmit();
+  };
+
+  const handleApproveVersion = async () => {
+    if (!template || !template.selectedVersion) return;
+    if (template.selectedVersion.status === 1) {
+      toast({
+        title: "Informacja",
+        description: "Ta wersja jest już zatwierdzona",
+        status: "info",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      await costEstimateTemplateApi.approveVersion(
+        template.id,
+        template.selectedVersion.id
+      );
+      
+      toast({
+        title: "Sukces",
+        description: `Wersja v${template.selectedVersion.versionNumber} została zatwierdzona`,
+        status: "success",
+        duration: 3000,
+      });
+
+      navigate("/cost-estimate-templates");
+    } catch (error) {
+      console.error("Błąd podczas zatwierdzania wersji:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zatwierdzić wersji szablonu",
+        status: "error",
+        duration: 5000,
+      });
+    }
+  };
+
+  // Render funkcja dla TabPanel "Układ pól"
+  const renderFieldLayoutTab = () => {
+    // Zbierz wszystkie pola z template
+    // UWAGA: Zbieramy tylko pola główne (parenty), bez childFields z pól Options
+    const allFields: Array<{ name: string; label: string; type: string; colorScheme: string }> = [];
+
+    // Pola nagłówków grup (GroupName, Notes, etc.)
+    headerFields.forEach((field) => {
+      allFields.push({
+        name: field.name || `header_${field.type}_temp`,  // Fallback jeśli brak GUID (nie powinno się zdarzyć)
+        label: field.customLabel || getDefaultGroupHeaderLabel(field.type),
+        type: 'Nagłówek grupy',
+        colorScheme: 'purple',
+      });
+    });
+
+    // Pola systemowe - tylko parenty, bez childFields
+    systemFields.forEach((field) => {
+      allFields.push({
+        name: field.name,
+        label: field.label,
+        type: 'Systemowe',
+        colorScheme: 'cyan',
+      });
+    });
+
+    // Pola obliczeniowe
+    calculatedFields.forEach((field) => {
+      allFields.push({
+        name: field.name,
+        label: field.label,
+        type: 'Obliczeniowe',
+        colorScheme: 'blue',
+      });
+    });
+
+    // Pola generyczne
+    genericFields.forEach((field) => {
+      allFields.push({
+        name: field.name,
+        label: field.label,
+        type: 'Generyczne',
+        colorScheme: 'green',
+      });
+    });
+
+    // Upewnij się że columns zawiera wszystkie pola
+    const existingFieldNames = columns.map(c => c.fieldName);
+    allFields.forEach((field, index) => {
+      if (!existingFieldNames.includes(field.name)) {
+        // Dodaj brakujące pole - musimy określić fieldScope i fieldType
+        let fieldScope = FieldScope.ItemGeneric;
+        let fieldType = FieldType.ItemGenericString;
+        
+        if (systemFields.find(f => f.name === field.name)) {
+          fieldScope = FieldScope.ItemSystem;
+          const sysField = systemFields.find(f => f.name === field.name)!;
+          fieldType = sysField.type + 100; // SystemFieldType (0-4) → FieldType (100-104)
+        } else if (calculatedFields.find(f => f.name === field.name)) {
+          fieldScope = FieldScope.ItemCalculated;
+          const calcField = calculatedFields.find(f => f.name === field.name)!;
+          fieldType = calcField.type + 200; // CalculatedFieldType (0-6) → FieldType (200-206)
+        } else if (genericFields.find(f => f.name === field.name)) {
+          fieldScope = FieldScope.ItemGeneric;
+          const genField = genericFields.find(f => f.name === field.name)!;
+          fieldType = genField.type + 300; // GenericFieldType (0-5) → FieldType (300-305)
+        } else if (headerFields.find(f => f.name === field.name)) {
+          fieldScope = FieldScope.Group;
+          const hdrField = headerFields.find(f => f.name === field.name)!;
+          fieldType = hdrField.type as unknown as FieldType; // GroupHeaderFieldType (0-9) = FieldType (0-9)
+        }
+        
+        const newColumn: ColumnConfigurationWeb = {
+          fieldId: crypto.randomUUID(),
+          fieldName: field.name,
+          fieldType,
+          fieldLabel: field.label,
+          fieldSource: fieldScope,
+          order: columns.length,
+          isVisible: true,
+          width: undefined,
+        };
+        
+        setColumns([...columns, newColumn]);
+      }
+    });
+
+    // Usuń pola które już nie istnieją
+    const validFieldNames = allFields.map((f) => f.name);
+    const validatedColumns = columns.filter((col) => validFieldNames.includes(col.fieldName));
+
+    // Jeśli columns się zmienił, zaktualizuj
+    if (validatedColumns.length !== columns.length || !validatedColumns.every((v, i) => v.fieldId === columns[i].fieldId)) {
+      setColumns(validatedColumns);
+    }
+
+    // Sortuj pola według columns order
+    const sortedFields = [...allFields].sort((a, b) => {
+      const indexA = validatedColumns.findIndex(c => c.fieldName === a.name);
+      const indexB = validatedColumns.findIndex(c => c.fieldName === b.name);
+      return indexA - indexB;
+    });
+
+    const handleDragStart = (index: number) => {
+      setDraggedIndex(index);
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+      e.preventDefault();
+      if (draggedIndex === null || draggedIndex === index) return;
+
+      const newColumns = [...validatedColumns];
+      const draggedItem = newColumns[draggedIndex];
+      newColumns.splice(draggedIndex, 1);
+      newColumns.splice(index, 0, draggedItem);
+      
+      // Update order property
+      const reordered = newColumns.map((col, idx) => ({ ...col, order: idx }));
+      setColumns(reordered);
+      setDraggedIndex(index);
+    };
+
+    const handleDragEnd = () => {
+      setDraggedIndex(null);
+    };
+
+    return (
+      <VStack spacing={4} align="stretch">
+        <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
+          <HStack spacing={2} mb={2}>
+            <Icon as={Layout} color="blue.600" />
+            <Text fontSize="md" fontWeight="bold" color="blue.800">
+              Układ kolumn w tabeli
+            </Text>
+          </HStack>
+          <Text fontSize="sm" color="gray.700">
+            Przeciągnij i upuść pola, aby zmienić kolejność wyświetlania kolumn w tabeli. Kolejność tutaj określa
+            kolejność kolumn w edytorze i podglądzie kosztorysu.
+          </Text>
+        </Box>
+
+        <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+          <Text fontSize="md" fontWeight="bold" mb={4}>
+            Kolejność pól ({sortedFields.length})
+          </Text>
+
+          {sortedFields.length === 0 ? (
+            <Text fontSize="sm" color="gray.500">
+              Brak pól w szablonie
+            </Text>
+          ) : (
+            <VStack spacing={2} align="stretch">
+              {sortedFields.map((field, index) => (
+                <HStack
+                  key={field.name}
+                  p={3}
+                  bg={draggedIndex === index ? 'blue.100' : 'gray.50'}
+                  borderRadius="md"
+                  borderWidth="2px"
+                  borderColor={draggedIndex === index ? 'blue.400' : 'gray.200'}
+                  spacing={3}
+                  cursor="grab"
+                  _hover={{ bg: draggedIndex === index ? 'blue.100' : 'gray.100', borderColor: 'blue.300' }}
+                  _active={{ cursor: 'grabbing' }}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  transition="all 0.2s"
+                >
+                  <Icon as={GripVertical} color="gray.500" />
+                  <Badge colorScheme={field.colorScheme} minW="90px">
+                    {field.type}
+                  </Badge>
+                  <Text fontSize="sm" fontWeight="medium" flex="1">
+                    {field.label}
+                  </Text>
+                </HStack>
+              ))}
+            </VStack>
+          )}
+        </Box>
+      </VStack>
+    );
+  };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <LoadingSpinner />
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <Box maxW="1400px" mx="auto" p={6}>
+        {/* Header */}
+        <HStack justify="space-between" mb={6}>
+          <HStack spacing={3}>
+            <FileText size={32} />
+            <Heading size="lg">
+              {templateId ? "Edytuj szablon kosztorysu" : "Nowy szablon kosztorysu"}
+            </Heading>
+          </HStack>
+          <HStack spacing={2}>
+            <Button
+              leftIcon={<Eye size={18} />}
+              colorScheme="blue"
+              variant="outline"
+              onClick={handlePreview}
+            >
+              Podgląd
+            </Button>
+            {template && (
+              <Button
+                leftIcon={<History size={18} />}
+                colorScheme="purple"
+                variant="outline"
+                onClick={() => navigate(`/cost-estimate-templates/${templateId}/versions`)}
+              >
+                Historia wersji
+              </Button>
+            )}
+          </HStack>
+        </HStack>
+
+        {/* Main Content */}
+        <VStack spacing={6} align="stretch">
+          <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+            <Text fontSize="lg" fontWeight="bold" mb={4}>
+              Informacje podstawowe
+            </Text>
+            <VStack spacing={4} align="stretch">
+              {template?.selectedVersion && (
+                <Box p={3} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                  <HStack justify="space-between" align="center">
+                    <VStack align="start" spacing={0}>
+                      <Text fontSize="sm" fontWeight="bold" color="blue.800">
+                        Status wersji: v{template.selectedVersion.versionNumber}
+                      </Text>
+                      <Text fontSize="xs" color="blue.600">
+                        Utworzona: {new Date(template.selectedVersion.createdAt).toLocaleDateString('pl-PL')}
+                      </Text>
+                    </VStack>
+                    <Badge
+                      colorScheme={
+                        template.selectedVersion.status === 1 ? "green" : "gray"
+                      }
+                      fontSize="md"
+                      px={3}
+                      py={1}
+                    >
+                      {template.selectedVersion.status === 1 ? "Zatwierdzona" : "Szkic"}
+                    </Badge>
+                  </HStack>
+                  {template.selectedVersion.status === 1 && (
+                    <Text fontSize="xs" color="orange.600" mt={2}>
+                      ⚠️ Edycja struktury zatwierdzonej wersji utworzy nową wersję szkicu (v{template.selectedVersion.versionNumber + 1})
+                    </Text>
+                  )}
+                </Box>
+              )}
+
+                <FormControl isRequired>
+                  <FormLabel>Nazwa szablonu</FormLabel>
+                  <Input
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="np. Kosztorys robót budowlanych"
+                    size="lg"
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Opis szablonu</FormLabel>
+                  <Textarea
+                    value={templateDescription}
+                    onChange={(e) => setTemplateDescription(e.target.value)}
+                    placeholder="Opcjonalny opis przeznaczenia i zastosowania szablonu"
+                    rows={3}
+                  />
+                </FormControl>
+
+              </VStack>
+            </Box>
+
+            <Divider />
+
+            <Tabs colorScheme="blue" variant="enclosed">
+              <TabList>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Settings size={18} />
+                    <Text>Konfiguracja grup</Text>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Tag size={18} />
+                    <Text>Pola grup ({headerFields.length})</Text>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <List size={18} />
+                    <Text>Pola pozycji ({systemFields.length + calculatedFields.length + genericFields.length})</Text>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Calculator size={18} />
+                    <Text>Waluty i jednostki</Text>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Layout size={18} />
+                    <Text>Kolejność pól</Text>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Layers size={18} />
+                    <Text>Podsumowania</Text>
+                  </HStack>
+                </Tab>
+              </TabList>
+
+              <TabPanels>
+                <TabPanel>
+                  <VStack spacing={6} align="stretch">
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <Text fontSize="md" fontWeight="bold" mb={4}>
+                        Ustawienia struktury grup
+                      </Text>
+                      <VStack spacing={4} align="stretch">
+                        <Checkbox
+                          isChecked={canAddGroups}
+                          onChange={(e) => setCanAddGroups(e.target.checked)}
+                        >
+                          <HStack spacing={2}>
+                            <Text>Można dodawać nowe grupy podczas wypełniania</Text>
+                            <Tooltip label="Użytkownicy będą mogli tworzyć dodatkowe grupy w kosztorysie">
+                              <Box as="span">
+                                <HelpCircle size={16} />
+                              </Box>
+                            </Tooltip>
+                          </HStack>
+                        </Checkbox>
+
+                        <Checkbox
+                          isChecked={canBranchGroups}
+                          onChange={(e) => setCanBranchGroups(e.target.checked)}
+                        >
+                          <HStack spacing={2}>
+                            <Text>Można tworzyć podgrupy (rozgałęzianie)</Text>
+                            <Tooltip label="Grupy mogą zawierać zagnieżdżone podgrupy">
+                              <Box as="span">
+                                <HelpCircle size={16} />
+                              </Box>
+                            </Tooltip>
+                          </HStack>
+                        </Checkbox>
+
+                        {canBranchGroups && (
+                          <FormControl>
+                            <FormLabel>Maksymalny poziom zagnieżdżenia</FormLabel>
+                            <NumberInput
+                              min={1}
+                              max={10}
+                              value={maxGroupLevel ?? ""}
+                              onChange={(_, value) =>
+                                setMaxGroupLevel(isNaN(value) ? undefined : value)
+                              }
+                            >
+                              <NumberInputField placeholder="Bez limitu" />
+                            </NumberInput>
+                            <FormHelperText>
+                              Pozostaw puste dla nieograniczonego zagnieżdżenia
+                            </FormHelperText>
+                          </FormControl>
+                        )}
+                      </VStack>
+                    </Box>
+                  </VStack>
+                </TabPanel>
+
+                <TabPanel>
+                  <HeaderFieldsEditor
+                    headerFields={headerFields}
+                    onAdd={handleAddHeaderField}
+                    onRemove={handleRemoveHeaderField}
+                    onUpdate={handleUpdateHeaderField}
+                    onReorder={setHeaderFields}
+                    fieldTypeConfigs={fieldTypeConfigs}
+                  />
+                </TabPanel>
+
+                <TabPanel>
+                  <VStack spacing={6} align="stretch">
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4}>
+                        <FileText size={20} />
+                        <Text fontSize="lg" fontWeight="bold">Pola systemowe</Text>
+                      </HStack>
+                      <SystemFieldsEditor
+                        fields={systemFields}
+                        onAdd={handleAddSystemField}
+                        onRemove={handleRemoveSystemField}
+                        onUpdate={handleUpdateSystemField}
+                        fieldTypeConfigs={fieldTypeConfigs}
+                      />
+                    </Box>
+
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4}>
+                        <Calculator size={20} />
+                        <Text fontSize="lg" fontWeight="bold">Pola obliczeniowe</Text>
+                      </HStack>
+                      <CalculatedFieldsEditor
+                        fields={calculatedFields}
+                        onAdd={handleAddCalculatedField}
+                        onRemove={handleRemoveCalculatedField}
+                        onUpdate={handleUpdateCalculatedField}
+                        fieldTypeConfigs={fieldTypeConfigs}
+                      />
+                    </Box>
+
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4}>
+                        <Tag size={20} />
+                        <Text fontSize="lg" fontWeight="bold">Pola generyczne</Text>
+                      </HStack>
+                      <GenericFieldsEditor
+                        fields={genericFields}
+                        onAdd={handleAddGenericField}
+                        onRemove={handleRemoveGenericField}
+                        onUpdate={handleUpdateGenericField}
+                        fieldTypeConfigs={fieldTypeConfigs}
+                      />
+                    </Box>
+                  </VStack>
+                </TabPanel>
+
+                <TabPanel>
+                  <VStack spacing={6} align="stretch">
+                    {/* Waluty */}
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4} justify="space-between">
+                        <HStack spacing={2}>
+                          <Text fontSize="lg" fontWeight="bold">💰 Waluty</Text>
+                          <Badge colorScheme="blue">{currencies.length}</Badge>
+                        </HStack>
+                        <Button
+                          size="sm"
+                          leftIcon={<Plus size={16} />}
+                          onClick={() => {
+                            const newOrder = currencies.length;
+                            setCurrencies([...currencies, {
+                              code: 'PLN',
+                              name: 'Polski Złoty',
+                              symbol: 'zł',
+                              isDefault: currencies.length === 0,
+                              order: newOrder,
+                            }]);
+                          }}
+                        >
+                          Dodaj walutę
+                        </Button>
+                      </HStack>
+
+                      {currencies.length === 0 ? (
+                        <Box p={4} bg="gray.50" borderRadius="md" textAlign="center">
+                          <Text color="gray.600">Brak walut. Dodaj walutę używając przycisku powyżej.</Text>
+                        </Box>
+                      ) : (
+                        <VStack spacing={3} align="stretch">
+                          {currencies.map((curr, index) => (
+                            <Box key={index} p={4} bg="gray.50" borderRadius="md" borderWidth="1px">
+                              <HStack spacing={3} align="start">
+                                <VStack flex={1} spacing={3}>
+                                  <HStack w="full" spacing={3}>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Kod *</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        value={curr.code}
+                                        onChange={(e) => {
+                                          const updated = [...currencies];
+                                          updated[index].code = e.target.value;
+                                          setCurrencies(updated);
+                                        }}
+                                        placeholder="PLN"
+                                        maxLength={10}
+                                      />
+                                    </FormControl>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Nazwa *</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        value={curr.name}
+                                        onChange={(e) => {
+                                          const updated = [...currencies];
+                                          updated[index].name = e.target.value;
+                                          setCurrencies(updated);
+                                        }}
+                                        placeholder="Polski złoty"
+                                      />
+                                    </FormControl>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Symbol</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        value={curr.symbol || ''}
+                                        onChange={(e) => {
+                                          const updated = [...currencies];
+                                          updated[index].symbol = e.target.value;
+                                          setCurrencies(updated);
+                                        }}
+                                        placeholder="zł"
+                                        maxLength={5}
+                                      />
+                                    </FormControl>
+                                  </HStack>
+                                  <Checkbox
+                                    isChecked={curr.isDefault}
+                                    onChange={(e) => {
+                                      const updated = currencies.map((c, i) => ({
+                                        ...c,
+                                        isDefault: i === index && e.target.checked,
+                                      }));
+                                      setCurrencies(updated);
+                                    }}
+                                  >
+                                    <Text fontSize="sm">Domyślna waluta</Text>
+                                  </Checkbox>
+                                </VStack>
+                                <IconButton
+                                  aria-label="Usuń walutę"
+                                  icon={<Trash2 size={16} />}
+                                  size="sm"
+                                  colorScheme="red"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setCurrencies(currencies.filter((_, i) => i !== index));
+                                  }}
+                                />
+                              </HStack>
+                            </Box>
+                          ))}
+                        </VStack>
+                      )}
+                    </Box>
+
+                    {/* Jednostki */}
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4} justify="space-between">
+                        <HStack spacing={2}>
+                          <Text fontSize="lg" fontWeight="bold">📏 Jednostki miar</Text>
+                          <Badge colorScheme="green">{units.length}</Badge>
+                        </HStack>
+                        <Button
+                          size="sm"
+                          leftIcon={<Plus size={16} />}
+                          onClick={() => {
+                            const newOrder = units.length;
+                            setUnits([...units, {
+                              code: '',
+                              name: '',
+                              symbol: '',
+                              category: '',
+                              isDefault: units.length === 0,
+                              order: newOrder,
+                            }]);
+                          }}
+                        >
+                          Dodaj jednostkę
+                        </Button>
+                      </HStack>
+
+                      {units.length === 0 ? (
+                        <Box p={4} bg="gray.50" borderRadius="md" textAlign="center">
+                          <Text color="gray.600">Brak jednostek. Dodaj jednostkę używając przycisku powyżej.</Text>
+                        </Box>
+                      ) : (
+                        <VStack spacing={3} align="stretch">
+                          {units.map((unit, index) => (
+                            <Box key={index} p={4} bg="gray.50" borderRadius="md" borderWidth="1px">
+                              <HStack spacing={3} align="start">
+                                <VStack flex={1} spacing={3}>
+                                  <HStack w="full" spacing={3}>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Kod *</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        value={unit.code}
+                                        onChange={(e) => {
+                                          const updated = [...units];
+                                          updated[index].code = e.target.value;
+                                          setUnits(updated);
+                                        }}
+                                        placeholder="m2"
+                                        maxLength={10}
+                                      />
+                                    </FormControl>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Nazwa *</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        value={unit.name}
+                                        onChange={(e) => {
+                                          const updated = [...units];
+                                          updated[index].name = e.target.value;
+                                          setUnits(updated);
+                                        }}
+                                        placeholder="Metr kwadratowy"
+                                      />
+                                    </FormControl>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Symbol *</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        value={unit.symbol}
+                                        onChange={(e) => {
+                                          const updated = [...units];
+                                          updated[index].symbol = e.target.value;
+                                          setUnits(updated);
+                                        }}
+                                        placeholder="m²"
+                                        maxLength={5}
+                                      />
+                                    </FormControl>
+                                  </HStack>
+                                  <HStack w="full" spacing={3}>
+                                    <FormControl flex={1}>
+                                      <FormLabel fontSize="sm">Kategoria</FormLabel>
+                                      <Input
+                                        size="sm"
+                                        value={unit.category || ''}
+                                        onChange={(e) => {
+                                          const updated = [...units];
+                                          updated[index].category = e.target.value;
+                                          setUnits(updated);
+                                        }}
+                                        placeholder="Powierzchnia, długość, objętość..."
+                                      />
+                                    </FormControl>
+                                    <FormControl>
+                                      <FormLabel fontSize="sm" opacity={0}>_</FormLabel>
+                                      <Checkbox
+                                        isChecked={unit.isDefault}
+                                        onChange={(e) => {
+                                          const updated = units.map((u, i) => ({
+                                            ...u,
+                                            isDefault: i === index && e.target.checked,
+                                          }));
+                                          setUnits(updated);
+                                        }}
+                                      >
+                                        <Text fontSize="sm">Domyślna jednostka</Text>
+                                      </Checkbox>
+                                    </FormControl>
+                                  </HStack>
+                                </VStack>
+                                <IconButton
+                                  aria-label="Usuń jednostkę"
+                                  icon={<Trash2 size={16} />}
+                                  size="sm"
+                                  colorScheme="red"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setUnits(units.filter((_, i) => i !== index));
+                                  }}
+                                />
+                              </HStack>
+                            </Box>
+                          ))}
+                        </VStack>
+                      )}
+                    </Box>
+                  </VStack>
+                </TabPanel>
+
+                <TabPanel>
+                  {renderFieldLayoutTab()}
+                </TabPanel>
+
+                <TabPanel>
+                  <SummaryConfigurationEditor
+                    showGroupSummary={showGroupSummary}
+                    showTotalSummary={showTotalSummary}
+                    groupSummaryFields={groupSummaryFields}
+                    totalSummaryFields={totalSummaryFields}
+                    calculatedFields={calculatedFields}
+                    onToggleGroupSummary={setShowGroupSummary}
+                    onToggleTotalSummary={setShowTotalSummary}
+                    onChangeGroupSummaryFields={setGroupSummaryFields}
+                    onChangeTotalSummaryFields={setTotalSummaryFields}
+                  />
+                </TabPanel>
+            </TabPanels>
+          </Tabs>
+
+        {/* Footer Actions */}
+        <HStack justify="space-between" pt={4}>
+          <Button
+            leftIcon={<ArrowLeft size={18} />}
+            variant="ghost"
+            onClick={() => navigate("/cost-estimate-templates")}
+          >
+            Powrót
+          </Button>
+          <HStack spacing={3}>
+            {template?.selectedVersion?.status === 0 && (
+              <Button
+                leftIcon={<CheckCircle size={18} />}
+                colorScheme="green"
+                onClick={handleApproveVersion}
+              >
+                Zatwierdź wersję
+              </Button>
+            )}
+            <Button
+              leftIcon={<Save size={18} />}
+              colorScheme="blue"
+              onClick={handleSubmitClick}
+              isLoading={isSubmitting}
+            >
+              {templateId ? "Zapisz zmiany" : "Utwórz szablon"}
+            </Button>
+          </HStack>
+        </HStack>
+        </VStack>
+      </Box>
+
+    {/* ALERT DIALOG: Confirm saving approved version (creates new draft) */}
+    <AlertDialog
+        isOpen={isConfirmSaveOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onConfirmSaveClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Edycja zatwierdzonej wersji
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              <VStack align="flex-start" spacing={3}>
+                <Text>
+                  Edytujesz zatwierdzoną wersję <Badge colorScheme="blue">v{template?.selectedVersion?.versionNumber}</Badge>. 
+                  Zapisanie zmian spowoduje utworzenie nowej wersji szkicu.
+                </Text>
+                <Box p={3} bg="orange.50" borderRadius="md" borderWidth="1px" borderColor="orange.200" w="full">
+                  <HStack spacing={2}>
+                    <Text fontSize="2xl">⚠️</Text>
+                    <VStack align="flex-start" spacing={1}>
+                      <Text fontSize="sm" fontWeight="bold" color="orange.800">
+                        Co się stanie?
+                      </Text>
+                      <Text fontSize="sm" color="orange.700">
+                        • Zostanie utworzona nowa wersja szkicu z wprowadzonymi zmianami<br />
+                        • Zatwierdzona wersja pozostanie bez zmian<br />
+                        • Będziesz mógł kontynuować edycję nowej wersji szkicu
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </Box>
+              </VStack>
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onConfirmSaveClose}>
+                Anuluj
+              </Button>
+              <Button 
+                colorScheme="blue" 
+                onClick={confirmSaveApprovedVersion} 
+                ml={3}
+                isLoading={isSubmitting}
+              >
+                Kontynuuj zapis
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Preview Modal */}
+      <Modal 
+        isOpen={isPreviewOpen} 
+        onClose={onPreviewClose} 
+        size="full" 
+        scrollBehavior="inside"
+        closeOnOverlayClick={false}
+      >
+        <ModalOverlay />
+        <ModalContent maxH="100vh" m={0}>
+          <ModalHeader borderBottom="1px" borderColor="gray.200">
+            <HStack spacing={3}>
+              <Eye size={24} />
+              <Text>Podgląd szablonu - Przykładowy kosztorys</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalBody p={6} bg="gray.50">
+            {previewData && (
+              <Box maxW="1600px" mx="auto">
+                <VStack spacing={4} align="stretch" mb={4}>
+                  <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                    <HStack spacing={2}>
+                      <AlertCircle size={20} color="blue" />
+                      <Text fontSize="sm" color="blue.700">
+                        To jest podgląd szablonu z przykładowymi danymi. Dane są generowane automatycznie aby pokazać jak będzie wyglądał kosztorys stworzony na podstawie tego szablonu.
+                      </Text>
+                    </HStack>
+                  </Box>
+                  <Box bg="white" p={4} borderRadius="md" borderWidth="1px">
+                    <VStack align="start" spacing={2}>
+                      <HStack spacing={3}>
+                        <Text fontWeight="bold" fontSize="lg">Szablon:</Text>
+                        <Text fontSize="lg">{templateName || "Nowy szablon"}</Text>
+                      </HStack>
+                      {templateDescription && (
+                        <Text fontSize="sm" color="gray.600">{templateDescription}</Text>
+                      )}
+                    </VStack>
+                  </Box>
+                </VStack>
+                <CostEstimateTableView
+                  details={previewData}
+                  editable={false}
+                  onDataChange={() => {}} // Podgląd - brak edycji
+                />
+              </Box>
+            )}
+          </ModalBody>
+          <ModalFooter borderTop="1px" borderColor="gray.200">
+            <Button onClick={onPreviewClose}>Zamknij</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+  </MainLayout>
+  );
+}
+
+// ======================== SUB-COMPONENTS ========================
+
+interface HeaderFieldsEditorProps {
+  headerFields: GroupHeaderFieldDefinition[];
+  onAdd: (type: GroupHeaderFieldType) => void;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, updates: Partial<GroupHeaderFieldDefinition>) => void;
+  onReorder: (reorderedFields: GroupHeaderFieldDefinition[]) => void;
+  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+}
+
+function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder, fieldTypeConfigs }: HeaderFieldsEditorProps) {
+  // Pobierz dostępne typy pól nagłówka z BE (scope 4 = group header)
+  const availableHeaderFields = fieldTypeConfigs[4] || [];
+  
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box bg="blue.50" p={4} borderRadius="md">
+        <Text fontSize="sm" fontWeight="bold" mb={3}>
+          Dodaj pole nagłówka:
+        </Text>
+        <HStack spacing={2} flexWrap="wrap">
+          {availableHeaderFields.length > 0 ? (
+            availableHeaderFields.map((config) => {
+              // FieldType z BE odpowiada GroupHeaderFieldType bezpośrednio (0-9)
+              const typeNum = config.fieldType as GroupHeaderFieldType;
+              const isAdded = headerFields.some((f) => f.type === typeNum);
+              return (
+                <Button
+                  key={config.fieldType}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="purple"
+                  variant={isAdded ? "solid" : "outline"}
+                  onClick={() => onAdd(typeNum)}
+                  isDisabled={isAdded}
+                >
+                  {config.namePl}
+                </Button>
+              );
+            })
+          ) : (
+            // Fallback jeśli nie załadowano konfiguracji
+            Object.entries(groupHeaderFieldTypeLabels).map(([type, label]) => {
+              const typeNum = parseInt(type) as GroupHeaderFieldType;
+              const isAdded = headerFields.some((f) => f.type === typeNum);
+              return (
+                <Button
+                  key={type}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="purple"
+                  variant={isAdded ? "solid" : "outline"}
+                  onClick={() => onAdd(typeNum)}
+                  isDisabled={isAdded}
+                >
+                  {label}
+                </Button>
+              );
+            })
+          )}
+        </HStack>
+      </Box>
+
+      {headerFields.length === 0 ? (
+        <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
+          <Text color="gray.500">Brak pól w nagłówku</Text>
+        </Box>
+      ) : (
+        <Box overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Typ pola</Th>
+                <Th>Etykieta</Th>
+                <Th w="80px">Sortowalne</Th>
+                <Th w="80px">Filtrowalne</Th>
+                <Th w="80px">Akcje</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {headerFields.map((field, index) => {
+                const defaultLabel = field.fieldTypeConfig?.namePl || groupHeaderFieldTypeLabels[field.type];
+                const displayLabel = field.customLabel || defaultLabel;
+                return (
+                  <Tr key={index}>
+                    <Td>
+                      <Badge colorScheme="purple">
+                        {field.fieldTypeConfig?.namePl || groupHeaderFieldTypeLabels[field.type]}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Input
+                        size="sm"
+                        value={displayLabel}
+                        onChange={(e) => onUpdate(index, { customLabel: e.target.value })}
+                        placeholder={defaultLabel}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.sortable || false}
+                        onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.filterable || false}
+                        onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={16} />}
+                        size="sm"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => onRemove(index)}
+                      />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </VStack>
+  );
+}
+
+
+// ===== SYSTEM FIELDS EDITOR =====
+
+interface SystemFieldsEditorProps {
+  fields: SystemFieldDefinition[];
+  onAdd: (type: SystemFieldType) => void;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, updates: Partial<SystemFieldDefinition>) => void;
+  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+}
+
+function SystemFieldsEditor({
+  fields,
+  onAdd,
+  onRemove,
+  onUpdate,
+  fieldTypeConfigs,
+}: SystemFieldsEditorProps) {
+  // Pobierz dostępne typy pól z BE konfiguracji
+  const availableSystemFields = fieldTypeConfigs[1] || [];
+  const availableCalculatedFields = fieldTypeConfigs[2] || [];
+  const availableGenericFields = fieldTypeConfigs[3] || [];
+  
+  // Fallback labels jeśli nie ma konfiguracji
+  const systemFieldTypeLabels: Record<SystemFieldType, string> = {
+    [SystemFieldType.Name]: "Nazwa pozycji",
+    [SystemFieldType.Quantity]: "Ilość",
+    [SystemFieldType.Unit]: "Jednostka miary",
+    [SystemFieldType.Options]: "Opcje",
+    [SystemFieldType.Selected]: "Zaznaczenie",
+  };
+
+  const [expandedField, setExpandedField] = useState<number | null>(null);
+
+  // Handler dla dodawania child fields
+  const handleAddChildSystemField = (parentIndex: number, type: SystemFieldType) => {
+    const parentField = fields[parentIndex];
+    if (!parentField.childFields) {
+      parentField.childFields = [];
+    }
+    
+    // Pobierz konfigurację z BE (FieldType = SystemFieldType + 100)
+    const fieldTypeForConfig = type + 100;
+    const config = availableSystemFields.find(c => c.fieldType === fieldTypeForConfig);
+    const label = config?.namePl || systemFieldTypeLabels[type];
+    
+    const newChild: SystemFieldDefinition = {
+      name: crypto.randomUUID(),
+      label: label,
+      type: type,
+      order: parentField.childFields.length,
+      required: type === SystemFieldType.Name,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      fieldTypeConfig: config, // Zachowaj config z BE
+    };
+
+    onUpdate(parentIndex, {
+      childFields: [...parentField.childFields, newChild],
+    });
+  };
+
+  const handleAddChildCalculatedField = (parentIndex: number, type: CalculatedFieldType) => {
+    const parentField = fields[parentIndex];
+    if (!parentField.childFields) {
+      parentField.childFields = [];
+    }
+
+    // Pobierz konfigurację z BE (FieldType = CalculatedFieldType + 200)
+    const fieldTypeForConfig = type + 200;
+    const config = availableCalculatedFields.find(c => c.fieldType === fieldTypeForConfig);
+    const label = config?.namePl || calculatedFieldTypeLabels[type] || `Pole kalkulowane ${type}`;
+
+    const isSummable = type === CalculatedFieldType.ValueNet ||
+                       type === CalculatedFieldType.ValueGross ||
+                       type === CalculatedFieldType.TotalVat;
+    const isAutoCalculated = [
+      CalculatedFieldType.UnitPriceGross,
+      CalculatedFieldType.ValueNet,
+      CalculatedFieldType.ValueGross,
+      CalculatedFieldType.UnitVat,
+      CalculatedFieldType.TotalVat,
+    ].includes(type);
+
+    const newChild: CalculatedFieldDefinition = {
+      name: crypto.randomUUID(),
+      label: label,
+      type: type,
+      order: parentField.childFields.length,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      summable: isSummable,
+      summaryScope: SummaryScope.Both,
+      autoCalculated: isAutoCalculated,
+      readOnly: isAutoCalculated,
+      fieldTypeConfig: config, // Zachowaj config z BE
+    };
+
+    onUpdate(parentIndex, {
+      childFields: [...parentField.childFields, newChild],
+    });
+  };
+
+  const handleAddChildGenericField = (parentIndex: number, type: GenericFieldType) => {
+    const parentField = fields[parentIndex];
+    if (!parentField.childFields) {
+      parentField.childFields = [];
+    }
+
+    // Pobierz konfigurację z BE (FieldType = GenericFieldType + 300)
+    const fieldTypeForConfig = type + 300;
+    const config = availableGenericFields.find(c => c.fieldType === fieldTypeForConfig);
+    const label = config?.namePl || genericFieldTypeLabels[type] || `Pole generyczne ${type}`;
+
+    const newChild: GenericFieldDefinition = {
+      name: crypto.randomUUID(),
+      label: label,
+      type: type,
+      order: parentField.childFields.length,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      fieldTypeConfig: config, // Zachowaj config z BE
+    };
+
+    onUpdate(parentIndex, {
+      childFields: [...parentField.childFields, newChild],
+    });
+  };
+
+  const handleRemoveChildField = (parentIndex: number, childIndex: number) => {
+    const parentField = fields[parentIndex];
+    if (!parentField.childFields) return;
+
+    const updatedChildren = parentField.childFields.filter((_, i) => i !== childIndex);
+    onUpdate(parentIndex, { childFields: updatedChildren });
+  };
+
+  const handleUpdateChildField = (
+    parentIndex: number,
+    childIndex: number,
+    updates: any
+  ) => {
+    const parentField = fields[parentIndex];
+    if (!parentField.childFields) return;
+
+    const updatedChildren = [...parentField.childFields];
+    updatedChildren[childIndex] = { ...updatedChildren[childIndex], ...updates };
+    onUpdate(parentIndex, { childFields: updatedChildren });
+  };
+
+  const isSystemField = (field: any): field is SystemFieldDefinition => {
+    return 'type' in field && typeof field.type === 'number' && field.type >= 0 && field.type <= 4;
+  };
+
+  const isCalculatedField = (field: any): field is CalculatedFieldDefinition => {
+    return 'type' in field && 'summable' in field;
+  };
+
+  const isGenericField = (field: any): field is GenericFieldDefinition => {
+    return 'type' in field && !('summable' in field) && !isSystemField(field);
+  };
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box bg="blue.50" p={4} borderRadius="md">
+        <Text fontSize="sm" fontWeight="bold" mb={3}>
+          Dodaj pole systemowe:
+        </Text>
+        <HStack spacing={2} flexWrap="wrap">
+          {availableSystemFields.length > 0 ? (
+            availableSystemFields.map((config) => {
+              // FieldType 100-199 to pola systemowe, konwertuj na SystemFieldType (0-99)
+              const systemFieldType = (config.fieldType - 100) as SystemFieldType;
+              const isAdded = fields.some((f) => f.type === systemFieldType);
+              // Pole Name można dodać tylko raz, Selected może być dodawane wielokrotnie
+              const shouldDisable = isAdded && systemFieldType !== SystemFieldType.Selected;
+              return (
+                <Button
+                  key={config.fieldType}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="blue"
+                  variant={shouldDisable ? "solid" : "outline"}
+                  onClick={() => onAdd(systemFieldType)}
+                  isDisabled={shouldDisable}
+                >
+                  {config.namePl}
+                </Button>
+              );
+            })
+          ) : (
+            // Fallback jeśli nie załadowano konfiguracji z BE
+            Object.entries(systemFieldTypeLabels).map(([type, label]) => {
+              const typeNum = parseInt(type) as SystemFieldType;
+              const isAdded = fields.some((f) => f.type === typeNum);
+              const shouldDisable = isAdded && typeNum !== SystemFieldType.Selected;
+              return (
+                <Button
+                  key={type}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="blue"
+                  variant={shouldDisable ? "solid" : "outline"}
+                  onClick={() => onAdd(typeNum)}
+                  isDisabled={shouldDisable}
+                >
+                  {label}
+                </Button>
+              );
+            })
+          )}
+        </HStack>
+      </Box>
+
+      {fields.length === 0 ? (
+        <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
+          <Text color="gray.500">Brak pól systemowych</Text>
+        </Box>
+      ) : (
+        <Box overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Typ pola</Th>
+                <Th>Etykieta</Th>
+                <Th w="80px">Sortowalne</Th>
+                <Th w="80px">Filtrowalne</Th>
+                <Th w="120px">Akcje</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {fields.map((field, index) => (
+                <React.Fragment key={index}>
+                  <Tr>
+                    <Td>
+                      <Badge colorScheme="cyan">
+                        {field.fieldTypeConfig?.namePl || systemFieldTypeLabels[field.type]}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Input
+                        size="sm"
+                        value={field.label}
+                        onChange={(e) => onUpdate(index, { label: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.sortable}
+                        onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.filterable}
+                        onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <HStack spacing={1}>
+                        {field.type === SystemFieldType.Options && (
+                          <IconButton
+                            aria-label="Pola w opcjach"
+                            icon={expandedField === index ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setExpandedField(expandedField === index ? null : index)}
+                          />
+                        )}
+                        <IconButton
+                          aria-label="Usuń"
+                          icon={<Trash2 size={16} />}
+                          size="sm"
+                          colorScheme="red"
+                          variant="ghost"
+                          onClick={() => onRemove(index)}
+                        />
+                      </HStack>
+                    </Td>
+                  </Tr>
+
+              {/* Child Fields Editor - tylko dla pola Options */}
+              {field.type === SystemFieldType.Options && expandedField === index && (
+                <Tr>
+                  <Td colSpan={5} p={0}>
+                    <Box p={4} bg="gray.50">
+                      <VStack spacing={4} align="stretch">
+                        <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                          Pola w opcjach (systemowe bez Opcji, kalkulowane, generyczne)
+                        </Text>
+
+                    {/* Dodawanie pól systemowych bez Options */}
+                    <Box bg="blue.50" p={3} borderRadius="md">
+                      <Text fontSize="xs" fontWeight="bold" mb={2}>
+                        Pola systemowe:
+                      </Text>
+                      <HStack spacing={2} flexWrap="wrap">
+                        {availableSystemFields
+                          .filter((config) => {
+                            // Dla child fields w Options - wszystkie pola systemowe POZA Options
+                            const systemFieldType = (config.fieldType - 100) as SystemFieldType;
+                            return systemFieldType !== SystemFieldType.Options;
+                          })
+                          .map((config) => {
+                            const systemFieldType = (config.fieldType - 100) as SystemFieldType;
+                            const isAdded = field.childFields?.some(
+                              (c) => isSystemField(c) && c.type === systemFieldType
+                            );
+                            return (
+                              <Button
+                                key={config.fieldType}
+                                size="xs"
+                                leftIcon={<Plus size={12} />}
+                                colorScheme="cyan"
+                                variant={isAdded ? "solid" : "outline"}
+                                onClick={() => handleAddChildSystemField(index, systemFieldType)}
+                                isDisabled={isAdded && systemFieldType !== SystemFieldType.Selected}
+                              >
+                                {config.namePl}
+                              </Button>
+                            );
+                          })}
+                      </HStack>
+                    </Box>
+
+                    {/* Dodawanie pól kalkulowanych */}
+                    <Box bg="purple.50" p={3} borderRadius="md">
+                      <Text fontSize="xs" fontWeight="bold" mb={2}>
+                        Pola kalkulowane:
+                      </Text>
+                      <HStack spacing={2} flexWrap="wrap">
+                        {(fieldTypeConfigs[2] || []).map((config) => {
+                          const calcFieldType = (config.fieldType - 200) as CalculatedFieldType;
+                          const isAdded = field.childFields?.some(
+                            (c) => isCalculatedField(c) && c.type === calcFieldType
+                          );
+                          return (
+                            <Button
+                              key={config.fieldType}
+                              size="xs"
+                              leftIcon={<Plus size={12} />}
+                              colorScheme="purple"
+                              variant={isAdded ? "solid" : "outline"}
+                              onClick={() => handleAddChildCalculatedField(index, calcFieldType)}
+                              isDisabled={isAdded}
+                            >
+                              {config.namePl}
+                            </Button>
+                          );
+                        })}
+                      </HStack>
+                    </Box>
+
+                    {/* Dodawanie pól generycznych */}
+                    <Box bg="green.50" p={3} borderRadius="md">
+                      <Text fontSize="xs" fontWeight="bold" mb={2}>
+                        Pola generyczne:
+                      </Text>
+                      <HStack spacing={2} flexWrap="wrap">
+                        {(fieldTypeConfigs[3] || []).map((config) => {
+                          const genFieldType = (config.fieldType - 300) as GenericFieldType;
+                          return (
+                            <Button
+                              key={config.fieldType}
+                              size="xs"
+                              leftIcon={<Plus size={12} />}
+                              colorScheme="green"
+                              variant="outline"
+                              onClick={() => handleAddChildGenericField(index, genFieldType)}
+                            >
+                              {config.namePl}
+                            </Button>
+                          );
+                        })}
+                      </HStack>
+                    </Box>
+
+                    {/* Lista child fields - tabela */}
+                    {field.childFields && field.childFields.length > 0 && (
+                      <Table size="sm" variant="simple" bg="white" borderRadius="md">
+                        <Thead>
+                          <Tr>
+                            <Th fontSize="xs">Typ pola</Th>
+                            <Th fontSize="xs">Etykieta</Th>
+                            <Th fontSize="xs" w="80px" textAlign="center">Sortowalne</Th>
+                            <Th fontSize="xs" w="80px" textAlign="center">Filtrowalne</Th>
+                            <Th fontSize="xs" w="60px">Akcje</Th>
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {field.childFields.map((childField, childIndex) => {
+                            let colorScheme = "gray";
+                            let typeLabel = "";
+                            
+                            // Użyj fieldTypeConfig.namePl jeśli dostępne, w przeciwnym razie fallback na słowniki
+                            if (childField.fieldTypeConfig?.namePl) {
+                              typeLabel = childField.fieldTypeConfig.namePl;
+                              // Ustal colorScheme na podstawie fieldScope
+                              const scope = childField.fieldTypeConfig.fieldScope;
+                              if (scope === 1) colorScheme = "cyan";
+                              else if (scope === 2) colorScheme = "purple";
+                              else if (scope === 3) colorScheme = "green";
+                            } else if (isSystemField(childField)) {
+                              colorScheme = "cyan";
+                              typeLabel = systemFieldTypeLabels[childField.type];
+                            } else if (isCalculatedField(childField)) {
+                              colorScheme = "purple";
+                              typeLabel = calculatedFieldTypeLabels[childField.type];
+                            } else if (isGenericField(childField)) {
+                              colorScheme = "green";
+                              typeLabel = genericFieldTypeLabels[childField.type];
+                            }
+
+                            return (
+                              <Tr key={childIndex}>
+                                <Td>
+                                  <Badge colorScheme={colorScheme} fontSize="xs">
+                                    {typeLabel}
+                                  </Badge>
+                                </Td>
+                                <Td>
+                                  <Input
+                                    size="xs"
+                                    value={childField.label}
+                                    onChange={(e) =>
+                                      handleUpdateChildField(index, childIndex, {
+                                        label: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </Td>
+                                <Td textAlign="center">
+                                  <Checkbox
+                                    size="sm"
+                                    isChecked={childField.sortable ?? false}
+                                    onChange={(e) =>
+                                      handleUpdateChildField(index, childIndex, {
+                                        sortable: e.target.checked,
+                                      })
+                                    }
+                                  />
+                                </Td>
+                                <Td textAlign="center">
+                                  <Checkbox
+                                    size="sm"
+                                    isChecked={childField.filterable ?? false}
+                                    onChange={(e) =>
+                                      handleUpdateChildField(index, childIndex, {
+                                        filterable: e.target.checked,
+                                      })
+                                    }
+                                  />
+                                </Td>
+                                <Td>
+                                  <IconButton
+                                    aria-label="Usuń"
+                                    icon={<Trash2 size={14} />}
+                                    size="xs"
+                                    colorScheme="red"
+                                    variant="ghost"
+                                    onClick={() => handleRemoveChildField(index, childIndex)}
+                                  />
+                                </Td>
+                              </Tr>
+                            );
+                          })}
+                        </Tbody>
+                      </Table>
+                    )}
+                  </VStack>
+                </Box>
+              </Td>
+            </Tr>
+              )}
+                </React.Fragment>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </VStack>
+  );
+}
+
+
+// ===== CALCULATED FIELDS EDITOR =====
+
+interface CalculatedFieldsEditorProps {
+  fields: CalculatedFieldDefinition[];
+  onAdd: (type: CalculatedFieldType) => void;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, updates: Partial<CalculatedFieldDefinition>) => void;
+  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+}
+
+function CalculatedFieldsEditor({
+  fields,
+  onAdd,
+  onRemove,
+  onUpdate,
+  fieldTypeConfigs,
+}: CalculatedFieldsEditorProps) {
+  // Pobierz dostępne typy pól kalkulowanych z BE (scope 2 = calculated)
+  const availableCalculatedFields = fieldTypeConfigs[2] || [];
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box bg="purple.50" p={4} borderRadius="md">
+        <Text fontSize="sm" fontWeight="bold" mb={3}>
+          Dodaj pole obliczeniowe (każde tylko raz):
+        </Text>
+        <HStack spacing={2} flexWrap="wrap">
+          {availableCalculatedFields.length > 0 ? (
+            availableCalculatedFields.map((config) => {
+              // FieldType 200-299 to pola kalkulowane, konwertuj na CalculatedFieldType (0-99)
+              const calcFieldType = (config.fieldType - 200) as CalculatedFieldType;
+              const isAdded = fields.some((f) => f.type === calcFieldType);
+              return (
+                <Button
+                  key={config.fieldType}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="purple"
+                  variant={isAdded ? "solid" : "outline"}
+                  onClick={() => onAdd(calcFieldType)}
+                  isDisabled={isAdded}
+                >
+                  {config.namePl}
+                </Button>
+              );
+            })
+          ) : (
+            // Fallback jeśli nie załadowano konfiguracji
+            Object.entries(calculatedFieldTypeLabels).map(([type, label]) => {
+              const typeNum = parseInt(type) as CalculatedFieldType;
+              const isAdded = fields.some((f) => f.type === typeNum);
+              return (
+                <Button
+                  key={type}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="purple"
+                  variant={isAdded ? "solid" : "outline"}
+                  onClick={() => onAdd(typeNum)}
+                  isDisabled={isAdded}
+                >
+                  {label}
+                </Button>
+              );
+            })
+          )}
+        </HStack>
+      </Box>
+
+      {fields.length === 0 ? (
+        <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
+          <Text color="gray.500">Brak pól obliczeniowych</Text>
+        </Box>
+      ) : (
+        <Box overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Typ pola</Th>
+                <Th>Etykieta</Th>
+                <Th w="80px">Sortowalne</Th>
+                <Th w="80px">Filtrowalne</Th>
+                <Th w="80px">Akcje</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {fields.map((field, index) => {
+                const isSummable = field.type === 3 || field.type === 4 || field.type === 6;
+                return (
+                  <Tr key={index}>
+                    <Td>
+                      <Badge colorScheme="blue">
+                        {field.fieldTypeConfig?.namePl || calculatedFieldTypeLabels[field.type]}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Input
+                        size="sm"
+                        value={field.label}
+                        onChange={(e) => onUpdate(index, { label: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.sortable}
+                        onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.filterable}
+                        onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={16} />}
+                        size="sm"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => onRemove(index)}
+                      />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </VStack>
+  );
+}
+
+
+interface GenericFieldsEditorProps {
+  fields: GenericFieldDefinition[];
+  onAdd: (type: GenericFieldType) => void;
+  onRemove: (index: number) => void;
+  onUpdate: (index: number, updates: Partial<GenericFieldDefinition>) => void;
+  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+}
+
+function GenericFieldsEditor({
+  fields,
+  onAdd,
+  onRemove,
+  onUpdate,
+  fieldTypeConfigs,
+}: GenericFieldsEditorProps) {
+  // Pobierz dostępne typy pól generycznych z BE (scope 3 = generic)
+  const availableGenericFields = fieldTypeConfigs[3] || [];
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box bg="green.50" p={4} borderRadius="md">
+        <Text fontSize="sm" fontWeight="bold" mb={3}>
+          Dodaj pole generyczne:
+        </Text>
+        <HStack spacing={2} flexWrap="wrap">
+          {availableGenericFields.length > 0 ? (
+            availableGenericFields.map((config) => {
+              // FieldType 300-399 to pola generyczne, konwertuj na GenericFieldType (0-99)
+              const genFieldType = (config.fieldType - 300) as GenericFieldType;
+              return (
+                <Button
+                  key={config.fieldType}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="green"
+                  variant="outline"
+                  onClick={() => onAdd(genFieldType)}
+                >
+                  {config.namePl}
+                </Button>
+              );
+            })
+          ) : (
+            // Fallback
+            Object.entries(genericFieldTypeLabels).map(([type, label]) => (
+              <Button
+                key={type}
+                size="sm"
+                leftIcon={<Plus size={14} />}
+                colorScheme="green"
+                variant="outline"
+                onClick={() => onAdd(parseInt(type) as GenericFieldType)}
+              >
+                {label}
+              </Button>
+            ))
+          )}
+        </HStack>
+      </Box>
+
+      {fields.length === 0 ? (
+        <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
+          <Text color="gray.500">Brak pól generycznych</Text>
+        </Box>
+      ) : (
+        <Box overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Typ pola</Th>
+                <Th>Etykieta</Th>
+                <Th w="80px">Sortowalne</Th>
+                <Th w="80px">Filtrowalne</Th>
+                <Th w="80px">Akcje</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {fields.map((field, index) => {
+                return (
+                  <Tr key={index}>
+                    <Td>
+                      <Badge colorScheme="green">
+                        {field.fieldTypeConfig?.namePl || genericFieldTypeLabels[field.type]}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Input
+                        size="sm"
+                        value={field.label}
+                        onChange={(e) => onUpdate(index, { label: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.sortable}
+                        onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.filterable}
+                        onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={16} />}
+                        size="sm"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => onRemove(index)}
+                      />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </VStack>
+  );
+}
+
+interface SummaryConfigurationEditorProps {
+  showGroupSummary: boolean;
+  showTotalSummary: boolean;
+  groupSummaryFields: string[];
+  totalSummaryFields: string[];
+  calculatedFields: CalculatedFieldDefinition[];
+  onToggleGroupSummary: (value: boolean) => void;
+  onToggleTotalSummary: (value: boolean) => void;
+  onChangeGroupSummaryFields: (fields: string[]) => void;
+  onChangeTotalSummaryFields: (fields: string[]) => void;
+}
+
+function SummaryConfigurationEditor({
+  showGroupSummary,
+  showTotalSummary,
+  groupSummaryFields,
+  totalSummaryFields,
+  calculatedFields,
+  onToggleGroupSummary,
+  onToggleTotalSummary,
+  onChangeGroupSummaryFields,
+  onChangeTotalSummaryFields,
+}: SummaryConfigurationEditorProps) {
+  // Pola które mogą być sumowane (ValueNet, ValueGross, TotalVat)
+  const summableFields = calculatedFields.filter(
+    (f) => f.summable && (
+      f.type === CalculatedFieldType.ValueNet || 
+      f.type === CalculatedFieldType.ValueGross || 
+      f.type === CalculatedFieldType.TotalVat
+    )
+  );
+
+  const handleToggleGroupField = (fieldName: string) => {
+    if (groupSummaryFields.includes(fieldName)) {
+      onChangeGroupSummaryFields(groupSummaryFields.filter(f => f !== fieldName));
+    } else {
+      onChangeGroupSummaryFields([...groupSummaryFields, fieldName]);
+    }
+  };
+
+  const handleToggleTotalField = (fieldName: string) => {
+    if (totalSummaryFields.includes(fieldName)) {
+      onChangeTotalSummaryFields(totalSummaryFields.filter(f => f !== fieldName));
+    } else {
+      onChangeTotalSummaryFields([...totalSummaryFields, fieldName]);
+    }
+  };
+
+  return (
+    <VStack spacing={6} align="stretch">
+      <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+        <Text fontSize="md" fontWeight="bold" mb={4}>
+          Ustawienia podsumowań
+        </Text>
+        <VStack spacing={3} align="stretch">
+          <Checkbox isChecked={showGroupSummary} onChange={(e) => onToggleGroupSummary(e.target.checked)}>
+            Wyświetlaj podsumowanie grup
+          </Checkbox>
+          <Checkbox isChecked={showTotalSummary} onChange={(e) => onToggleTotalSummary(e.target.checked)}>
+            Wyświetlaj podsumowanie całkowite
+          </Checkbox>
+        </VStack>
+      </Box>
+
+      <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+        <Text fontSize="md" fontWeight="bold" mb={4}>
+          Pola do sumowania w grupach
+        </Text>
+        <Text fontSize="sm" color="gray.600" mb={4}>
+          Wybierz pola które mają być sumowane w podsumowaniu grup. Pozostaw puste aby nie sumować żadnych pól.
+        </Text>
+        {summableFields.length === 0 ? (
+          <Text fontSize="sm" color="gray.500">
+            Brak pól dostępnych do sumowania (dodaj pola typu ValueNet, ValueGross lub TotalVat z Summable=true)
+          </Text>
+        ) : (
+          <VStack spacing={2} align="stretch">
+            {summableFields.map((field) => (
+              <Checkbox
+                key={field.name}
+                isChecked={groupSummaryFields.includes(field.name)}
+                onChange={() => handleToggleGroupField(field.name)}
+              >
+                <Text fontSize="sm" fontWeight="medium">{field.label}</Text>
+              </Checkbox>
+            ))}
+          </VStack>
+        )}
+        {groupSummaryFields.length > 0 && (
+          <Text fontSize="xs" color="blue.600" mt={3}>
+            ✓ Wybrano {groupSummaryFields.length} {groupSummaryFields.length === 1 ? 'pole' : 'pól'} do sumowania
+          </Text>
+        )}
+      </Box>
+
+      <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+        <Text fontSize="md" fontWeight="bold" mb={4}>
+          Pola do sumowania w całkowitym podsumowaniu
+        </Text>
+        <Text fontSize="sm" color="gray.600" mb={4}>
+          Wybierz pola które mają być sumowane w całkowitym podsumowaniu (grand total). Pozostaw puste aby nie sumować żadnych pól.
+        </Text>
+        {summableFields.length === 0 ? (
+          <Text fontSize="sm" color="gray.500">
+            Brak pól dostępnych do sumowania (dodaj pola typu ValueNet, ValueGross lub TotalVat z Summable=true)
+          </Text>
+        ) : (
+          <VStack spacing={2} align="stretch">
+            {summableFields.map((field) => (
+              <Checkbox
+                key={field.name}
+                isChecked={totalSummaryFields.includes(field.name)}
+                onChange={() => handleToggleTotalField(field.name)}
+              >
+                <Text fontSize="sm" fontWeight="medium">{field.label}</Text>
+              </Checkbox>
+            ))}
+          </VStack>
+        )}
+        {totalSummaryFields.length > 0 && (
+          <Text fontSize="xs" color="blue.600" mt={3}>
+            ✓ Wybrano {totalSummaryFields.length} {totalSummaryFields.length === 1 ? 'pole' : 'pól'} do sumowania
+          </Text>
+        )}
+      </Box>
+    </VStack>
+  );
+}

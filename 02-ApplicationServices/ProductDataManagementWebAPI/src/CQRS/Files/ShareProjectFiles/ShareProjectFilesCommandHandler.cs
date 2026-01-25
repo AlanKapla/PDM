@@ -6,7 +6,7 @@ using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationTypeDto = Business.Interfaces.DTO.NotificationType;
 

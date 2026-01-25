@@ -4,7 +4,7 @@ using Entities.Enums;
 using Entities.Models;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.DeleteProjectFile
