@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+﻿import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -523,7 +523,7 @@ export const CostEstimateEditor: React.FC = () => {
           </Box>
         </HStack>
 
-        <HStack spacing={3}>
+        <HStack spacing={{ base: 2, md: 3 }}>
           {hasChanges && (
             <Badge colorScheme="orange" fontSize="sm" p={2}>
               Niezapisane zmiany

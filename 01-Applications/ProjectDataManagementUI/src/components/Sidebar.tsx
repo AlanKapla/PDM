@@ -31,10 +31,10 @@ import { getActiveInvitations } from "../services/tenantService";
 import { InvitationStatus } from "../types/auth.types";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
-export default function Sidebar() {
+// ===== SIDEBAR CONTENT COMPONENT =====
+export function SidebarContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [invitationsCount, setInvitationsCount] = useState(0);
 
@@ -64,12 +64,10 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
-  const bg = useColorModeValue("white", "gray.900");
-  const border = useColorModeValue("gray.200", "gray.700");
   const activeBg = useColorModeValue("blue.100", "blue.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
 
-  const SidebarContent = () => (
+  return (
     <VStack align="stretch" w="100%" spacing={2}>
       {/* Przełącz organizację */}
       <Button
@@ -168,6 +166,13 @@ export default function Sidebar() {
       </Button>
     </VStack>
   );
+}
+
+// ===== SIDEBAR COMPONENT =====
+export default function Sidebar() {
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const bg = useColorModeValue("white", "gray.900");
+  const border = useColorModeValue("gray.200", "gray.700");
 
   return (
     <>

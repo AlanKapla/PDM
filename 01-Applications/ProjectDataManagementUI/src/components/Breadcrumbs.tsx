@@ -131,21 +131,21 @@ export default function Breadcrumbs() {
 
   return (
     <Box 
-      px={{ base: 4, md: 10 }} 
-      py={3} 
+      px={{ base: 3, sm: 4, md: 10 }} 
+      py={{ base: 2, md: 3 }}
       borderBottom="1px solid" 
       borderColor={borderColor}
       bg={bgColor}
     >
-      <Breadcrumb spacing={2} separator={<ChevronRight size={16} />}>
+      <Breadcrumb spacing={1} separator={<ChevronRight size={14} />} fontSize={{ base: "xs", md: "sm" }}>
         {breadcrumbs.map((crumb, index) => (
           <BreadcrumbItem key={index} isCurrentPage={crumb.isCurrentPage}>
             {crumb.isCurrentPage ? (
-              <BreadcrumbLink fontWeight="semibold" color="blue.600">
+              <BreadcrumbLink fontWeight="semibold" color="blue.600" noOfLines={1}>
                 {crumb.label}
               </BreadcrumbLink>
             ) : (
-              <BreadcrumbLink as={Link} to={crumb.path}>
+              <BreadcrumbLink as={Link} to={crumb.path} noOfLines={1}>
                 {crumb.label}
               </BreadcrumbLink>
             )}

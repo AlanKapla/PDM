@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+﻿import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -16,6 +16,7 @@ import {
   TabPanels,
   Tab,
   TabPanel,
+  useMediaQuery,
 } from "@chakra-ui/react";
 import { Calendar, Clock, User } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -45,18 +46,19 @@ interface ScheduleTabProps {
   renderSchedulesList: (schedules: WorkScheduleSummaryWeb[]) => JSX.Element;
   onOpen: () => void;
   resourcePerms: ResourcePermissions;
+  isMobile: boolean;
 }
 
 // Komponent dla tabu "Moje harmonogramy"
-const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms }) => {
+const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms, isMobile }) => {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie harmonogramów..." />;
   }
 
   return (
-    <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
+    <VStack spacing={isMobile ? 3 : 4} align="stretch">
+      <HStack justify="space-between" flexWrap="wrap" gap={2}>
+        <Text fontSize={isMobile ? "xs" : "sm"} color="gray.600">
           Twoje harmonogramy w projekcie
         </Text>
         {resourcePerms.mine.canCreate && (
@@ -64,6 +66,10 @@ const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesLis
             leftIcon={<Calendar size={18} />}
             colorScheme="purple"
             onClick={onOpen}
+            size={isMobile ? "sm" : "md"}
+            whiteSpace="normal"
+            height="auto"
+            py={2}
           >
             Utwórz harmonogram
           </Button>
@@ -75,15 +81,15 @@ const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesLis
 });
 
 // Komponent dla tabu "Wszystkie harmonogramy"
-const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms }) => {
+const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms, isMobile }) => {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie harmonogramów..." />;
   }
 
   return (
-    <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
+    <VStack spacing={isMobile ? 3 : 4} align="stretch">
+      <HStack justify="space-between" flexWrap="wrap" gap={2}>
+        <Text fontSize={isMobile ? "xs" : "sm"} color="gray.600">
           Wszystkie harmonogramy w projekcie (admin)
         </Text>
         {resourcePerms.all.canCreate && (
@@ -91,6 +97,10 @@ const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesLi
             leftIcon={<Calendar size={18} />}
             colorScheme="purple"
             onClick={onOpen}
+            size={isMobile ? "sm" : "md"}
+            whiteSpace="normal"
+            height="auto"
+            py={2}
           >
             Utwórz harmonogram
           </Button>
@@ -107,6 +117,7 @@ export default function ProjectSchedules() {
   const { user } = useContext(AuthContext);
   const { showError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const [isMobile] = useMediaQuery("(max-width: 768px)");
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
@@ -229,12 +240,12 @@ export default function ProjectSchedules() {
     }
 
     return (
-      <VStack spacing={4} align="stretch">
+      <VStack spacing={isMobile ? 2 : 4} align="stretch">
         {schedules.map((schedule) => (
           <Box
             key={schedule.id}
             bg={cardBg}
-            p={6}
+            p={isMobile ? 3 : 6}
             borderWidth="1px"
             borderColor={borderColor}
             rounded="lg"
@@ -244,16 +255,20 @@ export default function ProjectSchedules() {
             onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
             shadow="sm"
           >
-            <VStack align="flex-start" spacing={3}>
-              <Text fontWeight="bold" fontSize="xl">{schedule.name}</Text>
-              <HStack spacing={6} fontSize="sm" color="gray.600">
-                <HStack spacing={2}>
-                  <Icon as={User} boxSize={4} />
-                  <Text>{schedule.createdByUserName}</Text>
+            <VStack align="flex-start" spacing={isMobile ? 1.5 : 3}>
+              <Text fontWeight="bold" fontSize={isMobile ? "md" : "xl"} noOfLines={2}>
+                {schedule.name}
+              </Text>
+              <HStack spacing={isMobile ? 3 : 6} fontSize={isMobile ? "9px" : "sm"} color="gray.600" flexWrap="wrap">
+                <HStack spacing={1} minW="0">
+                  <Icon as={User} boxSize={isMobile ? 3 : 4} flexShrink={0} />
+                  <Text noOfLines={1} fontSize={isMobile ? "9px" : "sm"}>
+                    {schedule.createdByUserName}
+                  </Text>
                 </HStack>
-                <HStack spacing={2}>
-                  <Icon as={Clock} boxSize={4} />
-                  <Text>{formatDate(schedule.createdAt)}</Text>
+                <HStack spacing={1}>
+                  <Icon as={Clock} boxSize={isMobile ? 3 : 4} flexShrink={0} />
+                  <Text fontSize={isMobile ? "9px" : "sm"}>{formatDate(schedule.createdAt)}</Text>
                 </HStack>
               </HStack>
             </VStack>
@@ -266,7 +281,7 @@ export default function ProjectSchedules() {
   if (loading) {
     return (
       <MainLayout>
-        <Box p={{ base: 4, md: 10 }} minH="100vh">
+        <Box p={isMobile ? 2 : 10} minH="100vh">
           <LoadingSpinner message="Ładowanie harmonogramów..." />
         </Box>
       </MainLayout>
@@ -275,19 +290,30 @@ export default function ProjectSchedules() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
-          <HStack spacing={3}>
-            <Icon as={Calendar} boxSize={8} color="purple.600" />
-            <VStack align="flex-start" spacing={0}>
-              <Heading size="lg">Harmonogramy prac</Heading>
-              {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
+      <Box p={isMobile ? 2 : 10} minH="100vh">
+        <HStack 
+          justify="space-between" 
+          mb={isMobile ? 4 : 8} 
+          flexDirection={isMobile ? "column" : "row"}
+          align={isMobile ? "flex-start" : "center"}
+          spacing={isMobile ? 2 : 4}
+          width="100%"
+        >
+          <HStack spacing={isMobile ? 2 : 3} align="flex-start">
+            <Icon as={Calendar} boxSize={isMobile ? 6 : 8} color="purple.600" flexShrink={0} />
+            <VStack align="flex-start" spacing={isMobile ? 0.5 : 1}>
+              <Heading size={isMobile ? "md" : "lg"}>Harmonogramy prac</Heading>
+              {project && (
+                <Text fontSize={isMobile ? "9px" : "sm"} color="gray.600" noOfLines={1}>
+                  {project.name}
+                </Text>
+              )}
             </VStack>
           </HStack>
         </HStack>
 
         {(!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) ? (
-          <Box p={8} textAlign="center">
+          <Box p={isMobile ? 2 : 8} textAlign="center">
             <EmptyState
               icon={Calendar}
               title="Brak dostępu"
@@ -295,23 +321,31 @@ export default function ProjectSchedules() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex}>
-            <TabList>
+          <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex} isLazy>
+            <TabList overflowX={isMobile ? "auto" : "visible"} pb={isMobile ? 2 : 0}>
               {resourcePerms.tabs.showAll && (
-                <Tab fontWeight="bold">
-                  <HStack spacing={2}>
-                    <Icon as={Calendar} boxSize={4} />
-                    <Text>Wszystkie harmonogramy</Text>
-                    <Badge colorScheme="purple" ml={2}>{allSchedulesCache.data?.length || 0}</Badge>
+                <Tab fontWeight="bold" fontSize={isMobile ? "xs" : "md"} px={isMobile ? 2 : 4} py={isMobile ? 2 : 4}>
+                  <HStack spacing={isMobile ? 1 : 2} minW="0">
+                    <Icon as={Calendar} boxSize={isMobile ? 3 : 4} flexShrink={0} />
+                    <Text whiteSpace="nowrap" fontSize={isMobile ? "xs" : "md"}>
+                      {isMobile ? "Wszystkie" : "Wszystkie harmonogramy"}
+                    </Text>
+                    <Badge colorScheme="purple" fontSize={isMobile ? "7px" : "xs"}>
+                      {allSchedulesCache.data?.length || 0}
+                    </Badge>
                   </HStack>
                 </Tab>
               )}
               {resourcePerms.tabs.showMine && (
-                <Tab fontWeight="bold">
-                  <HStack spacing={2}>
-                    <Icon as={Calendar} boxSize={4} />
-                    <Text>Moje harmonogramy</Text>
-                    <Badge colorScheme="blue" ml={2}>{mySchedulesCache.data?.length || 0}</Badge>
+                <Tab fontWeight="bold" fontSize={isMobile ? "xs" : "md"} px={isMobile ? 2 : 4} py={isMobile ? 2 : 4}>
+                  <HStack spacing={isMobile ? 1 : 2} minW="0">
+                    <Icon as={Calendar} boxSize={isMobile ? 3 : 4} flexShrink={0} />
+                    <Text whiteSpace="nowrap" fontSize={isMobile ? "xs" : "md"}>
+                      {isMobile ? "Moje" : "Moje harmonogramy"}
+                    </Text>
+                    <Badge colorScheme="blue" fontSize={isMobile ? "7px" : "xs"}>
+                      {mySchedulesCache.data?.length || 0}
+                    </Badge>
                   </HStack>
                 </Tab>
               )}
@@ -319,22 +353,24 @@ export default function ProjectSchedules() {
 
             <TabPanels>
               {resourcePerms.tabs.showAll && (
-                <TabPanel>
+                <TabPanel p={isMobile ? 2 : 4}>
                   <AllSchedulesTab
                     cache={allSchedulesCache}
                     renderSchedulesList={renderSchedulesList}
                     onOpen={onOpen}
                     resourcePerms={resourcePerms}
+                    isMobile={isMobile}
                   />
                 </TabPanel>
               )}
               {resourcePerms.tabs.showMine && (
-                <TabPanel>
+                <TabPanel p={isMobile ? 2 : 4}>
                   <MySchedulesTab
                     cache={mySchedulesCache}
                     renderSchedulesList={renderSchedulesList}
                     onOpen={onOpen}
                     resourcePerms={resourcePerms}
+                    isMobile={isMobile}
                   />
                 </TabPanel>
               )}
