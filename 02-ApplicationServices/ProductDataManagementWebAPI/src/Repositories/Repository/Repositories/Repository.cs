@@ -117,7 +117,13 @@ public class Repository<T> : IRepository<T> where T : class
             .ToHashSetAsync(cancellationToken);
     }
 
-    // Bulk operations without loading entities into memory
+    /// <summary>
+    /// Executes a bulk delete operation directly in the database without loading entities into memory.
+    /// Uses EF Core's ExecuteDeleteAsync for optimal performance.
+    /// </summary>
+    /// <param name="predicate">Filter expression to identify entities to delete</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Number of entities deleted</returns>
     public async Task<int> ExecuteDeleteAsync(
         Expression<Func<T, bool>> predicate,
         CancellationToken cancellationToken = default)
