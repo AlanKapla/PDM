@@ -90,39 +90,19 @@ jobs:
 
           Write-Host "🗄️ Running migration on: $serverName / $databaseName"
 
-          $connectionString = "Server=tcp:${serverName},1433;Initial Catalog=${databaseName};Encrypt=True;TrustServerCertificate=False;Connection Timeout=60;"
+          # Instalacja modułu SqlServer (zawiera Invoke-Sqlcmd z obsługą Azure AD)
+          Install-Module -Name SqlServer -Force -AllowClobber -Scope CurrentUser
 
-          $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
-          $connection.AccessToken = $token
+          Invoke-Sqlcmd `
+            -ServerInstance $serverName `
+            -Database $databaseName `
+            -AccessToken $token `
+            -InputFile $scriptPath `
+            -QueryTimeout 120 `
+            -ErrorAction Stop `
+            -Verbose
 
-          try {
-            $connection.Open()
-            Write-Host "✅ Connected to database"
-
-            $sqlScript = Get-Content $scriptPath -Raw
-
-            # Podział skryptu na partie po instrukcji GO
-            $batches = $sqlScript -split '(?m)^\s*GO\s*$' | Where-Object { $_.Trim() -ne '' }
-            Write-Host "📦 Found $($batches.Count) SQL batches to execute"
-
-            $batchNum = 0
-            foreach ($batch in $batches) {
-              $batchNum++
-              $command = $connection.CreateCommand()
-              $command.CommandText = $batch
-              $command.CommandTimeout = 120
-              $command.ExecuteNonQuery() | Out-Null
-            }
-
-            Write-Host "✅ Migration completed successfully ($batchNum batches executed)"
-          }
-          catch {
-            Write-Host "❌ Migration FAILED: $($_.Exception.Message)"
-            exit 1
-          }
-          finally {
-            $connection.Close()
-          }
+          Write-Host "✅ Migration completed successfully"
 
   build-and-deploy-api:
     runs-on: ubuntu-latest
