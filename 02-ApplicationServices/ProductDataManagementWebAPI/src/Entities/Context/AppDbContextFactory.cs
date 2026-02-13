@@ -30,6 +30,7 @@ namespace Entities.Context
                     configuration = new ConfigurationBuilder()
                         .SetBasePath(basePath)
                         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+                        .AddEnvironmentVariables()
                         .Build();
                     workingPath = basePath;
                     break;
