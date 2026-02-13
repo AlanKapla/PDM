@@ -604,6 +604,12 @@ export default function CreateCustomTemplateModal({
     handleSubmit();
   };
 
+  // Potwierdzenie zapisu zatwierdzonej wersji — zamyka dialog potwierdzenia i uruchamia zapis
+  const confirmSaveApprovedVersion = () => {
+    onConfirmSaveClose();
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
 

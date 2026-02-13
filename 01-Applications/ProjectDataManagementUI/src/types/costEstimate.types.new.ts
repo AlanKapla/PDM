@@ -57,6 +57,8 @@ export interface CostEstimateFieldValueDto {
   decimalValue?: number;
   boolValue?: boolean;
   dateTimeValue?: string;  // ISO 8601 format
+  /** Alias dla stringValue — używany w edytorze jako generyczna wartość tekstowa */
+  value?: string;
 }
 
 // Alias dla kompatybilności - grupy używają tego samego DTO
@@ -192,6 +194,7 @@ export interface CostEstimateDetailsWeb {
   projectId: string;
   templateId: string;
   templateName: string;
+  templateVersionNumber?: number;
   selectedCurrencyId: string;
   selectedCurrencyCode: string;
   selectedCurrencySymbol?: string;

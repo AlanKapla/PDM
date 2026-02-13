@@ -65,6 +65,15 @@ export interface CostEstimateTemplateListItem {
   ownerName: string;
 }
 
+export interface CostEstimateTemplateVersionWeb {
+  id: string;
+  versionNumber: number;
+  status: number; // 0=Draft, 1=Approved
+  templateStructure: CostEstimateTemplateStructure;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface CostEstimateTemplateDetails {
   id: string;
   name: string;
@@ -79,7 +88,9 @@ export interface CostEstimateTemplateDetails {
   updatedAt?: string;
   ownerId: string;
   ownerName: string;
-  structure?: CostEstimateTemplateStructureWeb; // Struktura szablonu (bez wersjonowania)
+  structure?: CostEstimateTemplateStructureWeb;
+  /** Aktualnie wybrana wersja szablonu (jeśli backend wspiera wersjonowanie) */
+  selectedVersion?: CostEstimateTemplateVersionWeb;
 }
 
 /**
@@ -239,5 +250,12 @@ export const costEstimateTemplateApi = {
    */
   updateTemplate: async (id: string, data: UpdateCostEstimateTemplateRequest): Promise<void> => {
     await axiosClient.put(`/cost-estimate-template/${id}`, data);
+  },
+
+  /**
+   * Approve a template version
+   */
+  approveVersion: async (templateId: string, versionId: string): Promise<void> => {
+    await axiosClient.post(`/cost-estimate-template/${templateId}/versions/${versionId}/approve`);
   },
 };

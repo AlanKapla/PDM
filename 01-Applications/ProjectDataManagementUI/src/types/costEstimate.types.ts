@@ -191,6 +191,7 @@ export interface ColumnConfigurationWeb {
   fieldLabel: string;     // Etykieta wyświetlana
   fieldScope: number;     // FieldScope enum (0=GroupHeader, 1=System, 2=Calculated, 3=Generic)
   order: number;          // Kolejność
+  isVisible?: boolean;    // Czy kolumna jest widoczna w UI
 }
 
 export interface TemplateCurrencyWeb {
@@ -258,6 +259,7 @@ export interface CostEstimateTemplateDto {
   name: string;
   description?: string;
   currency?: string;
+  templateVersionNumber?: number;
   templateStructure: CostEstimateTemplateStructure;
   createdAt: string;
   updatedAt?: string;
