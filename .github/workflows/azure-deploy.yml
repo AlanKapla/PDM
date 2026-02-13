@@ -1,6 +1,6 @@
 name: Deploy to Azure
 
-run-name: "Deploy PDM → Azure → ${{ github.event.inputs.environment }} → branch ${{ github.ref_name }}"
+run-name: "Deploy PDM → ${{ github.event.inputs.environment }} → ${{ github.ref_name }} → ${{ github.event.head_commit.message || github.sha }}"
 
 on:
   workflow_dispatch:
@@ -42,13 +42,14 @@ jobs:
 
       - name: Generate idempotent SQL script
         working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/Entities
+        env:
+          ConnectionStrings__DefaultConnection: "Server=placeholder;Database=placeholder;"
         run: |
           dotnet ef migrations script \
             --idempotent \
             --output ${{ github.workspace }}/migration.sql \
             --startup-project ../WebApi \
-            --project . \
-            -- --connection "Server=placeholder"
+            --project .
           echo "=== Generated migration script ==="
           head -50 ${{ github.workspace }}/migration.sql
           echo "..."
@@ -287,10 +288,31 @@ jobs:
       name: azure-${{ github.event.inputs.environment }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Verify full stack
         shell: pwsh
         run: |
+          $commitSha = "${{ github.sha }}"
+          $commitShort = $commitSha.Substring(0, 7)
+          $commitMessage = git log -1 --format='%s' $commitSha
+          $commitAuthor = git log -1 --format='%an' $commitSha
+          $commitDate = git log -1 --format='%ai' $commitSha
+          $branch = "${{ github.ref_name }}"
+
           Write-Host "🎉 Deployment completed successfully!"
-          Write-Host "API URL: ${{ vars.API_URL }}"
-          Write-Host "UI URL: ${{ vars.FRONTEND_BASE_URL }}"
-          Write-Host "Environment: azure-${{ github.event.inputs.environment }}"
+          Write-Host ""
+          Write-Host "📋 Commit info:"
+          Write-Host "   SHA:     $commitShort"
+          Write-Host "   Message: $commitMessage"
+          Write-Host "   Author:  $commitAuthor"
+          Write-Host "   Date:    $commitDate"
+          Write-Host "   Branch:  $branch"
+          Write-Host ""
+          Write-Host "🌐 URLs:"
+          Write-Host "   API: ${{ vars.API_URL }}"
+          Write-Host "   UI:  ${{ vars.FRONTEND_BASE_URL }}"
+          Write-Host "   Env: azure-${{ github.event.inputs.environment }}"
