@@ -21,6 +21,8 @@ import {
   Briefcase,
   FileText,
   Settings,
+  RefreshCw,
+  Mail,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -29,10 +31,10 @@ import { getActiveInvitations } from "../services/tenantService";
 import { InvitationStatus } from "../types/auth.types";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
-export default function Sidebar() {
+// ===== SIDEBAR CONTENT COMPONENT =====
+export function SidebarContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [invitationsCount, setInvitationsCount] = useState(0);
 
@@ -62,29 +64,22 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
-  const bg = useColorModeValue("white", "gray.900");
-  const border = useColorModeValue("gray.200", "gray.700");
   const activeBg = useColorModeValue("blue.100", "blue.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
 
-  const SidebarContent = () => (
+  return (
     <VStack align="stretch" w="100%" spacing={2}>
-      {/* Organizacje */}
+      {/* Przełącz organizację */}
       <Button
         variant="ghost"
         justifyContent="flex-start"
-        leftIcon={<Building2 size={20} />}
+        leftIcon={<RefreshCw size={20} />}
         w="100%"
-        bg={location.pathname.startsWith("/tenants") ? activeBg : "transparent"}
+        bg={location.pathname === "/tenants/collaborating" ? activeBg : "transparent"}
         _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/tenants")}
+        onClick={() => navigate("/tenants/collaborating")}
       >
-        Organizacje
-        {invitationsCount > 0 && (
-          <Badge colorScheme="red" borderRadius="full" fontSize="xs" ml="auto">
-            {invitationsCount}
-          </Badge>
-        )}
+        Przełącz organizację
       </Button>
 
       {/* Projekty */}
@@ -98,6 +93,37 @@ export default function Sidebar() {
         onClick={() => navigate("/projects")}
       >
         Projekty
+      </Button>
+
+      {/* Zarządzaj organizacjami */}
+      <Button
+        variant="ghost"
+        justifyContent="flex-start"
+        leftIcon={<Building2 size={20} />}
+        w="100%"
+        bg={location.pathname === "/tenants/managed" ? activeBg : "transparent"}
+        _hover={{ bg: hoverBg }}
+        onClick={() => navigate("/tenants/managed")}
+      >
+        Zarządzanie
+      </Button>
+
+      {/* Zaproszenia do organizacji */}
+      <Button
+        variant="ghost"
+        justifyContent="flex-start"
+        leftIcon={<Mail size={20} />}
+        w="100%"
+        bg={location.pathname === "/tenants/invitations" ? activeBg : "transparent"}
+        _hover={{ bg: hoverBg }}
+        onClick={() => navigate("/tenants/invitations")}
+      >
+        Zaproszenia
+        {invitationsCount > 0 && (
+          <Badge colorScheme="red" borderRadius="full" fontSize="xs" ml="auto">
+            {invitationsCount}
+          </Badge>
+        )}
       </Button>
 
       {/* Zaplanowane prace */}
@@ -140,6 +166,13 @@ export default function Sidebar() {
       </Button>
     </VStack>
   );
+}
+
+// ===== SIDEBAR COMPONENT =====
+export default function Sidebar() {
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const bg = useColorModeValue("white", "gray.900");
+  const border = useColorModeValue("gray.200", "gray.700");
 
   return (
     <>

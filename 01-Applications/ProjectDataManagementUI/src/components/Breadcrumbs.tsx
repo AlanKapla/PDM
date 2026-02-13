@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { projectApi } from "../api/projectApi";
+import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
 import { useAuth } from "../context/AuthContext";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
@@ -18,6 +19,7 @@ export default function Breadcrumbs() {
   const { user } = useAuth();
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbSegment[]>([]);
   const [projectName, setProjectName] = useState<string>("");
+  const [templateName, setTemplateName] = useState<string>("");
 
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const bgColor = useColorModeValue("white", "gray.800");
@@ -32,7 +34,17 @@ export default function Breadcrumbs() {
     }
   );
 
+  // Globalny cache dla template details
+  const templateDetailsCache = useGlobalCache(
+    `template-details-${params.templateId}`,
+    async () => {
+      if (!params.templateId) throw new Error('Missing template ID');
+      return await costEstimateTemplateApi.getTemplateDetails(params.templateId);
+    }
+  );
+
   // Pobierz nazwę projektu jeśli jest w URL
+  // useGlobalCache zapobiega duplikacji requestów - jeśli cache istnieje, zwraca z cache
   useEffect(() => {
     const fetchProjectName = async () => {
       if (params.projectId && user?.activeTenantId) {
@@ -51,6 +63,25 @@ export default function Breadcrumbs() {
     fetchProjectName();
   }, [params.projectId, user?.activeTenantId]);
 
+  // Pobierz nazwę szablonu jeśli jest w URL
+  useEffect(() => {
+    const fetchTemplateName = async () => {
+      if (params.templateId) {
+        try {
+          const templateDetails = await templateDetailsCache.fetch();
+          setTemplateName(templateDetails.name);
+        } catch (error) {
+          console.error("Błąd pobierania nazwy szablonu:", error);
+          setTemplateName("");
+        }
+      } else {
+        setTemplateName("");
+      }
+    };
+
+    fetchTemplateName();
+  }, [params.templateId]);
+
   // Generuj breadcrumbs po załadowaniu nazwy projektu
   useEffect(() => {
     const generateBreadcrumbs = () => {
@@ -61,14 +92,12 @@ export default function Breadcrumbs() {
 
       // Mapowanie ścieżek
       if (pathSegments[0] === "tenants") {
-        segments.push({ label: "Organizacje", path: "/tenants" });
-        
         if (pathSegments[1] === "invitations") {
-          segments.push({ label: "Aktywne zaproszenia", path: "/tenants/invitations", isCurrentPage: true });
+          segments.push({ label: "Zaproszenia", path: "/tenants/invitations", isCurrentPage: true });
         } else if (pathSegments[1] === "collaborating") {
-          segments.push({ label: "Z którymi współpracujesz", path: "/tenants/collaborating", isCurrentPage: true });
+          segments.push({ label: "Przełącz organizację", path: "/tenants/collaborating", isCurrentPage: true });
         } else if (pathSegments[1] === "managed") {
-          segments.push({ label: "Którymi zarządzasz", path: "/tenants/managed", isCurrentPage: true });
+          segments.push({ label: "Zarządzaj", path: "/tenants/managed", isCurrentPage: true });
         } else if (params.tenantId) {
           segments.push({ label: "Szczegóły organizacji", path: `/tenants/${params.tenantId}`, isCurrentPage: true });
         }
@@ -108,7 +137,26 @@ export default function Breadcrumbs() {
       } else if (pathSegments[0] === "assigned-works") {
         segments.push({ label: "Zaplanowane prace", path: "/assigned-works", isCurrentPage: true });
       } else if (pathSegments[0] === "cost-estimate-templates") {
-        segments.push({ label: "Szablony kosztorysów", path: "/cost-estimate-templates", isCurrentPage: true });
+        segments.push({ label: "Szablony kosztorysów", path: "/cost-estimate-templates" });
+        
+        if (params.templateId) {
+          const templateLabel = templateName || "Szablon";
+          
+          if (pathSegments[2] === "versions") {
+            segments.push({ label: templateLabel, path: `/cost-estimate-templates/${params.templateId}/edit` });
+            segments.push({ label: "Historia wersji", path: `/cost-estimate-templates/${params.templateId}/versions`, isCurrentPage: true });
+          } else if (pathSegments[2] === "edit") {
+            segments.push({ label: templateLabel, path: `/cost-estimate-templates/${params.templateId}/edit`, isCurrentPage: true });
+          } else if (pathSegments[1] === "new") {
+            segments.push({ label: "Nowy szablon", path: "/cost-estimate-templates/new", isCurrentPage: true });
+          } else {
+            segments[segments.length - 1].isCurrentPage = true;
+          }
+        } else if (pathSegments[1] === "new") {
+          segments.push({ label: "Nowy szablon", path: "/cost-estimate-templates/new", isCurrentPage: true });
+        } else {
+          segments[segments.length - 1].isCurrentPage = true;
+        }
       } else if (pathSegments[0] === "profile") {
         segments.push({ label: "Ustawienia", path: "/profile", isCurrentPage: true });
       } else if (pathSegments[0] === "dashboard") {
@@ -119,29 +167,38 @@ export default function Breadcrumbs() {
     };
 
     generateBreadcrumbs();
-  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, projectName]);
+  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, params.templateId, projectName, templateName]);
 
   if (breadcrumbs.length <= 1) {
     return null;
   }
 
+  // Nie renderuj breadcrumbs dopóki nazwa projektu/szablonu się nie załaduje
+  if (params.projectId && !projectName && projectDetailsCache.loading) {
+    return null;
+  }
+  
+  if (params.templateId && !templateName && templateDetailsCache.loading) {
+    return null;
+  }
+
   return (
     <Box 
-      px={{ base: 4, md: 10 }} 
-      py={3} 
+      px={{ base: 3, sm: 4, md: 10 }} 
+      py={{ base: 2, md: 3 }}
       borderBottom="1px solid" 
       borderColor={borderColor}
       bg={bgColor}
     >
-      <Breadcrumb spacing={2} separator={<ChevronRight size={16} />}>
+      <Breadcrumb spacing={1} separator={<ChevronRight size={14} />} fontSize={{ base: "xs", md: "sm" }}>
         {breadcrumbs.map((crumb, index) => (
           <BreadcrumbItem key={index} isCurrentPage={crumb.isCurrentPage}>
             {crumb.isCurrentPage ? (
-              <BreadcrumbLink fontWeight="semibold" color="blue.600">
+              <BreadcrumbLink fontWeight="semibold" color="blue.600" noOfLines={1}>
                 {crumb.label}
               </BreadcrumbLink>
             ) : (
-              <BreadcrumbLink as={Link} to={crumb.path}>
+              <BreadcrumbLink as={Link} to={crumb.path} noOfLines={1}>
                 {crumb.label}
               </BreadcrumbLink>
             )}

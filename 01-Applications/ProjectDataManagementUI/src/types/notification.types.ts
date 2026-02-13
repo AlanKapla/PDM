@@ -1,4 +1,4 @@
-export const NotificationType = {
+﻿export const NotificationType = {
   Info: 0,
   Success: 1,
   Warning: 2,
@@ -20,6 +20,11 @@ export interface NotificationWeb {
   createdAt: string;
   readed: boolean;
   metadata?: Record<string, any> | null;
+}
+
+export interface NotificationPayloadDto {
+  notification: NotificationWeb;
+  unreadNotificationCounter: number;
 }
 
 export interface NotificationMarkAsReadDto {

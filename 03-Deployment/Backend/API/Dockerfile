@@ -12,7 +12,7 @@ WORKDIR /src
 COPY src/Business/Business.csproj src/Business/
 COPY src/CQRS/CQRS.csproj src/CQRS/
 COPY src/Entities/Entities.csproj src/Entities/
-COPY src/Repositiories/Repositiories.csproj src/Repositiories/
+COPY src/Repositories/Repositories.csproj src/Repositories/
 COPY src/WebApi/WebApi.csproj src/WebApi/
 
 RUN dotnet restore "src/WebApi/WebApi.csproj"

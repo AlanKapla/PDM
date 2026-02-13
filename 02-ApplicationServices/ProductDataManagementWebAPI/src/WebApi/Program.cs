@@ -11,6 +11,18 @@ internal class Program
 
         var builder = WebApplication.CreateBuilder(args);
 
+        // Set Azure environment variables in Development mode
+        if (builder.Environment.IsDevelopment())
+        {
+            var azureConfig = builder.Configuration.GetSection("Azure");
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+            Environment.SetEnvironmentVariable("AZURE_CLIENT_ID", azureConfig["ClientId"]);
+            Environment.SetEnvironmentVariable("AZURE_TENANT_ID", azureConfig["TenantId"]);
+            Environment.SetEnvironmentVariable("AZURE_CLIENT_SECRET", azureConfig["ClientSecret"]);
+            Environment.SetEnvironmentVariable("CONNECTIONSTRINGS__DEFAULTCONNECTION", connectionString);
+        }
+
         // Konfiguracja Kestrel - zwiększenie limitów dla upload plików
         builder.WebHost.ConfigureKestrel(options =>
         {

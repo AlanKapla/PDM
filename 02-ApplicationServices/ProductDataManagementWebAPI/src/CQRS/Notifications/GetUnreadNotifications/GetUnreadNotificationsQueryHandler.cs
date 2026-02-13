@@ -1,10 +1,10 @@
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Notifications;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using System.Text.Json;
 using EntityNotificationType = Entities.Models.NotificationType;
 using DtoNotificationType = Business.Interfaces.DTO.NotificationType;
@@ -31,6 +31,8 @@ namespace CQRS.Notifications.GetUnreadNotifications
 
             List<NotificationWeb> items = notifications
                 .OrderByDescending(n => n.CreatedAt)
+                .Skip(request.Skip)
+                .Take(request.Take)
                 .Select(n => new NotificationWeb(
                     n.Id,
                     n.TenantId,

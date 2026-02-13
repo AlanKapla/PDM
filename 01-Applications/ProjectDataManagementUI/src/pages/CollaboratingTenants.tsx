@@ -61,8 +61,8 @@ export default function CollaboratingTenants() {
       if (success) {
         setActiveTenantId(newTenantId);
         toast({
-          title: "Organizacja zmieniona",
-          description: "Aktywna organizacja została zaktualizowana",
+          title: "Organizacja przełączona",
+          description: "Organizacja została pomyślnie przełączona",
           status: "success",
           duration: 3000,
           isClosable: true,
@@ -73,8 +73,8 @@ export default function CollaboratingTenants() {
         }, 1000);
       } else {
         toast({
-          title: "Błąd zmiany organizacji",
-          description: "Nie udało się zmienić aktywnej organizacji",
+          title: "Błąd przełączania organizacji",
+          description: "Nie udało się przełączyć organizacji",
           status: "error",
           duration: 3000,
           isClosable: true,
@@ -158,7 +158,7 @@ export default function CollaboratingTenants() {
                           {tenant.id === activeTenantId && (
                             <Badge colorScheme="blue" display="flex" alignItems="center" gap={1} alignSelf={{ base: "flex-start", md: "center" }} ml={{ base: 6, md: 0 }}>
                               <CheckCircle2 size={14} />
-                              Aktywny
+                              Włączona
                             </Badge>
                           )}
                         </Stack>
@@ -171,7 +171,7 @@ export default function CollaboratingTenants() {
                   <HStack mt={4} spacing={2}>
                     <Spinner size="sm" />
                     <Text fontSize="sm" color="gray.500">
-                      Zmiana aktywnej organizacji...
+                      Przełączanie organizacji...
                     </Text>
                   </HStack>
                 )}

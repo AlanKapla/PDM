@@ -3,11 +3,11 @@ using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.WorkSchedules;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
-using Repositiories.Repository.Interfaces;
 using CQRS.WorkSchedules.Shared;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -21,6 +21,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepo;
         private readonly IReadRepository<User> userRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -31,6 +32,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepo,
             IRepository<WorkScheduleStageWorkComment> commentRepo,
             IReadRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
         {
@@ -40,6 +42,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             this.assignmentRepo = assignmentRepo;
             this.commentRepo = commentRepo;
             this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
         }
@@ -512,7 +515,8 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                         }
                     };
 
-                    await notificationSender.EnqueueAsync(notification, cancellationToken);
+                    var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                    await notificationSender.EnqueueAsync(payload, cancellationToken);
                 }
 
                 foreach (Guid userId in addedUserIds)
@@ -541,7 +545,8 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                         }
                     };
 
-                    await notificationSender.EnqueueAsync(notification, cancellationToken);
+                    var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                    await notificationSender.EnqueueAsync(payload, cancellationToken);
                 }
             }
 

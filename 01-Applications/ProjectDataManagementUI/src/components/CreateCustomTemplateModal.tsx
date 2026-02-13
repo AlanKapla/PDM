@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -34,6 +34,18 @@ import {
   Collapse,
   useDisclosure,
   Icon,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from "@chakra-ui/react";
 import {
   Plus,
@@ -51,6 +63,11 @@ import {
   Layers,
   GripVertical,
   Layout,
+  Check,
+  History,
+  Eye,
+  DollarSign,
+  Ruler,
 } from "lucide-react";
 import type {
   CalculatedFieldDefinition,
@@ -64,57 +81,58 @@ import type {
   CrossFieldValidationRule,
 } from "../types/costEstimate.types";
 import {
+  FieldType,
+  FieldScope,
+  SummaryScope,
   CalculatedFieldType,
   GenericFieldType,
-  SummaryScope,
   GroupHeaderFieldType,
 } from "../types/costEstimate.types";
+import { fieldTypeLabels, convertFieldTypeToLegacy } from "../utils/fieldTypeLabels";
 import { getDefaultGroupHeaderLabel } from "./FieldRenderer";
+import type { CostEstimateTemplateDetails } from "../api/costEstimateTemplateApi";
+import { CostEstimateExcelView } from "./CostEstimateExcelView";
+import type { CostEstimateDataModel, CostEstimateGroup, CostEstimateWorkScope, CostEstimateTemplateDto, CostEstimateCollectionItem } from "../types/costEstimate.types";
+import { calculateWorkScope } from "../utils/calculationEngine";
 
 interface CreateCustomTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTemplateCreated: () => void;
-  existingTemplate?: {
-    id: string;
-    name: string;
-    description?: string;
-    templateStructure: CostEstimateTemplateStructure;
-  };
+  existingTemplate?: CostEstimateTemplateDetails;
 }
 
 const calculatedFieldTypeLabels: Record<CalculatedFieldType, string> = {
-  [CalculatedFieldType.UnitPriceNet]: "Cena jednostkowa netto",
-  [CalculatedFieldType.VatRate]: "Stawka VAT",
-  [CalculatedFieldType.UnitPriceGross]: "Cena jednostkowa brutto",
-  [CalculatedFieldType.Quantity]: "Ilość",
-  [CalculatedFieldType.ValueNet]: "Wartość netto",
-  [CalculatedFieldType.ValueGross]: "Wartość brutto",
-  [CalculatedFieldType.UnitVat]: "VAT jednostkowy",
-  [CalculatedFieldType.TotalVat]: "VAT całkowity",
+  [CalculatedFieldType.UnitPriceNet]: fieldTypeLabels[FieldType.ItemCalculatedUnitPriceNet],
+  [CalculatedFieldType.VatRate]: fieldTypeLabels[FieldType.ItemCalculatedVatRate],
+  [CalculatedFieldType.UnitPriceGross]: fieldTypeLabels[FieldType.ItemCalculatedUnitPriceGross],
+  [CalculatedFieldType.ValueNet]: fieldTypeLabels[FieldType.ItemCalculatedValueNet],
+  [CalculatedFieldType.ValueGross]: fieldTypeLabels[FieldType.ItemCalculatedValueGross],
+  [CalculatedFieldType.UnitVat]: fieldTypeLabels[FieldType.ItemCalculatedUnitVat],
+  [CalculatedFieldType.TotalVat]: fieldTypeLabels[FieldType.ItemCalculatedTotalVat],
 };
 
 const genericFieldTypeLabels: Record<GenericFieldType, string> = {
-  [GenericFieldType.Integer]: "Liczba całkowita",
-  [GenericFieldType.Decimal]: "Liczba dziesiętna",
-  [GenericFieldType.String]: "Tekst",
-  [GenericFieldType.Boolean]: "Tak/Nie",
-  [GenericFieldType.Date]: "Data",
-  [GenericFieldType.DateTime]: "Data i czas",
-  [GenericFieldType.Collection]: "Kolekcja pól",
+  [GenericFieldType.Integer]: fieldTypeLabels[FieldType.ItemGenericInteger],
+  [GenericFieldType.Decimal]: fieldTypeLabels[FieldType.ItemGenericDecimal],
+  [GenericFieldType.String]: fieldTypeLabels[FieldType.ItemGenericString],
+  [GenericFieldType.Boolean]: fieldTypeLabels[FieldType.ItemGenericBoolean],
+  [GenericFieldType.Date]: fieldTypeLabels[FieldType.ItemGenericDate],
+  [GenericFieldType.DateTime]: fieldTypeLabels[FieldType.ItemGenericDateTime],
+  [GenericFieldType.Collection]: 'Kolekcja',
 };
 
 const groupHeaderFieldTypeLabels: Record<GroupHeaderFieldType, string> = {
-  [GroupHeaderFieldType.GroupName]: "Nazwa grupy",
-  [GroupHeaderFieldType.GroupDescription]: "Opis grupy",
-  [GroupHeaderFieldType.GroupNumber]: "Numer grupy",
-  [GroupHeaderFieldType.StartDate]: "Data rozpoczęcia",
-  [GroupHeaderFieldType.EndDate]: "Data zakończenia",
-  [GroupHeaderFieldType.Status]: "Status",
-  [GroupHeaderFieldType.Notes]: "Uwagi",
-  [GroupHeaderFieldType.Responsible]: "Odpowiedzialny",
-  [GroupHeaderFieldType.Budget]: "Budżet",
-  [GroupHeaderFieldType.Priority]: "Priorytet",
+  [GroupHeaderFieldType.GroupName]: fieldTypeLabels[FieldType.GroupName],
+  [GroupHeaderFieldType.GroupDescription]: fieldTypeLabels[FieldType.GroupDescription],
+  [GroupHeaderFieldType.GroupNumber]: fieldTypeLabels[FieldType.GroupNumber],
+  [GroupHeaderFieldType.StartDate]: fieldTypeLabels[FieldType.GroupStartDate],
+  [GroupHeaderFieldType.EndDate]: fieldTypeLabels[FieldType.GroupEndDate],
+  [GroupHeaderFieldType.Status]: fieldTypeLabels[FieldType.GroupStatus],
+  [GroupHeaderFieldType.Notes]: fieldTypeLabels[FieldType.GroupNotes],
+  [GroupHeaderFieldType.Responsible]: fieldTypeLabels[FieldType.GroupResponsible],
+  [GroupHeaderFieldType.Budget]: fieldTypeLabels[FieldType.GroupBudget],
+  [GroupHeaderFieldType.Priority]: fieldTypeLabels[FieldType.GroupPriority],
 };
 
 const summaryScopeLabels: Record<SummaryScope, string> = {
@@ -134,16 +152,23 @@ export default function CreateCustomTemplateModal({
   const [templateDescription, setTemplateDescription] = useState(existingTemplate?.description ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { isOpen: isConfirmSaveOpen, onOpen: onConfirmSaveOpen, onClose: onConfirmSaveClose } = useDisclosure();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // Preview state
+  const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
+  const [previewData, setPreviewData] = useState<CostEstimateDataModel | null>(null);
+
   // Template Structure State
-  const [canAddGroups, setCanAddGroups] = useState(existingTemplate?.templateStructure.canAddGroups ?? true);
-  const [canBranchGroups, setCanBranchGroups] = useState(existingTemplate?.templateStructure.canBranchGroups ?? true);
-  const [maxGroupLevel, setMaxGroupLevel] = useState<number | undefined>(existingTemplate?.templateStructure.maxGroupLevel);
+  const [canAddGroups, setCanAddGroups] = useState(existingTemplate?.selectedVersion?.templateStructure?.canAddGroups ?? true);
+  const [canBranchGroups, setCanBranchGroups] = useState(existingTemplate?.selectedVersion?.templateStructure?.canBranchGroups ?? true);
+  const [maxGroupLevel, setMaxGroupLevel] = useState<number | undefined>(existingTemplate?.selectedVersion?.templateStructure?.maxGroupLevel);
 
   // Group Definition State
-  const [groupAutoNumbered, setGroupAutoNumbered] = useState(existingTemplate?.templateStructure.groupDefinition.autoNumbered ?? true);
-  const [groupNumberFormat, setGroupNumberFormat] = useState(existingTemplate?.templateStructure.groupDefinition.numberFormat ?? "");
+  const [groupAutoNumbered, setGroupAutoNumbered] = useState(existingTemplate?.selectedVersion?.templateStructure?.groupDefinition?.autoNumbered ?? true);
+  const [groupNumberFormat, setGroupNumberFormat] = useState(existingTemplate?.selectedVersion?.templateStructure?.groupDefinition?.numberFormat ?? "");
   const [headerFields, setHeaderFields] = useState<GroupHeaderFieldDefinition[]>(
-    existingTemplate?.templateStructure.groupDefinition.headerFields ?? [
+    existingTemplate?.selectedVersion?.templateStructure?.groupDefinition?.headerFields ?? [
       {
         type: GroupHeaderFieldType.GroupName,
         required: true,
@@ -155,30 +180,232 @@ export default function CreateCustomTemplateModal({
   );
 
   // Work Scope Fields State
-  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>(
-    existingTemplate?.templateStructure.workScopeFieldsDefinition.calculatedFields ?? []
-  );
-  const [genericFields, setGenericFields] = useState<GenericFieldDefinition[]>(
-    existingTemplate?.templateStructure.workScopeFieldsDefinition.genericFields ?? []
-  );
-  const [validationRules, setValidationRules] = useState<CrossFieldValidationRule[]>(
-    existingTemplate?.templateStructure.workScopeFieldsDefinition.crossFieldValidationRules ?? []
-  );
+  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>([]);
+  const [genericFields, setGenericFields] = useState<GenericFieldDefinition[]>([]);
+  const [validationRules, setValidationRules] = useState<CrossFieldValidationRule[]>([]);
+
+  // Currencies and Units State
+  const [currencies, setCurrencies] = useState<Array<{ code: string; name: string; symbol?: string; isDefault: boolean; order: number }>>([]);
+  const [units, setUnits] = useState<Array<{ code: string; name: string; symbol: string; category?: string; isDefault: boolean; order: number }>>([]);
 
   // Summary Configuration State
-  const [showGroupSummary, setShowGroupSummary] = useState(existingTemplate?.templateStructure.summaryConfiguration?.showGroupSummary ?? true);
-  const [showTotalSummary, setShowTotalSummary] = useState(existingTemplate?.templateStructure.summaryConfiguration?.showTotalSummary ?? true);
-  const [groupSummaryFields, setGroupSummaryFields] = useState<string[]>(
-    existingTemplate?.templateStructure.summaryConfiguration?.groupSummaryFields ?? []
-  );
-  const [totalSummaryFields, setTotalSummaryFields] = useState<string[]>(
-    existingTemplate?.templateStructure.summaryConfiguration?.totalSummaryFields ?? []
-  );
+  const [showGroupSummary, setShowGroupSummary] = useState(true);
+  const [showTotalSummary, setShowTotalSummary] = useState(true);
+  const [groupSummaryFields, setGroupSummaryFields] = useState<string[]>([]);
+  const [totalSummaryFields, setTotalSummaryFields] = useState<string[]>([]);
 
   // UI Configuration State
-  const [columnLayout, setColumnLayout] = useState<string[]>(
-    existingTemplate?.templateStructure.uiConfiguration?.columnLayout ?? []
-  );
+  const [columnLayout, setColumnLayout] = useState<string[]>([]);
+
+  // Drag and drop state dla układu pól
+  const [draggedIndexLayout, setDraggedIndexLayout] = useState<number | null>(null);
+
+  // Update state when existingTemplate changes (e.g., after async load)
+  useEffect(() => {
+    if (existingTemplate) {
+      setTemplateName(existingTemplate.name);
+      setTemplateDescription(existingTemplate.description ?? "");
+
+      // Użyj structure z nowego API (bez wersjonowania)
+      if (existingTemplate.structure) {
+        const struct = existingTemplate.structure;
+        
+        // Update structure settings
+        setCanAddGroups(existingTemplate.canAddGroups ?? true);
+        setCanBranchGroups(existingTemplate.canBranchGroups ?? true);
+        setMaxGroupLevel(existingTemplate.maxGroupLevel);
+        setGroupAutoNumbered(existingTemplate.autoNumberGroups ?? true);
+        setGroupNumberFormat(existingTemplate.groupNumberFormat ?? "");
+
+        // Update header fields from structure
+        if (struct.groupHeaderFields && struct.groupHeaderFields.length > 0) {
+          setHeaderFields(struct.groupHeaderFields.map(f => ({
+            id: f.id,
+            name: f.fieldName,
+            type: f.fieldType as GroupHeaderFieldType,
+            customLabel: f.customLabel,
+            required: f.isRequired,
+            visible: f.isVisible,
+            order: f.order,
+            readOnly: f.isReadOnly,
+            fieldTypeConfig: f.fieldTypeConfig,
+          })));
+        } else {
+          setHeaderFields([
+            {
+              type: GroupHeaderFieldType.GroupName,
+              required: true,
+              visible: true,
+              order: 0,
+              readOnly: false,
+            },
+          ]);
+        }
+
+        // Update calculated fields
+        if (struct.calculatedFields) {
+          setCalculatedFields(struct.calculatedFields.map(f => ({
+            id: f.id,
+            name: f.fieldName,
+            label: f.label,
+            type: convertFieldTypeToLegacy(f.fieldType),
+            order: f.order,
+            required: f.isRequired || false,
+            visible: f.isVisible,
+            sortable: f.isSortable,
+            filterable: f.isFilterable,
+            summable: f.isSummable || false,
+            summaryScope: f.summaryScope,
+            sumInGroup: f.sumInGroup,
+            sumInTotal: f.sumInTotal,
+            autoCalculated: f.isAutoCalculated,
+            readOnly: f.isReadOnly,
+            fieldTypeConfig: f.fieldTypeConfig,
+          })));
+        }
+
+        // Update generic fields
+        if (struct.genericFields) {
+          setGenericFields(struct.genericFields.map(f => ({
+            id: f.id,
+            name: f.fieldName,
+            label: f.label,
+            type: convertFieldTypeToLegacy(f.fieldType),
+            order: f.order,
+            required: f.isRequired,
+            visible: f.isVisible,
+            sortable: f.isSortable,
+            filterable: f.isFilterable,
+            fieldTypeConfig: f.fieldTypeConfig,
+          })));
+        }
+
+        setValidationRules([]);
+
+        // Update summary configuration - mapuj SummaryFieldWeb[] na string[]
+        setShowGroupSummary(struct.summaryConfiguration?.showGroupSummary ?? true);
+        setShowTotalSummary(struct.summaryConfiguration?.showTotalSummary ?? true);
+        setGroupSummaryFields(struct.summaryConfiguration?.groupSummaryFields.map(f => f.fieldName) ?? []);
+        setTotalSummaryFields(struct.summaryConfiguration?.totalSummaryFields.map(f => f.fieldName) ?? []);
+
+        // Update UI configuration - mapuj ColumnConfigurationWeb[] na string[]
+        setColumnLayout(struct.uiConfiguration?.columns?.map(col => col.fieldName) ?? []);
+        
+        // Load currencies and units from structure
+        setCurrencies(struct.currencies.map(c => ({
+          code: c.code,
+          name: c.name,
+          symbol: c.symbol,
+          isDefault: c.isDefault,
+          order: c.order,
+        })));
+        
+        setUnits(struct.units.map(u => ({
+          code: u.code,
+          name: u.name,
+          symbol: u.symbol,
+          category: u.category,
+          isDefault: u.isDefault,
+          order: u.order,
+        })));
+      }
+    }
+  }, [existingTemplate]);
+
+  // Funkcja generująca przykładowy kosztorys z szablonu
+  const generateSampleCostEstimate = (): CostEstimateDataModel => {
+    const sampleGroups: CostEstimateGroup[] = [];
+
+    // Generuj 2-3 przykładowe grupy
+    for (let i = 0; i < 2; i++) {
+      const workScopes: CostEstimateWorkScope[] = [];
+      
+      // Generuj 2-3 przykładowe pozycje w grupie
+      for (let j = 0; j < 3; j++) {
+        const calculatedFieldValues: Record<string, number> = {};
+        const genericFieldValues: Record<string, any> = {};
+        const collectionFieldValues: Record<string, CostEstimateCollectionItem[]> = {};
+
+        // Wypełnij pola kalkulowane przykładowymi wartościami
+        calculatedFields.forEach((field) => {
+          if (field.type === CalculatedFieldType.UnitPriceNet) {
+            calculatedFieldValues[field.name] = 100 + j * 50;
+          } else if (field.type === CalculatedFieldType.VatRate) {
+            calculatedFieldValues[field.name] = 23;
+          }
+          // Inne pola będą auto-kalkulowane
+        });
+
+        // Wypełnij pola generyczne
+        genericFields.forEach((field) => {
+          if (field.type === GenericFieldType.String) {
+            genericFieldValues[field.name] = `Przykładowa pozycja ${i + 1}.${j + 1}`;
+          } else if (field.type === GenericFieldType.Integer) {
+            genericFieldValues[field.name] = 10 + j;
+          } else if (field.type === GenericFieldType.Decimal) {
+            genericFieldValues[field.name] = 10.5 + j;
+          } else if (field.type === GenericFieldType.Boolean) {
+            genericFieldValues[field.name] = j % 2 === 0;
+          } else if (field.type === GenericFieldType.Date) {
+            const date = new Date();
+            date.setDate(date.getDate() + j);
+            genericFieldValues[field.name] = date.toISOString().split('T')[0];
+          } else if (field.type === GenericFieldType.DateTime) {
+            const date = new Date();
+            date.setDate(date.getDate() + j);
+            genericFieldValues[field.name] = date.toISOString();
+          }
+        });
+
+        // Utwórz workScope z bazowymi wartościami
+        let workScope: CostEstimateWorkScope = {
+          id: `ws-${i}-${j}`,
+          order: j,
+          calculatedFieldValues,
+          genericFieldValues,
+          collectionFieldValues: Object.keys(collectionFieldValues).length > 0 ? collectionFieldValues : undefined,
+        };
+        
+        // Przelicz auto-kalkulowane pola
+        workScope = calculateWorkScope(workScope, {
+          calculatedFields,
+          genericFields,
+        });
+        
+        workScopes.push(workScope);
+      }
+
+      const headerValues: Record<string, any> = {};
+      headerFields.forEach((field) => {
+        const fieldKey = GroupHeaderFieldType[field.type];
+        if (field.type === GroupHeaderFieldType.GroupName) {
+          headerValues[fieldKey] = `Grupa ${i + 1}`;
+        } else if (field.type === GroupHeaderFieldType.GroupNumber) {
+          headerValues[fieldKey] = `${i + 1}`;
+        } else if (field.type === GroupHeaderFieldType.GroupDescription) {
+          headerValues[fieldKey] = `Opis grupy ${i + 1}`;
+        }
+      });
+
+      sampleGroups.push({
+        id: `group-${i}`,
+        level: 0,
+        order: i,
+        headerValues,
+        workScopes,
+      });
+    }
+
+    return {
+      groups: sampleGroups,
+    };
+  };
+
+  const handlePreview = () => {
+    const sampleData = generateSampleCostEstimate();
+    setPreviewData(sampleData);
+    onPreviewOpen();
+  };
 
   const createDefaultCalculatedField = (type: CalculatedFieldType): CalculatedFieldDefinition => {
     const isAutoCalculated = [
@@ -195,7 +422,7 @@ export default function CreateCustomTemplateModal({
                        type === CalculatedFieldType.TotalVat;
 
     return {
-      name: `field_calc_${calculatedFields.length + 1}`,
+      name: crypto.randomUUID(),
       label: calculatedFieldTypeLabels[type],
       type: type,
       order: calculatedFields.length + genericFields.length,
@@ -212,19 +439,20 @@ export default function CreateCustomTemplateModal({
 
   const createDefaultGenericField = (type: GenericFieldType): GenericFieldDefinition => {
     return {
-      name: `field_gen_${genericFields.length + 1}`,
+      name: crypto.randomUUID(),
       label: genericFieldTypeLabels[type],
       type: type,
       order: calculatedFields.length + genericFields.length,
       required: false,
       visible: true,
-      sortable: type !== GenericFieldType.Collection,
-      filterable: type !== GenericFieldType.Collection,
+      sortable: true,
+      filterable: true,
     };
   };
 
   const handleAddHeaderField = (type: GroupHeaderFieldType) => {
     const newField: GroupHeaderFieldDefinition = {
+      name: crypto.randomUUID(),
       type: type,
       required: type === GroupHeaderFieldType.GroupName,
       visible: true,
@@ -371,56 +599,73 @@ export default function CreateCustomTemplateModal({
     return true;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmitClick = () => {
     if (!validateTemplate()) return;
+    handleSubmit();
+  };
 
+  // Potwierdzenie zapisu zatwierdzonej wersji — zamyka dialog potwierdzenia i uruchamia zapis
+  const confirmSaveApprovedVersion = () => {
+    onConfirmSaveClose();
+    handleSubmit();
+  };
+
+  const handleSubmit = async () => {
     setIsSubmitting(true);
 
     try {
-      const groupDefinition: CostEstimateGroupDefinition = {
-        autoNumbered: groupAutoNumbered,
-        numberFormat: groupNumberFormat || undefined,
-        headerFields: headerFields,
-      };
-
-      const workScopeFieldsDefinition: CostEstimateWorkScopeFieldsDefinition = {
-        calculatedFields: calculatedFields,
-        genericFields: genericFields,
-        crossFieldValidationRules: validationRules.length > 0 ? validationRules : undefined,
-      };
-
-      const summaryConfiguration: CostEstimateSummaryConfiguration = {
-        groupSummaryFields: groupSummaryFields,
-        totalSummaryFields: totalSummaryFields,
-        showGroupSummary,
-        showTotalSummary,
-      };
-
-      const uiConfiguration: CostEstimateUiConfiguration = {
-        columnLayout: columnLayout.length > 0 ? columnLayout : undefined,
-        columnWidths: undefined, // TODO: możliwość ustawiania szerokości kolumn
-      };
-
-      const templateStructure: CostEstimateTemplateStructure = {
-        canAddGroups,
-        canBranchGroups,
-        maxGroupLevel,
-        groupDefinition,
-        workScopeFieldsDefinition,
-        summaryConfiguration,
-        uiConfiguration,
-      };
-
-      // Import API at the top of the file
       const { costEstimateTemplateApi } = await import("../api/costEstimateTemplateApi");
 
       if (existingTemplate) {
-        // Update existing template
+        // Update existing template (bez wersjonowania)
         await costEstimateTemplateApi.updateTemplate(existingTemplate.id, {
           templateId: existingTemplate.id,
           name: templateName,
           description: templateDescription || undefined,
-          templateStructure,
+          category: undefined,  // TODO: dodać pole category w UI
+          canAddGroups,
+          canBranchGroups,
+          maxGroupLevel,
+          autoNumberGroups: groupAutoNumbered,
+          groupNumberFormat: groupNumberFormat || undefined,
+          updateStructure: true,
+          currencies,
+          units,
+          groupHeaderFields: headerFields.map(f => ({
+            fieldName: f.name || crypto.randomUUID(),
+            fieldType: f.type,
+            label: f.customLabel || `Pole grupy`,
+            isSortable: false,
+            isFilterable: false,
+            isVisible: f.visible,
+          })),
+          systemFields: [],  // TODO: obsługa system fields
+          calculatedFields: calculatedFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.type + 200,
+            label: f.label,
+            isSortable: f.sortable,
+            isFilterable: f.filterable,
+            isVisible: f.visible,
+          })),
+          genericFields: genericFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.type + 300,
+            label: f.label,
+            isSortable: f.sortable,
+            isFilterable: f.filterable,
+            isVisible: f.visible,
+          })),
+          summaryConfiguration: {
+            showGroupSummary,
+            showTotalSummary,
+            groupSummaryFields: groupSummaryFields.length > 0 ? groupSummaryFields : [],
+            totalSummaryFields: totalSummaryFields.length > 0 ? totalSummaryFields : [],
+          },
+          uiConfiguration: {
+            columnLayout: columnLayout.length > 0 ? columnLayout : undefined,
+            columnWidths: undefined,
+          },
         });
 
         toast({
@@ -430,11 +675,61 @@ export default function CreateCustomTemplateModal({
           duration: 3000,
         });
       } else {
-        // Create new template
-        await costEstimateTemplateApi.createTemplate({
+        // Krok 1: Utwórz nowy szablon z nazwą i opisem
+        const newTemplateId = await costEstimateTemplateApi.createTemplate({
           name: templateName,
           description: templateDescription || undefined,
-          templateStructure,
+        });
+
+        // Krok 2: Zaktualizuj szablon pełną strukturą
+        await costEstimateTemplateApi.updateTemplate(newTemplateId, {
+          templateId: newTemplateId,
+          name: templateName,
+          description: templateDescription || undefined,
+          category: undefined,
+          canAddGroups,
+          canBranchGroups,
+          maxGroupLevel,
+          autoNumberGroups: groupAutoNumbered,
+          groupNumberFormat: groupNumberFormat || undefined,
+          updateStructure: true,
+          currencies,
+          units,
+          groupHeaderFields: headerFields.map(f => ({
+            fieldName: f.name || crypto.randomUUID(),
+            fieldType: f.type,
+            label: f.customLabel || `Pole grupy`,
+            isSortable: false,
+            isFilterable: false,
+            isVisible: f.visible,
+          })),
+          systemFields: [],  // TODO: obsługa system fields
+          calculatedFields: calculatedFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.type + 200,
+            label: f.label,
+            isSortable: f.sortable,
+            isFilterable: f.filterable,
+            isVisible: f.visible,
+          })),
+          genericFields: genericFields.map(f => ({
+            fieldName: f.name,
+            fieldType: f.type + 300,
+            label: f.label,
+            isSortable: f.sortable,
+            isFilterable: f.filterable,
+            isVisible: f.visible,
+          })),
+          summaryConfiguration: {
+            showGroupSummary,
+            showTotalSummary,
+            groupSummaryFields: groupSummaryFields.length > 0 ? groupSummaryFields : [],
+            totalSummaryFields: totalSummaryFields.length > 0 ? totalSummaryFields : [],
+          },
+          uiConfiguration: {
+            columnLayout: columnLayout.length > 0 ? columnLayout : undefined,
+            columnWidths: undefined,
+          },
         });
 
         toast({
@@ -484,20 +779,62 @@ export default function CreateCustomTemplateModal({
     setValidationRules([]);
     setShowGroupSummary(true);
     setShowTotalSummary(true);
+    setGroupSummaryFields([]);
+    setTotalSummaryFields([]);
+    setColumnLayout([]);
+    setCurrencies([]);
+    setUnits([]);
     onClose();
+  };
+
+  // Funkcja zatwierdzania wersji szablonu
+  const handleApproveVersion = async () => {
+    if (!existingTemplate?.selectedVersion) {
+      toast({
+        title: "Błąd",
+        description: "Brak wybranej wersji do zatwierdzenia",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      const { costEstimateTemplateApi } = await import("../api/costEstimateTemplateApi");
+      await costEstimateTemplateApi.approveVersion(
+        existingTemplate.id,
+        existingTemplate.selectedVersion.id
+      );
+      
+      toast({
+        title: "Sukces",
+        description: `Wersja v${existingTemplate.selectedVersion.versionNumber} została zatwierdzona`,
+        status: "success",
+        duration: 3000,
+      });
+
+      onTemplateCreated();
+      handleClose();
+    } catch (error) {
+      console.error("Błąd podczas zatwierdzania wersji:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zatwierdzić wersji szablonu",
+        status: "error",
+        duration: 5000,
+      });
+    }
   };
 
   // Render funkcja dla TabPanel "Układ pól"
   const renderFieldLayoutTab = () => {
-    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-
     // Zbierz wszystkie pola z template
     const allFields: Array<{ name: string; label: string; type: string; colorScheme: string }> = [];
 
     // Pola nagłówków grup (GroupName, Notes, etc.)
     headerFields.forEach((field) => {
       allFields.push({
-        name: GroupHeaderFieldType[field.type],
+        name: field.name || crypto.randomUUID(), // GUID pola, nie nazwa typu
         label: field.customLabel || getDefaultGroupHeaderLabel(field.type),
         type: 'Nagłówek grupy',
         colorScheme: 'purple',
@@ -536,11 +873,6 @@ export default function CreateCustomTemplateModal({
     const validFieldNames = allFields.map((f) => f.name);
     const validatedLayout = currentLayout.filter((name) => validFieldNames.includes(name));
 
-    // Jeśli layout się zmienił, zaktualizuj
-    if (validatedLayout.length !== columnLayout.length || !validatedLayout.every((v, i) => v === columnLayout[i])) {
-      setColumnLayout(validatedLayout);
-    }
-
     // Sortuj pola według columnLayout
     const sortedFields = [...allFields].sort((a, b) => {
       const indexA = validatedLayout.indexOf(a.name);
@@ -549,24 +881,24 @@ export default function CreateCustomTemplateModal({
     });
 
     const handleDragStart = (index: number) => {
-      setDraggedIndex(index);
+      setDraggedIndexLayout(index);
     };
 
     const handleDragOver = (e: React.DragEvent, index: number) => {
       e.preventDefault();
-      if (draggedIndex === null || draggedIndex === index) return;
+      if (draggedIndexLayout === null || draggedIndexLayout === index) return;
 
       const newLayout = [...validatedLayout];
-      const draggedItem = newLayout[draggedIndex];
-      newLayout.splice(draggedIndex, 1);
+      const draggedItem = newLayout[draggedIndexLayout];
+      newLayout.splice(draggedIndexLayout, 1);
       newLayout.splice(index, 0, draggedItem);
       
       setColumnLayout(newLayout);
-      setDraggedIndex(index);
+      setDraggedIndexLayout(index);
     };
 
     const handleDragEnd = () => {
-      setDraggedIndex(null);
+      setDraggedIndexLayout(null);
     };
 
     return (
@@ -599,13 +931,13 @@ export default function CreateCustomTemplateModal({
                 <HStack
                   key={field.name}
                   p={3}
-                  bg={draggedIndex === index ? 'blue.100' : 'gray.50'}
+                  bg={draggedIndexLayout === index ? 'blue.100' : 'gray.50'}
                   borderRadius="md"
                   borderWidth="2px"
-                  borderColor={draggedIndex === index ? 'blue.400' : 'gray.200'}
+                  borderColor={draggedIndexLayout === index ? 'blue.400' : 'gray.200'}
                   spacing={3}
                   cursor="grab"
-                  _hover={{ bg: draggedIndex === index ? 'blue.100' : 'gray.100', borderColor: 'blue.300' }}
+                  _hover={{ bg: draggedIndexLayout === index ? 'blue.100' : 'gray.100', borderColor: 'blue.300' }}
                   _active={{ cursor: 'grabbing' }}
                   draggable
                   onDragStart={() => handleDragStart(index)}
@@ -620,9 +952,6 @@ export default function CreateCustomTemplateModal({
                   <Text fontSize="sm" fontWeight="medium" flex="1">
                     {field.label}
                   </Text>
-                  <Text fontSize="xs" color="gray.500" minW="120px">
-                    {field.name}
-                  </Text>
                 </HStack>
               ))}
             </VStack>
@@ -633,13 +962,40 @@ export default function CreateCustomTemplateModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="full" scrollBehavior="inside">
-      <ModalOverlay />
+    <>
+      <Modal isOpen={isOpen} onClose={handleClose} size="full" scrollBehavior="inside">
+        <ModalOverlay />
       <ModalContent maxH="100vh" m={0}>
         <ModalHeader borderBottom="1px" borderColor="gray.200">
-          <HStack spacing={3}>
-            <FileText size={24} />
-            <Text>{existingTemplate ? "Edycja szablonu kosztorysu" : "Kreator szablonu kosztorysu"}</Text>
+          <HStack spacing={3} justify="space-between" w="full" pr={10}>
+            <HStack spacing={3}>
+              <FileText size={24} />
+              <Text>{existingTemplate ? "Edycja szablonu kosztorysu" : "Kreator szablonu kosztorysu"}</Text>
+            </HStack>
+            <HStack spacing={2}>
+              <Button
+                leftIcon={<Eye size={18} />}
+                size="sm"
+                variant="outline"
+                colorScheme="blue"
+                onClick={handlePreview}
+              >
+                Podgląd
+              </Button>
+              {existingTemplate && (
+                <Button
+                  leftIcon={<History size={18} />}
+                  size="sm"
+                  variant="outline"
+                  colorScheme="purple"
+                  onClick={() => {
+                    window.open(`/cost-estimate-templates/${existingTemplate.id}/versions`, '_blank');
+                  }}
+                >
+                  Historia wersji
+                </Button>
+              )}
+            </HStack>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
@@ -651,6 +1007,36 @@ export default function CreateCustomTemplateModal({
                 Informacje podstawowe
               </Text>
               <VStack spacing={4} align="stretch">
+                {existingTemplate?.selectedVersion && (
+                  <Box p={3} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                    <HStack justify="space-between" align="center">
+                      <VStack align="start" spacing={0}>
+                        <Text fontSize="sm" fontWeight="bold" color="blue.800">
+                          Status wersji: v{existingTemplate.selectedVersion.versionNumber}
+                        </Text>
+                        <Text fontSize="xs" color="blue.600">
+                          Utworzona: {new Date(existingTemplate.selectedVersion.createdAt).toLocaleDateString('pl-PL')}
+                        </Text>
+                      </VStack>
+                      <Badge
+                        colorScheme={
+                          existingTemplate.selectedVersion.status === 1 ? "green" : "gray"
+                        }
+                        fontSize="md"
+                        px={3}
+                        py={1}
+                      >
+                        {existingTemplate.selectedVersion.status === 1 ? "Zatwierdzona" : "Szkic"}
+                      </Badge>
+                    </HStack>
+                    {existingTemplate.selectedVersion.status === 1 && (
+                      <Text fontSize="xs" color="orange.600" mt={2}>
+                        ⚠️ Edycja struktury zatwierdzonej wersji utworzy nową wersję szkicu (v{existingTemplate.selectedVersion.versionNumber + 1})
+                      </Text>
+                    )}
+                  </Box>
+                )}
+
                 <FormControl isRequired>
                   <FormLabel>Nazwa szablonu</FormLabel>
                   <Input
@@ -686,25 +1072,25 @@ export default function CreateCustomTemplateModal({
                 <Tab>
                   <HStack spacing={2}>
                     <Tag size={18} />
-                    <Text>Nagłówek grupy ({headerFields.length})</Text>
+                    <Text>Pola grup ({headerFields.length})</Text>
                   </HStack>
                 </Tab>
                 <Tab>
                   <HStack spacing={2}>
                     <List size={18} />
-                    <Text>Pola zakresów prac ({calculatedFields.length + genericFields.length})</Text>
+                    <Text>Pola pozycji ({calculatedFields.length + genericFields.length})</Text>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <DollarSign size={18} />
+                    <Text>Waluty i jednostki ({currencies.length + units.length})</Text>
                   </HStack>
                 </Tab>
                 <Tab>
                   <HStack spacing={2}>
                     <Layout size={18} />
                     <Text>Kolejność pól</Text>
-                  </HStack>
-                </Tab>
-                <Tab>
-                  <HStack spacing={2}>
-                    <AlertCircle size={18} />
-                    <Text>Walidacja ({validationRules.length})</Text>
                   </HStack>
                 </Tab>
                 <Tab>
@@ -771,34 +1157,6 @@ export default function CreateCustomTemplateModal({
                         )}
                       </VStack>
                     </Box>
-
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <Text fontSize="md" fontWeight="bold" mb={4}>
-                        Numerowanie grup
-                      </Text>
-                      <VStack spacing={4} align="stretch">
-                        <Checkbox
-                          isChecked={groupAutoNumbered}
-                          onChange={(e) => setGroupAutoNumbered(e.target.checked)}
-                        >
-                          Automatyczne numerowanie grup
-                        </Checkbox>
-
-                        {groupAutoNumbered && (
-                          <FormControl>
-                            <FormLabel>Format numeracji</FormLabel>
-                            <Input
-                              value={groupNumberFormat}
-                              onChange={(e) => setGroupNumberFormat(e.target.value)}
-                              placeholder='"{0}" lub "Etap {0}" lub "{0:00}"'
-                            />
-                            <FormHelperText>
-                              {"{0}"} = numer, {"{0:00}"} = numer z zerami wiodącymi
-                            </FormHelperText>
-                          </FormControl>
-                        )}
-                      </VStack>
-                    </Box>
                   </VStack>
                 </TabPanel>
 
@@ -843,16 +1201,33 @@ export default function CreateCustomTemplateModal({
                 </TabPanel>
 
                 <TabPanel>
-                  {renderFieldLayoutTab()}
+                  <VStack spacing={6} align="stretch">
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4}>
+                        <DollarSign size={20} />
+                        <Text fontSize="lg" fontWeight="bold">Waluty</Text>
+                      </HStack>
+                      <CurrenciesEditor
+                        currencies={currencies}
+                        onChange={setCurrencies}
+                      />
+                    </Box>
+
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4}>
+                        <Ruler size={20} />
+                        <Text fontSize="lg" fontWeight="bold">Jednostki miary</Text>
+                      </HStack>
+                      <UnitsEditor
+                        units={units}
+                        onChange={setUnits}
+                      />
+                    </Box>
+                  </VStack>
                 </TabPanel>
 
                 <TabPanel>
-                  <ValidationRulesEditor
-                    rules={validationRules}
-                    onAdd={handleAddValidationRule}
-                    onRemove={handleRemoveValidationRule}
-                    onUpdate={handleUpdateValidationRule}
-                  />
+                  {renderFieldLayoutTab()}
                 </TabPanel>
 
                 <TabPanel>
@@ -874,24 +1249,180 @@ export default function CreateCustomTemplateModal({
         </ModalBody>
 
         <ModalFooter borderTop="1px" borderColor="gray.200">
-          <HStack spacing={3}>
-            <Button variant="ghost" size="lg" onClick={handleClose}>
-              Anuluj
-            </Button>
-            <Button
-              colorScheme="blue"
-              size="lg"
-              onClick={handleSubmit}
-              isLoading={isSubmitting}
-              loadingText={existingTemplate ? "Zapisywanie..." : "Tworzenie..."}
-              leftIcon={<Plus size={20} />}
-            >
-              {existingTemplate ? "Zapisz zmiany" : "Utwórz szablon"}
-            </Button>
+          <HStack spacing={3} width="100%" justify="space-between">
+            <HStack spacing={3}>
+              {existingTemplate?.selectedVersion?.status === 0 && (
+                <Button
+                  colorScheme="green"
+                  size="lg"
+                  onClick={handleApproveVersion}
+                  leftIcon={<Check size={20} />}
+                >
+                  Zatwierdź wersję
+                </Button>
+              )}
+            </HStack>
+            <HStack spacing={3}>
+              <Button variant="ghost" size="lg" onClick={handleClose}>
+                Anuluj
+              </Button>
+              <Button
+                colorScheme="blue"
+                size="lg"
+                onClick={handleSubmitClick}
+                isLoading={isSubmitting}
+                loadingText={existingTemplate ? "Zapisywanie..." : "Tworzenie..."}
+                leftIcon={<Plus size={20} />}
+              >
+                {existingTemplate ? "Zapisz zmiany" : "Utwórz szablon"}
+              </Button>
+            </HStack>
           </HStack>
         </ModalFooter>
       </ModalContent>
     </Modal>
+
+      {/* ALERT DIALOG: Confirm saving approved version (creates new draft) */}
+      <AlertDialog
+        isOpen={isConfirmSaveOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onConfirmSaveClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Edycja zatwierdzonej wersji
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              <VStack align="flex-start" spacing={3}>
+                <Text>
+                  Edytujesz zatwierdzoną wersję <Badge colorScheme="blue">v{existingTemplate?.selectedVersion?.versionNumber}</Badge>. 
+                  Zapisanie zmian spowoduje utworzenie nowej wersji szkicu.
+                </Text>
+                <Box p={3} bg="orange.50" borderRadius="md" borderWidth="1px" borderColor="orange.200" w="full">
+                  <HStack spacing={2}>
+                    <Text fontSize="2xl">⚠️</Text>
+                    <VStack align="flex-start" spacing={1}>
+                      <Text fontSize="sm" fontWeight="bold" color="orange.800">
+                        Co się stanie?
+                      </Text>
+                      <Text fontSize="sm" color="orange.700">
+                        • Zostanie utworzona nowa wersja szkicu z wprowadzonymi zmianami<br />
+                        • Zatwierdzona wersja pozostanie bez zmian<br />
+                        • Będziesz mógł kontynuować edycję nowej wersji szkicu
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </Box>
+              </VStack>
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onConfirmSaveClose}>
+                Anuluj
+              </Button>
+              <Button 
+                colorScheme="blue" 
+                onClick={confirmSaveApprovedVersion} 
+                ml={3}
+                isLoading={isSubmitting}
+              >
+                Kontynuuj zapis
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Preview Modal */}
+      <Modal 
+        isOpen={isPreviewOpen} 
+        onClose={onPreviewClose} 
+        size="full" 
+        scrollBehavior="inside"
+        closeOnOverlayClick={false}
+      >
+        <ModalOverlay />
+        <ModalContent maxH="100vh" m={0}>
+          <ModalHeader borderBottom="1px" borderColor="gray.200">
+            <HStack spacing={3}>
+              <Eye size={24} />
+              <Text>Podgląd szablonu - Przykładowy kosztorys</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalBody p={6} bg="gray.50">
+            {previewData && (
+              <Box maxW="1600px" mx="auto">
+                <VStack spacing={4} align="stretch" mb={4}>
+                  <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                    <HStack spacing={2}>
+                      <AlertCircle size={20} color="blue" />
+                      <Text fontSize="sm" color="blue.700">
+                        To jest podgląd szablonu z przykładowymi danymi. Dane są generowane automatycznie aby pokazać jak będzie wyglądał kosztorys stworzony na podstawie tego szablonu.
+                      </Text>
+                    </HStack>
+                  </Box>
+                  <Box bg="white" p={4} borderRadius="md" borderWidth="1px">
+                    <VStack align="start" spacing={2}>
+                      <HStack spacing={3}>
+                        <Text fontWeight="bold" fontSize="lg">Szablon:</Text>
+                        <Text fontSize="lg">{templateName || "Nowy szablon"}</Text>
+                      </HStack>
+                      {templateDescription && (
+                        <Text fontSize="sm" color="gray.600">{templateDescription}</Text>
+                      )}
+                    </VStack>
+                  </Box>
+                </VStack>
+                <CostEstimateExcelView
+                  dataModel={previewData!}
+                  template={{
+                    id: existingTemplate?.id || "preview",
+                    name: templateName || "Nowy szablon",
+                    description: templateDescription || undefined,
+                    ownerId: existingTemplate?.ownerId || "",
+                    ownerName: existingTemplate?.ownerName || "",
+                    templateVersionNumber: existingTemplate?.selectedVersion?.versionNumber || 1,
+                    templateStructure: {
+                      canAddGroups,
+                      canBranchGroups,
+                      maxGroupLevel,
+                      groupDefinition: {
+                        autoNumbered: groupAutoNumbered,
+                        numberFormat: groupNumberFormat,
+                        headerFields,
+                      },
+                      workScopeFieldsDefinition: {
+                        calculatedFields,
+                        genericFields,
+                        crossFieldValidationRules: validationRules,
+                      },
+                      summaryConfiguration: {
+                        showGroupSummary,
+                        showTotalSummary,
+                        groupSummaryFields,
+                        totalSummaryFields,
+                      },
+                      uiConfiguration: {
+                        columnLayout,
+                      },
+                    },
+                    createdAt: existingTemplate?.createdAt || new Date().toISOString(),
+                    updatedAt: existingTemplate?.updatedAt || new Date().toISOString(),
+                  } as unknown as CostEstimateTemplateDto}
+                  readOnly={true}
+                  editable={false}
+                />
+              </Box>
+            )}
+          </ModalBody>
+          <ModalFooter borderTop="1px" borderColor="gray.200">
+            <Button onClick={onPreviewClose}>Zamknij</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   );
 }
 
@@ -906,39 +1437,6 @@ interface HeaderFieldsEditorProps {
 }
 
 function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder }: HeaderFieldsEditorProps) {
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-
-    // Pracujemy na sortedFields (posortowanych według order)
-    const sortedFields = [...headerFields].sort((a, b) => a.order - b.order);
-    const reorderedFields = [...sortedFields];
-    const draggedField = reorderedFields[draggedIndex];
-    reorderedFields.splice(draggedIndex, 1);
-    reorderedFields.splice(index, 0, draggedField);
-    
-    // Zaktualizuj order dla wszystkich pól
-    reorderedFields.forEach((field, idx) => {
-      field.order = idx;
-    });
-    
-    onReorder(reorderedFields);
-    setDraggedIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-  };
-
-  // Sortuj według order
-  const sortedFields = [...headerFields].sort((a, b) => a.order - b.order);
-
   return (
     <VStack spacing={4} align="stretch">
       <Box bg="blue.50" p={4} borderRadius="md">
@@ -966,207 +1464,83 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
         </HStack>
       </Box>
 
-      <Box bg="purple.50" p={4} borderRadius="md" borderWidth="1px" borderColor="purple.200">
-        <HStack spacing={2} mb={2}>
-          <Icon as={List} color="purple.600" />
-          <Text fontSize="sm" fontWeight="bold" color="purple.800">
-            Pola nagłówka grupy
-          </Text>
-        </HStack>
-        <Text fontSize="xs" color="gray.700">
-          Kolejność nagłówków grup jest określona w zakładce "Układ kolumn".
-        </Text>
-      </Box>
-
-      {sortedFields.length === 0 ? (
+      {headerFields.length === 0 ? (
         <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
           <Text color="gray.500">Brak pól w nagłówku</Text>
         </Box>
       ) : (
-        <VStack spacing={2} align="stretch">
-          {sortedFields.map((field, index) => {
-            const originalIndex = headerFields.findIndex(f => f.type === field.type);
-            return (
-              <Box
-                key={field.type}
-                p={3}
-                bg="gray.50"
-                borderRadius="md"
-                borderWidth="1px"
-                borderColor="gray.200"
-              >
-                <HeaderFieldEditor
-                  field={field}
-                  index={originalIndex}
-                  onRemove={onRemove}
-                  onUpdate={onUpdate}
-                />
-              </Box>
-            );
-          })}
-        </VStack>
+        <Box overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Typ pola</Th>
+                <Th>Etykieta własna</Th>
+                <Th w="100px">Wymagane</Th>
+                <Th w="100px">Widoczne</Th>
+                <Th w="100px">Tylko odczyt</Th>
+                <Th w="80px">Akcje</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {headerFields.map((field, index) => {
+                const isGroupName = field.type === GroupHeaderFieldType.GroupName;
+                return (
+                  <Tr key={index}>
+                    <Td>
+                      <Badge colorScheme="purple">
+                        {groupHeaderFieldTypeLabels[field.type]}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Input
+                        size="sm"
+                        value={field.customLabel || ''}
+                        onChange={(e) => onUpdate(index, { customLabel: e.target.value })}
+                        placeholder={groupHeaderFieldTypeLabels[field.type]}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.required}
+                        onChange={(e) => onUpdate(index, { required: e.target.checked })}
+                        isDisabled={isGroupName}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.visible}
+                        onChange={(e) => onUpdate(index, { visible: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.readOnly}
+                        onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={16} />}
+                        size="sm"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => onRemove(index)}
+                        isDisabled={isGroupName}
+                      />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
+        </Box>
       )}
     </VStack>
   );
 }
 
-interface HeaderFieldEditorProps {
-  field: GroupHeaderFieldDefinition;
-  index: number;
-  onRemove: (index: number) => void;
-  onUpdate: (index: number, updates: Partial<GroupHeaderFieldDefinition>) => void;
-}
-
-function HeaderFieldEditor({ field, index, onRemove, onUpdate }: HeaderFieldEditorProps) {
-  const { isOpen, onToggle } = useDisclosure({ defaultIsOpen: false });
-  const isGroupName = field.type === GroupHeaderFieldType.GroupName;
-
-  return (
-    <Box>
-      <HStack justify="space-between">
-        <HStack spacing={3} flex={1}>
-          <Badge colorScheme="purple" fontSize="sm" px={2} py={1}>
-            {groupHeaderFieldTypeLabels[field.type]}
-          </Badge>
-          {isGroupName && <Badge colorScheme="orange">Wymagane</Badge>}
-          {!field.visible && (
-            <HStack spacing={1} color="gray.500">
-              <EyeOff size={14} />
-              <Text fontSize="xs">Ukryte</Text>
-            </HStack>
-          )}
-          {field.readOnly && (
-            <Badge colorScheme="gray" variant="outline">
-              Tylko odczyt
-            </Badge>
-          )}
-        </HStack>
-        <HStack spacing={2}>
-          <IconButton
-            aria-label="Rozwiń/Zwiń"
-            icon={isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            size="sm"
-            variant="ghost"
-            onClick={onToggle}
-          />
-          <IconButton
-            aria-label="Usuń"
-            icon={<Trash2 size={16} />}
-            size="sm"
-            colorScheme="red"
-            variant="ghost"
-            onClick={() => onRemove(index)}
-            isDisabled={isGroupName}
-          />
-        </HStack>
-      </HStack>
-
-      <Collapse in={isOpen}>
-        <Box pt={3} mt={3} borderTop="1px" borderColor="gray.200">
-          <VStack spacing={4} align="stretch">
-            <FormControl>
-              <FormLabel fontSize="sm">Niestandardowa etykieta</FormLabel>
-              <Input
-                size="sm"
-                value={field.customLabel || ""}
-                onChange={(e) => onUpdate(index, { customLabel: e.target.value })}
-                placeholder={groupHeaderFieldTypeLabels[field.type]}
-              />
-            </FormControl>
-
-            <HStack spacing={4} flexWrap="wrap">
-              <Checkbox
-                isChecked={field.required}
-                onChange={(e) => onUpdate(index, { required: e.target.checked })}
-                isDisabled={isGroupName}
-              >
-                Wymagane
-              </Checkbox>
-              <Checkbox
-                isChecked={field.visible}
-                onChange={(e) => onUpdate(index, { visible: e.target.checked })}
-              >
-                Widoczne
-              </Checkbox>
-              <Checkbox
-                isChecked={field.readOnly}
-                onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
-              >
-                Tylko odczyt
-              </Checkbox>
-            </HStack>
-
-            <FormControl>
-              <FormLabel fontSize="sm">Placeholder</FormLabel>
-              <Input
-                size="sm"
-                value={field.placeholder || ""}
-                onChange={(e) => onUpdate(index, { placeholder: e.target.value })}
-                placeholder="Podpowiedź dla użytkownika"
-              />
-            </FormControl>
-
-            {(field.type === GroupHeaderFieldType.Status ||
-              field.type === GroupHeaderFieldType.Priority) && (
-              <FormControl>
-                <FormLabel fontSize="sm">Dozwolone wartości (oddzielone przecinkami)</FormLabel>
-                <Input
-                  size="sm"
-                  value={field.allowedValues?.join(", ") || ""}
-                  onChange={(e) => {
-                    const values = e.target.value
-                      .split(",")
-                      .map((v) => v.trim())
-                      .filter((v) => v);
-                    onUpdate(index, {
-                      allowedValues: values.length > 0 ? values : undefined,
-                    });
-                  }}
-                  placeholder="np. Nowy, W trakcie, Zakończony"
-                />
-              </FormControl>
-            )}
-
-            <FormControl>
-              <FormLabel fontSize="sm">Tekst pomocy</FormLabel>
-              <Textarea
-                size="sm"
-                rows={2}
-                value={field.helpText || ""}
-                onChange={(e) => onUpdate(index, { helpText: e.target.value })}
-                placeholder="Rozszerzony opis dla użytkownika"
-              />
-            </FormControl>
-
-            <HStack spacing={3}>
-              <FormControl>
-                <FormLabel fontSize="sm">Ikona</FormLabel>
-                <Input
-                  size="sm"
-                  value={field.icon || ""}
-                  onChange={(e) => onUpdate(index, { icon: e.target.value })}
-                  placeholder="np. calendar, user"
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel fontSize="sm">Kolor</FormLabel>
-                <Input
-                  size="sm"
-                  value={field.color || ""}
-                  onChange={(e) => onUpdate(index, { color: e.target.value })}
-                  placeholder="np. #FF5733, blue"
-                />
-              </FormControl>
-            </HStack>
-          </VStack>
-        </Box>
-      </Collapse>
-    </Box>
-  );
-}
-
-interface CalculatedFieldsEditorProps {
+interface CalculatedFieldsEditorProps{
   fields: CalculatedFieldDefinition[];
   onAdd: (type: CalculatedFieldType) => void;
   onRemove: (index: number) => void;
@@ -1211,18 +1585,77 @@ function CalculatedFieldsEditor({
           <Text color="gray.500">Brak pól obliczeniowych</Text>
         </Box>
       ) : (
-        <VStack spacing={3} align="stretch">
-          {fields.map((field, index) => (
-            <CalculatedFieldEditor
-              key={index}
-              field={field}
-              index={index}
-              totalFields={fields.length}
-              onRemove={onRemove}
-              onUpdate={onUpdate}
-            />
-          ))}
-        </VStack>
+        <Box overflowX="auto">
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Typ pola</Th>
+                <Th>Etykieta</Th>
+                <Th w="80px">Sortowalne</Th>
+                <Th w="80px">Filtrowalne</Th>
+                <Th w="80px">Sumowalne</Th>
+                <Th w="100px">Widoczne</Th>
+                <Th w="80px">Akcje</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {fields.map((field, index) => {
+                const isSummable = field.type === 3 || field.type === 4 || field.type === 6;
+                return (
+                  <Tr key={index}>
+                    <Td>
+                      <Badge colorScheme="blue">
+                        {calculatedFieldTypeLabels[field.type]}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Input
+                        size="sm"
+                        value={field.label}
+                        onChange={(e) => onUpdate(index, { label: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.sortable}
+                        onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.filterable}
+                        onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.summable}
+                        onChange={(e) => onUpdate(index, { summable: e.target.checked })}
+                        isDisabled={!isSummable}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.visible}
+                        onChange={(e) => onUpdate(index, { visible: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={16} />}
+                        size="sm"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => onRemove(index)}
+                      />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
+        </Box>
       )}
     </VStack>
   );
@@ -1276,24 +1709,14 @@ function CalculatedFieldEditor({
       <Collapse in={isOpen}>
         <Box p={4} pt={0} borderTop="1px" borderColor="gray.100">
           <VStack spacing={4} align="stretch">
-            <HStack spacing={3}>
-              <FormControl isRequired>
-                <FormLabel fontSize="sm">Nazwa (ID)</FormLabel>
-                <Input
-                  size="sm"
-                  value={field.name}
-                  onChange={(e) => onUpdate(index, { name: e.target.value })}
-                />
-              </FormControl>
-              <FormControl isRequired>
-                <FormLabel fontSize="sm">Etykieta</FormLabel>
-                <Input
-                  size="sm"
-                  value={field.label}
-                  onChange={(e) => onUpdate(index, { label: e.target.value })}
-                />
-              </FormControl>
-            </HStack>
+            <FormControl isRequired>
+              <FormLabel fontSize="sm">Etykieta</FormLabel>
+              <Input
+                size="sm"
+                value={field.label}
+                onChange={(e) => onUpdate(index, { label: e.target.value })}
+              />
+            </FormControl>
 
             <FormControl>
               <FormLabel fontSize="sm">Opis</FormLabel>
@@ -1333,9 +1756,9 @@ function CalculatedFieldEditor({
               <Checkbox
                 isChecked={field.summable}
                 onChange={(e) => onUpdate(index, { summable: e.target.checked })}
-                isDisabled={field.type !== 4 && field.type !== 5 && field.type !== 7}
+                isDisabled={field.type !== 3 && field.type !== 4 && field.type !== 6}
               >
-                Sumowalne {(field.type !== 4 && field.type !== 5 && field.type !== 7) && <Text as="span" fontSize="xs" color="gray.500">(tylko ValueNet/ValueGross/TotalVat)</Text>}
+                Sumowalne {(field.type !== 3 && field.type !== 4 && field.type !== 6) && <Text as="span" fontSize="xs" color="gray.500">(tylko ValueNet/ValueGross/TotalVat)</Text>}
               </Checkbox>
             </HStack>
 
@@ -1508,24 +1931,14 @@ function GenericFieldEditor({
       <Collapse in={isOpen}>
         <Box p={4} pt={0} borderTop="1px" borderColor="gray.100">
           <VStack spacing={4} align="stretch">
-            <HStack spacing={3}>
-              <FormControl isRequired>
-                <FormLabel fontSize="sm">Nazwa (ID)</FormLabel>
-                <Input
-                  size="sm"
-                  value={field.name}
-                  onChange={(e) => onUpdate(index, { name: e.target.value })}
-                />
-              </FormControl>
-              <FormControl isRequired>
-                <FormLabel fontSize="sm">Etykieta</FormLabel>
-                <Input
-                  size="sm"
-                  value={field.label}
-                  onChange={(e) => onUpdate(index, { label: e.target.value })}
-                />
-              </FormControl>
-            </HStack>
+            <FormControl isRequired>
+              <FormLabel fontSize="sm">Etykieta</FormLabel>
+              <Input
+                size="sm"
+                value={field.label}
+                onChange={(e) => onUpdate(index, { label: e.target.value })}
+              />
+            </FormControl>
 
             <FormControl>
               <FormLabel fontSize="sm">Opis</FormLabel>
@@ -1651,139 +2064,6 @@ function GenericFieldEditor({
                 onChange={(e) => onUpdate(index, { placeholder: e.target.value })}
               />
             </FormControl>
-
-            {field.type === GenericFieldType.Collection && (
-              <Box mt={4} p={4} borderWidth="1px" borderRadius="md" bg="blue.50">
-                <Text fontSize="sm" fontWeight="bold" mb={3}>
-                  Konfiguracja kolekcji zagnieżdżonych pól
-                </Text>
-                <VStack spacing={4} align="stretch">
-                  <HStack spacing={3}>
-                    <FormControl>
-                      <FormLabel fontSize="sm">Min elementów</FormLabel>
-                      <NumberInput
-                        size="sm"
-                        min={0}
-                        value={field.nestedFields?.minItems ?? ""}
-                        onChange={(_, value) =>
-                          onUpdate(index, {
-                            nestedFields: {
-                              isSelectableCollection: field.nestedFields?.isSelectableCollection ?? false,
-                              enableCalculatedFieldsSummation: field.nestedFields?.enableCalculatedFieldsSummation ?? false,
-                              ...field.nestedFields,
-                              minItems: isNaN(value) ? undefined : value,
-                            },
-                          })
-                        }
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </FormControl>
-                    <FormControl>
-                      <FormLabel fontSize="sm">Max elementów</FormLabel>
-                      <NumberInput
-                        size="sm"
-                        min={0}
-                        value={field.nestedFields?.maxItems ?? ""}
-                        onChange={(_, value) =>
-                          onUpdate(index, {
-                            nestedFields: {
-                              isSelectableCollection: field.nestedFields?.isSelectableCollection ?? false,
-                              enableCalculatedFieldsSummation: field.nestedFields?.enableCalculatedFieldsSummation ?? false,
-                              ...field.nestedFields,
-                              maxItems: isNaN(value) ? undefined : value,
-                            },
-                          })
-                        }
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </FormControl>
-                  </HStack>
-
-                  <Checkbox
-                    isChecked={field.nestedFields?.isSelectableCollection ?? false}
-                    onChange={(e) =>
-                      onUpdate(index, {
-                        nestedFields: {
-                          ...field.nestedFields,
-                          isSelectableCollection: e.target.checked,
-                          enableCalculatedFieldsSummation: field.nestedFields?.enableCalculatedFieldsSummation ?? false,
-                        },
-                      })
-                    }
-                  >
-                    <HStack spacing={2}>
-                      <Text fontSize="sm">Kolekcja z możliwością zaznaczania opcji</Text>
-                      <Tooltip label="Użytkownik będzie mógł zaznaczyć jedną opcję z kolekcji (np. wybór wariantu wykończenia). Po zaznaczeniu cena jednostkowa z wybranej opcji zostanie skopiowana do głównej pozycji.">
-                        <Box as="span">
-                          <HelpCircle size={14} />
-                        </Box>
-                      </Tooltip>
-                    </HStack>
-                  </Checkbox>
-
-                  <Checkbox
-                    isChecked={field.nestedFields?.enableCalculatedFieldsSummation ?? false}
-                    onChange={(e) =>
-                      onUpdate(index, {
-                        nestedFields: {
-                          ...field.nestedFields,
-                          isSelectableCollection: field.nestedFields?.isSelectableCollection ?? false,
-                          enableCalculatedFieldsSummation: e.target.checked,
-                        },
-                      })
-                    }
-                  >
-                    <HStack spacing={2}>
-                      <Text fontSize="sm">Włącz sumowanie pól obliczeniowych w kolekcji</Text>
-                      <Tooltip label="Wartości z pól obliczeniowych będą sumowane (np. suma cen wszystkich opcji)">
-                        <Box as="span">
-                          <HelpCircle size={14} />
-                        </Box>
-                      </Tooltip>
-                    </HStack>
-                  </Checkbox>
-
-                  {field.nestedFields?.enableCalculatedFieldsSummation && (
-                    <FormControl>
-                      <FormLabel fontSize="sm">
-                        Lista pól do sumowania (nazwy oddzielone przecinkami)
-                      </FormLabel>
-                      <Input
-                        size="sm"
-                        value={field.nestedFields?.summableCalculatedFields?.join(", ") || ""}
-                        onChange={(e) => {
-                          const values = e.target.value
-                            .split(",")
-                            .map((v) => v.trim())
-                            .filter((v) => v);
-                          onUpdate(index, {
-                            nestedFields: {
-                              isSelectableCollection: field.nestedFields?.isSelectableCollection ?? false,
-                              enableCalculatedFieldsSummation: field.nestedFields?.enableCalculatedFieldsSummation ?? false,
-                              ...field.nestedFields,
-                              summableCalculatedFields: values.length > 0 ? values : undefined,
-                            },
-                          });
-                        }}
-                        placeholder="Zostaw puste aby sumować wszystkie pola z Summable=true"
-                      />
-                      <FormHelperText fontSize="xs">
-                        Jeśli puste, sumowane będą wszystkie pola obliczeniowe z Summable = true
-                      </FormHelperText>
-                    </FormControl>
-                  )}
-
-                  <Divider />
-
-                  <NestedFieldsEditor
-                    field={field}
-                    onUpdate={(updates) => onUpdate(index, updates)}
-                  />
-                </VStack>
-              </Box>
-            )}
           </VStack>
         </Box>
       </Collapse>
@@ -2036,8 +2316,8 @@ function NestedFieldsEditor({ field, onUpdate }: NestedFieldsEditorProps) {
       order: nestedCalculatedFields.length + nestedGenericFields.length,
       required: false,
       visible: true,
-      sortable: type !== GenericFieldType.Collection,
-      filterable: type !== GenericFieldType.Collection,
+      sortable: true,
+      filterable: true,
     };
 
     onUpdate({
@@ -2182,9 +2462,9 @@ function NestedFieldsEditor({ field, onUpdate }: NestedFieldsEditorProps) {
                       onChange={(e) =>
                         handleUpdateNestedCalculatedField(nestedIndex, { summable: e.target.checked })
                       }
-                      isDisabled={nestedField.type !== 4 && nestedField.type !== 5 && nestedField.type !== 7}
+                      isDisabled={nestedField.type !== 3 && nestedField.type !== 4 && nestedField.type !== 6}
                     >
-                      <Text fontSize="xs">Sumowalne {(nestedField.type !== 4 && nestedField.type !== 5 && nestedField.type !== 7) && <Text as="span" fontSize="2xs" color="gray.500">(tylko ValueNet/ValueGross/TotalVat)</Text>}</Text>
+                      <Text fontSize="xs">Sumowalne {(nestedField.type !== 3 && nestedField.type !== 4 && nestedField.type !== 6) && <Text as="span" fontSize="2xs" color="gray.500">(tylko ValueNet/ValueGross/TotalVat)</Text>}</Text>
                     </Checkbox>
                     <Checkbox
                       size="sm"
@@ -2233,7 +2513,6 @@ function NestedFieldsEditor({ field, onUpdate }: NestedFieldsEditorProps) {
 
         <HStack spacing={2} flexWrap="wrap" mb={3}>
           {Object.entries(genericFieldTypeLabels)
-            .filter(([type]) => parseInt(type) !== GenericFieldType.Collection)
             .map(([type, label]) => (
               <Button
                 key={type}
@@ -2473,9 +2752,6 @@ function NestedFieldsEditor({ field, onUpdate }: NestedFieldsEditorProps) {
                   <Text fontSize="xs" fontWeight="medium" flex="1">
                     {nestedField.label}
                   </Text>
-                  <Text fontSize="xs" color="gray.500">
-                    {nestedField.name}
-                  </Text>
                 </HStack>
               ))}
             </VStack>
@@ -2499,7 +2775,11 @@ function SummaryConfigurationEditor({
 }: SummaryConfigurationEditorProps) {
   // Pola które mogą być sumowane (ValueNet, ValueGross, TotalVat)
   const summableFields = calculatedFields.filter(
-    (f) => f.summable && (f.type === 4 || f.type === 5 || f.type === 7) // CalculatedFieldType: ValueNet = 4, ValueGross = 5, TotalVat = 7
+    (f) => f.summable && (
+      f.type === CalculatedFieldType.ValueNet || 
+      f.type === CalculatedFieldType.ValueGross || 
+      f.type === CalculatedFieldType.TotalVat
+    )
   );
 
   const handleToggleGroupField = (fieldName: string) => {
@@ -2553,10 +2833,7 @@ function SummaryConfigurationEditor({
                 isChecked={groupSummaryFields.includes(field.name)}
                 onChange={() => handleToggleGroupField(field.name)}
               >
-                <HStack spacing={2}>
-                  <Text fontSize="sm" fontWeight="medium">{field.label}</Text>
-                  <Badge colorScheme="green" fontSize="xs">{field.name}</Badge>
-                </HStack>
+                <Text fontSize="sm" fontWeight="medium">{field.label}</Text>
               </Checkbox>
             ))}
           </VStack>
@@ -2587,10 +2864,7 @@ function SummaryConfigurationEditor({
                 isChecked={totalSummaryFields.includes(field.name)}
                 onChange={() => handleToggleTotalField(field.name)}
               >
-                <HStack spacing={2}>
-                  <Text fontSize="sm" fontWeight="medium">{field.label}</Text>
-                  <Badge colorScheme="blue" fontSize="xs">{field.name}</Badge>
-                </HStack>
+                <Text fontSize="sm" fontWeight="medium">{field.label}</Text>
               </Checkbox>
             ))}
           </VStack>
@@ -2604,3 +2878,390 @@ function SummaryConfigurationEditor({
     </VStack>
   );
 };
+
+// ======================== CURRENCIES EDITOR ========================
+
+interface CurrenciesEditorProps {
+  currencies: Array<{ code: string; name: string; symbol?: string; isDefault: boolean; order: number }>;
+  onChange: (currencies: Array<{ code: string; name: string; symbol?: string; isDefault: boolean; order: number }>) => void;
+}
+
+function CurrenciesEditor({ currencies, onChange }: CurrenciesEditorProps) {
+  const handleAdd = () => {
+    const newCurrency = {
+      code: '',
+      name: '',
+      symbol: '',
+      isDefault: currencies.length === 0,
+      order: currencies.length,
+    };
+    onChange([...currencies, newCurrency]);
+  };
+
+  const handleRemove = (index: number) => {
+    const updated = currencies.filter((_, i) => i !== index);
+    // Jeśli usunięto domyślną walutę i są inne, ustaw pierwszą jako domyślną
+    if (currencies[index].isDefault && updated.length > 0) {
+      updated[0].isDefault = true;
+    }
+    // Zaktualizuj order
+    updated.forEach((c, i) => { c.order = i; });
+    onChange(updated);
+  };
+
+  const handleUpdate = (index: number, updates: Partial<typeof currencies[0]>) => {
+    const updated = [...currencies];
+    updated[index] = { ...updated[index], ...updates };
+    
+    // Jeśli ustawiono isDefault na true, wyłącz dla innych
+    if (updates.isDefault === true) {
+      updated.forEach((c, i) => {
+        if (i !== index) c.isDefault = false;
+      });
+    }
+    
+    onChange(updated);
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const updated = [...currencies];
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    updated.forEach((c, i) => { c.order = i; });
+    onChange(updated);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === currencies.length - 1) return;
+    const updated = [...currencies];
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    updated.forEach((c, i) => { c.order = i; });
+    onChange(updated);
+  };
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
+        <HStack spacing={2} mb={2}>
+          <Icon as={DollarSign} color="blue.600" />
+          <Text fontSize="sm" fontWeight="bold" color="blue.800">
+            Waluty dostępne w szablonie
+          </Text>
+        </HStack>
+        <Text fontSize="xs" color="gray.700">
+          Zdefiniuj waluty, które będą dostępne przy tworzeniu kosztorysów z tego szablonu. Możesz dodać wiele walut (PLN, EUR, USD, etc.).
+        </Text>
+      </Box>
+
+      <Button
+        leftIcon={<Plus size={16} />}
+        size="sm"
+        colorScheme="blue"
+        variant="outline"
+        onClick={handleAdd}
+      >
+        Dodaj walutę
+      </Button>
+
+      {currencies.length === 0 ? (
+        <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
+          <Text color="gray.500">Brak walut. Dodaj przynajmniej jedną walutę.</Text>
+        </Box>
+      ) : (
+        <VStack spacing={2} align="stretch">
+          {currencies.map((currency, index) => (
+            <Box
+              key={index}
+              p={4}
+              bg="white"
+              borderRadius="md"
+              borderWidth="1px"
+              borderColor="gray.200"
+              shadow="sm"
+            >
+              <VStack spacing={3} align="stretch">
+                <HStack justify="space-between">
+                  <HStack spacing={2}>
+                    <Badge colorScheme="blue">#{currency.order + 1}</Badge>
+                    {currency.isDefault && <Badge colorScheme="green">Domyślna</Badge>}
+                  </HStack>
+                  <HStack spacing={1}>
+                    <IconButton
+                      aria-label="Przenieś w górę"
+                      icon={<ChevronUp size={16} />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => handleMoveUp(index)}
+                      isDisabled={index === 0}
+                    />
+                    <IconButton
+                      aria-label="Przenieś w dół"
+                      icon={<ChevronDown size={16} />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => handleMoveDown(index)}
+                      isDisabled={index === currencies.length - 1}
+                    />
+                    <IconButton
+                      aria-label="Usuń"
+                      icon={<Trash2 size={16} />}
+                      size="xs"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleRemove(index)}
+                    />
+                  </HStack>
+                </HStack>
+
+                <HStack spacing={3}>
+                  <FormControl isRequired flex={1}>
+                    <FormLabel fontSize="xs">Kod (np. PLN, EUR, USD)</FormLabel>
+                    <Input
+                      size="sm"
+                      value={currency.code}
+                      onChange={(e) => handleUpdate(index, { code: e.target.value.toUpperCase() })}
+                      placeholder="PLN"
+                      maxLength={3}
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired flex={2}>
+                    <FormLabel fontSize="xs">Nazwa waluty</FormLabel>
+                    <Input
+                      size="sm"
+                      value={currency.name}
+                      onChange={(e) => handleUpdate(index, { name: e.target.value })}
+                      placeholder="Polski złoty"
+                    />
+                  </FormControl>
+
+                  <FormControl flex={1}>
+                    <FormLabel fontSize="xs">Symbol</FormLabel>
+                    <Input
+                      size="sm"
+                      value={currency.symbol || ''}
+                      onChange={(e) => handleUpdate(index, { symbol: e.target.value })}
+                      placeholder="zł"
+                    />
+                  </FormControl>
+                </HStack>
+
+                <Checkbox
+                  isChecked={currency.isDefault}
+                  onChange={(e) => handleUpdate(index, { isDefault: e.target.checked })}
+                  size="sm"
+                >
+                  Ustaw jako domyślną walutę
+                </Checkbox>
+              </VStack>
+            </Box>
+          ))}
+        </VStack>
+      )}
+    </VStack>
+  );
+}
+
+// ======================== UNITS EDITOR ========================
+
+interface UnitsEditorProps {
+  units: Array<{ code: string; name: string; symbol: string; category?: string; isDefault: boolean; order: number }>;
+  onChange: (units: Array<{ code: string; name: string; symbol: string; category?: string; isDefault: boolean; order: number }>) => void;
+}
+
+function UnitsEditor({ units, onChange }: UnitsEditorProps) {
+  const handleAdd = () => {
+    const newUnit = {
+      code: '',
+      name: '',
+      symbol: '',
+      category: '',
+      isDefault: units.length === 0,
+      order: units.length,
+    };
+    onChange([...units, newUnit]);
+  };
+
+  const handleRemove = (index: number) => {
+    const updated = units.filter((_, i) => i !== index);
+    // Jeśli usunięto domyślną jednostkę i są inne, ustaw pierwszą jako domyślną
+    if (units[index].isDefault && updated.length > 0) {
+      updated[0].isDefault = true;
+    }
+    // Zaktualizuj order
+    updated.forEach((u, i) => { u.order = i; });
+    onChange(updated);
+  };
+
+  const handleUpdate = (index: number, updates: Partial<typeof units[0]>) => {
+    const updated = [...units];
+    updated[index] = { ...updated[index], ...updates };
+    
+    // Jeśli ustawiono isDefault na true, wyłącz dla innych
+    if (updates.isDefault === true) {
+      updated.forEach((u, i) => {
+        if (i !== index) u.isDefault = false;
+      });
+    }
+    
+    onChange(updated);
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const updated = [...units];
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    updated.forEach((u, i) => { u.order = i; });
+    onChange(updated);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === units.length - 1) return;
+    const updated = [...units];
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    updated.forEach((u, i) => { u.order = i; });
+    onChange(updated);
+  };
+
+  const unitCategories = ['Długość', 'Powierzchnia', 'Objętość', 'Masa', 'Czas', 'Ilość', 'Inne'];
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box bg="green.50" p={4} borderRadius="md" borderWidth="1px" borderColor="green.200">
+        <HStack spacing={2} mb={2}>
+          <Icon as={Ruler} color="green.600" />
+          <Text fontSize="sm" fontWeight="bold" color="green.800">
+            Jednostki miary dostępne w szablonie
+          </Text>
+        </HStack>
+        <Text fontSize="xs" color="gray.700">
+          Zdefiniuj jednostki miary (szt, m², mb, kg, etc.), które będą dostępne w kosztorysach tworzonych z tego szablonu.
+        </Text>
+      </Box>
+
+      <Button
+        leftIcon={<Plus size={16} />}
+        size="sm"
+        colorScheme="green"
+        variant="outline"
+        onClick={handleAdd}
+      >
+        Dodaj jednostkę
+      </Button>
+
+      {units.length === 0 ? (
+        <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
+          <Text color="gray.500">Brak jednostek miar. Dodaj przynajmniej jedną jednostkę.</Text>
+        </Box>
+      ) : (
+        <VStack spacing={2} align="stretch">
+          {units.map((unit, index) => (
+            <Box
+              key={index}
+              p={4}
+              bg="white"
+              borderRadius="md"
+              borderWidth="1px"
+              borderColor="gray.200"
+              shadow="sm"
+            >
+              <VStack spacing={3} align="stretch">
+                <HStack justify="space-between">
+                  <HStack spacing={2}>
+                    <Badge colorScheme="green">#{unit.order + 1}</Badge>
+                    {unit.isDefault && <Badge colorScheme="orange">Domyślna</Badge>}
+                    {unit.category && <Badge variant="outline">{unit.category}</Badge>}
+                  </HStack>
+                  <HStack spacing={1}>
+                    <IconButton
+                      aria-label="Przenieś w górę"
+                      icon={<ChevronUp size={16} />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => handleMoveUp(index)}
+                      isDisabled={index === 0}
+                    />
+                    <IconButton
+                      aria-label="Przenieś w dół"
+                      icon={<ChevronDown size={16} />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => handleMoveDown(index)}
+                      isDisabled={index === units.length - 1}
+                    />
+                    <IconButton
+                      aria-label="Usuń"
+                      icon={<Trash2 size={16} />}
+                      size="xs"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleRemove(index)}
+                    />
+                  </HStack>
+                </HStack>
+
+                <HStack spacing={3}>
+                  <FormControl isRequired flex={1}>
+                    <FormLabel fontSize="xs">Kod (np. szt, m2, kg)</FormLabel>
+                    <Input
+                      size="sm"
+                      value={unit.code}
+                      onChange={(e) => handleUpdate(index, { code: e.target.value })}
+                      placeholder="szt"
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired flex={2}>
+                    <FormLabel fontSize="xs">Nazwa jednostki</FormLabel>
+                    <Input
+                      size="sm"
+                      value={unit.name}
+                      onChange={(e) => handleUpdate(index, { name: e.target.value })}
+                      placeholder="sztuka"
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired flex={1}>
+                    <FormLabel fontSize="xs">Symbol wyświetlania</FormLabel>
+                    <Input
+                      size="sm"
+                      value={unit.symbol}
+                      onChange={(e) => handleUpdate(index, { symbol: e.target.value })}
+                      placeholder="szt"
+                    />
+                  </FormControl>
+                </HStack>
+
+                <HStack spacing={3}>
+                  <FormControl flex={1}>
+                    <FormLabel fontSize="xs">Kategoria</FormLabel>
+                    <Select
+                      size="sm"
+                      value={unit.category || ''}
+                      onChange={(e) => handleUpdate(index, { category: e.target.value || undefined })}
+                      placeholder="Wybierz kategorię"
+                    >
+                      {unitCategories.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl flex={1} display="flex" alignItems="flex-end">
+                    <Checkbox
+                      isChecked={unit.isDefault}
+                      onChange={(e) => handleUpdate(index, { isDefault: e.target.checked })}
+                      size="sm"
+                    >
+                      Ustaw jako domyślną jednostkę
+                    </Checkbox>
+                  </FormControl>
+                </HStack>
+              </VStack>
+            </Box>
+          ))}
+        </VStack>
+      )}
+    </VStack>
+  );
+}

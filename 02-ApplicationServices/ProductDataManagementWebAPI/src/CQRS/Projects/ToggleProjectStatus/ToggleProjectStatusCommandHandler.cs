@@ -2,9 +2,9 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
-using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -18,6 +18,7 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
     private readonly IReadRepository<Project> projectRepo;
     private readonly IReadRepository<User> userRepo;
     private readonly IRepository<ProjectMember> projectMemberRepo;
+    private readonly IReadRepository<Notification> notificationRepo;
     private readonly INotificationSender notificationSender;
     private readonly ICurrentUser currentUser;
 
@@ -25,12 +26,14 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
         IReadRepository<Project> projectRepo,
         IReadRepository<User> userRepo,
         IRepository<ProjectMember> projectMemberRepo,
+        IReadRepository<Notification> notificationRepo,
         INotificationSender notificationSender,
         ICurrentUser currentUser)
     {
         this.projectRepo = projectRepo;
         this.userRepo = userRepo;
         this.projectMemberRepo = projectMemberRepo;
+        this.notificationRepo = notificationRepo;
         this.notificationSender = notificationSender;
         this.currentUser = currentUser;
     }
@@ -85,7 +88,8 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
         }
 
         return Unit.Value;

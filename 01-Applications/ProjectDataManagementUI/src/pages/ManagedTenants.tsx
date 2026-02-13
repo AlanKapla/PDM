@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -283,7 +283,7 @@ export default function ManagedTenants() {
                     }}
                   >
                     {/* Header organizacji */}
-                    <Box p={4}>
+                    <Box p={{ base: 3, md: 4 }}>
                       <VStack align="flex-start" spacing={1}>
                         <HStack spacing={2}>
                           <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>{tenant.name}</Text>

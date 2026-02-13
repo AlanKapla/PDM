@@ -1,4 +1,4 @@
-﻿import { useMsal } from "@azure/msal-react";
+import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import type { AccountInfo } from "@azure/msal-browser";
 import { loginRequest, silentRequest } from "../config/authConfig";

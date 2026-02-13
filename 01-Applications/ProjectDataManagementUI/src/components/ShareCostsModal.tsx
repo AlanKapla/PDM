@@ -55,7 +55,7 @@ export default function ShareCostsModal({
       fetchMyCosts();
       fetchProjectMembers();
       setSelectedUserIds(new Set());
-      setSelectedCostIds(new Set());
+      // selectedCostIds jest ustawiany w fetchMyCosts po pobraniu kosztów
     }
   }, [isOpen, tenantId, projectId]);
 
@@ -65,6 +65,8 @@ export default function ShareCostsModal({
       const response = await projectApi.getProjectUserCosts(tenantId, projectId);
       const data: ProjectCostListItemWeb[] = response.data;
       setCosts(data);
+      // Domyślnie zaznacz wszystkie koszty
+      setSelectedCostIds(new Set(data.map((cost) => cost.id)));
     } catch (error) {
       console.error("Błąd podczas pobierania kosztów:", error);
       toast({
@@ -84,8 +86,10 @@ export default function ShareCostsModal({
       setLoadingMembers(true);
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data = response.data;
-      // Wyklucz aktualnego użytkownika z listy
-      const filteredMembers = data.filter((member: ProjectMemberWeb) => member.email !== user?.email);
+      // Wyklucz aktualnego użytkownika z listy i filtruj członków bez userId
+      const filteredMembers = data.filter((member: ProjectMemberWeb) => 
+        member.userId !== user?.id && member.email !== user?.email && member.userId
+      );
       setMembers(filteredMembers);
     } catch (error) {
       console.error("Błąd podczas pobierania członków:", error);
@@ -235,7 +239,10 @@ export default function ShareCostsModal({
                     >
                       <Checkbox
                         isChecked={selectedCostIds.has(cost.id)}
-                        onChange={() => toggleCostSelection(cost.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleCostSelection(cost.id);
+                        }}
                       />
                       <DollarSign size={16} />
                       <VStack align="start" spacing={0} flex="1">
@@ -288,7 +295,10 @@ export default function ShareCostsModal({
                     >
                       <Checkbox
                         isChecked={selectedUserIds.has(member.userId)}
-                        onChange={() => toggleUserSelection(member.userId)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleUserSelection(member.userId);
+                        }}
                       />
                       <User size={16} />
                       <VStack align="start" spacing={0} flex="1">

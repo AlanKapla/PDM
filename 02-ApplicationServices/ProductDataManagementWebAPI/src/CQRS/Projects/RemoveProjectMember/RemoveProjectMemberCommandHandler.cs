@@ -2,9 +2,9 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
-using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -15,6 +15,7 @@ namespace CQRS.Projects.RemoveProjectMember
         private readonly IReadRepository<Project> projectRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
 
@@ -23,13 +24,15 @@ namespace CQRS.Projects.RemoveProjectMember
             IRepository<ProjectMember> projectMemberRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
-            IReadRepository<User> userRepo)
+            IReadRepository<User> userRepo,
+            IReadRepository<Notification> notificationRepo)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.userRepo = userRepo;
+            this.notificationRepo = notificationRepo;
         }
 
         public async Task<Unit> Handle(RemoveProjectMemberCommand request, CancellationToken cancellationToken)
@@ -68,7 +71,8 @@ namespace CQRS.Projects.RemoveProjectMember
                 }
             };
 
-            await notificationSender.EnqueueAsync(notification, cancellationToken);
+            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;
         }

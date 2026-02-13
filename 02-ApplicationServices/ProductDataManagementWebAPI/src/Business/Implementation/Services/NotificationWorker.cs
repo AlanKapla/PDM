@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
@@ -42,13 +42,14 @@ namespace Business.Implementation.Services
                     {
                         PropertyNameCaseInsensitive = true
                     };
-                    NotificationDto? notification = JsonSerializer.Deserialize<NotificationDto>(message.Text, jsonOptions);
+                    NotificationPayloadDto? payload = JsonSerializer.Deserialize<NotificationPayloadDto>(message.Text, jsonOptions);
 
-                    if (notification != null)
+                    if (payload != null)
                     {
-                        logger.LogInformation("🔔 Dispatching notification {NotificationId} to user {UserId}", notification.Id, notification.AzureAdB2CObjectId);
-                        await dispatcher.DispatchAsync(notification, stoppingToken);
-                        logger.LogInformation("✅ Notification {NotificationId} dispatched successfully", notification.Id);
+                        logger.LogInformation("🔔 Dispatching notification {NotificationId} to user {UserId} with unread count {UnreadCount}", 
+                            payload.Notification.Id, payload.Notification.AzureAdB2CObjectId, payload.UnreadNotificationCounter);
+                        await dispatcher.DispatchAsync(payload, stoppingToken);
+                        logger.LogInformation("✅ Notification {NotificationId} dispatched successfully", payload.Notification.Id);
                     }
                     else
                     {

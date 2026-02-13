@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
@@ -11,9 +11,9 @@ interface AuthContextType {
   loading: boolean;
   refreshUser: () => Promise<void>;
   setIsAuthenticated: (value: boolean) => void;
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  googleLogin: (token: string) => Promise<{ success: boolean; message?: string }>;
-  googleRegister: (token: string) => Promise<{ success: boolean; message?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }> ;
+  googleLogin: (token: string) => Promise<{ success: boolean; message?: string }> ;
+  googleRegister: (token: string) => Promise<{ success: boolean; message?: string }> ;
   logout: () => Promise<void>;
 }
 
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated, inProgress]); // Czekaj na MSAL initialization
+  }, [isAuthenticated, inProgress, user]); // Czekaj na MSAL initialization
 
   // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
   useEffect(() => {
@@ -120,31 +120,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSignalRInitialized(true);
     console.log("🚀 Initializing SignalR for the first time...");
 
-    // Ustaw callback resync po reconnect
+    // Set resync callback (no cache needed - just log)
     notificationHubService.setAfterReconnect(async () => {
-      try {
-        console.log("🔄 SignalR resync after reconnect...");
-        const response = await axiosClient.get("/Notification/unread");
-        await notificationHubService.initializeCache(response.data);
-        console.log("✅ SignalR resync completed");
-      } catch (error) {
-        console.error("❌ SignalR resync failed:", error);
-      }
+      console.log("🔄 SignalR reconnected - notifications will be fetched from API when needed");
     });
 
     // Inicjalizacja: NAJPIERW connect, POTEM cache
     const initializeSignalR = async () => {
       try {
         // 1. Uruchom połączenie NAJPIERW (żeby nie tracić eventów)
-        console.log("🔌 Starting SignalR connection (before cache)...");
+        console.log("🔌 Starting SignalR connection...");
         await notificationHubService.startConnection();
-        console.log("✅ SignalR connected");
-
-        // 2. Dopiero teraz pobierz i zainicjalizuj cache
-        console.log("💾 Loading initial notifications cache...");
-        const response = await axiosClient.get("/Notification/unread");
-        await notificationHubService.initializeCache(response.data);
-        console.log("✅ SignalR cache initialized:", response.data.length, "notifications");
+        console.log("✅ SignalR connected - ready to receive real-time notifications");
       } catch (error) {
         console.error("❌ Failed to initialize SignalR:", error);
         // Jeśli init failed, spróbuj ponownie za 5s
@@ -249,7 +236,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("🔔 Stopping SignalR connection...");
     try {
       await notificationHubService.stopConnection();
-      notificationHubService.clearCache();
     } catch (error) {
       console.error("❌ Error stopping SignalR:", error);
     }

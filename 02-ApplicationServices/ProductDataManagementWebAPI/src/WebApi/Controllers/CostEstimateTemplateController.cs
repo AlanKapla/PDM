@@ -1,8 +1,9 @@
-﻿using CQRS.CostEstimates.CreateCostEstimateTemplate;
-using CQRS.CostEstimates.DeleteCostEstimateTemplate;
-using CQRS.CostEstimates.GetCostEstimateTemplateDetails;
-using CQRS.CostEstimates.GetCostEstimateTemplates;
-using CQRS.CostEstimates.UpdateCostEstimateTemplate;
+﻿using Business.Interfaces.WebModels.CostEstimateTemplates;
+using CQRS.CostEstimateTemplates.CreateCostEstimateTemplate;
+using CQRS.CostEstimateTemplates.GetCostEstimateTemplateDetails;
+using CQRS.CostEstimateTemplates.GetCostEstimateTemplates;
+using CQRS.CostEstimateTemplates.GetFieldTypeConfigurations;
+using CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,20 +27,33 @@ namespace WebApi.Controllers
         /// </summary>
         /// <returns>List of templates</returns>
         [HttpGet]
-        [ProducesResponseType(typeof(List<CostEstimateTemplateListItem>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(List<CostEstimateTemplateListItemWeb>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetTemplates()
         {
             return Ok(await Send(new GetCostEstimateTemplatesQuery()));
         }
+        
+        /// <summary>
+        /// Get field type configurations
+        /// Returns dictionary of field type metadata grouped by FieldScope
+        /// </summary>
+        /// <returns>Dictionary: FieldScope -> FieldTypeConfig[]</returns>
+        [HttpGet]
+        [Route("field-type-configurations")]
+        [ProducesResponseType(typeof(Dictionary<int, CostEstimateFieldTypeConfigWeb[]>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetFieldTypeConfigurations()
+        {
+            return Ok(await Send(new GetFieldTypeConfigurationsQuery()));
+        }
 
         /// <summary>
-        /// Get template details by ID
+        /// Get template details by ID with full structure
         /// </summary>
         /// <param name="id">Template ID</param>
         /// <returns>Template details with full structure</returns>
         [HttpGet]
         [Route("{id:guid}")]
-        [ProducesResponseType(typeof(CostEstimateTemplateDetails), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(CostEstimateTemplateDetailsWeb), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetTemplateDetails([FromRoute] Guid id)
@@ -81,22 +95,6 @@ namespace WebApi.Controllers
             }
 
             await Send(command);
-            return NoContent();
-        }
-
-        /// <summary>
-        /// Delete template (soft delete)
-        /// </summary>
-        /// <param name="id">Template ID</param>
-        /// <returns>No content</returns>
-        [HttpDelete]
-        [Route("{id:guid}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> DeleteTemplate([FromRoute] Guid id)
-        {
-            await Send(new DeleteCostEstimateTemplateCommand(id));
             return NoContent();
         }
     }

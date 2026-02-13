@@ -6,7 +6,7 @@ namespace WebApi.Hubs
 {
     public interface INotificationClient
     {
-        Task ReceiveNotification(NotificationDto notification);
+        Task ReceiveNotification(NotificationPayloadDto payload);
         Task ReceiveNotificationMarkAsRead(NotificationMarkAsReadDto notificationMarkAsRead);
     }
 

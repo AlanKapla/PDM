@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Globalny cache dla zasobów współdzielonych (my-tenants, invitations, project details)
@@ -28,6 +28,18 @@ export function useGlobalCache<T>(
 ) {
   const [dataState, setDataState] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Przechowuj fetchFn w ref aby uniknąć stale closure
+  const fetchFnRef = useRef(fetchFn);
+  
+  // Aktualizuj ref przy każdym renderze
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+  }, [fetchFn]);
+
+  const isCacheValid = useCallback((timestamp: number): boolean => {
+    return Date.now() - timestamp < CACHE_TTL;
+  }, []);
 
   // Przy montowaniu przywróć dane z globalnego cache jeśli są świeże
   useEffect(() => {
@@ -35,11 +47,7 @@ export function useGlobalCache<T>(
     if (cached && isCacheValid(cached.timestamp)) {
       setDataState(cached.data);
     }
-  }, [cacheKey]);
-
-  const isCacheValid = useCallback((timestamp: number): boolean => {
-    return Date.now() - timestamp < CACHE_TTL;
-  }, []);
+  }, [cacheKey, isCacheValid]);
 
   const fetch = useCallback(async (): Promise<T> => {
     // Sprawdź cache
@@ -50,7 +58,7 @@ export function useGlobalCache<T>(
     }
 
     // Sprawdź czy fetch już jest w trakcie (synchroniczne sprawdzenie przed race condition)
-    let inProgress = fetchInProgress.get(cacheKey);
+    const inProgress = fetchInProgress.get(cacheKey);
     if (inProgress) {
       console.log(`⏳ Fetch already in progress for ${cacheKey}, waiting...`);
       const result = await inProgress;
@@ -62,7 +70,7 @@ export function useGlobalCache<T>(
     const fetchPromise = (async () => {
       try {
         setLoading(true);
-        const result = await fetchFn();
+        const result = await fetchFnRef.current();
         const cacheEntry: CacheEntry<T> = {
           data: result,
           timestamp: Date.now(),
@@ -92,7 +100,6 @@ export function useGlobalCache<T>(
     }
 
     return fetchPromise;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey, isCacheValid]);
 
   const clear = useCallback(() => {

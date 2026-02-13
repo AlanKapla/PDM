@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebApi", "src\WebApi\WebApi
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Entities", "src\Entities\Entities.csproj", "{C80A6DF9-B00D-4871-9BF1-E6B27FEB312C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Repositiories", "src\Repositiories\Repositiories.csproj", "{75265F72-DEAC-4E24-A09F-9810377E6D63}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Repositories", "src\Repositories\Repositories.csproj", "{75265F72-DEAC-4E24-A09F-9810377E6D63}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CQRS", "src\CQRS\CQRS.csproj", "{BD4EBCB6-BE1F-498D-8613-9ACD6D0C11CF}"
 EndProject

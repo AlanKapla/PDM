@@ -2,7 +2,7 @@
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8085";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://localhost:5001";
 
 console.log("=== AXIOS CLIENT CONFIG ===");
 console.log("VITE_API_BASE_URL from env:", import.meta.env.VITE_API_BASE_URL);

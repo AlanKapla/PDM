@@ -705,20 +705,21 @@ export default function WorkScheduleFormModal({
   const submitLoadingText = mode === 'create' ? 'Tworzenie...' : 'Zapisywanie...';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
+    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "6xl" }} scrollBehavior="inside">
       <ModalOverlay />
-      <ModalContent maxH="90vh">
-        <ModalHeader>{modalTitle}</ModalHeader>
+      <ModalContent maxH={{ base: "100vh", md: "90vh" }} mx={{ base: 0, md: "auto" }}>
+        <ModalHeader fontSize={{ base: "sm", md: "lg" }}>{modalTitle}</ModalHeader>
         <ModalCloseButton />
-        <ModalBody>
+        <ModalBody pb={20}>
           <VStack spacing={6} align="stretch">
             <FormControl isRequired>
-              <FormLabel>Nazwa harmonogramu</FormLabel>
+              <FormLabel fontSize={{ base: "xs", md: "sm" }}>Nazwa harmonogramu</FormLabel>
               <Input
                 placeholder="Np. Harmonogram budowy - Q1 2025"
                 value={scheduleName}
                 onChange={(e) => setScheduleName(e.target.value)}
                 maxLength={200}
+                size={{ base: "sm", md: "md" }}
               />
               <Text fontSize="xs" color="gray.500" mt={1}>
                 {scheduleName.length}/200 znaków
@@ -728,14 +729,14 @@ export default function WorkScheduleFormModal({
             <Divider />
 
             <Box>
-              <HStack justify="space-between" mb={4}>
-                <Text fontWeight="bold" fontSize="lg">
+              <HStack justify="space-between" mb={4} flexWrap="wrap" gap={2}>
+                <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>
                   Etapy i prace
                 </Text>
                 <Button
                   leftIcon={<Plus size={16} />}
                   colorScheme="blue"
-                  size="sm"
+                  size={{ base: "sm", md: "md" }}
                   onClick={addStage}
                 >
                   Dodaj etap
@@ -754,18 +755,22 @@ export default function WorkScheduleFormModal({
                       mb={3}
                     >
                       <AccordionButton
-                        p={4}
+                        p={{ base: 2, md: 4 }}
                         _hover={{ bg: hoverBg }}
                         draggable
                         onDragStart={(e) => handleStageDragStart(e, stage.tempId)}
                         onDragOver={handleStageDragOver}
                         onDrop={(e) => handleStageDrop(e, stage.tempId)}
+                        flexDirection={{ base: "column", md: "row" }}
+                        alignItems={{ base: "flex-start", md: "center" }}
                       >
-                        <HStack spacing={3} flex={1}>
-                          <Box cursor="grab" _active={{ cursor: "grabbing" }}>
+                        <HStack spacing={2} flex={1} width="100%" alignItems={{ base: "flex-start", md: "center" }}>
+                          <Box cursor="grab" _active={{ cursor: "grabbing" }} display={{ base: "none", md: "block" }}>
                             <GripVertical size={20} />
                           </Box>
-                          <Badge colorScheme="blue">Etap {stageIndex + 1}</Badge>
+                          <Badge colorScheme="blue" fontSize={{ base: "10px", md: "xs" }} flexShrink={0}>
+                            Etap {stageIndex + 1}
+                          </Badge>
                           <Input
                             placeholder="Nazwa etapu (wymagane, max 200 znaków)"
                             value={stage.name}
@@ -774,27 +779,30 @@ export default function WorkScheduleFormModal({
                             flex={1}
                             maxLength={200}
                             isInvalid={!stage.name.trim()}
+                            size={{ base: "sm", md: "md" }}
+                            width={{ base: "100%", md: "auto" }}
                           />
-                          <Text fontSize="xs" color="gray.500" minW="60px" textAlign="right">
+                          <Text fontSize={{ base: "9px", md: "xs" }} color="gray.500" minW={{ base: "50px", md: "60px" }} textAlign="right" flexShrink={0}>
                             {stage.name.length}/200
                           </Text>
                           <IconButton
                             aria-label="Usuń etap"
                             icon={<Trash2 size={16} />}
                             colorScheme="red"
-                            size="sm"
+                            size={{ base: "sm", md: "md" }}
                             variant="ghost"
+                            flexShrink={0}
                             onClick={(e) => {
                               e.stopPropagation();
                               removeStage(stage.tempId);
                             }}
                           />
                         </HStack>
-                        <AccordionIcon ml={2} />
+                        <AccordionIcon ml={2} display={{ base: "none", md: "block" }} />
                       </AccordionButton>
 
                       <AccordionPanel pb={4} pt={2}>
-                        <VStack spacing={3} align="stretch" pl={8}>
+                        <VStack spacing={3} align="stretch" pl={{ base: 0, md: 8 }}>
                           <Accordion allowMultiple>
                             {stage.works.map((work, workIndex) => (
                               <AccordionItem
@@ -802,27 +810,29 @@ export default function WorkScheduleFormModal({
                                 borderWidth="1px"
                                 borderRadius="md"
                                 borderColor={borderColor}
-                                bg={useColorModeValue("gray.50", "gray.700")}
+                                bg={hoverBg}
                                 mb={2}
                               >
                                 <AccordionButton
-                                  p={3}
+                                  p={{ base: 2, md: 3 }}
                                   _hover={{ bg: hoverBg }}
                                   draggable
                                   onDragStart={(e) => handleWorkDragStart(e, stage.tempId, work.tempId)}
                                   onDragOver={handleStageDragOver}
                                   onDrop={(e) => handleWorkDrop(e, stage.tempId, work.tempId)}
+                                  flexDirection={{ base: "column", md: "row" }}
+                                  alignItems={{ base: "flex-start", md: "center" }}
                                 >
-                                  <HStack spacing={2} flex={1}>
-                                    <Box cursor="grab" _active={{ cursor: "grabbing" }}>
+                                  <HStack spacing={{ base: 1, md: 2 }} flex={1} width="100%" alignItems={{ base: "flex-start", md: "center" }}>
+                                    <Box cursor="grab" _active={{ cursor: "grabbing" }} display={{ base: "none", md: "block" }}>
                                       <GripVertical size={16} />
                                     </Box>
-                                    <Badge colorScheme="green" fontSize="xs">
+                                    <Badge colorScheme="green" fontSize={{ base: "9px", md: "xs" }} flexShrink={0}>
                                       Zakres robót {workIndex + 1}
                                     </Badge>
                                     <Input
                                       placeholder="Nazwa zakresu robót (wymagane, max 200 znaków)"
-                                      size="sm"
+                                      size={{ base: "sm", md: "md" }}
                                       value={work.name}
                                       onChange={(e) =>
                                         updateWork(stage.tempId, work.tempId, { name: e.target.value })
@@ -831,33 +841,35 @@ export default function WorkScheduleFormModal({
                                       flex={1}
                                       maxLength={200}
                                       isInvalid={!work.name.trim()}
+                                      width={{ base: "100%", md: "auto" }}
                                     />
-                                    <Text fontSize="xs" color="gray.500" minW="50px" textAlign="right">
+                                    <Text fontSize={{ base: "9px", md: "xs" }} color="gray.500" minW={{ base: "45px", md: "50px" }} textAlign="right" flexShrink={0}>
                                       {work.name.length}/200
                                     </Text>
                                     <IconButton
                                       aria-label="Usuń pracę"
                                       icon={<Trash2 size={14} />}
                                       colorScheme="red"
-                                      size="xs"
+                                      size={{ base: "sm", md: "xs" }}
                                       variant="ghost"
+                                      flexShrink={0}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         removeWork(stage.tempId, work.tempId);
                                       }}
                                     />
                                   </HStack>
-                                  <AccordionIcon ml={2} />
+                                  <AccordionIcon ml={2} display={{ base: "none", md: "block" }} />
                                 </AccordionButton>
 
                                 <AccordionPanel pb={3} pt={2}>
                                   <VStack spacing={2} align="stretch">
                                     {/* Okresy pracy */}
-                                    <FormControl size="sm">
-                                      <HStack justify="space-between" mb={1}>
-                                        <FormLabel fontSize="xs" mb={0}>Okresy pracy</FormLabel>
+                                    <FormControl size={{ base: "sm", md: "md" }}>
+                                      <HStack justify="space-between" mb={2} flexWrap="wrap" gap={2}>
+                                        <FormLabel fontSize={{ base: "xs", md: "sm" }} mb={0}>Okresy pracy</FormLabel>
                                         <Button
-                                          size="xs"
+                                          size={{ base: "xs", md: "sm" }}
                                           leftIcon={<Plus size={12} />}
                                           onClick={() => addPeriod(stage.tempId, work.tempId)}
                                           colorScheme="green"
@@ -869,11 +881,11 @@ export default function WorkScheduleFormModal({
                                       <VStack spacing={2} align="stretch">
                                         {work.periods.map((period, periodIdx) => (
                                           <VStack key={period.tempId} spacing={1} align="stretch">
-                                            <HStack spacing={2}>
-                                              <Text fontSize="xs" minW="20px">{periodIdx + 1}.</Text>
+                                            <HStack spacing={1} flexWrap={{ base: "wrap", md: "nowrap" }}>
+                                              <Text fontSize={{ base: "xs", md: "sm" }} minW="20px" flexShrink={0}>{periodIdx + 1}.</Text>
                                               <Input
                                                 type="date"
-                                                size="sm"
+                                                size={{ base: "sm", md: "md" }}
                                                 value={period.startDate}
                                                 onChange={(e) =>
                                                   updatePeriod(stage.tempId, work.tempId, period.tempId, {
@@ -881,10 +893,11 @@ export default function WorkScheduleFormModal({
                                                   })
                                                 }
                                                 placeholder="Od"
+                                                flex={1}
                                               />
                                               <Input
                                                 type="date"
-                                                size="sm"
+                                                size={{ base: "sm", md: "md" }}
                                                 value={period.endDate}
                                                 onChange={(e) =>
                                                   updatePeriod(stage.tempId, work.tempId, period.tempId, {
@@ -892,19 +905,21 @@ export default function WorkScheduleFormModal({
                                                   })
                                                 }
                                                 placeholder="Do"
+                                                flex={1}
                                               />
                                               <IconButton
                                                 aria-label="Usuń okres"
                                                 icon={<Trash2 size={14} />}
-                                                size="sm"
+                                                size={{ base: "sm", md: "md" }}
                                                 colorScheme="red"
                                                 variant="ghost"
                                                 onClick={() => removePeriod(stage.tempId, work.tempId, period.tempId)}
                                                 isDisabled={work.periods.length === 1}
+                                                flexShrink={0}
                                               />
                                             </HStack>
                                             <Checkbox
-                                              size="sm"
+                                              size={{ base: "sm", md: "md" }}
                                               colorScheme="green"
                                               isChecked={period.isClosed}
                                               onChange={(e) => {
@@ -919,7 +934,7 @@ export default function WorkScheduleFormModal({
                                               }}
                                               ml={6}
                                             >
-                                              <Text fontSize="xs">Okres wykonany</Text>
+                                              <Text fontSize={{ base: "xs", md: "sm" }}>Okres wykonany</Text>
                                             </Checkbox>
                                           </VStack>
                                         ))}
@@ -927,14 +942,14 @@ export default function WorkScheduleFormModal({
                                     </FormControl>
 
                                     {/* Kolor */}
-                                    <FormControl size="sm">
-                                      <FormLabel fontSize="xs" mb={1}>Kolor</FormLabel>
-                                      <HStack spacing={2} flexWrap="wrap">
+                                    <FormControl size={{ base: "sm", md: "md" }}>
+                                      <FormLabel fontSize={{ base: "xs", md: "sm" }} mb={2}>Kolor</FormLabel>
+                                      <HStack spacing={1} flexWrap="wrap">
                                         {PRESET_COLORS.map((color) => (
                                           <Box
                                             key={color}
-                                            w={8}
-                                            h={8}
+                                            w={{ base: 7, md: 8 }}
+                                            h={{ base: 7, md: 8 }}
                                             bg={color}
                                             borderRadius="md"
                                             cursor="pointer"
@@ -944,6 +959,7 @@ export default function WorkScheduleFormModal({
                                             _hover={{ transform: "scale(1.1)" }}
                                             transition="all 0.2s"
                                             position="relative"
+                                            flexShrink={0}
                                             _after={work.colorRgb === color ? {
                                               content: '""',
                                               position: "absolute",
@@ -958,8 +974,8 @@ export default function WorkScheduleFormModal({
                                         ))}
                                         <Box
                                           position="relative"
-                                          w={8}
-                                          h={8}
+                                          w={{ base: 7, md: 8 }}
+                                          h={{ base: 7, md: 8 }}
                                           bg={work.colorRgb}
                                           borderRadius="md"
                                           borderWidth="3px"
@@ -971,8 +987,9 @@ export default function WorkScheduleFormModal({
                                           display="flex"
                                           alignItems="center"
                                           justifyContent="center"
+                                          flexShrink={0}
                                         >
-                                          <Text fontSize="2xs" fontWeight="bold" color="white" textShadow="0 0 2px black" pointerEvents="none" position="relative" zIndex={1}>
+                                          <Text fontSize={{ base: "7px", md: "2xs" }} fontWeight="bold" color="white" textShadow="0 0 2px black" pointerEvents="none" position="relative" zIndex={1}>
                                             Inny
                                           </Text>
                                           <Input
@@ -997,9 +1014,9 @@ export default function WorkScheduleFormModal({
                                     </FormControl>
 
                                     {/* Prace zakończone */}
-                                    <FormControl size="sm">
+                                    <FormControl size={{ base: "sm", md: "md" }}>
                                       <Checkbox
-                                        size="sm"
+                                        size={{ base: "sm", md: "md" }}
                                         colorScheme="green"
                                         isChecked={work.isClosed}
                                         onChange={(e) => {
@@ -1008,13 +1025,13 @@ export default function WorkScheduleFormModal({
                                           updateWork(stage.tempId, work.tempId, { isClosed: newClosedState, periods: updatedPeriods });
                                         }}
                                       >
-                                        <Text fontSize="xs">Prace zakończone</Text>
+                                        <Text fontSize={{ base: "xs", md: "sm" }}>Prace zakończone</Text>
                                       </Checkbox>
                                     </FormControl>
 
                                     {/* Przypisani członkowie */}
-                                    <FormControl size="sm">
-                                      <FormLabel fontSize="xs" mb={1}>Przypisani członkowie</FormLabel>
+                                    <FormControl size={{ base: "sm", md: "md" }}>
+                                      <FormLabel fontSize={{ base: "xs", md: "sm" }} mb={2}>Przypisani członkowie</FormLabel>
                                       <Flex flexWrap="wrap" gap={2}>
                                         {members.map((member) => (
                                           <Badge
@@ -1024,6 +1041,7 @@ export default function WorkScheduleFormModal({
                                             px={2}
                                             py={1}
                                             borderRadius="md"
+                                            fontSize={{ base: "9px", md: "xs" }}
                                             onClick={() => toggleAssignedUser(stage.tempId, work.tempId, member.userId)}
                                             _hover={{ transform: "scale(1.05)" }}
                                             transition="all 0.2s"
@@ -1035,11 +1053,11 @@ export default function WorkScheduleFormModal({
                                     </FormControl>
 
                                     {/* Komentarze */}
-                                    <FormControl size="sm">
-                                      <HStack justify="space-between" mb={1}>
-                                        <FormLabel fontSize="xs" mb={0}>Komentarze</FormLabel>
+                                    <FormControl size={{ base: "sm", md: "md" }}>
+                                      <HStack justify="space-between" mb={2} flexWrap="wrap" gap={2}>
+                                        <FormLabel fontSize={{ base: "xs", md: "sm" }} mb={0}>Komentarze</FormLabel>
                                         <Button
-                                          size="xs"
+                                          size={{ base: "xs", md: "sm" }}
                                           leftIcon={<Plus size={12} />}
                                           onClick={() => addComment(stage.tempId, work.tempId)}
                                           colorScheme="purple"
@@ -1051,10 +1069,10 @@ export default function WorkScheduleFormModal({
                                       <VStack spacing={2} align="stretch">
                                         {work.comments.map((comment, commentIdx) => (
                                           <VStack key={comment.tempId} spacing={1} align="stretch">
-                                            <HStack spacing={2} align="flex-start">
-                                              <Text fontSize="xs" minW="20px" mt={2}>{commentIdx + 1}.</Text>
+                                            <HStack spacing={2} align="flex-start" flexWrap={{ base: "wrap", md: "nowrap" }}>
+                                              <Text fontSize={{ base: "xs", md: "sm" }} minW="20px" mt={2} flexShrink={0}>{commentIdx + 1}.</Text>
                                               <Textarea
-                                                size="sm"
+                                                size={{ base: "sm", md: "md" }}
                                                 value={comment.content}
                                                 onChange={(e) =>
                                                   updateComment(stage.tempId, work.tempId, comment.tempId, e.target.value)
@@ -1063,18 +1081,20 @@ export default function WorkScheduleFormModal({
                                                 maxLength={2000}
                                                 resize="vertical"
                                                 minH="60px"
+                                                flex={1}
                                               />
                                               <IconButton
                                                 aria-label="Usuń komentarz"
                                                 icon={<Trash2 size={14} />}
-                                                size="sm"
+                                                size={{ base: "sm", md: "md" }}
                                                 colorScheme="red"
                                                 variant="ghost"
                                                 onClick={() => removeComment(stage.tempId, work.tempId, comment.tempId)}
                                                 mt={1}
+                                                flexShrink={0}
                                               />
                                             </HStack>
-                                            <Text fontSize="xs" color={comment.content.length > 1900 ? "orange.500" : "gray.500"} ml={6}>
+                                            <Text fontSize={{ base: "9px", md: "xs" }} color={comment.content.length > 1900 ? "orange.500" : "gray.500"} ml={6}>
                                               {comment.content.length}/2000 znaków
                                             </Text>
                                           </VStack>
@@ -1089,7 +1109,7 @@ export default function WorkScheduleFormModal({
 
                           <Button
                             leftIcon={<Plus size={14} />}
-                            size="sm"
+                            size={{ base: "sm", md: "md" }}
                             variant="outline"
                             colorScheme="green"
                             onClick={() => addWork(stage.tempId)}
@@ -1104,7 +1124,7 @@ export default function WorkScheduleFormModal({
 
                 {stages.length === 0 && (
                   <Box textAlign="center" py={8} color="gray.500">
-                    <Text>Brak etapów. Kliknij "Dodaj etap" aby rozpocząć.</Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }}>Brak etapów. Kliknij "Dodaj etap" aby rozpocząć.</Text>
                   </Box>
                 )}
               </VStack>
@@ -1112,8 +1132,8 @@ export default function WorkScheduleFormModal({
           </VStack>
         </ModalBody>
 
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose} isDisabled={submitting}>
+        <ModalFooter position={{ base: "fixed", md: "relative" }} bottom={{ base: 0, md: "auto" }} left={{ base: 0, md: "auto" }} right={{ base: 0, md: "auto" }} bg={bgColor} borderTopWidth={{ base: "1px", md: 0 }} borderColor={borderColor} p={3} gap={2}>
+          <Button variant="ghost" onClick={onClose} isDisabled={submitting} size={{ base: "sm", md: "md" }}>
             Anuluj
           </Button>
           <Button
@@ -1121,6 +1141,7 @@ export default function WorkScheduleFormModal({
             onClick={handleSubmit}
             isLoading={submitting}
             loadingText={submitLoadingText}
+            size={{ base: "sm", md: "md" }}
           >
             {submitButtonText}
           </Button>

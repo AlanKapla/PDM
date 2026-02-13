@@ -2,7 +2,6 @@
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
-using Repositiories.Repository.Interfaces;
 
 namespace CQRS.Chats.CreateChat
 {

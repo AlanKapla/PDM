@@ -24,10 +24,11 @@ import {
   RadioGroup,
   Stack,
   Spinner,
+  useBreakpointValue
 } from "@chakra-ui/react";
 import { X, Upload, FileText, Package } from "lucide-react";
 import { handleApiError } from "../utils/handleApiError";
-import { projectApi } from "../api/projectApi";
+import { projectApi, ResourceScope } from "../api/projectApi";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { FILE_UPLOAD } from "../utils/constants";
 import { formatFileSize } from "../utils/formatters";
@@ -47,6 +48,9 @@ interface FileWithDisplayName {
   displayName: string;
   comment: string;
 }
+
+const modalSize = "full";
+const modalScroll = "inside";
 
 export default function UploadFilesModal({
   isOpen,
@@ -75,7 +79,7 @@ export default function UploadFilesModal({
   const fetchMyPackages = async () => {
     setLoadingPackages(true);
     try {
-      const response = await projectApi.getMyFiles(tenantId, projectId);
+      const response = await projectApi.getProjectFilePackages(tenantId, projectId, ResourceScope.Mine);
       const data: ProjectFilePackageWeb[] = response.data;
       setPackages(data);
     } catch (error) {
@@ -98,21 +102,21 @@ export default function UploadFilesModal({
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files || []);
-    
+
     const validatedFiles: FileWithDisplayName[] = [];
-    
+
     for (const file of selectedFiles) {
       const error = validateFile(file);
       if (error) {
         showError("Błąd walidacji pliku", error);
         continue;
       }
-      
+
       // Domyślna nazwa wyświetlana to nazwa pliku bez rozszerzenia
       const displayName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
       validatedFiles.push({ file, displayName, comment: '' });
     }
-    
+
     setFiles([...files, ...validatedFiles]);
     event.target.value = ''; // Reset input
   };
@@ -139,12 +143,12 @@ export default function UploadFilesModal({
       setPackageNameError("Nazwa paczki jest wymagana");
       return;
     }
-    
+
     if (mode === "existing" && !selectedPackageId) {
       showError("Błąd", "Wybierz paczkę");
       return;
     }
-    
+
     if (files.length === 0) {
       showError("Błąd", "Dodaj przynajmniej jeden plik");
       return;
@@ -177,7 +181,7 @@ export default function UploadFilesModal({
       }
 
       showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`);
-      
+
       // Reset i zamknij
       setMode("new");
       setPackageName("");
@@ -214,10 +218,16 @@ export default function UploadFilesModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="xl" isCentered>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        size={modalSize}
+        scrollBehavior={modalScroll}
+        isCentered
+      >
       <ModalOverlay />
-      <ModalContent maxW="600px">
-        <ModalHeader>Dodaj pliki do projektu</ModalHeader>
+      <ModalContent maxW={{ base: "100%", md: "600px" }} mx={{ base: 0, md: "auto" }}>
+        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Dodaj pliki do projektu</ModalHeader>
         <ModalCloseButton isDisabled={uploading} />
         <ModalBody>
           <VStack spacing={4} align="stretch">

@@ -118,33 +118,43 @@ export const projectApi = {
     });
   },
 
-  // UNIFIED endpoint for getting files based on scope
-  getProjectFiles: async (tenantId: string, projectId: string, scope: ResourceScope) => {
+  // 🆕 Hierarchiczne endpointy dla plików (API v2.0)
+  
+  // 1. Pobierz listę paczek plików
+  getProjectFilePackages: async (tenantId: string, projectId: string, scope: ResourceScope) => {
     const scopeRoute = resourceScopeToRoute(scope);
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/${scopeRoute}`);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/packages/${scopeRoute}`);
   },
 
-  // DEPRECATED - use getProjectFiles with ResourceScope.Mine
-  getMyFiles: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/my`);
+  // 2. Pobierz pliki w konkretnej paczce
+  getPackageFiles: async (tenantId: string, projectId: string, packageId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/packages/${packageId}/files/${scopeRoute}`);
   },
 
-  // DEPRECATED - use getProjectFiles with ResourceScope.Shared
-  getSharedFiles: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/shared`);
+  // 3. Pobierz wersje konkretnego pliku
+  getFileVersions: async (tenantId: string, projectId: string, fileId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/files/${fileId}/versions/${scopeRoute}`);
   },
 
-  // Udostępnij pliki wielu użytkownikom
-  shareFiles: async (
+  // 4. Pobierz komentarze do konkretnej wersji
+  getVersionComments: async (tenantId: string, projectId: string, fileId: string, versionId: string, scope: ResourceScope) => {
+    const scopeRoute = resourceScopeToRoute(scope);
+    return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/files/${fileId}/versions/${versionId}/comments/${scopeRoute}`);
+  },
+
+  // Udostępnij paczki wielu użytkownikom
+  sharePackages: async (
     tenantId: string,
     projectId: string,
-    fileIds: string[],
+    packageIds: string[],
     sharedWithUserIds: string[]
   ) => {
-    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/share`, {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/packages/share`, {
       tenantId,
       projectId,
-      projectFileIds: fileIds,
+      packageIds,
       sharedWithUserIds,
     });
   },

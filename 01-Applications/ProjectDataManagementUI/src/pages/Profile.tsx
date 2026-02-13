@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import {
   Box,
   Heading,
@@ -12,14 +12,12 @@ import {
   HStack,
 } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
-import { getUserDetails, updateUserProfile } from "../services/userService";
+import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
-import type { UserProfile } from "../types/auth.types";
 
 export default function Profile() {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useContext(AuthContext);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   
@@ -34,24 +32,11 @@ export default function Profile() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
 
   useEffect(() => {
-    async function load() {
-      try {
-        const userData = await getUserDetails();
-        
-        setUser(userData);
-        
-        if (userData) {
-          setFirstName(userData.firstName);
-          setLastName(userData.lastName);
-        }
-      } catch (error) {
-        console.error("Błąd ładowania danych:", error);
-      } finally {
-        setLoading(false);
-      }
+    if (user) {
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
     }
-    load();
-  }, []);
+  }, [user]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -60,8 +45,8 @@ export default function Profile() {
   const handleCancel = () => {
     setIsEditing(false);
     if (user) {
-      setFirstName(user.firstName);
-      setLastName(user.lastName);
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
     }
   };
 
@@ -73,15 +58,9 @@ export default function Profile() {
 
     setSaving(true);
     try {
-      const success = await updateUserProfile(firstName, lastName);
-      
-      if (success) {
-        setUser((prev) => prev ? { ...prev, firstName, lastName } : null);
-        setIsEditing(false);
-        showSuccess("Profil zaktualizowany");
-      } else {
-        showError("Błąd aktualizacji", "Nie udało się zaktualizować profilu");
-      }
+      // TODO: Implement profile update via MSAL/backend API
+      showError("Funkcja niedostępna", "Aktualizacja profilu nie jest jeszcze zaimplementowana w MSAL");
+      setIsEditing(false);
     } catch (error) {
       console.error("Błąd aktualizacji profilu:", error);
       showError("Błąd", "Wystąpił problem z połączeniem");
@@ -90,7 +69,7 @@ export default function Profile() {
     }
   };
 
-  if (loading) {
+  if (!user) {
     return (
       <MainLayout>
         <LoadingSpinner fullScreen />
@@ -100,10 +79,10 @@ export default function Profile() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} bg={pageBg} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} bg={pageBg} minH="100vh">
         <Box
           bg={cardBg}
-          p={{ base: 6, md: 8 }}
+          p={{ base: 4, md: 8 }}
           rounded="2xl"
           shadow="xl"
           maxW="600px"

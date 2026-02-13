@@ -8,24 +8,22 @@ import TenantDetails from "../pages/TenantDetails";
 import CollaboratingTenants from "../pages/CollaboratingTenants";
 import ManagedTenants from "../pages/ManagedTenants";
 import ActiveInvitations from "../pages/ActiveInvitations";
-import TenantsOverview from "../pages/TenantsOverview";
-import ForgotPassword from "../pages/ForgotPassword";
-import ResetPassword from "../pages/ResetPassword";
-import ActivateAccount from "../pages/ActivateAccount";
 import AuthCallback from "../pages/AuthCallback";
 import LoggedOut from "../pages/LoggedOut";
 import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
-import MyFiles from "../pages/MyFiles";
 import WorkScheduleView from "../pages/WorkScheduleView";
 import AssignedWorks from "../pages/AssignedWorks";
 import CostEstimateTemplates from "../pages/CostEstimateTemplates";
+// TemplateVersionHistory removed - versioning no longer supported
+import CostEstimateTemplateEditor from "../pages/CostEstimateTemplateEditor";
+import CostEstimateTemplateNew from "../pages/CostEstimateTemplateNew";
 import ProjectMembers from "../pages/ProjectMembers";
 import ProjectSchedules from "../pages/ProjectSchedules";
 import ProjectFiles from "../pages/ProjectFiles";
 import ProjectCosts from "../pages/ProjectCosts";
 import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
-import { CostEstimateEditor } from "../pages/CostEstimateEditor";
+import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 
 export default function AppRouter() {
   return (
@@ -46,33 +44,6 @@ export default function AppRouter() {
       
       {/* /register redirects to /home - MSAL handles both flows */}
       <Route path="/register" element={<Navigate to="/" replace />} />
-
-      <Route
-        path="/forgot-password"
-        element={
-          <PublicRoute>
-            <ForgotPassword />
-          </PublicRoute>
-        }
-      />
-
-      <Route
-        path="/reset-password"
-        element={
-          <PublicRoute>
-            <ResetPassword />
-          </PublicRoute>
-        }
-      />
-
-      <Route
-        path="/activate"
-        element={
-          <PublicRoute>
-            <ActivateAccount />
-          </PublicRoute>
-        }
-      />
 
       {/* 🔥 Swagger — publiczny, bez autoryzacji */}
       <Route path="/swagger" element={<div />} />
@@ -102,15 +73,6 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <Profile />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tenants"
-        element={
-          <ProtectedRoute>
-            <TenantsOverview />
           </ProtectedRoute>
         }
       />
@@ -188,6 +150,26 @@ export default function AppRouter() {
       />
 
       <Route
+        path="/cost-estimate-templates/new"
+        element={
+          <ProtectedRoute>
+            <CostEstimateTemplateNew />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/cost-estimate-templates/:templateId/edit"
+        element={
+          <ProtectedRoute>
+            <CostEstimateTemplateEditor />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Template version history removed - versioning no longer supported */}
+
+      <Route
         path="/projects/:projectId/costs"
         element={
           <ProtectedRoute>
@@ -236,16 +218,7 @@ export default function AppRouter() {
         path="/projects/:projectId/cost-estimates/:estimateId"
         element={
           <ProtectedRoute>
-            <CostEstimateEditor />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tenants/:tenantId/projects/:projectId/my-files"
-        element={
-          <ProtectedRoute>
-            <MyFiles />
+            <CostEstimateEditPage />
           </ProtectedRoute>
         }
       />
