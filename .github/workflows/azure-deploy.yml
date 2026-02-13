@@ -80,6 +80,39 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "sql-token=$TOKEN" >> "$GITHUB_OUTPUT"
 
+      - name: Debug - Show identity and connection info
+        shell: pwsh
+        run: |
+          Write-Host "=== Azure Identity ==="
+          $account = az account show | ConvertFrom-Json
+          Write-Host "Subscription:  $($account.name) ($($account.id))"
+          Write-Host "Tenant:        $($account.tenantId)"
+          Write-Host "User/SP:       $($account.user.name)"
+          Write-Host "User Type:     $($account.user.type)"
+          Write-Host ""
+          Write-Host "=== Connection targets ==="
+          Write-Host "SQL Server:    ${{ vars.AZURE_SQL_SERVER }}"
+          Write-Host "SQL Database:  ${{ vars.AZURE_SQL_DATABASE }}"
+          Write-Host ""
+          Write-Host "=== Token info ==="
+          $token = "${{ steps.get-token.outputs.sql-token }}"
+          Write-Host "Token length:  $($token.Length)"
+          Write-Host "Token prefix:  $($token.Substring(0, [Math]::Min(20, $token.Length)))..."
+          # Dekoduj payload JWT żeby zobaczyć kto jest w tokenie
+          $parts = $token.Split('.')
+          if ($parts.Length -ge 2) {
+            $payload = $parts[1]
+            # Dodaj padding base64
+            $mod = $payload.Length % 4
+            if ($mod -ne 0) { $payload += '=' * (4 - $mod) }
+            $decoded = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payload)) | ConvertFrom-Json
+            Write-Host "Token appid:   $($decoded.appid)"
+            Write-Host "Token oid:     $($decoded.oid)"
+            Write-Host "Token sub:     $($decoded.sub)"
+            Write-Host "Token aud:     $($decoded.aud)"
+            Write-Host "Token iss:     $($decoded.iss)"
+          }
+
       - name: Execute migration on Azure SQL
         shell: pwsh
         run: |
