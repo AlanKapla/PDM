@@ -175,7 +175,7 @@ export default function CostEstimateTemplates() {
 
   return (
     <MainLayout>
-      <Box p={8}>
+      <Box p={{ base: 3, sm: 4, md: 8 }}>
         <VStack spacing={6} align="stretch">
           <HStack justify="space-between">
             <Heading size="lg">Szablony kosztorysów</Heading>

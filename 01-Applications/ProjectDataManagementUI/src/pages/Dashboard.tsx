@@ -82,12 +82,12 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
-        <Heading mb={8} size={{ base: "lg", md: "xl" }}>
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <Heading mb={{ base: 4, md: 8 }} size={{ base: "md", sm: "lg", md: "xl" }}>
           Panel główny
         </Heading>
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 3, md: 6 }}>
           {menuCards.map((card) => (
             <Card
               key={card.title}

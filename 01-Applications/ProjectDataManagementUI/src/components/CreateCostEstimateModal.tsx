@@ -39,7 +39,7 @@ interface CreateCostEstimateModalProps {
   projectId: string;
   onCostEstimateCreated: () => void;
 }
-
+const iconSize = 20;
 export default function CreateCostEstimateModal({
   isOpen,
   onClose,
@@ -216,12 +216,12 @@ export default function CreateCostEstimateModal({
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="xl">
+    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "xl" }}>
       <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
+      <ModalContent mx={{ base: 0, md: "auto" }}>
+        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
           <HStack spacing={3}>
-            <FileText size={24} />
+            <FileText size={iconSize} />
             <Text>Nowy kosztorys</Text>
           </HStack>
         </ModalHeader>

@@ -204,13 +204,13 @@ export default function WorkDetailsModal({
   if (!work) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "xl" }}>
       <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
+      <ModalContent mx={{ base: 0, md: "auto" }}>
+        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
           <VStack align="flex-start" spacing={2}>
             <Text>Szczegóły zakresu prac</Text>
-            <Badge colorScheme="purple" fontSize="md">
+            <Badge colorScheme="purple" fontSize={{ base: "xs", md: "md" }}>
               {work.name}
             </Badge>
           </VStack>

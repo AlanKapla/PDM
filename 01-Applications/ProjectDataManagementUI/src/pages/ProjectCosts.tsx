@@ -506,7 +506,7 @@ export default function ProjectCosts() {
   if (loading) {
     return (
       <MainLayout>
-        <Box p={{ base: 4, md: 10 }} minH="100vh">
+        <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
           <LoadingSpinner message="Ładowanie kosztów..." />
         </Box>
       </MainLayout>
@@ -515,7 +515,7 @@ export default function ProjectCosts() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 4, md: 10 }} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={FileText} boxSize={8} color="blue.600" />
@@ -527,7 +527,7 @@ export default function ProjectCosts() {
         </HStack>
 
         {(!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) ? (
-          <Box p={8} textAlign="center">
+          <Box p={{ base: 3, sm: 4, md: 8 }} textAlign="center">
             <EmptyState
               icon={FileText}
               title="Brak dostępu"

@@ -1,0 +1,104 @@
+/*
+  Responsive styles for WorkScheduleView timeline page (mobile-first)
+*/
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.workschedule-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .workschedule-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+}
+
+.workschedule-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .workschedule-actions {
+    flex-direction: row;
+    width: auto;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .workschedule-header {
+    width: 100%;
+  }
+
+  .workschedule-actions {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .workschedule-timeline-table {
+    font-size: 0.75rem;
+  }
+}
+
+.workschedule-timeline-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100vw;
+}
+
+.workschedule-timeline-table {
+  min-width: 600px;
+  width: max-content;
+  border-collapse: collapse;
+}
+
+.workschedule-timeline-scroll > * {
+  max-width: 100vw;
+  box-sizing: border-box;
+}
+
+.workschedule-timeline-table th,
+.workschedule-timeline-table td {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .workschedule-timeline-table th,
+  .workschedule-timeline-table td {
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+}
+
+.workschedule-timeline-table td,
+.workschedule-timeline-table th {
+  padding: 6px 8px;
+}
+
+.workschedule-timeline-table th[position="sticky"],
+.workschedule-timeline-table td[position="sticky"] {
+  left: 0;
+  z-index: 10;
+}
