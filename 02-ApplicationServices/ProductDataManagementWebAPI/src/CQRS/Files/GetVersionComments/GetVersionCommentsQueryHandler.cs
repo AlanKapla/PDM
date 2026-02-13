@@ -1,6 +1,7 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
 using Entities.Models;
 using MediatR;
@@ -15,6 +16,7 @@ public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionComments
     private readonly IRepository<ProjectFileVersion> versionRepo;
     private readonly IRepository<ProjectFileVersionComment> commentRepo;
     private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
+    private readonly IFileAccessService fileAccessService;
     private readonly ICurrentUser currentUser;
 
     public GetVersionCommentsQueryHandler(
@@ -22,12 +24,14 @@ public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionComments
         IRepository<ProjectFileVersion> versionRepo,
         IRepository<ProjectFileVersionComment> commentRepo,
         IRepository<SharedProjectFile> sharedProjectFileRepo,
+        IFileAccessService fileAccessService,
         ICurrentUser currentUser)
     {
         this.fileRepo = fileRepo;
         this.versionRepo = versionRepo;
         this.commentRepo = commentRepo;
         this.sharedProjectFileRepo = sharedProjectFileRepo;
+        this.fileAccessService = fileAccessService;
         this.currentUser = currentUser;
     }
 
@@ -98,20 +102,12 @@ public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionComments
         return scope switch
         {
             ResourceScope.Mine => file.OwnerId == currentUser.Id,
-            ResourceScope.Shared => await IsFileSharedWithUserAsync(file.Id, tenantId, projectId),
+            ResourceScope.Shared => await fileAccessService.HasAccessToFileAsync(
+                currentUser.Id, 
+                file.ProjectFilePackageId, 
+                file.Id),  // ✅ Użyj nowego serwisu
             ResourceScope.All => true,
             _ => false
         };
-    }
-
-    private async Task<bool> IsFileSharedWithUserAsync(Guid fileId, Guid tenantId, Guid projectId)
-    {
-        var sharedFiles = await sharedProjectFileRepo.GetBySearch(
-            spf => spf.TenantId == tenantId &&
-                   spf.ProjectId == projectId &&
-                   spf.ProjectFileId == fileId &&
-                   spf.SharedWithUserId == currentUser.Id
-        );
-        return sharedFiles.Any();
     }
 }

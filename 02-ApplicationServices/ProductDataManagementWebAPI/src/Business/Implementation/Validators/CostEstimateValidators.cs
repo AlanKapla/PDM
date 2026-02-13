@@ -10,28 +10,28 @@ namespace Business.Implementation.Validators
     public class CostEstimateGroupValidator
     {
         public ValidationResult ValidateGroupHierarchy(
-            CostEstimateTemplateVersion version,
+            CostEstimateTemplate template,
             List<CostEstimateGroup> allGroups,
             CancellationToken cancellationToken = default)
         {
             var errors = new List<string>();
 
-            if (version == null)
+            if (template == null)
             {
-                errors.Add("Template version not found");
+                errors.Add("Template not found");
                 return new ValidationResult(false, errors);
             }
 
-            if (version.MaxGroupLevel.HasValue)
+            if (template.MaxGroupLevel.HasValue)
             {
                 var maxLevel = allGroups.Max(g => g.Level);
-                if (maxLevel > version.MaxGroupLevel.Value)
+                if (maxLevel > template.MaxGroupLevel.Value)
                 {
-                    errors.Add($"Group level {maxLevel} exceeds maximum allowed level {version.MaxGroupLevel.Value}");
+                    errors.Add($"Group level {maxLevel} exceeds maximum allowed level {template.MaxGroupLevel.Value}");
                 }
             }
 
-            if (!version.CanBranchGroups)
+            if (!template.CanBranchGroups)
             {
                 var groupsWithChildren = allGroups.Where(g => allGroups.Any(child => child.ParentGroupId == g.Id)).ToList();
                 if (groupsWithChildren.Any())
@@ -172,27 +172,22 @@ namespace Business.Implementation.Validators
             Business.Interfaces.WebModels.CostEstimateTemplates.CostEstimateFieldTypeConfigWeb fieldTypeConfig,
             List<string> errors)
         {
-            if (string.IsNullOrWhiteSpace(fieldValue.Value))
+            // Sprawdź czy wartość jest ustawiona w odpowiednim polu
+            bool hasValue = fieldTypeConfig.IsNumeric ? fieldValue.DecimalValue.HasValue :
+                           fieldTypeConfig.IsBoolean ? fieldValue.BoolValue.HasValue :
+                           fieldTypeConfig.IsDate ? fieldValue.DateTimeValue.HasValue :
+                           !string.IsNullOrWhiteSpace(fieldValue.StringValue);
+            
+            // Jeśli pole nie ma wartości, to jest OK - pola są opcjonalne
+            if (!hasValue)
             {
                 return;
             }
             
-            // Walidacja według typu wartości
+            // Walidacja według typu wartości - tylko jeśli wartość jest podana
             if (fieldTypeConfig.IsNumeric)
             {
                 ValidateNumericValue(fieldValue, fieldDef, fieldTypeConfig, errors);
-            }
-            else if (fieldTypeConfig.IsBoolean)
-            {
-                ValidateBooleanValue(fieldValue, fieldDef, errors);
-            }
-            else if (fieldTypeConfig.IsDate)
-            {
-                ValidateDateValue(fieldValue, fieldDef, errors);
-            }
-            else if (fieldTypeConfig.IsText)
-            {
-                // String - zawsze valid, możliwe dodatkowe reguły w przyszłości
             }
         }
         
@@ -202,17 +197,16 @@ namespace Business.Implementation.Validators
             Business.Interfaces.WebModels.CostEstimateTemplates.CostEstimateFieldTypeConfigWeb fieldTypeConfig,
             List<string> errors)
         {
-            bool isValid = fieldTypeConfig.ValueTypeName switch
+            // Jeśli nie ma wartości, nie walidujemy - pola są opcjonalne
+            if (!fieldValue.DecimalValue.HasValue)
             {
-                "int" => int.TryParse(fieldValue.Value, out _),
-                "decimal" => decimal.TryParse(fieldValue.Value, out var decimalValue) && ValidateDecimalRange(fieldDef.FieldType, decimalValue, errors, fieldDef.Label),
-                _ => false
-            };
-            
-            if (!isValid && !errors.Any(e => e.Contains(fieldDef.Label)))
-            {
-                errors.Add($"Field '{fieldDef.Label}': Invalid {fieldTypeConfig.ValueTypeName} value");
+                return;
             }
+            
+            var value = fieldValue.DecimalValue.Value;
+            
+            // Walidacja zakresu dla konkretnych typów pól
+            ValidateDecimalRange(fieldDef.FieldType, value, errors, fieldDef.Label);
         }
         
         private bool ValidateDecimalRange(FieldType fieldType, decimal value, List<string> errors, string label)
@@ -234,6 +228,8 @@ namespace Business.Implementation.Validators
                 case FieldType.ItemCalculatedUnitVat:
                 case FieldType.ItemCalculatedTotalVat:
                 case FieldType.ItemSystemQuantity:
+                case FieldType.GroupBudget:
+                case FieldType.ItemGenericNumber:
                     if (value < 0)
                     {
                         errors.Add($"Field '{label}': Value cannot be negative");
@@ -243,28 +239,6 @@ namespace Business.Implementation.Validators
             }
             
             return true;
-        }
-        
-        private void ValidateBooleanValue(
-            CostEstimateItemFieldValue fieldValue,
-            CostEstimateTemplateFieldDefinitionBase fieldDef,
-            List<string> errors)
-        {
-            if (!bool.TryParse(fieldValue.Value, out _))
-            {
-                errors.Add($"Field '{fieldDef.Label}': Invalid boolean value");
-            }
-        }
-        
-        private void ValidateDateValue(
-            CostEstimateItemFieldValue fieldValue,
-            CostEstimateTemplateFieldDefinitionBase fieldDef,
-            List<string> errors)
-        {
-            if (!DateTime.TryParse(fieldValue.Value, out _))
-            {
-                errors.Add($"Field '{fieldDef.Label}': Invalid date/time value");
-            }
         }
     }
 

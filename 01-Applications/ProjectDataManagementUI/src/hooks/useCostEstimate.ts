@@ -268,10 +268,10 @@ export function useGroupHierarchy() {
     return flattenGroups(groups).length;
   }, [flattenGroups]);
 
-  // Count total work scope items
-  const countWorkScopeItems = useCallback((groups: CostEstimateGroupDto[]): number => {
+  // Count total items
+  const countItems = useCallback((groups: CostEstimateGroupDto[]): number => {
     return flattenGroups(groups).reduce(
-      (sum, group) => sum + group.workScopeItems.length,
+      (sum, group) => sum + group.items.length,
       0
     );
   }, [flattenGroups]);
@@ -286,7 +286,7 @@ export function useGroupHierarchy() {
     findGroup,
     flattenGroups,
     countGroups,
-    countWorkScopeItems,
+    countItems,
     getMaxLevel,
   };
 }

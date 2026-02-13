@@ -17,26 +17,6 @@ export enum CostEstimateStatus {
   Archived = 5,
 }
 
-export enum CostEstimateTemplateVersionStatus {
-  Draft = 0,
-  Approved = 1,
-}
-
-export interface CostEstimateTemplateVersionInfo {
-  id: string;
-  versionNumber: number;
-  versionName?: string;
-  status: CostEstimateTemplateVersionStatus;
-  createdAt: string;
-  approvedAt?: string;
-  approvedById?: string;
-  approvedByUserName?: string;
-  deprecatedAt?: string;
-  // Uwaga: templateStructure NIE jest w CostEstimateTemplateVersionInfoWeb
-  // Backend zwraca tylko podstawowe info, strukturę trzeba pobrać przez dedykowany endpoint
-  templateStructure?: CostEstimateTemplateStructure; // DEPRECATED - będzie usunięte
-}
-
 export interface CostEstimateTemplateDetails {
   id: string;
   name: string;
@@ -51,19 +31,14 @@ export interface CostEstimateTemplateDetails {
   updatedAt?: string;
   ownerId: string;
   ownerName: string;
-  selectedVersion?: CostEstimateTemplateVersionInfo;
-  versionStructure?: CostEstimateTemplateVersionStructure;
+  structure?: CostEstimateTemplateStructureWeb; // Struktura szablonu (bez wersjonowania)
 }
 
-export interface CostEstimateTemplateVersionStructure {
-  versionId: string;
-  versionNumber: number;
-  versionName?: string;
-  canAddGroups: boolean;
-  canBranchGroups: boolean;
-  maxGroupLevel?: number;
-  autoNumberGroups: boolean;
-  groupNumberFormat?: string;
+/**
+ * Struktura szablonu - bez wersjonowania (refactoring)
+ */
+export interface CostEstimateTemplateStructureWeb {
+  templateId: string;
   currencies: TemplateCurrencyWeb[];
   units: TemplateUnitWeb[];
   groupHeaderFields: GroupHeaderFieldWeb[];
@@ -124,6 +99,8 @@ export interface CalculatedFieldWeb {
   isFilterable: boolean;
   isSummable: boolean;
   summaryScope?: SummaryScope;
+  sumInGroup?: boolean; // Sumowanie w grupie
+  sumInTotal?: boolean; // Sumowanie w podsumowaniu całkowitym
   isAutoCalculated: boolean;
   calculationFormula?: string;
   isReadOnly: boolean;
@@ -202,42 +179,18 @@ export interface UiConfigurationWeb {
   columns: ColumnConfigurationWeb[];
 }
 
+// DTO do command update - tylko kolejność kolumn
+export interface UiConfigurationDto {
+  columnLayout?: string[];  // Lista GUID-ów pól określająca kolejność kolumn
+}
+
 export interface ColumnConfigurationWeb {
   fieldId: string;        // GUID
   fieldName: string;      // GUID pola
   fieldType: number;      // Typ pola w ramach swojego scope
   fieldLabel: string;     // Etykieta wyświetlana
-  fieldSource: number;    // FieldScope enum (0=GroupHeader, 1=System, 2=Calculated, 3=Generic)
+  fieldScope: number;     // FieldScope enum (0=GroupHeader, 1=System, 2=Calculated, 3=Generic)
   order: number;          // Kolejność
-  isVisible: boolean;
-  width?: string;
-}
-
-export interface CostEstimateTemplateVersionHistoryItem {
-  id: string;
-  templateId: string;
-  versionNumber: number;
-  status: CostEstimateTemplateVersionStatus;
-  createdAt: string;
-  createdByUserName?: string;
-  approvedAt?: string;
-  approvedByUserName?: string;
-}
-
-export interface ApprovedTemplateVersionItem {
-  versionId: string;
-  templateId: string;
-  templateName: string;
-  templateCurrency?: string;
-  versionNumber: number;
-  templateStructure?: CostEstimateTemplateStructure;
-  approvedAt: string;
-  approvedByUserName?: string;
-  canAddGroups: boolean;
-  canBranchGroups: boolean;
-  maxGroupLevel?: number;
-  currencies: TemplateCurrencyWeb[];
-  units: TemplateUnitWeb[];
 }
 
 export interface TemplateCurrencyWeb {
@@ -282,8 +235,6 @@ export interface CostEstimateDetails {
   projectId: string;
   templateId: string;
   templateName: string;
-  templateVersionId: string;
-  templateVersionNumber: number;
   templateStructure: CostEstimateTemplateStructure;
   selectedCurrencyId: string;
   selectedCurrencyCode: string;
@@ -307,7 +258,6 @@ export interface CostEstimateTemplateDto {
   name: string;
   description?: string;
   currency?: string;
-  templateVersionNumber: number;
   templateStructure: CostEstimateTemplateStructure;
   createdAt: string;
   updatedAt?: string;
@@ -504,10 +454,8 @@ export enum GenericFieldType {
   Boolean = 3,             // → FieldType.ItemGenericBoolean (303)
   Date = 4,                // → FieldType.ItemGenericDate (304)
   DateTime = 5,            // → FieldType.ItemGenericDateTime (305)
+  Collection = 10,         // → FieldType.ItemGenericCollection (310) - kolekcja zagnieżdżonych pól
 }
-
-// Alias dla CostEstimateTemplateVersionStatus (backward compatibility)
-export type TemplateVersionStatus = CostEstimateTemplateVersionStatus;
 
 export interface BaseFieldDefinition {
   id?: string; // Opcjonalne dla zgodności wstecznej
@@ -556,6 +504,8 @@ export interface CalculatedFieldDefinition extends BaseFieldDefinition {
   filterable: boolean;
   summable: boolean;
   summaryScope?: SummaryScope;
+  sumInGroup?: boolean;   // Sumowanie w grupie
+  sumInTotal?: boolean;   // Sumowanie w podsumowaniu całkowitym
   autoCalculated: boolean;
   calculationFormula?: string;
   readOnly: boolean;

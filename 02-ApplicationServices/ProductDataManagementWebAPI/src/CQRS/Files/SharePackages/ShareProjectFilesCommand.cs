@@ -2,19 +2,24 @@
 using Business.Interfaces.Model;
 using MediatR;
 
-namespace CQRS.Files.ShareProjectFiles
+namespace CQRS.Files.SharePackages
 {
     /// <summary>
-    /// Command do udostępnienia plików wielu członkom projektu
+    /// Command do udostępnienia paczek członkom projektu
+    /// Udostępnia CAŁE paczki (bez wykluczeń plików)
     /// </summary>
-    public record ShareProjectFilesCommand : IRequestCommand<Unit>, IAuthorizableRequest
+    public record SharePackagesCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
         public Guid TenantId { get; init; }
         public Guid ProjectId { get; init; }
-        public List<Guid> ProjectFileIds { get; init; } = new();
         
         /// <summary>
-        /// Lista ID użytkowników (członków projektu), którym zostaną udostępnione pliki
+        /// Lista ID paczek do udostępnienia
+        /// </summary>
+        public List<Guid> PackageIds { get; init; } = new();
+        
+        /// <summary>
+        /// Lista ID użytkowników (członków projektu), którym zostaną udostępnione paczki
         /// </summary>
         public List<Guid> SharedWithUserIds { get; init; } = new();
 
@@ -23,3 +28,5 @@ namespace CQRS.Files.ShareProjectFiles
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }
+
+

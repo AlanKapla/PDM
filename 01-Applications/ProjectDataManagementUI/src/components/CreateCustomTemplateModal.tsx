@@ -119,6 +119,7 @@ const genericFieldTypeLabels: Record<GenericFieldType, string> = {
   [GenericFieldType.Boolean]: fieldTypeLabels[FieldType.ItemGenericBoolean],
   [GenericFieldType.Date]: fieldTypeLabels[FieldType.ItemGenericDate],
   [GenericFieldType.DateTime]: fieldTypeLabels[FieldType.ItemGenericDateTime],
+  [GenericFieldType.Collection]: 'Kolekcja',
 };
 
 const groupHeaderFieldTypeLabels: Record<GroupHeaderFieldType, string> = {
@@ -179,38 +180,22 @@ export default function CreateCustomTemplateModal({
   );
 
   // Work Scope Fields State
-  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>(
-    existingTemplate?.selectedVersion?.templateStructure?.workScopeFieldsDefinition?.calculatedFields ?? []
-  );
-  const [genericFields, setGenericFields] = useState<GenericFieldDefinition[]>(
-    existingTemplate?.selectedVersion?.templateStructure?.workScopeFieldsDefinition?.genericFields ?? []
-  );
-  const [validationRules, setValidationRules] = useState<CrossFieldValidationRule[]>(
-    existingTemplate?.selectedVersion?.templateStructure?.workScopeFieldsDefinition?.crossFieldValidationRules ?? []
-  );
+  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>([]);
+  const [genericFields, setGenericFields] = useState<GenericFieldDefinition[]>([]);
+  const [validationRules, setValidationRules] = useState<CrossFieldValidationRule[]>([]);
 
   // Currencies and Units State
   const [currencies, setCurrencies] = useState<Array<{ code: string; name: string; symbol?: string; isDefault: boolean; order: number }>>([]);
   const [units, setUnits] = useState<Array<{ code: string; name: string; symbol: string; category?: string; isDefault: boolean; order: number }>>([]);
 
   // Summary Configuration State
-  // showGroupSummary - czy wyświetlać podsumowanie na poziomie grup
-  // showTotalSummary - czy wyświetlać całkowite podsumowanie (grand total)
-  // groupSummaryFields - lista nazw pól do sumowania w grupach
-  // totalSummaryFields - lista nazw pól do sumowania w całkowitym podsumowaniu
-  const [showGroupSummary, setShowGroupSummary] = useState(existingTemplate?.selectedVersion?.templateStructure?.summaryConfiguration?.showGroupSummary ?? true);
-  const [showTotalSummary, setShowTotalSummary] = useState(existingTemplate?.selectedVersion?.templateStructure?.summaryConfiguration?.showTotalSummary ?? true);
-  const [groupSummaryFields, setGroupSummaryFields] = useState<string[]>(
-    existingTemplate?.selectedVersion?.templateStructure?.summaryConfiguration?.groupSummaryFields.map(f => f.fieldName) ?? []
-  );
-  const [totalSummaryFields, setTotalSummaryFields] = useState<string[]>(
-    existingTemplate?.selectedVersion?.templateStructure?.summaryConfiguration?.totalSummaryFields.map(f => f.fieldName) ?? []
-  );
+  const [showGroupSummary, setShowGroupSummary] = useState(true);
+  const [showTotalSummary, setShowTotalSummary] = useState(true);
+  const [groupSummaryFields, setGroupSummaryFields] = useState<string[]>([]);
+  const [totalSummaryFields, setTotalSummaryFields] = useState<string[]>([]);
 
   // UI Configuration State
-  const [columnLayout, setColumnLayout] = useState<string[]>(
-    existingTemplate?.selectedVersion?.templateStructure?.uiConfiguration?.columns?.map(col => col.fieldName) ?? []
-  );
+  const [columnLayout, setColumnLayout] = useState<string[]>([]);
 
   // Drag and drop state dla układu pól
   const [draggedIndexLayout, setDraggedIndexLayout] = useState<number | null>(null);
@@ -221,31 +206,81 @@ export default function CreateCustomTemplateModal({
       setTemplateName(existingTemplate.name);
       setTemplateDescription(existingTemplate.description ?? "");
 
-      if (existingTemplate.selectedVersion?.templateStructure) {
-        const struct = existingTemplate.selectedVersion.templateStructure;
+      // Użyj structure z nowego API (bez wersjonowania)
+      if (existingTemplate.structure) {
+        const struct = existingTemplate.structure;
         
         // Update structure settings
-        setCanAddGroups(struct.canAddGroups ?? true);
-        setCanBranchGroups(struct.canBranchGroups ?? true);
-        setMaxGroupLevel(struct.maxGroupLevel);
+        setCanAddGroups(existingTemplate.canAddGroups ?? true);
+        setCanBranchGroups(existingTemplate.canBranchGroups ?? true);
+        setMaxGroupLevel(existingTemplate.maxGroupLevel);
+        setGroupAutoNumbered(existingTemplate.autoNumberGroups ?? true);
+        setGroupNumberFormat(existingTemplate.groupNumberFormat ?? "");
 
-        // Update group definition (stare API - może być undefined)
-        setGroupAutoNumbered(struct.groupDefinition?.autoNumbered ?? true);
-        setGroupNumberFormat(struct.groupDefinition?.numberFormat ?? "");
-        setHeaderFields(struct.groupDefinition?.headerFields ?? [
-          {
-            type: GroupHeaderFieldType.GroupName,
-            required: true,
-            visible: true,
-            order: 0,
-            readOnly: false,
-          },
-        ]);
+        // Update header fields from structure
+        if (struct.groupHeaderFields && struct.groupHeaderFields.length > 0) {
+          setHeaderFields(struct.groupHeaderFields.map(f => ({
+            id: f.id,
+            name: f.fieldName,
+            type: f.fieldType as GroupHeaderFieldType,
+            customLabel: f.customLabel,
+            required: f.isRequired,
+            visible: f.isVisible,
+            order: f.order,
+            readOnly: f.isReadOnly,
+            fieldTypeConfig: f.fieldTypeConfig,
+          })));
+        } else {
+          setHeaderFields([
+            {
+              type: GroupHeaderFieldType.GroupName,
+              required: true,
+              visible: true,
+              order: 0,
+              readOnly: false,
+            },
+          ]);
+        }
 
-        // Update work scope fields (stare API - może być undefined)
-        setCalculatedFields(struct.workScopeFieldsDefinition?.calculatedFields ?? []);
-        setGenericFields(struct.workScopeFieldsDefinition?.genericFields ?? []);
-        setValidationRules(struct.workScopeFieldsDefinition?.crossFieldValidationRules ?? []);
+        // Update calculated fields
+        if (struct.calculatedFields) {
+          setCalculatedFields(struct.calculatedFields.map(f => ({
+            id: f.id,
+            name: f.fieldName,
+            label: f.label,
+            type: convertFieldTypeToLegacy(f.fieldType),
+            order: f.order,
+            required: f.isRequired || false,
+            visible: f.isVisible,
+            sortable: f.isSortable,
+            filterable: f.isFilterable,
+            summable: f.isSummable || false,
+            summaryScope: f.summaryScope,
+            sumInGroup: f.sumInGroup,
+            sumInTotal: f.sumInTotal,
+            autoCalculated: f.isAutoCalculated,
+            readOnly: f.isReadOnly,
+            fieldTypeConfig: f.fieldTypeConfig,
+          })));
+        }
+
+        // Update generic fields
+        if (struct.genericFields) {
+          setGenericFields(struct.genericFields.map(f => ({
+            id: f.id,
+            name: f.fieldName,
+            label: f.label,
+            type: convertFieldTypeToLegacy(f.fieldType),
+            order: f.order,
+            required: f.isRequired,
+            visible: f.isVisible,
+            sortable: f.isSortable,
+            filterable: f.isFilterable,
+            fieldTypeConfig: f.fieldTypeConfig,
+          })));
+        }
+
+        setValidationRules([]);
 
         // Update summary configuration - mapuj SummaryFieldWeb[] na string[]
         setShowGroupSummary(struct.summaryConfiguration?.showGroupSummary ?? true);
@@ -255,42 +290,24 @@ export default function CreateCustomTemplateModal({
 
         // Update UI configuration - mapuj ColumnConfigurationWeb[] na string[]
         setColumnLayout(struct.uiConfiguration?.columns?.map(col => col.fieldName) ?? []);
-      }
-
-      // Load currencies and units from selectedVersion
-      if (existingTemplate.selectedVersion?.id) {
-        // Fetch full structure to get currencies and units
-        const versionId = existingTemplate.selectedVersion.id;
-        (async () => {
-          try {
-            const { costEstimateTemplateApi } = await import("../api/costEstimateTemplateApi");
-            const structure = await costEstimateTemplateApi.getTemplateVersionStructure(
-              existingTemplate.id,
-              versionId
-            );
-            
-            setCurrencies(structure.currencies.map(c => ({
-              code: c.code,
-              name: c.name,
-              symbol: c.symbol,
-              isDefault: c.isDefault,
-              order: c.order,
-            })));
-            
-            setUnits(structure.units.map(u => ({
-              code: u.code,
-              name: u.name,
-              symbol: u.symbol,
-              category: u.category,
-              isDefault: u.isDefault,
-              order: u.order,
-            })));
-          } catch (error) {
-            console.error("Błąd podczas ładowania walut i jednostek:", error);
-            setCurrencies([]);
-            setUnits([]);
-          }
-        })();
+        
+        // Load currencies and units from structure
+        setCurrencies(struct.currencies.map(c => ({
+          code: c.code,
+          name: c.name,
+          symbol: c.symbol,
+          isDefault: c.isDefault,
+          order: c.order,
+        })));
+        
+        setUnits(struct.units.map(u => ({
+          code: u.code,
+          name: u.name,
+          symbol: u.symbol,
+          category: u.category,
+          isDefault: u.isDefault,
+          order: u.order,
+        })));
       }
     }
   }, [existingTemplate]);
@@ -584,14 +601,6 @@ export default function CreateCustomTemplateModal({
 
   const handleSubmitClick = () => {
     if (!validateTemplate()) return;
-
-    // Jeśli edytujemy zatwierdzoną wersję, pokaż modal potwierdzenia
-    if (existingTemplate?.selectedVersion?.status === 1) {
-      onConfirmSaveOpen();
-      return;
-    }
-
-    // Dla Draft lub nowego szablonu - zapisz bezpośrednio
     handleSubmit();
   };
 
@@ -599,16 +608,12 @@ export default function CreateCustomTemplateModal({
     setIsSubmitting(true);
 
     try {
-      // Import API at the top of the file
       const { costEstimateTemplateApi } = await import("../api/costEstimateTemplateApi");
 
       if (existingTemplate) {
-        // Update existing template
-        const isApprovedVersion = existingTemplate.selectedVersion?.status === 1;
-        
+        // Update existing template (bez wersjonowania)
         await costEstimateTemplateApi.updateTemplate(existingTemplate.id, {
           templateId: existingTemplate.id,
-          currentVersionId: existingTemplate.selectedVersion!.id,
           name: templateName,
           description: templateDescription || undefined,
           category: undefined,  // TODO: dodać pole category w UI
@@ -617,30 +622,33 @@ export default function CreateCustomTemplateModal({
           maxGroupLevel,
           autoNumberGroups: groupAutoNumbered,
           groupNumberFormat: groupNumberFormat || undefined,
-          updateStructure: true, // Aktualizujemy strukturę (może utworzyć nową wersję dla Approved)
+          updateStructure: true,
           currencies,
           units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || crypto.randomUUID(),
-            fieldType: f.type, // GroupHeaderFieldType (0-9) = FieldType (0-9)
+            fieldType: f.type,
             label: f.customLabel || `Pole grupy`,
             isSortable: false,
             isFilterable: false,
+            isVisible: f.visible,
           })),
           systemFields: [],  // TODO: obsługa system fields
           calculatedFields: calculatedFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.type + 200, // CalculatedFieldType (0-6) → FieldType (200-206)
+            fieldType: f.type + 200,
             label: f.label,
             isSortable: f.sortable,
             isFilterable: f.filterable,
+            isVisible: f.visible,
           })),
           genericFields: genericFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.type + 300, // GenericFieldType (0-5) → FieldType (300-305)
+            fieldType: f.type + 300,
             label: f.label,
             isSortable: f.sortable,
             isFilterable: f.filterable,
+            isVisible: f.visible,
           })),
           summaryConfiguration: {
             showGroupSummary,
@@ -656,9 +664,7 @@ export default function CreateCustomTemplateModal({
 
         toast({
           title: "Sukces",
-          description: isApprovedVersion
-            ? "Utworzono nową wersję szkicu szablonu (edycja zatwierdzonej wersji)" 
-            : "Wersja szkicu została zaktualizowana",
+          description: "Szablon został zaktualizowany",
           status: "success",
           duration: 3000,
         });
@@ -670,22 +676,8 @@ export default function CreateCustomTemplateModal({
         });
 
         // Krok 2: Zaktualizuj szablon pełną strukturą
-        const newTemplateDetails = await costEstimateTemplateApi.getTemplateDetails(newTemplateId);
-        const draftVersionId = newTemplateDetails.selectedVersion?.id;
-        
-        if (!draftVersionId) {
-          toast({
-            title: "Błąd",
-            description: "Nie można znaleźć wersji Draft nowego szablonu",
-            status: "error",
-            duration: 5000,
-          });
-          return;
-        }
-        
         await costEstimateTemplateApi.updateTemplate(newTemplateId, {
           templateId: newTemplateId,
-          currentVersionId: draftVersionId,
           name: templateName,
           description: templateDescription || undefined,
           category: undefined,
@@ -699,25 +691,28 @@ export default function CreateCustomTemplateModal({
           units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || crypto.randomUUID(),
-            fieldType: f.type, // GroupHeaderFieldType (0-9) = FieldType (0-9)
+            fieldType: f.type,
             label: f.customLabel || `Pole grupy`,
             isSortable: false,
             isFilterable: false,
+            isVisible: f.visible,
           })),
           systemFields: [],  // TODO: obsługa system fields
           calculatedFields: calculatedFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.type + 200, // CalculatedFieldType (0-6) → FieldType (200-206)
+            fieldType: f.type + 200,
             label: f.label,
             isSortable: f.sortable,
             isFilterable: f.filterable,
+            isVisible: f.visible,
           })),
           genericFields: genericFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.type + 300, // GenericFieldType (0-5) → FieldType (300-305)
+            fieldType: f.type + 300,
             label: f.label,
             isSortable: f.sortable,
             isFilterable: f.filterable,
+            isVisible: f.visible,
           })),
           summaryConfiguration: {
             showGroupSummary,
@@ -756,11 +751,6 @@ export default function CreateCustomTemplateModal({
     }
   };
 
-  const confirmSaveApprovedVersion = async () => {
-    onConfirmSaveClose();
-    await handleSubmit();
-  };
-
   const handleClose = () => {
     setTemplateName("");
     setTemplateDescription("");
@@ -791,13 +781,13 @@ export default function CreateCustomTemplateModal({
     onClose();
   };
 
+  // Funkcja zatwierdzania wersji szablonu
   const handleApproveVersion = async () => {
-    if (!existingTemplate || !existingTemplate.selectedVersion) return;
-    if (existingTemplate.selectedVersion.status === 1) {
+    if (!existingTemplate?.selectedVersion) {
       toast({
-        title: "Informacja",
-        description: "Ta wersja jest już zatwierdzona",
-        status: "info",
+        title: "Błąd",
+        description: "Brak wybranej wersji do zatwierdzenia",
+        status: "error",
         duration: 3000,
       });
       return;

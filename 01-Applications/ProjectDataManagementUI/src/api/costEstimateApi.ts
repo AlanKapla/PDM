@@ -25,7 +25,6 @@ const resourceScopeToRoute = (scope: ResourceScope): string => {
 
 export interface CreateCostEstimateRequest {
   templateId: string;
-  templateVersionId: string;
   selectedCurrencyId: string;
   name: string;
   description?: string;

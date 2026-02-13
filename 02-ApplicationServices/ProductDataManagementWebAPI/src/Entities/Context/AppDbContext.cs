@@ -33,7 +33,6 @@ namespace Entities.Context
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
-        public DbSet<CostEstimateTemplateVersion> CostEstimateTemplateVersions => Set<CostEstimateTemplateVersion>();
         public DbSet<CostEstimateTemplateCurrency> CostEstimateTemplateCurrencies => Set<CostEstimateTemplateCurrency>();
         public DbSet<CostEstimateTemplateUnit> CostEstimateTemplateUnits => Set<CostEstimateTemplateUnit>();
         public DbSet<CostEstimateTemplateGroupFieldDefinition> CostEstimateTemplateGroupFieldDefinitions => Set<CostEstimateTemplateGroupFieldDefinition>();

@@ -9,7 +9,6 @@ import {
   Spinner, 
   Stack, 
   Text, 
-  Badge, 
   Divider,
   AlertDialog,
   AlertDialogBody,
@@ -18,13 +17,15 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   useDisclosure,
+  ButtonGroup,
+  Icon,
 } from '@chakra-ui/react';
-import { ArrowLeft, Save, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, RefreshCw, Trash2, Eye, Pencil } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { CostEstimateTableView } from '../components/CostEstimate/CostEstimateTableView';
 import { costEstimateApiNew } from '../api/costEstimateApiNew';
-import type { CostEstimateDetailsWeb, CostEstimateGroupWeb, CostEstimateItemWeb } from '../types/costEstimate.types.new';
-import { CostEstimateStatus, convertGroupWebToDto, isTemporaryId } from '../types/costEstimate.types.new';
+import type { CostEstimateDetailsWeb, CostEstimateGroupWeb, CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../types/costEstimate.types.new';
+import { CostEstimateStatus, convertGroupWebToDto, isTemporaryId, getFieldValueAsNumber, getFieldValueAsBoolean } from '../types/costEstimate.types.new';
 import type { SummaryFieldWeb } from '../types/costEstimate.types';
 
 /**
@@ -49,6 +50,9 @@ export const CostEstimateEditPage: React.FC = () => {
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  
+  // Przełącznik trybu: edycja / podgląd
+  const [isEditMode, setIsEditMode] = useState(true);
 
   // Załaduj szczegóły kosztorysu
   useEffect(() => {
@@ -70,7 +74,10 @@ export const CostEstimateEditPage: React.FC = () => {
         estimateId
       );
       
-      setDetails(data);
+      // Przelicz wartości kalkulowane i podsumowania przy załadowaniu
+      // (nowo dodane pola w szablonie mogą nie mieć jeszcze wartości w pozycjach)
+      const recalculated = recalculateCostEstimate(data);
+      setDetails(recalculated);
       setHasChanges(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Błąd podczas ładowania kosztorysu');
@@ -138,30 +145,53 @@ export const CostEstimateEditPage: React.FC = () => {
     };
 
     // Helper: pobierz wartość pola z pozycji
+    // Helper: pobierz wartość pola z pozycji (number lub undefined gdy brak)
     const getItemFieldValue = (item: CostEstimateItemWeb, fieldId: string): number => {
       const fv = item.fieldValues.find((v) => v.fieldDefinitionId === fieldId);
-      return parseFloat(fv?.value || '0') || 0;
+      return getFieldValueAsNumber(fv);
     };
 
-    // Helper: ustaw wartość pola w pozycji
+    // Helper: pobierz wartość źródłową — undefined gdy pole NIE ma wpisu w fieldValues
+    const getSourceFieldValue = (item: CostEstimateItemWeb, fieldId: string): number | undefined => {
+      const fv = item.fieldValues.find((v) => v.fieldDefinitionId === fieldId);
+      if (!fv) return undefined;
+      if (fv.decimalValue !== null && fv.decimalValue !== undefined) return fv.decimalValue;
+      if (fv.stringValue) { const p = parseFloat(fv.stringValue); return isNaN(p) ? undefined : p; }
+      return undefined;
+    };
+
+    // Helper: ustaw wartość pola w pozycji (typowane jako decimalValue)
     const setItemFieldValue = (item: CostEstimateItemWeb, fieldId: string, value: number): CostEstimateItemWeb => {
       const existingIndex = item.fieldValues.findIndex((v) => v.fieldDefinitionId === fieldId);
       const newFieldValues = [...item.fieldValues];
       
       if (existingIndex >= 0) {
-        newFieldValues[existingIndex] = { ...newFieldValues[existingIndex], value: value.toFixed(2) };
+        newFieldValues[existingIndex] = { 
+          ...newFieldValues[existingIndex], 
+          decimalValue: value,
+          stringValue: undefined,
+          boolValue: undefined,
+          dateTimeValue: undefined
+        };
       } else {
-        newFieldValues.push({ 
+        const newFieldValue: CostEstimateFieldValueWeb = {
           id: `calc_${Date.now()}_${fieldId}`,
           fieldDefinitionId: fieldId, 
           fieldType: 0,
           fieldScope: 2,
-          value: value.toFixed(2) 
-        });
+          decimalValue: value,
+          stringValue: undefined,
+          boolValue: undefined,
+          dateTimeValue: undefined
+        };
+        newFieldValues.push(newFieldValue);
       }
       
       return { ...item, fieldValues: newFieldValues };
     };
+
+    // Helper: pobierz fieldType z definicji pola
+    const getFieldType = (f: any) => f.fieldType ?? f.fieldTypeConfig?.fieldType;
 
     // Helper: oblicz wartości kalkulowane dla pozycji
     const calculateItemValues = (item: CostEstimateItemWeb): CostEstimateItemWeb => {
@@ -169,26 +199,70 @@ export const CostEstimateEditPage: React.FC = () => {
       
       // Znajdź pole systemowe "Selected" (Zaznaczenie) - fieldType 104 lub fieldName 'selected'
       const selectedFieldDef = data.templateStructure.systemFields.find(
-        (f) => f.fieldName === 'selected' || f.fieldType === 104
+        (f) => f.fieldName === 'selected' || getFieldType(f) === 104
       );
       
-      // Znajdź pola systemowe
-      const quantityFieldDef = data.templateStructure.systemFields.find((f) => f.fieldName === 'quantity');
+      // Znajdź pola systemowe (quantity = fieldType 101)
+      const quantityFieldDef = data.templateStructure.systemFields.find(
+        (f) => f.fieldName === 'quantity' || getFieldType(f) === 101
+      );
       
-      // Znajdź pola kalkulowane
-      const unitPriceNetDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'unitPriceNet');
-      const vatRateDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'vatRate');
-      const unitPriceGrossDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'unitPriceGross');
-      const valueNetDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'valueNet');
-      const valueGrossDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'valueGross');
-      const unitVatDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'unitVat');
-      const totalVatDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'totalVat');
+      // Znajdź pola kalkulowane - po fieldName LUB fieldType
+      const unitPriceNetDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'unitPriceNet' || getFieldType(f) === 200
+      );
+      const vatRateDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'vatRate' || getFieldType(f) === 201
+      );
+      const unitPriceGrossDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'unitPriceGross' || getFieldType(f) === 202
+      );
+      const valueNetDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'valueNet' || getFieldType(f) === 203
+      );
+      const valueGrossDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'valueGross' || getFieldType(f) === 204
+      );
+      const unitVatDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'unitVat' || getFieldType(f) === 205
+      );
+      const totalVatDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'totalVat' || getFieldType(f) === 206
+      );
       
       // Lista wszystkich pól kalkulowanych do kopiowania
       const calculatedFieldDefs = [
         unitPriceNetDef, vatRateDef, unitPriceGrossDef, 
         valueNetDef, valueGrossDef, unitVatDef, totalVatDef
       ].filter(Boolean);
+
+      // === KOMPONENTY: gdy pozycja ma komponenty, przelicz je i zsumuj do pozycji ===
+      if (updatedItem.components && updatedItem.components.length > 0) {
+        // Przelicz każdy komponent jak zwykłą pozycję (zachowaj options komponentu)
+        const recalculatedComponents = updatedItem.components.map((comp) => {
+          const recalculated = calculateItemValues({ ...comp, components: undefined });
+          return { ...recalculated, options: comp.options };
+        });
+        updatedItem = { ...updatedItem, components: recalculatedComponents };
+
+        // Sumuj wartości z komponentów do pozycji nadrzędnej: valueNet (203), valueGross (204), totalVat (206)
+        const summableFields = [
+          { def: valueNetDef, fieldType: 203 },
+          { def: valueGrossDef, fieldType: 204 },
+          { def: totalVatDef, fieldType: 206 },
+        ];
+
+        for (const { def } of summableFields) {
+          if (!def) continue;
+          let sum = 0;
+          for (const comp of recalculatedComponents) {
+            sum += getItemFieldValue(comp, def.id);
+          }
+          updatedItem = setItemFieldValue(updatedItem, def.id, sum);
+        }
+
+        return updatedItem;
+      }
 
       // Sprawdź czy pozycja ma opcje i czy któraś opcja jest zaznaczona
       if (selectedFieldDef && updatedItem.options && updatedItem.options.length > 0) {
@@ -197,7 +271,7 @@ export const CostEstimateEditPage: React.FC = () => {
           const selectedValue = option.fieldValues.find(
             (fv) => fv.fieldDefinitionId === selectedFieldDef.id
           );
-          return selectedValue?.value === 'true' || selectedValue?.value === '1';
+          return getFieldValueAsBoolean(selectedValue);
         });
 
         // Jeśli znaleziono zaznaczoną opcję, skopiuj wartości pól kalkulowanych do pozycji
@@ -210,51 +284,169 @@ export const CostEstimateEditPage: React.FC = () => {
               (fv) => fv.fieldDefinitionId === fieldDef.id
             );
             
-            if (optionFieldValue?.value !== undefined) {
-              const numValue = parseFloat(optionFieldValue.value) || 0;
+            if (optionFieldValue) {
+              const numValue = getFieldValueAsNumber(optionFieldValue);
               updatedItem = setItemFieldValue(updatedItem, fieldDef.id, numValue);
             }
           }
           
-          // Po skopiowaniu wartości z opcji, przelicz pochodne dla pozycji
-          const quantity = quantityFieldDef ? getItemFieldValue(updatedItem, quantityFieldDef.id) : 0;
-          const unitPriceNet = unitPriceNetDef ? getItemFieldValue(updatedItem, unitPriceNetDef.id) : 0;
-          const vatRate = vatRateDef ? getItemFieldValue(updatedItem, vatRateDef.id) : 0;
+          // Po skopiowaniu wartości z opcji, przelicz pochodne używając ŹRÓDŁOWYCH wartości
+          const quantity = quantityFieldDef ? getSourceFieldValue(updatedItem, quantityFieldDef.id) : undefined;
+          const unitPriceNet = unitPriceNetDef ? getSourceFieldValue(updatedItem, unitPriceNetDef.id) : undefined;
+          const vatRate = vatRateDef ? getSourceFieldValue(updatedItem, vatRateDef.id) : undefined;
 
-          const unitPriceGross = unitPriceNet * (1 + vatRate / 100);
-          const valueNet = unitPriceNet * quantity;
-          const valueGross = unitPriceGross * quantity;
-          const unitVat = unitPriceNet * (vatRate / 100);
-          const totalVat = valueNet * (vatRate / 100);
+          const hasQuantity = quantity !== undefined;
+          const hasUnitPriceNet = unitPriceNet !== undefined;
+          const hasVatRate = vatRate !== undefined;
 
-          if (unitPriceGrossDef) updatedItem = setItemFieldValue(updatedItem, unitPriceGrossDef.id, unitPriceGross);
-          if (valueNetDef) updatedItem = setItemFieldValue(updatedItem, valueNetDef.id, valueNet);
-          if (valueGrossDef) updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueGross);
-          if (unitVatDef) updatedItem = setItemFieldValue(updatedItem, unitVatDef.id, unitVat);
-          if (totalVatDef) updatedItem = setItemFieldValue(updatedItem, totalVatDef.id, totalVat);
+          let unitPriceGross: number | undefined;
+          if (unitPriceGrossDef) {
+            if (hasUnitPriceNet && hasVatRate) {
+              unitPriceGross = unitPriceNet! * (1 + vatRate! / 100);
+              updatedItem = setItemFieldValue(updatedItem, unitPriceGrossDef.id, unitPriceGross);
+            } else {
+              unitPriceGross = getSourceFieldValue(updatedItem, unitPriceGrossDef.id);
+            }
+          }
+
+          let unitVat: number | undefined;
+          if (unitVatDef) {
+            if (hasUnitPriceNet && hasVatRate) {
+              unitVat = unitPriceNet! * (vatRate! / 100);
+              updatedItem = setItemFieldValue(updatedItem, unitVatDef.id, unitVat);
+            } else {
+              unitVat = getSourceFieldValue(updatedItem, unitVatDef.id);
+            }
+          }
+
+          let valueNet: number | undefined;
+          if (valueNetDef) {
+            if (hasUnitPriceNet && hasQuantity) {
+              valueNet = unitPriceNet! * quantity!;
+              updatedItem = setItemFieldValue(updatedItem, valueNetDef.id, valueNet);
+            } else {
+              valueNet = getSourceFieldValue(updatedItem, valueNetDef.id);
+            }
+          }
+
+          const hasValueNet = valueNet !== undefined;
+          const hasUnitVat = unitVat !== undefined;
+          const hasUnitPriceGross = unitPriceGross !== undefined;
+
+          let totalVat: number | undefined;
+          if (totalVatDef) {
+            if (hasValueNet && hasVatRate) {
+              totalVat = valueNet! * (vatRate! / 100);
+              updatedItem = setItemFieldValue(updatedItem, totalVatDef.id, totalVat);
+            } else if (hasUnitVat && hasQuantity) {
+              totalVat = unitVat! * quantity!;
+              updatedItem = setItemFieldValue(updatedItem, totalVatDef.id, totalVat);
+            } else {
+              totalVat = getSourceFieldValue(updatedItem, totalVatDef.id);
+            }
+          }
+
+          const hasTotalVat = totalVat !== undefined;
+
+          if (valueGrossDef) {
+            if (hasUnitPriceGross && hasQuantity) {
+              const valueGross = unitPriceGross! * quantity!;
+              updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueGross);
+            } else if (hasValueNet && hasTotalVat) {
+              const valueGross = valueNet! + totalVat!;
+              updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueGross);
+            } else if (hasValueNet) {
+              // Brak VAT → brutto = netto
+              updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueNet!);
+            }
+          }
 
           return updatedItem;
         }
       }
 
       // Standardowe obliczenia (gdy brak zaznaczonej opcji)
-      const quantity = quantityFieldDef ? getItemFieldValue(updatedItem, quantityFieldDef.id) : 0;
-      const unitPriceNet = unitPriceNetDef ? getItemFieldValue(updatedItem, unitPriceNetDef.id) : 0;
-      const vatRate = vatRateDef ? getItemFieldValue(updatedItem, vatRateDef.id) : 0;
+      // Pobierz wartości ŹRÓDŁOWE — undefined gdy brak wpisu w fieldValues
+      const quantity = quantityFieldDef ? getSourceFieldValue(updatedItem, quantityFieldDef.id) : undefined;
+      const unitPriceNet = unitPriceNetDef ? getSourceFieldValue(updatedItem, unitPriceNetDef.id) : undefined;
+      const vatRate = vatRateDef ? getSourceFieldValue(updatedItem, vatRateDef.id) : undefined;
 
-      // Oblicz wartości pochodne
-      const unitPriceGross = unitPriceNet * (1 + vatRate / 100);
-      const valueNet = unitPriceNet * quantity;
-      const valueGross = unitPriceGross * quantity;
-      const unitVat = unitPriceNet * (vatRate / 100);
-      const totalVat = valueNet * (vatRate / 100);
+      // Walidacja: pole musi istnieć (undefined = nie wpisane)
+      const hasQuantity = quantity !== undefined;
+      const hasUnitPriceNet = unitPriceNet !== undefined;
+      const hasVatRate = vatRate !== undefined;
 
-      // Ustaw obliczone wartości
-      if (unitPriceGrossDef) updatedItem = setItemFieldValue(updatedItem, unitPriceGrossDef.id, unitPriceGross);
-      if (valueNetDef) updatedItem = setItemFieldValue(updatedItem, valueNetDef.id, valueNet);
-      if (valueGrossDef) updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueGross);
-      if (unitVatDef) updatedItem = setItemFieldValue(updatedItem, unitVatDef.id, unitVat);
-      if (totalVatDef) updatedItem = setItemFieldValue(updatedItem, totalVatDef.id, totalVat);
+      // unitPriceGross: wymaga unitPriceNet + vatRate
+      let unitPriceGross: number | undefined;
+      if (unitPriceGrossDef) {
+        if (hasUnitPriceNet && hasVatRate) {
+          unitPriceGross = unitPriceNet! * (1 + vatRate! / 100);
+          updatedItem = setItemFieldValue(updatedItem, unitPriceGrossDef.id, unitPriceGross);
+        } else {
+          // Nie nadpisuj — zostaw wartość ręczną (jeśli jest)
+          unitPriceGross = getSourceFieldValue(updatedItem, unitPriceGrossDef.id);
+        }
+      }
+
+      // unitVat: wymaga unitPriceNet + vatRate
+      let unitVat: number | undefined;
+      if (unitVatDef) {
+        if (hasUnitPriceNet && hasVatRate) {
+          unitVat = unitPriceNet! * (vatRate! / 100);
+          updatedItem = setItemFieldValue(updatedItem, unitVatDef.id, unitVat);
+        } else {
+          // Nie nadpisuj — zostaw wartość ręczną
+          unitVat = getSourceFieldValue(updatedItem, unitVatDef.id);
+        }
+      }
+
+      // valueNet: wymaga unitPriceNet + quantity
+      let valueNet: number | undefined;
+      if (valueNetDef) {
+        if (hasUnitPriceNet && hasQuantity) {
+          valueNet = unitPriceNet! * quantity!;
+          updatedItem = setItemFieldValue(updatedItem, valueNetDef.id, valueNet);
+        } else {
+          valueNet = getSourceFieldValue(updatedItem, valueNetDef.id);
+        }
+      }
+
+      // Sprawdź czy mamy wartości (obliczone lub ręczne)
+      const hasValueNet = valueNet !== undefined;
+      const hasUnitVat = unitVat !== undefined;
+      const hasUnitPriceGross = unitPriceGross !== undefined;
+
+      // totalVat: wymaga (valueNet + vatRate) LUB (unitVat + quantity)
+      let totalVat: number | undefined;
+      if (totalVatDef) {
+        if (hasValueNet && hasVatRate) {
+          totalVat = valueNet! * (vatRate! / 100);
+          updatedItem = setItemFieldValue(updatedItem, totalVatDef.id, totalVat);
+        } else if (hasUnitVat && hasQuantity) {
+          totalVat = unitVat! * quantity!;
+          updatedItem = setItemFieldValue(updatedItem, totalVatDef.id, totalVat);
+        } else {
+          totalVat = getSourceFieldValue(updatedItem, totalVatDef.id);
+        }
+      }
+
+      // Sprawdź czy mamy totalVat (obliczone lub ręczne)
+      const hasTotalVat = totalVat !== undefined;
+
+      // valueGross: wymaga (unitPriceGross + quantity) LUB (valueNet + totalVat) LUB (valueNet gdy brak VAT)
+      if (valueGrossDef) {
+        if (hasUnitPriceGross && hasQuantity) {
+          const valueGross = unitPriceGross! * quantity!;
+          updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueGross);
+        } else if (hasValueNet && hasTotalVat) {
+          const valueGross = valueNet! + totalVat!;
+          updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueGross);
+        } else if (hasValueNet) {
+          // Brak VAT → brutto = netto
+          updatedItem = setItemFieldValue(updatedItem, valueGrossDef.id, valueNet!);
+        }
+        // Brak danych → zostaw wartość ręczną
+      }
 
       return updatedItem;
     };
@@ -291,13 +483,32 @@ export const CostEstimateEditPage: React.FC = () => {
       let groupTotalVat = 0;
       let groupSummaryValues: Record<string, number> = {};
 
-      if (showGroupSummary && groupSummaryFields.length > 0) {
-        // Sumuj wartości pozycji według konfiguracji pól
-        groupSummaryValues = sumFieldsFromItems(updatedItems, groupSummaryFields);
+      if (showGroupSummary) {
+        // Zbierz pola do sumowania: z groupSummaryFields config + pola z sumInGroup=true
+        const summaryFieldIds = new Set<string>();
+        
+        // Z konfiguracji summaryFields
+        for (const sf of groupSummaryFields) {
+          summaryFieldIds.add(sf.fieldId);
+        }
+        
+        // Z definicji pól kalkulowanych z flagą sumInGroup
+        for (const cf of data.templateStructure.calculatedFields) {
+          if (cf.sumInGroup === true) {
+            summaryFieldIds.add(cf.id);
+          }
+        }
+        
+        // Sumuj wartości pozycji dla zebranych pól
+        for (const fieldId of summaryFieldIds) {
+          groupSummaryValues[fieldId] = updatedItems.reduce((sum, item) => {
+            return sum + getItemFieldValue(item, fieldId);
+          }, 0);
+        }
         
         // Sumuj wartości z podgrup
         for (const childGroup of updatedChildGroups) {
-          for (const fieldId of Object.keys(groupSummaryValues)) {
+          for (const fieldId of summaryFieldIds) {
             const childValue = (childGroup as any).summaryValues?.[fieldId] || 0;
             groupSummaryValues[fieldId] = (groupSummaryValues[fieldId] || 0) + childValue;
           }
@@ -305,20 +516,31 @@ export const CostEstimateEditPage: React.FC = () => {
       }
 
       // Dla kompatybilności - oblicz standardowe totalNet/totalGross/totalVat
-      const valueNetDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'valueNet');
-      const valueGrossDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'valueGross');
-      const totalVatDef = data.templateStructure.calculatedFields.find((f) => f.fieldName === 'totalVat');
+      // UWAGA: Sumy są liczone tylko gdy mamy odpowiednie pola w szablonie
+      // Szukaj po fieldName LUB fieldType (dla kompatybilności)
+      const valueNetDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'valueNet' || getFieldType(f) === 203
+      );
+      const valueGrossDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'valueGross' || getFieldType(f) === 204
+      );
+      const totalVatDef = data.templateStructure.calculatedFields.find(
+        (f) => f.fieldName === 'totalVat' || getFieldType(f) === 206
+      );
 
+      // totalNet - tylko jeśli mamy pole valueNet w szablonie
       if (valueNetDef) {
         groupTotalNet = updatedItems.reduce((sum, item) => sum + getItemFieldValue(item, valueNetDef.id), 0);
         groupTotalNet += updatedChildGroups.reduce((sum, child) => sum + (child.totalNet || 0), 0);
       }
 
+      // totalGross - tylko jeśli mamy pole valueGross w szablonie
       if (valueGrossDef) {
         groupTotalGross = updatedItems.reduce((sum, item) => sum + getItemFieldValue(item, valueGrossDef.id), 0);
         groupTotalGross += updatedChildGroups.reduce((sum, child) => sum + (child.totalGross || 0), 0);
       }
 
+      // totalVat - tylko jeśli mamy pole totalVat w szablonie
       if (totalVatDef) {
         groupTotalVat = updatedItems.reduce((sum, item) => sum + getItemFieldValue(item, totalVatDef.id), 0);
         groupTotalVat += updatedChildGroups.reduce((sum, child) => sum + (child.totalVat || 0), 0);
@@ -328,9 +550,10 @@ export const CostEstimateEditPage: React.FC = () => {
         ...group,
         items: updatedItems,
         childGroups: updatedChildGroups,
-        totalNet: showGroupSummary ? groupTotalNet : undefined,
-        totalGross: showGroupSummary ? groupTotalGross : undefined,
-        totalVat: showGroupSummary ? groupTotalVat : undefined,
+        // Zwracaj sumy tylko gdy showGroupSummary jest włączone I mamy odpowiednie pola
+        totalNet: showGroupSummary && valueNetDef ? groupTotalNet : undefined,
+        totalGross: showGroupSummary && valueGrossDef ? groupTotalGross : undefined,
+        totalVat: showGroupSummary && totalVatDef ? groupTotalVat : undefined,
         lastCalculatedAt: new Date().toISOString(),
         // Dodatkowe sumy z konfiguracji (dla rozszerzenia w przyszłości)
         summaryValues: showGroupSummary ? groupSummaryValues : undefined,
@@ -341,34 +564,80 @@ export const CostEstimateEditPage: React.FC = () => {
     const recalculatedRootGroups = data.rootGroups.map(recalculateGroup);
 
     // Oblicz sumy całkowite według konfiguracji
+    // UWAGA: Sumy całkowite są liczone tylko gdy showTotalSummary I mamy odpowiednie pola
+    // Szukaj po fieldName LUB fieldType (dla kompatybilności) - używamy getFieldType z góry
+    const valueNetDef = data.templateStructure.calculatedFields.find((f) => 
+      f.fieldName === 'valueNet' || getFieldType(f) === 203
+    );
+    const valueGrossDef = data.templateStructure.calculatedFields.find((f) => 
+      f.fieldName === 'valueGross' || getFieldType(f) === 204
+    );
+    const totalVatDef = data.templateStructure.calculatedFields.find((f) => 
+      f.fieldName === 'totalVat' || getFieldType(f) === 206
+    );
+
     let totalNet: number | undefined;
     let totalGross: number | undefined;
     let totalVat: number | undefined;
     let totalSummaryValues: Record<string, number> = {};
 
-    if (showTotalSummary) {
-      // Sumuj wartości z root groups
-      totalNet = recalculatedRootGroups.reduce((sum, group) => sum + (group.totalNet || 0), 0);
-      totalGross = recalculatedRootGroups.reduce((sum, group) => sum + (group.totalGross || 0), 0);
-      totalVat = recalculatedRootGroups.reduce((sum, group) => sum + (group.totalVat || 0), 0);
-
-      // Sumuj według konfiguracji totalSummaryFields
-      if (totalSummaryFields.length > 0) {
-        for (const summaryField of totalSummaryFields) {
-          const fieldId = summaryField.fieldId;
-          totalSummaryValues[fieldId] = recalculatedRootGroups.reduce((sum, group) => {
-            return sum + ((group as any).summaryValues?.[fieldId] || 0);
-          }, 0);
+    // Helper: rekursywnie zbierz wszystkie pozycje
+    const collectAllItems = (groups: CostEstimateGroupWeb[]): CostEstimateItemWeb[] => {
+      let allItems: CostEstimateItemWeb[] = [];
+      for (const group of groups) {
+        if (group.items) {
+          allItems = allItems.concat(group.items);
         }
+        if (group.childGroups) {
+          allItems = allItems.concat(collectAllItems(group.childGroups));
+        }
+      }
+      return allItems;
+    };
+
+    if (showTotalSummary) {
+      // Zbierz wszystkie pozycje bezpośrednio (niezależnie od showGroupSummary)
+      const allItems = collectAllItems(recalculatedRootGroups);
+      
+      // totalNet - tylko jeśli mamy pole valueNet w szablonie
+      if (valueNetDef) {
+        totalNet = allItems.reduce((sum, item) => sum + getItemFieldValue(item, valueNetDef.id), 0);
+      }
+      
+      // totalGross - tylko jeśli mamy pole valueGross w szablonie
+      if (valueGrossDef) {
+        totalGross = allItems.reduce((sum, item) => sum + getItemFieldValue(item, valueGrossDef.id), 0);
+      }
+      
+      // totalVat - tylko jeśli mamy pole totalVat w szablonie
+      if (totalVatDef) {
+        totalVat = allItems.reduce((sum, item) => sum + getItemFieldValue(item, totalVatDef.id), 0);
+      }
+
+      // Zbierz pola do sumowania: z totalSummaryFields config + pola z sumInTotal=true
+      const totalSummaryFieldIds = new Set<string>();
+      
+      for (const sf of totalSummaryFields) {
+        totalSummaryFieldIds.add(sf.fieldId);
+      }
+      
+      for (const cf of data.templateStructure.calculatedFields) {
+        if (cf.sumInTotal === true) {
+          totalSummaryFieldIds.add(cf.id);
+        }
+      }
+      
+      for (const fieldId of totalSummaryFieldIds) {
+        totalSummaryValues[fieldId] = allItems.reduce((sum, item) => sum + getItemFieldValue(item, fieldId), 0);
       }
     }
 
     return {
       ...data,
       rootGroups: recalculatedRootGroups,
-      totalNet: showTotalSummary ? totalNet : undefined,
-      totalGross: showTotalSummary ? totalGross : undefined,
-      totalVat: showTotalSummary ? totalVat : undefined,
+      totalNet: showTotalSummary && valueNetDef ? totalNet : undefined,
+      totalGross: showTotalSummary && valueGrossDef ? totalGross : undefined,
+      totalVat: showTotalSummary && totalVatDef ? totalVat : undefined,
       lastCalculatedAt: new Date().toISOString(),
       // Dodatkowe sumy z konfiguracji
       summaryValues: showTotalSummary ? totalSummaryValues : undefined,
@@ -382,11 +651,12 @@ export const CostEstimateEditPage: React.FC = () => {
     setHasChanges(true);
   };
 
-  const handleAddGroup = () => {
-    if (!details) return;
+  const handleAddGroup = (): string | undefined => {
+    if (!details) return undefined;
 
+    const newGroupId = `temp_${Date.now()}`;
     const newGroup: CostEstimateGroupWeb = {
-      id: `temp_${Date.now()}`,
+      id: newGroupId,
       parentGroupId: undefined,
       level: 0,
       order: details.rootGroups.length,
@@ -408,6 +678,7 @@ export const CostEstimateEditPage: React.FC = () => {
 
     setDetails(updatedDetails);
     setHasChanges(true);
+    return newGroupId;
   };
 
   const handleDeleteGroup = (groupId: string) => {
@@ -439,15 +710,17 @@ export const CostEstimateEditPage: React.FC = () => {
     onDeleteClose();
   };
 
-  const handleAddSubGroup = (parentGroupId: string) => {
-    if (!details) return;
+  const handleAddSubGroup = (parentGroupId: string): string | undefined => {
+    if (!details) return undefined;
 
+    const newSubGroupId = `temp_${Date.now()}`;
+    
     const findAndAddSubGroup = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] => {
       return groups.map((group) => {
         if (group.id === parentGroupId) {
           const childGroups = group.childGroups || [];
           const newSubGroup: CostEstimateGroupWeb = {
-            id: `temp_${Date.now()}`,
+            id: newSubGroupId,
             parentGroupId,
             level: group.level + 1,
             order: childGroups.length,
@@ -482,6 +755,7 @@ export const CostEstimateEditPage: React.FC = () => {
 
     setDetails(updatedDetails);
     setHasChanges(true);
+    return newSubGroupId;
   };
 
   const handleAddItem = (groupId: string) => {
@@ -615,99 +889,95 @@ export const CostEstimateEditPage: React.FC = () => {
               {details.name}
             </Text>
             <Text fontSize="sm" color="gray.600">
-              Szablon: {details.templateName} • Wersja: {details.templateVersionNumber}
+              Szablon: {details.templateName}
             </Text>
           </Box>
-          
-          <Badge colorScheme={details.status === CostEstimateStatus.Draft ? 'gray' : 'blue'}>
-            {details.status}
-          </Badge>
         </Stack>
 
         <Divider my={2} />
 
-        {/* Podsumowanie - tylko jeśli showTotalSummary jest włączone */}
-        {details.templateStructure.summaryConfiguration?.showTotalSummary !== false && (
-          <>
-            <Stack direction="row" spacing={4} mb={2} flexWrap="wrap">
-              {/* Wyświetl pola z totalSummaryFields lub domyślne */}
-              {(details.templateStructure.summaryConfiguration?.totalSummaryFields?.length ?? 0) > 0 ? (
-                // Wyświetl tylko pola z konfiguracji
-                details.templateStructure.summaryConfiguration?.totalSummaryFields?.map((summaryField) => {
-                  // Znajdź wartość sumy dla tego pola
-                  const fieldId = summaryField.fieldId;
-                  const summaryValues = (details as any).summaryValues || {};
-                  let value = summaryValues[fieldId];
+        {/* Podsumowanie — wyświetlaj tylko pola z sumInTotal === true w szablonie */}
+        {(() => {
+          const sumInTotalFields = (details.templateStructure.calculatedFields || [])
+            .filter((f) => f.sumInTotal === true)
+            .sort((a, b) => a.order - b.order);
+          
+          if (sumInTotalFields.length === 0) return null;
+
+          return (
+            <>
+              <Stack direction="row" spacing={4} mb={2} flexWrap="wrap">
+                {sumInTotalFields.map((fieldDef) => {
+                  let value: number | undefined;
                   
-                  // Fallback na standardowe pola jeśli nie ma w summaryValues
-                  if (value === undefined) {
-                    const fieldDef = [
-                      ...details.templateStructure.calculatedFields,
-                      ...details.templateStructure.systemFields,
-                    ].find((f) => f.id === fieldId);
-                    
-                    if (fieldDef?.fieldName === 'valueNet') value = details.totalNet;
-                    else if (fieldDef?.fieldName === 'valueGross') value = details.totalGross;
-                    else if (fieldDef?.fieldName === 'totalVat') value = details.totalVat;
+                  // Pobierz wartość sumy z details (standardowe pola)
+                  if (fieldDef.fieldName === 'valueNet' || (fieldDef.fieldType ?? (fieldDef as any).fieldTypeConfig?.fieldType) === 203) {
+                    value = details.totalNet;
+                  } else if (fieldDef.fieldName === 'valueGross' || (fieldDef.fieldType ?? (fieldDef as any).fieldTypeConfig?.fieldType) === 204) {
+                    value = details.totalGross;
+                  } else if (fieldDef.fieldName === 'totalVat' || (fieldDef.fieldType ?? (fieldDef as any).fieldTypeConfig?.fieldType) === 206) {
+                    value = details.totalVat;
+                  } else {
+                    // Fallback: szukaj w summaryValues
+                    value = (details as any).summaryValues?.[fieldDef.id];
                   }
-                  
+
                   return (
-                    <Box key={fieldId}>
-                      <Text fontSize="xs" color="gray.600">{summaryField.fieldLabel}</Text>
+                    <Box key={fieldDef.id}>
+                      <Text fontSize="xs" color="gray.600">{fieldDef.label || fieldDef.fieldName}</Text>
                       <Text fontSize="lg" fontWeight="semibold">
-                        {typeof value === 'number' ? value.toFixed(2) : '0.00'} {details.selectedCurrencyCode}
+                        {typeof value === 'number' ? value.toFixed(2) : '0.00'} {details.selectedCurrencySymbol || details.selectedCurrencyCode}
                       </Text>
                     </Box>
                   );
-                })
-              ) : (
-                // Domyślne podsumowanie (kompatybilność wsteczna)
-                <>
-                  <Box>
-                    <Text fontSize="xs" color="gray.600">Wartość netto</Text>
-                    <Text fontSize="lg" fontWeight="semibold">
-                      {details.totalNet?.toFixed(2) || '0.00'} {details.selectedCurrencyCode}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="xs" color="gray.600">VAT</Text>
-                    <Text fontSize="lg" fontWeight="semibold">
-                      {details.totalVat?.toFixed(2) || '0.00'} {details.selectedCurrencyCode}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="xs" color="gray.600">Wartość brutto</Text>
-                    <Text fontSize="lg" fontWeight="semibold" color="blue.600">
-                      {details.totalGross?.toFixed(2) || '0.00'} {details.selectedCurrencyCode}
-                    </Text>
-                  </Box>
-                </>
-              )}
-            </Stack>
-
-            <Divider my={2} />
-          </>
-        )}
+                })}
+              </Stack>
+              <Divider my={2} />
+            </>
+          );
+        })()}
 
         {/* Przyciski akcji */}
-        <Stack direction="row" spacing={2}>
-          <Button
-            colorScheme="blue"
-            leftIcon={saving ? <Spinner size="sm" /> : <Save size={16} />}
-            onClick={handleSave}
-            isDisabled={!hasChanges || saving}
-          >
-            {saving ? 'Zapisywanie...' : 'Zapisz zmiany'}
-          </Button>
+        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+          <Stack direction="row" spacing={2}>
+            <Button
+              colorScheme="blue"
+              leftIcon={saving ? <Spinner size="sm" /> : <Save size={16} />}
+              onClick={handleSave}
+              isDisabled={!hasChanges || saving || !isEditMode}
+            >
+              {saving ? 'Zapisywanie...' : 'Zapisz zmiany'}
+            </Button>
+            
+            <Button
+              variant="outline"
+              leftIcon={<RefreshCw size={16} />}
+              onClick={loadCostEstimate}
+              isDisabled={loading}
+            >
+              Odśwież
+            </Button>
+          </Stack>
           
-          <Button
-            variant="outline"
-            leftIcon={<RefreshCw size={16} />}
-            onClick={loadCostEstimate}
-            isDisabled={loading}
-          >
-            Odśwież
-          </Button>
+          {/* Przełącznik Edycja / Podgląd */}
+          <ButtonGroup isAttached variant="outline" size="sm">
+            <Button
+              leftIcon={<Icon as={Pencil} boxSize={4} />}
+              colorScheme={isEditMode ? 'blue' : 'gray'}
+              variant={isEditMode ? 'solid' : 'outline'}
+              onClick={() => setIsEditMode(true)}
+            >
+              Edycja
+            </Button>
+            <Button
+              leftIcon={<Icon as={Eye} boxSize={4} />}
+              colorScheme={!isEditMode ? 'blue' : 'gray'}
+              variant={!isEditMode ? 'solid' : 'outline'}
+              onClick={() => setIsEditMode(false)}
+            >
+              Podgląd
+            </Button>
+          </ButtonGroup>
         </Stack>
 
         {hasChanges && (
@@ -728,7 +998,7 @@ export const CostEstimateEditPage: React.FC = () => {
       {/* Tabela kosztorysu */}
       <CostEstimateTableView
         details={details}
-        editable={true}
+        editable={isEditMode}
         onDataChange={handleDataChange}
         onAddGroup={handleAddGroup}
         onDeleteGroup={handleDeleteGroup}

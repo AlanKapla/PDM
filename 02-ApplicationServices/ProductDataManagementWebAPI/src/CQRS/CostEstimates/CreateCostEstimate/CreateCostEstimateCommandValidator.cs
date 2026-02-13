@@ -12,9 +12,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
             RuleFor(x => x.TemplateId)
                 .NotEmpty().WithMessage("Template ID is required");
 
-            RuleFor(x => x.TemplateVersionId)
-                .NotEmpty().WithMessage("Template Version ID is required");
-
             RuleFor(x => x.SelectedCurrencyId)
                 .NotEmpty().WithMessage("Currency selection is required");
 

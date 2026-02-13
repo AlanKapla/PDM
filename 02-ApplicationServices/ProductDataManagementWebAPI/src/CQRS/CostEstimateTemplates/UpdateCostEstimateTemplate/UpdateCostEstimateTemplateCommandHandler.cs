@@ -1,6 +1,6 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using CQRS.CostEstimateTemplates.Shared;
+using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
@@ -12,34 +12,37 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
     public class UpdateCostEstimateTemplateCommandHandler : IRequestHandler<UpdateCostEstimateTemplateCommand, Unit>
     {
         private readonly IRepository<CostEstimateTemplate> templateRepository;
-        private readonly IRepository<CostEstimateTemplateVersion> versionRepository;
         private readonly IRepository<CostEstimateTemplateCurrency> currencyRepository;
         private readonly IRepository<CostEstimateTemplateUnit> unitRepository;
         private readonly IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository;
         private readonly IRepository<CostEstimateTemplateItemSystemFieldDefinition> systemFieldRepository;
         private readonly IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository;
         private readonly IRepository<CostEstimateTemplateItemGenericFieldDefinition> genericFieldRepository;
+        private readonly IRepository<CostEstimate> costEstimateRepository;
+        private readonly ICostEstimateCalculationService calculationService;
         private readonly ICurrentUser currentUser;
 
         public UpdateCostEstimateTemplateCommandHandler(
             IRepository<CostEstimateTemplate> templateRepository,
-            IRepository<CostEstimateTemplateVersion> versionRepository,
             IRepository<CostEstimateTemplateCurrency> currencyRepository,
             IRepository<CostEstimateTemplateUnit> unitRepository,
             IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository,
             IRepository<CostEstimateTemplateItemSystemFieldDefinition> systemFieldRepository,
             IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository,
             IRepository<CostEstimateTemplateItemGenericFieldDefinition> genericFieldRepository,
+            IRepository<CostEstimate> costEstimateRepository,
+            ICostEstimateCalculationService calculationService,
             ICurrentUser currentUser)
         {
             this.templateRepository = templateRepository;
-            this.versionRepository = versionRepository;
             this.currencyRepository = currencyRepository;
             this.unitRepository = unitRepository;
             this.groupFieldRepository = groupFieldRepository;
             this.systemFieldRepository = systemFieldRepository;
             this.calculatedFieldRepository = calculatedFieldRepository;
             this.genericFieldRepository = genericFieldRepository;
+            this.costEstimateRepository = costEstimateRepository;
+            this.calculationService = calculationService;
             this.currentUser = currentUser;
         }
 
@@ -48,45 +51,34 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
             var now = DateTime.UtcNow;
 
             var template = await templateRepository.GetFirstBySearch(
-                t => t.Id == request.TemplateId && t.OwnerId == currentUser.Id && !t.IsDeleted,
-                q => q.Include(t => t.Versions.Where(v => !v.IsDeleted)));
+                t => t.Id == request.TemplateId && t.OwnerId == currentUser.Id && !t.IsDeleted);
             
             if (template == null)
             {
                 throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
             }
 
-            var currentVersion = template.Versions.FirstOrDefault(v => v.Id == request.CurrentVersionId && !v.IsDeleted);
-            if (currentVersion == null)
-            {
-                throw new NotFoundApiException(nameof(CostEstimateTemplateVersion), request.CurrentVersionId.ToString());
-            }
-
             template.Name = request.Name;
             template.Description = request.Description;
+            template.Category = request.Category;
+            template.CanAddGroups = request.CanAddGroups;
+            template.CanBranchGroups = request.CanBranchGroups;
+            template.MaxGroupLevel = request.MaxGroupLevel;
+            template.AutoNumberGroups = request.AutoNumberGroups;
+            template.GroupNumberFormat = request.GroupNumberFormat;
             template.UpdatedAt = now;
 
             await templateRepository.Update(template);
-
-            currentVersion.Category = request.Category;
-            currentVersion.CanAddGroups = request.CanAddGroups;
-            currentVersion.CanBranchGroups = request.CanBranchGroups;
-            currentVersion.MaxGroupLevel = request.MaxGroupLevel;
-            currentVersion.AutoNumberGroups = request.AutoNumberGroups;
-            currentVersion.GroupNumberFormat = request.GroupNumberFormat;
-
-            await versionRepository.Update(currentVersion);
-            
             await templateRepository.SaveChangesAsync(cancellationToken);
 
             if (request.Currencies != null)
             {
-                await UpdateCurrenciesAsync(currentVersion.Id, request.Currencies, cancellationToken);
+                await UpdateCurrenciesAsync(template.Id, request.Currencies, cancellationToken);
             }
 
             if (request.Units != null)
             {
-                await UpdateUnitsAsync(currentVersion.Id, request.Units, cancellationToken);
+                await UpdateUnitsAsync(template.Id, request.Units, cancellationToken);
             }
 
             if (!request.UpdateStructure)
@@ -94,78 +86,78 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                 return Unit.Value;
             }
 
-            CostEstimateTemplateVersion targetVersion = await GetOrCreateTargetVersionAsync(
-                template, 
-                currentVersion, 
-                request, 
-                now, 
+            await DeleteRemovedFieldsAsync(
+                template.Id, 
+                request.GroupHeaderFields,
+                request.SystemFields,
+                request.CalculatedFields,
+                request.GenericFields,
                 cancellationToken);
 
-            await DeleteExistingStructureAsync(targetVersion.Id, cancellationToken);
-
             var fieldNameToIdMap = new Dictionary<Guid, Guid>();
+            
+            var columnLayoutOrderMap = BuildColumnLayoutOrderMap(request.UiConfiguration?.ColumnLayout);
 
             if (request.GroupHeaderFields != null)
             {
-                await CreateFieldsInBatchAsync(
+                await UpsertFieldsInBatchAsync(
                     request.GroupHeaderFields,
-                    targetVersion.Id,
+                    template.Id,
                     FieldScope.Group,
                     fieldNameToIdMap,
-                    request.SummaryConfiguration,
-                    request.UiConfiguration,
+                    columnLayoutOrderMap,
                     cancellationToken);
             }
 
             if (request.SystemFields != null)
             {
-                await CreateFieldsInBatchAsync(
+                await UpsertFieldsInBatchAsync(
                     request.SystemFields,
-                    targetVersion.Id,
+                    template.Id,
                     FieldScope.ItemSystem,
                     fieldNameToIdMap,
-                    request.SummaryConfiguration,
-                    request.UiConfiguration,
+                    columnLayoutOrderMap,
                     cancellationToken);
             }
 
             if (request.CalculatedFields != null)
             {
-                await CreateFieldsInBatchAsync(
+                await UpsertFieldsInBatchAsync(
                     request.CalculatedFields,
-                    targetVersion.Id,
+                    template.Id,
                     FieldScope.ItemCalculated,
                     fieldNameToIdMap,
-                    request.SummaryConfiguration,
-                    request.UiConfiguration,
+                    columnLayoutOrderMap,
                     cancellationToken);
             }
 
             if (request.GenericFields != null)
             {
-                await CreateFieldsInBatchAsync(
+                await UpsertFieldsInBatchAsync(
                     request.GenericFields,
-                    targetVersion.Id,
+                    template.Id,
                     FieldScope.ItemGeneric,
                     fieldNameToIdMap,
-                    request.SummaryConfiguration,
-                    request.UiConfiguration,
+                    columnLayoutOrderMap,
                     cancellationToken);
             }
+
+            await RecalculateAllCostEstimatesForTemplate(template.Id, cancellationToken);
 
             return Unit.Value;
         }
         
+        
         /// <summary>
-        /// Aktualizuje waluty dla wersji (update/insert)
+        /// Aktualizuje waluty dla szablonu (update/insert)
         /// </summary>
         private async Task UpdateCurrenciesAsync(
-            Guid versionId, 
+            Guid templateId, 
             List<CurrencyDto> currencies, 
             CancellationToken cancellationToken)
         {
             var existingCurrencies = (await currencyRepository
-                .GetBySearch(c => c.TemplateVersionId == versionId)).ToList();
+                .GetBySearch(c => c.TemplateId == templateId)).ToList();
             
             var toUpdate = new List<CostEstimateTemplateCurrency>();
             var toInsert = new List<CostEstimateTemplateCurrency>();
@@ -187,7 +179,7 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                     toInsert.Add(new CostEstimateTemplateCurrency
                     {
                         Id = Guid.NewGuid(),
-                        TemplateVersionId = versionId,
+                        TemplateId = templateId,
                         Code = currencyDto.Code,
                         Name = currencyDto.Name,
                         Symbol = currencyDto.Symbol,
@@ -205,16 +197,17 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
             await currencyRepository.SaveChangesAsync(cancellationToken);
         }
         
+        
         /// <summary>
-        /// Aktualizuje jednostki dla wersji (update/insert)
+        /// Aktualizuje jednostki dla szablonu (update/insert)
         /// </summary>
         private async Task UpdateUnitsAsync(
-            Guid versionId, 
+            Guid templateId, 
             List<UnitDto> units, 
             CancellationToken cancellationToken)
         {
             var existingUnits = (await unitRepository
-                .GetBySearch(u => u.TemplateVersionId == versionId)).ToList();
+                .GetBySearch(u => u.TemplateId == templateId)).ToList();
             
             var toUpdate = new List<CostEstimateTemplateUnit>();
             var toInsert = new List<CostEstimateTemplateUnit>();
@@ -237,7 +230,7 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                     toInsert.Add(new CostEstimateTemplateUnit
                     {
                         Id = Guid.NewGuid(),
-                        TemplateVersionId = versionId,
+                        TemplateId = templateId,
                         Code = unitDto.Code,
                         Name = unitDto.Name,
                         Symbol = unitDto.Symbol,
@@ -257,264 +250,408 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
         }
         
         /// <summary>
-        /// Pobiera lub tworzy target version (Draft jeśli Approved, lub current)
+        /// Buduje mapę FieldName -> Order na podstawie UiConfiguration.ColumnLayout
         /// </summary>
-        private async Task<CostEstimateTemplateVersion> GetOrCreateTargetVersionAsync(
-            CostEstimateTemplate template,
-            CostEstimateTemplateVersion currentVersion,
-            UpdateCostEstimateTemplateCommand request,
-            DateTime now,
+        private Dictionary<Guid, int> BuildColumnLayoutOrderMap(List<Guid>? columnLayout)
+        {
+            var orderMap = new Dictionary<Guid, int>();
+            
+            if (columnLayout == null || !columnLayout.Any())
+            {
+                return orderMap;
+            }
+            
+            for (int i = 0; i < columnLayout.Count; i++)
+            {
+                orderMap[columnLayout[i]] = i;
+            }
+            
+            return orderMap;
+        }
+        
+        /// <summary>
+        /// Usuwa tylko te pola, które zostały usunięte z requestu (nie są w nowej liście)
+        /// Dzięki temu zachowujemy wartości pól (FieldValues) dla niezmienonych/zaktualizowanych pól
+        /// </summary>
+        private async Task DeleteRemovedFieldsAsync(
+            Guid templateId,
+            List<FieldDefinitionDto>? newGroupFields,
+            List<FieldDefinitionDto>? newSystemFields,
+            List<FieldDefinitionDto>? newCalculatedFields,
+            List<FieldDefinitionDto>? newGenericFields,
             CancellationToken cancellationToken)
         {
-            if (currentVersion.Status == TemplateVersionStatus.Approved)
+            // Zbierz wszystkie FieldName z nowych pól (rekurencyjnie z child fields)
+            var newFieldNames = new HashSet<Guid>();
+            
+            CollectFieldNames(newGroupFields, newFieldNames);
+            CollectFieldNames(newSystemFields, newFieldNames);
+            CollectFieldNames(newCalculatedFields, newFieldNames);
+            CollectFieldNames(newGenericFields, newFieldNames);
+            
+            // Usuń tylko te pola, których FieldName NIE MA w nowej liście
+            await DeleteFieldsNotInSet(groupFieldRepository, templateId, newFieldNames, cancellationToken);
+            await DeleteFieldsNotInSet(systemFieldRepository, templateId, newFieldNames, cancellationToken);
+            await DeleteFieldsNotInSet(calculatedFieldRepository, templateId, newFieldNames, cancellationToken);
+            await DeleteFieldsNotInSet(genericFieldRepository, templateId, newFieldNames, cancellationToken);
+        }
+        
+        /// <summary>
+        /// Rekurencyjnie zbiera wszystkie FieldName z listy pól (włącznie z child fields)
+        /// </summary>
+        private void CollectFieldNames(List<FieldDefinitionDto>? fields, HashSet<Guid> fieldNames)
+        {
+            if (fields == null) return;
+            
+            foreach (var field in fields)
             {
-                var maxVersionNumber = template.Versions.Max(v => v.VersionNumber);
+                fieldNames.Add(field.FieldName);
                 
-                var targetVersion = new CostEstimateTemplateVersion
+                if (field.ChildFields != null && field.ChildFields.Any())
                 {
-                    Id = Guid.NewGuid(),
-                    TemplateId = template.Id,
-                    VersionNumber = maxVersionNumber + 1,
-                    VersionName = $"Draft v{maxVersionNumber + 1} (edited from Approved v{currentVersion.VersionNumber})",
-                    Status = TemplateVersionStatus.Draft,
-                    Category = request.Category,
-                    CanAddGroups = request.CanAddGroups,
-                    CanBranchGroups = request.CanBranchGroups,
-                    MaxGroupLevel = request.MaxGroupLevel,
-                    AutoNumberGroups = request.AutoNumberGroups,
-                    GroupNumberFormat = request.GroupNumberFormat,
-                    CreatedAt = now,
-                    IsDeleted = false
-                };
-
-                await versionRepository.Insert(targetVersion);
-                await versionRepository.SaveChangesAsync(cancellationToken);
-                
-                return targetVersion;
-            }
-            else
-            {
-                currentVersion.VersionName = request.Name;
-                await versionRepository.Update(currentVersion);
-                await versionRepository.SaveChangesAsync(cancellationToken);
-                
-                return currentVersion;
+                    CollectFieldNames(field.ChildFields, fieldNames);
+                }
             }
         }
         
         /// <summary>
-        /// Usuwa całą istniejącą strukturę dla wersji (tylko pola - summary i UI są teraz na polach)
+        /// Usuwa pola z repozytorium, których FieldName NIE MA w podanym zestawie
+        /// Usuwa najpierw child fields (ParentFieldId != null), potem parent fields (ParentFieldId == null)
+        /// aby uniknąć konfliktu FK constraint
         /// </summary>
-        private async Task DeleteExistingStructureAsync(
-            Guid versionId, 
-            CancellationToken cancellationToken)
+        private async Task DeleteFieldsNotInSet<T>(
+            IRepository<T> repository,
+            Guid templateId,
+            HashSet<Guid> keepFieldNames,
+            CancellationToken cancellationToken) where T : CostEstimateTemplateFieldDefinitionBase
         {
-            var existingGroupFields = await groupFieldRepository
-                .GetBySearch(f => f.TemplateVersionId == versionId);
+            var existingFields = await repository.GetBySearch(f => f.TemplateId == templateId);
             
-            if (existingGroupFields.Any())
-            {
-                await groupFieldRepository.DeleteRange(existingGroupFields);
-            }
+            var fieldsToDelete = existingFields
+                .Where(f => !keepFieldNames.Contains(f.FieldName))
+                .ToList();
             
-            var existingSystemFields = await systemFieldRepository
-                .GetBySearch(f => f.TemplateVersionId == versionId);
-            
-            if (existingSystemFields.Any())
-            {
-                await systemFieldRepository.DeleteRange(existingSystemFields);
-            }
-            
-            var existingCalculatedFields = await calculatedFieldRepository
-                .GetBySearch(f => f.TemplateVersionId == versionId);
-            
-            if (existingCalculatedFields.Any())
-            {
-                await calculatedFieldRepository.DeleteRange(existingCalculatedFields);
-            }
-            
-            var existingGenericFields = await genericFieldRepository
-                .GetBySearch(f => f.TemplateVersionId == versionId);
-            
-            if (existingGenericFields.Any())
-            {
-                await genericFieldRepository.DeleteRange(existingGenericFields);
-            }
-
-            await groupFieldRepository.SaveChangesAsync(cancellationToken);
-        }
-        
-        /// <summary>
-        /// Tworzy pola w batch (z hierarchią) i ustawia Order, IsVisible, Width, SumInGroup, SumInTotal
-        /// </summary>
-        private async Task CreateFieldsInBatchAsync(
-            List<FieldDefinitionDto> fieldDtos,
-            Guid versionId,
-            FieldScope fieldScope,
-            Dictionary<Guid, Guid> fieldNameToIdMap,
-            SummaryConfigurationDto? summaryConfig,
-            UiConfigurationDto? uiConfig,
-            CancellationToken cancellationToken)
-        {
-            var fieldsToInsert = new List<CostEstimateTemplateFieldDefinitionBase>();
-            
-            foreach (var fieldDto in fieldDtos)
-            {
-                CollectFieldsRecursive(
-                    fieldDto,
-                    versionId,
-                    fieldScope,
-                    parentFieldId: null,
-                    fieldsToInsert,
-                    fieldNameToIdMap,
-                    summaryConfig,
-                    uiConfig);
-            }
-            
-            if (!fieldsToInsert.Any())
+            if (!fieldsToDelete.Any())
             {
                 return;
             }
             
-            var groupFields = fieldsToInsert.OfType<CostEstimateTemplateGroupFieldDefinition>().ToList();
-            if (groupFields.Any())
+            // Usuń najpierw child fields (mają ParentFieldId)
+            var childFieldsToDelete = fieldsToDelete
+                .Where(f => f.ParentFieldId.HasValue)
+                .ToList();
+            
+            if (childFieldsToDelete.Any())
             {
-                await groupFieldRepository.InsertRange(groupFields);
+                await repository.DeleteRange(childFieldsToDelete);
+                await repository.SaveChangesAsync(cancellationToken);
             }
             
-            var systemFields = fieldsToInsert.OfType<CostEstimateTemplateItemSystemFieldDefinition>().ToList();
-            if (systemFields.Any())
+            // Potem usuń parent fields (nie mają ParentFieldId)
+            var parentFieldsToDelete = fieldsToDelete
+                .Where(f => !f.ParentFieldId.HasValue)
+                .ToList();
+            
+            if (parentFieldsToDelete.Any())
             {
-                await systemFieldRepository.InsertRange(systemFields);
+                await repository.DeleteRange(parentFieldsToDelete);
+                await repository.SaveChangesAsync(cancellationToken);
+            }
+        }
+        
+        
+        
+        
+        /// <summary>
+        /// Aktualizuje lub tworzy pola w batch (z hierarchią)
+        /// Jeśli pole (po FieldName) już istnieje - aktualizuje, jeśli nie - tworzy nowe
+        /// </summary>
+        private async Task UpsertFieldsInBatchAsync(
+            List<FieldDefinitionDto> fieldDtos,
+            Guid templateId,
+            FieldScope fieldScope,
+            Dictionary<Guid, Guid> fieldNameToIdMap,
+            Dictionary<Guid, int> columnLayoutOrderMap,
+            CancellationToken cancellationToken)
+        {
+            // Pobierz wszystkie istniejące pola (wszystkie scope - dla child fields)
+            var allExistingFields = new Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase>();
+            
+            foreach (var scope in Enum.GetValues<FieldScope>())
+            {
+                var scopeFields = await GetExistingFieldsByScope(templateId, scope);
+                foreach (var field in scopeFields)
+                {
+                    allExistingFields[field.FieldName] = field;
+                }
             }
             
-            var calculatedFields = fieldsToInsert.OfType<CostEstimateTemplateItemCalculatedFieldDefinition>().ToList();
-            if (calculatedFields.Any())
+            // Kolekcje zgrupowane po rzeczywistym FieldScope
+            var fieldsToInsertByScope = new Dictionary<FieldScope, List<CostEstimateTemplateFieldDefinitionBase>>();
+            var fieldsToUpdateByScope = new Dictionary<FieldScope, List<CostEstimateTemplateFieldDefinitionBase>>();
+            
+            foreach (var fieldDto in fieldDtos)
             {
-                await calculatedFieldRepository.InsertRange(calculatedFields);
+                CollectFieldsForUpsert(
+                    fieldDto,
+                    templateId,
+                    fieldScope,
+                    parentFieldId: null,
+                    orderInParent: null,
+                    fieldsToInsertByScope,
+                    fieldsToUpdateByScope,
+                    allExistingFields,
+                    fieldNameToIdMap,
+                    columnLayoutOrderMap);
             }
             
-            var genericFields = fieldsToInsert.OfType<CostEstimateTemplateItemGenericFieldDefinition>().ToList();
-            if (genericFields.Any())
+            // Update existing - dla każdego scope osobno
+            foreach (var kvp in fieldsToUpdateByScope)
             {
-                await genericFieldRepository.InsertRange(genericFields);
+                if (kvp.Value.Any())
+                {
+                    await UpdateFieldsByScope(kvp.Key, kvp.Value, cancellationToken);
+                }
             }
             
-            if (fieldsToInsert.Any())
+            // Insert new - dla każdego scope osobno
+            foreach (var kvp in fieldsToInsertByScope)
             {
-                await groupFieldRepository.SaveChangesAsync(cancellationToken);
+                if (kvp.Value.Any())
+                {
+                    await InsertFieldsByScope(kvp.Key, kvp.Value, cancellationToken);
+                }
             }
         }
         
         /// <summary>
-        /// Rekurencyjnie zbiera pola do insertu, buduje mapę FieldName -> Id
-        /// i ustawia Order, SumInGroup, SumInTotal na podstawie konfiguracji
+        /// Pobiera istniejące pola dla danego scope
         /// </summary>
-        private void CollectFieldsRecursive(
+        private async Task<List<CostEstimateTemplateFieldDefinitionBase>> GetExistingFieldsByScope(
+            Guid templateId, 
+            FieldScope fieldScope)
+        {
+            return fieldScope switch
+            {
+                FieldScope.Group => (await groupFieldRepository.GetBySearch(f => f.TemplateId == templateId))
+                    .Cast<CostEstimateTemplateFieldDefinitionBase>().ToList(),
+                FieldScope.ItemSystem => (await systemFieldRepository.GetBySearch(f => f.TemplateId == templateId))
+                    .Cast<CostEstimateTemplateFieldDefinitionBase>().ToList(),
+                FieldScope.ItemCalculated => (await calculatedFieldRepository.GetBySearch(f => f.TemplateId == templateId))
+                    .Cast<CostEstimateTemplateFieldDefinitionBase>().ToList(),
+                FieldScope.ItemGeneric => (await genericFieldRepository.GetBySearch(f => f.TemplateId == templateId))
+                    .Cast<CostEstimateTemplateFieldDefinitionBase>().ToList(),
+                _ => new List<CostEstimateTemplateFieldDefinitionBase>()
+            };
+        }
+        
+        /// <summary>
+        /// Aktualizuje pola dla danego scope
+        /// </summary>
+        private async Task UpdateFieldsByScope(
+            FieldScope fieldScope,
+            List<CostEstimateTemplateFieldDefinitionBase> fields,
+            CancellationToken cancellationToken)
+        {
+            switch (fieldScope)
+            {
+                case FieldScope.Group:
+                    await groupFieldRepository.UpdateRange(fields.Cast<CostEstimateTemplateGroupFieldDefinition>());
+                    break;
+                case FieldScope.ItemSystem:
+                    await systemFieldRepository.UpdateRange(fields.Cast<CostEstimateTemplateItemSystemFieldDefinition>());
+                    break;
+                case FieldScope.ItemCalculated:
+                    await calculatedFieldRepository.UpdateRange(fields.Cast<CostEstimateTemplateItemCalculatedFieldDefinition>());
+                    break;
+                case FieldScope.ItemGeneric:
+                    await genericFieldRepository.UpdateRange(fields.Cast<CostEstimateTemplateItemGenericFieldDefinition>());
+                    break;
+            }
+            
+            await groupFieldRepository.SaveChangesAsync(cancellationToken);
+        }
+        
+        /// <summary>
+        /// Wstawia nowe pola dla danego scope
+        /// </summary>
+        private async Task InsertFieldsByScope(
+            FieldScope fieldScope,
+            List<CostEstimateTemplateFieldDefinitionBase> fields,
+            CancellationToken cancellationToken)
+        {
+            switch (fieldScope)
+            {
+                case FieldScope.Group:
+                    await groupFieldRepository.InsertRange(fields.Cast<CostEstimateTemplateGroupFieldDefinition>());
+                    break;
+                case FieldScope.ItemSystem:
+                    await systemFieldRepository.InsertRange(fields.Cast<CostEstimateTemplateItemSystemFieldDefinition>());
+                    break;
+                case FieldScope.ItemCalculated:
+                    await calculatedFieldRepository.InsertRange(fields.Cast<CostEstimateTemplateItemCalculatedFieldDefinition>());
+                    break;
+                case FieldScope.ItemGeneric:
+                    await genericFieldRepository.InsertRange(fields.Cast<CostEstimateTemplateItemGenericFieldDefinition>());
+                    break;
+            }
+            
+            await groupFieldRepository.SaveChangesAsync(cancellationToken);
+        }
+        
+        
+        /// <summary>
+        /// Rekurencyjnie zbiera pola do upsert (update lub insert) i buduje mapę FieldName -> Id
+        /// Grupuje pola według ich rzeczywistego FieldScope (nie scope rodzica)
+        /// </summary>
+        private void CollectFieldsForUpsert(
             FieldDefinitionDto fieldDto,
-            Guid versionId,
+            Guid templateId,
             FieldScope fieldScope,
             Guid? parentFieldId,
-            List<CostEstimateTemplateFieldDefinitionBase> fieldsToInsert,
+            int? orderInParent,
+            Dictionary<FieldScope, List<CostEstimateTemplateFieldDefinitionBase>> fieldsToInsertByScope,
+            Dictionary<FieldScope, List<CostEstimateTemplateFieldDefinitionBase>> fieldsToUpdateByScope,
+            Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allExistingFields,
             Dictionary<Guid, Guid> fieldNameToIdMap,
-            SummaryConfigurationDto? summaryConfig,
-            UiConfigurationDto? uiConfig)
+            Dictionary<Guid, int> columnLayoutOrderMap)
         {
-            var fieldId = Guid.NewGuid();
+            // Sprawdź czy pole już istnieje (po FieldName)
+            var existingField = allExistingFields.GetValueOrDefault(fieldDto.FieldName);
+            
+            Guid fieldId;
+            CostEstimateTemplateFieldDefinitionBase field;
+            
+            int order = 0;
+            if (parentFieldId == null && columnLayoutOrderMap.TryGetValue(fieldDto.FieldName, out var layoutOrder))
+            {
+                order = layoutOrder;
+            }
+            else if (orderInParent.HasValue)
+            {
+                order = orderInParent.Value;
+            }
+            
+            if (existingField != null)
+            {
+                // UPDATE - pole już istnieje, zaktualizuj jego właściwości
+                fieldId = existingField.Id;
+                field = existingField;
+                
+                // Aktualizuj właściwości
+                field.FieldType = (FieldType)fieldDto.FieldType;
+                field.Label = fieldDto.Label;
+                field.IsSortable = fieldDto.IsSortable;
+                field.IsFilterable = fieldDto.IsFilterable;
+                field.IsVisible = fieldDto.IsVisible;
+                field.ParentFieldId = parentFieldId;
+                field.Order = order;
+                
+                // Dodaj do listy do aktualizacji (według rzeczywistego scope pola)
+                if (field is CostEstimateTemplateItemCalculatedFieldDefinition calculatedField)
+                {
+                    calculatedField.SumInGroup = fieldDto.SumInGroup;
+                    calculatedField.SumInTotal = fieldDto.SumInTotal;
+                }
+                
+                // Dodaj do słownika według rzeczywistego FieldScope pola
+                var realScope = field.FieldScope;
+                if (!fieldsToUpdateByScope.ContainsKey(realScope))
+                {
+                    fieldsToUpdateByScope[realScope] = new List<CostEstimateTemplateFieldDefinitionBase>();
+                }
+                fieldsToUpdateByScope[realScope].Add(field);
+            }
+            else
+            {
+                // INSERT - nowe pole
+                fieldId = Guid.NewGuid();
+                
+                field = fieldScope switch
+                {
+                    FieldScope.Group => new CostEstimateTemplateGroupFieldDefinition
+                    {
+                        Id = fieldId,
+                        TemplateId = templateId,
+                        FieldScope = fieldScope,
+                        FieldType = (FieldType)fieldDto.FieldType,
+                        FieldName = fieldDto.FieldName,
+                        Label = fieldDto.Label,
+                        IsSortable = fieldDto.IsSortable,
+                        IsFilterable = fieldDto.IsFilterable,
+                        IsVisible = fieldDto.IsVisible,
+                        ParentFieldId = parentFieldId,
+                        Order = order
+                    },
+                    
+                    FieldScope.ItemSystem => new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = fieldId,
+                        TemplateId = templateId,
+                        FieldScope = fieldScope,
+                        FieldType = (FieldType)fieldDto.FieldType,
+                        FieldName = fieldDto.FieldName,
+                        Label = fieldDto.Label,
+                        IsSortable = fieldDto.IsSortable,
+                        IsFilterable = fieldDto.IsFilterable,
+                        IsVisible = fieldDto.IsVisible,
+                        ParentFieldId = parentFieldId,
+                        Order = order
+                    },
+                    
+                    FieldScope.ItemCalculated => new CostEstimateTemplateItemCalculatedFieldDefinition
+                    {
+                        Id = fieldId,
+                        TemplateId = templateId,
+                        FieldScope = fieldScope,
+                        FieldType = (FieldType)fieldDto.FieldType,
+                        FieldName = fieldDto.FieldName,
+                        Label = fieldDto.Label,
+                        IsSortable = fieldDto.IsSortable,
+                        IsFilterable = fieldDto.IsFilterable,
+                        IsVisible = fieldDto.IsVisible,
+                        ParentFieldId = parentFieldId,
+                        Order = order,
+                        SumInGroup = fieldDto.SumInGroup,
+                        SumInTotal = fieldDto.SumInTotal
+                    },
+                    
+                    FieldScope.ItemGeneric => new CostEstimateTemplateItemGenericFieldDefinition
+                    {
+                        Id = fieldId,
+                        TemplateId = templateId,
+                        FieldScope = fieldScope,
+                        FieldType = (FieldType)fieldDto.FieldType,
+                        FieldName = fieldDto.FieldName,
+                        Label = fieldDto.Label,
+                        IsSortable = fieldDto.IsSortable,
+                        IsFilterable = fieldDto.IsFilterable,
+                        IsVisible = fieldDto.IsVisible,
+                        ParentFieldId = parentFieldId,
+                        Order = order
+                    },
+                    
+                    _ => throw new ValidationApiException($"Unsupported FieldScope: {fieldScope}")
+                };
+                
+                // Dodaj do słownika według rzeczywistego FieldScope pola
+                if (!fieldsToInsertByScope.ContainsKey(fieldScope))
+                {
+                    fieldsToInsertByScope[fieldScope] = new List<CostEstimateTemplateFieldDefinitionBase>();
+                }
+                fieldsToInsertByScope[fieldScope].Add(field);
+            }
             
             fieldNameToIdMap[fieldDto.FieldName] = fieldId;
             
-            // Determine Order from UiConfiguration (for parent fields only)
-            int order = 0;
-            
-            if (parentFieldId == null && uiConfig != null)
-            {
-                var columnIndex = uiConfig.ColumnLayout?.IndexOf(fieldDto.FieldName) ?? -1;
-                if (columnIndex >= 0)
-                {
-                    order = columnIndex;
-                }
-            }
-            
-            // Determine SumInGroup and SumInTotal from SummaryConfiguration (only for calculated fields)
-            bool sumInGroup = false;
-            bool sumInTotal = false;
-            
-            if (fieldScope == FieldScope.ItemCalculated && summaryConfig != null)
-            {
-                sumInGroup = summaryConfig.GroupSummaryFields?.Contains(fieldDto.FieldName) ?? false;
-                sumInTotal = summaryConfig.TotalSummaryFields?.Contains(fieldDto.FieldName) ?? false;
-            }
-            
-            CostEstimateTemplateFieldDefinitionBase field = fieldScope switch
-            {
-                FieldScope.Group => new CostEstimateTemplateGroupFieldDefinition
-                {
-                    Id = fieldId,
-                    TemplateVersionId = versionId,
-                    FieldScope = fieldScope,
-                    FieldType = (FieldType)fieldDto.FieldType,
-                    FieldName = fieldDto.FieldName,
-                    Label = fieldDto.Label,
-                    IsSortable = fieldDto.IsSortable,
-                    IsFilterable = fieldDto.IsFilterable,
-                    ParentFieldId = parentFieldId,
-                    Order = order
-                },
-                
-                FieldScope.ItemSystem => new CostEstimateTemplateItemSystemFieldDefinition
-                {
-                    Id = fieldId,
-                    TemplateVersionId = versionId,
-                    FieldScope = fieldScope,
-                    FieldType = (FieldType)fieldDto.FieldType,
-                    FieldName = fieldDto.FieldName,
-                    Label = fieldDto.Label,
-                    IsSortable = fieldDto.IsSortable,
-                    IsFilterable = fieldDto.IsFilterable,
-                    ParentFieldId = parentFieldId,
-                    Order = order
-                },
-                
-                FieldScope.ItemCalculated => new CostEstimateTemplateItemCalculatedFieldDefinition
-                {
-                    Id = fieldId,
-                    TemplateVersionId = versionId,
-                    FieldScope = fieldScope,
-                    FieldType = (FieldType)fieldDto.FieldType,
-                    FieldName = fieldDto.FieldName,
-                    Label = fieldDto.Label,
-                    IsSortable = fieldDto.IsSortable,
-                    IsFilterable = fieldDto.IsFilterable,
-                    ParentFieldId = parentFieldId,
-                    Order = order,
-                    SumInGroup = sumInGroup,
-                    SumInTotal = sumInTotal
-                },
-                
-                FieldScope.ItemGeneric => new CostEstimateTemplateItemGenericFieldDefinition
-                {
-                    Id = fieldId,
-                    TemplateVersionId = versionId,
-                    FieldScope = fieldScope,
-                    FieldType = (FieldType)fieldDto.FieldType,
-                    FieldName = fieldDto.FieldName,
-                    Label = fieldDto.Label,
-                    IsSortable = fieldDto.IsSortable,
-                    IsFilterable = fieldDto.IsFilterable,
-                    ParentFieldId = parentFieldId,
-                    Order = order
-                },
-                
-                _ => throw new ValidationApiException($"Unsupported FieldScope: {fieldScope}")
-            };
-            
-            fieldsToInsert.Add(field);
-            
+            // Rekurencyjnie przetwórz child fields
             if (fieldDto.ChildFields != null && fieldDto.ChildFields.Any())
             {
-                foreach (var childDto in fieldDto.ChildFields)
+                for (int i = 0; i < fieldDto.ChildFields.Count; i++)
                 {
+                    var childDto = fieldDto.ChildFields[i];
+                    
+                    // Określ RZECZYWISTY FieldScope child field (nie scope rodzica!)
                     var childFieldScope = Business.Implementation.Helpers.CostEstimateFieldTypeHelper.DetermineFieldScopeFromFieldType(childDto.FieldType);
                     
                     if (!childFieldScope.HasValue)
@@ -522,16 +659,51 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                         throw new ValidationApiException($"Unknown FieldType: {childDto.FieldType}");
                     }
                     
-                    CollectFieldsRecursive(
+                    // Przekaż RZECZYWISTY scope child field
+                    CollectFieldsForUpsert(
                         childDto,
-                        versionId,
-                        childFieldScope.Value,
+                        templateId,
+                        childFieldScope.Value,  // ✅ Rzeczywisty scope child field
                         parentFieldId: fieldId,
-                        fieldsToInsert,
+                        orderInParent: i,
+                        fieldsToInsertByScope,
+                        fieldsToUpdateByScope,
+                        allExistingFields,
                         fieldNameToIdMap,
-                        summaryConfig,
-                        uiConfig);
+                        columnLayoutOrderMap);
                 }
+            }
+        }
+        
+        /// <summary>
+        /// Przelicza wszystkie kosztorysy używające danego szablonu
+        /// Wywoływane po aktualizacji struktury szablonu (usunięcie/zmiana pól)
+        /// </summary>
+        private async Task RecalculateAllCostEstimatesForTemplate(
+            Guid templateId,
+            CancellationToken cancellationToken)
+        {
+            // Pobierz wszystkie kosztorysy używające tego szablonu
+            // Include wszystko co potrzebne do obliczeń
+            var costEstimates = await costEstimateRepository.GetBySearch(
+                ce => ce.TemplateId == templateId && !ce.IsDeleted,
+                q => q.Include(ce => ce.Template)
+                        .ThenInclude(t => t.CalculatedFieldDefinitions)
+                      .Include(ce => ce.AllGroups)
+                        .ThenInclude(g => g.Items)
+                        .ThenInclude(i => i.FieldValues)
+                        .ThenInclude(fv => fv.FieldDefinition));
+            
+            // Przeliczy każdy kosztorys
+            foreach (var costEstimate in costEstimates)
+            {
+                calculationService.RecalculateCostEstimate(costEstimate);
+            }
+            
+            // Zapisz zmiany
+            if (costEstimates.Any())
+            {
+                await costEstimateRepository.SaveChangesAsync(cancellationToken);
             }
         }
     }

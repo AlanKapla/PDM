@@ -1,9 +1,14 @@
 ﻿import type {
   CostEstimateGroupDto,
-  CostEstimateWorkScopeItemDto,
+  CostEstimateItemDto,
   CostEstimateGroupFieldValueDto,
-  CostEstimateWorkScopeItemFieldValueDto,
+  CostEstimateFieldValueDto,
 } from '../types/costEstimate.types.new';
+import { getFieldValueAsString } from '../types/costEstimate.types.new';
+
+// Aliasy dla kompatybilności wstecznej
+type CostEstimateWorkScopeItemDto = CostEstimateItemDto;
+type CostEstimateWorkScopeItemFieldValueDto = CostEstimateFieldValueDto;
 
 /**
  * Utility functions for cost estimate hierarchy operations
@@ -17,7 +22,7 @@ export function cloneGroup(group: CostEstimateGroupDto): CostEstimateGroupDto {
     ...group,
     id: undefined, // Reset ID for new group
     fieldValues: group.fieldValues.map(fv => ({ ...fv })),
-    workScopeItems: group.workScopeItems.map(item => cloneWorkScopeItem(item)),
+    items: group.items.map(item => cloneWorkScopeItem(item)),
     childGroups: group.childGroups.map(child => cloneGroup(child)),
   };
 }
@@ -161,7 +166,8 @@ export function searchGroups(
           continue;
         }
         
-        if (fieldValue.value?.toLowerCase().includes(lowerSearch)) {
+        const valueAsString = getFieldValueAsString(fieldValue as any);
+        if (valueAsString?.toLowerCase().includes(lowerSearch)) {
           matches = true;
           break;
         }
@@ -272,7 +278,7 @@ export function validateGroupHierarchy(
  */
 export interface GroupStatistics {
   totalGroups: number;
-  totalWorkScopeItems: number;
+  totalItems: number;
   maxLevel: number;
   groupsByLevel: Record<number, number>;
   itemsByLevel: Record<number, number>;
@@ -281,7 +287,7 @@ export interface GroupStatistics {
 export function calculateStatistics(groups: CostEstimateGroupDto[]): GroupStatistics {
   const stats: GroupStatistics = {
     totalGroups: 0,
-    totalWorkScopeItems: 0,
+    totalItems: 0,
     maxLevel: 0,
     groupsByLevel: {},
     itemsByLevel: {},
@@ -290,11 +296,11 @@ export function calculateStatistics(groups: CostEstimateGroupDto[]): GroupStatis
   const calculate = (groupList: CostEstimateGroupDto[]) => {
     for (const group of groupList) {
       stats.totalGroups++;
-      stats.totalWorkScopeItems += group.workScopeItems.length;
+      stats.totalItems += group.items.length;
       stats.maxLevel = Math.max(stats.maxLevel, group.level);
       
       stats.groupsByLevel[group.level] = (stats.groupsByLevel[group.level] || 0) + 1;
-      stats.itemsByLevel[group.level] = (stats.itemsByLevel[group.level] || 0) + group.workScopeItems.length;
+      stats.itemsByLevel[group.level] = (stats.itemsByLevel[group.level] || 0) + group.items.length;
 
       if (group.childGroups.length > 0) {
         calculate(group.childGroups);
@@ -321,9 +327,10 @@ export function flattenGroupsWithContext(groups: CostEstimateGroupDto[]): Flatte
 
   const flatten = (groupList: CostEstimateGroupDto[], path: string[] = []) => {
     for (const group of groupList) {
-      const groupName = group.fieldValues.find(fv => 
+      const nameFieldValue = group.fieldValues.find(fv => 
         fv.fieldDefinitionId.toLowerCase().includes('name')
-      )?.value || `Grupa ${group.order + 1}`;
+      );
+      const groupName = getFieldValueAsString(nameFieldValue as any) || `Grupa ${group.order + 1}`;
 
       result.push({
         group,

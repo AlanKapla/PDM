@@ -7,7 +7,6 @@ using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 using NotificationTypeDto = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.ProjectCosts.ShareProjectCosts

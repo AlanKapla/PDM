@@ -7,7 +7,6 @@ using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Tenants.ToggleTenantStatus;

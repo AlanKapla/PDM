@@ -10,9 +10,9 @@ namespace Entities.Models.CostEstimateTemplates
     public abstract class CostEstimateTemplateFieldDefinitionBase : BaseEntity
     {
         /// <summary>
-        /// ID wersji szablonu do której należy pole
+        /// ID szablonu do którego należy pole
         /// </summary>
-        public Guid TemplateVersionId { get; set; }
+        public Guid TemplateId { get; set; }
         
         /// <summary>
         /// Nazwa pola (UI-defined identifier) - Guid generowany przez frontend
@@ -48,6 +48,11 @@ namespace Entities.Models.CostEstimateTemplates
         public bool IsFilterable { get; set; }
         
         /// <summary>
+        /// Czy pole jest widoczne w UI
+        /// </summary>
+        public bool IsVisible { get; set; }
+        
+        /// <summary>
         /// ID pola nadrzędnego (dla pól zagnieżdżonych w opcjach)
         /// Tylko pola typu ItemSystemOptions mogą mieć pola potomne
         /// </summary>
@@ -61,9 +66,9 @@ namespace Entities.Models.CostEstimateTemplates
         // Navigation properties
         
         /// <summary>
-        /// Wersja szablonu do której należy pole
+        /// Szablon do którego należy pole
         /// </summary>
-        public virtual CostEstimateTemplateVersion TemplateVersion { get; set; } = default!;
+        public virtual CostEstimateTemplate Template { get; set; } = default!;
         
         /// <summary>
         /// Pole nadrzędne (dla pól zagnieżdżonych w opcjach)

@@ -20,5 +20,11 @@ namespace Repositories.Repository.Repositories
             IQueryable<T> query = _dbSet.IncludeMultiple(includes);
             return await query.FirstOrDefaultAsync(predicate, cancellationToken);
         }
+
+        public async Task<List<Guid>> GetIdsBySearchAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet.Where(predicate).Select(x => x.Id).ToListAsync(cancellationToken);
+        }
     }
+
 }

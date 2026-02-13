@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
 using Entities.Models;
 using MediatR;
@@ -12,18 +13,18 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
 {
     private readonly IRepository<ProjectFilePackage> packageRepo;
     private readonly IRepository<ProjectFile> fileRepo;
-    private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
+    private readonly IFileAccessService fileAccessService;
     private readonly ICurrentUser currentUser;
 
     public GetProjectFilePackagesQueryHandler(
         IRepository<ProjectFilePackage> packageRepo,
         IRepository<ProjectFile> fileRepo,
-        IRepository<SharedProjectFile> sharedProjectFileRepo,
+        IFileAccessService fileAccessService,
         ICurrentUser currentUser)
     {
         this.packageRepo = packageRepo;
         this.fileRepo = fileRepo;
-        this.sharedProjectFileRepo = sharedProjectFileRepo;
+        this.fileAccessService = fileAccessService;
         this.currentUser = currentUser;
     }
 
@@ -39,10 +40,24 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
 
         var packageIds = packages.Select(p => p.Id).ToHashSet();
 
-        var fileCountDict = await fileRepo.CountGroupedByAsync(
-            pf => packageIds.Contains(pf.ProjectFilePackageId) && !pf.IsDeleted,
-            pf => pf.ProjectFilePackageId,
-            cancellationToken);
+        // ✅ Dla Shared scope - policz tylko dostępne pliki
+        Dictionary<Guid, int> fileCountDict;
+        
+        if (request.Scope == ResourceScope.Shared)
+        {
+            fileCountDict = await fileAccessService.GetAccessibleFileCountsAsync(
+                currentUser.Id,
+                packageIds,
+                cancellationToken);
+        }
+        else
+        {
+            // Dla Mine i All - policz wszystkie pliki
+            fileCountDict = await fileRepo.CountGroupedByAsync(
+                pf => packageIds.Contains(pf.ProjectFilePackageId) && !pf.IsDeleted,
+                pf => pf.ProjectFilePackageId,
+                cancellationToken);
+        }
 
         // Sort once
         packages.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
@@ -93,25 +108,22 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
 
     private async Task<List<ProjectFilePackage>> GetSharedPackagesAsync(Guid tenantId, Guid projectId)
     {
-        // Get package IDs from shared files
-        var packageIds = await sharedProjectFileRepo.SelectToHashSetAsync(
-            spf => spf.ProjectId == projectId &&
-                   spf.TenantId == tenantId &&
-                   spf.SharedWithUserId == currentUser.Id &&
-                   !spf.ProjectFile.IsDeleted,
-            spf => spf.ProjectFile.ProjectFilePackageId
-        );
+        // ✅ Pobierz IDs paczek bezpośrednio z serwisu
+        var accessiblePackageIds = await fileAccessService.GetAccessiblePackageIdsAsync(
+            currentUser.Id,
+            projectId);
 
-        if (packageIds.Count == 0)
+        if (!accessiblePackageIds.Any())
         {
             return new List<ProjectFilePackage>();
         }
 
-        // Get packages
+        // Pobierz paczki po IDs
         var packages = await packageRepo.GetBySearch(
-            pfp => packageIds.Contains(pfp.Id) && !pfp.IsDeleted,
+            pfp => accessiblePackageIds.Contains(pfp.Id) && !pfp.IsDeleted,
             include => include.Include(pfp => pfp.Owner)
         );
+        
         return packages.ToList();
     }
 

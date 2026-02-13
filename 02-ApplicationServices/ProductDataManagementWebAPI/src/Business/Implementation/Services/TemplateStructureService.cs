@@ -33,70 +33,12 @@ namespace Business.Implementation.Services
             this.genericFieldRepository = genericFieldRepository;
         }
 
-        public async Task<CostEstimateTemplateVersionStructureWeb> BuildTemplateVersionStructureAsync(
+        public async Task<CostEstimateTemplateStructureWeb> BuildTemplateStructureAsync(
             CostEstimateTemplate template,
-            CostEstimateTemplateVersion version,
             CancellationToken cancellationToken = default)
-        {
-            var (currencies, units, groupHeaderFields, systemFields, calculatedFields, genericFields, summaryConfig, uiConfig)
-                = await BuildCommonStructureAsync(template, version, cancellationToken);
-
-            return new CostEstimateTemplateVersionStructureWeb(
-                version.Id,
-                version.VersionNumber,
-                version.VersionName,
-                currencies.OrderBy(c => c.Order).ToList(),
-                units.OrderBy(u => u.Order).ToList(),
-                groupHeaderFields,
-                systemFields,
-                calculatedFields,
-                genericFields,
-                summaryConfig,
-                uiConfig
-            );
-        }
-
-        public async Task<CostEstimateTemplateStructureWeb> BuildCostEstimateTemplateStructureAsync(
-            CostEstimateTemplate template,
-            CostEstimateTemplateVersion version,
-            CancellationToken cancellationToken = default)
-        {
-            var (currencies, units, groupHeaderFields, systemFields, calculatedFields, genericFields, summaryConfig, uiConfig)
-                = await BuildCommonStructureAsync(template, version, cancellationToken);
-
-            return new CostEstimateTemplateStructureWeb(
-                version.CanAddGroups,
-                version.CanBranchGroups,
-                version.MaxGroupLevel,
-                version.AutoNumberGroups,
-                version.GroupNumberFormat,
-                currencies.OrderBy(c => c.Order).ToList(),
-                units.OrderBy(u => u.Order).ToList(),
-                groupHeaderFields,
-                systemFields,
-                calculatedFields,
-                genericFields,
-                summaryConfig,
-                uiConfig
-            );
-        }
-
-        private async Task<(
-            IEnumerable<CurrencyWeb> currencies,
-            IEnumerable<UnitWeb> units,
-            List<FieldDefinitionWeb> groupHeaderFields,
-            List<FieldDefinitionWeb> systemFields,
-            List<FieldDefinitionWeb> calculatedFields,
-            List<FieldDefinitionWeb> genericFields,
-            SummaryConfigurationWeb? summaryConfig,
-            UiConfigurationWeb? uiConfig
-        )> BuildCommonStructureAsync(
-            CostEstimateTemplate template,
-            CostEstimateTemplateVersion version,
-            CancellationToken cancellationToken)
         {
             var currencies = await currencyRepository.SelectAsync(
-                c => c.TemplateVersionId == version.Id,
+                c => c.TemplateId == template.Id,
                 c => new CurrencyWeb(
                     c.Id,
                     c.Code,
@@ -109,7 +51,7 @@ namespace Business.Implementation.Services
             );
 
             var units = await unitRepository.SelectAsync(
-                u => u.TemplateVersionId == version.Id,
+                u => u.TemplateId == template.Id,
                 u => new UnitWeb(
                     u.Id,
                     u.Code,
@@ -123,7 +65,7 @@ namespace Business.Implementation.Services
             );
 
             var groupHeaderFieldsList = await groupFieldRepository.GetBySearch(
-                f => f.TemplateVersionId == version.Id && f.ParentFieldId == null,
+                f => f.TemplateId == template.Id && f.ParentFieldId == null,
                 q => q.Include(f => f.ChildFields)
             );
 
@@ -133,7 +75,7 @@ namespace Business.Implementation.Services
                 .ToList();
 
             var systemFieldsList = await systemFieldRepository.GetBySearch(
-                f => f.TemplateVersionId == version.Id && f.ParentFieldId == null,
+                f => f.TemplateId == template.Id && f.ParentFieldId == null,
                 q => q.Include(f => f.ChildFields)
             );
 
@@ -143,7 +85,7 @@ namespace Business.Implementation.Services
                 .ToList();
 
             var calculatedFieldsList = await calculatedFieldRepository.GetBySearch(
-                f => f.TemplateVersionId == version.Id && f.ParentFieldId == null,
+                f => f.TemplateId == template.Id && f.ParentFieldId == null,
                 q => q.Include(f => f.ChildFields)
             );
 
@@ -153,7 +95,7 @@ namespace Business.Implementation.Services
                 .ToList();
 
             var genericFieldsList = await genericFieldRepository.GetBySearch(
-                f => f.TemplateVersionId == version.Id && f.ParentFieldId == null,
+                f => f.TemplateId == template.Id && f.ParentFieldId == null,
                 q => q.Include(f => f.ChildFields)
             );
 
@@ -162,48 +104,6 @@ namespace Business.Implementation.Services
                 .Select(f => BuildFieldDefinitionWebRecursive(f))
                 .ToList();
 
-            // Build SummaryConfigurationWeb from field flags
-            SummaryConfigurationWeb? summaryConfig = null;
-            var groupSummaryFields = calculatedFieldsList
-                .Where(f => f.SumInGroup)
-                .OrderBy(f => f.Order)
-                .Select(f => new SummaryFieldWeb(
-                    f.Id,
-                    f.FieldName,
-                    (int)f.FieldType,
-                    f.Label,
-                    (int)f.FieldScope,
-                    f.Order
-                ))
-                .ToList();
-
-            var totalSummaryFields = calculatedFieldsList
-                .Where(f => f.SumInTotal)
-                .OrderBy(f => f.Order)
-                .Select(f => new SummaryFieldWeb(
-                    f.Id,
-                    f.FieldName,
-                    (int)f.FieldType,
-                    f.Label,
-                    (int)f.FieldScope,
-                    f.Order
-                ))
-                .ToList();
-
-            bool showGroupSummary = groupSummaryFields.Any();
-            bool showTotalSummary = totalSummaryFields.Any();
-            
-            if (showGroupSummary || showTotalSummary)
-            {
-                summaryConfig = new SummaryConfigurationWeb(
-                    showGroupSummary,
-                    showTotalSummary,
-                    groupSummaryFields,
-                    totalSummaryFields
-                );
-            }
-
-            // Build UiConfigurationWeb from field Order (all parent fields are visible by default)
             var allFieldsList = new List<CostEstimateTemplateFieldDefinitionBase>();
             allFieldsList.AddRange(groupHeaderFieldsList);
             allFieldsList.AddRange(systemFieldsList);
@@ -211,7 +111,7 @@ namespace Business.Implementation.Services
             allFieldsList.AddRange(genericFieldsList);
 
             var columns = allFieldsList
-                .Where(f => f.ParentFieldId == null)
+                .Where(f => f.ParentFieldId == null && f.IsVisible)
                 .OrderBy(f => f.Order)
                 .Select(f => new ColumnConfigurationWeb(
                     f.Id,
@@ -219,9 +119,7 @@ namespace Business.Implementation.Services
                     (int)f.FieldType,
                     f.Label,
                     (int)f.FieldScope,
-                    f.Order,
-                    IsVisible: true,
-                    Width: null
+                    f.Order
                 ))
                 .ToList();
 
@@ -229,11 +127,21 @@ namespace Business.Implementation.Services
                 ? new UiConfigurationWeb(columns) 
                 : null;
 
-            return (currencies, units, groupHeaderFields, systemFields, calculatedFields, genericFields, summaryConfig, uiConfig);
+            return new CostEstimateTemplateStructureWeb(
+                template.Id,
+                currencies.OrderBy(c => c.Order).ToList(),
+                units.OrderBy(u => u.Order).ToList(),
+                groupHeaderFields,
+                systemFields,
+                calculatedFields,
+                genericFields,
+                uiConfig
+            );
         }
 
         /// <summary>
         /// Rekurencyjnie buduje FieldDefinitionWeb z hierarchią child fields
+        /// Child fields są sortowane według Order (zachowując kolejność z requestu)
         /// </summary>
         private FieldDefinitionWeb BuildFieldDefinitionWebRecursive(CostEstimateTemplateFieldDefinitionBase field)
         {
@@ -242,6 +150,7 @@ namespace Business.Implementation.Services
             if (field.ChildFields != null && field.ChildFields.Any())
             {
                 childFields = field.ChildFields
+                    .OrderBy(cf => cf.Order)  // ✅ Sortuj według kolejności z requestu
                     .Select(cf => BuildFieldDefinitionWebRecursive(cf))
                     .ToList();
             }
@@ -259,6 +168,16 @@ namespace Business.Implementation.Services
                     IsCollection: false
                 );
 
+            // Pobierz SumInGroup i SumInTotal jeśli to pole typu ItemCalculated
+            bool sumInGroup = false;
+            bool sumInTotal = false;
+            
+            if (field is CostEstimateTemplateItemCalculatedFieldDefinition calculatedField)
+            {
+                sumInGroup = calculatedField.SumInGroup;
+                sumInTotal = calculatedField.SumInTotal;
+            }
+
             return new FieldDefinitionWeb(
                 field.Id,
                 field.FieldName,
@@ -266,6 +185,8 @@ namespace Business.Implementation.Services
                 field.IsSortable,
                 field.IsFilterable,
                 fieldTypeConfig,
+                sumInGroup,
+                sumInTotal,
                 childFields
             );
         }

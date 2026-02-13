@@ -20,6 +20,26 @@ namespace Entities.Configurations
             builder.Property(t => t.Description)
                 .HasMaxLength(1000);
             
+            builder.Property(t => t.Category)
+                .HasMaxLength(100);
+            
+            builder.Property(t => t.CanAddGroups)
+                .IsRequired()
+                .HasDefaultValue(true);
+            
+            builder.Property(t => t.CanBranchGroups)
+                .IsRequired()
+                .HasDefaultValue(true);
+            
+            builder.Property(t => t.MaxGroupLevel);
+            
+            builder.Property(t => t.AutoNumberGroups)
+                .IsRequired()
+                .HasDefaultValue(false);
+            
+            builder.Property(t => t.GroupNumberFormat)
+                .HasMaxLength(50);
+            
             builder.Property(t => t.CreatedAt)
                 .IsRequired();
             
@@ -37,14 +57,40 @@ namespace Entities.Configurations
                 .HasForeignKey(t => t.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
             
-            // Relationship with Versions
-            builder.HasMany(t => t.Versions)
-                .WithOne(v => v.Template)
-                .HasForeignKey(v => v.TemplateId)
+            // Relationships with field definitions, currencies and units
+            builder.HasMany(t => t.Currencies)
+                .WithOne(c => c.Template)
+                .HasForeignKey(c => c.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            builder.HasMany(t => t.Units)
+                .WithOne(u => u.Template)
+                .HasForeignKey(u => u.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            builder.HasMany(t => t.GroupFieldDefinitions)
+                .WithOne(f => f.Template)
+                .HasForeignKey(f => f.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            builder.HasMany(t => t.SystemFieldDefinitions)
+                .WithOne(f => f.Template)
+                .HasForeignKey(f => f.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            builder.HasMany(t => t.CalculatedFieldDefinitions)
+                .WithOne(f => f.Template)
+                .HasForeignKey(f => f.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            builder.HasMany(t => t.GenericFieldDefinitions)
+                .WithOne(f => f.Template)
+                .HasForeignKey(f => f.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
             
             // Index for better query performance
             builder.HasIndex(t => t.OwnerId);
+            builder.HasIndex(t => t.Category);
             builder.HasIndex(t => t.IsDeleted);
             builder.HasIndex(t => t.CreatedAt);
             

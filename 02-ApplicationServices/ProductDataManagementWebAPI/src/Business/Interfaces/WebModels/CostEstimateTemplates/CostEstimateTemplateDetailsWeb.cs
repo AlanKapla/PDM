@@ -1,8 +1,7 @@
 ﻿namespace Business.Interfaces.WebModels.CostEstimateTemplates
 {
     /// <summary>
-    /// Result DTO for template details
-    /// Zwraca szczegóły szablonu z wybraną wersją i jej pełną strukturą
+    /// Result DTO for template details with full structure
     /// </summary>
     public record CostEstimateTemplateDetailsWeb(
         Guid Id,
@@ -18,7 +17,6 @@
         DateTime? UpdatedAt,
         Guid OwnerId,
         string OwnerName,
-        CostEstimateTemplateVersionInfoWeb? SelectedVersion,
-        CostEstimateTemplateVersionStructureWeb? VersionStructure
+        CostEstimateTemplateStructureWeb? Structure
     );
 }

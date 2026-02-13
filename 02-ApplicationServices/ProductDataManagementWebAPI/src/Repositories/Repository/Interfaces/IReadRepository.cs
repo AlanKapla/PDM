@@ -8,5 +8,11 @@ namespace Repositories.Repository.Interfaces
     {
         Task<T?> GetById(Guid id, params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes);
         Task<T?> GetFirstBySearch(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes);
+        
+        /// <summary>
+        /// Pobiera tylko IDs encji spełniających warunek (bez ładowania całych obiektów)
+        /// Wydajne dla dużych zbiorów danych
+        /// </summary>
+        Task<List<Guid>> GetIdsBySearchAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
     }
 }

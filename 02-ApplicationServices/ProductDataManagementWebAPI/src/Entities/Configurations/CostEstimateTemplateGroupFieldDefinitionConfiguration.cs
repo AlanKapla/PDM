@@ -12,10 +12,9 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<CostEstimateTemplateFieldDefinitionBase> builder)
         {
-            // ✅ Klucz skonfigurowany TYLKO w base class
             builder.HasKey(f => f.Id);
             
-            builder.Property(f => f.TemplateVersionId)
+            builder.Property(f => f.TemplateId)
                 .IsRequired();
             
             builder.Property(f => f.FieldName)
@@ -41,6 +40,10 @@ namespace Entities.Configurations
                 .IsRequired()
                 .HasDefaultValue(false);
             
+            builder.Property(f => f.IsVisible)
+                .IsRequired()
+                .HasDefaultValue(true);
+            
             builder.Property(f => f.ParentFieldId);
             
             builder.Property(f => f.Order)
@@ -48,28 +51,27 @@ namespace Entities.Configurations
                 .HasDefaultValue(0);
             
             // Hierarchical relationship: Parent-Child (self-referencing)
+            // ⚠️ RESTRICT instead of CASCADE to avoid multiple cascade paths with Template FK
+            // When deleting Template → all fields are deleted automatically (via Template FK)
+            // When deleting Field with children → must delete children first (RESTRICT)
             builder.HasOne(f => f.ParentField)
                 .WithMany(f => f.ChildFields)
                 .HasForeignKey(f => f.ParentFieldId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict);  // ✅ Changed from Cascade to Restrict
             
-            // ✅ TPH Discriminator - EF Core rozróżnia typy po kolumnie
+            // TPH Discriminator
             builder.HasDiscriminator<string>("FieldDefinitionType")
                 .HasValue<CostEstimateTemplateGroupFieldDefinition>("Group")
                 .HasValue<CostEstimateTemplateItemSystemFieldDefinition>("ItemSystem")
                 .HasValue<CostEstimateTemplateItemCalculatedFieldDefinition>("ItemCalculated")
                 .HasValue<CostEstimateTemplateItemGenericFieldDefinition>("ItemGeneric");
             
-            // ❌ NIE DEFINIUJ indeksu na TemplateVersionId - jest automatycznie tworzony przez FK w derived types!
-            // ✅ Tylko indeks na FieldName (nie koliduje z FK)
-            builder.HasIndex(f => new { f.TemplateVersionId, f.FieldName })
-                .HasDatabaseName("IX_FieldDefinitionBase_TemplateVersionId_FieldName");
+            builder.HasIndex(f => new { f.TemplateId, f.FieldName })
+                .HasDatabaseName("IX_FieldDefinitionBase_TemplateId_FieldName");
             
-            // Index dla hierarchii
             builder.HasIndex(f => f.ParentFieldId);
             
-            // Index dla UI Order (dla parent fields)
-            builder.HasIndex(f => new { f.TemplateVersionId, f.FieldScope, f.ParentFieldId, f.Order })
+            builder.HasIndex(f => new { f.TemplateId, f.FieldScope, f.ParentFieldId, f.Order })
                 .HasDatabaseName("IX_FieldDefinitionBase_Order");
         }
     }
@@ -81,13 +83,10 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<CostEstimateTemplateGroupFieldDefinition> builder)
         {
-            // ❌ NIE ustawiaj HasKey - jest w base class!
-            // ❌ NIE ustawiaj indeksów z base class - są dziedziczone!
-            
-            // Relationship with TemplateVersion
-            builder.HasOne(f => f.TemplateVersion)
-                .WithMany(v => v.GroupFieldDefinitions)
-                .HasForeignKey(f => f.TemplateVersionId)
+            // Relationship with Template
+            builder.HasOne(f => f.Template)
+                .WithMany(t => t.GroupFieldDefinitions)
+                .HasForeignKey(f => f.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

@@ -13,10 +13,9 @@ namespace CQRS.CostEstimates.CreateCostEstimate
     /// </summary>
     public sealed record CreateCostEstimateCommand(
         Guid TemplateId,
-        Guid TemplateVersionId,
-        Guid SelectedCurrencyId,  // Waluta wybrana z dostępnych w template
+        Guid SelectedCurrencyId,
         string Name,
-        string? Description // null lub pusta lista = pusty kosztorys
+        string? Description 
     ) : IRequestCommand<Guid>, IAuthorizableRequest
     {
         public Guid TenantId { get; init; }

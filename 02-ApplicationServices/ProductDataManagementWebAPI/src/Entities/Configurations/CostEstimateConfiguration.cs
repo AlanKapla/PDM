@@ -73,12 +73,6 @@ namespace Entities.Configurations
                 .HasForeignKey(c => c.TemplateId)
                 .OnDelete(DeleteBehavior.Restrict);
             
-            // Relationship with CostEstimateTemplateVersion
-            builder.HasOne(c => c.TemplateVersion)
-                .WithMany()
-                .HasForeignKey(c => c.TemplateVersionId)
-                .OnDelete(DeleteBehavior.Restrict);
-            
             // Relationship with User (Owner)
             builder.HasOne(c => c.Owner)
                 .WithMany()
@@ -111,7 +105,6 @@ namespace Entities.Configurations
             builder.HasIndex(c => c.ProjectId);
             builder.HasIndex(c => new { c.TenantId, c.ProjectId });
             builder.HasIndex(c => c.TemplateId);
-            builder.HasIndex(c => c.TemplateVersionId);
             builder.HasIndex(c => c.OwnerId);
             builder.HasIndex(c => c.SelectedCurrencyId);
             builder.HasIndex(c => c.Status);

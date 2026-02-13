@@ -6,6 +6,7 @@ import type {
   CostEstimateGroupDto,
   CostEstimateItemDto,
 } from '../types/costEstimate.types.new';
+import { getFieldValueAsString } from '../types/costEstimate.types.new';
 import type {
   CostEstimateDataModel,
   CostEstimateGroup,
@@ -80,14 +81,18 @@ export interface UiConfigurationWeb {
   columns: ColumnConfigurationWeb[];
 }
 
+// DTO do command update - tylko kolejność kolumn
+export interface UiConfigurationDto {
+  columnLayout?: string[];  // Lista GUID-ów pól określająca kolejność kolumn
+}
+
 export interface ColumnConfigurationWeb {
   fieldId: string;
   fieldName: string;
+  fieldType: number;
   fieldLabel: string;
-  fieldSource: number; // 0=GroupHeader, 1=SystemField, 2=CalculatedField, 3=GenericField
+  fieldScope: number; // 0=GroupHeader, 1=SystemField, 2=CalculatedField, 3=GenericField
   order: number;
-  isVisible: boolean;
-  width: string | null;
 }
 
 /**
@@ -126,7 +131,7 @@ function convertGroupWebToGroup(
     const fieldDef = templateStructure.groupHeaderFields.find((f) => f.id === fv.fieldDefinitionId);
     if (fieldDef) {
       // Użyj fieldName jako klucza
-      headerValues[fieldDef.fieldName] = fv.value;
+      headerValues[fieldDef.fieldName] = getFieldValueAsString(fv);
     }
   });
 
@@ -162,18 +167,18 @@ function convertWorkScopeItemWebToWorkScope(
     if (fv.fieldScope === 2) { // ItemCalculated
       const fieldDef = templateStructure.calculatedFields.find((f) => f.id === fv.fieldDefinitionId);
       if (fieldDef) {
-        calculatedFieldValues[fieldDef.fieldName] = fv.value;
+        calculatedFieldValues[fieldDef.fieldName] = getFieldValueAsString(fv);
       }
     } else if (fv.fieldScope === 3) { // ItemGeneric
       const fieldDef = templateStructure.genericFields.find((f) => f.id === fv.fieldDefinitionId);
       if (fieldDef) {
-        genericFieldValues[fieldDef.fieldName] = fv.value;
+        genericFieldValues[fieldDef.fieldName] = getFieldValueAsString(fv);
       }
     } else if (fv.fieldScope === 1) { // ItemSystem
       const fieldDef = templateStructure.systemFields.find((f) => f.id === fv.fieldDefinitionId);
       if (fieldDef) {
         // System fields go to calculatedFieldValues for CostEstimateExcelView compatibility
-        calculatedFieldValues[fieldDef.fieldName] = fv.value;
+        calculatedFieldValues[fieldDef.fieldName] = getFieldValueAsString(fv);
       }
     }
   });
@@ -219,9 +224,14 @@ function convertGroupToGroupDto(
     };
   }).filter((fv) => fv.value !== undefined);
 
+  // Dla nowych grup (temp_*) nie wysyłamy id - backend wygeneruje GUID
+  const isNewGroup = group.id?.startsWith('temp_');
+  // Dla parentId - jeśli jest temp_* lub undefined/null, wysyłamy undefined (backend przyjmie jako null)
+  const isNewParent = group.parentId?.startsWith('temp_');
+  
   return {
-    id: group.id,
-    parentGroupId: group.parentId,
+    id: isNewGroup ? undefined : group.id,
+    parentGroupId: (!group.parentId || isNewParent) ? undefined : group.parentId,
     level: group.level,
     order: group.order,
     fieldValues,
@@ -274,9 +284,13 @@ function convertWorkScopeToItemDto(
     }
   });
 
+  // Dla nowych items (temp_*) nie wysyłamy id - backend wygeneruje GUID
+  const isNewItem = workScope.id?.startsWith('temp_');
+  
   return {
-    id: workScope.id,
+    id: isNewItem ? undefined : workScope.id,
     order: workScope.order,
+    relationType: (workScope as any).relationType ?? 0,
     fieldValues,
   };
 }
@@ -287,34 +301,33 @@ function convertWorkScopeToItemDto(
 export function convertTemplateStructureToTemplateDto(
   templateId: string,
   templateName: string,
-  versionNumber: number,
-  versionStructure: CostEstimateTemplateStructureWeb,
+  templateStructureWeb: CostEstimateTemplateStructureWeb,
   currencyCode?: string,
   ownerId?: string,
   ownerName?: string
 ): CostEstimateTemplateDto {
   // Konwertuj uproszczone FieldDefinitionWeb na rozbudowane definicje dla CostEstimateExcelView
   const templateStructure = {
-    canAddGroups: versionStructure.canAddGroups,
-    canBranchGroups: versionStructure.canBranchGroups,
-    maxGroupLevel: versionStructure.maxGroupLevel,
-    autoNumberGroups: versionStructure.autoNumberGroups,
-    groupNumberFormat: versionStructure.groupNumberFormat,
-    currencies: versionStructure.currencies.map((c) => ({
+    canAddGroups: templateStructureWeb.canAddGroups,
+    canBranchGroups: templateStructureWeb.canBranchGroups,
+    maxGroupLevel: templateStructureWeb.maxGroupLevel,
+    autoNumberGroups: templateStructureWeb.autoNumberGroups,
+    groupNumberFormat: templateStructureWeb.groupNumberFormat,
+    currencies: templateStructureWeb.currencies.map((c) => ({
       id: c.id,
       code: c.code,
       name: c.name,
       symbol: c.symbol,
       isDefault: c.isDefault,
     })),
-    units: versionStructure.units.map((u) => ({
+    units: templateStructureWeb.units.map((u) => ({
       id: u.id,
       code: u.code,
       name: u.name,
       symbol: u.symbol,
       isDefault: u.isDefault,
     })),
-    groupHeaderFields: versionStructure.groupHeaderFields.map((f) => ({
+    groupHeaderFields: templateStructureWeb.groupHeaderFields.map((f) => ({
       id: f.id,
       type: f.fieldType,
       customLabel: f.label !== getDefaultGroupHeaderLabel(f.fieldType) ? f.label : undefined,
@@ -327,7 +340,7 @@ export function convertTemplateStructureToTemplateDto(
       isReadOnly: false,
       helpText: undefined,
     })),
-    systemFields: versionStructure.systemFields.map((f) => ({
+    systemFields: templateStructureWeb.systemFields.map((f) => ({
       id: f.id,
       name: f.fieldName,
       label: f.label,
@@ -338,7 +351,7 @@ export function convertTemplateStructureToTemplateDto(
       order: 0,
       helpText: undefined,
     })),
-    calculatedFields: versionStructure.calculatedFields.map((f) => ({
+    calculatedFields: templateStructureWeb.calculatedFields.map((f) => ({
       id: f.id,
       name: f.fieldName,
       label: f.label,
@@ -351,7 +364,7 @@ export function convertTemplateStructureToTemplateDto(
       helpText: undefined,
       unit: undefined,
     })),
-    genericFields: versionStructure.genericFields.map((f) => ({
+    genericFields: templateStructureWeb.genericFields.map((f) => ({
       id: f.id,
       name: f.fieldName,
       label: f.label,
@@ -363,15 +376,14 @@ export function convertTemplateStructureToTemplateDto(
       defaultValue: undefined,
       helpText: undefined,
     })),
-    summaryConfiguration: versionStructure.summaryConfiguration,
-    uiConfiguration: versionStructure.uiConfiguration,
+    summaryConfiguration: templateStructureWeb.summaryConfiguration,
+    uiConfiguration: templateStructureWeb.uiConfiguration,
   };
 
   return {
     id: templateId,
     name: templateName,
     currency: currencyCode,
-    templateVersionNumber: versionNumber,
     templateStructure: templateStructure as any,
     createdAt: new Date().toISOString(),
     ownerId: ownerId || '',

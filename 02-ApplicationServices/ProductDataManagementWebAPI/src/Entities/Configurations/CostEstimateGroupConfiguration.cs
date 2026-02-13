@@ -98,8 +98,16 @@ namespace Entities.Configurations
             builder.Property(fv => fv.FieldDefinitionId)
                 .IsRequired();
             
-            builder.Property(fv => fv.Value)
+            // Typowane właściwości wartości
+            builder.Property(fv => fv.StringValue)
                 .HasMaxLength(2000);
+            
+            builder.Property(fv => fv.DecimalValue)
+                .HasPrecision(18, 6);
+            
+            builder.Property(fv => fv.BoolValue);
+            
+            builder.Property(fv => fv.DateTimeValue);
             
             builder.Property(fv => fv.CreatedAt)
                 .IsRequired();
@@ -116,7 +124,7 @@ namespace Entities.Configurations
             builder.HasOne(fv => fv.FieldDefinition)
                 .WithMany()
                 .HasForeignKey(fv => fv.FieldDefinitionId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
             
             // Unique constraint: One value per field per group
             builder.HasIndex(fv => new { fv.GroupId, fv.FieldDefinitionId })

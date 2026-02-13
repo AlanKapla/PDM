@@ -223,28 +223,6 @@
     }
 
     /// <summary>
-    /// Status wersji szablonu kosztorysu
-    /// </summary>
-    public enum TemplateVersionStatus
-    {
-        /// <summary>
-        /// Wersja robocza - można edytować
-        /// </summary>
-        Draft = 0,
-        
-        /// <summary>
-        /// Zatwierdzona - tylko do odczytu, może być użyta do utworzenia kosztorysu
-        /// Aktualizacja wersji Approved tworzy nową wersję Draft
-        /// </summary>
-        Approved = 1,
-        
-        /// <summary>
-        /// Zdezaktualizowana - nowsza wersja została zatwierdzona
-        /// </summary>
-        Deprecated = 2
-    }
-
-    /// <summary>
     /// Status kosztorysu
     /// </summary>
     public enum CostEstimateStatus

@@ -365,6 +365,7 @@ export const CostEstimateEditor: React.FC<CostEstimateEditorProps> = ({
       const newItem: CostEstimateItemDto = {
         id: undefined,
         order: (group.items || []).length,
+        relationType: 0,
         fieldValues: [],
       };
       onChange({

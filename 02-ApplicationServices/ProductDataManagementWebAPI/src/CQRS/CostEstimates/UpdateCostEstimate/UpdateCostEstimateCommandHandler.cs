@@ -8,6 +8,7 @@ using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
+using Business.Implementation.Helpers;
 
 namespace CQRS.CostEstimates.UpdateCostEstimate
 {
@@ -79,34 +80,27 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             // Now get template with version and definitions
             var templates = await templateRepository.GetBySearch(
                 t => t.Id == costEstimate.TemplateId,
-                q => q.Include(t => t.Versions.Where(v => v.Id == costEstimate.TemplateVersionId))
-                          .ThenInclude(v => v.GroupFieldDefinitions)
-                      .Include(t => t.Versions.Where(v => v.Id == costEstimate.TemplateVersionId))
-                          .ThenInclude(v => v.SystemFieldDefinitions)
-                      .Include(t => t.Versions.Where(v => v.Id == costEstimate.TemplateVersionId))
-                          .ThenInclude(v => v.CalculatedFieldDefinitions)
-                      .Include(t => t.Versions.Where(v => v.Id == costEstimate.TemplateVersionId))
-                          .ThenInclude(v => v.GenericFieldDefinitions));
+                q => q
+                    .Include(v => v.GroupFieldDefinitions)
+                    .Include(v => v.SystemFieldDefinitions)
+                    .Include(v => v.CalculatedFieldDefinitions)
+                    .Include(v => v.GenericFieldDefinitions));
 
             var template = templates.FirstOrDefault()
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
-            // Get template version with definitions
-            var version = template.Versions.FirstOrDefault()
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplateVersion), costEstimate.TemplateVersionId.ToString());
-
             // ✅ Zbuduj słowniki field definitions raz na początku
-            var groupFieldDefinitionsById = version.GroupFieldDefinitions.ToDictionary(f => f.Id);
-            var allItemFieldDefinitionsById = version.SystemFieldDefinitions
+            var groupFieldDefinitionsById = template.GroupFieldDefinitions.ToDictionary(f => f.Id);
+            var allItemFieldDefinitionsById = template.SystemFieldDefinitions
                 .Cast<CostEstimateTemplateFieldDefinitionBase>()
-                .Concat(version.CalculatedFieldDefinitions)
-                .Concat(version.GenericFieldDefinitions)
+                .Concat(template.CalculatedFieldDefinitions)
+                .Concat(template.GenericFieldDefinitions)
                 .ToDictionary(f => f.Id);
 
             // Validate group hierarchy before updating
             var tempGroups = BuildTemporaryGroupsForValidation(request.RootGroups, costEstimate.Id);
             var hierarchyValidation = groupValidator.ValidateGroupHierarchy(
-                version,
+                template,
                 tempGroups,
                 cancellationToken);
 
@@ -166,22 +160,26 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             }
 
             // Reload cost estimate with all groups and items for calculation
+            // UWAGA: Options i Components są filtrowane w kodzie przez RelationType!
             var costEstimateForCalculation = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId && !c.IsDeleted,
-                q => q.Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
+                q => q.Include(c => c.Template)
+                        .ThenInclude(t => t.CalculatedFieldDefinitions)
+                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
+                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted && w.RelationType == ItemRelationType.None))  // ✅ Tylko główne pozycje
                               .ThenInclude(w => w.FieldValues)
                                   .ThenInclude(fv => fv.FieldDefinition)
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
-                              .ThenInclude(w => w.Options.Where(o => !o.IsDeleted))
-                                  .ThenInclude(o => o.FieldValues)
-                                      .ThenInclude(fv => fv.FieldDefinition));
+                      .Include(c => c.AllItems.Where(i => !i.IsDeleted && i.ParentItemId != null))  // ✅ Wszystkie child items (Options + Components)
+                          .ThenInclude(i => i.FieldValues)
+                              .ThenInclude(fv => fv.FieldDefinition));
 
             if (costEstimateForCalculation == null)
             {
                 throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
             }
+            
+            // ✅ Populate Options i Components dla wszystkich pozycji
+            costEstimateForCalculation.PopulateItemHierarchy();
 
             // Recalculate totals after update
             calculationService.RecalculateCostEstimate(costEstimateForCalculation);
@@ -299,14 +297,34 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                     await groupRepository.SaveChangesAsync(cancellationToken);
                 }
 
-                // Validate and create field values using dictionary
-                var fieldValues = groupDto.FieldValues.Select(fv => new CostEstimateGroupFieldValue
+                // Validate and create field values using dictionary and typed properties
+                var fieldValues = groupDto.FieldValues.Select(fv =>
                 {
-                    Id = Guid.NewGuid(),
-                    GroupId = groupId,
-                    FieldDefinitionId = fv.FieldDefinitionId,
-                    Value = fv.Value,
-                    CreatedAt = now
+                    // Pobierz definicję pola aby znać FieldType
+                    if (!groupFieldDefinitionsById.TryGetValue(fv.FieldDefinitionId, out var fieldDef))
+                    {
+                        throw new ValidationApiException($"Field definition {fv.FieldDefinitionId} not found in template");
+                    }
+
+                    var fieldValue = new CostEstimateGroupFieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        GroupId = groupId,
+                        FieldDefinitionId = fv.FieldDefinitionId,
+                        CreatedAt = now
+                    };
+
+                    // Ustaw wartość w odpowiednim polu typowanym
+                    FieldValueConverter.SetTypedValue(
+                        fieldValue,
+                        (int)fieldDef.FieldType,
+                        fv.StringValue,
+                        fv.DecimalValue,
+                        fv.BoolValue,
+                        fv.DateTimeValue
+                    );
+
+                    return fieldValue;
                 }).ToList();
 
                 var fieldValidation = groupValidator.ValidateGroupFieldValues(
@@ -382,7 +400,8 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                     costEstimateId,
                     allItemFieldDefinitionsById,
                     groupId,
-                    null, // ParentItemId = null dla głównych pozycji
+                    parentItemId: null,              // ParentItemId = null dla głównych pozycji
+                    relationType: ItemRelationType.None,  // ✅ Główne pozycje mają RelationType = None
                     itemDto,
                     existingItems,
                     now,
@@ -395,6 +414,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allItemFieldDefinitionsById,
             Guid groupId,
             Guid? parentItemId,
+            ItemRelationType relationType,  // ✅ RelationType jako parametr (określany przez backend, nie UI!)
             CostEstimateItemDto itemDto,
             List<CostEstimateItem> existingItems,
             DateTime now,
@@ -410,6 +430,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                 itemId = item.Id;
 
                 item.ParentItemId = parentItemId;
+                item.RelationType = relationType;  // ✅ UPDATE - użyj parametru, nie DTO!
                 item.Order = itemDto.Order;
                 item.UpdatedAt = now;
 
@@ -433,6 +454,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                     CostEstimateId = costEstimateId,
                     GroupId = groupId,
                     ParentItemId = parentItemId,
+                    RelationType = relationType,  // ✅ INSERT - użyj parametru, nie DTO!
                     Order = itemDto.Order,
                     CreatedAt = now,
                     IsDeleted = false
@@ -444,13 +466,33 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                 await itemRepository.SaveChangesAsync(cancellationToken);
             }
 
-            var itemFieldValues = itemDto.FieldValues.Select(fv => new CostEstimateItemFieldValue
+            var itemFieldValues = itemDto.FieldValues.Select(fv =>
             {
-                Id = Guid.NewGuid(),
-                ItemId = itemId,
-                FieldDefinitionId = fv.FieldDefinitionId,
-                Value = fv.Value,
-                CreatedAt = now
+                // Pobierz definicję pola aby znać FieldType
+                if (!allItemFieldDefinitionsById.TryGetValue(fv.FieldDefinitionId, out var fieldDef))
+                {
+                    throw new ValidationApiException($"Field definition {fv.FieldDefinitionId} not found in template");
+                }
+
+                var fieldValue = new CostEstimateItemFieldValue
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = itemId,
+                    FieldDefinitionId = fv.FieldDefinitionId,
+                    CreatedAt = now
+                };
+
+                // Ustaw wartość w odpowiednim polu typowanym
+                FieldValueConverter.SetTypedValue(
+                    fieldValue,
+                    (int)fieldDef.FieldType,
+                    fv.StringValue,
+                    fv.DecimalValue,
+                    fv.BoolValue,
+                    fv.DateTimeValue
+                );
+
+                return fieldValue;
             }).ToList();
 
             var itemFieldValidation = itemValidator.ValidateItemFieldValues(
@@ -477,11 +519,17 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             // ✅ Rekurencyjnie obsłuż opcje (jeśli są)
             if (itemDto.Options != null && itemDto.Options.Any())
             {
-                // ✅ Walidacja: jeśli to już jest opcja (ma ParentItemId), nie może mieć kolejnych opcji
-                if (parentItemId.HasValue)
+                // ✅ Walidacja: opcje mogą być tylko w pozycjach głównych (None) lub komponentach (Component)
+                // Opcje NIE MOGĄ być w opcjach (Option) - tylko 2 poziomy dozwolone
+                if (relationType == ItemRelationType.Option)
                 {
-                    throw new ValidationApiException($"Item {itemId}: Option cannot have nested options (max 1 level allowed)");
+                    throw new ValidationApiException(
+                        $"Item {itemId}: Options cannot have their own Options. " +
+                        $"Maximum nesting: Position → Component → Option.");
                 }
+                
+                // ✅ Walidacja: tylko jedna opcja może mieć Selected = true
+                ValidateOnlyOneOptionIsSelected(itemDto.Options, allItemFieldDefinitionsById);
 
                 // ✅ Pobierz istniejące opcje tego itemu (child items z ParentItemId == itemId)
                 var existingOptions = await itemRepository.GetBySearch(
@@ -497,7 +545,8 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                         costEstimateId,
                         allItemFieldDefinitionsById,
                         groupId,
-                        itemId, // ParentItemId dla opcji
+                        parentItemId: itemId,               // ParentItemId dla opcji
+                        relationType: ItemRelationType.Option,  // ✅ Backend określa RelationType = Option
                         optionDto,
                         existingOptionsList,
                         now,
@@ -527,8 +576,135 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                     await itemRepository.SaveChangesAsync(cancellationToken);
                 }
             }
-        }
+            
+            // ✅ Rekurencyjnie obsłuż komponenty (jeśli są)
+            if (itemDto.Components != null && itemDto.Components.Any())
+            {
+                // ✅ Walidacja: pozycja z komponentami może mieć tylko pola opisowe (System, Generic)
+                // Blokujemy tylko pola KALKULOWANE (Calculated) - te są obliczane z komponentów
+                var calculatedFields = itemDto.FieldValues
+                    .Where(fv => 
+                    {
+                        if (!allItemFieldDefinitionsById.TryGetValue(fv.FieldDefinitionId, out var fieldDef))
+                        {
+                            throw new ValidationApiException(
+                                $"Field definition {fv.FieldDefinitionId} not found in template. " +
+                                $"Cannot set field that doesn't exist in template.");
+                        }
+                        
+                        // FieldType 200-209 = Calculated fields
+                        return fieldDef is CostEstimateTemplateItemCalculatedFieldDefinition;
+                    })
+                    .ToList();
+                
+                if (calculatedFields.Any())
+                {
+                    var fieldNames = string.Join(", ", calculatedFields.Select(f => 
+                    {
+                        allItemFieldDefinitionsById.TryGetValue(f.FieldDefinitionId, out var def);
+                        return def?.Label ?? "Unknown";
+                    }));
+                    
+                    throw new ValidationApiException(
+                        $"Item {itemId}: Item with Components cannot have calculated fields. " +
+                        $"These fields are auto-calculated from components: {fieldNames}. " +
+                        $"You can only set descriptive fields (Name, Description, Unit, Custom fields).");
+                }
+                
+                // ✅ Walidacja: komponenty mogą być tylko w pozycjach głównych (None)
+                // Komponenty NIE MOGĄ być w komponentach ani opcjach
+                if (relationType != ItemRelationType.None)
+                {
+                    throw new ValidationApiException(
+                        $"Item {itemId}: Only main positions (RelationType=None) can have Components. " +
+                        $"Components and Options cannot have their own Components.");
+                }
 
+                // ✅ Pobierz istniejące komponenty tego itemu
+                var existingComponents = await itemRepository.GetBySearch(
+                    i => i.ParentItemId == itemId && i.RelationType == ItemRelationType.Component && !i.IsDeleted,
+                    q => q.Include(i => i.FieldValues));
+
+                var existingComponentsList = existingComponents.ToList();
+
+                // ✅ Rekurencyjnie przetwórz każdy komponent
+                foreach (var componentDto in itemDto.Components)
+                {
+                    await UpdateSingleItemAsync(
+                        costEstimateId,
+                        allItemFieldDefinitionsById,
+                        groupId,
+                        parentItemId: itemId,                      // ParentItemId dla komponentu
+                        relationType: ItemRelationType.Component,  // ✅ Backend określa RelationType = Component
+                        componentDto,
+                        existingComponentsList,
+                        now,
+                        cancellationToken);
+                }
+                
+                // ✅ Usuń komponenty które nie są już w request
+                var requestedComponentIds = itemDto.Components
+                    .Where(c => c.Id.HasValue)
+                    .Select(c => c.Id!.Value)
+                    .ToHashSet();
+                
+                var componentsToDelete = existingComponentsList
+                    .Where(c => !requestedComponentIds.Contains(c.Id))
+                    .ToList();
+                
+                foreach (var component in componentsToDelete)
+                {
+                    component.IsDeleted = true;
+                    component.DeletedAt = now;
+                    await itemRepository.Update(component);
+                }
+                
+                // ✅ SaveChanges po soft delete komponentów
+                if (componentsToDelete.Any())
+                {
+                    await itemRepository.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Waliduje że tylko jedna opcja może mieć Selected = true
+        /// </summary>
+        private void ValidateOnlyOneOptionIsSelected(
+            List<CostEstimateItemDto> options,
+            Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allItemFieldDefinitionsById)
+        {
+            // Znajdź definicję pola ItemSystemSelected (FieldType = 104)
+            var selectedFieldDefinition = allItemFieldDefinitionsById.Values
+                .FirstOrDefault(f => f.FieldType == FieldType.ItemSystemSelected);
+            
+            if (selectedFieldDefinition == null)
+            {
+                return;
+            }
+            
+            int selectedCount = 0;
+            
+            foreach (var option in options)
+            {
+                var selectedFieldValue = option.FieldValues
+                    .FirstOrDefault(fv => fv.FieldDefinitionId == selectedFieldDefinition.Id);
+                
+                if (selectedFieldValue?.BoolValue == true)
+                {
+                    selectedCount++;
+                }
+            }
+            
+            if (selectedCount > 1)
+            {
+                throw new ValidationApiException("Only one option can have Selected field set to true");
+            }
+        }
+        
+        /// <summary>
+        /// Zbiera wszystkie ID grup z hierarchii (rekurencyjnie)
+        /// </summary>
         private HashSet<Guid> CollectAllGroupIds(List<CostEstimateGroupDto> groups)
         {
             var ids = new HashSet<Guid>();

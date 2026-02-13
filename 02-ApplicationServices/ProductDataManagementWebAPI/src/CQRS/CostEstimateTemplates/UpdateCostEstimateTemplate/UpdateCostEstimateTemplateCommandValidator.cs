@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using CQRS.CostEstimateTemplates.Shared;
 using Entities.Models.CostEstimates;
 
 namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
@@ -63,16 +62,7 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                 .Must(fields => fields == null || AllFieldNamesAreNotEmpty(fields))
                 .When(x => x.UpdateStructure && x.GenericFields != null)
                 .WithMessage("Generic fields must have non-empty FieldNames");
-            
-            RuleFor(x => x.GenericFields)
-                .Must(fields => fields == null || AllFieldTypesAreUnique(fields))
-                .When(x => x.UpdateStructure && x.GenericFields != null)
-                .WithMessage("Generic fields must have unique FieldType values within their scope");
-
-            RuleFor(x => x)
-                .Must(x => SummaryFieldsAreOnlyCalculatedFields(x))
-                .When(x => x.UpdateStructure && x.SummaryConfiguration != null && x.CalculatedFields != null)
-                .WithMessage("Summary fields must only reference calculated field FieldNames (Guid from CalculatedFields)");
+           
 
             RuleFor(x => x)
                 .Must(x => UiColumnLayoutReferencesExistingFields(x))
@@ -99,6 +89,11 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                 .Must(fields => NoChildFieldsAllowed(fields))
                 .When(x => x.UpdateStructure && x.GroupHeaderFields != null)
                 .WithMessage("GroupHeaderFields cannot have child fields - hierarchy is only allowed for ItemSystemOptions");
+            
+            RuleFor(x => x.CalculatedFields)
+                .Must(fields => OnlySummableFieldsHaveSumFlags(fields))
+                .When(x => x.UpdateStructure && x.CalculatedFields != null)
+                .WithMessage("Only ValueNet (203), ValueGross (204) and TotalVat (206) fields can have SumInGroup or SumInTotal set to true");
         }
 
         private bool AllFieldNamesAreNotEmpty(List<FieldDefinitionDto> fields)
@@ -122,29 +117,31 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
             var fieldTypes = fields.Select(f => f.FieldType).ToList();
             return fieldTypes.Count == fieldTypes.Distinct().Count();
         }
-
-        private bool SummaryFieldsAreOnlyCalculatedFields(UpdateCostEstimateTemplateCommand command)
+        
+        /// <summary>
+        /// Sprawdza czy tylko dozwolone pola mają ustawione flagi sumowania
+        /// Dozwolone: ValueNet (203), ValueGross (204), TotalVat (206)
+        /// </summary>
+        private bool OnlySummableFieldsHaveSumFlags(List<FieldDefinitionDto> fields)
         {
-            if (command.SummaryConfiguration == null || command.CalculatedFields == null)
+            if (fields == null || fields.Count == 0)
             {
                 return true;
             }
 
-            var calculatedFieldNames = command.CalculatedFields
-                .Select(f => f.FieldName)
-                .ToHashSet();
-
-            foreach (var fieldName in command.SummaryConfiguration.GroupSummaryFields)
+            // FieldType values dla pól, które mogą być sumowane
+            var summableFieldTypes = new HashSet<int>
             {
-                if (!calculatedFieldNames.Contains(fieldName))
-                {
-                    return false;
-                }
-            }
+                (int)FieldType.ItemCalculatedValueNet,      // 203
+                (int)FieldType.ItemCalculatedValueGross,    // 204
+                (int)FieldType.ItemCalculatedTotalVat       // 206
+            };
 
-            foreach (var fieldName in command.SummaryConfiguration.TotalSummaryFields)
+            foreach (var field in fields)
             {
-                if (!calculatedFieldNames.Contains(fieldName))
+                var hasSumFlag = field.SumInGroup || field.SumInTotal;
+                
+                if (hasSumFlag && !summableFieldTypes.Contains(field.FieldType))
                 {
                     return false;
                 }

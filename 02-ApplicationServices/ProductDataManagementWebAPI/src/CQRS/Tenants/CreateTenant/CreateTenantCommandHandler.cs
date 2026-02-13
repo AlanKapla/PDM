@@ -6,7 +6,6 @@ using Entities.Enums;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.CreateTenant
 {

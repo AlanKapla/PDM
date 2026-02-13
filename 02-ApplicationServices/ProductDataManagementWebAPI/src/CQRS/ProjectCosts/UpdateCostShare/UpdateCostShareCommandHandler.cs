@@ -8,7 +8,6 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.ProjectCosts.UpdateCostShare

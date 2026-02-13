@@ -11,23 +11,10 @@ namespace Business.Interfaces.Services
         /// <summary>
         /// Przelicza sumy dla całego kosztorysu (wszystkie grupy i pozycje)
         /// Aktualizuje TotalNet, TotalGross, TotalVat w kosztorysie i grupach
+        /// Oblicza tylko te pola, które są zdefiniowane w szablonie (CalculatedFieldDefinitions)
         /// </summary>
-        /// <param name="costEstimate">Załadowany kosztorys z AllGroups → Items → FieldValues</param>
+        /// <param name="costEstimate">Załadowany kosztorys z Template.CalculatedFieldDefinitions, AllGroups → Items → FieldValues</param>
         void RecalculateCostEstimate(CostEstimate costEstimate);
-        
-        /// <summary>
-        /// Przelicza sumy dla pojedynczej grupy i jej podgrup rekursywnie
-        /// </summary>
-        /// <param name="group">Grupa do przeliczenia</param>
-        /// <param name="allGroups">Wszystkie grupy w kosztorysie (dla hierarchii)</param>
-        /// <returns>Tuple (TotalNet, TotalGross, TotalVat) dla grupy</returns>
-        (decimal Net, decimal Gross, decimal Vat) RecalculateGroup(CostEstimateGroup group, List<CostEstimateGroup> allGroups);
-        
-        /// <summary>
-        /// Oblicza wartości dla pojedynczej pozycji na podstawie jej pól
-        /// Zwraca (Net, Gross, Vat)
-        /// </summary>
-        /// <param name="item">Pozycja z załadowanymi FieldValues</param>
-        (decimal? Net, decimal? Gross, decimal? Vat) CalculateItemValues(CostEstimateItem item);
+       
     }
 }

@@ -25,7 +25,6 @@ import {
   type CostEstimateTemplateListItem,
   type CostEstimateTemplateDetails,
 } from "../api/costEstimateTemplateApi";
-import { CostEstimateTemplateVersionStatus } from "../types/costEstimate.types";
 import { convertFieldTypeToLegacy } from "../utils/fieldTypeLabels";
 
 export default function CostEstimateTemplates() {
@@ -66,48 +65,48 @@ export default function CostEstimateTemplates() {
   const handleDuplicateTemplate = async (templateId: string) => {
     try {
       const details = await costEstimateTemplateApi.getTemplateDetails(templateId);
-      if (!details.selectedVersion) {
-        showError('Nie można zduplikować szablonu', 'Szablon nie ma żadnej wersji');
+      if (!details.structure) {
+        showError('Nie można zduplikować szablonu', 'Szablon nie ma struktury');
         return;
       }
       
-      // Pobierz pełną strukturę wersji
-      const structure = await costEstimateTemplateApi.getTemplateVersionStructure(
-        templateId,
-        details.selectedVersion.id
-      );
+      const structure = details.structure;
       
       // Mapuj pola z web modeli do DTO
       const groupHeaderFields = structure.groupHeaderFields.map(f => ({
-        fieldName: f.id || crypto.randomUUID(),  // Używamy ID z backendu jako fieldName (GUID)
+        fieldName: f.id || crypto.randomUUID(),
         fieldType: f.fieldType,
         label: f.customLabel || `Pole grupy`,
         isSortable: false,
         isFilterable: false,
+        isVisible: f.isVisible,
       }));
       
       const systemFields = structure.systemFields.map(f => ({
         fieldName: f.fieldName,
-        fieldType: convertFieldTypeToLegacy(f.fieldType), // FieldType (100-102) → SystemFieldType (0-2)
+        fieldType: convertFieldTypeToLegacy(f.fieldType),
         label: f.label,
         isSortable: false,
         isFilterable: false,
+        isVisible: f.isVisible,
       }));
       
       const calculatedFields = structure.calculatedFields.map(f => ({
         fieldName: f.fieldName,
-        fieldType: convertFieldTypeToLegacy(f.fieldType), // FieldType (200-206) → CalculatedFieldType (0-6)
+        fieldType: convertFieldTypeToLegacy(f.fieldType),
         label: f.label,
         isSortable: f.isSortable,
         isFilterable: f.isFilterable,
+        isVisible: f.isVisible,
       }));
       
       const genericFields = structure.genericFields.map(f => ({
         fieldName: f.fieldName,
-        fieldType: convertFieldTypeToLegacy(f.fieldType), // FieldType (300-305) → GenericFieldType (0-5)
+        fieldType: convertFieldTypeToLegacy(f.fieldType),
         label: f.label,
         isSortable: f.isSortable,
         isFilterable: f.isFilterable,
+        isVisible: f.isVisible,
       }));
       
       // Krok 1: Utwórz nowy szablon z nazwą i opisem
@@ -116,19 +115,9 @@ export default function CostEstimateTemplates() {
         description: details.description,
       });
       
-      // Krok 2: Pobierz draft version ID nowo utworzonego szablonu
-      const newTemplateDetails = await costEstimateTemplateApi.getTemplateDetails(newTemplateId);
-      const draftVersionId = newTemplateDetails.selectedVersion?.id;
-      
-      if (!draftVersionId) {
-        showError('Błąd', 'Nie można znaleźć wersji Draft nowego szablonu');
-        return;
-      }
-      
-      // Krok 3: Zaktualizuj nowy szablon całą strukturą
+      // Krok 2: Zaktualizuj nowy szablon całą strukturą
       await costEstimateTemplateApi.updateTemplate(newTemplateId, {
         templateId: newTemplateId,
-        currentVersionId: draftVersionId,
         name: `${details.name} (kopia)`,
         description: details.description,
         category: details.category,
@@ -165,11 +154,6 @@ export default function CostEstimateTemplates() {
         } : undefined,
         uiConfiguration: structure.uiConfiguration ? {
           columnLayout: structure.uiConfiguration.columns.map(col => col.fieldName),
-          columnWidths: Object.fromEntries(
-            structure.uiConfiguration.columns
-              .filter(col => col.width)
-              .map(col => [col.fieldName, col.width!])
-          ),
         } : undefined,
       });
       
@@ -232,32 +216,9 @@ export default function CostEstimateTemplates() {
                       <HStack justify="space-between">
                         <HStack spacing={2}>
                           <FileText size={20} />
-                          <VStack align="start" spacing={0}>
-                            <Text fontWeight="bold" fontSize="md">
-                              {template.name}
-                            </Text>
-                            <HStack spacing={2}>
-                              {template.latestVersionNumber && (
-                                <Badge fontSize="xs">
-                                  v{template.latestVersionNumber}
-                                </Badge>
-                              )}
-                              {template.latestVersionStatus !== undefined && (
-                                <Badge
-                                  colorScheme={
-                                    template.latestVersionStatus === CostEstimateTemplateVersionStatus.Approved
-                                      ? "green"
-                                      : "gray"
-                                  }
-                                  fontSize="xs"
-                                >
-                                  {template.latestVersionStatus === CostEstimateTemplateVersionStatus.Approved
-                                    ? "Zatwierdzony"
-                                    : "Szkic"}
-                                </Badge>
-                              )}
-                            </HStack>
-                          </VStack>
+                          <Text fontWeight="bold" fontSize="md">
+                            {template.name}
+                          </Text>
                         </HStack>
                         <HStack spacing={1} flexShrink={0}>
                           <Tooltip label="Duplikuj szablon">

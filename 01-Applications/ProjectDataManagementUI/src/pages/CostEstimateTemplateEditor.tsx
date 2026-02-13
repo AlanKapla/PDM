@@ -89,7 +89,7 @@ import type {
   CrossFieldValidationRule,
   SummaryFieldWeb,
   ColumnConfigurationWeb,
-  CostEstimateTemplateVersionStructure,
+  CostEstimateTemplateStructureWeb,
 } from "../types/costEstimate.types";
 import {
   FieldType,
@@ -110,10 +110,13 @@ import type {
   CostEstimateDetailsWeb, 
   CostEstimateGroupWeb, 
   CostEstimateItemWeb,
-  CostEstimateItemFieldValueWeb,
-  CostEstimateGroupFieldValueWeb,
+  CostEstimateFieldValueWeb,
 } from "../types/costEstimate.types.new";
 import { CostEstimateStatus } from "../types/costEstimate.types.new";
+
+// Aliasy dla kompatybilności wstecznej (jeśli używane w starym kodzie)
+type CostEstimateItemFieldValueWeb = CostEstimateFieldValueWeb;
+type CostEstimateGroupFieldValueWeb = CostEstimateFieldValueWeb;
 import MainLayout from "../layout/MainLayout";
 import { LoadingSpinner } from "../components/common";
 
@@ -140,6 +143,7 @@ const genericFieldTypeLabels: Record<GenericFieldType, string> = {
   [GenericFieldType.Boolean]: fieldTypeLabels[FieldType.ItemGenericBoolean],
   [GenericFieldType.Date]: fieldTypeLabels[FieldType.ItemGenericDate],
   [GenericFieldType.DateTime]: fieldTypeLabels[FieldType.ItemGenericDateTime],
+  [GenericFieldType.Collection]: 'Kolekcja',
 };
 
 const groupHeaderFieldTypeLabels: Record<GroupHeaderFieldType, string> = {
@@ -271,9 +275,9 @@ export default function CostEstimateTemplateEditor() {
       setTemplateName(details.name);
       setTemplateDescription(details.description ?? "");
 
-      // Użyj versionStructure z nowego API
-      if (details.versionStructure) {
-        const struct = details.versionStructure;
+      // Użyj structure z nowego API (bez wersjonowania)
+      if (details.structure) {
+        const struct = details.structure;
         
         // Podstawowe ustawienia (z głównego obiektu details)
         setCanAddGroups(details.canAddGroups);
@@ -405,6 +409,8 @@ export default function CostEstimateTemplateEditor() {
             filterable: f.isFilterable,
             summable: summable,
             summaryScope: f.summaryScope,
+            sumInGroup: f.sumInGroup, // Sumowanie w grupie
+            sumInTotal: f.sumInTotal, // Sumowanie w podsumowaniu całkowitym
             autoCalculated: f.isAutoCalculated,
             calculationFormula: f.calculationFormula,
             readOnly: f.isReadOnly,
@@ -510,16 +516,20 @@ export default function CostEstimateTemplateEditor() {
           const fieldType = field.fieldTypeConfig?.fieldType ?? (field.type + 100);
           const fieldScope = field.fieldTypeConfig?.fieldScope ?? 1;
           
-          let value: string | undefined;
+          // Określ wartość i typ
+          let stringValue: string | undefined;
+          let decimalValue: number | undefined;
+          let boolValue: boolean | undefined;
+
           if (field.type === SystemFieldType.Name) {
-            value = `Pozycja ${i + 1}.${j + 1}`;
+            stringValue = `Pozycja ${i + 1}.${j + 1}`;
           } else if (field.type === SystemFieldType.Quantity) {
-            value = String(10 + j * 5);
+            decimalValue = 10 + j * 5;
           } else if (field.type === SystemFieldType.Unit) {
-            value = units[0]?.code || 'szt';
+            stringValue = units[0]?.code || 'szt';
           }
 
-          if (value !== undefined) {
+          if (stringValue !== undefined || decimalValue !== undefined || boolValue !== undefined) {
             fieldValues.push({
               id: `fv-sys-${i}-${j}-${field.name}`,
               fieldDefinitionId: field.id || field.name,
@@ -527,7 +537,9 @@ export default function CostEstimateTemplateEditor() {
               fieldScope,
               fieldName: field.name,
               fieldLabel: field.label,
-              value,
+              stringValue,
+              decimalValue,
+              boolValue,
             });
           }
         });
@@ -537,32 +549,32 @@ export default function CostEstimateTemplateEditor() {
           const fieldType = field.fieldTypeConfig?.fieldType ?? (field.type + 200);
           const fieldScope = field.fieldTypeConfig?.fieldScope ?? 2;
           
-          let value: number | undefined;
+          let decimalValue: number | undefined;
           if (field.type === CalculatedFieldType.UnitPriceNet) {
-            value = 100 + j * 50;
+            decimalValue = 100 + j * 50;
           } else if (field.type === CalculatedFieldType.VatRate) {
-            value = 23;
+            decimalValue = 23;
           } else if (field.type === CalculatedFieldType.UnitPriceGross) {
             const unitPriceNet = 100 + j * 50;
-            value = unitPriceNet * 1.23;
+            decimalValue = unitPriceNet * 1.23;
           } else if (field.type === CalculatedFieldType.ValueNet) {
             const unitPriceNet = 100 + j * 50;
             const quantity = 10 + j * 5;
-            value = unitPriceNet * quantity;
+            decimalValue = unitPriceNet * quantity;
           } else if (field.type === CalculatedFieldType.ValueGross) {
             const unitPriceNet = 100 + j * 50;
             const quantity = 10 + j * 5;
-            value = unitPriceNet * quantity * 1.23;
+            decimalValue = unitPriceNet * quantity * 1.23;
           } else if (field.type === CalculatedFieldType.UnitVat) {
             const unitPriceNet = 100 + j * 50;
-            value = unitPriceNet * 0.23;
+            decimalValue = unitPriceNet * 0.23;
           } else if (field.type === CalculatedFieldType.TotalVat) {
             const unitPriceNet = 100 + j * 50;
             const quantity = 10 + j * 5;
-            value = unitPriceNet * quantity * 0.23;
+            decimalValue = unitPriceNet * quantity * 0.23;
           }
 
-          if (value !== undefined) {
+          if (decimalValue !== undefined) {
             fieldValues.push({
               id: `fv-calc-${i}-${j}-${field.name}`,
               fieldDefinitionId: field.id || field.name,
@@ -570,7 +582,7 @@ export default function CostEstimateTemplateEditor() {
               fieldScope,
               fieldName: field.name,
               fieldLabel: field.label,
-              value: String(value),
+              decimalValue,
             });
           }
         });
@@ -580,26 +592,30 @@ export default function CostEstimateTemplateEditor() {
           const fieldType = field.fieldTypeConfig?.fieldType ?? (field.type + 300);
           const fieldScope = field.fieldTypeConfig?.fieldScope ?? 3;
           
-          let value: string | undefined;
+          let stringValue: string | undefined;
+          let decimalValue: number | undefined;
+          let boolValue: boolean | undefined;
+          let dateTimeValue: string | undefined;
+
           if (field.type === GenericFieldType.String) {
-            value = `Przykładowy tekst ${j + 1}`;
+            stringValue = `Przykładowy tekst ${j + 1}`;
           } else if (field.type === GenericFieldType.Integer) {
-            value = String(10 + j);
+            decimalValue = 10 + j;
           } else if (field.type === GenericFieldType.Decimal) {
-            value = String(10.5 + j);
+            decimalValue = 10.5 + j;
           } else if (field.type === GenericFieldType.Boolean) {
-            value = j % 2 === 0 ? 'true' : 'false';
+            boolValue = j % 2 === 0;
           } else if (field.type === GenericFieldType.Date) {
             const date = new Date();
             date.setDate(date.getDate() + j);
-            value = date.toISOString().split('T')[0];
+            dateTimeValue = date.toISOString().split('T')[0];
           } else if (field.type === GenericFieldType.DateTime) {
             const date = new Date();
             date.setDate(date.getDate() + j);
-            value = date.toISOString();
+            dateTimeValue = date.toISOString();
           }
 
-          if (value !== undefined) {
+          if (stringValue !== undefined || decimalValue !== undefined || boolValue !== undefined || dateTimeValue !== undefined) {
             fieldValues.push({
               id: `fv-gen-${i}-${j}-${field.name}`,
               fieldDefinitionId: field.id || field.name,
@@ -607,7 +623,10 @@ export default function CostEstimateTemplateEditor() {
               fieldScope,
               fieldName: field.name,
               fieldLabel: field.label,
-              value,
+              stringValue,
+              decimalValue,
+              boolValue,
+              dateTimeValue,
             });
           }
         });
@@ -627,23 +646,23 @@ export default function CostEstimateTemplateEditor() {
       headerFields.forEach((field) => {
         const fieldType = field.fieldTypeConfig?.fieldType ?? field.type;
         
-        let value: string | undefined;
+        let stringValue: string | undefined;
         if (field.type === GroupHeaderFieldType.GroupName) {
-          value = `Przykładowa grupa ${i + 1}`;
+          stringValue = `Przykładowa grupa ${i + 1}`;
         } else if (field.type === GroupHeaderFieldType.GroupNumber) {
-          value = `${i + 1}`;
+          stringValue = `${i + 1}`;
         } else if (field.type === GroupHeaderFieldType.GroupDescription) {
-          value = `Opis przykładowej grupy ${i + 1}`;
+          stringValue = `Opis przykładowej grupy ${i + 1}`;
         }
 
-        if (value !== undefined) {
+        if (stringValue !== undefined) {
           groupFieldValues.push({
             id: `gfv-${i}-${field.name}`,
             fieldDefinitionId: field.id || field.name || `header-${field.type}`,
             fieldType,
             fieldScope: 4, // Group scope
             fieldLabel: field.customLabel || groupHeaderFieldTypeLabels[field.type],
-            value,
+            stringValue,
           });
         }
       });
@@ -658,9 +677,9 @@ export default function CostEstimateTemplateEditor() {
         const valueGrossField = item.fieldValues.find(fv => fv.fieldName && calculatedFields.some(cf => cf.name === fv.fieldName && cf.type === CalculatedFieldType.ValueGross));
         const totalVatField = item.fieldValues.find(fv => fv.fieldName && calculatedFields.some(cf => cf.name === fv.fieldName && cf.type === CalculatedFieldType.TotalVat));
         
-        if (valueNetField?.value) groupTotalNet += parseFloat(valueNetField.value) || 0;
-        if (valueGrossField?.value) groupTotalGross += parseFloat(valueGrossField.value) || 0;
-        if (totalVatField?.value) groupTotalVat += parseFloat(totalVatField.value) || 0;
+        if (valueNetField?.decimalValue) groupTotalNet += valueNetField.decimalValue;
+        if (valueGrossField?.decimalValue) groupTotalGross += valueGrossField.decimalValue;
+        if (totalVatField?.decimalValue) groupTotalVat += totalVatField.decimalValue;
       });
 
       sampleGroups.push({
@@ -683,16 +702,9 @@ export default function CostEstimateTemplateEditor() {
     const totalGross = sampleGroups.reduce((sum, g) => sum + (g.totalGross || 0), 0);
     const totalVat = sampleGroups.reduce((sum, g) => sum + (g.totalVat || 0), 0);
 
-    // Zbuduj templateStructure na podstawie aktualnej konfiguracji
-    const templateStructure: CostEstimateTemplateVersionStructure = {
-      versionId: template?.selectedVersion?.id || 'preview-version',
-      versionNumber: template?.selectedVersion?.versionNumber || 1,
-      versionName: templateName || 'Podgląd',
-      canAddGroups,
-      canBranchGroups,
-      maxGroupLevel,
-      autoNumberGroups: groupAutoNumbered,
-      groupNumberFormat,
+    // Zbuduj templateStructure na podstawie aktualnej konfiguracji (bez wersjonowania)
+    const templateStructure: CostEstimateTemplateStructureWeb = {
+      templateId: template?.id || 'preview-template',
       currencies: currencies.map((c, idx) => ({
         id: c.code,
         code: c.code,
@@ -810,8 +822,6 @@ export default function CostEstimateTemplateEditor() {
       projectId: 'preview-project',
       templateId: template?.id || 'preview-template',
       templateName: templateName || 'Nowy szablon',
-      templateVersionId: template?.selectedVersion?.id || 'preview-version',
-      templateVersionNumber: template?.selectedVersion?.versionNumber || 1,
       selectedCurrencyId: currencies[0]?.code || 'PLN',
       selectedCurrencyCode: currencies[0]?.code || 'PLN',
       selectedCurrencySymbol: currencies[0]?.symbol || 'zł',
@@ -1131,12 +1141,6 @@ export default function CostEstimateTemplateEditor() {
 
   const handleSubmitClick = () => {
     if (!validateTemplate()) return;
-
-    if (template?.selectedVersion?.status === 1) {
-      onConfirmSaveOpen();
-      return;
-    }
-
     handleSubmit();
   };
 
@@ -1145,11 +1149,9 @@ export default function CostEstimateTemplateEditor() {
 
     try {
       if (templateId && template) {
-        const isApprovedVersion = template.selectedVersion?.status === 1;
-        
+        // Aktualizacja istniejącego szablonu (bez wersjonowania)
         await costEstimateTemplateApi.updateTemplate(templateId, {
           templateId: templateId,
-          currentVersionId: template.selectedVersion!.id,
           name: templateName,
           description: templateDescription || undefined,
           category: undefined,  // TODO: dodać pole category w UI
@@ -1163,32 +1165,38 @@ export default function CostEstimateTemplateEditor() {
           units: units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),
-            fieldType: f.fieldTypeConfig?.fieldType ?? f.type, // Użyj z config lub fallback
+            fieldType: f.fieldTypeConfig?.fieldType ?? f.type,
             label: f.customLabel || groupHeaderFieldTypeLabels[f.type],
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
           })),
           systemFields: systemFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 100), // Użyj z config lub oblicz
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 100),
             label: f.label,
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
             childFields: f.childFields?.map(mapFieldToDto) || undefined,
           })),
           calculatedFields: calculatedFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 200), // Użyj z config lub oblicz
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 200),
             label: f.label,
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
+            sumInGroup: f.sumInGroup || false,
+            sumInTotal: f.sumInTotal || false,
           })),
           genericFields: genericFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 300), // Użyj z config lub oblicz
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 300),
             label: f.label,
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
           })),
           summaryConfiguration: {
             showGroupSummary,
@@ -1204,9 +1212,7 @@ export default function CostEstimateTemplateEditor() {
 
         toast({
           title: "Sukces",
-          description: isApprovedVersion
-            ? "Utworzono nową wersję szkicu szablonu (edycja zatwierdzonej wersji)" 
-            : "Wersja szkicu została zaktualizowana",
+          description: "Szablon został zaktualizowany",
           status: "success",
           duration: 3000,
         });
@@ -1218,22 +1224,8 @@ export default function CostEstimateTemplateEditor() {
         });
 
         // Krok 2: Zaktualizuj szablon pełną strukturą
-        const newTemplateDetails = await costEstimateTemplateApi.getTemplateDetails(newTemplateId);
-        const draftVersionId = newTemplateDetails.selectedVersion?.id;
-        
-        if (!draftVersionId) {
-          toast({
-            title: "Błąd",
-            description: "Nie można znaleźć wersji Draft nowego szablonu",
-            status: "error",
-            duration: 5000,
-          });
-          return;
-        }
-        
         await costEstimateTemplateApi.updateTemplate(newTemplateId, {
           templateId: newTemplateId,
-          currentVersionId: draftVersionId,
           name: templateName,
           description: templateDescription || undefined,
           category: undefined,
@@ -1247,32 +1239,38 @@ export default function CostEstimateTemplateEditor() {
           units: units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),
-            fieldType: f.fieldTypeConfig?.fieldType ?? f.type, // Użyj z config lub fallback
+            fieldType: f.fieldTypeConfig?.fieldType ?? f.type,
             label: f.customLabel || groupHeaderFieldTypeLabels[f.type],
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
           })),
           systemFields: systemFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 100), // Użyj z config lub oblicz
-                        childFields: f.childFields?.map(mapFieldToDto) || undefined,
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 100),
             label: f.label,
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
+            childFields: f.childFields?.map(mapFieldToDto) || undefined,
           })),
           calculatedFields: calculatedFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 200), // Użyj z config lub oblicz
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 200),
             label: f.label,
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
+            sumInGroup: f.sumInGroup || false,
+            sumInTotal: f.sumInTotal || false,
           })),
           genericFields: genericFields.map(f => ({
             fieldName: f.name,
-            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 300), // Użyj z config lub oblicz
+            fieldType: f.fieldTypeConfig?.fieldType ?? (f.type + 300),
             label: f.label,
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
+            isVisible: f.visible,
           })),
           summaryConfiguration: {
             showGroupSummary,
@@ -1307,48 +1305,6 @@ export default function CostEstimateTemplateEditor() {
       });
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const confirmSaveApprovedVersion = async () => {
-    onConfirmSaveClose();
-    await handleSubmit();
-  };
-
-  const handleApproveVersion = async () => {
-    if (!template || !template.selectedVersion) return;
-    if (template.selectedVersion.status === 1) {
-      toast({
-        title: "Informacja",
-        description: "Ta wersja jest już zatwierdzona",
-        status: "info",
-        duration: 3000,
-      });
-      return;
-    }
-
-    try {
-      await costEstimateTemplateApi.approveVersion(
-        template.id,
-        template.selectedVersion.id
-      );
-      
-      toast({
-        title: "Sukces",
-        description: `Wersja v${template.selectedVersion.versionNumber} została zatwierdzona`,
-        status: "success",
-        duration: 3000,
-      });
-
-      navigate("/cost-estimate-templates");
-    } catch (error) {
-      console.error("Błąd podczas zatwierdzania wersji:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się zatwierdzić wersji szablonu",
-        status: "error",
-        duration: 5000,
-      });
     }
   };
 
@@ -1429,10 +1385,8 @@ export default function CostEstimateTemplateEditor() {
           fieldName: field.name,
           fieldType,
           fieldLabel: field.label,
-          fieldSource: fieldScope,
+          fieldScope: fieldScope,
           order: columns.length,
-          isVisible: true,
-          width: undefined,
         };
         
         setColumns([...columns, newColumn]);
@@ -1566,16 +1520,6 @@ export default function CostEstimateTemplateEditor() {
             >
               Podgląd
             </Button>
-            {template && (
-              <Button
-                leftIcon={<History size={18} />}
-                colorScheme="purple"
-                variant="outline"
-                onClick={() => navigate(`/cost-estimate-templates/${templateId}/versions`)}
-              >
-                Historia wersji
-              </Button>
-            )}
           </HStack>
         </HStack>
 
@@ -1586,35 +1530,6 @@ export default function CostEstimateTemplateEditor() {
               Informacje podstawowe
             </Text>
             <VStack spacing={4} align="stretch">
-              {template?.selectedVersion && (
-                <Box p={3} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
-                  <HStack justify="space-between" align="center">
-                    <VStack align="start" spacing={0}>
-                      <Text fontSize="sm" fontWeight="bold" color="blue.800">
-                        Status wersji: v{template.selectedVersion.versionNumber}
-                      </Text>
-                      <Text fontSize="xs" color="blue.600">
-                        Utworzona: {new Date(template.selectedVersion.createdAt).toLocaleDateString('pl-PL')}
-                      </Text>
-                    </VStack>
-                    <Badge
-                      colorScheme={
-                        template.selectedVersion.status === 1 ? "green" : "gray"
-                      }
-                      fontSize="md"
-                      px={3}
-                      py={1}
-                    >
-                      {template.selectedVersion.status === 1 ? "Zatwierdzona" : "Szkic"}
-                    </Badge>
-                  </HStack>
-                  {template.selectedVersion.status === 1 && (
-                    <Text fontSize="xs" color="orange.600" mt={2}>
-                      ⚠️ Edycja struktury zatwierdzonej wersji utworzy nową wersję szkicu (v{template.selectedVersion.versionNumber + 1})
-                    </Text>
-                  )}
-                </Box>
-              )}
 
                 <FormControl isRequired>
                   <FormLabel>Nazwa szablonu</FormLabel>
@@ -1671,12 +1586,6 @@ export default function CostEstimateTemplateEditor() {
                   <HStack spacing={2}>
                     <Layout size={18} />
                     <Text>Kolejność pól</Text>
-                  </HStack>
-                </Tab>
-                <Tab>
-                  <HStack spacing={2}>
-                    <Layers size={18} />
-                    <Text>Podsumowania</Text>
                   </HStack>
                 </Tab>
               </TabList>
@@ -1778,6 +1687,7 @@ export default function CostEstimateTemplateEditor() {
                         onRemove={handleRemoveCalculatedField}
                         onUpdate={handleUpdateCalculatedField}
                         fieldTypeConfigs={fieldTypeConfigs}
+                        units={units}
                       />
                     </Box>
 
@@ -2039,20 +1949,6 @@ export default function CostEstimateTemplateEditor() {
                 <TabPanel>
                   {renderFieldLayoutTab()}
                 </TabPanel>
-
-                <TabPanel>
-                  <SummaryConfigurationEditor
-                    showGroupSummary={showGroupSummary}
-                    showTotalSummary={showTotalSummary}
-                    groupSummaryFields={groupSummaryFields}
-                    totalSummaryFields={totalSummaryFields}
-                    calculatedFields={calculatedFields}
-                    onToggleGroupSummary={setShowGroupSummary}
-                    onToggleTotalSummary={setShowTotalSummary}
-                    onChangeGroupSummaryFields={setGroupSummaryFields}
-                    onChangeTotalSummaryFields={setTotalSummaryFields}
-                  />
-                </TabPanel>
             </TabPanels>
           </Tabs>
 
@@ -2066,15 +1962,6 @@ export default function CostEstimateTemplateEditor() {
             Powrót
           </Button>
           <HStack spacing={3}>
-            {template?.selectedVersion?.status === 0 && (
-              <Button
-                leftIcon={<CheckCircle size={18} />}
-                colorScheme="green"
-                onClick={handleApproveVersion}
-              >
-                Zatwierdź wersję
-              </Button>
-            )}
             <Button
               leftIcon={<Save size={18} />}
               colorScheme="blue"
@@ -2087,59 +1974,6 @@ export default function CostEstimateTemplateEditor() {
         </HStack>
         </VStack>
       </Box>
-
-    {/* ALERT DIALOG: Confirm saving approved version (creates new draft) */}
-    <AlertDialog
-        isOpen={isConfirmSaveOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onConfirmSaveClose}
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Edycja zatwierdzonej wersji
-            </AlertDialogHeader>
-
-            <AlertDialogBody>
-              <VStack align="flex-start" spacing={3}>
-                <Text>
-                  Edytujesz zatwierdzoną wersję <Badge colorScheme="blue">v{template?.selectedVersion?.versionNumber}</Badge>. 
-                  Zapisanie zmian spowoduje utworzenie nowej wersji szkicu.
-                </Text>
-                <Box p={3} bg="orange.50" borderRadius="md" borderWidth="1px" borderColor="orange.200" w="full">
-                  <HStack spacing={2}>
-                    <Text fontSize="2xl">⚠️</Text>
-                    <VStack align="flex-start" spacing={1}>
-                      <Text fontSize="sm" fontWeight="bold" color="orange.800">
-                        Co się stanie?
-                      </Text>
-                      <Text fontSize="sm" color="orange.700">
-                        • Zostanie utworzona nowa wersja szkicu z wprowadzonymi zmianami<br />
-                        • Zatwierdzona wersja pozostanie bez zmian<br />
-                        • Będziesz mógł kontynuować edycję nowej wersji szkicu
-                      </Text>
-                    </VStack>
-                  </HStack>
-                </Box>
-              </VStack>
-            </AlertDialogBody>
-
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onConfirmSaveClose}>
-                Anuluj
-              </Button>
-              <Button 
-                colorScheme="blue" 
-                onClick={confirmSaveApprovedVersion} 
-                ml={3}
-                isLoading={isSubmitting}
-              >
-                Kontynuuj zapis
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
 
       {/* Preview Modal */}
       <Modal 
@@ -2273,6 +2107,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
               <Tr>
                 <Th>Typ pola</Th>
                 <Th>Etykieta</Th>
+                <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
                 <Th w="80px">Akcje</Th>
@@ -2295,6 +2130,12 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                         value={displayLabel}
                         onChange={(e) => onUpdate(index, { customLabel: e.target.value })}
                         placeholder={defaultLabel}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.visible !== false}
+                        onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
@@ -2363,6 +2204,33 @@ function SystemFieldsEditor({
   };
 
   const [expandedField, setExpandedField] = useState<number | null>(null);
+  const [draggedChildIndex, setDraggedChildIndex] = useState<number | null>(null);
+
+  // Handler dla zmiany kolejności child fields w opcjach
+  const handleChildDragStart = (childIndex: number) => {
+    setDraggedChildIndex(childIndex);
+  };
+
+  const handleChildDragOver = (e: React.DragEvent, parentIndex: number, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedChildIndex === null || draggedChildIndex === targetIndex) return;
+
+    const parentField = fields[parentIndex];
+    if (!parentField.childFields) return;
+
+    const reordered = [...parentField.childFields];
+    const [moved] = reordered.splice(draggedChildIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    // Zaktualizuj order na każdym polu
+    const withOrder = reordered.map((f, i) => ({ ...f, order: i }));
+    onUpdate(parentIndex, { childFields: withOrder });
+    setDraggedChildIndex(targetIndex);
+  };
+
+  const handleChildDragEnd = () => {
+    setDraggedChildIndex(null);
+  };
 
   // Handler dla dodawania child fields
   const handleAddChildSystemField = (parentIndex: number, type: SystemFieldType) => {
@@ -2560,6 +2428,7 @@ function SystemFieldsEditor({
               <Tr>
                 <Th>Typ pola</Th>
                 <Th>Etykieta</Th>
+                <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
                 <Th w="120px">Akcje</Th>
@@ -2579,6 +2448,12 @@ function SystemFieldsEditor({
                         size="sm"
                         value={field.label}
                         onChange={(e) => onUpdate(index, { label: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.visible !== false}
+                        onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
@@ -2619,7 +2494,7 @@ function SystemFieldsEditor({
               {/* Child Fields Editor - tylko dla pola Options */}
               {field.type === SystemFieldType.Options && expandedField === index && (
                 <Tr>
-                  <Td colSpan={5} p={0}>
+                  <Td colSpan={6} p={0}>
                     <Box p={4} bg="gray.50">
                       <VStack spacing={4} align="stretch">
                         <Text fontSize="sm" fontWeight="bold" color="gray.700">
@@ -2717,6 +2592,7 @@ function SystemFieldsEditor({
                       <Table size="sm" variant="simple" bg="white" borderRadius="md">
                         <Thead>
                           <Tr>
+                            <Th fontSize="xs" w="40px"></Th>
                             <Th fontSize="xs">Typ pola</Th>
                             <Th fontSize="xs">Etykieta</Th>
                             <Th fontSize="xs" w="80px" textAlign="center">Sortowalne</Th>
@@ -2725,7 +2601,10 @@ function SystemFieldsEditor({
                           </Tr>
                         </Thead>
                         <Tbody>
-                          {field.childFields.map((childField, childIndex) => {
+                          {[...field.childFields]
+                            .map((cf, origIdx) => ({ cf, origIdx }))
+                            .sort((a, b) => (a.cf.order ?? a.origIdx) - (b.cf.order ?? b.origIdx))
+                            .map(({ cf: childField, origIdx: childIndex }, sortedIdx) => {
                             let colorScheme = "gray";
                             let typeLabel = "";
                             
@@ -2749,7 +2628,21 @@ function SystemFieldsEditor({
                             }
 
                             return (
-                              <Tr key={childIndex}>
+                              <Tr
+                                key={childIndex}
+                                draggable
+                                onDragStart={() => handleChildDragStart(sortedIdx)}
+                                onDragOver={(e) => handleChildDragOver(e, index, sortedIdx)}
+                                onDragEnd={handleChildDragEnd}
+                                cursor="grab"
+                                bg={draggedChildIndex === sortedIdx ? 'blue.50' : undefined}
+                                _hover={{ bg: draggedChildIndex === sortedIdx ? 'blue.50' : 'gray.50' }}
+                                _active={{ cursor: 'grabbing' }}
+                                transition="all 0.15s"
+                              >
+                                <Td w="40px" px={2}>
+                                  <Icon as={GripVertical} color="gray.400" boxSize={4} />
+                                </Td>
                                 <Td>
                                   <Badge colorScheme={colorScheme} fontSize="xs">
                                     {typeLabel}
@@ -2828,6 +2721,7 @@ interface CalculatedFieldsEditorProps {
   onRemove: (index: number) => void;
   onUpdate: (index: number, updates: Partial<CalculatedFieldDefinition>) => void;
   fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+  units: Array<{ code: string; name: string; symbol: string; }>;
 }
 
 function CalculatedFieldsEditor({
@@ -2836,6 +2730,7 @@ function CalculatedFieldsEditor({
   onRemove,
   onUpdate,
   fieldTypeConfigs,
+  units,
 }: CalculatedFieldsEditorProps) {
   // Pobierz dostępne typy pól kalkulowanych z BE (scope 2 = calculated)
   const availableCalculatedFields = fieldTypeConfigs[2] || [];
@@ -2900,8 +2795,12 @@ function CalculatedFieldsEditor({
               <Tr>
                 <Th>Typ pola</Th>
                 <Th>Etykieta</Th>
+                <Th w="120px">Jednostka</Th>
+                <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
+                <Th w="100px">Suma w grupie</Th>
+                <Th w="100px">Suma total</Th>
                 <Th w="80px">Akcje</Th>
               </Tr>
             </Thead>
@@ -2923,6 +2822,28 @@ function CalculatedFieldsEditor({
                       />
                     </Td>
                     <Td>
+                      <Input
+                        size="sm"
+                        list={`units-list-${index}`}
+                        value={field.unit || ''}
+                        onChange={(e) => onUpdate(index, { unit: e.target.value })}
+                        placeholder="Wybierz lub wpisz"
+                      />
+                      <datalist id={`units-list-${index}`}>
+                        {units.map((u) => (
+                          <option key={u.code} value={u.symbol || u.code}>
+                            {u.name} ({u.symbol || u.code})
+                          </option>
+                        ))}
+                      </datalist>
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.visible !== false}
+                        onChange={(e) => onUpdate(index, { visible: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
                       <Checkbox
                         isChecked={field.sortable}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
@@ -2933,6 +2854,28 @@ function CalculatedFieldsEditor({
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
+                    </Td>
+                    <Td>
+                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu grupy" : "Tylko pola ValueNet, ValueGross i TotalVat mogą być sumowane"}>
+                        <Box>
+                          <Checkbox
+                            isChecked={field.sumInGroup || false}
+                            onChange={(e) => onUpdate(index, { sumInGroup: e.target.checked })}
+                            isDisabled={!isSummable}
+                          />
+                        </Box>
+                      </Tooltip>
+                    </Td>
+                    <Td>
+                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu całkowitym" : "Tylko pola ValueNet, ValueGross i TotalVat mogą być sumowane"}>
+                        <Box>
+                          <Checkbox
+                            isChecked={field.sumInTotal || false}
+                            onChange={(e) => onUpdate(index, { sumInTotal: e.target.checked })}
+                            isDisabled={!isSummable}
+                          />
+                        </Box>
+                      </Tooltip>
                     </Td>
                     <Td>
                       <IconButton
@@ -3027,6 +2970,7 @@ function GenericFieldsEditor({
               <Tr>
                 <Th>Typ pola</Th>
                 <Th>Etykieta</Th>
+                <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
                 <Th w="80px">Akcje</Th>
@@ -3046,6 +2990,12 @@ function GenericFieldsEditor({
                         size="sm"
                         value={field.label}
                         onChange={(e) => onUpdate(index, { label: e.target.value })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.visible !== false}
+                        onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>

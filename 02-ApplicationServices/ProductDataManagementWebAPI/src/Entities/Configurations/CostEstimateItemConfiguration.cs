@@ -16,10 +16,24 @@ namespace Entities.Configurations
             builder.Property(w => w.GroupId)
                 .IsRequired();
             
-            builder.Property(w => w.ParentItemId);  // Nullable - tylko dla opcji
+            builder.Property(w => w.ParentItemId);  // Nullable - dla opcji i komponentów
+            
+            builder.Property(w => w.RelationType)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasDefaultValue(ItemRelationType.None);
             
             builder.Property(w => w.Order)
                 .IsRequired();
+            
+            builder.Property(w => w.NetValue)
+                .HasPrecision(18, 2);
+            
+            builder.Property(w => w.GrossValue)
+                .HasPrecision(18, 2);
+            
+            builder.Property(w => w.VatValue)
+                .HasPrecision(18, 2);
             
             builder.Property(w => w.CreatedAt)
                 .IsRequired();
@@ -42,9 +56,11 @@ namespace Entities.Configurations
                 .HasForeignKey(w => w.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
             
-            // Self-referencing relationship: Item może mieć ParentItem (jeśli jest opcją)
+            // Self-referencing relationship: ParentItem → ChildItems
+            // UWAGA: Nie mapujemy osobno Options i Components w EF!
+            // Rozróżnienie następuje przez RelationType w kodzie aplikacji
             builder.HasOne(w => w.ParentItem)
-                .WithMany(p => p.Options)
+                .WithMany()  // ✅ Brak nawigacji z parent do children w EF
                 .HasForeignKey(w => w.ParentItemId)
                 .OnDelete(DeleteBehavior.Restrict);
             
@@ -55,7 +71,8 @@ namespace Entities.Configurations
             
             builder.HasIndex(w => w.CostEstimateId);
             builder.HasIndex(w => w.GroupId);
-            builder.HasIndex(w => w.ParentItemId);  // Index for options lookup
+            builder.HasIndex(w => w.ParentItemId);
+            builder.HasIndex(w => new { w.ParentItemId, w.RelationType });  // Index dla filtrowania Options vs Components
             builder.HasIndex(w => new { w.GroupId, w.Order });
             builder.HasIndex(w => w.IsDeleted);
             
@@ -79,8 +96,16 @@ namespace Entities.Configurations
             builder.Property(fv => fv.FieldDefinitionId)
                 .IsRequired();
             
-            builder.Property(fv => fv.Value)
+            // Typowane właściwości wartości
+            builder.Property(fv => fv.StringValue)
                 .HasMaxLength(2000);
+            
+            builder.Property(fv => fv.DecimalValue)
+                .HasPrecision(18, 6);
+            
+            builder.Property(fv => fv.BoolValue);
+            
+            builder.Property(fv => fv.DateTimeValue);
             
             builder.Property(fv => fv.CreatedAt)
                 .IsRequired();
@@ -98,7 +123,7 @@ namespace Entities.Configurations
             builder.HasOne(fv => fv.FieldDefinition)
                 .WithMany()
                 .HasForeignKey(fv => fv.FieldDefinitionId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
             
             // Indexes for better query performance
             builder.HasIndex(fv => fv.ItemId);

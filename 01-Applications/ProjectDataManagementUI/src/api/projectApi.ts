@@ -144,17 +144,17 @@ export const projectApi = {
     return axiosClient.get(`/tenants/${tenantId}/project/${projectId}/file/files/${fileId}/versions/${versionId}/comments/${scopeRoute}`);
   },
 
-  // Udostępnij pliki wielu użytkownikom
-  shareFiles: async (
+  // Udostępnij paczki wielu użytkownikom
+  sharePackages: async (
     tenantId: string,
     projectId: string,
-    fileIds: string[],
+    packageIds: string[],
     sharedWithUserIds: string[]
   ) => {
-    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/share`, {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/file/packages/share`, {
       tenantId,
       projectId,
-      projectFileIds: fileIds,
+      packageIds,
       sharedWithUserIds,
     });
   },

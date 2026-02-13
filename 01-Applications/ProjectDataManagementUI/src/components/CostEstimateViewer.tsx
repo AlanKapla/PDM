@@ -394,23 +394,54 @@ export const CostEstimateViewer: React.FC<CostEstimateViewerProps> = ({
         isSelected: item.id === itemId ? isSelected : false,
       }));
 
-      // Jeśli zaznaczamy item, kopiuj wartości z pól kolekcji do głównych pól workScope
+      const nestedCalcFields = collectionField.nestedFields?.calculatedFields || [];
       let updatedCalculatedValues = { ...ws.calculatedFieldValues };
+      const lockedFields = ws.lockedFields ? [...ws.lockedFields] : [];
+      
+      // Klucz do przechowywania oryginalnych wartości
+      const backupKey = `_originalValues_${collectionFieldName}`;
+      
       if (isSelected && selectedItem) {
-        const nestedCalcFields = collectionField.nestedFields?.calculatedFields || [];
+        // ZAZNACZONO: zapisz oryginalne wartości i skopiuj z collection item
+        const originalValues: Record<string, any> = {};
         
         nestedCalcFields.forEach((nestedField) => {
-          const nestedValue = selectedItem.calculatedFieldValues?.[nestedField.name];
+          const mainField = calculatedFields.find(f => f.type === nestedField.type);
           
-          if (nestedValue !== undefined && nestedValue !== null) {
-            // Mapowanie: znajdź pole główne o tym samym typie (UnitPriceNet, VatRate, etc.)
-            const mainField = calculatedFields.find(f => f.type === nestedField.type);
+          if (mainField) {
+            // Zapisz oryginalną wartość
+            originalValues[mainField.name] = updatedCalculatedValues[mainField.name];
             
-            if (mainField) {
-              updatedCalculatedValues[mainField.name] = nestedValue;
+            // Kopiuj wartość z collection item (nawet jeśli null lub undefined)
+            const nestedValue = selectedItem.calculatedFieldValues?.[nestedField.name];
+            updatedCalculatedValues[mainField.name] = nestedValue;
+            
+            // Blokuj pole przed auto-kalkulacją
+            if (!lockedFields.includes(mainField.name)) {
+              lockedFields.push(mainField.name);
             }
           }
         });
+        
+        // Zapisz oryginalne wartości w workScope
+        (ws as any)[backupKey] = originalValues;
+      } else {
+        // ODZNACZONO: przywróć oryginalne wartości
+        const originalValues = (ws as any)[backupKey];
+        
+        if (originalValues) {
+          nestedCalcFields.forEach((nestedField) => {
+            const mainField = calculatedFields.find(f => f.type === nestedField.type);
+            
+            if (mainField && mainField.name in originalValues) {
+              // Przywróć oryginalną wartość
+              updatedCalculatedValues[mainField.name] = originalValues[mainField.name];
+            }
+          });
+        }
+        
+        // Usuń backup
+        delete (ws as any)[backupKey];
       }
 
       // Zwróć zaktualizowany workScope BEZ przeliczania
@@ -418,11 +449,17 @@ export const CostEstimateViewer: React.FC<CostEstimateViewerProps> = ({
       const updatedWs = {
         ...ws,
         calculatedFieldValues: updatedCalculatedValues,
+        lockedFields: isSelected ? lockedFields : undefined,
         collectionFieldValues: {
           ...ws.collectionFieldValues,
           [collectionFieldName]: updatedItems,
         },
       };
+      
+      // Zachowaj lub usuń backup w zależności od stanu
+      if (isSelected) {
+        (updatedWs as any)[backupKey] = (ws as any)[backupKey];
+      }
 
       return updatedWs;
     });

@@ -1,5 +1,4 @@
 ﻿using Entities.Models;
-using Entities.Models.CostEstimates;
 
 namespace Business.Interfaces.WebModels.CostEstimateTemplates
 {
@@ -13,8 +12,6 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         string? Category,
         DateTime CreatedAt,
         DateTime? UpdatedAt,
-        int? LatestVersionNumber,
-        TemplateVersionStatus? LatestVersionStatus,
         Guid OwnerId,
         string OwnerName
     );

@@ -17,6 +17,7 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
     private readonly IRepository<ProjectFile> fileRepo;
     private readonly IRepository<ProjectFileVersion> versionRepo;
     private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
+    private readonly IFileAccessService fileAccessService;
     private readonly ICurrentUser currentUser;
     private readonly IBlobStorageService blobStorageService;
 
@@ -25,6 +26,7 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
         IRepository<ProjectFile> fileRepo,
         IRepository<ProjectFileVersion> versionRepo,
         IRepository<SharedProjectFile> sharedProjectFileRepo,
+        IFileAccessService fileAccessService,
         ICurrentUser currentUser,
         IBlobStorageService blobStorageService)
     {
@@ -32,6 +34,7 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
         this.fileRepo = fileRepo;
         this.versionRepo = versionRepo;
         this.sharedProjectFileRepo = sharedProjectFileRepo;
+        this.fileAccessService = fileAccessService;
         this.currentUser = currentUser;
         this.blobStorageService = blobStorageService;
     }
@@ -81,15 +84,17 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             v => v.ProjectFileId,
             cancellationToken);
 
-        var sharedWithDict = request.Scope != ResourceScope.Mine
-            ? (await sharedProjectFileRepo.GetBySearch(spf => fileIds.Contains(spf.ProjectFileId)))
-                .GroupBy(spf => spf.ProjectFileId)
-                .ToDictionary(g => g.Key, g => g.Select(spf => spf.SharedWithUserId).ToList())
-            : new Dictionary<Guid, List<Guid>>();
+        // Dla Mine i All - pobierz informacje o udostępnieniach (do edycji)
+        // Dla Shared - nie potrzebujemy (tylko przeglądamy)
+        Dictionary<Guid, List<Guid>> sharedWithDict = new();
+        
+        if (request.Scope == ResourceScope.Mine || request.Scope == ResourceScope.All)
+        {
+            sharedWithDict = await BuildSharedWithDictionaryAsync(request.PackageId, fileIds, cancellationToken);
+        }
 
         bool isOwnerView = request.Scope == ResourceScope.Mine;
         string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
-        var emptyGuidList = new List<Guid>();
 
         var result = new List<ProjectFileWeb>(filesList.Count);
         foreach (var pf in filesList)
@@ -98,20 +103,20 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
                 ? currentVersionsDict.GetValueOrDefault(pf.CurrentVersionId.Value) 
                 : null;
             
-            var sharedWith = sharedWithDict.TryGetValue(pf.Id, out var shared) 
-                ? shared 
-                : emptyGuidList;
-            
             var totalVersions = versionCountDict.GetValueOrDefault(pf.Id, 0);
+            
+            var sharedWithUserIds = sharedWithDict.TryGetValue(pf.Id, out var shared) 
+                ? shared 
+                : new List<Guid>();
 
             result.Add(MapToProjectFileWeb(
                 pf,
                 package.Name,
                 containerName,
                 currentVersion,
-                sharedWith,
                 totalVersions,
-                isOwnerView));
+                isOwnerView,
+                sharedWithUserIds));
         }
 
         return result;
@@ -147,27 +152,38 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
 
     private async Task<List<ProjectFile>> GetSharedFilesAsync(Guid packageId, Guid tenantId, Guid projectId)
     {
-        // Get file IDs from shared files
-        var fileIds = await sharedProjectFileRepo.SelectToHashSetAsync(
-            spf => spf.TenantId == tenantId &&
-                   spf.ProjectId == projectId &&
-                   spf.SharedWithUserId == currentUser.Id &&
-                   spf.ProjectFile.ProjectFilePackageId == packageId &&
-                   !spf.ProjectFile.IsDeleted,
-            spf => spf.ProjectFileId
-        );
+        // ✅ Pobierz informacje o dostępie
+        var accessInfo = await fileAccessService.GetPackageAccessInfoAsync(
+            currentUser.Id,
+            packageId);
 
-        if (fileIds.Count == 0)
+        if (accessInfo.IsPackageShared)
         {
-            return new List<ProjectFile>();
+            // Paczka udostępniona - pobierz wszystkie pliki OPRÓCZ wykluczeń
+            var files = await fileRepo.GetBySearch(
+                pf => pf.ProjectFilePackageId == packageId &&
+                      pf.TenantId == tenantId &&
+                      pf.ProjectId == projectId &&
+                      !accessInfo.ExcludedFileIds.Contains(pf.Id) &&
+                      !pf.IsDeleted,
+                include => include.Include(pf => pf.Owner)
+            );
+            return files.ToList();
         }
+        else
+        {
+            // Paczka NIE udostępniona - pobierz tylko pliki z Allow
+            if (!accessInfo.AllowedFileIds.Any())
+            {
+                return new List<ProjectFile>();
+            }
 
-        // Get files
-        var files = await fileRepo.GetBySearch(
-            pf => fileIds.Contains(pf.Id) && !pf.IsDeleted,
-            include => include.Include(pf => pf.Owner)
-        );
-        return files.ToList();
+            var files = await fileRepo.GetBySearch(
+                pf => accessInfo.AllowedFileIds.Contains(pf.Id) && !pf.IsDeleted,
+                include => include.Include(pf => pf.Owner)
+            );
+            return files.ToList();
+        }
     }
 
     private async Task<List<ProjectFile>> GetAllFilesAsync(Guid packageId, Guid tenantId, Guid projectId)
@@ -187,9 +203,9 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
         string packageName,
         string containerName,
         ProjectFileVersion? currentVersion,
-        List<Guid> sharedWithUserIds,
         int totalVersions,
-        bool isOwnerView)
+        bool isOwnerView,
+        List<Guid> sharedWithUserIds)
     {
         ProjectFileVersionWeb? currentVersionWeb = null;
 
@@ -241,8 +257,71 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             Versions = new List<ProjectFileVersionWeb>(),
             TotalVersions = totalVersions,
             IsOwner = isOwnerView && pf.OwnerId == currentUser.Id,
-            IsShared = sharedWithUserIds.Contains(currentUser.Id),
-            SharedWithUserIds = sharedWithUserIds
+            IsShared = sharedWithUserIds.Any(),  // ✅ Ma udostępnienia
+            SharedWithUserIds = sharedWithUserIds  // ✅ Lista userów (puste dla Shared scope)
         };
     }
+
+    /// <summary>
+    /// Buduje słownik: FileId -> Lista UserIds którzy mają dostęp
+    /// Uwzględnia Package + Allow/Deny model:
+    /// - User ma dostęp jeśli: (Package shared AND NIE ma Deny) OR (ma Allow)
+    /// </summary>
+    private async Task<Dictionary<Guid, List<Guid>>> BuildSharedWithDictionaryAsync(
+        Guid packageId,
+        HashSet<Guid> fileIds,
+        CancellationToken cancellationToken)
+    {
+        // Pobierz wszystkie udostępnienia dla paczki
+        var allShares = await sharedProjectFileRepo.GetBySearch(
+            spf => spf.ProjectFilePackageId == packageId);
+
+        // Grupuj po userId
+        var sharesByUser = allShares.GroupBy(s => s.SharedWithUserId);
+
+        var result = new Dictionary<Guid, List<Guid>>();
+
+        foreach (var fileId in fileIds)
+        {
+            var usersWithAccess = new List<Guid>();
+
+            foreach (var userShares in sharesByUser)
+            {
+                var userId = userShares.Key;
+                
+                // Sprawdź czy user ma dostęp do tego pliku
+                var packageShare = userShares.FirstOrDefault(s => s.ProjectFileId == null);
+                var fileShare = userShares.FirstOrDefault(s => s.ProjectFileId == fileId);
+
+                bool hasAccess = false;
+
+                // Logika: (Package shared AND NIE Deny) OR Allow
+                if (fileShare?.Access == ProjectFileAccess.Deny)
+                {
+                    hasAccess = false;  // Deny ma priorytet
+                }
+                else if (fileShare?.Access == ProjectFileAccess.Allow)
+                {
+                    hasAccess = true;  // Jawny Allow
+                }
+                else if (packageShare != null)
+                {
+                    hasAccess = true;  // Dostęp przez paczkę (i brak Deny)
+                }
+
+                if (hasAccess)
+                {
+                    usersWithAccess.Add(userId);
+                }
+            }
+
+            if (usersWithAccess.Any())
+            {
+                result[fileId] = usersWithAccess;
+            }
+        }
+
+        return result;
+    }
+
 }

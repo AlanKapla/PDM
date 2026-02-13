@@ -5,8 +5,10 @@ namespace Entities.Models.CostEstimates
 {
     /// <summary>
     /// Wypełniona wartość pola nagłówka grupy
+    /// Wartość zapisywana w odpowiednim polu typowanym (StringValue/DecimalValue/BoolValue/DateTimeValue) 
+    /// w zależności od FieldType definicji pola
     /// </summary>
-    public class CostEstimateGroupFieldValue : BaseEntity
+    public class CostEstimateGroupFieldValue : CostEstimateFieldValueBase
     {
         /// <summary>
         /// ID grupy
@@ -17,21 +19,6 @@ namespace Entities.Models.CostEstimates
         /// ID definicji pola z szablonu
         /// </summary>
         public Guid FieldDefinitionId { get; set; }
-        
-        /// <summary>
-        /// Wartość pola jako string (parsowana na podstawie typu z definicji)
-        /// </summary>
-        public string? Value { get; set; }
-        
-        /// <summary>
-        /// Data utworzenia wartości
-        /// </summary>
-        public DateTime CreatedAt { get; set; }
-        
-        /// <summary>
-        /// Data ostatniej aktualizacji
-        /// </summary>
-        public DateTime? UpdatedAt { get; set; }
         
         // Navigation properties
         

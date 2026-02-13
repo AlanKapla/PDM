@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import { FieldValueInput, getFieldInputType } from './FieldValueInput';
 import type {
-  CostEstimateWorkScopeItemDto,
-  CostEstimateWorkScopeItemFieldValueDto,
+  CostEstimateItemDto as CostEstimateWorkScopeItemDto,
+  CostEstimateFieldValueDto as CostEstimateWorkScopeItemFieldValueDto,
 } from '../../types/costEstimate.types.new';
 
 /**
@@ -71,36 +71,13 @@ export const WorkScopeItemRow: React.FC<WorkScopeItemRowProps> = ({
 
   // Get field value by field definition id
   const getFieldValue = (fieldDef: WorkScopeFieldDefinition): string | undefined => {
-    const fieldValue = item.fieldValues.find((fv) => {
-      switch (fieldDef.valueType) {
-        case 'system':
-          return fv.systemFieldDefinitionId === fieldDef.id;
-        case 'calculated':
-          return fv.calculatedFieldDefinitionId === fieldDef.id;
-        case 'generic':
-          return fv.genericFieldDefinitionId === fieldDef.id;
-        default:
-          return false;
-      }
-    });
-    
+    const fieldValue = item.fieldValues.find((fv) => fv.fieldDefinitionId === fieldDef.id);
     return fieldValue?.value;
   };
 
   // Update field value
   const updateFieldValue = (fieldDef: WorkScopeFieldDefinition, value: string | undefined) => {
-    const existingIndex = item.fieldValues.findIndex((fv) => {
-      switch (fieldDef.valueType) {
-        case 'system':
-          return fv.systemFieldDefinitionId === fieldDef.id;
-        case 'calculated':
-          return fv.calculatedFieldDefinitionId === fieldDef.id;
-        case 'generic':
-          return fv.genericFieldDefinitionId === fieldDef.id;
-        default:
-          return false;
-      }
-    });
+    const existingIndex = item.fieldValues.findIndex((fv) => fv.fieldDefinitionId === fieldDef.id);
 
     const newFieldValues = [...item.fieldValues];
 
@@ -115,9 +92,7 @@ export const WorkScopeItemRow: React.FC<WorkScopeItemRowProps> = ({
       }
     } else if (value !== undefined && value !== '') {
       const newFieldValue: CostEstimateWorkScopeItemFieldValueDto = {
-        systemFieldDefinitionId: fieldDef.valueType === 'system' ? fieldDef.id : undefined,
-        calculatedFieldDefinitionId: fieldDef.valueType === 'calculated' ? fieldDef.id : undefined,
-        genericFieldDefinitionId: fieldDef.valueType === 'generic' ? fieldDef.id : undefined,
+        fieldDefinitionId: fieldDef.id,
         value,
       };
       newFieldValues.push(newFieldValue);

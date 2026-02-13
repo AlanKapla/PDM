@@ -13,8 +13,11 @@ namespace Entities.Models.CostEstimates
     /// 
     /// EF Core używa Table-Per-Hierarchy (TPH) więc wszystkie typy są w jednej tabeli
     /// i polimorfizm jest obsługiwany automatycznie.
+    /// 
+    /// Wartość zapisywana w odpowiednim polu typowanym (StringValue/DecimalValue/BoolValue/DateTimeValue) 
+    /// w zależności od FieldType definicji pola
     /// </summary>
-    public class CostEstimateItemFieldValue : BaseEntity
+    public class CostEstimateItemFieldValue : CostEstimateFieldValueBase
     {
         public Guid ItemId { get; set; }
         
@@ -23,10 +26,6 @@ namespace Entities.Models.CostEstimates
         /// Konkretny typ (System/Calculated/Generic) określany przez FieldDefinition.FieldScope
         /// </summary>
         public Guid FieldDefinitionId { get; set; }
-        
-        public string? Value { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
         
         // Navigation properties
         public virtual CostEstimateItem Item { get; set; } = default!;

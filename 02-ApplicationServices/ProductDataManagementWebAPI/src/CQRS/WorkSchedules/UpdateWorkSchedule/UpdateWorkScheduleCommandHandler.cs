@@ -8,7 +8,6 @@ using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 using CQRS.WorkSchedules.Shared;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 

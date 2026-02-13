@@ -3,7 +3,6 @@ using Business.Interfaces.Model;
 using Entities.Models;
 using Entities.Enums;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.InviteTenantMember
 {

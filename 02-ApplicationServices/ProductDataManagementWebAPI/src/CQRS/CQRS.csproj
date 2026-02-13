@@ -67,6 +67,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Files\ShareProjectFiles\" />
     <Folder Include="Messages\GetProjectMessages\" />
   </ItemGroup>
 

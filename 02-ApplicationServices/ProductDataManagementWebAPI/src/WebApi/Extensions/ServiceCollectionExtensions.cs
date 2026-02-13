@@ -262,8 +262,6 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<SharedProjectCost>, Repository<SharedProjectCost>>();
             services.AddScoped<IReadRepository<CostEstimateTemplate>, ReadRepository<CostEstimateTemplate>>();
             services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
-            services.AddScoped<IReadRepository<CostEstimateTemplateVersion>, ReadRepository<CostEstimateTemplateVersion>>();
-            services.AddScoped<IRepository<CostEstimateTemplateVersion>, Repository<CostEstimateTemplateVersion>>();
             services.AddScoped<IRepository<CostEstimateTemplateCurrency>, Repository<CostEstimateTemplateCurrency>>();
             services.AddScoped<IRepository<CostEstimateTemplateUnit>, Repository<CostEstimateTemplateUnit>>();
             services.AddScoped<IRepository<CostEstimateTemplateGroupFieldDefinition>, Repository<CostEstimateTemplateGroupFieldDefinition>>();
@@ -310,10 +308,16 @@ namespace WebApi.Extensions
             services.AddHostedService<NotificationMarkAsReadWorker>();
             services.AddScoped<INotificationMarkAsReadSender, QueuedNotificationMarkAsReadSender>();
 
+            // ✅ Background services
+            services.AddHostedService<FileShareConsolidationService>();
+
             services.AddSingleton<IMessageDispatcher, SignalRMessageDispatcher>();
             services.AddHostedService<MessageWorker>();
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
+            
+            // File access service - checking access with Package + Allow/Deny model
+            services.AddScoped<IFileAccessService, FileAccessService>();
             
             // Cost estimate calculation service
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();

@@ -1,10 +1,6 @@
 ﻿import { axiosClient } from "./axiosClient";
 import type {
   CostEstimateTemplateStructure,
-  CostEstimateTemplateVersionStatus,
-  CostEstimateTemplateVersionInfo,
-  CostEstimateTemplateVersionHistoryItem,
-  ApprovedTemplateVersionItem,
   GroupHeaderFieldDefinition,
   CalculatedFieldDefinition,
   GenericFieldDefinition,
@@ -19,12 +15,13 @@ import type {
   ColumnConfigurationWeb,
 } from "../types/costEstimate.types";
 
-// ===== INTERFACES FOR TEMPLATE VERSION STRUCTURE =====
+// ===== INTERFACES FOR TEMPLATE STRUCTURE =====
 
-export interface CostEstimateTemplateVersionStructure {
-  versionId: string;
-  versionNumber: number;
-  versionName?: string;
+/**
+ * Struktura szablonu - bez wersjonowania (refactoring)
+ */
+export interface CostEstimateTemplateStructureWeb {
+  templateId: string;
   currencies: CurrencyWeb[];
   units: UnitWeb[];
   groupHeaderFields: GroupHeaderFieldWeb[];
@@ -64,8 +61,6 @@ export interface CostEstimateTemplateListItem {
   category?: string;
   createdAt: string;
   updatedAt?: string;
-  latestVersionNumber?: number;
-  latestVersionStatus?: CostEstimateTemplateVersionStatus;
   ownerId: string;
   ownerName: string;
 }
@@ -84,8 +79,7 @@ export interface CostEstimateTemplateDetails {
   updatedAt?: string;
   ownerId: string;
   ownerName: string;
-  selectedVersion?: CostEstimateTemplateVersionInfo;
-  versionStructure?: CostEstimateTemplateVersionStructure; // Pełna struktura wersji z backendu
+  structure?: CostEstimateTemplateStructureWeb; // Struktura szablonu (bez wersjonowania)
 }
 
 /**
@@ -102,7 +96,7 @@ export interface CreateCostEstimateTemplateRequest {
 
 /**
  * FieldDefinitionDto dla GroupHeader pól
- * Backend oczekuje: fieldName (Guid), fieldType (enum int), label, isSortable, isFilterable
+ * Backend oczekuje: fieldName (Guid), fieldType (enum int), label, isSortable, isFilterable, isVisible
  */
 export interface GroupHeaderFieldDto {
   fieldName: string;  // GUID w formacie UUID string (np. "a1b2c3d4-e5f6-...")
@@ -110,11 +104,12 @@ export interface GroupHeaderFieldDto {
   label: string;      // Etykieta wyświetlana w UI (customLabel z frontu)
   isSortable: boolean;
   isFilterable: boolean;
+  isVisible?: boolean; // Czy pole jest widoczne w UI (domyślnie true)
 }
 
 /**
  * FieldDefinitionDto dla System pól
- * Backend oczekuje: fieldName (Guid), fieldType, label, isSortable, isFilterable
+ * Backend oczekuje: fieldName (Guid), fieldType, label, isSortable, isFilterable, isVisible
  */
 export interface SystemFieldDto {
   fieldName: string;   // GUID w formacie UUID string (auto-generowany przez frontend)
@@ -122,11 +117,12 @@ export interface SystemFieldDto {
   label: string;       // Etykieta wyświetlana w UI
   isSortable: boolean;
   isFilterable: boolean;
+  isVisible?: boolean; // Czy pole jest widoczne w UI (domyślnie true)
 }
 
 /**
  * FieldDefinitionDto dla Calculated pól
- * Backend oczekuje: fieldName (Guid), fieldType, label, isSortable, isFilterable
+ * Backend oczekuje: fieldName (Guid), fieldType, label, isSortable, isFilterable, isVisible
  */
 export interface CalculatedFieldDto {
   fieldName: string;   // GUID w formacie UUID string (auto-generowany przez frontend)
@@ -134,11 +130,14 @@ export interface CalculatedFieldDto {
   label: string;       // Etykieta wyświetlana w UI
   isSortable: boolean;
   isFilterable: boolean;
+  isVisible?: boolean; // Czy pole jest widoczne w UI (domyślnie true)
+  sumInGroup?: boolean;
+  sumInTotal?: boolean;
 }
 
 /**
  * FieldDefinitionDto dla Generic pól
- * Backend oczekuje: fieldName (Guid), fieldType, label, isSortable, isFilterable
+ * Backend oczekuje: fieldName (Guid), fieldType, label, isSortable, isFilterable, isVisible
  */
 export interface GenericFieldDto {
   fieldName: string;    // GUID w formacie UUID string (auto-generowany przez frontend)
@@ -146,6 +145,7 @@ export interface GenericFieldDto {
   label: string;        // Etykieta wyświetlana w UI
   isSortable: boolean;
   isFilterable: boolean;
+  isVisible?: boolean;  // Czy pole jest widoczne w UI (domyślnie true)
 }
 
 export interface NestedFieldsDto {
@@ -164,7 +164,6 @@ export interface NestedFieldsDto {
 
 export interface UpdateCostEstimateTemplateRequest {
   templateId: string;
-  currentVersionId: string;
   name: string;
   description?: string;
   category?: string;
@@ -219,14 +218,11 @@ export const costEstimateTemplateApi = {
   /**
    * Get template details by ID
    * @param id - Template ID
-   * @param versionId - Optional version ID. If null, returns latest version
    */
-  getTemplateDetails: async (id: string, versionId?: string): Promise<CostEstimateTemplateDetails> => {
-    const url = versionId 
-      ? `/cost-estimate-template/${id}?versionId=${versionId}`
-      : `/cost-estimate-template/${id}`;
-    
-    const response = await axiosClient.get<CostEstimateTemplateDetails>(url);
+  getTemplateDetails: async (id: string): Promise<CostEstimateTemplateDetails> => {
+    const response = await axiosClient.get<CostEstimateTemplateDetails>(
+      `/cost-estimate-template/${id}`
+    );
     return response.data;
   },
 
@@ -243,66 +239,5 @@ export const costEstimateTemplateApi = {
    */
   updateTemplate: async (id: string, data: UpdateCostEstimateTemplateRequest): Promise<void> => {
     await axiosClient.put(`/cost-estimate-template/${id}`, data);
-  },
-
-  /**
-   * Get version history for template
-   */
-  getTemplateVersionHistory: async (
-    id: string
-  ): Promise<CostEstimateTemplateVersionHistoryItem[]> => {
-    const response = await axiosClient.get<CostEstimateTemplateVersionHistoryItem[]>(
-      `/cost-estimate-template/${id}/versions`
-    );
-    return response.data;
-  },
-
-  /**
-   * Get approved versions for template (for cost estimate creation)
-   */
-  getApprovedVersions: async (
-    id: string
-  ): Promise<ApprovedTemplateVersionItem[]> => {
-    const response = await axiosClient.get<ApprovedTemplateVersionItem[]>(
-      `/cost-estimate-template/${id}/approved-versions`
-    );
-    return response.data;
-  },
-
-  /**
-   * Get all approved versions from all templates (for cost estimate creation)
-   */
-  getAllApprovedVersions: async (): Promise<ApprovedTemplateVersionItem[]> => {
-    const response = await axiosClient.get<ApprovedTemplateVersionItem[]>(
-      "/cost-estimate-template/approved-versions"
-    );
-    return response.data;
-  },
-
-  /**
-   * Approve specific version of template
-   */
-  approveVersion: async (templateId: string, versionId: string): Promise<void> => {
-    await axiosClient.post(`/cost-estimate-template/${templateId}/versions/${versionId}/approve`);
-  },
-
-  /**
-   * Delete draft version of template
-   */
-  deleteVersionDraft: async (templateId: string, versionId: string): Promise<void> => {
-    await axiosClient.delete(`/cost-estimate-template/${templateId}/versions/${versionId}`);
-  },
-
-  /**
-   * Get full template version structure
-   */
-  getTemplateVersionStructure: async (
-    templateId: string,
-    versionId: string
-  ): Promise<CostEstimateTemplateVersionStructure> => {
-    const response = await axiosClient.get<CostEstimateTemplateVersionStructure>(
-      `/cost-estimate-template/${templateId}/versions/${versionId}/structure`
-    );
-    return response.data;
   },
 };

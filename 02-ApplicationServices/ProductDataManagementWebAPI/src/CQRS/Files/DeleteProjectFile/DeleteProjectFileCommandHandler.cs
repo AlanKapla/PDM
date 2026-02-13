@@ -6,7 +6,6 @@ using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.DeleteProjectFile
 {

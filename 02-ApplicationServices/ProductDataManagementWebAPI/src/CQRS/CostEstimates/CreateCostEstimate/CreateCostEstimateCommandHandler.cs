@@ -45,35 +45,19 @@ namespace CQRS.CostEstimates.CreateCostEstimate
             // Verify template exists and load with all necessary includes
             var templates = await templateRepository.GetBySearch(
                 t => t.Id == request.TemplateId && !t.IsDeleted && t.OwnerId == currentUser.Id,
-                q => q.Include(t => t.Versions.Where(v => v.Id == request.TemplateVersionId))
-                          .ThenInclude(v => v.Currencies)
-                      .Include(t => t.Versions.Where(v => v.Id == request.TemplateVersionId))
-                          .ThenInclude(v => v.GroupFieldDefinitions)
-                      .Include(t => t.Versions.Where(v => v.Id == request.TemplateVersionId))
-                          .ThenInclude(v => v.SystemFieldDefinitions)
-                      .Include(t => t.Versions.Where(v => v.Id == request.TemplateVersionId))
-                          .ThenInclude(v => v.CalculatedFieldDefinitions)
-                      .Include(t => t.Versions.Where(v => v.Id == request.TemplateVersionId))
-                          .ThenInclude(v => v.GenericFieldDefinitions));
+                q => q.Include(v => v.Currencies)
+                          .Include(v => v.GroupFieldDefinitions)
+                          .Include(v => v.SystemFieldDefinitions)
+                          .Include(v => v.CalculatedFieldDefinitions)
+                          .Include(v => v.GenericFieldDefinitions));
             
             var template = templates.FirstOrDefault()
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
 
-            // Get version
-            var version = template.Versions.FirstOrDefault(v => v.Id == request.TemplateVersionId)
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplateVersion), request.TemplateVersionId.ToString());
-
-            // Version must be Approved to create cost estimate
-            if (version.Status != TemplateVersionStatus.Approved)
-            {
-                throw new ValidationApiException(
-                    "Cannot create cost estimate from Draft template version. Only Approved versions can be used.");
-            }
-
             // Verify selected currency exists in version
-            var selectedCurrency = version.Currencies.FirstOrDefault(c => c.Id == request.SelectedCurrencyId)
+            var selectedCurrency = template.Currencies.FirstOrDefault(c => c.Id == request.SelectedCurrencyId)
                 ?? throw new ValidationApiException(
-                    $"Currency with ID {request.SelectedCurrencyId} not found in template version. Available currencies: {string.Join(", ", version.Currencies.Select(c => $"{c.Code} ({c.Id})"))}");
+                    $"Currency with ID {request.SelectedCurrencyId} not found in template version. Available currencies: {string.Join(", ", template.Currencies.Select(c => $"{c.Code} ({c.Id})"))}");
 
             var now = DateTime.UtcNow;
 
@@ -84,7 +68,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 TemplateId = request.TemplateId,
-                TemplateVersionId = request.TemplateVersionId,
                 OwnerId = currentUser.Id,
                 Name = request.Name,
                 Description = request.Description,

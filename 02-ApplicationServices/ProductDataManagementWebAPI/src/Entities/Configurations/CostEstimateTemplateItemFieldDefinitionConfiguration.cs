@@ -11,18 +11,11 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<CostEstimateTemplateItemSystemFieldDefinition> builder)
         {
-            // ❌ NIE ustawiaj HasKey - jest w base class!
-            // ❌ NIE ustawiaj indeksów z base class - są dziedziczone!
-            
-            // Relationship with TemplateVersion
-            builder.HasOne(f => f.TemplateVersion)
-                .WithMany(v => v.SystemFieldDefinitions)
-                .HasForeignKey(f => f.TemplateVersionId)
+            // Relationship with Template
+            builder.HasOne(f => f.Template)
+                .WithMany(t => t.SystemFieldDefinitions)
+                .HasForeignKey(f => f.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
-            // ❌ USUNIĘTO Unique constraint - TPH (Table Per Hierarchy) nie pozwala na unique per-derived-type
-            // W jednej tabeli mogą być różne FieldTypes z różnych Scopes
-            // Zamiast tego - walidacja unikalności FieldType per FieldScope w Validator
         }
     }
     
@@ -33,7 +26,6 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<CostEstimateTemplateItemCalculatedFieldDefinition> builder)
         {
-            // Properties specific to calculated fields
             builder.Property(f => f.SumInGroup)
                 .IsRequired()
                 .HasDefaultValue(false);
@@ -42,15 +34,14 @@ namespace Entities.Configurations
                 .IsRequired()
                 .HasDefaultValue(false);
             
-            // Relationship with TemplateVersion
-            builder.HasOne(f => f.TemplateVersion)
-                .WithMany(v => v.CalculatedFieldDefinitions)
-                .HasForeignKey(f => f.TemplateVersionId)
+            // Relationship with Template
+            builder.HasOne(f => f.Template)
+                .WithMany(t => t.CalculatedFieldDefinitions)
+                .HasForeignKey(f => f.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
             
-            // Named index to avoid conflicts with base class
-            builder.HasIndex(f => new { f.TemplateVersionId, f.FieldType })
-                .HasDatabaseName("IX_CalculatedFieldDefinition_TemplateVersionId_FieldType");
+            builder.HasIndex(f => new { f.TemplateId, f.FieldType })
+                .HasDatabaseName("IX_CalculatedFieldDefinition_TemplateId_FieldType");
         }
     }
     
@@ -61,15 +52,14 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<CostEstimateTemplateItemGenericFieldDefinition> builder)
         {          
-            // Relationship with TemplateVersion
-            builder.HasOne(f => f.TemplateVersion)
-                .WithMany(v => v.GenericFieldDefinitions)
-                .HasForeignKey(f => f.TemplateVersionId)
+            // Relationship with Template
+            builder.HasOne(f => f.Template)
+                .WithMany(t => t.GenericFieldDefinitions)
+                .HasForeignKey(f => f.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
             
-            // Named index to avoid conflicts with base class
-            builder.HasIndex(f => new { f.TemplateVersionId, f.FieldType })
-                .HasDatabaseName("IX_GenericFieldDefinition_TemplateVersionId_FieldType");
+            builder.HasIndex(f => new { f.TemplateId, f.FieldType })
+                .HasDatabaseName("IX_GenericFieldDefinition_TemplateId_FieldType");
         }
     }
 }

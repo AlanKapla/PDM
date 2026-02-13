@@ -2,7 +2,6 @@
 using Entities.Models;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 using CQRS.WorkSchedules.Shared;
 using System.Linq.Expressions;
 

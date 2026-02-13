@@ -15,7 +15,7 @@ import ProjectDetails from "../pages/ProjectDetails";
 import WorkScheduleView from "../pages/WorkScheduleView";
 import AssignedWorks from "../pages/AssignedWorks";
 import CostEstimateTemplates from "../pages/CostEstimateTemplates";
-import TemplateVersionHistory from "../pages/TemplateVersionHistory";
+// TemplateVersionHistory removed - versioning no longer supported
 import CostEstimateTemplateEditor from "../pages/CostEstimateTemplateEditor";
 import CostEstimateTemplateNew from "../pages/CostEstimateTemplateNew";
 import ProjectMembers from "../pages/ProjectMembers";
@@ -167,14 +167,7 @@ export default function AppRouter() {
         }
       />
 
-      <Route
-        path="/cost-estimate-templates/:templateId/versions"
-        element={
-          <ProtectedRoute>
-            <TemplateVersionHistory />
-          </ProtectedRoute>
-        }
-      />
+      {/* Template version history removed - versioning no longer supported */}
 
       <Route
         path="/projects/:projectId/costs"

@@ -51,7 +51,7 @@ import { useAccordionIndex } from "../hooks/useAccordionIndex";
 
 interface FileTabBaseProps {
   files: ProjectFilePackageWeb[];
-  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
+  renderFileRow: (file: any, isShared: boolean, showOwner?: boolean) => JSX.Element;
   cardBg: string;
   borderColor: string;
   hoverBg: string;
@@ -75,7 +75,7 @@ interface MyFilesTabProps extends FileTabBaseProps {
 
 interface SharedFilesTabProps {
   files: ProjectFilePackageWeb[];
-  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
+  renderFileRow: (file: any, isShared: boolean, showOwner?: boolean) => JSX.Element;
   cardBg: string;
   borderColor: string;
   hoverBg: string;
@@ -261,7 +261,7 @@ const MyFilesTab = React.memo<MyFilesTabProps>(({
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false))}
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false, false))}
                   </Tbody>
                 </Table>
                 )}
@@ -330,7 +330,7 @@ const SharedFilesTab = React.memo<SharedFilesTabProps>(({
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, true))}
+                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, true, true))}
                   </Tbody>
                 </Table>
                 )}
@@ -440,6 +440,18 @@ export default function ProjectFiles() {
       // Pobierz dane projektu
       const projectData = await projectDetailsCache.fetch();
       setProject(projectData);
+
+      // Pobierz członków projektu do udostępniania plików
+      try {
+        const membersResponse = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+        // Filtruj aktualnego użytkownika
+        const filteredMembers = membersResponse.data.filter(
+          (member: ProjectMemberWeb) => member.userId !== user.id
+        );
+        setMembers(filteredMembers);
+      } catch (error) {
+        console.error("Błąd podczas pobierania członków projektu:", error);
+      }
 
       // Pobierz wszystkie zasoby równolegle według uprawnień
       const fetchPromises = [];
@@ -739,7 +751,7 @@ export default function ProjectFiles() {
     }
   };
 
-  const renderFileRow = (file: any, isShared: boolean = false) => {
+  const renderFileRow = (file: any, isShared: boolean = false, showOwner: boolean = true) => {
     const fileId = isShared ? file.projectFileId : file.id;
     
     return (
@@ -759,9 +771,11 @@ export default function ProjectFiles() {
               )}
             </HStack>
           </Td>
-          <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
-            {isShared ? (file.originalOwnerUserName || "-") : (file.ownerName || "-")}
-          </Td>
+          {showOwner && (
+            <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
+              {file.originalOwnerUserName || file.ownerName || "-"}
+            </Td>
+          )}
           <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
             {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : "-"}
           </Td>
@@ -827,7 +841,7 @@ export default function ProjectFiles() {
         </Tr>
         {expandedVersionIds.has(fileId) && (
           <Tr key={`${fileId}-versions`}>
-            <Td colSpan={4} p={0}>
+            <Td colSpan={showOwner ? 4 : 3} p={0}>
               <Box bg={useColorModeValue("gray.50", "gray.900")} p={4}>
                 {loadingFiles.has(fileId) ? (
                   <LoadingSpinner />

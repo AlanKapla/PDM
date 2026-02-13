@@ -14,8 +14,6 @@ namespace Business.Interfaces.WebModels.CostEstimates
         Guid ProjectId,
         Guid TemplateId,
         string TemplateName,
-        Guid TemplateVersionId,
-        int TemplateVersionNumber,
         Guid SelectedCurrencyId,
         string SelectedCurrencyCode,
         string? SelectedCurrencySymbol,

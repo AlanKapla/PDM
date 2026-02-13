@@ -4,16 +4,9 @@ using Entities.Models;
 namespace CQRS.CostEstimateTemplates.GetCostEstimateTemplateDetails
 {
     /// <summary>
-    /// Query do pobrania szczegółów szablonu kosztorysu
+    /// Query do pobrania szczegółów szablonu kosztorysu z pełną strukturą
     /// </summary>
     public record GetCostEstimateTemplateDetailsQuery(
         Guid TemplateId
-    ) : IRequestQuery<CostEstimateTemplateDetailsWeb>
-    {
-        /// <summary>
-        /// Optional: Version ID to view a specific template version
-        /// If null, returns the latest version
-        /// </summary>
-        public Guid? VersionId { get; init; }
-    }
+    ) : IRequestQuery<CostEstimateTemplateDetailsWeb>;
 }

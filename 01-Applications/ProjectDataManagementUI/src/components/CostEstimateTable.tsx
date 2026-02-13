@@ -77,6 +77,9 @@ export const CostEstimateTable: React.FC<CostEstimateTableProps> = ({
 
   // Pobierz columnLayout z template (jeśli istnieje) - zmapuj z columns
   const columnLayout = template.templateStructure.uiConfiguration?.columns?.map(col => col.fieldName);
+  
+  // Pobierz konfigurację podsumowań z template
+  const summaryConfig = template.templateStructure.summaryConfiguration;
 
   // Funkcja sortowania pól według columnLayout lub order (dla pól z 'name')
   const sortFieldsByLayout = <T extends { name: string; order: number }>(fields: T[]): T[] => {

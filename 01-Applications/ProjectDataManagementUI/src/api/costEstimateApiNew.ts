@@ -86,14 +86,12 @@ export const costEstimateApiNew = {
     tenantId: string,
     projectId: string,
     templateId: string,
-    templateVersionId: string,
     selectedCurrencyId: string,
     name: string,
     description?: string
   ): Promise<string> => {
     return costEstimateApiNew.createCostEstimate(tenantId, projectId, {
       templateId,
-      templateVersionId,
       selectedCurrencyId,
       name,
       description,
@@ -108,7 +106,6 @@ export const costEstimateApiNew = {
     tenantId: string,
     projectId: string,
     templateId: string,
-    templateVersionId: string,
     selectedCurrencyId: string,
     name: string,
     rootGroups: CostEstimateGroupDto[],
@@ -116,7 +113,6 @@ export const costEstimateApiNew = {
   ): Promise<string> => {
     return costEstimateApiNew.createCostEstimate(tenantId, projectId, {
       templateId,
-      templateVersionId,
       selectedCurrencyId,
       name,
       description,
@@ -175,7 +171,7 @@ export const costEstimateApiNew = {
  * 
  * // Create empty cost estimate
  * const id = await costEstimateApiNew.createEmptyCostEstimate(
- *   tenantId, projectId, templateId, versionId, currencyId, "My Cost Estimate"
+ *   tenantId, projectId, templateId, currencyId, "My Cost Estimate"
  * );
  * 
  * // Get details with hierarchy

@@ -9,19 +9,10 @@ namespace Business.Interfaces.Services
     public interface ITemplateStructureService
     {
         /// <summary>
-        /// Builds template version structure for version details endpoint
+        /// Builds template structure with all fields and configuration
         /// </summary>
-        Task<CostEstimateTemplateVersionStructureWeb> BuildTemplateVersionStructureAsync(
+        Task<CostEstimateTemplateStructureWeb> BuildTemplateStructureAsync(
             CostEstimateTemplate template,
-            CostEstimateTemplateVersion version,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Builds full template structure for template details endpoint
-        /// </summary>
-        Task<CostEstimateTemplateStructureWeb> BuildCostEstimateTemplateStructureAsync(
-            CostEstimateTemplate template,
-            CostEstimateTemplateVersion version,
             CancellationToken cancellationToken = default);
     }
 }

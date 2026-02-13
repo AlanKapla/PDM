@@ -1,10 +1,7 @@
 ﻿using Business.Interfaces.Model;
-using CQRS.Extensions;
-using Entities.Enums;
 using Entities.Models;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Repositories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.DeleteProjectFile

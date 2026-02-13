@@ -16,6 +16,7 @@ public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery,
     private readonly IRepository<ProjectFile> fileRepo;
     private readonly IRepository<ProjectFileVersion> versionRepo;
     private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
+    private readonly IFileAccessService fileAccessService;
     private readonly ICurrentUser currentUser;
     private readonly IBlobStorageService blobStorageService;
 
@@ -23,12 +24,14 @@ public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery,
         IRepository<ProjectFile> fileRepo,
         IRepository<ProjectFileVersion> versionRepo,
         IRepository<SharedProjectFile> sharedProjectFileRepo,
+        IFileAccessService fileAccessService,
         ICurrentUser currentUser,
         IBlobStorageService blobStorageService)
     {
         this.fileRepo = fileRepo;
         this.versionRepo = versionRepo;
         this.sharedProjectFileRepo = sharedProjectFileRepo;
+        this.fileAccessService = fileAccessService;
         this.currentUser = currentUser;
         this.blobStorageService = blobStorageService;
     }
@@ -79,21 +82,13 @@ public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery,
         return scope switch
         {
             ResourceScope.Mine => file.OwnerId == currentUser.Id,
-            ResourceScope.Shared => await IsFileSharedWithUserAsync(file.Id, tenantId, projectId),
+            ResourceScope.Shared => await fileAccessService.HasAccessToFileAsync(
+                currentUser.Id, 
+                file.ProjectFilePackageId, 
+                file.Id),  // ✅ Użyj nowego serwisu
             ResourceScope.All => true,
             _ => false
         };
-    }
-
-    private async Task<bool> IsFileSharedWithUserAsync(Guid fileId, Guid tenantId, Guid projectId)
-    {
-        var sharedFiles = await sharedProjectFileRepo.GetBySearch(
-            spf => spf.TenantId == tenantId &&
-                   spf.ProjectId == projectId &&
-                   spf.ProjectFileId == fileId &&
-                   spf.SharedWithUserId == currentUser.Id
-        );
-        return sharedFiles.Any();
     }
 
     private ProjectFileVersionWeb MapToVersionWeb(

@@ -79,7 +79,6 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                     TenantId = tenantId,
                     ProjectId = targetProjectId,
                     TemplateId = sourceCostEstimate.TemplateId,
-                    TemplateVersionId = sourceCostEstimate.TemplateVersionId,
                     OwnerId = currentUser.Id,
                     Name = $"{sourceCostEstimate.Name} (kopia)",
                     Description = sourceCostEstimate.Description,
@@ -133,7 +132,10 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                             Id = Guid.NewGuid(),
                             GroupId = newGroupId,
                             FieldDefinitionId = sourceFieldValue.FieldDefinitionId,
-                            Value = sourceFieldValue.Value,
+                            StringValue = sourceFieldValue.StringValue,
+                            DecimalValue = sourceFieldValue.DecimalValue,
+                            BoolValue = sourceFieldValue.BoolValue,
+                            DateTimeValue = sourceFieldValue.DateTimeValue,
                             CreatedAt = now
                         };
                         
@@ -202,7 +204,10 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                     Id = Guid.NewGuid(),
                     ItemId = newItemId,
                     FieldDefinitionId = sourceFieldValue.FieldDefinitionId,
-                    Value = sourceFieldValue.Value,
+                    StringValue = sourceFieldValue.StringValue,
+                    DecimalValue = sourceFieldValue.DecimalValue,
+                    BoolValue = sourceFieldValue.BoolValue,
+                    DateTimeValue = sourceFieldValue.DateTimeValue,
                     CreatedAt = now
                 };
                 

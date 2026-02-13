@@ -13,7 +13,7 @@ namespace Entities.Configurations
         {
             builder.HasKey(c => c.Id);
             
-            builder.Property(c => c.TemplateVersionId)
+            builder.Property(c => c.TemplateId)
                 .IsRequired();
             
             builder.Property(c => c.Code)
@@ -34,16 +34,16 @@ namespace Entities.Configurations
             builder.Property(c => c.Order)
                 .IsRequired();
             
-            // Relationship with CostEstimateTemplateVersion
-            builder.HasOne(c => c.TemplateVersion)
+            // Relationship with CostEstimateTemplate
+            builder.HasOne(c => c.Template)
                 .WithMany(t => t.Currencies)
-                .HasForeignKey(c => c.TemplateVersionId)
+                .HasForeignKey(c => c.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
             
             // Indexes
-            builder.HasIndex(c => c.TemplateVersionId);
-            builder.HasIndex(c => new { c.TemplateVersionId, c.Code }).IsUnique();
-            builder.HasIndex(c => new { c.TemplateVersionId, c.IsDefault });
+            builder.HasIndex(c => c.TemplateId);
+            builder.HasIndex(c => new { c.TemplateId, c.Code }).IsUnique();
+            builder.HasIndex(c => new { c.TemplateId, c.IsDefault });
         }
     }
     
@@ -56,7 +56,7 @@ namespace Entities.Configurations
         {
             builder.HasKey(u => u.Id);
             
-            builder.Property(u => u.TemplateVersionId)
+            builder.Property(u => u.TemplateId)
                 .IsRequired();
             
             builder.Property(u => u.Code)
@@ -81,17 +81,17 @@ namespace Entities.Configurations
             builder.Property(u => u.Order)
                 .IsRequired();
             
-            // Relationship with CostEstimateTemplateVersion
-            builder.HasOne(u => u.TemplateVersion)
+            // Relationship with CostEstimateTemplate
+            builder.HasOne(u => u.Template)
                 .WithMany(t => t.Units)
-                .HasForeignKey(u => u.TemplateVersionId)
+                .HasForeignKey(u => u.TemplateId)
                 .OnDelete(DeleteBehavior.Cascade);
             
             // Indexes
-            builder.HasIndex(u => u.TemplateVersionId);
-            builder.HasIndex(u => new { u.TemplateVersionId, u.Code }).IsUnique();
-            builder.HasIndex(u => new { u.TemplateVersionId, u.Category });
-            builder.HasIndex(u => new { u.TemplateVersionId, u.IsDefault });
+            builder.HasIndex(u => u.TemplateId);
+            builder.HasIndex(u => new { u.TemplateId, u.Code }).IsUnique();
+            builder.HasIndex(u => new { u.TemplateId, u.Category });
+            builder.HasIndex(u => new { u.TemplateId, u.IsDefault });
         }
     }
 }

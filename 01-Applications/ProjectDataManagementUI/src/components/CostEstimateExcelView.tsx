@@ -335,7 +335,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
   const groupHeaderFields =
     template.templateStructure?.groupDefinition?.headerFields || [];
 
-  // Pobierz columnLayout z nowej struktury UiConfigurationWeb
+  // Pobierz columnLayout z UiConfigurationWeb
   let columnLayout: string[] | undefined;
   if (template.templateStructure?.uiConfiguration?.columns) {
     columnLayout = template.templateStructure.uiConfiguration.columns

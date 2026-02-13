@@ -6,6 +6,7 @@ using Entities.Models.CostEstimates;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
+using Business.Implementation.Helpers;
 
 namespace CQRS.CostEstimates.GetCostEstimateDetails
 {
@@ -32,27 +33,28 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
         public async Task<CostEstimateDetailsWeb> Handle(GetCostEstimateDetailsQuery request, CancellationToken cancellationToken)
         {
             // Get cost estimate with all related data
+            // UWAGA: Struktura zagnieżdżenia: Position (Level 1) → Component (Level 2) → Option (Level 3)
             var costEstimates = await costEstimateRepository.GetBySearch(
                 c => c.Id == request.CostEstimateId && 
                      c.TenantId == request.TenantId &&
                      c.ProjectId == request.ProjectId &&
                      !c.IsDeleted,
                 q => q.Include(c => c.Template)
-                      .Include(c => c.TemplateVersion)
                       .Include(c => c.Owner)
                       .Include(c => c.SelectedCurrency)
+                      // Grupy + Group FieldValues
                       .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
                           .ThenInclude(g => g.FieldValues)
                               .ThenInclude(fv => fv.FieldDefinition)
+                      // Główne pozycje (Level 1: RelationType = None) + ich FieldValues
                       .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
+                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted && w.RelationType == ItemRelationType.None))
                               .ThenInclude(w => w.FieldValues)
                                   .ThenInclude(fv => fv.FieldDefinition)
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
-                              .ThenInclude(w => w.Options.Where(o => !o.IsDeleted))
-                                  .ThenInclude(o => o.FieldValues)
-                                      .ThenInclude(fv => fv.FieldDefinition)
+                      // Child items Level 2 (Components/Options z ParentItemId != null) + ich FieldValues
+                      .Include(c => c.AllItems.Where(i => !i.IsDeleted && i.ParentItemId != null))
+                          .ThenInclude(i => i.FieldValues)
+                              .ThenInclude(fv => fv.FieldDefinition)
                 );
                 
             var costEstimate = costEstimates.FirstOrDefault();
@@ -61,11 +63,13 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             {
                 throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
             }
+            
+            // ✅ Populate Options i Components dla wszystkich pozycji
+            costEstimate.PopulateItemHierarchy();
 
             // Pobierz strukturę szablonu przez wspólny serwis
-            var templateStructure = await templateStructureService.BuildCostEstimateTemplateStructureAsync(
+            var templateStructure = await templateStructureService.BuildTemplateStructureAsync(
                 costEstimate.Template, 
-                costEstimate.TemplateVersion, 
                 cancellationToken);
 
             // Build hierarchical structure of root groups
@@ -77,8 +81,6 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 ProjectId: costEstimate.ProjectId,
                 TemplateId: costEstimate.TemplateId,
                 TemplateName: costEstimate.Template.Name,
-                TemplateVersionId: costEstimate.TemplateVersionId,
-                TemplateVersionNumber: costEstimate.TemplateVersion.VersionNumber,
                 SelectedCurrencyId: costEstimate.SelectedCurrencyId,
                 SelectedCurrencyCode: costEstimate.SelectedCurrency.Code,
                 SelectedCurrencySymbol: costEstimate.SelectedCurrency.Symbol,
@@ -107,14 +109,24 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                     ParentGroupId: group.ParentGroupId,
                     Level: group.Level,
                     Order: group.Order,
-                    FieldValues: group.FieldValues.Select(fv => new CostEstimateGroupFieldValueWeb(
-                        Id: fv.Id,
-                        FieldDefinitionId: fv.FieldDefinitionId,
-                        FieldType: (int)fv.FieldDefinition.FieldType,
-                        FieldScope: (int)fv.FieldDefinition.FieldScope,
-                        FieldLabel: fv.FieldDefinition.Label,
-                        Value: fv.Value
-                    )).ToList(),
+                    FieldValues: group.FieldValues.Select(fv =>
+                    {
+                        // Pobierz wartość w odpowiednim typie
+                        var (stringValue, decimalValue, boolValue, dateTimeValue) = FieldValueConverter.GetTypedValue(fv, (int)fv.FieldDefinition.FieldType);
+                        
+                        return new CostEstimateFieldValueWeb(
+                            Id: fv.Id,
+                            FieldDefinitionId: fv.FieldDefinitionId,
+                            FieldType: (int)fv.FieldDefinition.FieldType,
+                            FieldScope: (int)fv.FieldDefinition.FieldScope,
+                            FieldName: null, // Group fields nie mają FieldName (GUID)
+                            FieldLabel: fv.FieldDefinition.Label,
+                            StringValue: stringValue,
+                            DecimalValue: decimalValue,
+                            BoolValue: boolValue,
+                            DateTimeValue: dateTimeValue
+                        );
+                    }).ToList(),
                     TotalNet: group.TotalNet,
                     TotalGross: group.TotalGross,
                     TotalVat: group.TotalVat,
@@ -124,7 +136,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                         allGroups
                     ),
                     Items: group.Items
-                        .Where(w => w.ParentItemId == null)  // Tylko główne pozycje (nie opcje)
+                        .Where(w => w.RelationType == ItemRelationType.None)  // ✅ Tylko główne pozycje (nie opcje ani komponenty)
                         .OrderBy(w => w.Order)
                         .Select(item => BuildItemWeb(item))
                         .ToList(),
@@ -140,20 +152,38 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 Id: item.Id,
                 GroupId: item.GroupId,
                 ParentItemId: item.ParentItemId,
+                RelationType: (int)item.RelationType,  // ✅ Dodano RelationType
                 Order: item.Order,
-                FieldValues: item.FieldValues.Select(fv => new CostEstimateItemFieldValueWeb(
-                    Id: fv.Id,
-                    FieldDefinitionId: fv.FieldDefinitionId,
-                    FieldType: (int)fv.FieldDefinition.FieldType,
-                    FieldScope: (int)fv.FieldDefinition.FieldScope,
-                    FieldName: fv.FieldDefinition.FieldName,
-                    FieldLabel: fv.FieldDefinition.Label,
-                    Value: fv.Value
-                )).ToList(),
-                Options: item.Options
+                NetValue: item.NetValue,       // ✅ Dodano obliczone wartości
+                GrossValue: item.GrossValue,
+                VatValue: item.VatValue,
+                FieldValues: item.FieldValues.Select(fv =>
+                {
+                    // Pobierz wartość w odpowiednim typie
+                    var (stringValue, decimalValue, boolValue, dateTimeValue) = FieldValueConverter.GetTypedValue(fv, (int)fv.FieldDefinition.FieldType);
+                    
+                    return new CostEstimateFieldValueWeb(
+                        Id: fv.Id,
+                        FieldDefinitionId: fv.FieldDefinitionId,
+                        FieldType: (int)fv.FieldDefinition.FieldType,
+                        FieldScope: (int)fv.FieldDefinition.FieldScope,
+                        FieldName: fv.FieldDefinition.FieldName,
+                        FieldLabel: fv.FieldDefinition.Label,
+                        StringValue: stringValue,
+                        DecimalValue: decimalValue,
+                        BoolValue: boolValue,
+                        DateTimeValue: dateTimeValue
+                    );
+                }).ToList(),
+                Options: item.Options  // ✅ Już filtrowane przez property (RelationType == Option)
                     .Where(o => !o.IsDeleted)
                     .OrderBy(o => o.Order)
                     .Select(option => BuildItemWeb(option))
+                    .ToList(),
+                Components: item.Components  // ✅ Dodano Components (filtrowane przez property: RelationType == Component)
+                    .Where(c => !c.IsDeleted)
+                    .OrderBy(c => c.Order)
+                    .Select(component => BuildItemWeb(component))
                     .ToList(),
                 CreatedAt: item.CreatedAt,
                 UpdatedAt: item.UpdatedAt

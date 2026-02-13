@@ -19,8 +19,113 @@ permissions:
   id-token: write
 
 jobs:
+  migrate-database:
+    runs-on: ubuntu-latest
+    environment:
+      name: azure-${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 10.0.1
+
+      - name: Restore Entities project
+        working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/Entities
+        run: dotnet restore
+
+      - name: Generate idempotent SQL script
+        working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/Entities
+        run: |
+          dotnet ef migrations script \
+            --idempotent \
+            --output ${{ github.workspace }}/migration.sql \
+            --startup-project ../WebApi \
+            --project . \
+            -- --connection "Server=placeholder"
+          echo "=== Generated migration script ==="
+          head -50 ${{ github.workspace }}/migration.sql
+          echo "..."
+          wc -l ${{ github.workspace }}/migration.sql
+
+      - name: Upload migration script as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-sql-${{ github.event.inputs.environment }}
+          path: ${{ github.workspace }}/migration.sql
+          retention-days: 30
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Azure AD access token for SQL
+        id: get-token
+        shell: bash
+        run: |
+          TOKEN=$(az account get-access-token \
+            --resource https://database.windows.net/ \
+            --query accessToken \
+            --output tsv)
+          echo "::add-mask::$TOKEN"
+          echo "sql-token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Execute migration on Azure SQL
+        shell: pwsh
+        run: |
+          $serverName = "${{ vars.AZURE_SQL_SERVER }}"
+          $databaseName = "${{ vars.AZURE_SQL_DATABASE }}"
+          $scriptPath = "${{ github.workspace }}/migration.sql"
+          $token = "${{ steps.get-token.outputs.sql-token }}"
+
+          Write-Host "🗄️ Running migration on: $serverName / $databaseName"
+
+          $connectionString = "Server=tcp:${serverName},1433;Initial Catalog=${databaseName};Encrypt=True;TrustServerCertificate=False;Connection Timeout=60;"
+
+          $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
+          $connection.AccessToken = $token
+
+          try {
+            $connection.Open()
+            Write-Host "✅ Connected to database"
+
+            $sqlScript = Get-Content $scriptPath -Raw
+
+            # Podział skryptu na partie po instrukcji GO
+            $batches = $sqlScript -split '(?m)^\s*GO\s*$' | Where-Object { $_.Trim() -ne '' }
+            Write-Host "📦 Found $($batches.Count) SQL batches to execute"
+
+            $batchNum = 0
+            foreach ($batch in $batches) {
+              $batchNum++
+              $command = $connection.CreateCommand()
+              $command.CommandText = $batch
+              $command.CommandTimeout = 120
+              $command.ExecuteNonQuery() | Out-Null
+            }
+
+            Write-Host "✅ Migration completed successfully ($batchNum batches executed)"
+          }
+          catch {
+            Write-Host "❌ Migration FAILED: $($_.Exception.Message)"
+            exit 1
+          }
+          finally {
+            $connection.Close()
+          }
+
   build-and-deploy-api:
     runs-on: ubuntu-latest
+    needs: migrate-database
     environment:
       name: azure-${{ github.event.inputs.environment }}
       url: ${{ vars.API_URL }}
@@ -177,7 +282,7 @@ jobs:
 
   verify-deployment:
     runs-on: ubuntu-latest
-    needs: [build-and-deploy-api, build-and-deploy-ui]
+    needs: [migrate-database, build-and-deploy-api, build-and-deploy-ui]
     environment:
       name: azure-${{ github.event.inputs.environment }}
 

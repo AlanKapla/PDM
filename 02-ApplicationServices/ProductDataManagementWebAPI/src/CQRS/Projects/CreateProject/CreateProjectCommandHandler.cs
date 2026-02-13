@@ -7,7 +7,6 @@ using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.CreateProject
 {

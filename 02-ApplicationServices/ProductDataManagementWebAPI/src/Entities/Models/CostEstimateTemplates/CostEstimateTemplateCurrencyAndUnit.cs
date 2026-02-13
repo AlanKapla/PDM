@@ -3,14 +3,14 @@
 namespace Entities.Models.CostEstimateTemplates
 {
     /// <summary>
-    /// Waluta dostępna w wersji szablonu kosztorysu
+    /// Waluta dostępna w szablonie kosztorysu
     /// </summary>
     public class CostEstimateTemplateCurrency : BaseEntity
     {
         /// <summary>
-        /// ID wersji szablonu kosztorysu
+        /// ID szablonu kosztorysu
         /// </summary>
-        public Guid TemplateVersionId { get; set; }
+        public Guid TemplateId { get; set; }
         
         /// <summary>
         /// Kod waluty (np. "PLN", "USD", "EUR")
@@ -40,20 +40,20 @@ namespace Entities.Models.CostEstimateTemplates
         // Navigation properties
         
         /// <summary>
-        /// Wersja szablonu kosztorysu
+        /// Szablon kosztorysu
         /// </summary>
-        public virtual CostEstimateTemplateVersion TemplateVersion { get; set; } = default!;
+        public virtual CostEstimateTemplate Template { get; set; } = default!;
     }
     
     /// <summary>
-    /// Jednostka miary dostępna w wersji szablonu kosztorysu
+    /// Jednostka miary dostępna w szablonie kosztorysu
     /// </summary>
     public class CostEstimateTemplateUnit : BaseEntity
     {
         /// <summary>
-        /// ID wersji szablonu kosztorysu
+        /// ID szablonu kosztorysu
         /// </summary>
-        public Guid TemplateVersionId { get; set; }
+        public Guid TemplateId { get; set; }
         
         /// <summary>
         /// Kod jednostki (np. "szt", "m2", "mb", "kg")
@@ -88,8 +88,8 @@ namespace Entities.Models.CostEstimateTemplates
         // Navigation properties
         
         /// <summary>
-        /// Wersja szablonu kosztorysu
+        /// Szablon kosztorysu
         /// </summary>
-        public virtual CostEstimateTemplateVersion TemplateVersion { get; set; } = default!;
+        public virtual CostEstimateTemplate Template { get; set; } = default!;
     }
 }

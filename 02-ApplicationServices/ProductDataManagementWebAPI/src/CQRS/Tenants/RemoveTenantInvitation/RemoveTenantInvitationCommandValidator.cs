@@ -2,7 +2,6 @@
 using Business.Interfaces.Model;
 using Entities.Models;
 using Repositories.Repository.Interfaces;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.RemoveTenantInvitation
 {
