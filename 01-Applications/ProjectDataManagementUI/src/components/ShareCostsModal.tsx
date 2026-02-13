@@ -87,8 +87,8 @@ export default function ShareCostsModal({
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data = response.data;
       // Wyklucz aktualnego użytkownika z listy i filtruj członków bez userId
-      const filteredMembers = data.filter((member: ProjectMemberWeb) => 
-        member.userId !== user?.id && member.email !== user?.email && member.userId
+      const filteredMembers = data.filter((member: ProjectMemberWeb) =>
+        member.userId && member.userId !== user?.id
       );
       setMembers(filteredMembers);
     } catch (error) {
