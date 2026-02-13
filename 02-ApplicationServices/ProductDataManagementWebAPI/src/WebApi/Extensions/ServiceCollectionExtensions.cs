@@ -371,6 +371,7 @@ namespace WebApi.Extensions
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
             services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
+            services.Configure<FileShareConsolidationSettings>(config.GetSection(FileShareConsolidationSettings.SectionName));
             return services;
         }
 

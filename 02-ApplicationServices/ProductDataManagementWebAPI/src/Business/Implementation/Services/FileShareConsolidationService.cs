@@ -1,8 +1,10 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Model;
 using Entities.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Repositories.Repository.Interfaces;
 
 namespace Business.Implementation.Services
@@ -10,20 +12,23 @@ namespace Business.Implementation.Services
     /// <summary>
     /// Background service konsolidujący udostępnienia plików
     /// Uruchamia się raz dziennie o 2:00 w nocy i konsoliduje:
-    /// - Jeśli user ma >= 60% plików z paczki udostępnionych → konwertuj na paczkę + wykluczenia
+    /// - Jeśli user ma >= ConsolidationThreshold% plików z paczki udostępnionych → konwertuj na paczkę + wykluczenia
     /// </summary>
     public class FileShareConsolidationService : BackgroundService
     {
         private readonly IServiceProvider serviceProvider;
         private readonly ILogger<FileShareConsolidationService> logger;
+        private readonly FileShareConsolidationSettings settings;
         private readonly TimeSpan consolidationInterval = TimeSpan.FromHours(24);
 
         public FileShareConsolidationService(
             IServiceProvider serviceProvider,
-            ILogger<FileShareConsolidationService> logger)
+            ILogger<FileShareConsolidationService> logger,
+            IOptions<FileShareConsolidationSettings> options)
         {
             this.serviceProvider = serviceProvider;
             this.logger = logger;
+            this.settings = options.Value;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -124,10 +129,8 @@ namespace Business.Implementation.Services
                     var totalFilesCount = allFilesInPackage.Count();
                     var sharedFilesCount = shares.Count;
 
-                    // Próg konsolidacji: 60%
-                    const double CONSOLIDATION_THRESHOLD = 0.6;
-
-                    if (sharedFilesCount >= totalFilesCount * CONSOLIDATION_THRESHOLD)
+                    // Próg konsolidacji konfigurowalny
+                    if (sharedFilesCount >= totalFilesCount * settings.ConsolidationThreshold)
                     {
                         // ✅ Konsoliduj: paczka + wykluczenia
                         var allFileIds = allFilesInPackage.Select(f => f.Id).ToHashSet();
