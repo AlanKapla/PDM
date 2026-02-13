@@ -116,4 +116,14 @@ public class Repository<T> : IRepository<T> where T : class
             .Select(selector)
             .ToHashSetAsync(cancellationToken);
     }
+
+    // Bulk operations without loading entities into memory
+    public async Task<int> ExecuteDeleteAsync(
+        Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(predicate)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

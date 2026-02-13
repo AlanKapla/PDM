@@ -34,5 +34,10 @@ namespace Repositories.Repository.Interfaces
             Expression<Func<T, bool>> predicate,
             Expression<Func<T, TResult>> selector,
             CancellationToken cancellationToken = default);
+        
+        // Bulk operations without loading entities into memory
+        Task<int> ExecuteDeleteAsync(
+            Expression<Func<T, bool>> predicate,
+            CancellationToken cancellationToken = default);
     }
 }
