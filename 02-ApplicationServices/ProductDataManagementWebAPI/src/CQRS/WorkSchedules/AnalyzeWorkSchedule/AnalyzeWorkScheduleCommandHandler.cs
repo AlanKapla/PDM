@@ -1,53 +1,54 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-using Business.AIAgent.Interfaces;
+using Business.AIAgent.Services;
+using Business.AIAgent.Models;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.AnalyzeWorkSchedule;
 
 /// <summary>
 /// Handler for AnalyzeWorkScheduleCommand
-/// Uses AI Orchestrator with specialized work schedule analysis tools
+/// Uses AI Agent Service with Semantic Kernel for work schedule analysis
 /// </summary>
 public sealed class AnalyzeWorkScheduleCommandHandler : IRequestHandler<AnalyzeWorkScheduleCommand, WorkScheduleAnalysisResponse>
 {
-    private readonly IOrchestrator orchestrator;
-    private readonly ICurrentUser currentUser;
-    private readonly IReadRepository<WorkSchedule> workScheduleRepo;
-    private readonly ILogger<AnalyzeWorkScheduleCommandHandler> logger;
+    private readonly IAgentService _agentService;
+    private readonly ICurrentUser _currentUser;
+    private readonly IReadRepository<WorkSchedule> _workScheduleRepo;
+    private readonly ILogger<AnalyzeWorkScheduleCommandHandler> _logger;
 
     public AnalyzeWorkScheduleCommandHandler(
-        IOrchestrator orchestrator,
+        IAgentService agentService,
         ICurrentUser currentUser,
         IReadRepository<WorkSchedule> workScheduleRepo,
         ILogger<AnalyzeWorkScheduleCommandHandler> logger)
     {
-        this.orchestrator = orchestrator;
-        this.currentUser = currentUser;
-        this.workScheduleRepo = workScheduleRepo;
-        this.logger = logger;
+        _agentService = agentService;
+        _currentUser = currentUser;
+        _workScheduleRepo = workScheduleRepo;
+        _logger = logger;
     }
 
     public async Task<WorkScheduleAnalysisResponse> Handle(AnalyzeWorkScheduleCommand request, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Analyzing work schedule {WorkScheduleId} for tenant {TenantId}",
+        _logger.LogInformation("Analyzing work schedule {WorkScheduleId} for tenant {TenantId}",
             request.WorkScheduleId, request.TenantId);
 
         // Verify work schedule exists and user has access
-        var workSchedule = await workScheduleRepo.GetFirstBySearch(ws =>
+        var workSchedule = await _workScheduleRepo.GetFirstBySearch(ws =>
             ws.Id == request.WorkScheduleId &&
             ws.TenantId == request.TenantId &&
             ws.ProjectId == request.ProjectId)
 
             ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
 
-        bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-        bool isOwner = workSchedule.CreatedByUserId == currentUser.Id;
+        bool isAdmin = await _currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+        bool isOwner = workSchedule.CreatedByUserId == _currentUser.Id;
 
         if (!isAdmin && !isOwner)
         {
@@ -97,6 +98,7 @@ Return your analysis as a valid JSON object with this structure:
   }}
 }}
 
+
 Focus on:
 - High-severity conflicts that could delay the project
 - Resource allocation inefficiencies
@@ -108,7 +110,7 @@ Work Schedule Context:
 - Work Schedule ID: {request.WorkScheduleId}
 - Project ID: {request.ProjectId}
 - Tenant ID: {request.TenantId}
-- Analyst: {currentUser.FirstName} {currentUser.LastName}
+- Analyst: {_currentUser.FirstName} {_currentUser.LastName}
 - Analysis Date: {DateTime.UtcNow:yyyy-MM-dd}
 ";
 
@@ -117,49 +119,38 @@ Be specific about:
 1. Which team members are overallocated and when
 2. Which works have overlapping time periods
 3. Which works lack assigned personnel or time periods
-4. Overall schedule health and completion likelihood
+4. Overall schedule health and completion likelihood";
 
-Return your analysis as structured JSON matching the schema provided in the system prompt.";
-
-        // Select work schedule analysis tools
-        var toolNames = new[]
+        // Create agent request with context
+        var agentRequest = new AgentRequest
         {
-            "get_work_schedule_details",      // First: get full structure
-            "detect_time_conflicts",           // Detect overlapping periods
-            "detect_resource_conflicts",       // Detect overallocated people
-            "detect_unassigned_periods",       // Find unassigned works
-            "calculate_workload_stats"         // Calculate utilization metrics
+            Prompt = userQuery,
+            SystemPrompt = systemPrompt,
+            TenantId = request.TenantId,
+            EnableTools = true,
+            Context = new Dictionary<string, object>
+            {
+                { "WorkScheduleId", request.WorkScheduleId },
+                { "ProjectId", request.ProjectId },
+                { "UserId", _currentUser.Id },
+                { "WorkScheduleName", workSchedule.Name }
+            }
         };
 
-        // Additional context for tools
-        var additionalContext = new Dictionary<string, object>
-        {
-            { "WorkScheduleId", request.WorkScheduleId },
-            { "ProjectId", request.ProjectId },
-            { "TenantId", request.TenantId },
-            { "UserId", currentUser.Id },
-            { "WorkScheduleName", workSchedule.Name }
-        };
-
-        // Execute AI analysis with orchestrator
-        var result = await orchestrator.ExecuteAsync(
-            systemPrompt: systemPrompt,
-            userQuery: userQuery,
-            toolNames: toolNames,
-            additionalContext: additionalContext,
-            cancellationToken: cancellationToken);
+        // Execute AI analysis with agent service
+        var result = await _agentService.ProcessRequestAsync(agentRequest, cancellationToken);
 
         // Check execution success
-        if (!result.Success)
+        if (!result.IsSuccess)
         {
-            logger.LogError("Work schedule analysis failed: {Error}", result.Error);
-            throw new InvalidOperationException($"Work schedule analysis failed: {result.Error}");
+            _logger.LogError("Work schedule analysis failed: {Error}", result.ErrorMessage);
+            throw new InvalidOperationException($"Work schedule analysis failed: {result.ErrorMessage}");
         }
 
         // Parse AI response (expecting JSON)
-        var analysisJson = result.FinalMessage.Content ?? "{}";
+        var analysisJson = result.Content ?? "{}";
 
-        logger.LogDebug("AI analysis result: {Result}", analysisJson);
+        _logger.LogDebug("AI analysis result: {Result}", analysisJson);
 
         try
         {
@@ -167,9 +158,8 @@ Return your analysis as structured JSON matching the schema provided in the syst
             var aiAnalysis = JsonSerializer.Deserialize<AIAnalysisResult>(analysisJson)
                 ?? throw new InvalidOperationException("Failed to parse AI analysis result");
 
-            logger.LogInformation(
-                "Work schedule analysis completed. Tokens: {Tokens}, Findings: {Findings}, Recommendations: {Recommendations}, Conflicts: {Conflicts}",
-                result.TotalTokensUsed,
+            _logger.LogInformation(
+                "Work schedule analysis completed. Findings: {Findings}, Recommendations: {Recommendations}, Conflicts: {Conflicts}",
                 aiAnalysis.KeyFindings?.Count ?? 0,
                 aiAnalysis.Recommendations?.Count ?? 0,
                 aiAnalysis.Conflicts?.Count ?? 0);
@@ -191,13 +181,13 @@ Return your analysis as structured JSON matching the schema provided in the syst
                     AverageCompletionPercentage: aiAnalysis.WorkloadSummary?.AverageCompletionPercentage ?? 0.0,
                     TotalDurationDays: aiAnalysis.WorkloadSummary?.TotalDurationDays ?? 0
                 ),
-                TokensUsed: result.TotalTokensUsed,
-                ExecutionTimeMs: result.TotalExecutionTimeMs
+                TokensUsed: 0,
+                ExecutionTimeMs: 0
             );
         }
         catch (JsonException ex)
         {
-            logger.LogWarning(ex, "Failed to parse AI response as JSON. Returning raw response.");
+            _logger.LogWarning(ex, "Failed to parse AI analysis JSON response");
 
             // Fallback: return raw response if JSON parsing fails
             return new WorkScheduleAnalysisResponse(
@@ -206,8 +196,8 @@ Return your analysis as structured JSON matching the schema provided in the syst
                 Recommendations: new List<string> { "Review the raw analysis output for details" },
                 Conflicts: new List<ScheduleConflict>(),
                 WorkloadSummary: new WorkloadSummary(0, 0, 0, 0.0, 0),
-                TokensUsed: result.TotalTokensUsed,
-                ExecutionTimeMs: result.TotalExecutionTimeMs
+                TokensUsed: 0,
+                ExecutionTimeMs: 0
             );
         }
     }

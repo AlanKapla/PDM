@@ -1,8 +1,8 @@
 ﻿using Azure.Identity;
-using Business.AIAgent; // AI Agent Framework
-using Business.AIAgent.Tools.WorkSchedule; // Work Schedule AI Tools
+using Business.AIAgent.Extensions;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
+using Business.Implementation.Services.Excel;
 using Business.Implementation.Validators;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
@@ -27,7 +27,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Repository.Interfaces;
 using Repositories.Repository.Repositories;
-using Repositories.Repository.Interfaces;
 using WebApi.Authorization;
 using WebApi.Services;
 
@@ -50,8 +49,8 @@ namespace WebApi.Extensions
                 .AddAppServices()
                 .AddConfigurations(config)
                 .AddFrontendCors(config)
-                .AddAIAgent(config) // AI Agent Framework
-                .AddAIAgentTools(); // Register AI Tools
+                .AddAIAgent(config)      // AI Agent Framework with Semantic Kernel
+                .AddAIPlugins();         // AI Agent Plugins (DI registration)
 
             return services;
         }
@@ -276,6 +275,7 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<CostEstimateGroupFieldValue>, Repository<CostEstimateGroupFieldValue>>();
             services.AddScoped<IRepository<CostEstimateItem>, Repository<CostEstimateItem>>();
             services.AddScoped<IRepository<CostEstimateItemFieldValue>, Repository<CostEstimateItemFieldValue>>();
+            services.AddScoped<IRepository<CostEstimateFile>, Repository<CostEstimateFile>>();
             services.AddScoped<IReadRepository<Role>, ReadRepository<Role>>();
             services.AddScoped<IRepository<Role>, Repository<Role>>();
             services.AddScoped<IReadRepository<Permission>, ReadRepository<Permission>>();
@@ -321,11 +321,22 @@ namespace WebApi.Extensions
             // File access service - checking access with Package + Allow/Deny model
             services.AddScoped<IFileAccessService, FileAccessService>();
             
+            
             // Cost estimate calculation service
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
             
             // Template structure service - used in multiple handlers
             services.AddScoped<ITemplateStructureService, TemplateStructureService>();
+            
+            // ✅ NEW: Business services for CostEstimate and Template lifecycle
+            services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
+            services.AddScoped<ICostEstimateService, CostEstimateService>();
+            
+            // ✅ Excel import storage service
+            services.AddScoped<ICostEstimateExcelStorageService, CostEstimateExcelStorageService>();
+            
+            // Excel parser service - for cost estimate import
+            services.AddScoped<IExcelParserService, ExcelParserService>();
             
             // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();
@@ -430,24 +441,6 @@ namespace WebApi.Extensions
 
             // Permission-based handler
             services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-
-            return services;
-        }
-
-        /// <summary>
-        /// Registers all AI Agent tools for various analysis tasks
-        /// </summary>
-        public static IServiceCollection AddAIAgentTools(this IServiceCollection services)
-        {
-            // Example tool from framework
-            services.AddTool<Business.AIAgent.Tools.GetCurrentDateTimeTool>();
-
-            // Work Schedule Analysis Tools
-            services.AddTool<GetWorkScheduleDetailsTool>();
-            services.AddTool<DetectTimeConflictsTool>();
-            services.AddTool<DetectResourceConflictsTool>();
-            services.AddTool<DetectUnassignedPeriodsTool>();
-            services.AddTool<CalculateWorkloadStatsTool>();
 
             return services;
         }

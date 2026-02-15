@@ -1,5 +1,4 @@
-﻿using Business.AIAgent.Interfaces;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using MediatR;
 

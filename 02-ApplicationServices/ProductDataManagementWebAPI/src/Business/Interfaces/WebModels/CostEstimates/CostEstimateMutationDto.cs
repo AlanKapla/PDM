@@ -44,4 +44,19 @@ namespace Business.Interfaces.WebModels.CostEstimates
         List<CostEstimateItemDto> Items,
         List<CostEstimateGroupDto> ChildGroups
     );
+
+    /// <summary>
+    /// DTO for updating CostEstimate with full hierarchy
+    /// Used by services instead of Commands to avoid circular dependency
+    /// </summary>
+    public record CostEstimateUpdateDto(
+        Guid CostEstimateId,
+        Guid TenantId,
+        Guid ProjectId,
+        string Name,
+        string? Description,
+        CostEstimateStatus Status,
+        List<CostEstimateGroupDto> RootGroups
+    );
 }
+
