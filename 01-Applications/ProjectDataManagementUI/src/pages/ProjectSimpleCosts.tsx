@@ -137,6 +137,7 @@ const AllCostsTab = memo(function AllCostsTab({
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="green"
+              size="sm"
               onClick={() => onShowNewCostRow(true)}
             >
               Dodaj koszt
@@ -568,6 +569,7 @@ const MyCostsTab = memo(function MyCostsTab({
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="green"
+              size="sm"
               onClick={() => onShowNewCostRow(true)}
             >
               Dodaj koszt

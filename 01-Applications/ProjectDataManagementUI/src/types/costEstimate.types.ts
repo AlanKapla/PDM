@@ -61,6 +61,8 @@ export interface GroupHeaderFieldWeb {
   allowedValues?: string[];
   placeholder?: string;
   isReadOnly: boolean;
+  isSortable?: boolean;
+  isFilterable?: boolean;
   displayFormat?: string;
   helpText?: string;
   helpUrl?: string;

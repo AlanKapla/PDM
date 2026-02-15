@@ -29,9 +29,10 @@ import {
   Th,
   Td,
   Textarea,
+  Tooltip,
   useToast,
 } from "@chakra-ui/react";
-import { ArrowLeft, FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
@@ -127,6 +128,7 @@ const AllFilesTab = React.memo<AllFilesTabProps>(({
             <Button
               leftIcon={<Upload size={18} />}
               colorScheme="green"
+              size="sm"
               onClick={onUploadModalOpen}
             >
               Dodaj pliki
@@ -222,6 +224,7 @@ const MyFilesTab = React.memo<MyFilesTabProps>(({
             <Button
               leftIcon={<Upload size={18} />}
               colorScheme="green"
+              size="sm"
               onClick={onUploadModalOpen}
             >
               Dodaj pliki
@@ -514,30 +517,46 @@ export default function ProjectFiles() {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const handleDownloadFile = (sasUrl: string, fileName: string) => {
-    fetch(sasUrl, { method: "GET", mode: "cors" })
-      .then(response => response.blob())
-      .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        }, 100);
-      })
-      .catch(error => {
-        console.error("Błąd podczas pobierania pliku:", error);
-        toast({
-          title: "Błąd",
-          description: "Nie udało się pobrać pliku",
-          status: "error",
-          duration: 3000,
-        });
-      });
+  // Pobieranie pliku przez SAS URL — używamy ukrytego <a> zamiast window.open,
+  // ponieważ window.open może być blokowany przez popup blockery.
+  // SAS URL z Content-Disposition: attachment wymusza pobranie z poprawną nazwą pliku.
+  const handleDownloadFile = async (fileId: string, sasUrl: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    // Sprawdź czy SAS URL mógł wygasnąć (token ważny 60 min od załadowania danych)
+    let downloadUrl = sasUrl;
+    try {
+      const sasExpiry = extractSasExpiry(sasUrl);
+      if (!sasExpiry || sasExpiry <= new Date()) {
+        // SAS wygasł — pobierz świeże wersje pliku z API
+        const scope = getCurrentScope();
+        const res = await projectApi.getFileVersions(user.activeTenantId, projectId, fileId, scope);
+        const freshVersions = res.data;
+        const freshVersion = freshVersions?.[0]; // Najnowsza wersja
+        if (freshVersion?.sasUrlDownload) {
+          downloadUrl = freshVersion.sasUrlDownload;
+        }
+      }
+    } catch {
+      // W razie błędu spróbuj z oryginalnym URL-em
+    }
+
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => document.body.removeChild(link), 200);
+  };
+
+  // Wyciąga datę wygaśnięcia z SAS URL (parametr "se")
+  const extractSasExpiry = (sasUrl: string): Date | null => {
+    try {
+      const url = new URL(sasUrl);
+      const se = url.searchParams.get("se");
+      if (se) return new Date(se);
+    } catch { /* niepoprawny URL */ }
+    return null;
   };
 
   const toggleFileVersions = (fileId: string) => {
@@ -782,47 +801,52 @@ export default function ProjectFiles() {
           <Td>
             <HStack spacing={1} flexWrap="wrap">
               {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) && (
-                <IconButton
-                  aria-label="Podgląd"
-                  icon={<Eye size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="purple"
-                  onClick={() => handlePreview(file.currentVersion.sasUrlView)}
-                />
+                <Tooltip label="Podgląd" hasArrow>
+                  <IconButton
+                    aria-label="Podgląd"
+                    icon={<Eye size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="purple"
+                    onClick={() => handlePreview(file.currentVersion.sasUrlView)}
+                  />
+                </Tooltip>
               )}
               {file.currentVersion && (
-                <IconButton
-                  aria-label="Pobierz"
-                  icon={<Download size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="blue"
-                  onClick={() => {
-                    const fileName = file.fileName || file.displayName || 'plik';
-                    handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
-                  }}
-                />
+                <Tooltip label="Pobierz plik" hasArrow>
+                  <IconButton
+                    aria-label="Pobierz"
+                    icon={<Download size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="blue"
+                    onClick={() => handleDownloadFile(fileId, file.currentVersion.sasUrlDownload)}
+                  />
+                </Tooltip>
               )}
               {((!isShared && resourcePerms.mine.canEdit) || (isShared && resourcePerms.shared.canEdit)) && (
-                <IconButton
-                  aria-label="Nowa wersja"
-                  icon={<Upload size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="green"
-                  onClick={() => openUploadVersionModal(file)}
-                />
+                <Tooltip label="Dodaj nową wersję" hasArrow>
+                  <IconButton
+                    aria-label="Nowa wersja"
+                    icon={<Plus size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="green"
+                    onClick={() => openUploadVersionModal(file)}
+                  />
+                </Tooltip>
               )}
               {!isShared && resourcePerms.mine.canManageShare && (
-                <IconButton
-                  aria-label="Zarządzaj udostępnieniem"
-                  icon={<Share2 size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="orange"
-                  onClick={() => openManageShareModal(file)}
-                />
+                <Tooltip label="Zarządzaj udostępnieniem" hasArrow>
+                  <IconButton
+                    aria-label="Zarządzaj udostępnieniem"
+                    icon={<Share2 size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="orange"
+                    onClick={() => openManageShareModal(file)}
+                  />
+                </Tooltip>
               )}
               {file.totalVersions && file.totalVersions > 0 && (
                 <Button
@@ -875,25 +899,20 @@ export default function ProjectFiles() {
                             </HStack>
                             <HStack spacing={1}>
                               {isPreviewSupported(version.contentType) && (
-                                <IconButton
-                                  aria-label="Podgląd"
-                                  icon={<Eye size={14} />}
-                                  size="xs"
-                                  colorScheme="purple"
-                                  onClick={() => handlePreview(version.sasUrlView)}
-                                />
+                                <Tooltip label="Podgląd" hasArrow>
+                                  <IconButton
+                                    aria-label="Podgląd"
+                                    icon={<Eye size={14} />}
+                                    size="xs"
+                                    colorScheme="purple"
+                                    onClick={() => handlePreview(version.sasUrlView)}
+                                  />
+                                </Tooltip>
                               )}
                               <Button
                                 size="xs"
                                 leftIcon={<Download size={14} />}
-                                onClick={() => {
-                                  const fileName = file.fileName || file.displayName || 'plik';
-                                  const isCurrentVersion = version.id === file.currentVersion?.id;
-                                  const finalName = isCurrentVersion
-                                    ? fileName
-                                    : fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`);
-                                  handleDownloadFile(version.sasUrlDownload, finalName);
-                                }}
+                                onClick={() => handleDownloadFile(fileId, version.sasUrlDownload)}
                               >
                                 Pobierz
                               </Button>
