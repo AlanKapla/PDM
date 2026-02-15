@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTouchReorder } from "../hooks/useTouchReorder";
 import {
   Modal,
   ModalOverlay,
@@ -199,6 +200,9 @@ export default function CreateCustomTemplateModal({
 
   // Drag and drop state dla układu pól
   const [draggedIndexLayout, setDraggedIndexLayout] = useState<number | null>(null);
+
+  // Obsługa przeciągania na urządzeniach dotykowych (smartfony, tablety)
+  const { createTouchHandlers } = useTouchReorder();
 
   // Update state when existingTemplate changes (e.g., after async load)
   useEffect(() => {
@@ -945,6 +949,12 @@ export default function CreateCustomTemplateModal({
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
+                  {...createTouchHandlers(index, draggedIndexLayout, setDraggedIndexLayout, (from, to) => {
+                    const newLayout = [...validatedLayout];
+                    const [moved] = newLayout.splice(from, 1);
+                    newLayout.splice(to, 0, moved);
+                    setColumnLayout(newLayout);
+                  })}
                   transition="all 0.2s"
                 >
                   <Icon as={GripVertical} color="gray.500" />
@@ -2185,6 +2195,9 @@ interface NestedFieldsEditorProps {
 function NestedFieldsEditor({ field, onUpdate }: NestedFieldsEditorProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [draggedType, setDraggedType] = useState<'calculated' | 'generic' | null>(null);
+
+  // Obsługa przeciągania na urządzeniach dotykowych
+  const { createTouchHandlers: createNestedTouchHandlers } = useTouchReorder({ itemSelector: '[data-touch-draggable-nested]' });
   
   const nestedCalculatedFields = field.nestedFields?.calculatedFields ?? [];
   const nestedGenericFields = field.nestedFields?.genericFields ?? [];
@@ -2740,6 +2753,28 @@ function NestedFieldsEditor({ field, onUpdate }: NestedFieldsEditorProps) {
                   onDragStart={() => handleDragStart(index, nestedField.fieldType)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
+                  {...createNestedTouchHandlers(index, draggedIndex, setDraggedIndex, (from, to) => {
+                    const reorderedFields = [...allNestedFields];
+                    const [moved] = reorderedFields.splice(from, 1);
+                    reorderedFields.splice(to, 0, moved);
+                    reorderedFields.forEach((f, idx) => { f.order = idx; });
+                    const updatedCalc = reorderedFields
+                      .filter(f => f.fieldType === 'calculated')
+                      .map(({ fieldType, ...rest }) => rest as CalculatedFieldDefinition);
+                    const updatedGen = reorderedFields
+                      .filter(f => f.fieldType === 'generic')
+                      .map(({ fieldType, ...rest }) => rest as GenericFieldDefinition);
+                    onUpdate({
+                      nestedFields: {
+                        isSelectableCollection: field.nestedFields?.isSelectableCollection ?? false,
+                        enableCalculatedFieldsSummation: field.nestedFields?.enableCalculatedFieldsSummation ?? false,
+                        ...field.nestedFields,
+                        calculatedFields: updatedCalc,
+                        genericFields: updatedGen,
+                      },
+                    });
+                  })}
+                  data-touch-draggable-nested
                   transition="all 0.2s"
                   spacing={3}
                 >

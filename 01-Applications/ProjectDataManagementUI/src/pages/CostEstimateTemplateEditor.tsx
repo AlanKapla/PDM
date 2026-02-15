@@ -118,6 +118,7 @@ import { CostEstimateStatus } from "../types/costEstimate.types.new";
 type CostEstimateItemFieldValueWeb = CostEstimateFieldValueWeb;
 type CostEstimateGroupFieldValueWeb = CostEstimateFieldValueWeb;
 import MainLayout from "../layout/MainLayout";
+import { useTouchReorder } from "../hooks/useTouchReorder";
 import { LoadingSpinner } from "../components/common";
 
 // Funkcja generująca unikalne GUID dla fieldName
@@ -233,6 +234,9 @@ export default function CostEstimateTemplateEditor() {
   // UI Configuration State
   const [columns, setColumns] = useState<ColumnConfigurationWeb[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Obsługa przeciągania na urządzeniach dotykowych (smartfony, tablety)
+  const { createTouchHandlers } = useTouchReorder();
 
   // Field Type Configurations (loaded from BE)
   const [fieldTypeConfigs, setFieldTypeConfigs] = useState<Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>({});
@@ -1478,6 +1482,12 @@ export default function CostEstimateTemplateEditor() {
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
+                  {...createTouchHandlers(index, draggedIndex, setDraggedIndex, (from, to) => {
+                    const newCols = [...validatedColumns];
+                    const [moved] = newCols.splice(from, 1);
+                    newCols.splice(to, 0, moved);
+                    setColumns(newCols.map((col, idx) => ({ ...col, order: idx })));
+                  })}
                   transition="all 0.2s"
                 >
                   <Icon as={GripVertical} color="gray.500" />
@@ -2197,6 +2207,9 @@ function SystemFieldsEditor({
   const availableSystemFields = fieldTypeConfigs[1] || [];
   const availableCalculatedFields = fieldTypeConfigs[2] || [];
   const availableGenericFields = fieldTypeConfigs[3] || [];
+
+  // Obsługa przeciągania child fields na urządzeniach dotykowych
+  const { createTouchHandlers: createChildTouchHandlers } = useTouchReorder({ itemSelector: '[data-touch-draggable-child]' });
   
   // Fallback labels jeśli nie ma konfiguracji
   const systemFieldTypeLabels: Record<SystemFieldType, string> = {
@@ -2643,6 +2656,18 @@ function SystemFieldsEditor({
                                 _hover={{ bg: draggedChildIndex === sortedIdx ? 'blue.50' : 'gray.50' }}
                                 _active={{ cursor: 'grabbing' }}
                                 transition="all 0.15s"
+                                {...createChildTouchHandlers(sortedIdx, draggedChildIndex, setDraggedChildIndex, (from, to) => {
+                                  const parentField = fields[index];
+                                  if (!parentField.childFields) return;
+                                  const sorted = [...parentField.childFields]
+                                    .map((cf, idx) => ({ cf, idx }))
+                                    .sort((a, b) => (a.cf.order ?? a.idx) - (b.cf.order ?? b.idx));
+                                  const [moved] = sorted.splice(from, 1);
+                                  sorted.splice(to, 0, moved);
+                                  const withOrder = sorted.map((s, i) => ({ ...s.cf, order: i }));
+                                  onUpdate(index, { childFields: withOrder });
+                                })}
+                                data-touch-draggable-child
                               >
                                 <Td w="40px" px={2}>
                                   <Icon as={GripVertical} color="gray.400" boxSize={4} />
