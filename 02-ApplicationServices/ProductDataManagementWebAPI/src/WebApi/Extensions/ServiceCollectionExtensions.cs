@@ -42,6 +42,7 @@ namespace WebApi.Extensions
             services
                 .AddApiBasics()
                 .AddDatabase(config)
+                .AddRedisCache(config)
                 .AddCqrs()
                 .AddAzureAdB2C(config)
                 .AddMicrosoftGraph(config)
@@ -141,6 +142,26 @@ namespace WebApi.Extensions
                                 49918, 49919, 49920
                             });
                     }));
+            return services;
+        }
+
+        public static IServiceCollection AddRedisCache(this IServiceCollection services, IConfiguration config)
+        {
+            var redisSettings = config.GetSection(RedisSettings.SectionName).Get<RedisSettings>();
+
+            if (redisSettings != null && !string.IsNullOrWhiteSpace(redisSettings.ConnectionString))
+            {
+                services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
+                {
+                    var configuration = StackExchange.Redis.ConfigurationOptions.Parse(redisSettings.ConnectionString);
+                    configuration.AbortOnConnectFail = false;
+                    configuration.ConnectTimeout = 15000;
+                    configuration.SyncTimeout = 15000;
+                    configuration.Ssl = true;
+                    return StackExchange.Redis.ConnectionMultiplexer.Connect(configuration);
+                });
+            }
+
             return services;
         }
 
@@ -328,6 +349,12 @@ namespace WebApi.Extensions
             // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();
             services.AddScoped<CostEstimateItemValidator>();
+            
+            // Cache service
+            services.AddScoped<ICacheService, CacheService>();
+            
+            // Project files cache service
+            services.AddScoped<IProjectFilesService, ProjectFilesService>();
 
             services.AddHostedService<StartupSeederService>();
             services.AddHostedService<RolePermissionSeederService>();
@@ -371,6 +398,7 @@ namespace WebApi.Extensions
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
             services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
+            services.Configure<RedisSettings>(config.GetSection(RedisSettings.SectionName));
             return services;
         }
 

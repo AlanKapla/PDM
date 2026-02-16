@@ -25,6 +25,16 @@ namespace Repositories.Repository.Repositories
         {
             return await _dbSet.Where(predicate).Select(x => x.Id).ToListAsync(cancellationToken);
         }
+
+        public async Task<Dictionary<Guid, T>> GetDictionaryBySearchAsync(
+            Expression<Func<T, bool>> predicate,
+            CancellationToken cancellationToken = default,
+            params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet.IncludeMultiple(includes);
+            List<T> entities = await query.Where(predicate).ToListAsync(cancellationToken);
+            return entities.ToDictionary(x => x.Id);
+        }
     }
 
 }

@@ -244,6 +244,22 @@ namespace Business.Implementation.Services
             await Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Pre-fetch User Delegation Key do cache aby uniknąć cache stampede przy parallel operations
+        /// </summary>
+        public async Task EnsureUserDelegationKeyAsync(int expiresInMinutes = 60, CancellationToken cancellationToken = default)
+        {
+            var startsOn = DateTimeOffset.UtcNow.AddMinutes(-5);
+            var expiresOn = DateTimeOffset.UtcNow.AddMinutes(expiresInMinutes);
+            
+            // Wywołaj GetOrCreateUserDelegationKey aby zapewnić że klucz jest w cache
+            // Jeśli już jest - instant return z cache
+            // Jeśli nie ma - utworzy nowy i cachuje
+            _ = GetOrCreateUserDelegationKey(startsOn, expiresOn);
+            
+            await Task.CompletedTask;
+        }
+
         public async Task<bool> UpdateBlobContentDispositionAsync(string containerName, string blobName, string contentDisposition, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(containerName))

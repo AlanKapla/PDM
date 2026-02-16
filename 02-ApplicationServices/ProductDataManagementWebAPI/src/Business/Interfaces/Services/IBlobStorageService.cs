@@ -29,6 +29,14 @@ namespace Business.Interfaces.Services
         Uri GenerateSasUri(string containerName, string blobName, string fileName, int expiresInMinutes = 60, string contentDisposition = "inline");
         
         /// <summary>
+        /// Pre-fetch User Delegation Key do cache aby uniknąć cache stampede przy parallel operations
+        /// Wywołaj przed Parallel.ForEachAsync który generuje wiele SAS URI
+        /// </summary>
+        /// <param name="expiresInMinutes">Czas ważności klucza w minutach</param>
+        /// <param name="cancellationToken">Token anulowania</param>
+        Task EnsureUserDelegationKeyAsync(int expiresInMinutes = 60, CancellationToken cancellationToken = default);
+        
+        /// <summary>
         /// Aktualizuje Content-Disposition metadata dla istniejącego bloba
         /// Używane do migracji starych blobów bez poprawnej metadaty
         /// </summary>

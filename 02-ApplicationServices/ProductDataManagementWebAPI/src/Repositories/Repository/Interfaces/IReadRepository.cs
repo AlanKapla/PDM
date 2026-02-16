@@ -14,5 +14,14 @@ namespace Repositories.Repository.Interfaces
         /// Wydajne dla dużych zbiorów danych
         /// </summary>
         Task<List<Guid>> GetIdsBySearchAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Pobiera encje spełniające warunek jako słownik [Id -> Entity]
+        /// Wydajne dla operacji lookup po ID
+        /// </summary>
+        Task<Dictionary<Guid, T>> GetDictionaryBySearchAsync(
+            Expression<Func<T, bool>> predicate,
+            CancellationToken cancellationToken = default,
+            params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes);
     }
 }
