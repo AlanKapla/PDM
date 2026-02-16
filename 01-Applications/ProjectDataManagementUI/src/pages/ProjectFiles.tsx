@@ -837,9 +837,9 @@ export default function ProjectFiles() {
                 </Tooltip>
               )}
               {!isShared && resourcePerms.mine.canManageShare && (
-                <Tooltip label="Zarządzaj udostępnieniem" hasArrow>
+                <Tooltip label="Udostępnij" hasArrow>
                   <IconButton
-                    aria-label="Zarządzaj udostępnieniem"
+                    aria-label="Udostępnij"
                     icon={<Share2 size={16} />}
                     size="sm"
                     variant="ghost"

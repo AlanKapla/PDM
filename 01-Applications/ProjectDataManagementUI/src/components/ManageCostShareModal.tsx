@@ -123,7 +123,7 @@ export const ManageCostShareModal = ({
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader>Zarządzaj udostępnieniem kosztu</ModalHeader>
+        <ModalHeader>Udostępnij kosztu</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <VStack align="stretch" spacing={4}>

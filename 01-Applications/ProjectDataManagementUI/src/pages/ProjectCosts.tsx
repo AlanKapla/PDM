@@ -23,6 +23,7 @@ import {
   Td,
   IconButton,
   useDisclosure,
+  Tooltip,
 } from "@chakra-ui/react";
 import { ArrowLeft, Eye, Trash2, Plus, FileText, Copy } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -178,33 +179,39 @@ const MyCostEstimatesTab = React.memo<CostEstimatesTabProps>(({
               </Td>
               <Td textAlign="center">
                 <HStack spacing={1} justify="center">
-                  <IconButton
-                    aria-label="Otwórz"
-                    icon={<Eye size={14} />}
-                    size="xs"
-                    colorScheme="blue"
-                    variant="ghost"
-                    onClick={() => handleViewCostEstimate(costEstimate.id)}
-                  />
-                  {resourcePerms.mine.canEdit && (
+                  <Tooltip label="Otwórz">
                     <IconButton
-                      aria-label="Kopiuj"
-                      icon={<Copy size={14} />}
+                      aria-label="Otwórz"
+                      icon={<Eye size={14} />}
                       size="xs"
-                      colorScheme="purple"
+                      colorScheme="blue"
                       variant="ghost"
-                      onClick={() => handleCopyCostEstimate(costEstimate)}
+                      onClick={() => handleViewCostEstimate(costEstimate.id)}
                     />
+                  </Tooltip>
+                  {resourcePerms.mine.canEdit && (
+                    <Tooltip label="Kopiuj">
+                      <IconButton
+                        aria-label="Kopiuj"
+                        icon={<Copy size={14} />}
+                        size="xs"
+                        colorScheme="purple"
+                        variant="ghost"
+                        onClick={() => handleCopyCostEstimate(costEstimate)}
+                      />
+                    </Tooltip>
                   )}
                   {resourcePerms.mine.canDelete && (
-                    <IconButton
-                      aria-label="Usuń"
-                      icon={<Trash2 size={14} />}
-                      size="xs"
-                      colorScheme="red"
-                      variant="ghost"
-                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
-                    />
+                    <Tooltip label="Usuń">
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={14} />}
+                        size="xs"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => handleDeleteCostEstimate(costEstimate.id)}
+                      />
+                    </Tooltip>
                   )}
                 </HStack>
               </Td>
@@ -314,33 +321,39 @@ const AllCostEstimatesTab = React.memo<CostEstimatesTabProps>(({
               </Td>
               <Td textAlign="center">
                 <HStack spacing={1} justify="center">
-                  <IconButton
-                    aria-label="Otwórz"
-                    icon={<Eye size={14} />}
-                    size="xs"
-                    colorScheme="blue"
-                    variant="ghost"
-                    onClick={() => handleViewCostEstimate(costEstimate.id)}
-                  />
-                  {resourcePerms.all.canEdit && (
+                  <Tooltip label="Otwórz">
                     <IconButton
-                      aria-label="Kopiuj"
-                      icon={<Copy size={14} />}
+                      aria-label="Otwórz"
+                      icon={<Eye size={14} />}
                       size="xs"
-                      colorScheme="purple"
+                      colorScheme="blue"
                       variant="ghost"
-                      onClick={() => handleCopyCostEstimate(costEstimate)}
+                      onClick={() => handleViewCostEstimate(costEstimate.id)}
                     />
+                  </Tooltip>
+                  {resourcePerms.all.canEdit && (
+                    <Tooltip label="Kopiuj">
+                      <IconButton
+                        aria-label="Kopiuj"
+                        icon={<Copy size={14} />}
+                        size="xs"
+                        colorScheme="purple"
+                        variant="ghost"
+                        onClick={() => handleCopyCostEstimate(costEstimate)}
+                      />
+                    </Tooltip>
                   )}
                   {resourcePerms.all.canDelete && (
-                    <IconButton
-                      aria-label="Usuń"
-                      icon={<Trash2 size={14} />}
-                      size="xs"
-                      colorScheme="red"
-                      variant="ghost"
-                      onClick={() => handleDeleteCostEstimate(costEstimate.id)}
-                    />
+                    <Tooltip label="Usuń">
+                      <IconButton
+                        aria-label="Usuń"
+                        icon={<Trash2 size={14} />}
+                        size="xs"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => handleDeleteCostEstimate(costEstimate.id)}
+                      />
+                    </Tooltip>
                   )}
                 </HStack>
               </Td>

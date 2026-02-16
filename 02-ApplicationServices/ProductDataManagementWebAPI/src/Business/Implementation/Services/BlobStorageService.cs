@@ -157,21 +157,19 @@ namespace Business.Implementation.Services
                 // Normalize fileName for safe use in Content-Disposition header
                 string normalizedFileName = FileHelper.NormalizeFileNameForContentDisposition(fileName);
 
-                logger.LogInformation("Generating SAS URI for blob: {BlobName} in container: {ContainerName}, account: {AccountName}, fileName: {FileName} (normalized: {NormalizedFileName}), contentDisposition: {ContentDisposition}", 
-                    blobName, containerName, blobServiceClient.AccountName, fileName, normalizedFileName, contentDisposition);
-
                 BlobContainerClient container = blobServiceClient.GetBlobContainerClient(containerName);
                 BlobClient blob = container.GetBlobClient(blobName);
 
-                var startsOn = DateTimeOffset.UtcNow.AddMinutes(-5);
-                var expiresOn = DateTimeOffset.UtcNow.AddMinutes(expiresInMinutes);
+                // FIXED: Normalize expiration time to 15-minute blocks to maximize cache hits
+                // This prevents cache stampede when calls happen at minute boundaries
+                var now = DateTimeOffset.UtcNow;
+                var startsOn = now.AddMinutes(-5);
+                var expiresOn = NormalizeToBlock(now.AddMinutes(expiresInMinutes), minutes: 15);
 
                 // Użyj cache dla User Delegation Key (IMemoryCache - thread-safe, automatyczne wygasanie)
                 var userDelegationKey = GetOrCreateUserDelegationKey(startsOn, expiresOn);
                 
                 // Prosty format Content-Disposition bez RFC 5987 encoding
-                // Adobe Reader ma problem z parsowaniem filename*=UTF-8''...
-                // Używamy tylko standardowego filename="..." z przestrzeniami (bezpieczne w cudzysłowach)
                 string fullContentDisposition = $"{contentDisposition}; filename=\"{normalizedFileName}\"";
                 
                 // Create SAS with User Delegation Key
@@ -194,9 +192,6 @@ namespace Business.Implementation.Services
                 };
 
                 Uri sasUri = blobUriBuilder.ToUri();
-
-                logger.LogInformation("Successfully generated User Delegation SAS URI for blob {BlobName}, fileName: {FileName} (normalized: {NormalizedFileName}), expires at {ExpiresOn}, disposition: {ContentDisposition}", 
-                    blobName, fileName, normalizedFileName, expiresOn, fullContentDisposition);
 
                 return sasUri;
             }
@@ -237,7 +232,6 @@ namespace Business.Implementation.Services
                 throw;
             }
         }
-
         public async ValueTask DisposeAsync()
         {
             // IMemoryCache jest zarządzany przez DI container - nie wymaga ręcznego Dispose
@@ -245,19 +239,25 @@ namespace Business.Implementation.Services
         }
 
         /// <summary>
-        /// Pre-fetch User Delegation Key do cache aby uniknąć cache stampede przy parallel operations
+        /// Normalizuje DateTimeOffset do bloków (np. 15 minut) aby maksymalizować cache hits.
+        /// Przykład: 10:07 → 10:15, 10:22 → 10:30
         /// </summary>
-        public async Task EnsureUserDelegationKeyAsync(int expiresInMinutes = 60, CancellationToken cancellationToken = default)
+        private static DateTimeOffset NormalizeToBlock(DateTimeOffset dateTime, int minutes)
         {
-            var startsOn = DateTimeOffset.UtcNow.AddMinutes(-5);
-            var expiresOn = DateTimeOffset.UtcNow.AddMinutes(expiresInMinutes);
+            var totalMinutes = dateTime.Minute + (dateTime.Hour * 60);
+            var normalizedMinutes = (int)Math.Ceiling(totalMinutes / (double)minutes) * minutes;
             
-            // Wywołaj GetOrCreateUserDelegationKey aby zapewnić że klucz jest w cache
-            // Jeśli już jest - instant return z cache
-            // Jeśli nie ma - utworzy nowy i cachuje
-            _ = GetOrCreateUserDelegationKey(startsOn, expiresOn);
+            var hours = normalizedMinutes / 60;
+            var mins = normalizedMinutes % 60;
             
-            await Task.CompletedTask;
+            return new DateTimeOffset(
+                dateTime.Year,
+                dateTime.Month,
+                dateTime.Day,
+                hours,
+                mins,
+                0,
+                dateTime.Offset);
         }
 
         public async Task<bool> UpdateBlobContentDispositionAsync(string containerName, string blobName, string contentDisposition, CancellationToken cancellationToken = default)

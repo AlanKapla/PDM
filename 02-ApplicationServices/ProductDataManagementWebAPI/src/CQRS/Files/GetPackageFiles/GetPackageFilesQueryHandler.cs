@@ -104,8 +104,6 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             ? fileAccessService.GetSharedWithUsersAsync(request.PackageId, fileIds, cancellationToken)
             : Task.FromResult(new Dictionary<Guid, List<Guid>>());
 
-        var udkTask = blobStorageService.EnsureUserDelegationKeyAsync(60, cancellationToken);
-
         // Wait for all parallel operations
         await Task.WhenAll(versionsTask, sharingTask, udkTask);
 

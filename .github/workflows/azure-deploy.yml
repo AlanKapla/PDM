@@ -1,6 +1,6 @@
 name: Deploy to Azure
 
-run-name: "Deploy PDM → ${{ github.event.inputs.environment }} → ${{ github.ref_name }} → ${{ github.event.head_commit.message || github.sha }}"
+run-name: "Deploy PDM → ${{ github.event.inputs.environment }} → ${{ github.ref_name }}"
 
 on:
   workflow_dispatch:
@@ -13,6 +13,21 @@ on:
         options:
           - production
           - staging
+      deploy_migration:
+        description: 'Run database migration'
+        required: true
+        default: true
+        type: boolean
+      deploy_api:
+        description: 'Deploy API (backend)'
+        required: true
+        default: true
+        type: boolean
+      deploy_ui:
+        description: 'Deploy UI (frontend)'
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -21,6 +36,7 @@ permissions:
 jobs:
   migrate-database:
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.deploy_migration == 'true' }}
     environment:
       name: azure-${{ github.event.inputs.environment }}
 
@@ -107,6 +123,10 @@ jobs:
   build-and-deploy-api:
     runs-on: ubuntu-latest
     needs: migrate-database
+    if: |
+      always() &&
+      github.event.inputs.deploy_api == 'true' &&
+      (needs.migrate-database.result == 'success' || needs.migrate-database.result == 'skipped')
     environment:
       name: azure-${{ github.event.inputs.environment }}
       url: ${{ vars.API_URL }}
@@ -190,6 +210,10 @@ jobs:
   build-and-deploy-ui:
     runs-on: ubuntu-latest
     needs: build-and-deploy-api
+    if: |
+      always() &&
+      github.event.inputs.deploy_ui == 'true' &&
+      (needs.build-and-deploy-api.result == 'success' || needs.build-and-deploy-api.result == 'skipped')
     environment:
       name: azure-${{ github.event.inputs.environment }}
       url: ${{ vars.FRONTEND_BASE_URL }}
@@ -264,6 +288,7 @@ jobs:
   verify-deployment:
     runs-on: ubuntu-latest
     needs: [migrate-database, build-and-deploy-api, build-and-deploy-ui]
+    if: always() && !cancelled()
     environment:
       name: azure-${{ github.event.inputs.environment }}
 
@@ -272,6 +297,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Check for failures
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "❌ One or more deployment stages failed!"
+          echo "   Migration: ${{ needs.migrate-database.result }}"
+          echo "   API:       ${{ needs.build-and-deploy-api.result }}"
+          echo "   UI:        ${{ needs.build-and-deploy-ui.result }}"
+          exit 1
 
       - name: Verify full stack
         shell: pwsh
@@ -291,6 +325,11 @@ jobs:
           Write-Host "   Author:  $commitAuthor"
           Write-Host "   Date:    $commitDate"
           Write-Host "   Branch:  $branch"
+          Write-Host ""
+          Write-Host "🔧 Stages:"
+          Write-Host "   Migration: ${{ needs.migrate-database.result }}"
+          Write-Host "   API:       ${{ needs.build-and-deploy-api.result }}"
+          Write-Host "   UI:        ${{ needs.build-and-deploy-ui.result }}"
           Write-Host ""
           Write-Host "🌐 URLs:"
           Write-Host "   API: ${{ vars.API_URL }}"

@@ -102,7 +102,7 @@ export const ManageFileShareModal = ({
     <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "md" }}>
       <ModalOverlay />
       <ModalContent mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Zarządzaj udostępnieniem</ModalHeader>
+        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Udostępnij</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <VStack align="stretch" spacing={4}>

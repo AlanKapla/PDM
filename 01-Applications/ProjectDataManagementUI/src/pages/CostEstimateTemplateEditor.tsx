@@ -177,14 +177,15 @@ export default function CostEstimateTemplateEditor() {
   const [templateDescription, setTemplateDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Waluty i jednostki
+  // Waluty i jednostki — domyślnie PLN, żeby zawsze była waluta polska
+  const DEFAULT_PLN_CURRENCY = { code: 'PLN', name: 'Polski Złoty', symbol: 'zł', isDefault: true, order: 0 };
   const [currencies, setCurrencies] = useState<Array<{
     code: string;
     name: string;
     symbol?: string;
     isDefault: boolean;
     order: number;
-  }>>([]);
+  }>>([DEFAULT_PLN_CURRENCY]);
   const [units, setUnits] = useState<Array<{
     code: string;
     name: string;
@@ -471,14 +472,18 @@ export default function CostEstimateTemplateEditor() {
         // Konfiguracja UI
         setColumns(struct.uiConfiguration?.columns ?? []);
         
-        // Załaduj waluty i jednostki
-        setCurrencies(struct.currencies.map(c => ({
+        // Załaduj waluty i jednostki — upewnij się, że PLN jest zawsze obecny
+        const loadedCurrencies = struct.currencies.map(c => ({
           code: c.code,
           name: c.name,
           symbol: c.symbol,
           isDefault: c.isDefault,
           order: c.order,
-        })));
+        }));
+        if (!loadedCurrencies.some(c => c.code === 'PLN')) {
+          loadedCurrencies.push({ ...DEFAULT_PLN_CURRENCY, isDefault: loadedCurrencies.length === 0, order: loadedCurrencies.length });
+        }
+        setCurrencies(loadedCurrencies);
         setUnits(struct.units.map(u => ({
           code: u.code,
           name: u.name,
@@ -1155,6 +1160,15 @@ export default function CostEstimateTemplateEditor() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
+    // Upewnij się, że PLN zawsze jest na liście walut
+    const hasPLN = currencies.some(c => c.code === 'PLN');
+    const finalCurrencies = hasPLN
+      ? currencies
+      : [...currencies, { code: 'PLN', name: 'Polski Złoty', symbol: 'zł', isDefault: currencies.length === 0, order: currencies.length }];
+    if (!hasPLN) {
+      setCurrencies(finalCurrencies);
+    }
+
     try {
       if (templateId && template) {
         // Aktualizacja istniejącego szablonu (bez wersjonowania)
@@ -1169,7 +1183,7 @@ export default function CostEstimateTemplateEditor() {
           autoNumberGroups: groupAutoNumbered,
           groupNumberFormat: groupNumberFormat || undefined,
           updateStructure: true, // Aktualizujemy strukturę
-          currencies: currencies,
+          currencies: finalCurrencies,
           units: units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),
@@ -1243,7 +1257,7 @@ export default function CostEstimateTemplateEditor() {
           autoNumberGroups: groupAutoNumbered,
           groupNumberFormat: groupNumberFormat || undefined,
           updateStructure: true,
-          currencies: currencies,
+          currencies: finalCurrencies,
           units: units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),

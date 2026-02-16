@@ -18,10 +18,14 @@ import {
   AlertDialogOverlay,
   useDisclosure,
   ButtonGroup,
-  Icon,
+  IconButton,
+  HStack,
+  Tooltip,
+  Badge,
 } from '@chakra-ui/react';
-import { ArrowLeft, Save, RefreshCw, Trash2, Eye, Pencil } from 'lucide-react';
+import { ArrowLeft, Save, RefreshCw, Trash2, Eye, Pencil, Maximize2, Minimize2 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import MainLayout from '../layout/MainLayout';
 import { CostEstimateTableView } from '../components/CostEstimate/CostEstimateTableView';
 import { costEstimateApiNew } from '../api/costEstimateApiNew';
 import type { CostEstimateDetailsWeb, CostEstimateGroupWeb, CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../types/costEstimate.types.new';
@@ -53,6 +57,22 @@ export const CostEstimateEditPage: React.FC = () => {
   
   // Przełącznik trybu: edycja / podgląd
   const [isEditMode, setIsEditMode] = useState(true);
+
+  // Tryb pełnoekranowy
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Obsługa klawisza Esc do wyjścia z trybu pełnoekranowego
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   // Załaduj szczegóły kosztorysu
   useEffect(() => {
@@ -828,50 +848,59 @@ export const CostEstimateEditPage: React.FC = () => {
 
   if (!user?.activeTenantId || !projectId || !estimateId) {
     return (
-      <Container>
-        <Box p={3} mt={3} bg="white" borderRadius="md" shadow="sm">
-          Brak wymaganych parametrów (tenantId, projectId, estimateId)
-        </Box>
-      </Container>
+      <MainLayout>
+        <Container>
+          <Box p={3} mt={3} bg="white" borderRadius="md" shadow="sm">
+            Brak wymaganych parametrów (tenantId, projectId, estimateId)
+          </Box>
+        </Container>
+      </MainLayout>
     );
   }
 
   if (loading) {
     return (
-      <Container maxW="100%" py={3}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
-          <Spinner size="xl" />
-        </Box>
-      </Container>
+      <MainLayout>
+        <Container maxW="100%" py={3}>
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
+            <Spinner size="xl" />
+          </Box>
+        </Container>
+      </MainLayout>
     );
   }
 
   if (error && !details) {
     return (
-      <Container maxW="100%" py={3}>
-        <Alert status="error" mb={2}>
-          <AlertIcon />
-          {error}
-          <Button onClick={loadCostEstimate} ml={2}>
-            Spróbuj ponownie
-          </Button>
-        </Alert>
-      </Container>
+      <MainLayout>
+        <Container maxW="100%" py={3}>
+          <Alert status="error" mb={2}>
+            <AlertIcon />
+            {error}
+            <Button onClick={loadCostEstimate} ml={2}>
+              Spróbuj ponownie
+            </Button>
+          </Alert>
+        </Container>
+      </MainLayout>
     );
   }
 
   if (!details) {
     return (
-      <Container maxW="100%" py={3}>
-        <Alert status="warning">
-          <AlertIcon />
-          Nie znaleziono kosztorysu
-        </Alert>
-      </Container>
+      <MainLayout>
+        <Container maxW="100%" py={3}>
+          <Alert status="warning">
+            <AlertIcon />
+            Nie znaleziono kosztorysu
+          </Alert>
+        </Container>
+      </MainLayout>
     );
   }
 
   return (
+    <MainLayout>
     <Container maxW="100%" py={3}>
       {/* Header z przyciskami */}
       <Box p={4} mb={4} bg="white" borderRadius="md" shadow="sm">
@@ -937,12 +966,14 @@ export const CostEstimateEditPage: React.FC = () => {
           );
         })()}
 
-        {/* Przyciski akcji */}
-        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-          <Stack direction="row" spacing={2}>
+        {/* Przyciski akcji — wszystkie size="sm" i h="32px" dla spójnej wysokości */}
+        <HStack spacing={2} justify="space-between" wrap="wrap">
+          <HStack spacing={2}>
             <Button
               colorScheme="blue"
-              leftIcon={saving ? <Spinner size="sm" /> : <Save size={16} />}
+              size="sm"
+              h="32px"
+              leftIcon={saving ? <Spinner size="xs" /> : <Save size={14} />}
               onClick={handleSave}
               isDisabled={!hasChanges || saving || !isEditMode}
             >
@@ -951,34 +982,50 @@ export const CostEstimateEditPage: React.FC = () => {
             
             <Button
               variant="outline"
-              leftIcon={<RefreshCw size={16} />}
+              size="sm"
+              h="32px"
+              leftIcon={<RefreshCw size={14} />}
               onClick={loadCostEstimate}
               isDisabled={loading}
             >
               Odśwież
             </Button>
-          </Stack>
+          </HStack>
           
-          {/* Przełącznik Edycja / Podgląd */}
-          <ButtonGroup isAttached variant="outline" size="sm">
-            <Button
-              leftIcon={<Icon as={Pencil} boxSize={4} />}
-              colorScheme={isEditMode ? 'blue' : 'gray'}
-              variant={isEditMode ? 'solid' : 'outline'}
-              onClick={() => setIsEditMode(true)}
-            >
-              Edycja
-            </Button>
-            <Button
-              leftIcon={<Icon as={Eye} boxSize={4} />}
-              colorScheme={!isEditMode ? 'blue' : 'gray'}
-              variant={!isEditMode ? 'solid' : 'outline'}
-              onClick={() => setIsEditMode(false)}
-            >
-              Podgląd
-            </Button>
-          </ButtonGroup>
-        </Stack>
+          <HStack spacing={2}>
+            <ButtonGroup isAttached variant="outline" size="sm">
+              <Button
+                h="32px"
+                leftIcon={<Pencil size={14} />}
+                colorScheme={isEditMode ? 'blue' : 'gray'}
+                variant={isEditMode ? 'solid' : 'outline'}
+                onClick={() => setIsEditMode(true)}
+              >
+                Edycja
+              </Button>
+              <Button
+                h="32px"
+                leftIcon={<Eye size={14} />}
+                colorScheme={!isEditMode ? 'blue' : 'gray'}
+                variant={!isEditMode ? 'solid' : 'outline'}
+                onClick={() => setIsEditMode(false)}
+              >
+                Podgląd
+              </Button>
+            </ButtonGroup>
+
+            <Tooltip label="Pełny ekran">
+              <IconButton
+                aria-label="Pełny ekran"
+                icon={<Maximize2 size={14} />}
+                size="sm"
+                h="32px"
+                variant="outline"
+                onClick={() => setIsFullscreen(true)}
+              />
+            </Tooltip>
+          </HStack>
+        </HStack>
 
         {hasChanges && (
           <Alert status="info" mt={2}>
@@ -1042,7 +1089,122 @@ export const CostEstimateEditPage: React.FC = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Tryb pełnoekranowy — overlay zakrywający cały ekran */}
+      {isFullscreen && (
+        <Box
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg="white"
+          zIndex={9999}
+          display="flex"
+          flexDirection="column"
+        >
+          {/* Pasek narzędzi w trybie pełnoekranowym */}
+          <Box
+            px={4}
+            py={2}
+            bg="white"
+            borderBottomWidth="1px"
+            borderColor="gray.200"
+            shadow="sm"
+            flexShrink={0}
+          >
+            <HStack justify="space-between" align="center">
+              <HStack spacing={3}>
+                <Text fontSize="lg" fontWeight="bold" isTruncated maxW="400px">
+                  {details.name}
+                </Text>
+                <Badge colorScheme="gray" fontSize="xs">
+                  {details.templateName}
+                </Badge>
+              </HStack>
+
+              <HStack spacing={2}>
+                <Button
+                  colorScheme="blue"
+                  size="sm"
+                  leftIcon={saving ? <Spinner size="sm" /> : <Save size={14} />}
+                  onClick={handleSave}
+                  isDisabled={!hasChanges || saving || !isEditMode}
+                >
+                  {saving ? 'Zapisywanie...' : 'Zapisz'}
+                </Button>
+
+                <Tooltip label="Odśwież">
+                  <IconButton
+                    aria-label="Odśwież"
+                    icon={<RefreshCw size={14} />}
+                    size="sm"
+                    variant="outline"
+                    onClick={loadCostEstimate}
+                    isDisabled={loading}
+                  />
+                </Tooltip>
+
+                <ButtonGroup isAttached variant="outline" size="sm">
+                  <Button
+                    leftIcon={<Pencil size={12} />}
+                    colorScheme={isEditMode ? 'blue' : 'gray'}
+                    variant={isEditMode ? 'solid' : 'outline'}
+                    onClick={() => setIsEditMode(true)}
+                    fontSize="xs"
+                  >
+                    Edycja
+                  </Button>
+                  <Button
+                    leftIcon={<Eye size={12} />}
+                    colorScheme={!isEditMode ? 'blue' : 'gray'}
+                    variant={!isEditMode ? 'solid' : 'outline'}
+                    onClick={() => setIsEditMode(false)}
+                    fontSize="xs"
+                  >
+                    Podgląd
+                  </Button>
+                </ButtonGroup>
+
+                <Tooltip label="Zamknij pełny ekran (Esc)">
+                  <IconButton
+                    aria-label="Zamknij pełny ekran"
+                    icon={<Minimize2 size={18} />}
+                    size="sm"
+                    variant="outline"
+                    colorScheme="red"
+                    onClick={() => setIsFullscreen(false)}
+                  />
+                </Tooltip>
+              </HStack>
+            </HStack>
+
+            {hasChanges && (
+              <Alert status="info" mt={2} py={1} fontSize="sm">
+                <AlertIcon />
+                Masz niezapisane zmiany
+              </Alert>
+            )}
+          </Box>
+
+          {/* Tabela kosztorysu w trybie pełnoekranowym */}
+          <Box flex={1} overflow="hidden" p={2}>
+            <CostEstimateTableView
+              details={details}
+              editable={isEditMode}
+              onDataChange={handleDataChange}
+              onAddGroup={handleAddGroup}
+              onDeleteGroup={handleDeleteGroup}
+              onAddSubGroup={handleAddSubGroup}
+              onAddItem={handleAddItem}
+              onDeleteItem={handleDeleteItem}
+              maxTableHeight="calc(100vh - 110px)"
+            />
+          </Box>
+        </Box>
+      )}
     </Container>
+    </MainLayout>
   );
 };
 
@@ -1063,6 +1225,7 @@ export const CostEstimateViewPage: React.FC = () => {
   }
 
   return (
+    <MainLayout>
     <Container maxW="container.xl" py={3}>
       <Box mb={2}>
         <Button
@@ -1078,5 +1241,6 @@ export const CostEstimateViewPage: React.FC = () => {
         Edytor kosztorysu został usunięty. Użyj komponentu CostEstimateExcelView dla wyświetlania w formie tabeli Excel.
       </Alert>
     </Container>
+    </MainLayout>
   );
 };
