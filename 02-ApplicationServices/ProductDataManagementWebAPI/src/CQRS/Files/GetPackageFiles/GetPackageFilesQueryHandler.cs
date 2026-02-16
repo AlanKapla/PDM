@@ -105,7 +105,7 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             : Task.FromResult(new Dictionary<Guid, List<Guid>>());
 
         // Wait for all parallel operations
-        await Task.WhenAll(versionsTask, sharingTask, udkTask);
+        await Task.WhenAll(versionsTask, sharingTask);
 
         var versionsResult = await versionsTask;
         var sharedWithDict = await sharingTask;
