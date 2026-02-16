@@ -85,16 +85,12 @@ namespace CQRS.Files.SharePackages
             Guid userId,
             CancellationToken cancellationToken)
         {
-            // Usuń wszystkie wpisy dla tej paczki z FileId (Allow i Deny)
-            var existingFileShares = await sharedProjectFileRepo.GetBySearch(
+            // Usuń wszystkie wpisy dla tej paczki z FileId (Allow i Deny) jednym zapytaniem SQL
+            await sharedProjectFileRepo.ExecuteDeleteAsync(
                 spf => spf.ProjectFilePackageId == packageId
                     && spf.ProjectFileId != null
-                    && spf.SharedWithUserId == userId);
-
-            if (existingFileShares.Any())
-            {
-                await sharedProjectFileRepo.DeleteRange(existingFileShares);
-            }
+                    && spf.SharedWithUserId == userId,
+                cancellationToken);
 
             // Sprawdź czy paczka już jest udostępniona
             var existingPackageShare = await sharedProjectFileRepo.GetFirstBySearch(
