@@ -93,8 +93,8 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             }
         }
 
-        // OPTIMIZATION 3: Fetch versions + users + sharing + UDK in PARALLEL
-        var versionsTask = currentVersionIds.Count > 0
+        // OPTIMIZATION 3: Fetch versions + sharing in PARALLEL
+        var versionDataTask = currentVersionIds.Count > 0
             ? projectFilesService.GetVersionsByIdsAsync(request.TenantId, request.ProjectId, currentVersionIds, cancellationToken)
             : Task.FromResult(new ProjectFileVersionsResult());
 
@@ -104,15 +104,22 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             ? fileAccessService.GetSharedWithUsersAsync(request.PackageId, fileIds, cancellationToken)
             : Task.FromResult(new Dictionary<Guid, List<Guid>>());
 
-        // Wait for all parallel operations
-        await Task.WhenAll(versionsTask, sharingTask);
+        // Wait for versions and sharing
+        await Task.WhenAll(versionDataTask, sharingTask);
 
-        var versionsResult = await versionsTask;
+        var versionsResult = await versionDataTask;
         var sharedWithDict = await sharingTask;
 
-        // Fetch users ONLY if needed
-        var userDict = versionsResult.CreatedByUserIds.Count > 0
-            ? await userRepository.GetDictionaryBySearchAsync(u => versionsResult.CreatedByUserIds.Contains(u.Id), cancellationToken)
+        // Collect ALL user IDs: version creators + file owners
+        var allUserIds = new HashSet<Guid>(versionsResult.CreatedByUserIds);
+        foreach (var file in accessibleFiles)
+        {
+            allUserIds.Add(file.OwnerId);
+        }
+
+        // Fetch ALL users at once
+        var userDict = allUserIds.Count > 0
+            ? await userRepository.GetDictionaryBySearchAsync(u => allUserIds.Contains(u.Id), cancellationToken)
             : new Dictionary<Guid, User>();
 
         bool isOwnerView = request.Scope == ResourceScope.Mine;
@@ -263,7 +270,9 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             PackageName = packageName,
             CreatedAt = fileDto.CreatedAt,
             OwnerId = fileDto.OwnerId,
-            OwnerName = string.Empty,
+            OwnerName = userDict.TryGetValue(fileDto.OwnerId, out User? owner)
+                ? $"{owner.FirstName} {owner.LastName}".Trim()
+                : string.Empty,
             CurrentVersion = currentVersionWeb,
             Versions = new List<ProjectFileVersionWeb>(),
             TotalVersions = totalVersions,
