@@ -337,9 +337,6 @@ namespace WebApi.Extensions
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
             
-            // File access service - checking access with Package + Allow/Deny model
-            services.AddScoped<IFileAccessService, FileAccessService>();
-            
             // Cost estimate calculation service
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
             
@@ -353,7 +350,6 @@ namespace WebApi.Extensions
             // Cache service
             services.AddScoped<ICacheService, CacheService>();
             
-            // Project files cache service
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
 
             services.AddHostedService<StartupSeederService>();
@@ -364,12 +360,8 @@ namespace WebApi.Extensions
 
         public static IServiceCollection AddMicrosoftGraph(this IServiceCollection services, IConfiguration config)
         {
-            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>();
-
-            if (azureAdB2CSettings == null)
-            {
-                throw new InvalidOperationException("AzureAdB2C settings are not configured");
-            }
+            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>()
+                ?? throw new InvalidOperationException("AzureAdB2C settings are not configured");
 
             if (string.IsNullOrEmpty(azureAdB2CSettings.ClientSecret))
             {

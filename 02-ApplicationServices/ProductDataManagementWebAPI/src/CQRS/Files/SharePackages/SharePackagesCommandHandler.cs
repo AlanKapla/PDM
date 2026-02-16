@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -15,17 +16,20 @@ namespace CQRS.Files.SharePackages
     {
         private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
         private readonly IRepository<ProjectFilePackage> packageRepo;
+        private readonly IProjectFilesService projectFilesService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<SharePackagesCommandHandler> logger;
 
         public SharePackagesCommandHandler(
             IRepository<SharedProjectFile> sharedProjectFileRepo,
             IRepository<ProjectFilePackage> packageRepo,
+            IProjectFilesService projectFilesService,
             ICurrentUser currentUser,
             ILogger<SharePackagesCommandHandler> logger)
         {
             this.sharedProjectFileRepo = sharedProjectFileRepo;
             this.packageRepo = packageRepo;
+            this.projectFilesService = projectFilesService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -66,6 +70,9 @@ namespace CQRS.Files.SharePackages
             }
 
             await sharedProjectFileRepo.SaveChangesAsync(cancellationToken);
+
+            // Invalidate file access cache
+            await projectFilesService.InvalidateFileAccessCacheAsync(request.ProjectId, cancellationToken);
 
             logger.LogInformation(
                 "{PackageCount} packages shared with {UserCount} users by {CurrentUserId}",

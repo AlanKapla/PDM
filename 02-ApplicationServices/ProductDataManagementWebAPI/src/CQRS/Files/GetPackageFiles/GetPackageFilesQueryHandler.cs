@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Configurations;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
@@ -15,23 +14,17 @@ namespace CQRS.Files.GetPackageFiles;
 public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery, List<ProjectFileWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
-    private readonly IFileAccessService fileAccessService;
     private readonly IReadRepository<User> userRepository;
     private readonly ICurrentUser currentUser;
-    private readonly IBlobStorageService blobStorageService;
 
     public GetPackageFilesQueryHandler(
         IProjectFilesService projectFilesService,
-        IFileAccessService fileAccessService,
         IReadRepository<User> userRepository,
-        ICurrentUser currentUser,
-        IBlobStorageService blobStorageService)
+        ICurrentUser currentUser)
     {
         this.projectFilesService = projectFilesService;
-        this.fileAccessService = fileAccessService;
         this.userRepository = userRepository;
         this.currentUser = currentUser;
-        this.blobStorageService = blobStorageService;
     }
 
     public async Task<List<ProjectFileWeb>> Handle(GetPackageFilesQuery request, CancellationToken cancellationToken)
@@ -93,22 +86,29 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             }
         }
 
-        // OPTIMIZATION 3: Fetch versions + sharing in PARALLEL
-        var versionDataTask = currentVersionIds.Count > 0
-            ? projectFilesService.GetVersionsByIdsAsync(request.TenantId, request.ProjectId, currentVersionIds, cancellationToken)
-            : Task.FromResult(new ProjectFileVersionsResult());
+        // OPTIMIZATION 3: Fetch SAS URIs + sharing in PARALLEL
+        var sasUrisTask = currentVersionIds.Count > 0
+            ? projectFilesService.GetFileVersionsSasUrisAsync(request.TenantId, request.ProjectId, currentVersionIds.ToArray())
+            : Task.FromResult(new Dictionary<Guid, FileVersionSasUriInfo>());
 
         var fileIds = accessibleFiles.Select(f => f.Id).ToHashSet();
         
         var sharingTask = (request.Scope == ResourceScope.Mine || request.Scope == ResourceScope.All)
-            ? fileAccessService.GetSharedWithUsersAsync(request.PackageId, fileIds, cancellationToken)
+            ? projectFilesService.GetSharedWithUsersAsync(request.PackageId, fileIds, cancellationToken)
             : Task.FromResult(new Dictionary<Guid, List<Guid>>());
 
-        // Wait for versions and sharing
-        await Task.WhenAll(versionDataTask, sharingTask);
+        // Wait for SAS URIs and sharing
+        await Task.WhenAll(sasUrisTask, sharingTask);
+
+        var sasUrisDict = await sasUrisTask;
+        var sharedWithDict = await sharingTask;
+
+        // Collect user IDs from SAS URIs (they contain CreatedByUserId info via version data)
+        var versionDataTask = currentVersionIds.Count > 0
+            ? projectFilesService.GetVersionsByIdsAsync(request.TenantId, request.ProjectId, currentVersionIds, cancellationToken)
+            : Task.FromResult(new ProjectFileVersionsResult());
 
         var versionsResult = await versionDataTask;
-        var sharedWithDict = await sharingTask;
 
         // Collect ALL user IDs: version creators + file owners
         var allUserIds = new HashSet<Guid>(versionsResult.CreatedByUserIds);
@@ -123,16 +123,15 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             : new Dictionary<Guid, User>();
 
         bool isOwnerView = request.Scope == ResourceScope.Mine;
-        string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
 
-        // OPTIMIZATION 4: Increase parallelism for SAS URI generation
+        // OPTIMIZATION 4: Increase parallelism for mapping
         var result = new ConcurrentBag<ProjectFileWeb>();
 
         await Parallel.ForEachAsync(
             accessibleFiles,
             new ParallelOptions 
             { 
-                MaxDegreeOfParallelism = 20, // Increased from 10 to 20
+                MaxDegreeOfParallelism = 20,
                 CancellationToken = cancellationToken 
             },
             async (fileDto, ct) =>
@@ -147,18 +146,22 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
                     ? shared
                     : new List<Guid>();
 
-                var fileWeb = await MapToProjectFileWebAsync(
+                var sasUris = fileDto.CurrentVersionId.HasValue
+                    ? sasUrisDict.GetValueOrDefault(fileDto.CurrentVersionId.Value)
+                    : null;
+
+                var fileWeb = MapToProjectFileWeb(
                     fileDto,
                     packageDto.Name,
-                    containerName,
                     currentVersionDto,
                     userDict,
                     totalVersions,
                     isOwnerView,
                     sharedWithUserIds,
-                    ct);
+                    sasUris);
 
                 result.Add(fileWeb);
+                await Task.CompletedTask;
             });
 
         // Sort results by CreatedAt desc
@@ -188,8 +191,8 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             return packageFiles.Where(f => f.OwnerId == currentUser.Id).ToList();
         }
 
-        // ResourceScope.Shared - use FileAccessService
-        PackageAccessInfo accessInfo = await fileAccessService.GetPackageAccessInfoAsync(
+        // ResourceScope.Shared - use ProjectFilesService
+        PackageAccessInfo accessInfo = await projectFilesService.GetPackageAccessInfoAsync(
             currentUser,
             packageId,
             scope,
@@ -207,39 +210,20 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
         }
     }
 
-    private async Task<ProjectFileWeb> MapToProjectFileWebAsync(
+    private ProjectFileWeb MapToProjectFileWeb(
         ProjectFileCacheDto fileDto,
         string packageName,
-        string containerName,
         ProjectFileVersionDto? currentVersionDto,
         Dictionary<Guid, User> userDict,
         int totalVersions,
         bool isOwnerView,
         List<Guid> sharedWithUserIds,
-        CancellationToken cancellationToken)
+        FileVersionSasUriInfo? sasUris)
     {
         ProjectFileVersionWeb? currentVersionWeb = null;
 
-        if (currentVersionDto != null)
+        if (currentVersionDto != null && sasUris != null)
         {
-            string extension = Path.GetExtension(fileDto.FileName);
-            string displayNameWithExtension = $"{fileDto.DisplayName}{extension}";
-
-            // Generate SAS URIs on-the-fly (User Delegation Key is cached in BlobStorageService)
-            Uri sasUriView = blobStorageService.GenerateSasUri(
-                containerName,
-                currentVersionDto.BlobPath,
-                displayNameWithExtension,
-                expiresInMinutes: 60,
-                contentDisposition: "inline");
-
-            Uri sasUriDownload = blobStorageService.GenerateSasUri(
-                containerName,
-                currentVersionDto.BlobPath,
-                displayNameWithExtension,
-                expiresInMinutes: 60,
-                contentDisposition: "attachment");
-
             string createdByUserName = string.Empty;
             if (userDict.TryGetValue(currentVersionDto.CreatedByUserId, out User? user))
             {
@@ -256,8 +240,8 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
                 CreatedAt = currentVersionDto.CreatedAt,
                 CreatedByUserId = currentVersionDto.CreatedByUserId,
                 CreatedByUserName = createdByUserName,
-                SasUrlView = sasUriView.ToString(),
-                SasUrlDownload = sasUriDownload.ToString(),
+                SasUrlView = sasUris.SasUriView,
+                SasUrlDownload = sasUris.SasUriDownload,
                 Comments = new List<ProjectFileVersionCommentWeb>()
             };
         }

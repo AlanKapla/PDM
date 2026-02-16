@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using CQRS;
 using Entities.Models;
 using MediatR;
@@ -17,6 +18,7 @@ namespace CQRS.Files.AddFileVersionComment
         private readonly IRepository<ProjectFileVersionComment> commentRepo;
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
+        private readonly IProjectFilesService projectFilesService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<AddFileVersionCommentCommandHandler> logger;
 
@@ -24,12 +26,14 @@ namespace CQRS.Files.AddFileVersionComment
             IRepository<ProjectFileVersionComment> commentRepo,
             IRepository<ProjectFile> projectFileRepo,
             IRepository<ProjectFileVersion> projectFileVersionRepo,
+            IProjectFilesService projectFilesService,
             ICurrentUser currentUser,
             ILogger<AddFileVersionCommentCommandHandler> logger)
         {
             this.commentRepo = commentRepo;
             this.projectFileRepo = projectFileRepo;
             this.projectFileVersionRepo = projectFileVersionRepo;
+            this.projectFilesService = projectFilesService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -79,6 +83,9 @@ namespace CQRS.Files.AddFileVersionComment
             };
 
             await commentRepo.Insert(comment);
+
+            // Invalidate comments cache
+            await projectFilesService.InvalidateProjectCommentsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             logger.LogInformation(
                 "Comment added to file version {VersionId} of file {FileId} in project {ProjectId} by user {UserId}",

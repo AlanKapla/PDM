@@ -21,6 +21,29 @@ public interface ICacheService
         CancellationToken cancellationToken = default) where T : class;
 
     /// <summary>
+    /// Pobiera wiele wartości z cache jednocześnie używając MGET
+    /// </summary>
+    /// <typeparam name="T">Typ cachowanej wartości (musi być klasą)</typeparam>
+    /// <param name="keys">Lista kluczy cache do pobrania</param>
+    /// <param name="cancellationToken">Token anulowania operacji</param>
+    /// <returns>Słownik [klucz -> wartość] dla znalezionych wpisów</returns>
+    Task<Dictionary<string, T>> GetManyAsync<T>(
+        IEnumerable<string> keys,
+        CancellationToken cancellationToken = default) where T : class;
+
+    /// <summary>
+    /// Zapisuje wiele wartości w cache jednocześnie używając MSET
+    /// </summary>
+    /// <typeparam name="T">Typ cachowanej wartości (musi być klasą)</typeparam>
+    /// <param name="items">Słownik [klucz -> wartość] do zapisania</param>
+    /// <param name="expiration">Opcjonalny czas wygaśnięcia cache</param>
+    /// <param name="cancellationToken">Token anulowania operacji</param>
+    Task SetManyAsync<T>(
+        Dictionary<string, T> items,
+        TimeSpan? expiration = null,
+        CancellationToken cancellationToken = default) where T : class;
+
+    /// <summary>
     /// Usuwa pojedynczy klucz z cache
     /// </summary>
     /// <param name="key">Klucz cache do usunięcia</param>

@@ -13,18 +13,15 @@ namespace CQRS.Files.GetVersionComments;
 public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionCommentsQuery, List<ProjectFileVersionCommentWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
-    private readonly IFileAccessService fileAccessService;
     private readonly IReadRepository<User> userRepository;
     private readonly ICurrentUser currentUser;
 
     public GetVersionCommentsQueryHandler(
         IProjectFilesService projectFilesService,
-        IFileAccessService fileAccessService,
         IReadRepository<User> userRepository,
         ICurrentUser currentUser)
     {
         this.projectFilesService = projectFilesService;
-        this.fileAccessService = fileAccessService;
         this.userRepository = userRepository;
         this.currentUser = currentUser;
     }
@@ -138,8 +135,8 @@ public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionComments
             return true;
         }
 
-        // ResourceScope.Shared - use FileAccessService
-        return await fileAccessService.HasAccessToFileAsync(
+        // ResourceScope.Shared - use ProjectFilesService
+        return await projectFilesService.HasAccessToFileAsync(
             currentUser,
             fileDto.ProjectFilePackageId,
             fileDto.Id,

@@ -15,6 +15,7 @@ namespace CQRS.Files.DeleteProjectFile
         private readonly IReadRepository<SharedProjectFile> sharedFileRepo;
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
         private readonly IBlobStorageService blobStorageService;
+        private readonly IProjectFilesService projectFilesService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteProjectFileCommandHandler> logger;
 
@@ -23,6 +24,7 @@ namespace CQRS.Files.DeleteProjectFile
             IReadRepository<SharedProjectFile> sharedFileRepo,
             IRepository<ProjectFileVersion> projectFileVersionRepo,
             IBlobStorageService blobStorageService,
+            IProjectFilesService projectFilesService,
             ICurrentUser currentUser,
             ILogger<DeleteProjectFileCommandHandler> logger)
         {
@@ -30,6 +32,7 @@ namespace CQRS.Files.DeleteProjectFile
             this.sharedFileRepo = sharedFileRepo;
             this.projectFileVersionRepo = projectFileVersionRepo;
             this.blobStorageService = blobStorageService;
+            this.projectFilesService = projectFilesService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -57,10 +60,16 @@ namespace CQRS.Files.DeleteProjectFile
             var versions = await projectFileVersionRepo.GetBySearch(
                 v => v.ProjectFileId == file.Id && !v.IsDeleted);
 
+            var versionsList = versions.ToList();
+
+            // 5. Check if file was shared
+            bool wasShared = await sharedFileRepo.AnyAsync(
+                spf => spf.ProjectFileId == request.FileId);
+
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
 
             // 5. Delete blobs and soft delete versions
-            foreach (var version in versions)
+            foreach (var version in versionsList)
             {
                 try
                 {
@@ -76,6 +85,9 @@ namespace CQRS.Files.DeleteProjectFile
                 version.IsDeleted = true;
                 version.DeletedAt = DateTime.UtcNow;
                 await projectFileVersionRepo.Update(version);
+
+                // Invalidate SAS URI cache for each version
+                await projectFilesService.InvalidateVersionSasUriAsync(version.Id, cancellationToken);
             }
 
             // 6. Soft delete file
@@ -84,9 +96,19 @@ namespace CQRS.Files.DeleteProjectFile
             file.CurrentVersionId = null;
             await projectFileRepo.Update(file);
 
+            // 7. Invalidate all relevant caches
+            await projectFilesService.InvalidateProjectFilesCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+            await projectFilesService.InvalidateProjectVersionsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+            await projectFilesService.InvalidateProjectCommentsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+
+            if (wasShared)
+            {
+                await projectFilesService.InvalidateFileAccessCacheAsync(request.ProjectId, cancellationToken);
+            }
+
             logger.LogInformation(
                 "File {FileId} with {VersionCount} versions soft deleted from project {ProjectId} by user {UserId}",
-                request.FileId, versions.Count(), request.ProjectId, currentUser.Id);
+                request.FileId, versionsList.Count, request.ProjectId, currentUser.Id);
 
             return Unit.Value;
         }

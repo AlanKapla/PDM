@@ -14,20 +14,17 @@ namespace CQRS.Files.GetFileVersions;
 public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery, List<ProjectFileVersionWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
-    private readonly IFileAccessService fileAccessService;
     private readonly IReadRepository<User> userRepository;
     private readonly ICurrentUser currentUser;
     private readonly IBlobStorageService blobStorageService;
 
     public GetFileVersionsQueryHandler(
         IProjectFilesService projectFilesService,
-        IFileAccessService fileAccessService,
         IReadRepository<User> userRepository,
         ICurrentUser currentUser,
         IBlobStorageService blobStorageService)
     {
         this.projectFilesService = projectFilesService;
-        this.fileAccessService = fileAccessService;
         this.userRepository = userRepository;
         this.currentUser = currentUser;
         this.blobStorageService = blobStorageService;
@@ -108,8 +105,8 @@ public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery,
             return true;
         }
 
-        // ResourceScope.Shared - use FileAccessService
-        return await fileAccessService.HasAccessToFileAsync(
+        // ResourceScope.Shared - use ProjectFilesService
+        return await projectFilesService.HasAccessToFileAsync(
             currentUser,
             fileDto.ProjectFilePackageId,
             fileDto.Id,

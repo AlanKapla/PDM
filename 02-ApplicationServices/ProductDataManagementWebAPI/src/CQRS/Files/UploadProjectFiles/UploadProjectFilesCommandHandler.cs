@@ -18,6 +18,7 @@ namespace CQRS.Files.UploadProjectFiles
         private readonly IRepository<ProjectFileVersionComment> commentRepo;
         private readonly IRepository<ProjectFilePackage> projectFilePackageRepo;
         private readonly IBlobStorageService blobStorageService;
+        private readonly IProjectFilesService projectFilesService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UploadProjectFilesCommandHandler> logger;
 
@@ -27,6 +28,7 @@ namespace CQRS.Files.UploadProjectFiles
             IRepository<ProjectFileVersionComment> commentRepo,
             IRepository<ProjectFilePackage> projectFilePackageRepo,
             IBlobStorageService blobStorageService,
+            IProjectFilesService projectFilesService,
             ICurrentUser currentUser,
             ILogger<UploadProjectFilesCommandHandler> logger)
         {
@@ -35,6 +37,7 @@ namespace CQRS.Files.UploadProjectFiles
             this.commentRepo = commentRepo;
             this.projectFilePackageRepo = projectFilePackageRepo;
             this.blobStorageService = blobStorageService;
+            this.projectFilesService = projectFilesService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -156,6 +159,15 @@ namespace CQRS.Files.UploadProjectFiles
                         fileItem.File.FileName, request.ProjectFilePackageId, request.ProjectId);
                     throw;
                 }
+            }
+
+            // Invalidate cache after successful upload
+            await projectFilesService.InvalidateProjectFilesCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+            await projectFilesService.InvalidateProjectVersionsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+
+            if (request.Files.Any(f => !string.IsNullOrWhiteSpace(f.Comment)))
+            {
+                await projectFilesService.InvalidateProjectCommentsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
             }
 
             return Unit.Value;

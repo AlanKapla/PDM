@@ -12,18 +12,15 @@ namespace CQRS.Files.GetProjectFilePackages;
 public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFilePackagesQuery, List<ProjectFilePackageWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
-    private readonly IFileAccessService fileAccessService;
     private readonly IReadRepository<User> userRepository;
     private readonly ICurrentUser currentUser;
 
     public GetProjectFilePackagesQueryHandler(
         IProjectFilesService projectFilesService,
-        IFileAccessService fileAccessService,
         IReadRepository<User> userRepository,
         ICurrentUser currentUser)
     {
         this.projectFilesService = projectFilesService;
-        this.fileAccessService = fileAccessService;
         this.userRepository = userRepository;
         this.currentUser = currentUser;
     }
@@ -136,8 +133,8 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
                 .ToHashSet();
         }
 
-        // ResourceScope.Shared - użyj FileAccessService
-        return await fileAccessService.GetAccessiblePackageIdsAsync(
+        // ResourceScope.Shared - użyj ProjectFilesService
+        return await projectFilesService.GetAccessiblePackageIdsAsync(
             currentUser,
             projectId,
             scope,
@@ -174,7 +171,7 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
         }
         else // ResourceScope.Shared
         {
-            counts = await fileAccessService.GetAccessibleFileCountsAsync(
+            counts = await projectFilesService.GetAccessibleFileCountsAsync(
                 currentUser,
                 packageIds,
                 scope,

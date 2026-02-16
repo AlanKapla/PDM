@@ -18,6 +18,7 @@ namespace CQRS.Files.UploadProjectFileVersion
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
         private readonly IRepository<ProjectFileVersionComment> commentRepo;
         private readonly IBlobStorageService blobStorageService;
+        private readonly IProjectFilesService projectFilesService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UploadProjectFileVersionCommandHandler> logger;
 
@@ -26,6 +27,7 @@ namespace CQRS.Files.UploadProjectFileVersion
             IRepository<ProjectFileVersion> projectFileVersionRepo,
             IRepository<ProjectFileVersionComment> commentRepo,
             IBlobStorageService blobStorageService,
+            IProjectFilesService projectFilesService,
             ICurrentUser currentUser,
             ILogger<UploadProjectFileVersionCommandHandler> logger)
         {
@@ -33,6 +35,7 @@ namespace CQRS.Files.UploadProjectFileVersion
             this.projectFileVersionRepo = projectFileVersionRepo;
             this.commentRepo = commentRepo;
             this.blobStorageService = blobStorageService;
+            this.projectFilesService = projectFilesService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -77,6 +80,9 @@ namespace CQRS.Files.UploadProjectFileVersion
             int nextVersionNumber = projectFile.Versions.Any()
                 ? projectFile.Versions.Max(v => v.VersionNumber) + 1
                 : 1;
+
+            // Store old current version ID for cache invalidation
+            Guid? oldCurrentVersionId = projectFile.CurrentVersionId;
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
             string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(projectFile.Package.Name);
@@ -139,6 +145,20 @@ namespace CQRS.Files.UploadProjectFileVersion
 
                 // 10. Save all changes
                 await projectFileRepo.SaveChangesAsync(cancellationToken);
+
+                // 11. Invalidate cache after successful upload
+                await projectFilesService.InvalidateProjectFilesCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+                await projectFilesService.InvalidateProjectVersionsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(request.Comment))
+                {
+                    await projectFilesService.InvalidateProjectCommentsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+                }
+
+                if (oldCurrentVersionId.HasValue)
+                {
+                    await projectFilesService.InvalidateVersionSasUriAsync(oldCurrentVersionId.Value, cancellationToken);
+                }
 
                 logger.LogInformation(
                     "Created new version {VersionNumber} for file {FileId} in project {ProjectId}. Blob path: {BlobPath}. Comment: {HasComment}",
