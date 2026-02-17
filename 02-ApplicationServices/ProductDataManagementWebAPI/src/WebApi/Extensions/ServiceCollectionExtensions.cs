@@ -352,6 +352,9 @@ namespace WebApi.Extensions
             // Cache service
             services.AddScoped<ICacheService, CacheService>();
             
+            // Cached services - YOLO style
+            services.AddScoped<IUserService, UserService>();
+            // services.AddScoped<IProjectService, ProjectService>(); // TODO: Fix file not found issue
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
 
             services.AddHostedService<StartupSeederService>();
