@@ -103,7 +103,7 @@ namespace CQRS.Files.DeleteProjectFile
 
             if (wasShared)
             {
-                await projectFilesService.InvalidateFileAccessCacheAsync(request.ProjectId, cancellationToken);
+                await projectFilesService.InvalidateFileAccessCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
             }
 
             logger.LogInformation(

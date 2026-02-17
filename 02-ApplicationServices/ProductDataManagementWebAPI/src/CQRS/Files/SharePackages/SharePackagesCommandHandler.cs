@@ -99,7 +99,7 @@ namespace CQRS.Files.SharePackages
             await sharedProjectFileRepo.SaveChangesAsync(cancellationToken);
 
             // Invalidate file access cache
-            await projectFilesService.InvalidateFileAccessCacheAsync(request.ProjectId, cancellationToken);
+            await projectFilesService.InvalidateFileAccessCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             logger.LogInformation(
                 "{PackageCount} packages processed: {TotalShared} shares created, {SkippedSelf} skipped (self), {SkippedOwners} skipped (owners)",

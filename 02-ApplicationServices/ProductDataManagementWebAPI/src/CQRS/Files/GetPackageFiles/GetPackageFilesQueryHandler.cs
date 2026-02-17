@@ -88,7 +88,7 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
         var fileIds = accessibleFiles.Select(f => f.Id).ToHashSet();
         
         var sharedWithDict = (request.Scope == ResourceScope.Mine || request.Scope == ResourceScope.All)
-            ? await projectFilesService.GetSharedWithUsersAsync(request.PackageId, fileIds, cancellationToken)
+            ? await projectFilesService.GetSharedWithUsersAsync(request.TenantId, request.ProjectId, request.PackageId, fileIds, cancellationToken)
             : new Dictionary<Guid, List<Guid>>();
 
         // Collect user IDs from SAS URIs (they contain CreatedByUserId info via version data)
@@ -182,6 +182,8 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
         // ResourceScope.Shared - use ProjectFilesService
         PackageAccessInfo accessInfo = await projectFilesService.GetPackageAccessInfoAsync(
             currentUser,
+            tenantId,
+            projectId,
             packageId,
             scope,
             cancellationToken);

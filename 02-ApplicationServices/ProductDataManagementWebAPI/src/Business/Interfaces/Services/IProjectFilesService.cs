@@ -16,6 +16,7 @@ public interface IProjectFilesService
     /// </summary>
     Task<HashSet<Guid>> GetAccessiblePackageIdsAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
         Guid projectId,
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default);
@@ -25,6 +26,8 @@ public interface IProjectFilesService
     /// </summary>
     Task<Dictionary<Guid, int>> GetAccessibleFileCountsAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
         HashSet<Guid> packageIds,
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default);
@@ -34,6 +37,8 @@ public interface IProjectFilesService
     /// </summary>
     Task<PackageAccessInfo> GetPackageAccessInfoAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
         Guid packageId,
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default);
@@ -43,6 +48,8 @@ public interface IProjectFilesService
     /// </summary>
     Task<bool> HasAccessToFileAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
         Guid packageId,
         Guid fileId,
         ResourceScope resourceScope,
@@ -53,6 +60,8 @@ public interface IProjectFilesService
     /// Uwzględnia Package + Allow/Deny model
     /// </summary>
     Task<Dictionary<Guid, List<Guid>>> GetSharedWithUsersAsync(
+        Guid tenantId,
+        Guid projectId,
         Guid packageId,
         HashSet<Guid> fileIds,
         CancellationToken cancellationToken = default);
@@ -132,7 +141,7 @@ public interface IProjectFilesService
     /// <summary>
     /// Invaliduje cache dostępu do plików dla projektu
     /// </summary>
-    Task InvalidateFileAccessCacheAsync(Guid projectId, CancellationToken cancellationToken = default);
+    Task InvalidateFileAccessCacheAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Invaliduje cache SAS URI dla konkretnej wersji pliku

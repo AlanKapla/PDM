@@ -108,9 +108,11 @@ public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery,
         // ResourceScope.Shared - use ProjectFilesService
         return await projectFilesService.HasAccessToFileAsync(
             currentUser,
+            tenantId,
+            projectId,
             fileDto.ProjectFilePackageId,
             fileDto.Id,
-            scope,
+            ResourceScope.Shared,
             cancellationToken);
     }
 

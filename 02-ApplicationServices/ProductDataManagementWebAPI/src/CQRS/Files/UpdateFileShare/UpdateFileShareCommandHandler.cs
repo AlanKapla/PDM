@@ -133,7 +133,7 @@ namespace CQRS.Files.UpdateFileShare
             await sharedProjectFileRepo.SaveChangesAsync(cancellationToken);
 
             // Invalidate file access cache after sharing changes
-            await projectFilesService.InvalidateFileAccessCacheAsync(request.ProjectId, cancellationToken);
+            await projectFilesService.InvalidateFileAccessCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             // 10. Wyślij notyfikacje po zapisaniu zmian
             // Notyfikacje dla userów którzy DOSTALI dostęp

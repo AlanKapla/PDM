@@ -58,6 +58,8 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
 
         // Policz pliki dla każdej paczki według scope
         Dictionary<Guid, int> fileCountDict = await GetFileCountsByScopeAsync(
+            request.TenantId,
+            request.ProjectId,
             accessiblePackageIds,
             allFiles,
             request.Scope,
@@ -136,12 +138,15 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
         // ResourceScope.Shared - użyj ProjectFilesService
         return await projectFilesService.GetAccessiblePackageIdsAsync(
             currentUser,
+            tenantId,
             projectId,
             scope,
             cancellationToken);
     }
 
     private async Task<Dictionary<Guid, int>> GetFileCountsByScopeAsync(
+        Guid tenantId,
+        Guid projectId,
         HashSet<Guid> packageIds,
         Dictionary<Guid, List<ProjectFileCacheDto>> allFiles,
         ResourceScope scope,
@@ -173,6 +178,8 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
         {
             counts = await projectFilesService.GetAccessibleFileCountsAsync(
                 currentUser,
+                tenantId,
+                projectId,
                 packageIds,
                 scope,
                 cancellationToken);

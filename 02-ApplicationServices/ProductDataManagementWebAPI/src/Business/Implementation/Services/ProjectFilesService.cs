@@ -53,11 +53,12 @@ public sealed class ProjectFilesService : IProjectFilesService
     /// </summary>
     public async Task<HashSet<Guid>> GetAccessiblePackageIdsAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
         Guid projectId,
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default)
     {
-        string cacheKey = $"file:access:packages:{currentUser.Id}:{projectId}:{resourceScope}";
+        string cacheKey = $"file:access:{tenantId}:{projectId}:packages:{currentUser.Id}:{resourceScope}";
 
         HashSet<Guid>? result = await cacheService.GetOrAddAsync(
             cacheKey,
@@ -91,7 +92,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 {
                     List<Guid> allPackageIds = await packageRepository.GetIdsBySearchAsync(
                         p => p.ProjectId == projectId && 
-                             p.TenantId == currentUser.ActiveTenantId!.Value && 
+                             p.TenantId == tenantId && 
                              !p.IsDeleted,
                         cancellationToken);
 
@@ -101,7 +102,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 {
                     List<Guid> myPackageIds = await packageRepository.GetIdsBySearchAsync(
                         p => p.ProjectId == projectId && 
-                             p.TenantId == currentUser.ActiveTenantId!.Value && 
+                             p.TenantId == tenantId && 
                              p.OwnerId == currentUser.Id && 
                              !p.IsDeleted,
                         cancellationToken);
@@ -133,6 +134,8 @@ public sealed class ProjectFilesService : IProjectFilesService
     /// </summary>
     public async Task<Dictionary<Guid, int>> GetAccessibleFileCountsAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
         HashSet<Guid> packageIds,
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default)
@@ -143,7 +146,7 @@ public sealed class ProjectFilesService : IProjectFilesService
         }
 
         string packageIdsKey = string.Join("-", packageIds.OrderBy(id => id));
-        string cacheKey = $"file:access:counts:{currentUser.Id}:{packageIdsKey}:{resourceScope}";
+        string cacheKey = $"file:access:{tenantId}:{projectId}:counts:{currentUser.Id}:{packageIdsKey}:{resourceScope}";
 
         Dictionary<Guid, int>? result = await cacheService.GetOrAddAsync(
             cacheKey,
@@ -232,11 +235,13 @@ public sealed class ProjectFilesService : IProjectFilesService
     /// </summary>
     public async Task<PackageAccessInfo> GetPackageAccessInfoAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
         Guid packageId,
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default)
     {
-        string cacheKey = $"file:access:package:{currentUser.Id}:{packageId}:{resourceScope}";
+        string cacheKey = $"file:access:{tenantId}:{projectId}:package:{currentUser.Id}:{packageId}:{resourceScope}";
 
         PackageAccessInfo? result = await cacheService.GetOrAddAsync(
             cacheKey,
@@ -327,12 +332,14 @@ public sealed class ProjectFilesService : IProjectFilesService
     /// </summary>
     public async Task<bool> HasAccessToFileAsync(
         ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
         Guid packageId,
         Guid fileId,
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default)
     {
-        string cacheKey = $"file:access:file:{currentUser.Id}:{packageId}:{fileId}:{resourceScope}";
+        string cacheKey = $"file:access:{tenantId}:{projectId}:file:{currentUser.Id}:{packageId}:{fileId}:{resourceScope}";
 
         BoolWrapper? result = await cacheService.GetOrAddAsync(
             cacheKey,
@@ -400,12 +407,14 @@ public sealed class ProjectFilesService : IProjectFilesService
     /// Uwzględnia Package + Allow/Deny model
     /// </summary>
     public async Task<Dictionary<Guid, List<Guid>>> GetSharedWithUsersAsync(
+        Guid tenantId,
+        Guid projectId,
         Guid packageId,
         HashSet<Guid> fileIds,
         CancellationToken cancellationToken = default)
     {
         string fileIdsKey = string.Join("-", fileIds.OrderBy(id => id));
-        string cacheKey = $"file:access:sharedwith:{packageId}:{fileIdsKey}";
+        string cacheKey = $"file:access:{tenantId}:{projectId}:sharedwith:{packageId}:{fileIdsKey}";
 
         Dictionary<Guid, List<Guid>>? result = await cacheService.GetOrAddAsync(
             cacheKey,
@@ -901,11 +910,11 @@ public sealed class ProjectFilesService : IProjectFilesService
     /// <summary>
     /// Invaliduje cache dostępu do plików dla projektu
     /// </summary>
-    public async Task InvalidateFileAccessCacheAsync(Guid projectId, CancellationToken cancellationToken = default)
+    public async Task InvalidateFileAccessCacheAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken = default)
     {
-        await cacheService.RemoveCacheContainsAsync($"file:access:*:{projectId}:*", cancellationToken);
+        await cacheService.RemoveCacheContainsAsync($"file:access:{tenantId}:{projectId}:*", cancellationToken);
 
-        logger.LogDebug("Invalidated file access cache for project {ProjectId}", projectId);
+        logger.LogDebug("Invalidated file access cache for tenant {TenantId}, project {ProjectId}", tenantId, projectId);
     }
 
     /// <summary>
