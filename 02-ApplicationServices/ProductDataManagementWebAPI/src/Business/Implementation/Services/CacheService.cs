@@ -204,6 +204,7 @@ public sealed class CacheService : ICacheService
     /// <summary>
     /// Usuwa wszystkie klucze pasujące do wzorca Redis
     /// Jeśli Redis jest wyłączony, operacja jest pomijana
+    /// Używa SCAN zamiast KEYS dla lepszej wydajności w production
     /// </summary>
     public async Task RemoveCacheContainsAsync(string pattern, CancellationToken cancellationToken = default)
     {
@@ -223,19 +224,40 @@ public sealed class CacheService : ICacheService
             return;
         }
 
-        IServer server = redis.GetServer(endpoints[0]);
-        IEnumerable<RedisKey> keys = server.Keys(pattern: pattern);
-        
-        int deletedCount = 0;
-        foreach (RedisKey key in keys)
+        try
         {
-            bool deleted = await db.KeyDeleteAsync(key);
-            if (deleted)
+            IServer server = redis.GetServer(endpoints[0]);
+            
+            // Użyj SCAN zamiast KEYS dla lepszej wydajności
+            // SCAN nie blokuje Redis i działa w klastrze
+            int deletedCount = 0;
+            int scannedCount = 0;
+            
+            await foreach (RedisKey key in server.KeysAsync(database: db.Database, pattern: pattern, pageSize: 250))
             {
-                deletedCount++;
+                scannedCount++;
+                bool deleted = await db.KeyDeleteAsync(key);
+                if (deleted)
+                {
+                    deletedCount++;
+                }
+            }
+
+            if (scannedCount > 0)
+            {
+                logger.LogInformation(
+                    "Pattern cache removal: scanned {ScannedCount} keys, deleted {DeletedCount} matching pattern {Pattern}",
+                    scannedCount, deletedCount, pattern);
+            }
+            else
+            {
+                logger.LogDebug("No keys found matching pattern {Pattern}", pattern);
             }
         }
-
-        logger.LogDebug("Removed {Count} cache entries matching pattern {Pattern}", deletedCount, pattern);
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to remove cache entries matching pattern {Pattern}", pattern);
+            throw;
+        }
     }
 }

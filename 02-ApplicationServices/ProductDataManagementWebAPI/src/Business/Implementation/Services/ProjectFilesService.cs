@@ -281,6 +281,8 @@ public sealed class ProjectFilesService : IProjectFilesService
 
                 IEnumerable<SharedProjectFile> shares = await sharedFileRepository.GetBySearch(
                     spf => spf.ProjectFilePackageId == packageId && 
+                           spf.ProjectId == projectId &&
+                           spf.TenantId == tenantId &&
                            spf.SharedWithUserId == currentUser.Id);
 
                 List<SharedProjectFile> sharesList = shares.ToList();
@@ -373,6 +375,8 @@ public sealed class ProjectFilesService : IProjectFilesService
                 {
                     IEnumerable<SharedProjectFile> shares = await sharedFileRepository.GetBySearch(
                         spf => spf.ProjectFilePackageId == packageId && 
+                               spf.ProjectId == projectId &&
+                               spf.TenantId == tenantId &&
                                spf.SharedWithUserId == currentUser.Id);
 
                     List<SharedProjectFile> sharesList = shares.ToList();
@@ -426,7 +430,9 @@ public sealed class ProjectFilesService : IProjectFilesService
                     fileIds.Count);
 
                 IEnumerable<SharedProjectFile> allShares = await sharedFileRepository.GetBySearch(
-                    spf => spf.ProjectFilePackageId == packageId);
+                    spf => spf.ProjectFilePackageId == packageId &&
+                           spf.ProjectId == projectId &&
+                           spf.TenantId == tenantId);
 
                 IEnumerable<IGrouping<Guid, SharedProjectFile>> sharesByUser = allShares.GroupBy(s => s.SharedWithUserId);
 
