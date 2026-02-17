@@ -51,7 +51,7 @@ export default function ShareCostModal({
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const toast = useToast();
-  // const { user } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
@@ -65,8 +65,9 @@ export default function ShareCostModal({
     try {
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data: ProjectMemberWeb[] = response.data;
-      // Filtruj, aby nie pokazywać właściciela kosztu
-      const filteredMembers = data.filter((m) => m.userId !== cost.userId);
+      // Filtruj, aby nie pokazywać właściciela kosztu i aktualnego użytkownika
+      const excludeIds = new Set([cost.userId, user?.id].filter(Boolean));
+      const filteredMembers = data.filter((m) => !excludeIds.has(m.userId));
       setMembers(filteredMembers);
     } catch (err) {
       console.error("Błąd pobierania członków:", err);

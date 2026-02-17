@@ -37,13 +37,13 @@ namespace CQRS.Files.SharePackages
         public async Task<Unit> Handle(SharePackagesCommand request, CancellationToken cancellationToken)
         {
             // 1. Verify all packages exist and authorize
-            var packages = await packageRepo.GetBySearch(
+            var packages = (await packageRepo.GetBySearch(
                 p => request.PackageIds.Contains(p.Id)
                     && p.ProjectId == request.ProjectId
                     && p.TenantId == request.TenantId
-                    && !p.IsDeleted);
+                    && !p.IsDeleted)).ToList();
 
-            if (packages.Count() != request.PackageIds.Count)
+            if (packages.Count != request.PackageIds.Count)
             {
                 throw new NotFoundApiException(nameof(ProjectFilePackage), "One or more packages not found");
             }
@@ -60,12 +60,39 @@ namespace CQRS.Files.SharePackages
                 }
             }
 
-            // 3. Share all packages with all specified users
+            // 3. Create dictionary for fast owner lookup
+            var packageOwners = packages.ToDictionary(p => p.Id, p => p.OwnerId);
+
+            // 4. Share all packages with all specified users (excluding self and package owners)
+            int totalShared = 0;
+            int skippedSelf = 0;
+            int skippedOwners = 0;
+
             foreach (var packageId in request.PackageIds)
             {
+                var packageOwnerId = packageOwners[packageId];
+
                 foreach (var userId in request.SharedWithUserIds)
                 {
-                    await SharePackageWithUserAsync(request, packageId, userId, cancellationToken);
+                    // Pomijamy udostępnienie samemu sobie
+                    if (userId == currentUser.Id)
+                    {
+                        skippedSelf++;
+                        continue;
+                    }
+
+                    // Pomijamy udostępnienie właścicielowi paczki (owner już ma pełny dostęp)
+                    if (userId == packageOwnerId)
+                    {
+                        skippedOwners++;
+                        continue;
+                    }
+
+                    bool shared = await SharePackageWithUserAsync(request, packageId, userId, cancellationToken);
+                    if (shared)
+                    {
+                        totalShared++;
+                    }
                 }
             }
 
@@ -75,8 +102,8 @@ namespace CQRS.Files.SharePackages
             await projectFilesService.InvalidateFileAccessCacheAsync(request.ProjectId, cancellationToken);
 
             logger.LogInformation(
-                "{PackageCount} packages shared with {UserCount} users by {CurrentUserId}",
-                request.PackageIds.Count, request.SharedWithUserIds.Count, currentUser.Id);
+                "{PackageCount} packages processed: {TotalShared} shares created, {SkippedSelf} skipped (self), {SkippedOwners} skipped (owners)",
+                request.PackageIds.Count, totalShared, skippedSelf, skippedOwners);
 
             return Unit.Value;
         }
@@ -86,7 +113,8 @@ namespace CQRS.Files.SharePackages
         /// - Usuwa wszystkie stare wpisy dla tej paczki z FileId
         /// - Dodaje wpis { PackageId, FileId: null, Access: Allow }
         /// </summary>
-        private async Task SharePackageWithUserAsync(
+        /// <returns>True jeśli udostępnienie zostało dodane, False jeśli już istniało</returns>
+        private async Task<bool> SharePackageWithUserAsync(
             SharePackagesCommand request,
             Guid packageId,
             Guid userId,
@@ -122,10 +150,18 @@ namespace CQRS.Files.SharePackages
 
                 await sharedProjectFileRepo.Insert(packageShare);
                 
-                logger.LogInformation(
-                    "Package {PackageId} shared entirely with user {UserId} by {CurrentUserId}",
+                logger.LogDebug(
+                    "Package {PackageId} shared with user {UserId} by {CurrentUserId}",
                     packageId, userId, currentUser.Id);
+
+                return true; // Nowe udostępnienie utworzone
             }
+
+            logger.LogDebug(
+                "Package {PackageId} already shared with user {UserId}",
+                packageId, userId);
+
+            return false; // Udostępnienie już istniało
         }
     }
 }

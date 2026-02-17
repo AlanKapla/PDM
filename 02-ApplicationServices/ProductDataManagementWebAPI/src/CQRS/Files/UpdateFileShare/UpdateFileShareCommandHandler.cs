@@ -97,8 +97,12 @@ namespace CQRS.Files.UpdateFileShare
             }
 
             // 8. Revoke access for users NOT in the list - zbierz operacje
+            // WAŻNE: NIE cofamy dostępu current userowi (może być adminem z wcześniejszym udostępnieniem)
             var usersWithAccess = GetUsersWithAccessToFile(request.FileId, allPackageShares);
-            var usersToRevoke = usersWithAccess.Except(request.SharedWithUserIds).ToList();
+            var usersToRevoke = usersWithAccess
+                .Except(request.SharedWithUserIds)
+                .Where(userId => userId != currentUser.Id)  // Nie cofamy dostępu sobie samemu
+                .ToList();
 
             foreach (var userId in usersToRevoke)
             {

@@ -16,18 +16,15 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Graph;
-using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Repository.Interfaces;
 using Repositories.Repository.Repositories;
-using Repositories.Repository.Interfaces;
 using WebApi.Authorization;
 using WebApi.Services;
 
@@ -149,7 +146,7 @@ namespace WebApi.Extensions
         {
             var redisSettings = config.GetSection(RedisSettings.SectionName).Get<RedisSettings>();
 
-            if (redisSettings != null && !string.IsNullOrWhiteSpace(redisSettings.ConnectionString))
+            if (redisSettings != null && redisSettings.IsEnabled && !string.IsNullOrWhiteSpace(redisSettings.ConnectionString))
             {
                 services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
                 {
@@ -160,6 +157,11 @@ namespace WebApi.Extensions
                     configuration.Ssl = true;
                     return StackExchange.Redis.ConnectionMultiplexer.Connect(configuration);
                 });
+            }
+            else
+            {
+                // Redis disabled - CacheService będzie działał w trybie bypass (bez cache)
+                services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp => null!);
             }
 
             return services;

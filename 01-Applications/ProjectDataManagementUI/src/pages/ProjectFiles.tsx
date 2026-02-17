@@ -1200,6 +1200,7 @@ export default function ProjectFiles() {
             sharedWithUserIds={fileToManageShare.sharedWithUserIds || []}
             members={members}
             currentUserId={user?.id || ""}
+            ownerUserId={fileToManageShare.ownerId}
             onShareUpdated={handleShareUpdated}
           />
         )}
@@ -1210,7 +1211,11 @@ export default function ProjectFiles() {
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
           onFilesShared={refreshData}
-          myPackages={myFilesCache.data || undefined}
+          myPackages={
+            activeTabIndex === allFilesTabIndex
+              ? allFilesCache.data || undefined
+              : myFilesCache.data || undefined
+          }
         />
       </Box>
     </MainLayout>

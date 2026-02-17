@@ -1627,6 +1627,7 @@ export default function ProjectSimpleCosts() {
             costName={costToManageShare.name}
             sharedWithUserIds={costToManageShare.sharedWithUserIds || []}
             currentUserId={user?.id || ""}
+            ownerUserId={costToManageShare.userId}
             onShareUpdated={handleShareUpdated}
           />
         )}

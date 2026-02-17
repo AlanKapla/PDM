@@ -28,6 +28,7 @@ interface ManageFileShareModalProps {
   sharedWithUserIds: string[];
   members: ProjectMemberWeb[];
   currentUserId: string;
+  ownerUserId?: string;
   onShareUpdated: () => void;
 }
 
@@ -41,6 +42,7 @@ export const ManageFileShareModal = ({
   sharedWithUserIds,
   members,
   currentUserId,
+  ownerUserId,
   onShareUpdated,
 }: ManageFileShareModalProps) => {
   const toast = useToast();
@@ -93,9 +95,10 @@ export const ManageFileShareModal = ({
     }
   };
 
-  // Filtruj członków - usuń właściciela i obecnego użytkownika
+  // Filtruj członków - usuń aktualnego użytkownika i właściciela pliku
+  const excludeIds = new Set([currentUserId, ownerUserId].filter(Boolean));
   const availableMembers = members.filter(
-    (member) => member.userId !== currentUserId
+    (member) => !excludeIds.has(member.userId)
   );
 
   return (

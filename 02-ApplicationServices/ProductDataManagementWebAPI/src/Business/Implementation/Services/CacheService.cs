@@ -1,5 +1,7 @@
-﻿using Business.Interfaces.Services;
+﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using System.Net;
 using System.Text.Json;
@@ -8,20 +10,32 @@ namespace Business.Implementation.Services;
 
 /// <summary>
 /// Implementacja serwisu cache opartego na Redis do przechowywania i pobierania danych tymczasowych
+/// Wspiera tryb bez Redis (IsEnabled = false) dla lokalnego developmentu
 /// </summary>
 public sealed class CacheService : ICacheService
 {
-    private readonly IConnectionMultiplexer redis;
+    private readonly IConnectionMultiplexer? redis;
+    private readonly RedisSettings settings;
     private readonly ILogger<CacheService> logger;
 
-    public CacheService(IConnectionMultiplexer redis, ILogger<CacheService> logger)
+    public CacheService(
+        IOptions<RedisSettings> redisSettings,
+        ILogger<CacheService> logger,
+        IConnectionMultiplexer? redis = null)
     {
+        this.settings = redisSettings.Value;
         this.redis = redis;
         this.logger = logger;
+
+        if (!settings.IsEnabled)
+        {
+            logger.LogWarning("Redis cache is DISABLED - all cache operations will be bypassed and data will be fetched directly from database");
+        }
     }
 
     /// <summary>
     /// Pobiera wartość z cache lub wykonuje funkcję fabryczną i zapisuje wynik w cache
+    /// Jeśli Redis jest wyłączony (IsEnabled = false), zawsze wykonuje factory bez cachowania
     /// </summary>
     public async Task<T?> GetOrAddAsync<T>(
         string key,
@@ -29,6 +43,13 @@ public sealed class CacheService : ICacheService
         TimeSpan? expiration = null,
         CancellationToken cancellationToken = default) where T : class
     {
+        // Jeśli Redis wyłączony - pomijamy cache i zawsze wykonujemy factory
+        if (!settings.IsEnabled || redis == null)
+        {
+            logger.LogTrace("Redis disabled - executing factory directly for key {Key}", key);
+            return await factory();
+        }
+
         IDatabase db = redis.GetDatabase();
 
         RedisValue cachedValue = await db.StringGetAsync(key);
@@ -63,11 +84,19 @@ public sealed class CacheService : ICacheService
 
     /// <summary>
     /// Pobiera wiele wartości z cache jednocześnie używając MGET
+    /// Jeśli Redis jest wyłączony, zwraca pusty słownik
     /// </summary>
     public async Task<Dictionary<string, T>> GetManyAsync<T>(
         IEnumerable<string> keys,
         CancellationToken cancellationToken = default) where T : class
     {
+        // Jeśli Redis wyłączony - zwracamy pusty słownik
+        if (!settings.IsEnabled || redis == null)
+        {
+            logger.LogTrace("Redis disabled - returning empty dictionary for MGET");
+            return new Dictionary<string, T>();
+        }
+
         IDatabase db = redis.GetDatabase();
         List<string> keysList = keys.ToList();
 
@@ -106,6 +135,7 @@ public sealed class CacheService : ICacheService
 
     /// <summary>
     /// Zapisuje wiele wartości w cache jednocześnie używając MSET
+    /// Jeśli Redis jest wyłączony, operacja jest pomijana
     /// </summary>
     public async Task SetManyAsync<T>(
         Dictionary<string, T> items,
@@ -114,6 +144,13 @@ public sealed class CacheService : ICacheService
     {
         if (items.Count == 0)
         {
+            return;
+        }
+
+        // Jeśli Redis wyłączony - pomijamy operację
+        if (!settings.IsEnabled || redis == null)
+        {
+            logger.LogTrace("Redis disabled - skipping MSET for {Count} items", items.Count);
             return;
         }
 
@@ -140,9 +177,17 @@ public sealed class CacheService : ICacheService
 
     /// <summary>
     /// Usuwa pojedynczy klucz z cache
+    /// Jeśli Redis jest wyłączony, operacja jest pomijana
     /// </summary>
     public async Task RemoveCacheByKeyAsync(string key, CancellationToken cancellationToken = default)
     {
+        // Jeśli Redis wyłączony - pomijamy operację
+        if (!settings.IsEnabled || redis == null)
+        {
+            logger.LogTrace("Redis disabled - skipping cache removal for key {Key}", key);
+            return;
+        }
+
         IDatabase db = redis.GetDatabase();
         bool deleted = await db.KeyDeleteAsync(key);
         
@@ -158,9 +203,17 @@ public sealed class CacheService : ICacheService
 
     /// <summary>
     /// Usuwa wszystkie klucze pasujące do wzorca Redis
+    /// Jeśli Redis jest wyłączony, operacja jest pomijana
     /// </summary>
     public async Task RemoveCacheContainsAsync(string pattern, CancellationToken cancellationToken = default)
     {
+        // Jeśli Redis wyłączony - pomijamy operację
+        if (!settings.IsEnabled || redis == null)
+        {
+            logger.LogTrace("Redis disabled - skipping pattern cache removal for pattern {Pattern}", pattern);
+            return;
+        }
+
         IDatabase db = redis.GetDatabase();
         EndPoint[] endpoints = redis.GetEndPoints();
         

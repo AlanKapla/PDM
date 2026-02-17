@@ -29,16 +29,10 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
 
     public async Task<List<ProjectFileWeb>> Handle(GetPackageFilesQuery request, CancellationToken cancellationToken)
     {
-        // OPTIMIZATION 1: Fetch all cached data in PARALLEL instead of sequential
-        var packagesTask = projectFilesService.GetProjectFilePackagesAsync(request.TenantId, request.ProjectId, cancellationToken);
-        var filesTask = projectFilesService.GetProjectPackageFilesAsync(request.TenantId, request.ProjectId, cancellationToken);
-        var allVersionsTask = projectFilesService.GetProjectFilesVersionsAsync(request.TenantId, request.ProjectId, cancellationToken);
-
-        await Task.WhenAll(packagesTask, filesTask, allVersionsTask);
-
-        var allPackages = await packagesTask;
-        var allFilesByPackage = await filesTask;
-        var allVersionsByFile = await allVersionsTask;
+        // Fetch all cached data sequentially
+        var allPackages = await projectFilesService.GetProjectFilePackagesAsync(request.TenantId, request.ProjectId, cancellationToken);
+        var allFilesByPackage = await projectFilesService.GetProjectPackageFilesAsync(request.TenantId, request.ProjectId, cancellationToken);
+        var allVersionsByFile = await projectFilesService.GetProjectFilesVersionsAsync(request.TenantId, request.ProjectId, cancellationToken);
 
         if (!allPackages.TryGetValue(request.PackageId, out ProjectFilePackageDto? packageDto))
         {
@@ -86,22 +80,16 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             }
         }
 
-        // OPTIMIZATION 3: Fetch SAS URIs + sharing in PARALLEL
-        var sasUrisTask = currentVersionIds.Count > 0
-            ? projectFilesService.GetFileVersionsSasUrisAsync(request.TenantId, request.ProjectId, currentVersionIds.ToArray())
-            : Task.FromResult(new Dictionary<Guid, FileVersionSasUriInfo>());
+        // Fetch SAS URIs and sharing sequentially
+        var sasUrisDict = currentVersionIds.Count > 0
+            ? await projectFilesService.GetFileVersionsSasUrisAsync(request.TenantId, request.ProjectId, currentVersionIds.ToArray())
+            : new Dictionary<Guid, FileVersionSasUriInfo>();
 
         var fileIds = accessibleFiles.Select(f => f.Id).ToHashSet();
         
-        var sharingTask = (request.Scope == ResourceScope.Mine || request.Scope == ResourceScope.All)
-            ? projectFilesService.GetSharedWithUsersAsync(request.PackageId, fileIds, cancellationToken)
-            : Task.FromResult(new Dictionary<Guid, List<Guid>>());
-
-        // Wait for SAS URIs and sharing
-        await Task.WhenAll(sasUrisTask, sharingTask);
-
-        var sasUrisDict = await sasUrisTask;
-        var sharedWithDict = await sharingTask;
+        var sharedWithDict = (request.Scope == ResourceScope.Mine || request.Scope == ResourceScope.All)
+            ? await projectFilesService.GetSharedWithUsersAsync(request.PackageId, fileIds, cancellationToken)
+            : new Dictionary<Guid, List<Guid>>();
 
         // Collect user IDs from SAS URIs (they contain CreatedByUserId info via version data)
         var versionDataTask = currentVersionIds.Count > 0
