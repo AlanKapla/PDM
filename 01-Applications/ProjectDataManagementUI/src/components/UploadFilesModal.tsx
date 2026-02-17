@@ -71,10 +71,10 @@ export default function UploadFilesModal({
   const { showSuccess, showError } = useToastNotification();
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && mode === "existing") {
       fetchMyPackages();
     }
-  }, [isOpen, tenantId, projectId]);
+  }, [isOpen, mode, tenantId, projectId]);
 
   const fetchMyPackages = async () => {
     setLoadingPackages(true);
@@ -142,16 +142,6 @@ export default function UploadFilesModal({
     if (mode === "new" && !packageName.trim()) {
       setPackageNameError("Nazwa paczki jest wymagana");
       return;
-    }
-
-    // Sprawdź czy paczka o tej nazwie już istnieje w paczkach użytkownika
-    if (mode === "new") {
-      const trimmedName = packageName.trim().toLowerCase();
-      const duplicate = packages.find(p => p.name.toLowerCase() === trimmedName);
-      if (duplicate) {
-        setPackageNameError("Paczka o tej nazwie już istnieje. Wybierz inną nazwę lub dodaj pliki do istniejącej paczki.");
-        return;
-      }
     }
 
     if (mode === "existing" && !selectedPackageId) {
@@ -265,14 +255,8 @@ export default function UploadFilesModal({
                 <Input
                   value={packageName}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setPackageName(value);
-                    // Walidacja duplikatu nazwy na bieżąco
-                    if (value.trim() && packages.some(p => p.name.toLowerCase() === value.trim().toLowerCase())) {
-                      setPackageNameError("Paczka o tej nazwie już istnieje");
-                    } else {
-                      setPackageNameError("");
-                    }
+                    setPackageName(e.target.value);
+                    setPackageNameError("");
                   }}
                   placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
                   isDisabled={uploading}

@@ -15,7 +15,6 @@ namespace CQRS.Users.UserSyncFromB2C
         private readonly IRepository<User> userRepo;
         private readonly ICurrentUser currentUser;
         private readonly IMicrosoftGraphService graphService;
-        private readonly IUserService userService;
         private readonly ILogger<UserSyncFromB2CCommandHandler> logger;
 
         public UserSyncFromB2CCommandHandler(
@@ -23,14 +22,12 @@ namespace CQRS.Users.UserSyncFromB2C
             IRepository<User> userRepo,
             ICurrentUser currentUser,
             IMicrosoftGraphService graphService,
-            IUserService userService,
             ILogger<UserSyncFromB2CCommandHandler> logger)
         {
             this.userReadRepo = userReadRepo;
             this.userRepo = userRepo;
             this.currentUser = currentUser;
             this.graphService = graphService;
-            this.userService = userService;
             this.logger = logger;
         }
 
@@ -65,7 +62,6 @@ namespace CQRS.Users.UserSyncFromB2C
                     azureB2CObjectId,
                     existingUserByB2C.Id);
 
-                // No changes, no need to invalidate cache
                 return existingUserByB2C.Id;
             }
 
@@ -81,9 +77,6 @@ namespace CQRS.Users.UserSyncFromB2C
                 existingUserByEmail.IsActive = true;
 
                 await userRepo.Update(existingUserByEmail);
-
-                // Invalidate users cache after linking B2C account
-                await userService.InvalidateUsersCacheAsync(cancellationToken);
 
                 logger.LogInformation(
                     "Linked existing user {UserId} with email {Email} to Azure B2C Object ID {ObjectId}",
@@ -110,9 +103,6 @@ namespace CQRS.Users.UserSyncFromB2C
 
             await userRepo.Insert(newUser);
 
-            // Invalidate users cache after creating new user
-            await userService.InvalidateUsersCacheAsync(cancellationToken);
-
             logger.LogInformation(
                 "Created new user {UserId} from Azure B2C with Object ID {ObjectId}",
                 newUser.Id,
@@ -122,4 +112,3 @@ namespace CQRS.Users.UserSyncFromB2C
         }
     }
 }
-
