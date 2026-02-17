@@ -208,10 +208,8 @@ public sealed class CacheService : ICacheService
     /// </summary>
     public async Task RemoveCacheContainsAsync(string pattern, CancellationToken cancellationToken = default)
     {
-        // Jeśli Redis wyłączony - pomijamy operację
         if (!settings.IsEnabled || redis == null)
         {
-            logger.LogTrace("Redis disabled - skipping pattern cache removal for pattern {Pattern}", pattern);
             return;
         }
 
@@ -228,14 +226,10 @@ public sealed class CacheService : ICacheService
         {
             IServer server = redis.GetServer(endpoints[0]);
             
-            // Użyj SCAN zamiast KEYS dla lepszej wydajności
-            // SCAN nie blokuje Redis i działa w klastrze
             int deletedCount = 0;
-            int scannedCount = 0;
             
             await foreach (RedisKey key in server.KeysAsync(database: db.Database, pattern: pattern, pageSize: 250))
             {
-                scannedCount++;
                 bool deleted = await db.KeyDeleteAsync(key);
                 if (deleted)
                 {
@@ -243,15 +237,9 @@ public sealed class CacheService : ICacheService
                 }
             }
 
-            if (scannedCount > 0)
+            if (deletedCount > 0)
             {
-                logger.LogInformation(
-                    "Pattern cache removal: scanned {ScannedCount} keys, deleted {DeletedCount} matching pattern {Pattern}",
-                    scannedCount, deletedCount, pattern);
-            }
-            else
-            {
-                logger.LogDebug("No keys found matching pattern {Pattern}", pattern);
+                logger.LogDebug("Removed {Count} cache entries matching pattern {Pattern}", deletedCount, pattern);
             }
         }
         catch (Exception ex)
