@@ -3,6 +3,7 @@ using CQRS.Users.UserAuthStatus;
 using CQRS.Users.UserDetails;
 using CQRS.Users.UserSyncFromB2C;
 using CQRS.Users.UserUpdate;
+using CQRS.WorkSchedules.GetUserAssignedWorks;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,5 +62,19 @@ public class UserController : BaseApiController
     {
         UserDetailsQuery request = new();
         return Ok(await Send(request));
+    }
+
+    /// <summary>
+    /// Gets all works assigned to the current user across all tenants
+    /// Grouped by Project > WorkSchedule > Stage > Work with period information
+    /// </summary>
+    /// <returns>Hierarchically grouped assigned works with periods</returns>
+    [Authorize]
+    [HttpGet("assigned-works")]
+    public async Task<IActionResult> GetMyAssignedWorks()
+    {
+        var query = new GetUserAssignedWorksQuery();
+        var result = await Send(query);
+        return Ok(result);
     }
 }

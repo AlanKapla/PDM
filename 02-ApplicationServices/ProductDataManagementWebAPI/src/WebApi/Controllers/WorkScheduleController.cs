@@ -6,7 +6,6 @@ using CQRS.WorkSchedules.UpdateWorkSchedule;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using CQRS.WorkSchedules.GetUserAssignedWorks;
 
 namespace WebApi.Controllers
 {
@@ -91,20 +90,6 @@ namespace WebApi.Controllers
             [FromRoute] Guid workScheduleId)
         {
             var query = new GetWorkScheduleQuery(tenantId, projectId, workScheduleId);
-            var result = await Send(query);
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Gets all works assigned to the current user across all tenants
-        /// Grouped by Project > WorkSchedule > Stage > Work with period information
-        /// </summary>
-        /// <returns>Hierarchically grouped assigned works with periods</returns>
-        [HttpGet("~/api/my-assigned-works")]
-        [Authorize]
-        public async Task<IActionResult> GetMyAssignedWorks()
-        {
-            var query = new GetUserAssignedWorksQuery();
             var result = await Send(query);
             return Ok(result);
         }

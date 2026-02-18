@@ -317,7 +317,7 @@ export const projectApi = {
 
   // Pobierz prace przypisane do użytkownika (cross-tenant)
   getMyAssignedWorks: async () => {
-    return axiosClient.get(`/my-assigned-works`);
+    return axiosClient.get(`/user/assigned-works`);
   },
 
   // ===== Koszty projektowe =====
