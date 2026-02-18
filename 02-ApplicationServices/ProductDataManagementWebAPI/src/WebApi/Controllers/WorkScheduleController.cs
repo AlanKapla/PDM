@@ -96,16 +96,15 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Gets all works assigned to the current user in their active tenant
+        /// Gets all works assigned to the current user across all tenants
         /// Grouped by Project > WorkSchedule > Stage > Work with period information
         /// </summary>
-        /// <param name="tenantId">The active tenant ID</param>
         /// <returns>Hierarchically grouped assigned works with periods</returns>
-        [HttpGet("~/api/tenants/{tenantId}/my-assigned-works")]
-        [Authorize(Policy = PermissionCodes.TenantView)]
-        public async Task<IActionResult> GetMyAssignedWorks([FromRoute] Guid tenantId)
+        [HttpGet("~/api/my-assigned-works")]
+        [Authorize]
+        public async Task<IActionResult> GetMyAssignedWorks()
         {
-            var query = new GetUserAssignedWorksQuery(tenantId);
+            var query = new GetUserAssignedWorksQuery();
             var result = await Send(query);
             return Ok(result);
         }

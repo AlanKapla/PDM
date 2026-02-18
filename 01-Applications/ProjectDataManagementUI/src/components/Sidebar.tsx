@@ -68,8 +68,8 @@ export function SidebarContent() {
 
   return (
     <VStack align="stretch" w="100%" spacing={2}>
-      {/* Przełącz organizację */}
-      <Button
+      {/* Przełącz organizację — przeniesione do strony Projekty (Select) */}
+      {/* <Button
         as={RouterLink}
         to="/tenants/collaborating"
         variant="ghost"
@@ -82,7 +82,7 @@ export function SidebarContent() {
         textDecoration="none"
       >
         Przełącz organizację
-      </Button>
+      </Button> */}
 
       {/* Projekty */}
       <Button

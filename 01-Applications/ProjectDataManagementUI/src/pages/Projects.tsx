@@ -2,9 +2,6 @@
 import {
   Box,
   Heading,
-  SimpleGrid,
-  Card,
-  CardBody,
   Text,
   Badge,
   VStack,
@@ -22,31 +19,40 @@ import {
   FormControl,
   FormLabel,
   Input,
-  IconButton,
+  Select,
+  Skeleton,
+  Tooltip,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, Plus } from "lucide-react";
+import { FolderKanban, User, Calendar, Plus, Building2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { handleApiError } from "../utils/handleApiError";
 import { projectApi } from "../api/projectApi";
 import type { ProjectDetailsWeb } from "../types/project.types";
+import type { UserTenant } from "../types/auth.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import { useAuth as useAuthContext } from "../context/AuthContext";
 import { useModal } from "../hooks/useModal";
 import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
+import { getUserTenants, changeActiveTenant } from "../services/tenantService";
 
 export default function Projects() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuthContext();
+  const { user, refreshUser } = useAuthContext();
   const [projects, setProjects] = useState<ProjectDetailsWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTenantId, setActiveTenantId] = useState<string | null | undefined>(undefined);
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Przełączanie organizacji
+  const [tenants, setTenants] = useState<UserTenant[]>([]);
+  const [tenantsLoading, setTenantsLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
   
   const createModal = useModal();
   const { showSuccess, showError } = useToastNotification();
@@ -86,6 +92,38 @@ export default function Projects() {
 
     fetchData();
   }, [user?.activeTenantId]);
+
+  // Pobierz listę organizacji użytkownika
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        const data = await getUserTenants();
+        setTenants(data);
+      } catch (err) {
+        console.error("Błąd pobierania organizacji:", err);
+      } finally {
+        setTenantsLoading(false);
+      }
+    };
+    fetchTenants();
+  }, []);
+
+  const handleTenantSwitch = async (newTenantId: string) => {
+    if (!newTenantId || newTenantId === activeTenantId) return;
+
+    setSwitching(true);
+    try {
+      await changeActiveTenant(newTenantId);
+      await refreshUser();
+      showSuccess("Organizacja przełączona");
+    } catch (err) {
+      console.error("Błąd przełączania organizacji:", err);
+      const { title, description } = handleApiError(err);
+      showError(title, description);
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pl-PL", {
@@ -129,7 +167,64 @@ export default function Projects() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
-        <HStack justify="space-between" mb={{ base: 4, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
+        {/* Przełącznik organizacji */}
+        <Box
+          mb={{ base: 4, md: 6 }}
+          p={{ base: 3, md: 4 }}
+          bg={cardBg}
+          borderWidth="1px"
+          borderColor={borderColor}
+          borderRadius="lg"
+        >
+          <HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" gap={{ base: 2, md: 3 }}>
+            <HStack spacing={2} flexShrink={0}>
+              <Icon as={Building2} boxSize={{ base: 4, md: 5 }} color="purple.500" />
+              <Text
+                fontWeight="semibold"
+                fontSize={{ base: "xs", md: "sm" }}
+                color="gray.600"
+                whiteSpace="nowrap"
+              >
+                Organizacja:
+              </Text>
+            </HStack>
+            {tenantsLoading ? (
+              <Skeleton height="36px" width="220px" borderRadius="md" />
+            ) : tenants.length <= 1 ? (
+              <Text fontWeight="bold" fontSize={{ base: "sm", md: "md" }}>
+                {tenants.find((t) => t.id === activeTenantId)?.name ?? "—"}
+              </Text>
+            ) : (
+              <Tooltip label="Przełącz aktywną organizację" openDelay={600}>
+                <Select
+                  value={activeTenantId ?? ""}
+                  onChange={(e) => handleTenantSwitch(e.target.value)}
+                  isDisabled={switching}
+                  maxW={{ base: "100%", md: "360px" }}
+                  size={{ base: "sm", md: "md" }}
+                  fontWeight="semibold"
+                  borderColor="purple.300"
+                  _hover={{ borderColor: "purple.400" }}
+                  _focus={{ borderColor: "purple.500", boxShadow: "0 0 0 1px var(--chakra-colors-purple-500)" }}
+                  icon={switching ? <></> : undefined}
+                >
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </Select>
+              </Tooltip>
+            )}
+            {switching && (
+              <Text fontSize="xs" color="purple.500" fontWeight="medium">
+                Przełączanie…
+              </Text>
+            )}
+          </HStack>
+        </Box>
+
+        <HStack justify="space-between" mb={{ base: 4, md: 6 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
           <Heading size={{ base: "md", sm: "lg", md: "xl" }}>
             Projekty
           </Heading>
