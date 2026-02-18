@@ -1,10 +1,13 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostEstimates;
+using Business.Interfaces.WebModels.CostEstimateTemplates;
 using CQRS.CostEstimates.CopyCostEstimate;
 using CQRS.CostEstimates.CreateCostEstimate;
 using CQRS.CostEstimates.DeleteCostEstimate;
 using CQRS.CostEstimates.GetCostEstimateDetails;
 using CQRS.CostEstimates.GetCostEstimates;
+using CQRS.CostEstimates.ParseExcelToCostEstimate;
+using CQRS.CostEstimates.ParseExcelToTemplate;
 using CQRS.CostEstimates.UpdateCostEstimate;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -180,6 +183,54 @@ namespace WebApi.Controllers
             command = command with
             {
                 CostEstimateId = id,
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+
+            var result = await Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Parse Excel file and generate Template structure (preview only)
+        /// </summary>
+        [HttpPost("excel/parse-template")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
+        [RequestSizeLimit(52428800)]
+        [ProducesResponseType(typeof(CostEstimateTemplateUpdateDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ParseExcelToTemplate(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromForm] ParseExcelToTemplateCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+
+            var result = await Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Parse Excel file with template and generate CostEstimate structure (preview only)
+        /// </summary>
+        [HttpPost("excel/parse-cost-estimate")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
+        [RequestSizeLimit(52428800)]
+        [ProducesResponseType(typeof(CostEstimateUpdateDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ParseExcelToCostEstimate(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromForm] ParseExcelToCostEstimateCommand command)
+        {
+            command = command with
+            {
                 TenantId = tenantId,
                 ProjectId = projectId
             };

@@ -21,6 +21,7 @@
     <PackageReference Include="Azure.Identity" Version="1.17.1" />
     <PackageReference Include="Azure.Storage.Queues" Version="12.19.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.9.14" />
+    <PackageReference Include="EPPlus" Version="7.5.2" />
   </ItemGroup>
 
 </Project>
