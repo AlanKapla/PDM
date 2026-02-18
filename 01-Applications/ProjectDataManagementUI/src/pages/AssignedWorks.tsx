@@ -24,6 +24,7 @@ import {
   SliderThumb,
   IconButton,
   Divider,
+  useMediaQuery,
 } from "@chakra-ui/react";
 import {
   Briefcase,
@@ -32,6 +33,8 @@ import {
   ChevronRight,
   Building2,
   FolderKanban,
+  PanelLeftOpen,
+  PanelLeftClose,
 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi } from "../api/projectApi";
@@ -69,6 +72,14 @@ export default function AssignedWorks() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set());
   const [columnWidths] = useState({ stage: 200, work: 350 });
+
+  const [isMobile] = useMediaQuery("(max-width: 768px)");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Na mobile sidebar domyślnie ukryty
+  useEffect(() => {
+    setSidebarOpen(!isMobile);
+  }, [isMobile]);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -404,19 +415,44 @@ export default function AssignedWorks() {
               Nie masz przypisanych żadnych prac
             </Alert>
           ) : (
-            <HStack align="stretch" spacing={0} h="calc(100vh - 200px)">
-              {/* ─── Lewy panel: nawigacja tenant / projekt ─── */}
-              <Box
-                w={{ base: "220px", md: "280px" }}
-                minW={{ base: "220px", md: "280px" }}
-                bg={sidebarBg}
-                borderWidth="1px"
-                borderColor={borderColor}
-                borderRadius="lg"
-                borderRightRadius={0}
-                overflowY="auto"
-                py={2}
-              >
+            <Box position="relative" h="calc(100vh - 200px)">
+              <HStack align="stretch" spacing={0} h="100%">
+                {/* ─── Lewy panel: nawigacja tenant / projekt ─── */}
+                {sidebarOpen && (
+                  <>
+                    {/* Overlay na mobile */}
+                    {isMobile && (
+                      <Box
+                        position="fixed"
+                        top={0}
+                        left={0}
+                        right={0}
+                        bottom={0}
+                        bg="blackAlpha.400"
+                        zIndex={29}
+                        onClick={() => setSidebarOpen(false)}
+                      />
+                    )}
+                    <Box
+                      w={isMobile ? "260px" : "280px"}
+                      minW={isMobile ? "260px" : "280px"}
+                      bg={sidebarBg}
+                      borderWidth="1px"
+                      borderColor={borderColor}
+                      borderRadius="lg"
+                      borderRightRadius={0}
+                      overflowY="auto"
+                      py={2}
+                      {...(isMobile && {
+                        position: "fixed" as const,
+                        top: "60px",
+                        left: "8px",
+                        bottom: "8px",
+                        zIndex: 30,
+                        borderRadius: "lg",
+                        shadow: "xl",
+                      })}
+                    >
                 {/* Opcja "Wszystkie organizacje" */}
                 <Box
                   px={3}
@@ -424,7 +460,10 @@ export default function AssignedWorks() {
                   cursor="pointer"
                   bg={selection.type === "all" ? selectedBg : undefined}
                   _hover={{ bg: selection.type === "all" ? selectedHoverBg : navHoverBg }}
-                  onClick={() => setSelection({ type: "all" })}
+                  onClick={() => {
+                    setSelection({ type: "all" });
+                    if (isMobile) setSidebarOpen(false);
+                  }}
                   transition="background 0.15s"
                 >
                   <HStack spacing={2}>
@@ -478,6 +517,7 @@ export default function AssignedWorks() {
                           onClick={() => {
                             setSelection({ type: "tenant", tenantId: tenant.tenantId });
                             if (!isTenantExpanded) toggleNavTenant(tenant.tenantId);
+                            if (isMobile) setSidebarOpen(false);
                           }}
                         >
                           <Building2 size={15} />
@@ -523,13 +563,14 @@ export default function AssignedWorks() {
                               }}
                               transition="background 0.15s"
                               spacing={2}
-                              onClick={() =>
+                              onClick={() => {
                                 setSelection({
                                   type: "project",
                                   tenantId: tenant.tenantId,
                                   projectId: project.projectId,
-                                })
-                              }
+                                });
+                                if (isMobile) setSidebarOpen(false);
+                              }}
                             >
                               <FolderKanban size={14} />
                               <Tooltip label={project.projectName} openDelay={500}>
@@ -555,7 +596,9 @@ export default function AssignedWorks() {
                     </Box>
                   );
                 })}
-              </Box>
+                    </Box>
+                  </>
+                )}
 
               {/* ─── Prawy panel: timeline ─── */}
               <Box
@@ -563,8 +606,8 @@ export default function AssignedWorks() {
                 borderWidth="1px"
                 borderColor={borderColor}
                 borderRadius="lg"
-                borderLeftRadius={0}
-                borderLeftWidth={0}
+                borderLeftRadius={sidebarOpen && !isMobile ? 0 : "lg"}
+                borderLeftWidth={sidebarOpen && !isMobile ? 0 : "1px"}
                 bg={cardBg}
                 display="flex"
                 flexDirection="column"
@@ -579,9 +622,20 @@ export default function AssignedWorks() {
                 >
                   <VStack spacing={3} align="stretch">
                     <HStack justify="space-between" flexWrap="wrap" gap={2}>
-                      <Text fontWeight="bold" fontSize={{ base: "sm", md: "md" }} noOfLines={1}>
-                        {selectionLabel}
-                      </Text>
+                      <HStack spacing={2} minW={0} flex={1}>
+                        <Tooltip label={sidebarOpen ? "Ukryj panel nawigacji" : "Pokaż panel nawigacji"}>
+                          <IconButton
+                            aria-label="Toggle sidebar"
+                            icon={sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSidebarOpen((p) => !p)}
+                          />
+                        </Tooltip>
+                        <Text fontWeight="bold" fontSize={isMobile ? "xs" : "md"} noOfLines={1}>
+                          {selectionLabel}
+                        </Text>
+                      </HStack>
                       <HStack spacing={2}>
                         <Button
                           size={{ base: "xs", md: "sm" }}
@@ -1062,6 +1116,7 @@ export default function AssignedWorks() {
                 )}
               </Box>
             </HStack>
+            </Box>
           )}
         </VStack>
       </Box>
