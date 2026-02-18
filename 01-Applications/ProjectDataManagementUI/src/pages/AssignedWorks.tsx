@@ -793,7 +793,6 @@ export default function AssignedWorks() {
                             fontWeight="bold"
                             textTransform="none"
                           >
-                            Etap
                           </Th>
                           <Th
                             w={`${columnWidths.work}px`}
