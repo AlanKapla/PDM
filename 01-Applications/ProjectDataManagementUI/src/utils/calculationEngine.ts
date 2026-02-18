@@ -137,8 +137,8 @@ export function canAutoCalculate(
   values: Record<number, any>
 ): boolean {
   // Typ number zamiast CalculatedFieldType, aby obsłużyć też QUANTITY_KEY (-1)
-  const hasValue = (type: number): boolean => {
-    const val = values[type];
+  const hasValue = (fieldKey: number): boolean => {
+    const val = values[fieldKey];
     return val !== null && val !== undefined && val !== '' && !isNaN(Number(val));
   };
 

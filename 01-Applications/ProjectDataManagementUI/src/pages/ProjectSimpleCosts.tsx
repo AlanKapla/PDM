@@ -29,6 +29,7 @@ import {
   Select,
   InputGroup,
   InputLeftElement,
+  Tooltip,
 } from "@chakra-ui/react";
 import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download, Search, SortAsc, ChevronUp, ChevronDown } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -137,6 +138,7 @@ const AllCostsTab = memo(function AllCostsTab({
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="green"
+              size="sm"
               onClick={() => onShowNewCostRow(true)}
             >
               Dodaj koszt
@@ -407,24 +409,26 @@ const AllCostsTab = memo(function AllCostsTab({
                   <Td textAlign="center">
                     {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
                       <HStack spacing={1} justify="center">
-                        <IconButton
-                          aria-label="Podgląd"
-                          icon={<Eye size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="purple"
-                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                          title={`Podgląd: ${cost.documentFileName}`}
-                        />
-                        <IconButton
-                          aria-label="Pobierz"
-                          icon={<Download size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="green"
-                          onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                          title={`Pobierz: ${cost.documentFileName}`}
-                        />
+                        <Tooltip label={`Podgląd: ${cost.documentFileName}`}>
+                          <IconButton
+                            aria-label="Podgląd"
+                            icon={<Eye size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="purple"
+                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                          />
+                        </Tooltip>
+                        <Tooltip label={`Pobierz: ${cost.documentFileName}`}>
+                          <IconButton
+                            aria-label="Pobierz"
+                            icon={<Download size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="green"
+                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                          />
+                        </Tooltip>
                       </HStack>
                     ) : (
                       <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
@@ -434,35 +438,41 @@ const AllCostsTab = memo(function AllCostsTab({
                     <Td textAlign="center">
                       <HStack spacing={1} justify="center">
                         {resourcePerms.all.canEdit && (
-                          <IconButton
-                            aria-label="Edytuj"
-                            icon={<Edit2 size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="blue"
-                            onClick={() => onEditCost(cost)}
-                          />
+                          <Tooltip label="Edytuj">
+                            <IconButton
+                              aria-label="Edytuj"
+                              icon={<Edit2 size={14} />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="blue"
+                              onClick={() => onEditCost(cost)}
+                            />
+                          </Tooltip>
                         )}
                         {resourcePerms.all.canDelete && (
-                          <IconButton
-                            aria-label="Usuń"
-                            icon={<Trash2 size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="red"
-                            onClick={() => onDeleteCost(cost.id)}
-                            isLoading={deletingCostId === cost.id}
-                          />
+                          <Tooltip label="Usuń">
+                            <IconButton
+                              aria-label="Usuń"
+                              icon={<Trash2 size={14} />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={() => onDeleteCost(cost.id)}
+                              isLoading={deletingCostId === cost.id}
+                            />
+                          </Tooltip>
                         )}
                         {resourcePerms.all.canManageShare && (
-                          <IconButton
-                            aria-label="Zarządzaj udostępnieniem"
-                            icon={<Share2 size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="orange"
-                            onClick={() => onManageShare(cost)}
-                          />
+                          <Tooltip label="Udostępnij">
+                            <IconButton
+                              aria-label="Udostępnij"
+                              icon={<Share2 size={14} />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="orange"
+                              onClick={() => onManageShare(cost)}
+                            />
+                          </Tooltip>
                         )}
                       </HStack>
                     </Td>
@@ -568,6 +578,7 @@ const MyCostsTab = memo(function MyCostsTab({
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="green"
+              size="sm"
               onClick={() => onShowNewCostRow(true)}
             >
               Dodaj koszt
@@ -834,24 +845,26 @@ const MyCostsTab = memo(function MyCostsTab({
                   <Td textAlign="center">
                     {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
                       <HStack spacing={1} justify="center">
-                        <IconButton
-                          aria-label="Podgląd"
-                          icon={<Eye size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="purple"
-                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                          title={`Podgląd: ${cost.documentFileName}`}
-                        />
-                        <IconButton
-                          aria-label="Pobierz"
-                          icon={<Download size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="green"
-                          onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                          title={`Pobierz: ${cost.documentFileName}`}
-                        />
+                        <Tooltip label={`Podgląd: ${cost.documentFileName}`}>
+                          <IconButton
+                            aria-label="Podgląd"
+                            icon={<Eye size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="purple"
+                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                          />
+                        </Tooltip>
+                        <Tooltip label={`Pobierz: ${cost.documentFileName}`}>
+                          <IconButton
+                            aria-label="Pobierz"
+                            icon={<Download size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="green"
+                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                          />
+                        </Tooltip>
                       </HStack>
                     ) : (
                       <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
@@ -859,33 +872,39 @@ const MyCostsTab = memo(function MyCostsTab({
                   </Td>
                   <Td textAlign="center">
                     <HStack spacing={1} justify="center">
-                      <IconButton
-                        aria-label="Edytuj"
-                        icon={<Edit2 size={14} />}
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="blue"
-                        onClick={() => onEditCost(cost)}
-                      />
-                      {resourcePerms.mine.canManageShare && (
+                      <Tooltip label="Edytuj">
                         <IconButton
-                          aria-label="Udostępnij"
-                          icon={<Share2 size={14} />}
+                          aria-label="Edytuj"
+                          icon={<Edit2 size={14} />}
                           size="xs"
                           variant="ghost"
-                          colorScheme="orange"
-                          onClick={() => onShareCost(cost)}
+                          colorScheme="blue"
+                          onClick={() => onEditCost(cost)}
                         />
+                      </Tooltip>
+                      {resourcePerms.mine.canManageShare && (
+                        <Tooltip label="Udostępnij">
+                          <IconButton
+                            aria-label="Udostępnij"
+                            icon={<Share2 size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="orange"
+                            onClick={() => onShareCost(cost)}
+                          />
+                        </Tooltip>
                       )}
-                      <IconButton
-                        aria-label="Usuń"
-                        icon={<Trash2 size={14} />}
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="red"
-                        onClick={() => onDeleteCost(cost.id)}
-                        isLoading={deletingCostId === cost.id}
-                      />
+                      <Tooltip label="Usuń">
+                        <IconButton
+                          aria-label="Usuń"
+                          icon={<Trash2 size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() => onDeleteCost(cost.id)}
+                          isLoading={deletingCostId === cost.id}
+                        />
+                      </Tooltip>
                     </HStack>
                   </Td>
                 </Tr>
@@ -996,24 +1015,26 @@ const SharedCostsTab = memo(function SharedCostsTab({
                   <Td textAlign="center">
                     {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
                       <HStack spacing={1} justify="center">
-                        <IconButton
-                          aria-label="Podgląd"
-                          icon={<Eye size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="purple"
-                          onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                          title={`Podgląd: ${cost.documentFileName}`}
-                        />
-                        <IconButton
-                          aria-label="Pobierz"
-                          icon={<Download size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="green"
-                          onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                          title={`Pobierz: ${cost.documentFileName}`}
-                        />
+                        <Tooltip label={`Podgląd: ${cost.documentFileName}`}>
+                          <IconButton
+                            aria-label="Podgląd"
+                            icon={<Eye size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="purple"
+                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
+                          />
+                        </Tooltip>
+                        <Tooltip label={`Pobierz: ${cost.documentFileName}`}>
+                          <IconButton
+                            aria-label="Pobierz"
+                            icon={<Download size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="green"
+                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
+                          />
+                        </Tooltip>
                       </HStack>
                     ) : (
                       <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
@@ -1606,6 +1627,7 @@ export default function ProjectSimpleCosts() {
             costName={costToManageShare.name}
             sharedWithUserIds={costToManageShare.sharedWithUserIds || []}
             currentUserId={user?.id || ""}
+            ownerUserId={costToManageShare.userId}
             onShareUpdated={handleShareUpdated}
           />
         )}

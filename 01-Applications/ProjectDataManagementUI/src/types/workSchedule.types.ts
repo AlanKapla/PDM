@@ -129,6 +129,8 @@ export interface WorkScheduleStageWorkAssigneeWeb {
 
 // User Assigned Works Types
 export interface UserAssignedWorksGroupedWeb {
+  tenantId: string;
+  tenantName: string;
   projectId: string;
   projectName: string;
   workSchedules: UserAssignedWorkScheduleWeb[];

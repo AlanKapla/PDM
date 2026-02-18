@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useContext } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -24,7 +24,7 @@ import {
 import { Share2, User } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
-import { useAuth } from "../hooks/useAuth";
+import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectCostListItemWeb } from "../types/project.types";
 
 interface ShareCostModalProps {
@@ -51,7 +51,7 @@ export default function ShareCostModal({
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const toast = useToast();
-  // const { user } = useAuth();
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     if (isOpen) {
@@ -65,8 +65,9 @@ export default function ShareCostModal({
     try {
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data: ProjectMemberWeb[] = response.data;
-      // Filtruj, aby nie pokazywać właściciela kosztu
-      const filteredMembers = data.filter((m) => m.userId !== cost.userId);
+      // Filtruj, aby nie pokazywać właściciela kosztu i aktualnego użytkownika
+      const excludeIds = new Set([cost.userId, user?.id].filter(Boolean));
+      const filteredMembers = data.filter((m) => !excludeIds.has(m.userId));
       setMembers(filteredMembers);
     } catch (err) {
       console.error("Błąd pobierania członków:", err);

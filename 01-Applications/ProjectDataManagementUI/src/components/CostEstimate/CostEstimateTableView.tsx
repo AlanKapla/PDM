@@ -73,6 +73,9 @@ import type {
 } from '../../types/costEstimate.types';
 import { FieldScope } from '../../types/costEstimate.types';
 
+// Minimalna szerokość kolumny "Pozycja" — dopasowuje się do zawartości (np. zagnieżdżone podgrupy)
+const POSITION_COL_MIN_WIDTH = 260;
+
 // ============================================================================
 // SYSTEM OBLICZEŃ KOSZTORYSU
 // ============================================================================
@@ -439,6 +442,8 @@ interface CostEstimateTableViewProps {
   onAddSubGroup?: (parentGroupId: string) => string | undefined;
   onAddItem?: (groupId: string) => void;
   onDeleteItem?: (groupId: string, itemId: string) => void;
+  /** Maksymalna wysokość tabeli — domyślnie 'calc(100vh - 220px)' */
+  maxTableHeight?: string;
 }
 
 // ========== FORMATTED NUMERIC INPUT — Input z lokalnym stanem, min 2 miejsca po przecinku ==========
@@ -680,6 +685,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   onAddSubGroup,
   onAddItem,
   onDeleteItem,
+  maxTableHeight = 'calc(100vh - 220px)',
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   
@@ -2619,18 +2625,19 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             </Th>
           )}
 
-          {/* Kolumna pozycji - zamrożona */}
+          {/* Kolumna pozycji - zamrożona, auto-skalowanie */}
           <Th
             color="white"
             fontSize="xs"
             py={4}
-            w="180px"
-            minW="180px"
-            maxW="180px"
+            w={`${POSITION_COL_MIN_WIDTH}px`}
+            minW={`${POSITION_COL_MIN_WIDTH}px`}
+            textAlign="center"
             position="sticky"
             left={editable ? '120px' : 0}
             zIndex={11}
             bg="blue.600"
+            whiteSpace="nowrap"
           >
             Pozycja
           </Th>
@@ -2843,7 +2850,32 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
         </Box>
       )}
       
-      <Box overflowX="auto">
+      <Box 
+        overflowX="auto"
+        sx={{
+          // Suwak poziomy zawsze widoczny na dole widoku (nie na dole tabeli)
+          position: 'relative',
+          maxHeight: maxTableHeight,
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            height: '12px',
+            width: '10px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'gray.100',
+            borderRadius: '6px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'gray.400',
+            borderRadius: '6px',
+            '&:hover': {
+              background: 'gray.500',
+            },
+          },
+          scrollbarWidth: 'auto',
+          scrollbarColor: '#A0AEC0 #EDF2F7',
+        }}
+      >
         {flatRows.length === 0 && !hasActiveFilters ? (
           // Brak grup - wyświetl komunikat i przycisk dodawania (tylko gdy nie ma filtrów)
           <Box p={8} textAlign="center">
@@ -2871,11 +2903,15 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={getSortableIds} strategy={verticalListSortingStrategy}>
-              <Table size="sm" variant="simple" sx={{ tableLayout: 'fixed', width: '100%' }}>
+              <Table size="sm" variant="simple" sx={{ 
+                tableLayout: 'fixed', 
+                minWidth: `${(editable ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
+                width: `${(editable ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
+              }}>
               {/* Colgroup dla precyzyjnej kontroli szerokości */}
               <colgroup>
                 {editable && <col style={{ width: '120px' }} />}
-                <col style={{ width: '180px' }} />
+                <col style={{ width: `${POSITION_COL_MIN_WIDTH}px` }} />
                 {expandedColumns.map((col) => (
                   <col key={col.fieldId} style={{ width: `${getColumnWidth(col.fieldId, col.width, col.label)}px` }} />
                 ))}
@@ -2963,8 +2999,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                         <Badge colorScheme="purple" fontSize="xs">SUMA</Badge>
                       </Td>
                     )}
-                    <Td p={2} w="180px" minW="180px" maxW="180px">
-                      <Text fontSize="sm" fontWeight="bold" color="purple.700">
+                    <Td p={2} w={`${POSITION_COL_MIN_WIDTH}px`} minW={`${POSITION_COL_MIN_WIDTH}px`}>
+                      <Text fontSize="sm" fontWeight="bold" color="purple.700" whiteSpace="nowrap">
                         PODSUMOWANIE KOSZTORYSU
                       </Text>
                     </Td>
@@ -3219,9 +3255,9 @@ const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
         left={editable ? '120px' : 0}
         zIndex={5}
         bg={level === 0 ? 'blue.50' : 'teal.50'}
-        w="180px"
-        minW="180px"
-        maxW="180px"
+        w={`${POSITION_COL_MIN_WIDTH}px`}
+        minW={`${POSITION_COL_MIN_WIDTH}px`}
+        whiteSpace="nowrap"
       >
         <HStack spacing={2}>
           <IconButton
@@ -3448,9 +3484,9 @@ const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
         left={editable ? '120px' : 0}
         zIndex={5}
         bg="purple.50"
-        w="180px"
-        minW="180px"
-        maxW="180px"
+        w={`${POSITION_COL_MIN_WIDTH}px`}
+        minW={`${POSITION_COL_MIN_WIDTH}px`}
+        whiteSpace="nowrap"
       >
         <Badge colorScheme="purple" size="sm">
           Opcja {optIndex + 1}
@@ -3638,9 +3674,9 @@ const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
         left={editable ? '120px' : 0}
         zIndex={5}
         bg="green.50"
-        w="180px"
-        minW="180px"
-        maxW="180px"
+        w={`${POSITION_COL_MIN_WIDTH}px`}
+        minW={`${POSITION_COL_MIN_WIDTH}px`}
+        whiteSpace="nowrap"
       >
         <Badge colorScheme="green" size="sm">
           Komponent {compIndex + 1}
@@ -3903,9 +3939,9 @@ const SortableItemRow: React.FC<SortableItemRowProps> = ({
           left={editable ? '120px' : 0}
           zIndex={5}
           bg="gray.50"
-          w="180px"
-          minW="180px"
-          maxW="180px"
+          w={`${POSITION_COL_MIN_WIDTH}px`}
+          minW={`${POSITION_COL_MIN_WIDTH}px`}
+          whiteSpace="nowrap"
           _groupHover={{ bg: 'gray.100' }}
         >
           <HStack spacing={1}>

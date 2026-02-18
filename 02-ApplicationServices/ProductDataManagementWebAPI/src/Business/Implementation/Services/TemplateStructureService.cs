@@ -184,6 +184,7 @@ namespace Business.Implementation.Services
                 field.Label,
                 field.IsSortable,
                 field.IsFilterable,
+                field.IsVisible,
                 fieldTypeConfig,
                 sumInGroup,
                 sumInTotal,

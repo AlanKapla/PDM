@@ -4,6 +4,8 @@
     /// User's assigned works grouped by Project
     /// </summary>
     public record UserAssignedWorksGroupedWeb(
+        Guid TenantId,
+        string TenantName,
         Guid ProjectId,
         string ProjectName,
         List<UserAssignedWorkScheduleWeb> WorkSchedules

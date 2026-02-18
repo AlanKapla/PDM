@@ -17,6 +17,7 @@ namespace CQRS.Files.UpdateFileShare
         private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
         private readonly IRepository<User> userRepo;
         private readonly IReadRepository<Notification> notificationRepo;
+        private readonly IProjectFilesService projectFilesService;
         private readonly ICurrentUser currentUser;
         private readonly INotificationSender notificationSender;
         private readonly ILogger<UpdateFileShareCommandHandler> logger;
@@ -26,6 +27,7 @@ namespace CQRS.Files.UpdateFileShare
             IRepository<SharedProjectFile> sharedProjectFileRepo,
             IRepository<User> userRepo,
             IReadRepository<Notification> notificationRepo,
+            IProjectFilesService projectFilesService,
             ICurrentUser currentUser,
             INotificationSender notificationSender,
             ILogger<UpdateFileShareCommandHandler> logger)
@@ -34,6 +36,7 @@ namespace CQRS.Files.UpdateFileShare
             this.sharedProjectFileRepo = sharedProjectFileRepo;
             this.userRepo = userRepo;
             this.notificationRepo = notificationRepo;
+            this.projectFilesService = projectFilesService;
             this.currentUser = currentUser;
             this.notificationSender = notificationSender;
             this.logger = logger;
@@ -94,8 +97,12 @@ namespace CQRS.Files.UpdateFileShare
             }
 
             // 8. Revoke access for users NOT in the list - zbierz operacje
+            // WAŻNE: NIE cofamy dostępu current userowi (może być adminem z wcześniejszym udostępnieniem)
             var usersWithAccess = GetUsersWithAccessToFile(request.FileId, allPackageShares);
-            var usersToRevoke = usersWithAccess.Except(request.SharedWithUserIds).ToList();
+            var usersToRevoke = usersWithAccess
+                .Except(request.SharedWithUserIds)
+                .Where(userId => userId != currentUser.Id)  // Nie cofamy dostępu sobie samemu
+                .ToList();
 
             foreach (var userId in usersToRevoke)
             {
@@ -124,6 +131,9 @@ namespace CQRS.Files.UpdateFileShare
             }
 
             await sharedProjectFileRepo.SaveChangesAsync(cancellationToken);
+
+            // Invalidate file access cache after sharing changes
+            await projectFilesService.InvalidateFileAccessCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             // 10. Wyślij notyfikacje po zapisaniu zmian
             // Notyfikacje dla userów którzy DOSTALI dostęp

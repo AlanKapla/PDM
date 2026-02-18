@@ -41,6 +41,7 @@ namespace WebApi.Extensions
             services
                 .AddApiBasics()
                 .AddDatabase(config)
+                .AddRedisCache(config)
                 .AddCqrs()
                 .AddAzureAdB2C(config)
                 .AddMicrosoftGraph(config)
@@ -142,6 +143,31 @@ namespace WebApi.Extensions
                                 49918, 49919, 49920
                             });
                     }));
+            return services;
+        }
+
+        public static IServiceCollection AddRedisCache(this IServiceCollection services, IConfiguration config)
+        {
+            var redisSettings = config.GetSection(RedisSettings.SectionName).Get<RedisSettings>();
+
+            if (redisSettings != null && redisSettings.IsEnabled && !string.IsNullOrWhiteSpace(redisSettings.ConnectionString))
+            {
+                services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
+                {
+                    var configuration = StackExchange.Redis.ConfigurationOptions.Parse(redisSettings.ConnectionString);
+                    configuration.AbortOnConnectFail = false;
+                    configuration.ConnectTimeout = 15000;
+                    configuration.SyncTimeout = 15000;
+                    configuration.Ssl = true;
+                    return StackExchange.Redis.ConnectionMultiplexer.Connect(configuration);
+                });
+            }
+            else
+            {
+                // Redis disabled - CacheService będzie działał w trybie bypass (bez cache)
+                services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp => null!);
+            }
+
             return services;
         }
 
@@ -319,7 +345,7 @@ namespace WebApi.Extensions
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
             
             // File access service - checking access with Package + Allow/Deny model
-            services.AddScoped<IFileAccessService, FileAccessService>();
+            services.AddScoped<IProjectFilesService, ProjectFilesService>();
             
             
             // Cost estimate calculation service
@@ -341,6 +367,11 @@ namespace WebApi.Extensions
             // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();
             services.AddScoped<CostEstimateItemValidator>();
+            
+            // Cache service
+            services.AddScoped<ICacheService, CacheService>();
+            
+            services.AddScoped<IProjectFilesService, ProjectFilesService>();
 
             services.AddHostedService<StartupSeederService>();
             services.AddHostedService<RolePermissionSeederService>();
@@ -350,12 +381,8 @@ namespace WebApi.Extensions
 
         public static IServiceCollection AddMicrosoftGraph(this IServiceCollection services, IConfiguration config)
         {
-            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>();
-
-            if (azureAdB2CSettings == null)
-            {
-                throw new InvalidOperationException("AzureAdB2C settings are not configured");
-            }
+            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>()
+                ?? throw new InvalidOperationException("AzureAdB2C settings are not configured");
 
             if (string.IsNullOrEmpty(azureAdB2CSettings.ClientSecret))
             {
@@ -384,6 +411,7 @@ namespace WebApi.Extensions
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
             services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
+            services.Configure<RedisSettings>(config.GetSection(RedisSettings.SectionName));
             return services;
         }
 

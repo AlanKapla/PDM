@@ -1,140 +1,190 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.GetProjectFilePackages;
 
 public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFilePackagesQuery, List<ProjectFilePackageWeb>>
 {
-    private readonly IRepository<ProjectFilePackage> packageRepo;
-    private readonly IRepository<ProjectFile> fileRepo;
-    private readonly IFileAccessService fileAccessService;
+    private readonly IProjectFilesService projectFilesService;
+    private readonly IReadRepository<User> userRepository;
     private readonly ICurrentUser currentUser;
 
     public GetProjectFilePackagesQueryHandler(
-        IRepository<ProjectFilePackage> packageRepo,
-        IRepository<ProjectFile> fileRepo,
-        IFileAccessService fileAccessService,
+        IProjectFilesService projectFilesService,
+        IReadRepository<User> userRepository,
         ICurrentUser currentUser)
     {
-        this.packageRepo = packageRepo;
-        this.fileRepo = fileRepo;
-        this.fileAccessService = fileAccessService;
+        this.projectFilesService = projectFilesService;
+        this.userRepository = userRepository;
         this.currentUser = currentUser;
     }
 
     public async Task<List<ProjectFilePackageWeb>> Handle(GetProjectFilePackagesQuery request, CancellationToken cancellationToken)
     {
-        // Get packages directly based on scope
-        var packages = await GetPackagesForScopeAsync(request.TenantId, request.ProjectId, request.Scope);
-        
-        if (packages.Count == 0)
+        // Pobierz cachowane dane z ProjectFilesService
+        Dictionary<Guid, ProjectFilePackageDto> allPackages = await projectFilesService.GetProjectFilePackagesAsync(
+            request.TenantId,
+            request.ProjectId,
+            cancellationToken);
+
+        Dictionary<Guid, List<ProjectFileCacheDto>> allFiles = await projectFilesService.GetProjectPackageFilesAsync(
+            request.TenantId,
+            request.ProjectId,
+            cancellationToken);
+
+        if (allPackages.Count == 0)
         {
             return new List<ProjectFilePackageWeb>();
         }
 
-        var packageIds = packages.Select(p => p.Id).ToHashSet();
+        // Filtruj paczki według scope
+        HashSet<Guid> accessiblePackageIds = await GetAccessiblePackageIdsByScopeAsync(
+            request.TenantId,
+            request.ProjectId,
+            request.Scope,
+            allPackages,
+            cancellationToken);
 
-        // ✅ Dla Shared scope - policz tylko dostępne pliki
-        Dictionary<Guid, int> fileCountDict;
-        
-        if (request.Scope == ResourceScope.Shared)
+        if (accessiblePackageIds.Count == 0)
         {
-            fileCountDict = await fileAccessService.GetAccessibleFileCountsAsync(
-                currentUser.Id,
-                packageIds,
-                cancellationToken);
-        }
-        else
-        {
-            // Dla Mine i All - policz wszystkie pliki
-            fileCountDict = await fileRepo.CountGroupedByAsync(
-                pf => packageIds.Contains(pf.ProjectFilePackageId) && !pf.IsDeleted,
-                pf => pf.ProjectFilePackageId,
-                cancellationToken);
+            return new List<ProjectFilePackageWeb>();
         }
 
-        // Sort once
-        packages.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+        // Policz pliki dla każdej paczki według scope
+        Dictionary<Guid, int> fileCountDict = await GetFileCountsByScopeAsync(
+            request.TenantId,
+            request.ProjectId,
+            accessiblePackageIds,
+            allFiles,
+            request.Scope,
+            cancellationToken);
 
-        var result = new List<ProjectFilePackageWeb>(packages.Count);
-        foreach (var pkg in packages)
+        // Zbierz unikalne OwnerId i pobierz użytkowników jednym zapytaniem jako słownik
+        HashSet<Guid> ownerIds = accessiblePackageIds
+            .Where(packageId => allPackages.ContainsKey(packageId))
+            .Select(packageId => allPackages[packageId].OwnerId)
+            .ToHashSet();
+
+        Dictionary<Guid, User> userDict = new Dictionary<Guid, User>();
+
+        if (ownerIds.Count > 0)
         {
+            userDict = await userRepository.GetDictionaryBySearchAsync(
+                u => ownerIds.Contains(u.Id),
+                cancellationToken);
+        }
+
+        // Buduj wynik
+        List<ProjectFilePackageWeb> result = new List<ProjectFilePackageWeb>();
+
+        foreach (Guid packageId in accessiblePackageIds)
+        {
+            if (!allPackages.TryGetValue(packageId, out ProjectFilePackageDto? package))
+            {
+                continue;
+            }
+
+            // Pobierz nazwę właściciela ze słownika
+            string ownerName = string.Empty;
+            if (userDict.TryGetValue(package.OwnerId, out User? owner))
+            {
+                ownerName = $"{owner.FirstName} {owner.LastName}".Trim();
+            }
+
             result.Add(new ProjectFilePackageWeb
             {
-                Id = pkg.Id,
-                Name = pkg.Name,
-                CreatedAt = pkg.CreatedAt,
-                OwnerId = pkg.OwnerId,
-                OwnerName = $"{pkg.Owner.FirstName} {pkg.Owner.LastName}".Trim(),
+                Id = package.Id,
+                Name = package.Name,
+                CreatedAt = package.CreatedAt,
+                OwnerId = package.OwnerId,
+                OwnerName = ownerName,
                 Files = new List<ProjectFileWeb>(),
-                TotalFiles = fileCountDict.GetValueOrDefault(pkg.Id, 0)
+                TotalFiles = fileCountDict.GetValueOrDefault(packageId, 0)
             });
         }
+
+        // Sortuj według daty utworzenia (najnowsze pierwsze)
+        result.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
 
         return result;
     }
 
-    private async Task<List<ProjectFilePackage>> GetPackagesForScopeAsync(
+    private async Task<HashSet<Guid>> GetAccessiblePackageIdsByScopeAsync(
         Guid tenantId,
         Guid projectId,
-        ResourceScope scope)
+        ResourceScope scope,
+        Dictionary<Guid, ProjectFilePackageDto> allPackages,
+        CancellationToken cancellationToken)
     {
-        return scope switch
+        if (scope == ResourceScope.All)
         {
-            ResourceScope.Mine => await GetMyPackagesAsync(tenantId, projectId),
-            ResourceScope.Shared => await GetSharedPackagesAsync(tenantId, projectId),
-            ResourceScope.All => await GetAllPackagesAsync(tenantId, projectId),
-            _ => new List<ProjectFilePackage>()
-        };
-    }
-
-    private async Task<List<ProjectFilePackage>> GetMyPackagesAsync(Guid tenantId, Guid projectId)
-    {
-        var packages = await packageRepo.GetBySearch(
-            pfp => pfp.ProjectId == projectId &&
-                   pfp.TenantId == tenantId &&
-                   pfp.OwnerId == currentUser.Id &&
-                   !pfp.IsDeleted,
-            include => include.Include(pfp => pfp.Owner)
-        );
-        return packages.ToList();
-    }
-
-    private async Task<List<ProjectFilePackage>> GetSharedPackagesAsync(Guid tenantId, Guid projectId)
-    {
-        // ✅ Pobierz IDs paczek bezpośrednio z serwisu
-        var accessiblePackageIds = await fileAccessService.GetAccessiblePackageIdsAsync(
-            currentUser.Id,
-            projectId);
-
-        if (!accessiblePackageIds.Any())
-        {
-            return new List<ProjectFilePackage>();
+            return allPackages.Keys.ToHashSet();
         }
 
-        // Pobierz paczki po IDs
-        var packages = await packageRepo.GetBySearch(
-            pfp => accessiblePackageIds.Contains(pfp.Id) && !pfp.IsDeleted,
-            include => include.Include(pfp => pfp.Owner)
-        );
-        
-        return packages.ToList();
+        if (scope == ResourceScope.Mine)
+        {
+            return allPackages.Values
+                .Where(p => p.OwnerId == currentUser.Id)
+                .Select(p => p.Id)
+                .ToHashSet();
+        }
+
+        // ResourceScope.Shared - użyj ProjectFilesService
+        return await projectFilesService.GetAccessiblePackageIdsAsync(
+            currentUser,
+            tenantId,
+            projectId,
+            scope,
+            cancellationToken);
     }
 
-    private async Task<List<ProjectFilePackage>> GetAllPackagesAsync(Guid tenantId, Guid projectId)
+    private async Task<Dictionary<Guid, int>> GetFileCountsByScopeAsync(
+        Guid tenantId,
+        Guid projectId,
+        HashSet<Guid> packageIds,
+        Dictionary<Guid, List<ProjectFileCacheDto>> allFiles,
+        ResourceScope scope,
+        CancellationToken cancellationToken)
     {
-        var packages = await packageRepo.GetBySearch(
-            pfp => pfp.ProjectId == projectId &&
-                   pfp.TenantId == tenantId &&
-                   !pfp.IsDeleted,
-            include => include.Include(pfp => pfp.Owner)
-        );
-        return packages.ToList();
+        Dictionary<Guid, int> counts = new Dictionary<Guid, int>();
+
+        if (scope == ResourceScope.All)
+        {
+            foreach (Guid packageId in packageIds)
+            {
+                int count = allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? files)
+                    ? files.Count
+                    : 0;
+                counts[packageId] = count;
+            }
+        }
+        else if (scope == ResourceScope.Mine)
+        {
+            foreach (Guid packageId in packageIds)
+            {
+                int count = allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? files)
+                    ? files.Count(f => f.OwnerId == currentUser.Id)
+                    : 0;
+                counts[packageId] = count;
+            }
+        }
+        else // ResourceScope.Shared
+        {
+            counts = await projectFilesService.GetAccessibleFileCountsAsync(
+                currentUser,
+                tenantId,
+                projectId,
+                packageIds,
+                scope,
+                cancellationToken);
+        }
+
+        return counts;
     }
 }

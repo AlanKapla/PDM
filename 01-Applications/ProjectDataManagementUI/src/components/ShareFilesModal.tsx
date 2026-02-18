@@ -52,17 +52,19 @@ export default function ShareFilesModal({
 
   useEffect(() => {
     if (isOpen) {
-      initPackages();
+      setPackages(myPackages || []);
       fetchProjectMembers();
       setSelectedUserIds(new Set());
       setSelectedPackageIds(new Set());
     }
   }, [isOpen, tenantId, projectId]);
 
-  // Inicjalizuj paczki z propsa (cache z rodzica)
-  const initPackages = () => {
-    setPackages(myPackages || []);
-  };
+  // Synchronizuj paczki z propsem — gdy rodzic zmieni źródło danych (np. zmiana zakładki)
+  useEffect(() => {
+    if (isOpen) {
+      setPackages(myPackages || []);
+    }
+  }, [myPackages, isOpen]);
 
   const fetchProjectMembers = async () => {
     try {

@@ -1,327 +1,258 @@
-﻿using Business.Interfaces.Configurations;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
+using System.Collections.Concurrent;
 
 namespace CQRS.Files.GetPackageFiles;
 
 public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery, List<ProjectFileWeb>>
 {
-    private readonly IRepository<ProjectFilePackage> packageRepo;
-    private readonly IRepository<ProjectFile> fileRepo;
-    private readonly IRepository<ProjectFileVersion> versionRepo;
-    private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
-    private readonly IFileAccessService fileAccessService;
+    private readonly IProjectFilesService projectFilesService;
+    private readonly IReadRepository<User> userRepository;
     private readonly ICurrentUser currentUser;
-    private readonly IBlobStorageService blobStorageService;
 
     public GetPackageFilesQueryHandler(
-        IRepository<ProjectFilePackage> packageRepo,
-        IRepository<ProjectFile> fileRepo,
-        IRepository<ProjectFileVersion> versionRepo,
-        IRepository<SharedProjectFile> sharedProjectFileRepo,
-        IFileAccessService fileAccessService,
-        ICurrentUser currentUser,
-        IBlobStorageService blobStorageService)
+        IProjectFilesService projectFilesService,
+        IReadRepository<User> userRepository,
+        ICurrentUser currentUser)
     {
-        this.packageRepo = packageRepo;
-        this.fileRepo = fileRepo;
-        this.versionRepo = versionRepo;
-        this.sharedProjectFileRepo = sharedProjectFileRepo;
-        this.fileAccessService = fileAccessService;
+        this.projectFilesService = projectFilesService;
+        this.userRepository = userRepository;
         this.currentUser = currentUser;
-        this.blobStorageService = blobStorageService;
     }
 
     public async Task<List<ProjectFileWeb>> Handle(GetPackageFilesQuery request, CancellationToken cancellationToken)
     {
-        // Verify package exists
-        var packages = await packageRepo.GetBySearch(
-            pfp => pfp.Id == request.PackageId &&
-                   pfp.TenantId == request.TenantId &&
-                   pfp.ProjectId == request.ProjectId &&
-                   !pfp.IsDeleted
-        );
+        // Fetch all cached data sequentially
+        var allPackages = await projectFilesService.GetProjectFilePackagesAsync(request.TenantId, request.ProjectId, cancellationToken);
+        var allFilesByPackage = await projectFilesService.GetProjectPackageFilesAsync(request.TenantId, request.ProjectId, cancellationToken);
+        var allVersionsByFile = await projectFilesService.GetProjectFilesVersionsAsync(request.TenantId, request.ProjectId, cancellationToken);
 
-        var package = packages.FirstOrDefault();
-        if (package == null)
+        if (!allPackages.TryGetValue(request.PackageId, out ProjectFilePackageDto? packageDto))
         {
             throw new NotFoundApiException(nameof(ProjectFilePackage), request.PackageId.ToString());
         }
 
-        // Get files directly based on scope
-        var filesList = await GetFilesForScopeAsync(request.PackageId, request.TenantId, request.ProjectId, request.Scope);
-        
-        if (filesList.Count == 0)
+        // Filter files based on scope
+        List<ProjectFileCacheDto> accessibleFiles = await GetAccessibleFilesForScopeAsync(
+            request.PackageId,
+            request.TenantId,
+            request.ProjectId,
+            request.Scope,
+            allFilesByPackage,
+            cancellationToken);
+
+        if (accessibleFiles.Count == 0)
         {
             return new List<ProjectFileWeb>();
         }
 
-        // Sort once before processing
-        filesList.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+        // Sort by CreatedAt desc
+        accessibleFiles.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
 
-        var fileIds = filesList.Select(f => f.Id).ToHashSet();
-        var currentVersionIds = filesList
-            .Where(f => f.CurrentVersionId.HasValue)
-            .Select(f => f.CurrentVersionId!.Value)
-            .ToList();
-
-        // Sequential data fetching to avoid DbContext concurrency issues
-        var currentVersionsDict = currentVersionIds.Count > 0
-            ? (await versionRepo.GetBySearch(
-                v => currentVersionIds.Contains(v.Id) && !v.IsDeleted,
-                include => include.Include(v => v.CreatedByUser))).ToDictionary(v => v.Id)
-            : new Dictionary<Guid, ProjectFileVersion>();
-
-        var versionCountDict = await versionRepo.CountGroupedByAsync(
-            v => fileIds.Contains(v.ProjectFileId) && !v.IsDeleted,
-            v => v.ProjectFileId,
-            cancellationToken);
-
-        // Dla Mine i All - pobierz informacje o udostępnieniach (do edycji)
-        // Dla Shared - nie potrzebujemy (tylko przeglądamy)
-        Dictionary<Guid, List<Guid>> sharedWithDict = new();
+        // OPTIMIZATION 2: Pre-calculate everything using direct lookups instead of LINQ
+        int fileCount = accessibleFiles.Count;
+        var versionCountDict = new Dictionary<Guid, int>(fileCount);
+        var currentVersionIds = new HashSet<Guid>(fileCount);
         
-        if (request.Scope == ResourceScope.Mine || request.Scope == ResourceScope.All)
+        for (int i = 0; i < fileCount; i++)
         {
-            sharedWithDict = await BuildSharedWithDictionaryAsync(request.PackageId, fileIds, cancellationToken);
+            var file = accessibleFiles[i];
+            
+            if (allVersionsByFile.TryGetValue(file.Id, out var versions))
+            {
+                versionCountDict[file.Id] = versions.Count;
+                
+                if (file.CurrentVersionId.HasValue)
+                {
+                    currentVersionIds.Add(file.CurrentVersionId.Value);
+                }
+            }
+            else
+            {
+                versionCountDict[file.Id] = 0;
+            }
         }
+
+        // Fetch SAS URIs and sharing sequentially
+        var sasUrisDict = currentVersionIds.Count > 0
+            ? await projectFilesService.GetFileVersionsSasUrisAsync(request.TenantId, request.ProjectId, currentVersionIds.ToArray())
+            : new Dictionary<Guid, FileVersionSasUriInfo>();
+
+        var fileIds = accessibleFiles.Select(f => f.Id).ToHashSet();
+        
+        var sharedWithDict = (request.Scope == ResourceScope.Mine || request.Scope == ResourceScope.All)
+            ? await projectFilesService.GetSharedWithUsersAsync(request.TenantId, request.ProjectId, request.PackageId, fileIds, cancellationToken)
+            : new Dictionary<Guid, List<Guid>>();
+
+        // Collect user IDs from SAS URIs (they contain CreatedByUserId info via version data)
+        var versionDataTask = currentVersionIds.Count > 0
+            ? projectFilesService.GetVersionsByIdsAsync(request.TenantId, request.ProjectId, currentVersionIds, cancellationToken)
+            : Task.FromResult(new ProjectFileVersionsResult());
+
+        var versionsResult = await versionDataTask;
+
+        // Collect ALL user IDs: version creators + file owners
+        var allUserIds = new HashSet<Guid>(versionsResult.CreatedByUserIds);
+        foreach (var file in accessibleFiles)
+        {
+            allUserIds.Add(file.OwnerId);
+        }
+
+        // Fetch ALL users at once
+        var userDict = allUserIds.Count > 0
+            ? await userRepository.GetDictionaryBySearchAsync(u => allUserIds.Contains(u.Id), cancellationToken)
+            : new Dictionary<Guid, User>();
 
         bool isOwnerView = request.Scope == ResourceScope.Mine;
-        string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
 
-        var result = new List<ProjectFileWeb>(filesList.Count);
-        foreach (var pf in filesList)
+        // OPTIMIZATION 4: Increase parallelism for mapping
+        var result = new ConcurrentBag<ProjectFileWeb>();
+
+        await Parallel.ForEachAsync(
+            accessibleFiles,
+            new ParallelOptions 
+            { 
+                MaxDegreeOfParallelism = 20,
+                CancellationToken = cancellationToken 
+            },
+            async (fileDto, ct) =>
+            {
+                var currentVersionDto = fileDto.CurrentVersionId.HasValue
+                    ? versionsResult.Versions.GetValueOrDefault(fileDto.CurrentVersionId.Value)
+                    : null;
+
+                var totalVersions = versionCountDict.GetValueOrDefault(fileDto.Id, 0);
+
+                var sharedWithUserIds = sharedWithDict.TryGetValue(fileDto.Id, out var shared)
+                    ? shared
+                    : new List<Guid>();
+
+                var sasUris = fileDto.CurrentVersionId.HasValue
+                    ? sasUrisDict.GetValueOrDefault(fileDto.CurrentVersionId.Value)
+                    : null;
+
+                var fileWeb = MapToProjectFileWeb(
+                    fileDto,
+                    packageDto.Name,
+                    currentVersionDto,
+                    userDict,
+                    totalVersions,
+                    isOwnerView,
+                    sharedWithUserIds,
+                    sasUris);
+
+                result.Add(fileWeb);
+                await Task.CompletedTask;
+            });
+
+        // Sort results by CreatedAt desc
+        return result.OrderByDescending(f => f.CreatedAt).ToList();
+    }
+
+    private async Task<List<ProjectFileCacheDto>> GetAccessibleFilesForScopeAsync(
+        Guid packageId,
+        Guid tenantId,
+        Guid projectId,
+        ResourceScope scope,
+        Dictionary<Guid, List<ProjectFileCacheDto>> allFilesByPackage,
+        CancellationToken cancellationToken)
+    {
+        if (!allFilesByPackage.TryGetValue(packageId, out List<ProjectFileCacheDto>? packageFiles))
         {
-            var currentVersion = pf.CurrentVersionId.HasValue 
-                ? currentVersionsDict.GetValueOrDefault(pf.CurrentVersionId.Value) 
-                : null;
-            
-            var totalVersions = versionCountDict.GetValueOrDefault(pf.Id, 0);
-            
-            var sharedWithUserIds = sharedWithDict.TryGetValue(pf.Id, out var shared) 
-                ? shared 
-                : new List<Guid>();
-
-            result.Add(MapToProjectFileWeb(
-                pf,
-                package.Name,
-                containerName,
-                currentVersion,
-                totalVersions,
-                isOwnerView,
-                sharedWithUserIds));
+            return new List<ProjectFileCacheDto>();
         }
 
-        return result;
-    }
-
-    private async Task<List<ProjectFile>> GetFilesForScopeAsync(
-        Guid packageId, 
-        Guid tenantId, 
-        Guid projectId, 
-        ResourceScope scope)
-    {
-        return scope switch
+        if (scope == ResourceScope.All)
         {
-            ResourceScope.Mine => await GetMyFilesAsync(packageId, tenantId, projectId),
-            ResourceScope.Shared => await GetSharedFilesAsync(packageId, tenantId, projectId),
-            ResourceScope.All => await GetAllFilesAsync(packageId, tenantId, projectId),
-            _ => new List<ProjectFile>()
-        };
-    }
+            return packageFiles;
+        }
 
-    private async Task<List<ProjectFile>> GetMyFilesAsync(Guid packageId, Guid tenantId, Guid projectId)
-    {
-        var files = await fileRepo.GetBySearch(
-            pf => pf.ProjectFilePackageId == packageId &&
-                  pf.TenantId == tenantId &&
-                  pf.ProjectId == projectId &&
-                  pf.OwnerId == currentUser.Id &&
-                  !pf.IsDeleted,
-            include => include.Include(pf => pf.Owner)
-        );
-        return files.ToList();
-    }
+        if (scope == ResourceScope.Mine)
+        {
+            return packageFiles.Where(f => f.OwnerId == currentUser.Id).ToList();
+        }
 
-    private async Task<List<ProjectFile>> GetSharedFilesAsync(Guid packageId, Guid tenantId, Guid projectId)
-    {
-        // ✅ Pobierz informacje o dostępie
-        var accessInfo = await fileAccessService.GetPackageAccessInfoAsync(
-            currentUser.Id,
-            packageId);
+        // ResourceScope.Shared - use ProjectFilesService
+        PackageAccessInfo accessInfo = await projectFilesService.GetPackageAccessInfoAsync(
+            currentUser,
+            tenantId,
+            projectId,
+            packageId,
+            scope,
+            cancellationToken);
 
         if (accessInfo.IsPackageShared)
         {
-            // Paczka udostępniona - pobierz wszystkie pliki OPRÓCZ wykluczeń
-            var files = await fileRepo.GetBySearch(
-                pf => pf.ProjectFilePackageId == packageId &&
-                      pf.TenantId == tenantId &&
-                      pf.ProjectId == projectId &&
-                      !accessInfo.ExcludedFileIds.Contains(pf.Id) &&
-                      !pf.IsDeleted,
-                include => include.Include(pf => pf.Owner)
-            );
-            return files.ToList();
+            // Package shared - all files EXCEPT excluded
+            return packageFiles.Where(f => !accessInfo.ExcludedFileIds.Contains(f.Id)).ToList();
         }
         else
         {
-            // Paczka NIE udostępniona - pobierz tylko pliki z Allow
-            if (!accessInfo.AllowedFileIds.Any())
-            {
-                return new List<ProjectFile>();
-            }
-
-            var files = await fileRepo.GetBySearch(
-                pf => accessInfo.AllowedFileIds.Contains(pf.Id) && !pf.IsDeleted,
-                include => include.Include(pf => pf.Owner)
-            );
-            return files.ToList();
+            // Package NOT shared - only allowed files
+            return packageFiles.Where(f => accessInfo.AllowedFileIds.Contains(f.Id)).ToList();
         }
     }
 
-    private async Task<List<ProjectFile>> GetAllFilesAsync(Guid packageId, Guid tenantId, Guid projectId)
-    {
-        var files = await fileRepo.GetBySearch(
-            pf => pf.ProjectFilePackageId == packageId &&
-                  pf.TenantId == tenantId &&
-                  pf.ProjectId == projectId &&
-                  !pf.IsDeleted,
-            include => include.Include(pf => pf.Owner)
-        );
-        return files.ToList();
-    }
-
     private ProjectFileWeb MapToProjectFileWeb(
-        ProjectFile pf,
+        ProjectFileCacheDto fileDto,
         string packageName,
-        string containerName,
-        ProjectFileVersion? currentVersion,
+        ProjectFileVersionDto? currentVersionDto,
+        Dictionary<Guid, User> userDict,
         int totalVersions,
         bool isOwnerView,
-        List<Guid> sharedWithUserIds)
+        List<Guid> sharedWithUserIds,
+        FileVersionSasUriInfo? sasUris)
     {
         ProjectFileVersionWeb? currentVersionWeb = null;
 
-        if (currentVersion?.CreatedByUser != null)
+        if (currentVersionDto != null && sasUris != null)
         {
-            string extension = Path.GetExtension(pf.FileName);
-            string displayNameWithExtension = $"{pf.DisplayName}{extension}";
-
-            Uri sasUriView = blobStorageService.GenerateSasUri(
-                containerName, 
-                currentVersion.BlobPath, 
-                displayNameWithExtension, 
-                expiresInMinutes: 60, 
-                contentDisposition: "inline");
-            
-            Uri sasUriDownload = blobStorageService.GenerateSasUri(
-                containerName, 
-                currentVersion.BlobPath, 
-                displayNameWithExtension, 
-                expiresInMinutes: 60, 
-                contentDisposition: "attachment");
+            string createdByUserName = string.Empty;
+            if (userDict.TryGetValue(currentVersionDto.CreatedByUserId, out User? user))
+            {
+                createdByUserName = $"{user.FirstName} {user.LastName}".Trim();
+            }
 
             currentVersionWeb = new ProjectFileVersionWeb
             {
-                Id = currentVersion.Id,
-                ProjectFileId = currentVersion.ProjectFileId,
-                VersionNumber = currentVersion.VersionNumber,
-                ContentType = currentVersion.ContentType,
-                FileSizeBytes = currentVersion.FileSizeBytes,
-                CreatedAt = currentVersion.CreatedAt,
-                CreatedByUserId = currentVersion.CreatedByUserId,
-                CreatedByUserName = $"{currentVersion.CreatedByUser.FirstName} {currentVersion.CreatedByUser.LastName}".Trim(),
-                SasUrlView = sasUriView.ToString(),
-                SasUrlDownload = sasUriDownload.ToString(),
+                Id = currentVersionDto.Id,
+                ProjectFileId = currentVersionDto.ProjectFileId,
+                VersionNumber = currentVersionDto.VersionNumber,
+                ContentType = currentVersionDto.ContentType,
+                FileSizeBytes = currentVersionDto.FileSizeBytes,
+                CreatedAt = currentVersionDto.CreatedAt,
+                CreatedByUserId = currentVersionDto.CreatedByUserId,
+                CreatedByUserName = createdByUserName,
+                SasUrlView = sasUris.SasUriView,
+                SasUrlDownload = sasUris.SasUriDownload,
                 Comments = new List<ProjectFileVersionCommentWeb>()
             };
         }
 
         return new ProjectFileWeb
         {
-            Id = pf.Id,
-            FileName = pf.FileName,
-            DisplayName = pf.DisplayName,
+            Id = fileDto.Id,
+            FileName = fileDto.FileName,
+            DisplayName = fileDto.DisplayName,
             PackageName = packageName,
-            CreatedAt = pf.CreatedAt,
-            OwnerId = pf.OwnerId,
-            OwnerName = $"{pf.Owner.FirstName} {pf.Owner.LastName}".Trim(),
+            CreatedAt = fileDto.CreatedAt,
+            OwnerId = fileDto.OwnerId,
+            OwnerName = userDict.TryGetValue(fileDto.OwnerId, out User? owner)
+                ? $"{owner.FirstName} {owner.LastName}".Trim()
+                : string.Empty,
             CurrentVersion = currentVersionWeb,
             Versions = new List<ProjectFileVersionWeb>(),
             TotalVersions = totalVersions,
-            IsOwner = isOwnerView && pf.OwnerId == currentUser.Id,
-            IsShared = sharedWithUserIds.Any(),  // ✅ Ma udostępnienia
-            SharedWithUserIds = sharedWithUserIds  // ✅ Lista userów (puste dla Shared scope)
+            IsOwner = isOwnerView && fileDto.OwnerId == currentUser.Id,
+            IsShared = sharedWithUserIds.Any(),
+            SharedWithUserIds = sharedWithUserIds
         };
     }
-
-    /// <summary>
-    /// Buduje słownik: FileId -> Lista UserIds którzy mają dostęp
-    /// Uwzględnia Package + Allow/Deny model:
-    /// - User ma dostęp jeśli: (Package shared AND NIE ma Deny) OR (ma Allow)
-    /// </summary>
-    private async Task<Dictionary<Guid, List<Guid>>> BuildSharedWithDictionaryAsync(
-        Guid packageId,
-        HashSet<Guid> fileIds,
-        CancellationToken cancellationToken)
-    {
-        // Pobierz wszystkie udostępnienia dla paczki
-        var allShares = await sharedProjectFileRepo.GetBySearch(
-            spf => spf.ProjectFilePackageId == packageId);
-
-        // Grupuj po userId
-        var sharesByUser = allShares.GroupBy(s => s.SharedWithUserId);
-
-        var result = new Dictionary<Guid, List<Guid>>();
-
-        foreach (var fileId in fileIds)
-        {
-            var usersWithAccess = new List<Guid>();
-
-            foreach (var userShares in sharesByUser)
-            {
-                var userId = userShares.Key;
-                
-                // Sprawdź czy user ma dostęp do tego pliku
-                var packageShare = userShares.FirstOrDefault(s => s.ProjectFileId == null);
-                var fileShare = userShares.FirstOrDefault(s => s.ProjectFileId == fileId);
-
-                bool hasAccess = false;
-
-                // Logika: (Package shared AND NIE Deny) OR Allow
-                if (fileShare?.Access == ProjectFileAccess.Deny)
-                {
-                    hasAccess = false;  // Deny ma priorytet
-                }
-                else if (fileShare?.Access == ProjectFileAccess.Allow)
-                {
-                    hasAccess = true;  // Jawny Allow
-                }
-                else if (packageShare != null)
-                {
-                    hasAccess = true;  // Dostęp przez paczkę (i brak Deny)
-                }
-
-                if (hasAccess)
-                {
-                    usersWithAccess.Add(userId);
-                }
-            }
-
-            if (usersWithAccess.Any())
-            {
-                result[fileId] = usersWithAccess;
-            }
-        }
-
-        return result;
-    }
-
 }

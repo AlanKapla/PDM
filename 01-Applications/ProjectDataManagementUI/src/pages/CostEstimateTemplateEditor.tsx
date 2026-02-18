@@ -118,6 +118,7 @@ import { CostEstimateStatus } from "../types/costEstimate.types.new";
 type CostEstimateItemFieldValueWeb = CostEstimateFieldValueWeb;
 type CostEstimateGroupFieldValueWeb = CostEstimateFieldValueWeb;
 import MainLayout from "../layout/MainLayout";
+import { useTouchReorder } from "../hooks/useTouchReorder";
 import { LoadingSpinner } from "../components/common";
 
 // Funkcja generująca unikalne GUID dla fieldName
@@ -176,14 +177,15 @@ export default function CostEstimateTemplateEditor() {
   const [templateDescription, setTemplateDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Waluty i jednostki
+  // Waluty i jednostki — domyślnie PLN, żeby zawsze była waluta polska
+  const DEFAULT_PLN_CURRENCY = { code: 'PLN', name: 'Polski Złoty', symbol: 'zł', isDefault: true, order: 0 };
   const [currencies, setCurrencies] = useState<Array<{
     code: string;
     name: string;
     symbol?: string;
     isDefault: boolean;
     order: number;
-  }>>([]);
+  }>>([DEFAULT_PLN_CURRENCY]);
   const [units, setUnits] = useState<Array<{
     code: string;
     name: string;
@@ -233,6 +235,9 @@ export default function CostEstimateTemplateEditor() {
   // UI Configuration State
   const [columns, setColumns] = useState<ColumnConfigurationWeb[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Obsługa przeciągania na urządzeniach dotykowych (smartfony, tablety)
+  const { createTouchHandlers } = useTouchReorder();
 
   // Field Type Configurations (loaded from BE)
   const [fieldTypeConfigs, setFieldTypeConfigs] = useState<Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>({});
@@ -297,6 +302,8 @@ export default function CostEstimateTemplateEditor() {
           customLabel: f.customLabel,
           required: f.isRequired,
           visible: f.isVisible,
+          sortable: f.isSortable ?? true,
+          filterable: f.isFilterable ?? true,
           order: f.order,
           readOnly: f.isReadOnly,
           defaultValue: f.defaultValue,
@@ -465,14 +472,18 @@ export default function CostEstimateTemplateEditor() {
         // Konfiguracja UI
         setColumns(struct.uiConfiguration?.columns ?? []);
         
-        // Załaduj waluty i jednostki
-        setCurrencies(struct.currencies.map(c => ({
+        // Załaduj waluty i jednostki — upewnij się, że PLN jest zawsze obecny
+        const loadedCurrencies = struct.currencies.map(c => ({
           code: c.code,
           name: c.name,
           symbol: c.symbol,
           isDefault: c.isDefault,
           order: c.order,
-        })));
+        }));
+        if (!loadedCurrencies.some(c => c.code === 'PLN')) {
+          loadedCurrencies.push({ ...DEFAULT_PLN_CURRENCY, isDefault: loadedCurrencies.length === 0, order: loadedCurrencies.length });
+        }
+        setCurrencies(loadedCurrencies);
         setUnits(struct.units.map(u => ({
           code: u.code,
           name: u.name,
@@ -730,6 +741,8 @@ export default function CostEstimateTemplateEditor() {
         isRequired: f.required,
         isVisible: f.visible,
         isReadOnly: f.readOnly || false,
+        isSortable: f.sortable ?? true,
+        isFilterable: f.filterable ?? true,
         order: idx,
         fieldTypeConfig: f.fieldTypeConfig,
       })),
@@ -1147,6 +1160,15 @@ export default function CostEstimateTemplateEditor() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
+    // Upewnij się, że PLN zawsze jest na liście walut
+    const hasPLN = currencies.some(c => c.code === 'PLN');
+    const finalCurrencies = hasPLN
+      ? currencies
+      : [...currencies, { code: 'PLN', name: 'Polski Złoty', symbol: 'zł', isDefault: currencies.length === 0, order: currencies.length }];
+    if (!hasPLN) {
+      setCurrencies(finalCurrencies);
+    }
+
     try {
       if (templateId && template) {
         // Aktualizacja istniejącego szablonu (bez wersjonowania)
@@ -1161,7 +1183,7 @@ export default function CostEstimateTemplateEditor() {
           autoNumberGroups: groupAutoNumbered,
           groupNumberFormat: groupNumberFormat || undefined,
           updateStructure: true, // Aktualizujemy strukturę
-          currencies: currencies,
+          currencies: finalCurrencies,
           units: units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),
@@ -1235,7 +1257,7 @@ export default function CostEstimateTemplateEditor() {
           autoNumberGroups: groupAutoNumbered,
           groupNumberFormat: groupNumberFormat || undefined,
           updateStructure: true,
-          currencies: currencies,
+          currencies: finalCurrencies,
           units: units,
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),
@@ -1474,6 +1496,12 @@ export default function CostEstimateTemplateEditor() {
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
+                  {...createTouchHandlers(index, draggedIndex, setDraggedIndex, (from, to) => {
+                    const newCols = [...validatedColumns];
+                    const [moved] = newCols.splice(from, 1);
+                    newCols.splice(to, 0, moved);
+                    setColumns(newCols.map((col, idx) => ({ ...col, order: idx })));
+                  })}
                   transition="all 0.2s"
                 >
                   <Icon as={GripVertical} color="gray.500" />
@@ -2193,6 +2221,9 @@ function SystemFieldsEditor({
   const availableSystemFields = fieldTypeConfigs[1] || [];
   const availableCalculatedFields = fieldTypeConfigs[2] || [];
   const availableGenericFields = fieldTypeConfigs[3] || [];
+
+  // Obsługa przeciągania child fields na urządzeniach dotykowych
+  const { createTouchHandlers: createChildTouchHandlers } = useTouchReorder({ itemSelector: '[data-touch-draggable-child]' });
   
   // Fallback labels jeśli nie ma konfiguracji
   const systemFieldTypeLabels: Record<SystemFieldType, string> = {
@@ -2639,6 +2670,18 @@ function SystemFieldsEditor({
                                 _hover={{ bg: draggedChildIndex === sortedIdx ? 'blue.50' : 'gray.50' }}
                                 _active={{ cursor: 'grabbing' }}
                                 transition="all 0.15s"
+                                {...createChildTouchHandlers(sortedIdx, draggedChildIndex, setDraggedChildIndex, (from, to) => {
+                                  const parentField = fields[index];
+                                  if (!parentField.childFields) return;
+                                  const sorted = [...parentField.childFields]
+                                    .map((cf, idx) => ({ cf, idx }))
+                                    .sort((a, b) => (a.cf.order ?? a.idx) - (b.cf.order ?? b.idx));
+                                  const [moved] = sorted.splice(from, 1);
+                                  sorted.splice(to, 0, moved);
+                                  const withOrder = sorted.map((s, i) => ({ ...s.cf, order: i }));
+                                  onUpdate(index, { childFields: withOrder });
+                                })}
+                                data-touch-draggable-child
                               >
                                 <Td w="40px" px={2}>
                                   <Icon as={GripVertical} color="gray.400" boxSize={4} />

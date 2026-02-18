@@ -30,6 +30,7 @@ interface ManageCostShareModalProps {
   costName: string;
   sharedWithUserIds: string[];
   currentUserId: string;
+  ownerUserId?: string;
   onShareUpdated: () => void;
 }
 
@@ -42,6 +43,7 @@ export const ManageCostShareModal = ({
   costName,
   sharedWithUserIds,
   currentUserId,
+  ownerUserId,
   onShareUpdated,
 }: ManageCostShareModalProps) => {
   const toast = useToast();
@@ -62,8 +64,9 @@ export const ManageCostShareModal = ({
       setLoadingMembers(true);
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data = response.data;
-      // Wyklucz aktualnego użytkownika z listy
-      const filteredMembers = data.filter((member: ProjectMemberWeb) => member.userId !== currentUserId);
+      // Wyklucz aktualnego użytkownika i właściciela kosztu z listy
+      const excludeIds = new Set([currentUserId, ownerUserId].filter(Boolean));
+      const filteredMembers = data.filter((member: ProjectMemberWeb) => !excludeIds.has(member.userId));
       setMembers(filteredMembers);
     } catch (error) {
       console.error("Błąd podczas pobierania członków:", error);
@@ -123,7 +126,7 @@ export const ManageCostShareModal = ({
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader>Zarządzaj udostępnieniem kosztu</ModalHeader>
+        <ModalHeader>Udostępnij kosztu</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <VStack align="stretch" spacing={4}>
