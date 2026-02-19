@@ -303,7 +303,7 @@ namespace CQRS.WorkSchedules.Shared
 
             RuleFor(x => x.EndDate)
                 .NotEmpty().WithMessage("Period end date is required")
-                .GreaterThan(x => x.StartDate).WithMessage("Period end date must be after start date");
+                .GreaterThanOrEqualTo(x => x.StartDate).WithMessage("Period end date cannot be before start date");
         }
     }
 

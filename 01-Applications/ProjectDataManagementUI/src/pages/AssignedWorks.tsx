@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Heading,
@@ -18,10 +18,6 @@ import {
   Th,
   Td,
   Tooltip,
-  Slider,
-  SliderTrack,
-  SliderFilledTrack,
-  SliderThumb,
   IconButton,
   Divider,
   useMediaQuery,
@@ -37,10 +33,10 @@ import {
   PanelLeftClose,
 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import TimelineToolbar from "../components/TimelineToolbar";
 import { projectApi } from "../api/projectApi";
 import type { UserAssignedWorksGroupedWeb } from "../types/workSchedule.types";
-
-type TimeScale = "days" | "weeks" | "months";
+import { useTimelineData } from "../hooks/useTimelineData";
 
 /** Selekcja w panelu nawigacji: wszystko, tenant lub konkretny projekt */
 type Selection =
@@ -67,14 +63,22 @@ export default function AssignedWorks() {
   const [expandedTenants, setExpandedTenants] = useState<Set<string>>(new Set());
 
   // Timeline
-  const [timeScale, setTimeScale] = useState<TimeScale>("weeks");
-  const [timeRangeMonths, setTimeRangeMonths] = useState(1);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set());
   const [columnWidths] = useState({ stage: 200, work: 350 });
 
   const [isMobile] = useMediaQuery("(max-width: 768px)");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const {
+    timeScale, setTimeScale,
+    timeRangeMonths, setTimeRangeMonths,
+    hideWeekends, toggleWeekends,
+    dates, dateGroups,
+    isToday, formatTimelineDate,
+    isWorkInPeriod, getPeriodEnd,
+    todayColumnRef, scrollContainerRef, scrollToToday,
+  } = useTimelineData({ isMobile });
 
   // Na mobile sidebar domyślnie ukryty
   useEffect(() => {
@@ -92,6 +96,7 @@ export default function AssignedWorks() {
   const selectedHoverBg = useColorModeValue("purple.200", "purple.600");
   const navHoverBg = useColorModeValue("gray.100", "gray.700");
   const theadBg = useColorModeValue("gray.50", "gray.700");
+  const todayBg = useColorModeValue("blue.100", "blue.800");
   const projectRowBg = useColorModeValue("purple.100", "purple.800");
   const projectRowHoverBg = useColorModeValue("purple.200", "purple.700");
   const scheduleRowBg = useColorModeValue("cyan.50", "cyan.900");
@@ -228,99 +233,12 @@ export default function AssignedWorks() {
     return 'active';
   };
 
-  const getTimelineData = () => {
-    const dates: Date[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const minDate = new Date(today);
-    minDate.setMonth(minDate.getMonth() - timeRangeMonths);
-    minDate.setDate(1);
-
-    const maxDate = new Date(today);
-    maxDate.setMonth(maxDate.getMonth() + timeRangeMonths);
-    maxDate.setMonth(maxDate.getMonth() + 1);
-    maxDate.setDate(0);
-
-    const current = new Date(minDate);
-
-    if (timeScale === "weeks") {
-      const dateGroups: { label: string; count: number; startIdx: number }[] = [];
-      let groupStartIdx = 0;
-
-      while (current <= maxDate) {
-        const weekStart = new Date(current);
-        const dayOfWeek = weekStart.getDay();
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        weekStart.setDate(weekStart.getDate() + diff);
-
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-
-        for (let i = 0; i < 7; i++) {
-          dates.push(new Date(current));
-          current.setDate(current.getDate() + 1);
-        }
-
-        dateGroups.push({
-          label: `${weekStart.getDate()}.${weekStart.getMonth() + 1} - ${weekEnd.getDate()}.${weekEnd.getMonth() + 1}`,
-          count: 7,
-          startIdx: groupStartIdx,
-        });
-        groupStartIdx += 7;
-      }
-
-      return { dates, dateGroups };
+  // Auto-scroll do dzisiejszej daty po załadowaniu
+  useEffect(() => {
+    if (!loading && assignedWorks.length > 0) {
+      setTimeout(scrollToToday, 100);
     }
-
-    // "days" i "months" — ta sama siatka, różni się tylko formatowanie
-    const dateGroups: { label: string; count: number; startIdx: number }[] = [];
-    let groupStartIdx = 0;
-
-    while (current <= maxDate) {
-      const monthStart = new Date(current);
-      const daysInMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
-
-      for (let day = 1; day <= daysInMonth; day++) {
-        dates.push(new Date(current.getFullYear(), current.getMonth(), day));
-      }
-
-      dateGroups.push({
-        label: monthStart.toLocaleDateString("pl-PL", { month: "long", year: "numeric" }),
-        count: daysInMonth,
-        startIdx: groupStartIdx,
-      });
-      groupStartIdx += daysInMonth;
-      current.setMonth(current.getMonth() + 1);
-    }
-
-    return { dates, dateGroups };
-  };
-
-  const isWorkInPeriod = (workStart: string, workEnd: string, periodStart: Date, periodEnd: Date): boolean => {
-    const start = new Date(workStart);
-    const end = new Date(workEnd);
-    return start < periodEnd && end >= periodStart;
-  };
-
-  const getPeriodEnd = (periodStart: Date): Date => {
-    const end = new Date(periodStart);
-    end.setDate(end.getDate() + 1);
-    return end;
-  };
-
-  const formatTimelineDate = (date: Date): string => {
-    if (timeScale === "days") {
-      return `${date.getDate()}.${date.getMonth() + 1}`;
-    } else if (timeScale === "weeks") {
-      const dayNames = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So"];
-      return `${dayNames[date.getDay()]}\n${date.getDate()}.${date.getMonth() + 1}`;
-    } else {
-      return `${date.getDate()}`;
-    }
-  };
-
-  const { dates, dateGroups } = getTimelineData();
+  }, [loading, assignedWorks.length, scrollToToday]);
 
   const toggleNavTenant = (tenantId: string) => {
     setExpandedTenants((prev) => {
@@ -621,105 +539,33 @@ export default function AssignedWorks() {
                   borderColor={borderColor}
                 >
                   <VStack spacing={3} align="stretch">
-                    <HStack justify="space-between" flexWrap="wrap" gap={2}>
-                      <HStack spacing={2} minW={0} flex={1}>
-                        <Tooltip label={sidebarOpen ? "Ukryj panel nawigacji" : "Pokaż panel nawigacji"}>
-                          <IconButton
-                            aria-label="Toggle sidebar"
-                            icon={sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSidebarOpen((p) => !p)}
-                          />
-                        </Tooltip>
-                        <Text fontWeight="bold" fontSize={isMobile ? "xs" : "md"} noOfLines={1}>
-                          {selectionLabel}
-                        </Text>
-                      </HStack>
-                      <HStack spacing={2}>
-                        <Button
-                          size={{ base: "xs", md: "sm" }}
-                          variant="outline"
-                          onClick={expandAll}
-                          fontSize={{ base: "10px", md: "sm" }}
-                        >
-                          Rozwiń
-                        </Button>
-                        <Button
-                          size={{ base: "xs", md: "sm" }}
-                          variant="outline"
-                          onClick={collapseAll}
-                          fontSize={{ base: "10px", md: "sm" }}
-                        >
-                          Zwiń
-                        </Button>
-                      </HStack>
+                    <HStack spacing={2} minW={0}>
+                      <Tooltip label={sidebarOpen ? "Ukryj panel nawigacji" : "Pokaż panel nawigacji"}>
+                        <IconButton
+                          aria-label="Toggle sidebar"
+                          icon={sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSidebarOpen((p) => !p)}
+                        />
+                      </Tooltip>
+                      <Text fontWeight="bold" fontSize={isMobile ? "xs" : "md"} noOfLines={1}>
+                        {selectionLabel}
+                      </Text>
                     </HStack>
 
-                    <HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" gap={2}>
-                      <HStack spacing={2}>
-                        <Text
-                          fontWeight="medium"
-                          fontSize={{ base: "10px", md: "sm" }}
-                          whiteSpace="nowrap"
-                        >
-                          Skala:
-                        </Text>
-                        {(["days", "weeks", "months"] as TimeScale[]).map((scale) => (
-                          <Button
-                            key={scale}
-                            size={{ base: "xs", md: "sm" }}
-                            variant={timeScale === scale ? "solid" : "outline"}
-                            colorScheme="purple"
-                            onClick={() => setTimeScale(scale)}
-                            fontSize={{ base: "10px", md: "sm" }}
-                          >
-                            {scale === "days"
-                              ? "Dni"
-                              : scale === "weeks"
-                                ? "Tygodnie"
-                                : "Miesiące"}
-                          </Button>
-                        ))}
-                      </HStack>
-
-                      <HStack spacing={2} flex={1} minW="200px">
-                        <Text
-                          fontWeight="medium"
-                          fontSize={{ base: "10px", md: "sm" }}
-                          whiteSpace="nowrap"
-                        >
-                          Zakres:
-                        </Text>
-                        <Slider
-                          value={timeRangeMonths}
-                          onChange={setTimeRangeMonths}
-                          min={1}
-                          max={24}
-                          step={1}
-                          colorScheme="purple"
-                          flex={1}
-                          maxW="300px"
-                        >
-                          <SliderTrack>
-                            <SliderFilledTrack />
-                          </SliderTrack>
-                          <SliderThumb boxSize={6}>
-                            <Box color="purple.500" fontSize="2xs" fontWeight="bold">
-                              {timeRangeMonths}
-                            </Box>
-                          </SliderThumb>
-                        </Slider>
-                        <Text fontSize="xs" color="gray.600" whiteSpace="nowrap">
-                          ±{timeRangeMonths}{" "}
-                          {timeRangeMonths === 1
-                            ? "miesiąc"
-                            : timeRangeMonths < 5
-                              ? "miesiące"
-                              : "miesięcy"}
-                        </Text>
-                      </HStack>
-                    </HStack>
+                    <TimelineToolbar
+                      timeScale={timeScale}
+                      setTimeScale={setTimeScale}
+                      timeRangeMonths={timeRangeMonths}
+                      setTimeRangeMonths={setTimeRangeMonths}
+                      hideWeekends={hideWeekends}
+                      toggleWeekends={toggleWeekends}
+                      scrollToToday={scrollToToday}
+                      onExpandAll={expandAll}
+                      onCollapseAll={collapseAll}
+                      isMobile={isMobile}
+                    />
                   </VStack>
                 </Box>
 
@@ -729,7 +575,7 @@ export default function AssignedWorks() {
                     <Text color="gray.500">Brak prac dla wybranej selekcji</Text>
                   </Box>
                 ) : (
-                  <Box overflowX="auto" overflowY="auto" flex={1}>
+                  <Box ref={scrollContainerRef} overflowX="auto" overflowY="auto" flex={1}>
                     <Table
                       variant="simple"
                       size="sm"
@@ -811,22 +657,31 @@ export default function AssignedWorks() {
                           >
                             Zakres robót
                           </Th>
-                          {dates.map((date, idx) => (
-                            <Th
-                              key={idx}
-                              textAlign="center"
-                              minW="30px"
-                              px={0.5}
-                              py={1}
-                              fontSize="2xs"
-                              fontWeight="normal"
-                              textTransform="none"
-                            >
-                              <Text fontSize="2xs" whiteSpace="pre-line">
-                                {formatTimelineDate(date)}
-                              </Text>
-                            </Th>
-                          ))}
+                          {dates.map((date, idx) => {
+                            const isTodayCol = isToday(date);
+                            return (
+                              <Th
+                                key={idx}
+                                ref={isTodayCol ? todayColumnRef : undefined}
+                                textAlign="center"
+                                minW="30px"
+                                px={0.5}
+                                py={1}
+                                fontSize="2xs"
+                                fontWeight={isTodayCol ? "bold" : "normal"}
+                                textTransform="none"
+                                bg={isTodayCol ? todayBg : undefined}
+                                borderLeftWidth={isTodayCol ? "2px" : undefined}
+                                borderRightWidth={isTodayCol ? "2px" : undefined}
+                                borderColor={isTodayCol ? "blue.500" : undefined}
+                                color={isTodayCol ? "blue.700" : undefined}
+                              >
+                                <Text fontSize="2xs" whiteSpace="pre-line">
+                                  {formatTimelineDate(date)}
+                                </Text>
+                              </Th>
+                            );
+                          })}
                         </Tr>
                       </Thead>
                       <Tbody>
@@ -1069,15 +924,19 @@ export default function AssignedWorks() {
                                                       periodEnd
                                                     )
                                                 );
+                                                const isTodayCol = isToday(periodStart);
 
                                                 return (
                                                   <Td
                                                     key={idx}
                                                     p={0}
                                                     bg={
-                                                      isActive ? work.colorRgb : undefined
+                                                      isActive ? work.colorRgb : (isTodayCol ? todayBg : undefined)
                                                     }
                                                     position="relative"
+                                                    borderLeftWidth={isTodayCol ? "2px" : undefined}
+                                                    borderRightWidth={isTodayCol ? "2px" : undefined}
+                                                    borderColor={isTodayCol ? "blue.500" : undefined}
                                                   >
                                                     {isActive && (
                                                       <Tooltip

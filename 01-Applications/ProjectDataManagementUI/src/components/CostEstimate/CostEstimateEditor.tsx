@@ -485,13 +485,15 @@ export const CostEstimateEditor: React.FC<CostEstimateEditorProps> = ({
           )}
           {/* Collapse */}
           <Td p={1} pl={`${indent + 8}px`}>
-            <IconButton
-              size="xs"
-              variant="ghost"
-              onClick={() => setCollapsed(!collapsed)}
-              aria-label={collapsed ? 'Rozwiń' : 'Zwiń'}
-              icon={collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-            />
+            <Tooltip label={collapsed ? 'Rozwiń grupę' : 'Zwiń grupę'}>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                onClick={() => setCollapsed(!collapsed)}
+                aria-label={collapsed ? 'Rozwiń' : 'Zwiń'}
+                icon={collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+              />
+            </Tooltip>
           </Td>
 
           {/* Header fields */}

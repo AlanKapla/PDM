@@ -2750,20 +2750,22 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                           }}
                         />
                         {filterValue && (
-                          <IconButton
-                            aria-label="Wyczyść filtr"
-                            icon={<X size={10} />}
-                            size="xs"
-                            variant="ghost"
-                            color="whiteAlpha.700"
-                            _hover={{ color: 'white' }}
-                            position="absolute"
-                            right={0}
-                            top={0}
-                            h="24px"
-                            minW="24px"
-                            onClick={() => clearFilter(col.fieldId)}
-                          />
+                          <Tooltip label="Wyczyść filtr">
+                            <IconButton
+                              aria-label="Wyczyść filtr"
+                              icon={<X size={10} />}
+                              size="xs"
+                              variant="ghost"
+                              color="whiteAlpha.700"
+                              _hover={{ color: 'white' }}
+                              position="absolute"
+                              right={0}
+                              top={0}
+                              h="24px"
+                              minW="24px"
+                              onClick={() => clearFilter(col.fieldId)}
+                            />
+                          </Tooltip>
                         )}
                       </InputGroup>
                     ) : (
@@ -2787,20 +2789,22 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                           fontSize="xs"
                         />
                         {filterValue && (
-                          <IconButton
-                            aria-label="Wyczyść filtr"
-                            icon={<X size={10} />}
-                            size="xs"
-                            variant="ghost"
-                            color="whiteAlpha.700"
-                            _hover={{ color: 'white' }}
-                            position="absolute"
-                            right={0}
-                            top={0}
-                            h="24px"
-                            minW="24px"
-                            onClick={() => clearFilter(col.fieldId)}
-                          />
+                          <Tooltip label="Wyczyść filtr">
+                            <IconButton
+                              aria-label="Wyczyść filtr"
+                              icon={<X size={10} />}
+                              size="xs"
+                              variant="ghost"
+                              color="whiteAlpha.700"
+                              _hover={{ color: 'white' }}
+                              position="absolute"
+                              right={0}
+                              top={0}
+                              h="24px"
+                              minW="24px"
+                              onClick={() => clearFilter(col.fieldId)}
+                            />
+                          </Tooltip>
                         )}
                       </InputGroup>
                     )
@@ -2886,13 +2890,15 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               Rozpocznij tworzenie kosztorysu dodając pierwszą grupę
             </Text>
             {editable && onAddGroup && (
-              <IconButton
-                aria-label="Dodaj grupę"
-                icon={<FolderPlus size={20} />}
-                colorScheme="green"
-                size="lg"
-                onClick={handleAddGroupWithExpand}
-              />
+              <Tooltip label="Dodaj grupę">
+                <IconButton
+                  aria-label="Dodaj grupę"
+                  icon={<FolderPlus size={20} />}
+                  colorScheme="green"
+                  size="lg"
+                  onClick={handleAddGroupWithExpand}
+                />
+              </Tooltip>
             )}
           </Box>
         ) : (
@@ -3260,13 +3266,15 @@ const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
         whiteSpace="nowrap"
       >
         <HStack spacing={2}>
-          <IconButton
-            aria-label={isCollapsed ? 'Rozwiń' : 'Zwiń'}
-            icon={isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-            size="xs"
-            variant="ghost"
-            onClick={() => toggleGroupCollapse(group.id)}
-          />
+          <Tooltip label={isCollapsed ? 'Rozwiń grupę' : 'Zwiń grupę'}>
+            <IconButton
+              aria-label={isCollapsed ? 'Rozwiń' : 'Zwiń'}
+              icon={isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+              size="xs"
+              variant="ghost"
+              onClick={() => toggleGroupCollapse(group.id)}
+            />
+          </Tooltip>
           <Badge colorScheme={level === 0 ? 'blue' : 'teal'} px={3} py={1}>
             Grupa {groupNumber}
           </Badge>
@@ -3946,16 +3954,18 @@ const SortableItemRow: React.FC<SortableItemRowProps> = ({
         >
           <HStack spacing={1}>
             {hasComponents && (
-              <IconButton
-                aria-label={componentsExpanded ? 'Zwiń komponenty' : 'Rozwiń komponenty'}
-                icon={componentsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                size="xs"
-                variant="ghost"
-                onClick={() => setComponentsExpanded(prev => !prev)}
-                minW="auto"
-                h="auto"
-                p={0}
-              />
+              <Tooltip label={componentsExpanded ? 'Zwiń komponenty' : 'Rozwiń komponenty'}>
+                <IconButton
+                  aria-label={componentsExpanded ? 'Zwiń komponenty' : 'Rozwiń komponenty'}
+                  icon={componentsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setComponentsExpanded(prev => !prev)}
+                  minW="auto"
+                  h="auto"
+                  p={0}
+                />
+              </Tooltip>
             )}
             <Text fontSize="sm" color="gray.600" fontWeight="medium">
               POZYCJA {itemNumber}
