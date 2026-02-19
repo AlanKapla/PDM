@@ -29,13 +29,14 @@ export default function Dashboard() {
   }, []);
 
   const menuCards = [
-    {
-      title: "Przełącz organizację",
-      description: "Zmień aktywną organizację, z którą współpracujesz",
-      icon: RefreshCw,
-      color: "purple.500",
-      path: "/tenants/collaborating",
-    },
+    // Przeniesione do strony Projekty (Select) oraz menu użytkownika
+    // {
+    //   title: "Przełącz organizację",
+    //   description: "Zmień aktywną organizację, z którą współpracujesz",
+    //   icon: RefreshCw,
+    //   color: "purple.500",
+    //   path: "/tenants/collaborating",
+    // },
     {
       title: "Projekty",
       description: "Przeglądaj i zarządzaj swoimi projektami",
