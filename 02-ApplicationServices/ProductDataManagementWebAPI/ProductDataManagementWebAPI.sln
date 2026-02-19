@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11415.280 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebApi", "src\WebApi\WebApi.csproj", "{D133DCE4-A27C-4C3B-96B1-5936DA437E7B}"
 EndProject
@@ -12,6 +12,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CQRS", "src\CQRS\CQRS.csproj", "{BD4EBCB6-BE1F-498D-8613-9ACD6D0C11CF}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Business", "src\Business\Business.csproj", "{22D8D4FC-B08A-472C-9C99-660516D04FC4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Business.AIAgent", "src\Business.AIAgent\Business.AIAgent.csproj", "{53190AE0-8F11-6716-34AB-660F48A1CC44}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{22D8D4FC-B08A-472C-9C99-660516D04FC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{22D8D4FC-B08A-472C-9C99-660516D04FC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{22D8D4FC-B08A-472C-9C99-660516D04FC4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53190AE0-8F11-6716-34AB-660F48A1CC44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53190AE0-8F11-6716-34AB-660F48A1CC44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53190AE0-8F11-6716-34AB-660F48A1CC44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53190AE0-8F11-6716-34AB-660F48A1CC44}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

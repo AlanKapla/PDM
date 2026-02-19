@@ -443,4 +443,17 @@ export const projectApi = {
   updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, roleId: string) => {
       return axiosClient.patch(`/tenants/${tenantId}/project/${projectId}/members/${userId}/role`, { roleId });
   },
+
+  // Wyciągnij koszty z plików za pomocą AI (faktury, paragony)
+  extractProjectCostsFromFiles: async (tenantId: string, projectId: string, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/cost/extract-from-files`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // 2 min — ekstrakcja AI może trwać dłużej
+    });
+  },
 };

@@ -30,8 +30,24 @@ import {
   InputGroup,
   InputLeftElement,
   Tooltip,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Progress,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  List,
+  ListItem,
+  ListIcon,
+  CircularProgress,
 } from "@chakra-ui/react";
-import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download, Search, SortAsc, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download, Search, SortAsc, ChevronUp, ChevronDown, Upload, FileText, CheckCircle, AlertCircle, Sparkles } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { AuthContext } from "../context/AuthContext";
@@ -42,7 +58,7 @@ import { formatDate, formatCurrency } from "../utils/formatters";
 import ShareCostModal from "../components/ShareCostModal";
 import { ManageCostShareModal } from "../components/ManageCostShareModal";
 import ShareCostsModal from "../components/ShareCostsModal";
-import type { ProjectCostListItemWeb } from "../types/project.types";
+import type { ProjectCostListItemWeb, ExtractProjectCostsFromFilesResponseWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
@@ -1079,6 +1095,13 @@ export default function ProjectSimpleCosts() {
   const [editingClosedCostId, setEditingClosedCostId] = useState<string | null>(null);
   const [savingClosedCost, setSavingClosedCost] = useState(false);
 
+  // Ekstrakcja kosztów z plików (AI)
+  const [extractionFiles, setExtractionFiles] = useState<File[]>([]);
+  const [extracting, setExtracting] = useState(false);
+  const [extractionResult, setExtractionResult] = useState<ExtractProjectCostsFromFilesResponseWeb | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const extractionFileInputRef = useRef<HTMLInputElement>(null);
+
   // Tab cache dla wszystkich kosztów
   const allCostsCache = useTabCache<ProjectCostListItemWeb[]>(
     async () => {
@@ -1112,6 +1135,7 @@ export default function ProjectSimpleCosts() {
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
   const { isOpen: isShareCostsModalOpen, onOpen: onShareCostsModalOpen, onClose: onShareCostsModalClose } = useDisclosure();
+  const { isOpen: isExtractModalOpen, onOpen: onExtractModalOpen, onClose: onExtractModalClose } = useDisclosure();
 
   const [newCostData, setNewCostData] = useState({
     name: '',
@@ -1458,6 +1482,110 @@ export default function ProjectSimpleCosts() {
     }
   };
 
+  // === Ekstrakcja kosztów z plików ===
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+  const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'application/pdf'];
+  const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.pdf'];
+
+  const validateExtractionFile = (file: File): string | null => {
+    if (file.size > MAX_FILE_SIZE) {
+      return `Plik "${file.name}" przekracza limit 50 MB (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+    }
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
+      return `Plik "${file.name}" ma nieobsługiwany format. Dozwolone: JPG, JPEG, PDF`;
+    }
+    return null;
+  };
+
+  const handleExtractionFilesAdd = (files: FileList | File[]) => {
+    const newFiles: File[] = [];
+    const errors: string[] = [];
+
+    Array.from(files).forEach((file) => {
+      const error = validateExtractionFile(file);
+      if (error) {
+        errors.push(error);
+      } else {
+        // Sprawdź duplikaty po nazwie
+        const alreadyAdded = extractionFiles.some(f => f.name === file.name && f.size === file.size);
+        if (!alreadyAdded) {
+          newFiles.push(file);
+        }
+      }
+    });
+
+    if (errors.length > 0) {
+      showError(errors.join('\n'));
+    }
+    if (newFiles.length > 0) {
+      setExtractionFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const handleRemoveExtractionFile = (index: number) => {
+    setExtractionFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleExtractCosts = async () => {
+    if (!user?.activeTenantId || !projectId || extractionFiles.length === 0) return;
+
+    setExtracting(true);
+    setExtractionResult(null);
+    try {
+      const res = await projectApi.extractProjectCostsFromFiles(
+        user.activeTenantId,
+        projectId,
+        extractionFiles
+      );
+      const result = res.data as ExtractProjectCostsFromFilesResponseWeb;
+      setExtractionResult(result);
+
+      if (result.successCount > 0) {
+        showSuccess(`Pomyślnie wyodrębniono ${result.successCount} z ${result.totalFilesProcessed} plików`);
+        refreshData();
+      }
+      if (result.errorCount > 0 && result.successCount === 0) {
+        showError(`Nie udało się przetworzyć żadnego pliku`);
+      }
+    } catch (error: any) {
+      console.error("Błąd podczas ekstrakcji kosztów:", error);
+      showError(error?.response?.data?.message || "Wystąpił błąd podczas ekstrakcji kosztów z plików");
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleCloseExtractModal = () => {
+    if (!extracting) {
+      setExtractionFiles([]);
+      setExtractionResult(null);
+      setIsDragOver(false);
+      onExtractModalClose();
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      handleExtractionFilesAdd(e.dataTransfer.files);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -1479,6 +1607,14 @@ export default function ProjectSimpleCosts() {
               {projectName && <Text fontSize="sm" color="gray.600">{projectName}</Text>}
             </VStack>
           </HStack>
+          <Button
+            leftIcon={<Sparkles size={18} />}
+            colorScheme="teal"
+            size="sm"
+            onClick={onExtractModalOpen}
+          >
+            Wyciągnij koszty z plików
+          </Button>
         </HStack>
 
         {!project || !resourcePerms.hasAnyAccess ? (
@@ -1659,6 +1795,192 @@ export default function ProjectSimpleCosts() {
             }}
           />
         )}
+
+        {/* MODAL: EKSTRAKCJA KOSZTÓW Z PLIKÓW (AI) */}
+        <Modal
+          isOpen={isExtractModalOpen}
+          onClose={handleCloseExtractModal}
+          size="xl"
+          closeOnOverlayClick={!extracting}
+          closeOnEsc={!extracting}
+        >
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>
+              <HStack spacing={2}>
+                <Icon as={Sparkles} color="teal.500" />
+                <Text>Wyciągnij koszty z plików</Text>
+              </HStack>
+            </ModalHeader>
+            {!extracting && <ModalCloseButton />}
+            <ModalBody>
+              <VStack spacing={4} align="stretch">
+                <Text fontSize="sm" color="gray.600">
+                  Prześlij zdjęcia faktur lub paragonów (JPG, PDF, max 50 MB każdy).
+                  AI automatycznie wyciągnie dane kosztowe i utworzy wpisy.
+                </Text>
+
+                {/* Drag & drop zone */}
+                {!extractionResult && (
+                  <Box
+                    border="2px dashed"
+                    borderColor={isDragOver ? "teal.400" : "gray.300"}
+                    borderRadius="lg"
+                    p={8}
+                    textAlign="center"
+                    bg={isDragOver ? "teal.50" : "gray.50"}
+                    cursor="pointer"
+                    transition="all 0.2s"
+                    _hover={{ borderColor: "teal.300", bg: "teal.50" }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => extractionFileInputRef.current?.click()}
+                  >
+                    <VStack spacing={2}>
+                      <Icon as={Upload} boxSize={10} color={isDragOver ? "teal.500" : "gray.400"} />
+                      <Text fontWeight="medium" color={isDragOver ? "teal.600" : "gray.600"}>
+                        {isDragOver ? "Upuść pliki tutaj" : "Przeciągnij pliki lub kliknij aby wybrać"}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500">
+                        JPG, JPEG, PDF • max 50 MB na plik
+                      </Text>
+                    </VStack>
+                    <Input
+                      ref={extractionFileInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg,.pdf"
+                      multiple
+                      display="none"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          handleExtractionFilesAdd(e.target.files);
+                          e.target.value = ''; // Reset żeby można było dodać ten sam plik ponownie
+                        }
+                      }}
+                    />
+                  </Box>
+                )}
+
+                {/* Lista wybranych plików */}
+                {extractionFiles.length > 0 && !extractionResult && (
+                  <Box>
+                    <Text fontSize="sm" fontWeight="medium" mb={2}>
+                      Wybrane pliki ({extractionFiles.length}):
+                    </Text>
+                    <VStack spacing={1} align="stretch">
+                      {extractionFiles.map((file, index) => (
+                        <HStack
+                          key={`${file.name}-${index}`}
+                          p={2}
+                          bg="gray.50"
+                          rounded="md"
+                          justify="space-between"
+                        >
+                          <HStack spacing={2} flex={1} minW={0}>
+                            <Icon as={FileText} size={16} color="gray.500" flexShrink={0} />
+                            <Text fontSize="sm" noOfLines={1}>{file.name}</Text>
+                            <Text fontSize="xs" color="gray.500" flexShrink={0}>
+                              ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                            </Text>
+                          </HStack>
+                          {!extracting && (
+                            <IconButton
+                              aria-label="Usuń plik"
+                              icon={<X size={14} />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveExtractionFile(index);
+                              }}
+                            />
+                          )}
+                        </HStack>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Progress podczas ekstrakcji */}
+                {extracting && (
+                  <Box textAlign="center" py={4}>
+                    <VStack spacing={3}>
+                      <CircularProgress isIndeterminate color="teal.500" size="48px" />
+                      <Text fontSize="sm" color="gray.600">
+                        Analizuję pliki za pomocą AI...
+                      </Text>
+                      <Text fontSize="xs" color="gray.500">
+                        To może potrwać do kilku minut w zależności od ilości plików
+                      </Text>
+                      <Progress size="xs" isIndeterminate colorScheme="teal" w="100%" rounded="full" />
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Wynik ekstrakcji */}
+                {extractionResult && (
+                  <VStack spacing={3} align="stretch">
+                    {extractionResult.successCount > 0 && (
+                      <Alert status="success" rounded="md">
+                        <AlertIcon />
+                        <Box>
+                          <AlertTitle>Sukces!</AlertTitle>
+                          <AlertDescription>
+                            Utworzono {extractionResult.successCount} {extractionResult.successCount === 1 ? 'koszt' : extractionResult.successCount < 5 ? 'koszty' : 'kosztów'} z {extractionResult.totalFilesProcessed} {extractionResult.totalFilesProcessed === 1 ? 'pliku' : 'plików'}.
+                          </AlertDescription>
+                        </Box>
+                      </Alert>
+                    )}
+
+                    {extractionResult.errors.length > 0 && (
+                      <Alert status="error" rounded="md">
+                        <AlertIcon />
+                        <Box flex={1}>
+                          <AlertTitle>Błędy ({extractionResult.errorCount})</AlertTitle>
+                          <AlertDescription>
+                            <List spacing={1} mt={1}>
+                              {extractionResult.errors.map((err, i) => (
+                                <ListItem key={i} fontSize="sm">
+                                  <ListIcon as={AlertCircle} color="red.500" />
+                                  <strong>{err.fileName}</strong>: {err.errorMessage}
+                                </ListItem>
+                              ))}
+                            </List>
+                          </AlertDescription>
+                        </Box>
+                      </Alert>
+                    )}
+                  </VStack>
+                )}
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              {!extractionResult ? (
+                <HStack spacing={2}>
+                  <Button variant="ghost" onClick={handleCloseExtractModal} isDisabled={extracting}>
+                    Anuluj
+                  </Button>
+                  <Button
+                    colorScheme="teal"
+                    leftIcon={<Sparkles size={16} />}
+                    onClick={handleExtractCosts}
+                    isLoading={extracting}
+                    loadingText="Przetwarzam..."
+                    isDisabled={extractionFiles.length === 0}
+                  >
+                    Wyciągnij koszty ({extractionFiles.length})
+                  </Button>
+                </HStack>
+              ) : (
+                <Button colorScheme="teal" onClick={handleCloseExtractModal}>
+                  Zamknij
+                </Button>
+              )}
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
       </Box>
     </MainLayout>

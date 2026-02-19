@@ -1,4 +1,5 @@
 ﻿using Azure.Identity;
+using Business.AIAgent.Extensions;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
 using Business.Implementation.Validators;
@@ -47,6 +48,8 @@ namespace WebApi.Extensions
                 .AddAppRepositories()
                 .AddAppServices()
                 .AddConfigurations(config)
+                .AddAIAgent(config)      // AI Agent Framework with Semantic Kernel
+                .AddAIPlugins()       // AI Agent Plugins (DI registration)
                 .AddFrontendCors(config);
 
             return services;

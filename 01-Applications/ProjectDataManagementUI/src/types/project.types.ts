@@ -206,6 +206,22 @@ export interface UpdateProjectCostCommand {
   removeDocument: boolean;
 }
 
+// ===== Ekstrakcja kosztów z plików (AI) =====
+
+export interface ExtractProjectCostsFromFilesResponseWeb {
+  createdProjectCostIds: string[];
+  errors: FileProcessingErrorWeb[];
+  totalFilesProcessed: number;
+  successCount: number;
+  errorCount: number;
+}
+
+export interface FileProcessingErrorWeb {
+  fileName: string;
+  errorMessage: string;
+  errorType: string; // "ExtractionFailed" | "UnexpectedError"
+}
+
 export interface SharedProjectCostWeb {
   id: string;
   projectCostId: string;

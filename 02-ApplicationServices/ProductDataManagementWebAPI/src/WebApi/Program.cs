@@ -1,5 +1,6 @@
 ﻿using Microsoft.IdentityModel.Logging;
 using WebApi.Extensions;
+using Business.AIAgent.Extensions;
 
 internal class Program
 {
@@ -37,6 +38,9 @@ internal class Program
         builder.Services.AddInfrastructure(builder.Configuration);
 
         var app = builder.Build();
+
+        // ✅ Register AI Plugins with Semantic Kernel
+        app.Services.UseAIPlugins();
 
         app.UseWebSockets();
 

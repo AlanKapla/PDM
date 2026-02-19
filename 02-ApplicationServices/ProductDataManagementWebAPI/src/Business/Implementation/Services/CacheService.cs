@@ -75,7 +75,7 @@ public sealed class CacheService : ICacheService
         if (value is not null)
         {
             string serializedValue = JsonSerializer.Serialize(value);
-            await db.StringSetAsync(key, serializedValue, expiration);
+            await db.StringSetAsync(key, serializedValue, expiration, When.Always);
             logger.LogDebug("Cached value for key {Key} with expiration {Expiration}", key, expiration);
         }
 

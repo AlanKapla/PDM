@@ -1,6 +1,8 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.CreateProjectCost;
 using CQRS.ProjectCosts.DeleteProjectCost;
+using CQRS.ProjectCosts.ExtractProjectCostsFromFiles;
 using CQRS.ProjectCosts.GetProjectCosts;
 using CQRS.ProjectCosts.ShareProjectCosts;
 using CQRS.ProjectCosts.UpdateCostShare;
@@ -134,6 +136,38 @@ namespace WebApi.Controllers
 
             await Send(command);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Extract project costs from uploaded files using AI with Semantic Kernel
+        /// Supports JPG and PDF files, max 50MB total
+        /// Uses Azure OpenAI via Semantic Kernel and IAgentService to extract cost data from receipts, invoices, and documents
+        /// Each file creates one ProjectCost entry with the document attached
+        /// </summary>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <param name="files">Files to process (JPG/PDF, max 50MB total)</param>
+        /// <returns>List of created project cost IDs and errors</returns>
+        [HttpPost("extract-from-files")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [ProducesResponseType(typeof(ExtractProjectCostsFromFilesResponseWeb), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [RequestSizeLimit(52428800)] // 50 MB
+        public async Task<IActionResult> ExtractProjectCostsFromFiles(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromForm] List<IFormFile> files)
+        {
+            var command = new ExtractProjectCostsFromFilesCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Files = files
+            };
+
+            var result = await Send(command);
+            return Ok(result);
         }
     }
 }

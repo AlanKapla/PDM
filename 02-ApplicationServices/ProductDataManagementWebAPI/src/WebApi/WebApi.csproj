@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Business.AIAgent\Business.AIAgent.csproj" />
     <ProjectReference Include="..\Business\Business.csproj" />
     <ProjectReference Include="..\CQRS\CQRS.csproj" />
     <ProjectReference Include="..\Entities\Entities.csproj" />
