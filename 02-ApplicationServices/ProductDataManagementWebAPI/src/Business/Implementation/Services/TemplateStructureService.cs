@@ -129,6 +129,7 @@ namespace Business.Implementation.Services
 
             return new CostEstimateTemplateStructureWeb(
                 template.Id,
+                template.MaxGroupLevel,
                 currencies.OrderBy(c => c.Order).ToList(),
                 units.OrderBy(u => u.Order).ToList(),
                 groupHeaderFields,

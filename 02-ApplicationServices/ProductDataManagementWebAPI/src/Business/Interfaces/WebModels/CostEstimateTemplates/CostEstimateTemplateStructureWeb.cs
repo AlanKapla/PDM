@@ -4,6 +4,7 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
 {
     public record CostEstimateTemplateStructureWeb(
         Guid TemplateId,
+        int? MaxGroupLevel,
         List<CurrencyWeb> Currencies,
         List<UnitWeb> Units,
         List<FieldDefinitionWeb> GroupHeaderFields,

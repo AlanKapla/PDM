@@ -39,6 +39,8 @@ export interface CostEstimateTemplateDetails {
  */
 export interface CostEstimateTemplateStructureWeb {
   templateId: string;
+  /** Maksymalny dozwolony poziom zagnieżdżenia grup (null/undefined = bez limitu) */
+  maxGroupLevel?: number | null;
   currencies: TemplateCurrencyWeb[];
   units: TemplateUnitWeb[];
   groupHeaderFields: GroupHeaderFieldWeb[];
