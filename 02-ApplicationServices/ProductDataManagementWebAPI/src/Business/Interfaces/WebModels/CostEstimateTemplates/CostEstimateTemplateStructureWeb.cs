@@ -44,6 +44,7 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         bool IsSortable,
         bool IsFilterable,
         bool IsVisible,
+        bool IsReadonly,
         CostEstimateFieldTypeConfigWeb FieldTypeConfig,
         bool SumInGroup = false,
         bool SumInTotal = false,

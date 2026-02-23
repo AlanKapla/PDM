@@ -81,6 +81,7 @@ export interface SystemFieldWeb {
   description?: string;
   isRequired: boolean;
   isVisible: boolean;
+  isReadOnly?: boolean;
   isSortable?: boolean;
   isFilterable?: boolean;
   order: number;
@@ -133,6 +134,7 @@ export interface GenericFieldWeb {
   displayFormat?: string;
   isSortable: boolean;
   isFilterable: boolean;
+  isReadOnly?: boolean;
   minValue?: number;
   maxValue?: number;
   minLength?: number;
@@ -499,6 +501,7 @@ export interface SystemFieldDefinition extends BaseFieldDefinition {
   type: SystemFieldType;
   sortable?: boolean;
   filterable?: boolean;
+  readOnly?: boolean;
   childFields?: Array<SystemFieldDefinition | CalculatedFieldDefinition | GenericFieldDefinition>;
 }
 
@@ -522,6 +525,7 @@ export interface GenericFieldDefinition extends BaseFieldDefinition {
   displayFormat?: string;
   sortable: boolean;
   filterable: boolean;
+  readOnly?: boolean;
   minValue?: number;
   maxValue?: number;
   minLength?: number;

@@ -24,6 +24,7 @@
         bool IsSortable,
         bool IsFilterable,
         bool IsVisible = true,
+        bool IsReadonly = false,
         bool SumInGroup = false,
         bool SumInTotal = false,
         List<FieldDefinitionDto>? ChildFields = null

@@ -336,6 +336,7 @@ export default function CostEstimateTemplateEditor() {
           helpUrl: f.helpUrl,
           sortable: f.isSortable,
           filterable: f.isFilterable,
+          readOnly: f.isReadOnly || false,
           fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
           // Mapuj childFields jeśli istnieją (dla pola Options)
           childFields: f.childFields?.map(child => {
@@ -355,6 +356,7 @@ export default function CostEstimateTemplateEditor() {
                 visible: child.isVisible,
                 sortable: child.isSortable,
                 filterable: child.isFilterable,
+                readOnly: child.isReadOnly || false,
                 fieldTypeConfig: child.fieldTypeConfig,
               } as SystemFieldDefinition;
             } else if (childScope === 2) {
@@ -371,7 +373,7 @@ export default function CostEstimateTemplateEditor() {
                 summable: false,
                 summaryScope: SummaryScope.Both,
                 autoCalculated: false,
-                readOnly: false,
+                readOnly: child.isReadOnly || false,
                 fieldTypeConfig: child.fieldTypeConfig,
               } as CalculatedFieldDefinition;
             } else {
@@ -385,6 +387,7 @@ export default function CostEstimateTemplateEditor() {
                 visible: child.isVisible,
                 sortable: child.isSortable,
                 filterable: child.isFilterable,
+                readOnly: child.isReadOnly || false,
                 fieldTypeConfig: child.fieldTypeConfig,
               } as GenericFieldDefinition;
             }
@@ -444,6 +447,7 @@ export default function CostEstimateTemplateEditor() {
           displayFormat: f.displayFormat,
           sortable: f.isSortable,
           filterable: f.isFilterable,
+          readOnly: f.isReadOnly || false,
           minValue: f.minValue,
           maxValue: f.maxValue,
           minLength: f.minLength,
@@ -1149,6 +1153,7 @@ export default function CostEstimateTemplateEditor() {
       label: field.label,
       isSortable: 'sortable' in field ? field.sortable || false : false,
       isFilterable: 'filterable' in field ? field.filterable || false : false,
+      isReadonly: 'readOnly' in field ? field.readOnly || false : false,
     };
   };
 
@@ -1192,6 +1197,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
           })),
           systemFields: systemFields.map(f => ({
             fieldName: f.name,
@@ -1200,6 +1206,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
             childFields: f.childFields?.map(mapFieldToDto) || undefined,
           })),
           calculatedFields: calculatedFields.map(f => ({
@@ -1209,6 +1216,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
             sumInGroup: f.sumInGroup || false,
             sumInTotal: f.sumInTotal || false,
           })),
@@ -1219,6 +1227,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
           })),
           summaryConfiguration: {
             showGroupSummary,
@@ -1266,6 +1275,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
           })),
           systemFields: systemFields.map(f => ({
             fieldName: f.name,
@@ -1274,6 +1284,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
             childFields: f.childFields?.map(mapFieldToDto) || undefined,
           })),
           calculatedFields: calculatedFields.map(f => ({
@@ -1283,6 +1294,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
             sumInGroup: f.sumInGroup || false,
             sumInTotal: f.sumInTotal || false,
           })),
@@ -1293,6 +1305,7 @@ export default function CostEstimateTemplateEditor() {
             isSortable: f.sortable || false,
             isFilterable: f.filterable || false,
             isVisible: f.visible,
+            isReadonly: f.readOnly || false,
           })),
           summaryConfiguration: {
             showGroupSummary,
@@ -2138,6 +2151,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                 <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
+                <Th w="100px">Tylko do odczytu</Th>
                 <Th w="80px">Akcje</Th>
               </Tr>
             </Thead>
@@ -2176,6 +2190,12 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                       <Checkbox
                         isChecked={field.filterable || false}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.readOnly || false}
+                        onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
                     </Td>
                     <Td>
@@ -2408,8 +2428,8 @@ function SystemFieldsEditor({
               // FieldType 100-199 to pola systemowe, konwertuj na SystemFieldType (0-99)
               const systemFieldType = (config.fieldType - 100) as SystemFieldType;
               const isAdded = fields.some((f) => f.type === systemFieldType);
-              // Pole Name można dodać tylko raz, Selected może być dodawane wielokrotnie
-              const shouldDisable = isAdded && systemFieldType !== SystemFieldType.Selected;
+              // Każde pole systemowe można dodać tylko raz
+              const shouldDisable = isAdded;
               return (
                 <Button
                   key={config.fieldType}
@@ -2429,7 +2449,7 @@ function SystemFieldsEditor({
             Object.entries(systemFieldTypeLabels).map(([type, label]) => {
               const typeNum = parseInt(type) as SystemFieldType;
               const isAdded = fields.some((f) => f.type === typeNum);
-              const shouldDisable = isAdded && typeNum !== SystemFieldType.Selected;
+              const shouldDisable = isAdded;
               return (
                 <Button
                   key={type}
@@ -2462,6 +2482,7 @@ function SystemFieldsEditor({
                 <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
+                <Th w="100px">Tylko do odczytu</Th>
                 <Th w="120px">Akcje</Th>
               </Tr>
             </Thead>
@@ -2500,6 +2521,12 @@ function SystemFieldsEditor({
                       />
                     </Td>
                     <Td>
+                      <Checkbox
+                        isChecked={field.readOnly || false}
+                        onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
                       <HStack spacing={1}>
                         {field.type === SystemFieldType.Options && (
                           <IconButton
@@ -2525,7 +2552,7 @@ function SystemFieldsEditor({
               {/* Child Fields Editor - tylko dla pola Options */}
               {field.type === SystemFieldType.Options && expandedField === index && (
                 <Tr>
-                  <Td colSpan={6} p={0}>
+                  <Td colSpan={7} p={0}>
                     <Box p={4} bg="gray.50">
                       <VStack spacing={4} align="stretch">
                         <Text fontSize="sm" fontWeight="bold" color="gray.700">
@@ -2628,6 +2655,7 @@ function SystemFieldsEditor({
                             <Th fontSize="xs">Etykieta</Th>
                             <Th fontSize="xs" w="80px" textAlign="center">Sortowalne</Th>
                             <Th fontSize="xs" w="80px" textAlign="center">Filtrowalne</Th>
+                            <Th fontSize="xs" w="100px" textAlign="center">Tylko do odczytu</Th>
                             <Th fontSize="xs" w="60px">Akcje</Th>
                           </Tr>
                         </Thead>
@@ -2720,6 +2748,17 @@ function SystemFieldsEditor({
                                     onChange={(e) =>
                                       handleUpdateChildField(index, childIndex, {
                                         filterable: e.target.checked,
+                                      })
+                                    }
+                                  />
+                                </Td>
+                                <Td textAlign="center">
+                                  <Checkbox
+                                    size="sm"
+                                    isChecked={childField.readOnly ?? false}
+                                    onChange={(e) =>
+                                      handleUpdateChildField(index, childIndex, {
+                                        readOnly: e.target.checked,
                                       })
                                     }
                                   />
@@ -2842,6 +2881,7 @@ function CalculatedFieldsEditor({
                 <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
+                <Th w="100px">Tylko do odczytu</Th>
                 <Th w="100px">Suma w etapie</Th>
                 <Th w="100px">Suma total</Th>
                 <Th w="80px">Akcje</Th>
@@ -2896,6 +2936,12 @@ function CalculatedFieldsEditor({
                       <Checkbox
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.readOnly || false}
+                        onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
                     </Td>
                     <Td>
@@ -3016,6 +3062,7 @@ function GenericFieldsEditor({
                 <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
+                <Th w="100px">Tylko do odczytu</Th>
                 <Th w="80px">Akcje</Th>
               </Tr>
             </Thead>
@@ -3051,6 +3098,12 @@ function GenericFieldsEditor({
                       <Checkbox
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={field.readOnly || false}
+                        onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
                     </Td>
                     <Td>

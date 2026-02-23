@@ -51,7 +51,12 @@ namespace Entities.Models.CostEstimateTemplates
         /// Czy pole jest widoczne w UI
         /// </summary>
         public bool IsVisible { get; set; }
-        
+
+        /// <summary>
+        /// Czy pole jest tylko do odczytu w UI
+        /// </summary>
+        public bool IsReadonly { get; set; }
+
         /// <summary>
         /// ID pola nadrzędnego (dla pól zagnieżdżonych w opcjach)
         /// Tylko pola typu ItemSystemOptions mogą mieć pola potomne

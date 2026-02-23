@@ -367,6 +367,7 @@ namespace Business.Implementation.Services
                 field.IsSortable,
                 field.IsFilterable,
                 field.IsVisible,
+                field.IsReadonly,
                 fieldTypeConfig,
                 sumInGroup,
                 sumInTotal,
@@ -722,6 +723,7 @@ namespace Business.Implementation.Services
                 field.IsSortable = fieldDto.IsSortable;
                 field.IsFilterable = fieldDto.IsFilterable;
                 field.IsVisible = fieldDto.IsVisible;
+                field.IsReadonly = fieldDto.IsReadonly;
                 field.ParentFieldId = parentFieldId;
                 field.Order = order;
 
@@ -755,6 +757,7 @@ namespace Business.Implementation.Services
                         IsSortable = fieldDto.IsSortable,
                         IsFilterable = fieldDto.IsFilterable,
                         IsVisible = fieldDto.IsVisible,
+                        IsReadonly = fieldDto.IsReadonly,
                         ParentFieldId = parentFieldId,
                         Order = order
                     },
@@ -770,6 +773,7 @@ namespace Business.Implementation.Services
                         IsSortable = fieldDto.IsSortable,
                         IsFilterable = fieldDto.IsFilterable,
                         IsVisible = fieldDto.IsVisible,
+                        IsReadonly = fieldDto.IsReadonly,
                         ParentFieldId = parentFieldId,
                         Order = order
                     },
@@ -785,6 +789,7 @@ namespace Business.Implementation.Services
                         IsSortable = fieldDto.IsSortable,
                         IsFilterable = fieldDto.IsFilterable,
                         IsVisible = fieldDto.IsVisible,
+                        IsReadonly = fieldDto.IsReadonly,
                         ParentFieldId = parentFieldId,
                         Order = order,
                         SumInGroup = fieldDto.SumInGroup,
@@ -802,6 +807,7 @@ namespace Business.Implementation.Services
                         IsSortable = fieldDto.IsSortable,
                         IsFilterable = fieldDto.IsFilterable,
                         IsVisible = fieldDto.IsVisible,
+                        IsReadonly = fieldDto.IsReadonly,
                         ParentFieldId = parentFieldId,
                         Order = order
                     },
