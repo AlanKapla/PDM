@@ -507,10 +507,24 @@ namespace Business.Implementation.Services
             CollectFieldNames(newCalculatedFields, newFieldNames);
             CollectFieldNames(newGenericFields, newFieldNames);
 
-            await DeleteFieldsNotInSet(groupFieldRepository, templateId, newFieldNames, cancellationToken);
-            await DeleteFieldsNotInSet(systemFieldRepository, templateId, newFieldNames, cancellationToken);
-            await DeleteFieldsNotInSet(calculatedFieldRepository, templateId, newFieldNames, cancellationToken);
-            await DeleteFieldsNotInSet(genericFieldRepository, templateId, newFieldNames, cancellationToken);
+            // Collect fields to delete per scope
+            var groupToDelete = await CollectFieldsToDeleteAsync(groupFieldRepository, templateId, newFieldNames);
+            var systemToDelete = await CollectFieldsToDeleteAsync(systemFieldRepository, templateId, newFieldNames);
+            var calculatedToDelete = await CollectFieldsToDeleteAsync(calculatedFieldRepository, templateId, newFieldNames);
+            var genericToDelete = await CollectFieldsToDeleteAsync(genericFieldRepository, templateId, newFieldNames);
+
+            // First pass: delete child fields (with ParentFieldId) across ALL scopes
+            // to avoid FK violations on the self-referencing ParentFieldId constraint (TPH single table)
+            await DeleteFilteredFieldsAsync(groupFieldRepository, groupToDelete.Where(f => f.ParentFieldId.HasValue), cancellationToken);
+            await DeleteFilteredFieldsAsync(systemFieldRepository, systemToDelete.Where(f => f.ParentFieldId.HasValue), cancellationToken);
+            await DeleteFilteredFieldsAsync(calculatedFieldRepository, calculatedToDelete.Where(f => f.ParentFieldId.HasValue), cancellationToken);
+            await DeleteFilteredFieldsAsync(genericFieldRepository, genericToDelete.Where(f => f.ParentFieldId.HasValue), cancellationToken);
+
+            // Second pass: delete parent fields (without ParentFieldId)
+            await DeleteFilteredFieldsAsync(groupFieldRepository, groupToDelete.Where(f => !f.ParentFieldId.HasValue), cancellationToken);
+            await DeleteFilteredFieldsAsync(systemFieldRepository, systemToDelete.Where(f => !f.ParentFieldId.HasValue), cancellationToken);
+            await DeleteFilteredFieldsAsync(calculatedFieldRepository, calculatedToDelete.Where(f => !f.ParentFieldId.HasValue), cancellationToken);
+            await DeleteFilteredFieldsAsync(genericFieldRepository, genericToDelete.Where(f => !f.ParentFieldId.HasValue), cancellationToken);
         }
 
         private void CollectFieldNames(List<FieldDefinitionDto>? fields, HashSet<Guid> fieldNames)
@@ -528,42 +542,25 @@ namespace Business.Implementation.Services
             }
         }
 
-        private async Task DeleteFieldsNotInSet<T>(
+        private async Task<List<T>> CollectFieldsToDeleteAsync<T>(
             IRepository<T> repository,
             Guid templateId,
-            HashSet<Guid> keepFieldNames,
-            CancellationToken cancellationToken) where T : CostEstimateTemplateFieldDefinitionBase
+            HashSet<Guid> keepFieldNames) where T : CostEstimateTemplateFieldDefinitionBase
         {
             var existingFields = await repository.GetBySearch(f => f.TemplateId == templateId);
+            return existingFields.Where(f => !keepFieldNames.Contains(f.FieldName)).ToList();
+        }
 
-            var fieldsToDelete = existingFields
-                .Where(f => !keepFieldNames.Contains(f.FieldName))
-                .ToList();
+        private async Task DeleteFilteredFieldsAsync<T>(
+            IRepository<T> repository,
+            IEnumerable<T> fields,
+            CancellationToken cancellationToken) where T : CostEstimateTemplateFieldDefinitionBase
+        {
+            var fieldsList = fields.ToList();
+            if (!fieldsList.Any()) return;
 
-            if (!fieldsToDelete.Any())
-            {
-                return;
-            }
-
-            var childFieldsToDelete = fieldsToDelete
-                .Where(f => f.ParentFieldId.HasValue)
-                .ToList();
-
-            if (childFieldsToDelete.Any())
-            {
-                await repository.DeleteRange(childFieldsToDelete);
-                await repository.SaveChangesAsync(cancellationToken);
-            }
-
-            var parentFieldsToDelete = fieldsToDelete
-                .Where(f => !f.ParentFieldId.HasValue)
-                .ToList();
-
-            if (parentFieldsToDelete.Any())
-            {
-                await repository.DeleteRange(parentFieldsToDelete);
-                await repository.SaveChangesAsync(cancellationToken);
-            }
+            await repository.DeleteRange(fieldsList);
+            await repository.SaveChangesAsync(cancellationToken);
         }
 
         private async Task UpsertFieldsInBatchAsync(
