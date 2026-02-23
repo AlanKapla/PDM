@@ -53,7 +53,7 @@ namespace Entities.Models.CostEstimateTemplates
         public bool IsVisible { get; set; }
 
         /// <summary>
-        /// Czy pole jest tylko do odczytu w UI
+        /// Czy pole jest Tylko do odczytu w UI
         /// </summary>
         public bool IsReadonly { get; set; }
 

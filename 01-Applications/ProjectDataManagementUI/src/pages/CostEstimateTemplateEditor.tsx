@@ -305,7 +305,7 @@ export default function CostEstimateTemplateEditor() {
           sortable: f.isSortable ?? true,
           filterable: f.isFilterable ?? true,
           order: f.order,
-          readOnly: f.isReadOnly,
+          readOnly: f.isReadonly,
           defaultValue: f.defaultValue,
           allowedValues: f.allowedValues,
           placeholder: f.placeholder,
@@ -336,7 +336,7 @@ export default function CostEstimateTemplateEditor() {
           helpUrl: f.helpUrl,
           sortable: f.isSortable,
           filterable: f.isFilterable,
-          readOnly: f.isReadOnly || false,
+          readOnly: f.isReadonly || false,
           fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
           // Mapuj childFields jeśli istnieją (dla pola Options)
           childFields: f.childFields?.map(child => {
@@ -356,7 +356,7 @@ export default function CostEstimateTemplateEditor() {
                 visible: child.isVisible,
                 sortable: child.isSortable,
                 filterable: child.isFilterable,
-                readOnly: child.isReadOnly || false,
+                readOnly: child.isReadonly || false,
                 fieldTypeConfig: child.fieldTypeConfig,
               } as SystemFieldDefinition;
             } else if (childScope === 2) {
@@ -373,7 +373,7 @@ export default function CostEstimateTemplateEditor() {
                 summable: false,
                 summaryScope: SummaryScope.Both,
                 autoCalculated: false,
-                readOnly: child.isReadOnly || false,
+                readOnly: child.isReadonly || false,
                 fieldTypeConfig: child.fieldTypeConfig,
               } as CalculatedFieldDefinition;
             } else {
@@ -387,7 +387,7 @@ export default function CostEstimateTemplateEditor() {
                 visible: child.isVisible,
                 sortable: child.isSortable,
                 filterable: child.isFilterable,
-                readOnly: child.isReadOnly || false,
+                readOnly: child.isReadonly || false,
                 fieldTypeConfig: child.fieldTypeConfig,
               } as GenericFieldDefinition;
             }
@@ -423,7 +423,7 @@ export default function CostEstimateTemplateEditor() {
             sumInTotal: f.sumInTotal, // Sumowanie w podsumowaniu całkowitym
             autoCalculated: f.isAutoCalculated,
             calculationFormula: f.calculationFormula,
-            readOnly: f.isReadOnly,
+            readOnly: f.isReadonly,
             required: f.isRequired,
             visible: f.isVisible,
             order: f.order,
@@ -447,7 +447,7 @@ export default function CostEstimateTemplateEditor() {
           displayFormat: f.displayFormat,
           sortable: f.isSortable,
           filterable: f.isFilterable,
-          readOnly: f.isReadOnly || false,
+          readOnly: f.isReadonly || false,
           minValue: f.minValue,
           maxValue: f.maxValue,
           minLength: f.minLength,
@@ -744,7 +744,7 @@ export default function CostEstimateTemplateEditor() {
         customLabel: f.customLabel,
         isRequired: f.required,
         isVisible: f.visible,
-        isReadOnly: f.readOnly || false,
+        isReadonly: f.readOnly || false,
         isSortable: f.sortable ?? true,
         isFilterable: f.filterable ?? true,
         order: idx,
@@ -757,6 +757,7 @@ export default function CostEstimateTemplateEditor() {
         label: f.label,
         isRequired: f.required,
         isVisible: f.visible,
+        isReadonly: f.readOnly || false,
         isSortable: f.sortable || false,
         isFilterable: f.filterable || false,
         order: idx,
@@ -768,6 +769,7 @@ export default function CostEstimateTemplateEditor() {
           label: cf.label,
           isRequired: (cf as any).required || false,
           isVisible: (cf as any).visible !== false,
+          isReadonly: (cf as any).readOnly || false,
           isSortable: cf.sortable || false,
           isFilterable: cf.filterable || false,
           order: cfIdx,
@@ -786,7 +788,7 @@ export default function CostEstimateTemplateEditor() {
         isSummable: f.summable || false,
         summaryScope: f.summaryScope,
         isAutoCalculated: f.autoCalculated || false,
-        isReadOnly: f.readOnly || false,
+        isReadonly: f.readOnly || false,
         order: idx,
         fieldTypeConfig: f.fieldTypeConfig,
       })),
@@ -797,6 +799,7 @@ export default function CostEstimateTemplateEditor() {
         label: f.label,
         isRequired: f.required,
         isVisible: f.visible,
+        isReadonly: f.readOnly || false,
         isSortable: f.sortable || false,
         isFilterable: f.filterable || false,
         order: idx,

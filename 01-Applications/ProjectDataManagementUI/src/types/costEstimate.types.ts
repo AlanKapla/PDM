@@ -62,7 +62,7 @@ export interface GroupHeaderFieldWeb {
   defaultValue?: string;
   allowedValues?: string[];
   placeholder?: string;
-  isReadOnly: boolean;
+  isReadonly: boolean;
   isSortable?: boolean;
   isFilterable?: boolean;
   displayFormat?: string;
@@ -81,7 +81,7 @@ export interface SystemFieldWeb {
   description?: string;
   isRequired: boolean;
   isVisible: boolean;
-  isReadOnly?: boolean;
+  isReadonly?: boolean;
   isSortable?: boolean;
   isFilterable?: boolean;
   order: number;
@@ -108,7 +108,7 @@ export interface CalculatedFieldWeb {
   sumInTotal?: boolean; // Sumowanie w podsumowaniu całkowitym
   isAutoCalculated: boolean;
   calculationFormula?: string;
-  isReadOnly: boolean;
+  isReadonly: boolean;
   isRequired: boolean;
   isVisible: boolean;
   order: number;
@@ -134,7 +134,7 @@ export interface GenericFieldWeb {
   displayFormat?: string;
   isSortable: boolean;
   isFilterable: boolean;
-  isReadOnly?: boolean;
+  isReadonly?: boolean;
   minValue?: number;
   maxValue?: number;
   minLength?: number;
