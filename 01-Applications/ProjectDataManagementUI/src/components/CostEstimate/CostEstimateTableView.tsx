@@ -572,6 +572,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     }
   };
 
+  /** Dodaj pozycję i automatycznie rozwiń grupę nadrzędną */
+  const handleAddItemWithExpand = (groupId: string) => {
+    if (onAddItem) {
+      expandGroup(groupId);
+      onAddItem(groupId);
+    }
+  };
+
   // ========== DRAG AND DROP ==========
   
   const handleDragStart = (event: DragStartEvent) => {
@@ -2060,15 +2068,15 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
         {flatRows.length === 0 && !hasActiveFilters ? (
           <Box p={8} textAlign="center">
             <Text fontSize="lg" fontWeight="medium" color="gray.600" mb={4}>
-              Brak grup w kosztorysie
+              Brak etapów w kosztorysie
             </Text>
             <Text fontSize="sm" color="gray.500" mb={6}>
-              Rozpocznij tworzenie kosztorysu dodając pierwszą grupę
+              Rozpocznij tworzenie kosztorysu dodając pierwszy etap
             </Text>
             {editable && onAddGroup && (
-              <Tooltip label="Dodaj grupę">
+              <Tooltip label="Dodaj etap">
                 <IconButton
-                  aria-label="Dodaj grupę"
+                  aria-label="Dodaj etap"
                   icon={<FolderPlus size={20} />}
                   colorScheme="green"
                   size="lg"
@@ -2128,7 +2136,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       renderFieldInput={renderFieldInput}
                       formatDisplayValue={formatDisplayValue}
                       toggleGroupCollapse={toggleGroupCollapse}
-                      onAddItem={onAddItem}
+                      onAddItem={onAddItem ? handleAddItemWithExpand : undefined}
                       onAddSubGroup={onAddSubGroup ? handleAddSubGroupWithExpand : undefined}
                       onDeleteGroup={onDeleteGroup}
                     />
@@ -2274,7 +2282,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             size="sm"
             onClick={handleAddGroupWithExpand}
           >
-            Dodaj grupę
+            Dodaj etap
           </Button>
         </Box>
       )}

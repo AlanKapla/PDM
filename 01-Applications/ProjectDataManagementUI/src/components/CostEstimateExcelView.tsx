@@ -187,7 +187,7 @@ function flattenGroups(
     const groupName =
       group.headerValues["GroupName"] ||
       group.headerValues[GroupHeaderFieldType[GroupHeaderFieldType.GroupName]] ||
-      "Grupa";
+      "Etap";
 
     // Pobierz sumy grupy z backendu
     const totals =
@@ -886,7 +886,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
           <HStack spacing={3}>
             {editable && (
               <Tooltip 
-                label={!onAddGroup ? "Szablon nie pozwala na dodawanie grup" : ""}
+                label={!onAddGroup ? "Szablon nie pozwala na dodawanie etapów" : ""}
                 hasArrow
               >
                 <Button
@@ -896,7 +896,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                   onClick={onAddGroup}
                   isDisabled={!onAddGroup}
                 >
-                  Dodaj grupę
+                  Dodaj etap
                 </Button>
               </Tooltip>
             )}
@@ -949,14 +949,14 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
         >
           <VStack spacing={4}>
             <Text color="gray.500" fontSize="lg">
-              Brak grup w kosztorysie.
+              Brak etapów w kosztorysie.
             </Text>
             {(() => {
               console.log('[CostEstimateExcelView] Empty state:', { editable, hasOnAddGroup: !!onAddGroup });
               return editable;
             })() && (
               <Tooltip
-                label={!onAddGroup ? "Szablon nie pozwala na dodawanie grup" : ""}
+                label={!onAddGroup ? "Szablon nie pozwala na dodawanie etapów" : ""}
                 hasArrow
               >
                 <Button
@@ -966,7 +966,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                   onClick={onAddGroup}
                   isDisabled={!onAddGroup}
                 >
-                  Dodaj pierwszą grupę
+                  Dodaj pierwszy etap
                 </Button>
               </Tooltip>
             )}
@@ -1174,9 +1174,9 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                 dataModel.groups,
                                 template.templateStructure?.maxGroupLevel
                               ) && (
-                                <Tooltip label="Dodaj podgrupę" hasArrow>
+                                <Tooltip label="Dodaj podetap" hasArrow>
                                   <IconButton
-                                    aria-label="Dodaj podgrupę"
+                                    aria-label="Dodaj podetap"
                                     icon={<Plus size={12} />}
                                     size="xs"
                                     colorScheme="teal"
@@ -1190,12 +1190,12 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               )}
                             {onDeleteGroup && row.groupId && (
                               <Tooltip
-                                label={isGroup ? "Usuń grupę" : "Usuń podgrupę"}
+                                label={isGroup ? "Usuń etap" : "Usuń podetap"}
                                 hasArrow
                               >
                                 <IconButton
                                   aria-label={
-                                    isGroup ? "Usuń grupę" : "Usuń podgrupę"
+                                    isGroup ? "Usuń etap" : "Usuń podetap"
                                   }
                                   icon={<Trash2 size={12} />}
                                   size="xs"

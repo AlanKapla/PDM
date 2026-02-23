@@ -242,7 +242,7 @@ export function validateGroupHierarchy(
       if (maxLevel !== undefined && group.level > maxLevel) {
         errors.push({
           groupId: group.id,
-          message: `Grupa przekracza maksymalny poziom zagnieżdżenia (${maxLevel})`,
+          message: `Etap przekracza maksymalny poziom zagnieżdżenia (${maxLevel})`,
         });
       }
 
@@ -250,7 +250,7 @@ export function validateGroupHierarchy(
       if (group.parentGroupId !== parentId) {
         errors.push({
           groupId: group.id,
-          message: 'Nieprawidłowy rodzic grupy',
+          message: 'Nieprawidłowy rodzic etapu',
         });
       }
 
@@ -258,7 +258,7 @@ export function validateGroupHierarchy(
       if (!canBranchGroups && group.childGroups.length > 0) {
         errors.push({
           groupId: group.id,
-          message: 'Szablon nie pozwala na tworzenie podgrup',
+          message: 'Szablon nie pozwala na tworzenie podetapów',
         });
       }
 
@@ -330,7 +330,7 @@ export function flattenGroupsWithContext(groups: CostEstimateGroupDto[]): Flatte
       const nameFieldValue = group.fieldValues.find(fv => 
         fv.fieldDefinitionId.toLowerCase().includes('name')
       );
-      const groupName = getFieldValueAsString(nameFieldValue as any) || `Grupa ${group.order + 1}`;
+      const groupName = getFieldValueAsString(nameFieldValue as any) || `Etap ${group.order + 1}`;
 
       result.push({
         group,

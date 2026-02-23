@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using Business.Interfaces.WebModels.CostEstimateTemplates;
+using FluentValidation;
 using Entities.Models.CostEstimates;
 
 namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate

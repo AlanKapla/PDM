@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack } from '@chakra-ui/react';
-import { GripVertical, Trash2, GitBranch } from 'lucide-react';
+import { GripVertical, Trash2, GitBranch, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
@@ -96,6 +96,16 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
 
   const componentAllValues = getAllValues(component, templateStructure);
   const componentOptions = component.options || [];
+  const hasOptions = componentOptions.length > 0;
+
+  // Stan zwijania opcji komponentu — domyślnie rozwinięte
+  const [optionsExpanded, setOptionsExpanded] = useState(true);
+
+  /** Dodaj opcję i automatycznie rozwiń sekcję */
+  const handleAddOption = (gId: string, iId: string) => {
+    setOptionsExpanded(true);
+    onAddOption?.(gId, iId);
+  };
 
   return (
     <React.Fragment>
@@ -143,7 +153,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
                     size="xs"
                     colorScheme="purple"
                     variant="ghost"
-                    onClick={() => onAddOption(groupId, component.id)}
+                    onClick={() => handleAddOption(groupId, component.id)}
                   />
                 </Tooltip>
               )}
@@ -163,9 +173,25 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           minW={`${POSITION_COL_MIN_WIDTH}px`}
           whiteSpace="nowrap"
         >
-          <Badge colorScheme="green" size="sm">
-            Komponent {compIndex + 1}
-          </Badge>
+          <HStack spacing={1}>
+            {hasOptions && (
+              <Tooltip label={optionsExpanded ? 'Zwiń opcje' : 'Rozwiń opcje'}>
+                <IconButton
+                  aria-label="Zwiń/rozwiń opcje"
+                  icon={optionsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setOptionsExpanded((prev) => !prev)}
+                  minW="auto"
+                  h="auto"
+                  p={0}
+                />
+              </Tooltip>
+            )}
+            <Badge colorScheme="green" size="sm">
+              Komponent {compIndex + 1}
+            </Badge>
+          </HStack>
         </Td>
 
         {/* Kolumny pól komponentu */}
@@ -261,8 +287,9 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
         })}
       </Tr>
 
-      {/* Wiersze opcji komponentu */}
-      {componentOptions.map((option: any, optIndex: number) => (
+      {/* Wiersze opcji komponentu — ukryte gdy zwinięte */}
+      {optionsExpanded &&
+        componentOptions.map((option: any, optIndex: number) => (
         <SortableOptionRow
           key={`comp-option-${component.id}-${option.id}`}
           id={`comp-option-${groupId}-${component.id}-${option.id}`}

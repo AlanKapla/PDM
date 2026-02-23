@@ -17,16 +17,16 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
     public class GetCostEstimateDetailsQueryHandler : IRequestHandler<GetCostEstimateDetailsQuery, CostEstimateDetailsWeb>
     {
         private readonly IReadRepository<CostEstimate> costEstimateRepository;
-        private readonly ITemplateStructureService templateStructureService;
+        private readonly ICostEstimateTemplateService costEstimateTemplateService;
         private readonly ICurrentUser currentUser;
 
         public GetCostEstimateDetailsQueryHandler(
             IReadRepository<CostEstimate> costEstimateRepository,
-            ITemplateStructureService templateStructureService,
+            ICostEstimateTemplateService costEstimateTemplateService,
             ICurrentUser currentUser)
         {
             this.costEstimateRepository = costEstimateRepository;
-            this.templateStructureService = templateStructureService;
+            this.costEstimateTemplateService = costEstimateTemplateService;
             this.currentUser = currentUser;
         }
 
@@ -68,7 +68,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             costEstimate.PopulateItemHierarchy();
 
             // Pobierz strukturę szablonu przez wspólny serwis
-            var templateStructure = await templateStructureService.BuildTemplateStructureAsync(
+            var templateStructure = await costEstimateTemplateService.GetTemplateStructureCachedAsync(
                 costEstimate.Template, 
                 cancellationToken);
 

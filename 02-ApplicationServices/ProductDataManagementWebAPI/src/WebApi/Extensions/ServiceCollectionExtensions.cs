@@ -342,8 +342,8 @@ namespace WebApi.Extensions
             // Cost estimate calculation service
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
             
-            // Template structure service - used in multiple handlers
-            services.AddScoped<ITemplateStructureService, TemplateStructureService>();
+            // Cost estimate template service - used in multiple handlers
+            services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
             
             // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();

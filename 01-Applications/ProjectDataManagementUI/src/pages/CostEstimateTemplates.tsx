@@ -76,7 +76,7 @@ export default function CostEstimateTemplates() {
       const groupHeaderFields = structure.groupHeaderFields.map(f => ({
         fieldName: f.id || crypto.randomUUID(),
         fieldType: f.fieldType,
-        label: f.customLabel || `Pole grupy`,
+        label: f.customLabel || `Pole etapu`,
         isSortable: false,
         isFilterable: false,
         isVisible: f.isVisible,

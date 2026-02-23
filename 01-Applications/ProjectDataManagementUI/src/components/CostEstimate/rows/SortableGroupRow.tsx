@@ -168,7 +168,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
               return isMaxLevelReached ? (
                 <Tooltip label={`Osiągnięto maksymalny poziom zagnieżdżenia (${maxLevel})`}>
                   <IconButton
-                    aria-label="Dodaj podgrupę"
+                    aria-label="Dodaj podetap"
                     icon={<FolderPlus size={14} />}
                     size="xs"
                     colorScheme="gray"
@@ -177,9 +177,9 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
                   />
                 </Tooltip>
               ) : (
-                <Tooltip label="Dodaj podgrupę">
+                <Tooltip label="Dodaj podetap">
                   <IconButton
-                    aria-label="Dodaj podgrupę"
+                    aria-label="Dodaj podetap"
                     icon={<FolderPlus size={14} />}
                     size="xs"
                     colorScheme="blue"
@@ -190,9 +190,9 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
               );
             })()}
             {onDeleteGroup && (
-              <Tooltip label="Usuń grupę">
+              <Tooltip label="Usuń etap">
                 <IconButton
-                  aria-label="Usuń grupę"
+                  aria-label="Usuń etap"
                   icon={<Trash2 size={14} />}
                   size="xs"
                   colorScheme="red"
@@ -218,7 +218,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
         whiteSpace="nowrap"
       >
         <HStack spacing={2}>
-          <Tooltip label={isCollapsed ? 'Rozwiń grupę' : 'Zwiń grupę'}>
+          <Tooltip label={isCollapsed ? 'Rozwiń etap' : 'Zwiń etap'}>
             <IconButton
               aria-label={isCollapsed ? 'Rozwiń' : 'Zwiń'}
               icon={isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
@@ -228,7 +228,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
             />
           </Tooltip>
           <Badge colorScheme={level === 0 ? 'blue' : 'teal'} px={3} py={1}>
-            Grupa {groupNumber}
+            Etap {groupNumber}
           </Badge>
         </HStack>
       </Td>

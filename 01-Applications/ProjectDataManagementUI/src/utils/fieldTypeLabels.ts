@@ -16,9 +16,9 @@ import {
  */
 export const fieldTypeLabels: Record<FieldType, string> = {
   // GROUP HEADER FIELDS (0-9)
-  [FieldType.GroupName]: 'Nazwa grupy',
-  [FieldType.GroupDescription]: 'Opis grupy',
-  [FieldType.GroupNumber]: 'Numer grupy',
+  [FieldType.GroupName]: 'Nazwa etapu',
+  [FieldType.GroupDescription]: 'Opis etapu',
+  [FieldType.GroupNumber]: 'Numer etapu',
   [FieldType.GroupStartDate]: 'Data rozpoczęcia',
   [FieldType.GroupEndDate]: 'Data zakończenia',
   [FieldType.GroupStatus]: 'Status',
@@ -56,7 +56,7 @@ export const fieldTypeLabels: Record<FieldType, string> = {
  * Etykiety dla zakresów pól (FieldScope)
  */
 export const fieldScopeLabels: Record<number, string> = {
-  [FieldScope.Group]: 'Nagłówek grupy',
+  [FieldScope.Group]: 'Nagłówek etapu',
   [FieldScope.ItemSystem]: 'Pole systemowe',
   [FieldScope.ItemCalculated]: 'Pole obliczeniowe',
   [FieldScope.ItemGeneric]: 'Pole generyczne',

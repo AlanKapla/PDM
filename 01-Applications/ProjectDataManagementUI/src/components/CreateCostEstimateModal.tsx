@@ -340,7 +340,7 @@ export default function CreateCostEstimateModal({
                     </Text>
                     <VStack align="stretch" spacing={1} mt={1}>
                       <Text fontSize="xs" color="gray.600">
-                        • Pola nagłówka grupy: {selectedTemplate.structure.groupHeaderFields?.length ?? 0}
+                        • Pola nagłówka etapu: {selectedTemplate.structure.groupHeaderFields?.length ?? 0}
                       </Text>
                       <Text fontSize="xs" color="gray.600">
                         • Pola kalkulowane: {selectedTemplate.structure.calculatedFields?.length ?? 0}

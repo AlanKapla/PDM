@@ -15,16 +15,16 @@ namespace CQRS.CostEstimateTemplates.GetCostEstimateTemplateDetails
     public class GetCostEstimateTemplateDetailsQueryHandler : IRequestHandler<GetCostEstimateTemplateDetailsQuery, CostEstimateTemplateDetailsWeb>
     {
         private readonly IReadRepository<CostEstimateTemplate> templateRepository;
-        private readonly ITemplateStructureService templateStructureService;
+        private readonly ICostEstimateTemplateService costEstimateTemplateService;
         private readonly ICurrentUser currentUser;
 
         public GetCostEstimateTemplateDetailsQueryHandler(
             IReadRepository<CostEstimateTemplate> templateRepository,
-            ITemplateStructureService templateStructureService,
+            ICostEstimateTemplateService costEstimateTemplateService,
             ICurrentUser currentUser)
         {
             this.templateRepository = templateRepository;
-            this.templateStructureService = templateStructureService;
+            this.costEstimateTemplateService = costEstimateTemplateService;
             this.currentUser = currentUser;
         }
 
@@ -45,7 +45,7 @@ namespace CQRS.CostEstimateTemplates.GetCostEstimateTemplateDetails
                 throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
             }
 
-            var structure = await templateStructureService.BuildTemplateStructureAsync(template, cancellationToken);
+            var structure = await costEstimateTemplateService.GetTemplateStructureCachedAsync(template, cancellationToken);
 
             return new CostEstimateTemplateDetailsWeb(
                 Id: template.Id,

@@ -20,7 +20,7 @@ namespace Business.Implementation.Helpers
                     new CostEstimateFieldTypeConfigWeb(
                         FieldType: (int)FieldType.GroupName,
                         FieldScope: (int)FieldScope.Group,
-                        NamePl: "Nazwa grupy",
+                        NamePl: "Nazwa etapu",
                         ValueTypeName: "string",
                         IsNumeric: false,
                         IsText: true,
@@ -31,7 +31,7 @@ namespace Business.Implementation.Helpers
                     new CostEstimateFieldTypeConfigWeb(
                         FieldType: (int)FieldType.GroupDescription,
                         FieldScope: (int)FieldScope.Group,
-                        NamePl: "Opis grupy",
+                        NamePl: "Opis etapu",
                         ValueTypeName: "string",
                         IsNumeric: false,
                         IsText: true,
@@ -42,7 +42,7 @@ namespace Business.Implementation.Helpers
                     new CostEstimateFieldTypeConfigWeb(
                         FieldType: (int)FieldType.GroupNumber,
                         FieldScope: (int)FieldScope.Group,
-                        NamePl: "Numer grupy",
+                        NamePl: "Numer etapu",
                         ValueTypeName: "string",
                         IsNumeric: false,
                         IsText: true,
@@ -75,7 +75,7 @@ namespace Business.Implementation.Helpers
                     new CostEstimateFieldTypeConfigWeb(
                         FieldType: (int)FieldType.GroupStatus,
                         FieldScope: (int)FieldScope.Group,
-                        NamePl: "Status grupy",
+                        NamePl: "Status etapu",
                         ValueTypeName: "string",
                         IsNumeric: false,
                         IsText: true,
@@ -108,7 +108,7 @@ namespace Business.Implementation.Helpers
                     new CostEstimateFieldTypeConfigWeb(
                         FieldType: (int)FieldType.GroupBudget,
                         FieldScope: (int)FieldScope.Group,
-                        NamePl: "Budżet grupy",
+                        NamePl: "Budżet etapu",
                         ValueTypeName: "decimal",
                         IsNumeric: true,
                         IsText: false,

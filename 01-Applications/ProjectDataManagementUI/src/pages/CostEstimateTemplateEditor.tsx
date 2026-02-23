@@ -161,9 +161,9 @@ const groupHeaderFieldTypeLabels: Record<GroupHeaderFieldType, string> = {
 };
 
 const summaryScopeLabels: Record<SummaryScope, string> = {
-  [SummaryScope.Group]: "W grupie",
+  [SummaryScope.Group]: "W etapie",
   [SummaryScope.Total]: "W całości",
-  [SummaryScope.Both]: "W grupie i całości",
+  [SummaryScope.Both]: "W etapie i całości",
 };
 
 export default function CostEstimateTemplateEditor() {
@@ -659,11 +659,11 @@ export default function CostEstimateTemplateEditor() {
         
         let stringValue: string | undefined;
         if (field.type === GroupHeaderFieldType.GroupName) {
-          stringValue = `Przykładowa grupa ${i + 1}`;
+          stringValue = `Przykładowy etap ${i + 1}`;
         } else if (field.type === GroupHeaderFieldType.GroupNumber) {
           stringValue = `${i + 1}`;
         } else if (field.type === GroupHeaderFieldType.GroupDescription) {
-          stringValue = `Opis przykładowej grupy ${i + 1}`;
+          stringValue = `Opis przykładowego etapu ${i + 1}`;
         }
 
         if (stringValue !== undefined) {
@@ -1341,7 +1341,7 @@ export default function CostEstimateTemplateEditor() {
       allFields.push({
         name: field.name || `header_${field.type}_temp`,  // Fallback jeśli brak GUID (nie powinno się zdarzyć)
         label: field.customLabel || getDefaultGroupHeaderLabel(field.type),
-        type: 'Nagłówek grupy',
+        type: 'Nagłówek etapu',
         colorScheme: 'purple',
       });
     });
@@ -1589,13 +1589,13 @@ export default function CostEstimateTemplateEditor() {
                 <Tab>
                   <HStack spacing={2}>
                     <Settings size={18} />
-                    <Text>Konfiguracja grup</Text>
+                    <Text>Konfiguracja etapów</Text>
                   </HStack>
                 </Tab>
                 <Tab>
                   <HStack spacing={2}>
                     <Tag size={18} />
-                    <Text>Pola grup ({headerFields.length})</Text>
+                    <Text>Pola etapów ({headerFields.length})</Text>
                   </HStack>
                 </Tab>
                 <Tab>
@@ -1623,7 +1623,7 @@ export default function CostEstimateTemplateEditor() {
                   <VStack spacing={6} align="stretch">
                     <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
                       <Text fontSize="md" fontWeight="bold" mb={4}>
-                        Ustawienia struktury grup
+                        Ustawienia struktury etapów
                       </Text>
                       <VStack spacing={4} align="stretch">
                         <Checkbox
@@ -1631,8 +1631,8 @@ export default function CostEstimateTemplateEditor() {
                           onChange={(e) => setCanAddGroups(e.target.checked)}
                         >
                           <HStack spacing={2}>
-                            <Text>Można dodawać nowe grupy podczas wypełniania</Text>
-                            <Tooltip label="Użytkownicy będą mogli tworzyć dodatkowe grupy w kosztorysie">
+                            <Text>Można dodawać nowe etapy podczas wypełniania</Text>
+                            <Tooltip label="Użytkownicy będą mogli tworzyć dodatkowe etapy w kosztorysie">
                               <Box as="span">
                                 <HelpCircle size={16} />
                               </Box>
@@ -1645,8 +1645,8 @@ export default function CostEstimateTemplateEditor() {
                           onChange={(e) => setCanBranchGroups(e.target.checked)}
                         >
                           <HStack spacing={2}>
-                            <Text>Można tworzyć podgrupy (rozgałęzianie)</Text>
-                            <Tooltip label="Grupy mogą zawierać zagnieżdżone podgrupy">
+                            <Text>Można tworzyć podetapy (rozgałęzianie)</Text>
+                            <Tooltip label="Etapy mogą zawierać zagnieżdżone podetapy">
                               <Box as="span">
                                 <HelpCircle size={16} />
                               </Box>
@@ -2842,7 +2842,7 @@ function CalculatedFieldsEditor({
                 <Th w="80px">Widoczne</Th>
                 <Th w="80px">Sortowalne</Th>
                 <Th w="80px">Filtrowalne</Th>
-                <Th w="100px">Suma w grupie</Th>
+                <Th w="100px">Suma w etapie</Th>
                 <Th w="100px">Suma total</Th>
                 <Th w="80px">Akcje</Th>
               </Tr>
@@ -2899,7 +2899,7 @@ function CalculatedFieldsEditor({
                       />
                     </Td>
                     <Td>
-                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu grupy" : "Tylko pola ValueNet, ValueGross i TotalVat mogą być sumowane"}>
+                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu etapu" : "Tylko pola ValueNet, ValueGross i TotalVat mogą być sumowane"}>
                         <Box>
                           <Checkbox
                             isChecked={field.sumInGroup || false}
@@ -3140,10 +3140,10 @@ function SummaryConfigurationEditor({
 
       <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
         <Text fontSize="md" fontWeight="bold" mb={4}>
-          Pola do sumowania w grupach
+          Pola do sumowania w etapach
         </Text>
         <Text fontSize="sm" color="gray.600" mb={4}>
-          Wybierz pola które mają być sumowane w podsumowaniu grup. Pozostaw puste aby nie sumować żadnych pól.
+          Wybierz pola które mają być sumowane w podsumowaniu etapów. Pozostaw puste aby nie sumować żadnych pól.
         </Text>
         {summableFields.length === 0 ? (
           <Text fontSize="sm" color="gray.500">

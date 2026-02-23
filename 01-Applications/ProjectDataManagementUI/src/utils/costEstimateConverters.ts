@@ -396,7 +396,7 @@ export function convertTemplateStructureToTemplateDto(
  */
 function getDefaultGroupHeaderLabel(fieldType: number): string {
   switch (fieldType) {
-    case 0: return 'Nazwa grupy';
+    case 0: return 'Nazwa etapu';
     case 1: return 'Opis';
     case 2: return 'Numer';
     case 3: return 'Data rozpoczęcia';

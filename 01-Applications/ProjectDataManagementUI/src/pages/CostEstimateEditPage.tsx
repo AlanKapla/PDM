@@ -286,7 +286,7 @@ export const CostEstimateEditPage: React.FC = () => {
         };
         const parentLevel = findGroupLevel(details.rootGroups);
         if (parentLevel !== undefined && parentLevel >= maxLevel) {
-          showError('Limit zagnieżdżenia', `Maksymalny poziom zagnieżdżenia grup to ${maxLevel}`);
+          showError('Limit zagnieżdżenia', `Maksymalny poziom zagnieżdżenia etapów to ${maxLevel}`);
           return undefined;
         }
       }
@@ -655,9 +655,9 @@ export const CostEstimateEditPage: React.FC = () => {
           isOpen={!!groupToDelete}
           onClose={() => setGroupToDelete(null)}
           onConfirm={confirmDeleteGroup}
-          title="Usuń grupę"
-          message="Czy na pewno chcesz usunąć tę grupę? Wszystkie podgrupy i pozycje zostaną trwale usunięte. Tej operacji nie można cofnąć."
-          confirmText="Usuń grupę"
+          title="Usuń etap"
+          message="Czy na pewno chcesz usunąć ten etap? Wszystkie podetapy i pozycje zostaną trwale usunięte. Tej operacji nie można cofnąć."
+          confirmText="Usuń etap"
           colorScheme="red"
         />
       </>
@@ -682,9 +682,9 @@ export const CostEstimateEditPage: React.FC = () => {
         isOpen={!!groupToDelete}
         onClose={() => setGroupToDelete(null)}
         onConfirm={confirmDeleteGroup}
-        title="Usuń grupę"
-        message="Czy na pewno chcesz usunąć tę grupę? Wszystkie podgrupy i pozycje zostaną trwale usunięte. Tej operacji nie można cofnąć."
-        confirmText="Usuń grupę"
+        title="Usuń etap"
+        message="Czy na pewno chcesz usunąć ten etap? Wszystkie podetapy i pozycje zostaną trwale usunięte. Tej operacji nie można cofnąć."
+        confirmText="Usuń etap"
         colorScheme="red"
       />
 

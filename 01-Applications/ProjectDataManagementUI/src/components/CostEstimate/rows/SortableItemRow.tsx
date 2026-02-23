@@ -125,9 +125,24 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   const itemOptions = item.options || [];
   const itemComponents = item.components || [];
   const hasComponents = itemComponents.length > 0;
+  const hasOptions = itemOptions.length > 0;
+  const hasChildren = hasComponents || hasOptions;
 
-  // Stan zwijania komponentów — domyślnie rozwinięte
+  // Stan zwijania — domyślnie rozwinięte
   const [componentsExpanded, setComponentsExpanded] = useState(true);
+  const [optionsExpanded, setOptionsExpanded] = useState(true);
+
+  /** Dodaj opcję i automatycznie rozwiń sekcję opcji */
+  const handleAddOption = (gId: string, iId: string) => {
+    setOptionsExpanded(true);
+    onAddOption?.(gId, iId);
+  };
+
+  /** Dodaj komponent i automatycznie rozwiń sekcję komponentów */
+  const handleAddComponent = (gId: string, iId: string) => {
+    setComponentsExpanded(true);
+    onAddComponent?.(gId, iId);
+  };
 
   return (
     <React.Fragment>
@@ -179,7 +194,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     size="xs"
                     colorScheme="purple"
                     variant="ghost"
-                    onClick={() => onAddOption(groupId, item.id)}
+                    onClick={() => handleAddOption(groupId, item.id)}
                   />
                 </Tooltip>
               )}
@@ -191,7 +206,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     size="xs"
                     colorScheme="green"
                     variant="ghost"
-                    onClick={() => onAddComponent(groupId, item.id)}
+                    onClick={() => handleAddComponent(groupId, item.id)}
                   />
                 </Tooltip>
               )}
@@ -213,14 +228,26 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           _groupHover={{ bg: 'gray.100' }}
         >
           <HStack spacing={1}>
-            {hasComponents && (
-              <Tooltip label={componentsExpanded ? 'Zwiń komponenty' : 'Rozwiń komponenty'}>
+            {hasChildren && (
+              <Tooltip label={
+                componentsExpanded && optionsExpanded
+                  ? 'Zwiń opcje i komponenty'
+                  : 'Rozwiń opcje i komponenty'
+              }>
                 <IconButton
-                  aria-label={componentsExpanded ? 'Zwiń komponenty' : 'Rozwiń komponenty'}
-                  icon={componentsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  aria-label="Zwiń/rozwiń"
+                  icon={
+                    componentsExpanded && optionsExpanded
+                      ? <ChevronDown size={14} />
+                      : <ChevronRight size={14} />
+                  }
                   size="xs"
                   variant="ghost"
-                  onClick={() => setComponentsExpanded((prev) => !prev)}
+                  onClick={() => {
+                    const allExpanded = componentsExpanded && optionsExpanded;
+                    setComponentsExpanded(!allExpanded);
+                    setOptionsExpanded(!allExpanded);
+                  }}
                   minW="auto"
                   h="auto"
                   p={0}
@@ -354,26 +381,27 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           />
         ))}
 
-      {/* Wiersze opcji */}
-      {itemOptions.map((option: any, optIndex: number) => (
-        <SortableOptionRow
-          key={`option-${item.id}-${option.id}`}
-          id={`option-${groupId}-${item.id}-${option.id}`}
-          option={option}
-          optIndex={optIndex}
-          item={item}
-          groupId={groupId}
-          indent={indent}
-          editable={editable}
-          templateStructure={templateStructure}
-          expandedColumns={expandedColumns}
-          getColumnWidth={getColumnWidth}
-          updateOptionFieldValue={updateOptionFieldValue}
-          removeOptionFromItem={removeOptionFromItem}
-          renderFieldInput={renderFieldInput}
-          formatDisplayValue={formatDisplayValue}
-        />
-      ))}
+      {/* Wiersze opcji — ukryte gdy zwinięte */}
+      {optionsExpanded &&
+        itemOptions.map((option: any, optIndex: number) => (
+          <SortableOptionRow
+            key={`option-${item.id}-${option.id}`}
+            id={`option-${groupId}-${item.id}-${option.id}`}
+            option={option}
+            optIndex={optIndex}
+            item={item}
+            groupId={groupId}
+            indent={indent}
+            editable={editable}
+            templateStructure={templateStructure}
+            expandedColumns={expandedColumns}
+            getColumnWidth={getColumnWidth}
+            updateOptionFieldValue={updateOptionFieldValue}
+            removeOptionFromItem={removeOptionFromItem}
+            renderFieldInput={renderFieldInput}
+            formatDisplayValue={formatDisplayValue}
+          />
+        ))}
     </React.Fragment>
   );
 };
