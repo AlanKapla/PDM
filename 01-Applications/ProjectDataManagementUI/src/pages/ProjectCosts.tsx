@@ -42,6 +42,12 @@ import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
+/** Formatuje kwotę z separatorami tysięcy (spacjami) */
+const formatCurrency = (value: number | null | undefined): string => {
+  if (value == null) return '-';
+  return `${value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN`;
+};
+
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
   [0]: "Szkic",
   [1]: "W trakcie",
@@ -164,10 +170,10 @@ const MyCostEstimatesTab = React.memo<CostEstimatesTabProps>(({
                 </Badge>
               </Td>
               <Td isNumeric>
-                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
+                {formatCurrency(costEstimate.totalNet)}
               </Td>
               <Td isNumeric fontWeight="bold" color="green.600">
-                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
+                {formatCurrency(costEstimate.totalGross)}
               </Td>
               <Td>
                 <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
@@ -306,10 +312,10 @@ const AllCostEstimatesTab = React.memo<CostEstimatesTabProps>(({
                 </Badge>
               </Td>
               <Td isNumeric>
-                {costEstimate.totalNet ? `${costEstimate.totalNet.toFixed(2)} PLN` : '-'}
+                {formatCurrency(costEstimate.totalNet)}
               </Td>
               <Td isNumeric fontWeight="bold" color="green.600">
-                {costEstimate.totalGross ? `${costEstimate.totalGross.toFixed(2)} PLN` : '-'}
+                {formatCurrency(costEstimate.totalGross)}
               </Td>
               <Td>
                 <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
@@ -372,11 +378,6 @@ export default function ProjectCosts() {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const { showError, showSuccess } = useToastNotification();
-
-  console.log("=== ProjectCosts RENDER ===");
-  console.log("projectId:", projectId);
-  console.log("user:", user);
-  console.log("user?.activeTenantId:", user?.activeTenantId);
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any | null>(null);
@@ -461,7 +462,6 @@ export default function ProjectCosts() {
       
       await Promise.all(fetchPromises);
     } catch (error: any) {
-      console.error('Error fetching data:', error);
       showError('Nie udało się załadować danych', error?.message || 'Wystąpił nieoczekiwany błąd');
     } finally {
       setLoading(false);
@@ -491,16 +491,11 @@ export default function ProjectCosts() {
       showSuccess("Kosztorys został usunięty");
       refreshData();
     } catch (error: any) {
-      console.error('Error deleting cost estimate:', error);
       showError('Nie udało się usunąć kosztorysu', error?.message || 'Wystąpił nieoczekiwany błąd');
     }
   };
 
   const handleViewCostEstimate = (costEstimateId: string) => {
-    console.log('[ProjectCosts] handleViewCostEstimate called');
-    console.log('[ProjectCosts] costEstimateId:', costEstimateId);
-    console.log('[ProjectCosts] projectId:', projectId);
-    console.log('[ProjectCosts] Navigating to:', `/projects/${projectId}/cost-estimates/${costEstimateId}`);
     navigate(`/projects/${projectId}/cost-estimates/${costEstimateId}`);
   };
 

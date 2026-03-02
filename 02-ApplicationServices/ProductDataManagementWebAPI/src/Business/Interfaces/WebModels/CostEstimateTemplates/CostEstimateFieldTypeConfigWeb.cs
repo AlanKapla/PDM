@@ -15,6 +15,7 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         bool IsText,
         bool IsDate,
         bool IsBoolean,
-        bool IsCollection
+        bool IsCollection,
+        bool IsFile = false
     );
 }

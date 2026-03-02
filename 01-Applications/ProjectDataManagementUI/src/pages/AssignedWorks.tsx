@@ -111,7 +111,6 @@ export default function AssignedWorks() {
         const response = await projectApi.getMyAssignedWorks();
         setAssignedWorks(response.data);
       } catch (err: any) {
-        console.error("Błąd pobierania zaplanowanych prac:", err);
         setError(err.message || "Wystąpił błąd podczas pobierania zaplanowanych prac");
       } finally {
         setLoading(false);

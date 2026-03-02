@@ -139,7 +139,6 @@ export default function TemplateCreator() {
       // jeśli backend zwraca templateId — tutaj możesz zapisać go w stanie / navigate:
       // navigate(`/cost-editor/${json.templateId}`);
     } catch (err) {
-      console.error(err);
       toast({
         title: "Błąd połączenia",
         description: "Nie udało się skontaktować z serwerem.",

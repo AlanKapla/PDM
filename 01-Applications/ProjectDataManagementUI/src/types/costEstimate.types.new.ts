@@ -26,12 +26,13 @@ export interface CostEstimateFieldTypeConfigWeb {
   fieldType: number;        // FieldType enum as int
   fieldScope: number;       // FieldScope enum as int
   namePl: string;           // Localized name (PL)
-  valueTypeName: string;    // e.g., "Integer", "Decimal", "String", "Date", "Boolean"
+  valueTypeName: string;    // e.g., "Integer", "Decimal", "String", "Date", "Boolean", "file"
   isNumeric: boolean;
   isText: boolean;
   isDate: boolean;
   isBoolean: boolean;
   isCollection: boolean;    // Option/collection type
+  isFile?: boolean;         // File upload field (ItemSystemFiles = 105) - default false
 }
 
 export interface FieldDefinitionWeb {
@@ -125,6 +126,20 @@ export interface UpdateCostEstimateDto {
 // ========== RESPONSE DTOs ==========
 
 /**
+ * Plik dołączony do pola kosztorysu typu ItemSystemFiles (fieldType = 105)
+ */
+export interface CostEstimateFieldFileWeb {
+  id: string;                     // GUID pliku
+  originalFileName: string;       // Oryginalna nazwa pliku (np. "faktura.pdf")
+  contentType: string;            // MIME type ("application/pdf" | "image/jpeg")
+  fileSize: number;               // Rozmiar w bajtach
+  order: number;                  // Kolejność w kolekcji
+  sasUriPreview: string | null;   // SAS URI do podglądu (inline) — otwórz w nowej karcie / <img> / <iframe>
+  sasUriDownload: string | null;  // SAS URI do pobrania (attachment) — wymusza download
+  createdAt: string;              // ISO 8601 datetime
+}
+
+/**
  * Wartość pola w kosztorysie (wspólna dla grup i pozycji)
  * Wartość zwracana w odpowiednim polu typowanym w zależności od FieldType
  */
@@ -139,6 +154,7 @@ export interface CostEstimateFieldValueWeb {
   decimalValue?: number;
   boolValue?: boolean;
   dateTimeValue?: string; // ISO 8601 format
+  files?: CostEstimateFieldFileWeb[] | null;  // Pliki - tylko dla fieldType === 105 (ItemSystemFiles)
 }
 
 // Aliasy dla kompatybilności wstecznej
@@ -243,6 +259,102 @@ export function isTemporaryId(id?: string): boolean {
   return !id || id.startsWith('temp_');
 }
 
+// ========== OPERATION RESULT DTOs ==========
+
+/**
+ * Wynik dodania grupy — zwracany z POST /details/{id}/groups
+ */
+export interface AddCostEstimateGroupResultWeb {
+  groupId: string;
+  fieldValues: CostEstimateFieldValueWeb[];
+}
+
+/**
+ * Wynik dodania pozycji — zwracany z POST /details/{id}/items
+ */
+export interface AddCostEstimateItemResultWeb {
+  itemId: string;
+  fieldValues: CostEstimateFieldValueWeb[];
+}
+
+/**
+ * DTO dla zmiany kolejności grup — obsługuje też przenoszenie między parentami
+ */
+export interface ReorderGroupDto {
+  groupId: string;
+  parentGroupId: string | null;  // null = root level, guid = podgrupa
+  order: number;
+}
+
+/**
+ * DTO dla zmiany kolejności pozycji w grupie
+ */
+export interface ReorderItemDto {
+  itemId: string;
+  order: number;
+}
+
+/**
+ * Request body dla reorder grup
+ */
+export interface ReorderGroupsRequestDto {
+  costEstimateId: string;
+  groups: ReorderGroupDto[];
+}
+
+/**
+ * Request body dla reorder pozycji
+ */
+export interface ReorderItemsRequestDto {
+  costEstimateId: string;
+  items: ReorderItemDto[];
+}
+
+/**
+ * Request body dla dodania grupy — costEstimateId idzie z route URL
+ */
+export interface AddGroupRequestDto {
+  parentGroupId: string | null;
+  order: number;
+}
+
+/**
+ * Request body dla dodania pozycji — costEstimateId idzie z route URL
+ */
+export interface AddItemRequestDto {
+  groupId: string;
+  order: number;
+  relationType: number;  // ItemRelationType: None=0, Option=1, Component=2
+  parentItemId?: string; // Dla opcji/komponentów
+}
+
+/**
+ * Request body dla przenoszenia pozycji między grupami
+ * PATCH /{id}/items/{itemId}/move
+ */
+export interface MoveItemRequestDto {
+  costEstimateId: string;
+  itemId: string;
+  targetGroupId: string;
+}
+
+/**
+ * Request body dla upsert pola (autosave) — PATCH /groups/{groupId}/fields lub /items/{itemId}/fields
+ * fieldValueId=null → tworzenie nowej wartości (wymagane fieldDefinitionId)
+ * fieldValueId=guid → aktualizacja istniejącej wartości
+ */
+export interface UpsertFieldValueRequestDto {
+  fieldValueId: string | null;
+  fieldDefinitionId: string | null;
+  stringValue?: string | null;
+  decimalValue?: number | null;
+  boolValue?: boolean | null;
+  dateTimeValue?: string | null;
+}
+
+/** @deprecated Użyj UpsertFieldValueRequestDto */
+export type UpdateFieldValueRequestDto = UpsertFieldValueRequestDto;
+
 /**
  * Pobiera wartość z typowanego pola CostEstimateFieldValueWeb jako string
  * Używane do wyświetlania i edycji
@@ -314,8 +426,15 @@ export function convertFieldValueWebToDto(fv: CostEstimateFieldValueWeb): CostEs
 /**
  * Sprawdza czy wartość pola jest pusta (wszystkie pola wartościowe undefined/null/puste).
  * Pola bez wartości nie powinny być wysyłane w requestach.
+ * UWAGA: Pola typu pliki (fieldType = 105) są obsługiwane przez osobny endpoint upload,
+ * więc mogą być traktowane jako puste jeśli nie mają wartości.
  */
 function isFieldValueEmpty(fv: CostEstimateFieldValueWeb): boolean {
+  // Pola plików sprawdzamy też na obecność plików
+  if (fv.fieldType === 105) {
+    return !fv.files || fv.files.length === 0;
+  }
+  
   return (
     (fv.stringValue === undefined || fv.stringValue === null || fv.stringValue === '') &&
     (fv.decimalValue === undefined || fv.decimalValue === null) &&
@@ -429,6 +548,7 @@ export enum CalculatedFieldType {
   ValueGross = 4,
   UnitVat = 5,
   TotalVat = 6,
+  Discount = 7,
 }
 
 export enum GenericFieldType {

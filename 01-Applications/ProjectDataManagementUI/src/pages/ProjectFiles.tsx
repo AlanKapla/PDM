@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
+import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -339,7 +339,6 @@ export default function ProjectFiles() {
         );
         setMembers(filteredMembers);
       } catch (error) {
-        console.error("Błąd podczas pobierania członków projektu:", error);
       }
 
       // Pobierz wszystkie zasoby równolegle według uprawnień
@@ -487,7 +486,6 @@ export default function ProjectFiles() {
         const res = await projectApi.getPackageFiles(user.activeTenantId, projectId, packageId, scope);
         setPackageFiles((prev) => new Map(prev).set(packageId, res.data));
       } catch (error) {
-        console.error('Error loading package files:', error);
         toast({
           title: "Błąd",
           description: "Nie udało się pobrać plików",
@@ -525,7 +523,6 @@ export default function ProjectFiles() {
         const res = await projectApi.getFileVersions(user.activeTenantId, projectId, fileId, scope);
         setFileVersions((prev) => new Map(prev).set(fileId, res.data));
       } catch (error) {
-        console.error('Error loading file versions:', error);
         toast({
           title: "Błąd",
           description: "Nie udało się pobrać wersji",
@@ -564,7 +561,6 @@ export default function ProjectFiles() {
         const res = await projectApi.getVersionComments(user.activeTenantId, projectId, fileId, versionId, scope);
         setVersionComments((prev) => new Map(prev).set(commentKey, res.data));
       } catch (error) {
-        console.error('Error loading version comments:', error);
         toast({
           title: "Błąd",
           description: "Nie udało się pobrać komentarzy",

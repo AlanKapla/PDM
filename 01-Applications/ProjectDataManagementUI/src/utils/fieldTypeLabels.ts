@@ -42,6 +42,7 @@ export const fieldTypeLabels: Record<FieldType, string> = {
   [FieldType.ItemCalculatedValueGross]: 'Wartość brutto',
   [FieldType.ItemCalculatedUnitVat]: 'VAT jednostkowy',
   [FieldType.ItemCalculatedTotalVat]: 'VAT całkowity',
+  // ItemCalculatedDiscount (207) usunięte
 
   // ITEM GENERIC FIELDS (300-399)
   [FieldType.ItemGenericInteger]: 'Liczba całkowita',

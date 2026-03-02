@@ -53,7 +53,6 @@ export function SidebarContent() {
         const pending = invitations.filter((inv: { status: number }) => inv.status === InvitationStatus.Pending);
         setInvitationsCount(pending.length);
       } catch (error) {
-        console.error("Błąd pobierania zaproszeń:", error);
       }
     };
 

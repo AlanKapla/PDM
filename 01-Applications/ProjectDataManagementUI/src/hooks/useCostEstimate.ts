@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { costEstimateApiNew } from '../api/costEstimateApiNew';
 import type {
   CostEstimateDetailsWeb,
@@ -32,7 +32,6 @@ export function useCostEstimateDetails(
       setDetails(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Błąd podczas ładowania kosztorysu');
-      console.error('Error loading cost estimate details:', err);
     } finally {
       setLoading(false);
     }
@@ -76,7 +75,6 @@ export function useCostEstimateList(
       setItems(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Błąd podczas ładowania listy kosztorysów');
-      console.error('Error loading cost estimate list:', err);
     } finally {
       setLoading(false);
     }

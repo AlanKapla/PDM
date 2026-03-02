@@ -11,15 +11,18 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
     {
         private readonly IRepository<CostEstimateTemplate> templateRepository;
         private readonly ICostEstimateTemplateService costEstimateTemplateService;
+        private readonly ICostEstimateService costEstimateService;
         private readonly ICurrentUser currentUser;
 
         public UpdateCostEstimateTemplateCommandHandler(
             IRepository<CostEstimateTemplate> templateRepository,
             ICostEstimateTemplateService costEstimateTemplateService,
+            ICostEstimateService costEstimateService,
             ICurrentUser currentUser)
         {
             this.templateRepository = templateRepository;
             this.costEstimateTemplateService = costEstimateTemplateService;
+            this.costEstimateService = costEstimateService;
             this.currentUser = currentUser;
         }
 
@@ -48,6 +51,11 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                 request.GenericFields,
                 request.UiConfiguration,
                 cancellationToken);
+
+            if (request.UpdateStructure)
+            {
+                await costEstimateService.AddSelectedFieldToExistingItemsAsync(request.TemplateId, cancellationToken);
+            }
 
             return Unit.Value;
         }

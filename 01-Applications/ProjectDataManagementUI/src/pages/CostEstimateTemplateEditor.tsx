@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Modal,
@@ -135,6 +135,7 @@ const calculatedFieldTypeLabels: Record<CalculatedFieldType, string> = {
   [CalculatedFieldType.ValueGross]: fieldTypeLabels[FieldType.ItemCalculatedValueGross],
   [CalculatedFieldType.UnitVat]: fieldTypeLabels[FieldType.ItemCalculatedUnitVat],
   [CalculatedFieldType.TotalVat]: fieldTypeLabels[FieldType.ItemCalculatedTotalVat],
+  // Discount (207) usunięte — pole ItemCalculatedDiscount zostało wycofane
 };
 
 const genericFieldTypeLabels: Record<GenericFieldType, string> = {
@@ -176,6 +177,7 @@ export default function CostEstimateTemplateEditor() {
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   // Waluty i jednostki — domyślnie PLN, żeby zawsze była waluta polska
   const DEFAULT_PLN_CURRENCY = { code: 'PLN', name: 'Polski Złoty', symbol: 'zł', isDefault: true, order: 0 };
@@ -196,7 +198,9 @@ export default function CostEstimateTemplateEditor() {
   }>>([]);
 
   const { isOpen: isConfirmSaveOpen, onOpen: onConfirmSaveOpen, onClose: onConfirmSaveClose } = useDisclosure();
+  const { isOpen: isUnsavedOpen, onOpen: onUnsavedOpen, onClose: onUnsavedClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const unsavedCancelRef = useRef<HTMLButtonElement>(null);
 
   // Preview state
   const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
@@ -243,6 +247,115 @@ export default function CostEstimateTemplateEditor() {
   const [fieldTypeConfigs, setFieldTypeConfigs] = useState<Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>({});
   const [configsLoaded, setConfigsLoaded] = useState(false);
 
+  // ========== RĘCZNA OBSŁUGA NAWIGACJI Z OSTRZEŻENIEM ==========
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [isBackNavigation, setIsBackNavigation] = useState(false);
+  
+  // Ref do przechowywania aktualnej wartości hasChanges (unikamy problemów z closure)
+  const hasChangesRef = useRef(hasChanges);
+  useEffect(() => {
+    hasChangesRef.current = hasChanges;
+  }, [hasChanges]);
+
+  const handleConfirmLeave = useCallback(() => {
+    onUnsavedClose();
+    setHasChanges(false);
+    hasChangesRef.current = false;
+    
+    if (isBackNavigation) {
+      // Nawigacja przyciskiem wstecz - użyj history.back()
+      setIsBackNavigation(false);
+      setPendingNavigation(null);
+      window.history.back();
+    } else if (pendingNavigation) {
+      // Normalna nawigacja przez safeNavigate
+      navigate(pendingNavigation);
+      setPendingNavigation(null);
+    }
+  }, [pendingNavigation, isBackNavigation, navigate, onUnsavedClose]);
+
+  const handleCancelLeave = useCallback(() => {
+    onUnsavedClose();
+    setPendingNavigation(null);
+    setIsBackNavigation(false);
+  }, [onUnsavedClose]);
+
+  /** Bezpieczna nawigacja - pokazuje modal jeśli są niezapisane zmiany */
+  const safeNavigate = useCallback((to: string) => {
+    if (hasChangesRef.current) {
+      setPendingNavigation(to);
+      onUnsavedOpen();
+    } else {
+      navigate(to);
+    }
+  }, [navigate, onUnsavedOpen]);
+
+  // ========== BEFOREUNLOAD (zamykanie karty / odświeżanie) ==========
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChangesRef.current) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // ========== POPSTATE (przycisk wstecz/dalej przeglądarki) ==========
+  useEffect(() => {
+    // Zapisz aktualną pozycję w historii
+    const currentPath = window.location.pathname + window.location.search;
+    
+    const handlePopState = () => {
+      if (hasChangesRef.current) {
+        // Przywróć poprzedni URL (anuluj nawigację)
+        window.history.pushState(null, '', currentPath);
+        // Oznacz jako nawigację wstecz i pokaż modal
+        setIsBackNavigation(true);
+        onUnsavedOpen();
+      }
+    };
+    
+    // Dodaj wpis do historii, aby móc przechwycić przycisk wstecz
+    window.history.pushState(null, '', currentPath);
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [onUnsavedOpen]);
+
+  // ========== ŚLEDZENIE ZMIAN ==========
+  // Ref do sprawdzenia czy dane początkowe zostały załadowane
+  const initializedRef = useRef(false);
+
+  // Śledzenie zmian w polach szablonu (po początkowym załadowaniu)
+  useEffect(() => {
+    // Nie ustawiaj hasChanges podczas ładowania
+    if (loading || !initializedRef.current) return;
+    setHasChanges(true);
+  }, [
+    templateName,
+    templateDescription,
+    currencies,
+    units,
+    canAddGroups,
+    canBranchGroups,
+    maxGroupLevel,
+    groupAutoNumbered,
+    groupNumberFormat,
+    headerFields,
+    systemFields,
+    calculatedFields,
+    genericFields,
+    validationRules,
+    showGroupSummary,
+    showTotalSummary,
+    groupSummaryFields,
+    totalSummaryFields,
+    columns,
+  ]);
+
   // Fetch field type configurations on mount
   useEffect(() => {
     loadFieldConfigurations();
@@ -254,7 +367,6 @@ export default function CostEstimateTemplateEditor() {
       setFieldTypeConfigs(configs);
       setConfigsLoaded(true);
     } catch (err) {
-      console.warn('Failed to load field type configurations, using fallback', err);
       setConfigsLoaded(true); // Continue anyway
     }
   };
@@ -265,6 +377,10 @@ export default function CostEstimateTemplateEditor() {
       fetchTemplateDetails();
     } else {
       setLoading(false);
+      // Dla nowego szablonu - oznacz jako zainicjalizowane
+      setTimeout(() => {
+        initializedRef.current = true;
+      }, 100);
     }
   }, [templateId]);
 
@@ -498,7 +614,6 @@ export default function CostEstimateTemplateEditor() {
         })));
       }
     } catch (error: any) {
-      console.error("Błąd pobierania szczegółów szablonu:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się załadować szablonu",
@@ -508,6 +623,10 @@ export default function CostEstimateTemplateEditor() {
       navigate("/cost-estimate-templates");
     } finally {
       setLoading(false);
+      // Oznacz jako zainicjalizowane dopiero po załadowaniu
+      setTimeout(() => {
+        initializedRef.current = true;
+      }, 100);
     }
   };
 
@@ -542,6 +661,8 @@ export default function CostEstimateTemplateEditor() {
             decimalValue = 10 + j * 5;
           } else if (field.type === SystemFieldType.Unit) {
             stringValue = units[0]?.code || 'szt';
+          } else if (field.type === SystemFieldType.Selected) {
+            boolValue = true;
           }
 
           if (stringValue !== undefined || decimalValue !== undefined || boolValue !== undefined) {
@@ -1330,9 +1451,10 @@ export default function CostEstimateTemplateEditor() {
         });
       }
 
+      // Reset flagi zmian przed nawigacją
+      setHasChanges(false);
       navigate("/cost-estimate-templates");
     } catch (error) {
-      console.error("Błąd podczas zapisywania szablonu:", error);
       toast({
         title: "Błąd",
         description: templateId
@@ -2001,7 +2123,7 @@ export default function CostEstimateTemplateEditor() {
           <Button
             leftIcon={<ArrowLeft size={18} />}
             variant="ghost"
-            onClick={() => navigate("/cost-estimate-templates")}
+            onClick={() => safeNavigate("/cost-estimate-templates")}
           >
             Powrót
           </Button>
@@ -2072,6 +2194,43 @@ export default function CostEstimateTemplateEditor() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Modal ostrzeżenia o niezapisanych zmianach */}
+      <AlertDialog
+        isOpen={isUnsavedOpen}
+        leastDestructiveRef={unsavedCancelRef}
+        onClose={handleCancelLeave}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              <HStack spacing={2}>
+                <AlertCircle size={24} color="orange" />
+                <Text>Niezapisane zmiany</Text>
+              </HStack>
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              <Text>
+                Masz niezapisane zmiany w szablonie kosztorysu. Czy na pewno chcesz opuścić tę stronę?
+              </Text>
+              <Text mt={2} color="gray.600" fontSize="sm">
+                Wszystkie niezapisane zmiany zostaną utracone.
+              </Text>
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={unsavedCancelRef} onClick={handleCancelLeave}>
+                Zostań na stronie
+              </Button>
+              <Button colorScheme="red" onClick={handleConfirmLeave} ml={3}>
+                Opuść bez zapisywania
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
   </MainLayout>
   );
 }

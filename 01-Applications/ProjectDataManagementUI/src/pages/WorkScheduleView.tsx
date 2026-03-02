@@ -114,7 +114,6 @@ export default function WorkScheduleView() {
 
       setSchedule(response.data);
     } catch (err) {
-      console.error("Błąd pobierania harmonogramu:", err);
       setError("Błąd podczas pobierania harmonogramu");
     } finally {
       setLoading(false);
@@ -128,7 +127,6 @@ export default function WorkScheduleView() {
       const response = await projectApi.getProjectMembers(user.activeTenantId, projectId);
       setMembers(response.data);
     } catch (err) {
-      console.error("Błąd pobierania członków:", err);
     }
   };
 
@@ -260,7 +258,6 @@ export default function WorkScheduleView() {
         duration: 2000,
       });
     } catch (error) {
-      console.error("Błąd zapisywania zmian:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się zapisać zmian",
@@ -344,7 +341,6 @@ export default function WorkScheduleView() {
         duration: 2000,
       });
     } catch (error) {
-      console.error("Błąd zapisywania zmian:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się zapisać zmian",
@@ -467,7 +463,6 @@ export default function WorkScheduleView() {
 
       setIsDirty(false);
     } catch (error) {
-      console.error("Błąd zapisywania zmian:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się zapisać zmian",

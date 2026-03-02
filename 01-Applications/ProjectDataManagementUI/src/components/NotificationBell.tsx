@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Badge,
@@ -55,9 +55,7 @@ export default function NotificationBell() {
     try {
       const count = await notificationApi.getUnreadCounter();
       setUnreadCount(count);
-      console.log("🔵 Unread counter fetched:", count);
     } catch (error) {
-      console.error("Błąd pobierania licznika:", error);
     }
   };
 
@@ -69,11 +67,6 @@ export default function NotificationBell() {
   // SignalR - nasłuchuj na nowe powiadomienia
   useEffect(() => {
     const unsubscribeNew = notificationHubService.onNotificationReceived((payload) => {
-      console.log("🔔 [UI] Otrzymano powiadomienie:", {
-        title: payload.notification.title,
-        oldCounter: unreadCount,
-        newCounter: payload.unreadNotificationCounter,
-      });
       
       // Zaktualizuj licznik z backendu (snapshot)
       setUnreadCount(payload.unreadNotificationCounter);
@@ -87,12 +80,9 @@ export default function NotificationBell() {
         isClosable: true,
         position: "top-right",
       });
-      
-      console.log("✅ [UI] Licznik zaktualizowany na:", payload.unreadNotificationCounter);
     });
 
     const unsubscribeSync = notificationHubService.onNotificationSynced(async () => {
-      console.log("🔄 [UI] Synchronizacja - odśwież licznik");
       await fetchUnreadCounter();
     });
 
@@ -150,7 +140,6 @@ export default function NotificationBell() {
       }
     } catch (error) {
       const { title, description } = handleApiError(error);
-      console.error("❌ Błąd ładowania powiadomień:", title, description);
       toast({
         title,
         description,
@@ -179,7 +168,6 @@ export default function NotificationBell() {
       }
     } catch (error) {
       const { title, description } = handleApiError(error);
-      console.error("❌ Błąd ładowania kolejnych powiadomień:", title, description);
       toast({
         title,
         description,
@@ -201,11 +189,8 @@ export default function NotificationBell() {
       
       // Przeładuj aktualne powiadomienia od początku
       await loadNotifications(true);
-      
-      console.log("✅ Powiadomienie oznaczone jako przeczytane");
     } catch (error) {
       const { title, description } = handleApiError(error);
-      console.error("❌ Błąd oznaczania powiadomienia:", title, description);
       toast({
         title,
         description,
@@ -236,7 +221,6 @@ export default function NotificationBell() {
         });
       }
     } catch (error) {
-      console.error("Failed to mark all as read:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,

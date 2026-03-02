@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -68,7 +68,6 @@ export default function ShareCostsModal({
       // Domyślnie zaznacz wszystkie koszty
       setSelectedCostIds(new Set(data.map((cost) => cost.id)));
     } catch (error) {
-      console.error("Błąd podczas pobierania kosztów:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy kosztów",
@@ -92,7 +91,6 @@ export default function ShareCostsModal({
       );
       setMembers(filteredMembers);
     } catch (error) {
-      console.error("Błąd podczas pobierania członków:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy członków projektu",
@@ -168,7 +166,6 @@ export default function ShareCostsModal({
       onCostsShared();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas udostępniania kosztów:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,

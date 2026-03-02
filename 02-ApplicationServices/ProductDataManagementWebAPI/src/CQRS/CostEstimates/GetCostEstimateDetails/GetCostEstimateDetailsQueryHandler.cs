@@ -1,89 +1,115 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimates;
 using Entities.Models.CostEstimates;
+using Entities.Models.CostEstimateTemplates;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Repositories.Repository.Interfaces;
 using Business.Implementation.Helpers;
 
 namespace CQRS.CostEstimates.GetCostEstimateDetails
 {
     /// <summary>
     /// Handler dla pobrania szczegółów kosztorysu
-    /// Returns cost estimate with full hierarchy of groups and work scope items + template structure
+    /// Assembles full hierarchy from cached collections (no EF Include chains)
     /// </summary>
     public class GetCostEstimateDetailsQueryHandler : IRequestHandler<GetCostEstimateDetailsQuery, CostEstimateDetailsWeb>
     {
-        private readonly IReadRepository<CostEstimate> costEstimateRepository;
+        private readonly ICostEstimateCacheService ceCacheService;
         private readonly ICostEstimateTemplateService costEstimateTemplateService;
-        private readonly ICurrentUser currentUser;
+        private readonly IBlobStorageService blobStorageService;
+        private readonly ICacheService cacheService;
+
+        private const int SasExpirationMinutes = 60;
+        private static readonly TimeSpan SasCacheDuration = TimeSpan.FromMinutes(55);
 
         public GetCostEstimateDetailsQueryHandler(
-            IReadRepository<CostEstimate> costEstimateRepository,
+            ICostEstimateCacheService ceCacheService,
             ICostEstimateTemplateService costEstimateTemplateService,
-            ICurrentUser currentUser)
+            IBlobStorageService blobStorageService,
+            ICacheService cacheService)
         {
-            this.costEstimateRepository = costEstimateRepository;
+            this.ceCacheService = ceCacheService;
             this.costEstimateTemplateService = costEstimateTemplateService;
-            this.currentUser = currentUser;
+            this.blobStorageService = blobStorageService;
+            this.cacheService = cacheService;
         }
 
         public async Task<CostEstimateDetailsWeb> Handle(GetCostEstimateDetailsQuery request, CancellationToken cancellationToken)
         {
-            // Get cost estimate with all related data
-            // UWAGA: Struktura zagnieżdżenia: Position (Level 1) → Component (Level 2) → Option (Level 3)
-            var costEstimates = await costEstimateRepository.GetBySearch(
-                c => c.Id == request.CostEstimateId && 
-                     c.TenantId == request.TenantId &&
-                     c.ProjectId == request.ProjectId &&
-                     !c.IsDeleted,
-                q => q.Include(c => c.Template)
-                      .Include(c => c.Owner)
-                      .Include(c => c.SelectedCurrency)
-                      // Grupy + Group FieldValues
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.FieldValues)
-                              .ThenInclude(fv => fv.FieldDefinition)
-                      // Główne pozycje (Level 1: RelationType = None) + ich FieldValues
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted && w.RelationType == ItemRelationType.None))
-                              .ThenInclude(w => w.FieldValues)
-                                  .ThenInclude(fv => fv.FieldDefinition)
-                      // Child items Level 2 (Components/Options z ParentItemId != null) + ich FieldValues
-                      .Include(c => c.AllItems.Where(i => !i.IsDeleted && i.ParentItemId != null))
-                          .ThenInclude(i => i.FieldValues)
-                              .ThenInclude(fv => fv.FieldDefinition)
-                );
-                
-            var costEstimate = costEstimates.FirstOrDefault();
+            // 1. Get cost estimate from cache (no ownerId validation for read queries)
+            var costEstimate = await ceCacheService.GetCostEstimateAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, null, cancellationToken)
+                ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            if (costEstimate == null)
-            {
-                throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
-            }
-            
-            // ✅ Populate Options i Components dla wszystkich pozycji
-            costEstimate.PopulateItemHierarchy();
+            // 2. Get template from cache (for name + structure + currencies)
+            var template = await ceCacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
+                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
-            // Pobierz strukturę szablonu przez wspólny serwis
+            // 3. Get all cached collections
+            var groupsDict = await ceCacheService.GetGroupsDictionaryAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            var groupFieldValuesDict = await ceCacheService.GetGroupFieldValuesDictionaryAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            var itemsDict = await ceCacheService.GetItemsDictionaryAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            var itemFieldValuesDict = await ceCacheService.GetItemFieldValuesDictionaryAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            // 4. Build lookup structures for efficient hierarchy assembly
+            var groupFieldValuesByGroupId = groupFieldValuesDict.Values
+                .GroupBy(fv => fv.GroupId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var mainItemsByGroupId = itemsDict.Values
+                .Where(i => i.RelationType == ItemRelationType.None)
+                .GroupBy(i => i.GroupId)
+                .ToDictionary(g => g.Key, g => g.OrderBy(i => i.Order).ToList());
+
+            var childItemsByParentId = itemsDict.Values
+                .Where(i => i.ParentItemId.HasValue)
+                .GroupBy(i => i.ParentItemId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(i => i.Order).ToList());
+
+            var itemFieldValuesByItemId = itemFieldValuesDict.Values
+                .GroupBy(fv => fv.ItemId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // 5. Build SAS URIs for files (cached separately in Redis)
+            var fileSasUris = await BuildFileSasUrisCachedAsync(
+                costEstimate.Id, itemFieldValuesDict, cancellationToken);
+
+            // 6. Get template structure via existing service
             var templateStructure = await costEstimateTemplateService.GetTemplateStructureCachedAsync(
-                costEstimate.Template, 
-                cancellationToken);
+                template, cancellationToken);
 
-            // Build hierarchical structure of root groups
-            var rootGroups = BuildGroupHierarchy(costEstimate.AllGroups.Where(g => g.ParentGroupId == null).ToList(), costEstimate.AllGroups.ToList());
+            // 7. Build hierarchical structure
+            var allGroups = groupsDict.Values.ToList();
+            var rootGroups = BuildGroupHierarchy(
+                allGroups.Where(g => g.ParentGroupId == null).ToList(),
+                allGroups,
+                groupFieldValuesByGroupId,
+                mainItemsByGroupId,
+                childItemsByParentId,
+                itemFieldValuesByItemId,
+                fileSasUris);
+
+            // 8. Resolve currency from cached template
+            var selectedCurrency = template.Currencies.First(c => c.Id == costEstimate.SelectedCurrencyId);
 
             return new CostEstimateDetailsWeb(
                 Id: costEstimate.Id,
                 TenantId: costEstimate.TenantId,
                 ProjectId: costEstimate.ProjectId,
                 TemplateId: costEstimate.TemplateId,
-                TemplateName: costEstimate.Template.Name,
+                TemplateName: template.Name,
                 SelectedCurrencyId: costEstimate.SelectedCurrencyId,
-                SelectedCurrencyCode: costEstimate.SelectedCurrency.Code,
-                SelectedCurrencySymbol: costEstimate.SelectedCurrency.Symbol,
+                SelectedCurrencyCode: selectedCurrency.Code,
+                SelectedCurrencySymbol: selectedCurrency.Symbol,
                 Name: costEstimate.Name,
                 Description: costEstimate.Description,
                 Status: costEstimate.Status,
@@ -100,68 +126,176 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             );
         }
 
-        private List<CostEstimateGroupWeb> BuildGroupHierarchy(List<CostEstimateGroup> currentLevelGroups, List<CostEstimateGroup> allGroups)
+        /// <summary>
+        /// Builds SAS URIs for all files in item field values, cached in Redis
+        /// </summary>
+        private async Task<Dictionary<Guid, CostEstimateFieldFileSasInfo>> BuildFileSasUrisCachedAsync(
+            Guid costEstimateId,
+            Dictionary<Guid, CostEstimateItemFieldValue> itemFieldValuesDict,
+            CancellationToken cancellationToken)
+        {
+            var allFiles = itemFieldValuesDict.Values
+                .SelectMany(fv => fv.Files)
+                .Where(f => !f.IsDeleted)
+                .ToList();
+
+            if (allFiles.Count == 0)
+            {
+                return new Dictionary<Guid, CostEstimateFieldFileSasInfo>();
+            }
+
+            string cacheKey = $"ce-files-sas:{costEstimateId}";
+            string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.CostEstimates);
+
+            var cached = await cacheService.GetOrAddAsync(
+                cacheKey,
+                () =>
+                {
+                    var sasUris = new Dictionary<Guid, CostEstimateFieldFileSasInfo>();
+
+                    foreach (var file in allFiles)
+                    {
+                        var previewUri = blobStorageService.GenerateSasUri(
+                            containerName, file.BlobName, file.OriginalFileName,
+                            SasExpirationMinutes, "inline");
+
+                        var downloadUri = blobStorageService.GenerateSasUri(
+                            containerName, file.BlobName, file.OriginalFileName,
+                            SasExpirationMinutes, "attachment");
+
+                        sasUris[file.Id] = new CostEstimateFieldFileSasInfo
+                        {
+                            PreviewUri = previewUri.ToString(),
+                            DownloadUri = downloadUri.ToString()
+                        };
+                    }
+
+                    return Task.FromResult(sasUris);
+                },
+                SasCacheDuration,
+                cancellationToken);
+
+            return cached ?? new Dictionary<Guid, CostEstimateFieldFileSasInfo>();
+        }
+
+        private List<CostEstimateGroupWeb> BuildGroupHierarchy(
+            List<CostEstimateGroup> currentLevelGroups,
+            List<CostEstimateGroup> allGroups,
+            Dictionary<Guid, List<CostEstimateGroupFieldValue>> groupFieldValuesByGroupId,
+            Dictionary<Guid, List<CostEstimateItem>> mainItemsByGroupId,
+            Dictionary<Guid, List<CostEstimateItem>> childItemsByParentId,
+            Dictionary<Guid, List<CostEstimateItemFieldValue>> itemFieldValuesByItemId,
+            Dictionary<Guid, CostEstimateFieldFileSasInfo> fileSasUris)
         {
             return currentLevelGroups
                 .OrderBy(g => g.Order)
-                .Select(group => new CostEstimateGroupWeb(
-                    Id: group.Id,
-                    ParentGroupId: group.ParentGroupId,
-                    Level: group.Level,
-                    Order: group.Order,
-                    FieldValues: group.FieldValues.Select(fv =>
-                    {
-                        // Pobierz wartość w odpowiednim typie
-                        var (stringValue, decimalValue, boolValue, dateTimeValue) = FieldValueConverter.GetTypedValue(fv, (int)fv.FieldDefinition.FieldType);
-                        
-                        return new CostEstimateFieldValueWeb(
-                            Id: fv.Id,
-                            FieldDefinitionId: fv.FieldDefinitionId,
-                            FieldType: (int)fv.FieldDefinition.FieldType,
-                            FieldScope: (int)fv.FieldDefinition.FieldScope,
-                            FieldName: null, // Group fields nie mają FieldName (GUID)
-                            FieldLabel: fv.FieldDefinition.Label,
-                            StringValue: stringValue,
-                            DecimalValue: decimalValue,
-                            BoolValue: boolValue,
-                            DateTimeValue: dateTimeValue
-                        );
-                    }).ToList(),
-                    TotalNet: group.TotalNet,
-                    TotalGross: group.TotalGross,
-                    TotalVat: group.TotalVat,
-                    LastCalculatedAt: group.LastCalculatedAt,
-                    ChildGroups: BuildGroupHierarchy(
-                        allGroups.Where(g => g.ParentGroupId == group.Id).ToList(),
-                        allGroups
-                    ),
-                    Items: group.Items
-                        .Where(w => w.RelationType == ItemRelationType.None)  // ✅ Tylko główne pozycje (nie opcje ani komponenty)
-                        .OrderBy(w => w.Order)
-                        .Select(item => BuildItemWeb(item))
-                        .ToList(),
-                    CreatedAt: group.CreatedAt,
-                    UpdatedAt: group.UpdatedAt
-                ))
+                .Select(group =>
+                {
+                    groupFieldValuesByGroupId.TryGetValue(group.Id, out var groupFieldValues);
+
+                    return new CostEstimateGroupWeb(
+                        Id: group.Id,
+                        ParentGroupId: group.ParentGroupId,
+                        Level: group.Level,
+                        Order: group.Order,
+                        FieldValues: (groupFieldValues ?? []).Select(fv =>
+                        {
+                            var (stringValue, decimalValue, boolValue, dateTimeValue) =
+                                FieldValueConverter.GetTypedValue(fv, (int)fv.FieldDefinition.FieldType);
+
+                            return new CostEstimateFieldValueWeb(
+                                Id: fv.Id,
+                                FieldDefinitionId: fv.FieldDefinitionId,
+                                FieldType: (int)fv.FieldDefinition.FieldType,
+                                FieldScope: (int)fv.FieldDefinition.FieldScope,
+                                FieldName: null,
+                                FieldLabel: fv.FieldDefinition.Label,
+                                StringValue: stringValue,
+                                DecimalValue: decimalValue,
+                                BoolValue: boolValue,
+                                DateTimeValue: dateTimeValue
+                            );
+                        }).ToList(),
+                        TotalNet: group.TotalNet,
+                        TotalGross: group.TotalGross,
+                        TotalVat: group.TotalVat,
+                        LastCalculatedAt: group.LastCalculatedAt,
+                        ChildGroups: BuildGroupHierarchy(
+                            allGroups.Where(g => g.ParentGroupId == group.Id).ToList(),
+                            allGroups,
+                            groupFieldValuesByGroupId,
+                            mainItemsByGroupId,
+                            childItemsByParentId,
+                            itemFieldValuesByItemId,
+                            fileSasUris),
+                        Items: (mainItemsByGroupId.TryGetValue(group.Id, out var items) ? items : [])
+                            .Select(item => BuildItemWeb(item, childItemsByParentId, itemFieldValuesByItemId, fileSasUris))
+                            .ToList(),
+                        CreatedAt: group.CreatedAt,
+                        UpdatedAt: group.UpdatedAt
+                    );
+                })
                 .ToList();
         }
 
-        private CostEstimateItemWeb BuildItemWeb(CostEstimateItem item)
+        private CostEstimateItemWeb BuildItemWeb(
+            CostEstimateItem item,
+            Dictionary<Guid, List<CostEstimateItem>> childItemsByParentId,
+            Dictionary<Guid, List<CostEstimateItemFieldValue>> itemFieldValuesByItemId,
+            Dictionary<Guid, CostEstimateFieldFileSasInfo> fileSasUris)
         {
+            itemFieldValuesByItemId.TryGetValue(item.Id, out var fieldValues);
+            childItemsByParentId.TryGetValue(item.Id, out var childItems);
+
+            var options = (childItems ?? [])
+                .Where(c => c.RelationType == ItemRelationType.Option)
+                .OrderBy(c => c.Order)
+                .Select(c => BuildItemWeb(c, childItemsByParentId, itemFieldValuesByItemId, fileSasUris))
+                .ToList();
+
+            var components = (childItems ?? [])
+                .Where(c => c.RelationType == ItemRelationType.Component)
+                .OrderBy(c => c.Order)
+                .Select(c => BuildItemWeb(c, childItemsByParentId, itemFieldValuesByItemId, fileSasUris))
+                .ToList();
+
             return new CostEstimateItemWeb(
                 Id: item.Id,
                 GroupId: item.GroupId,
                 ParentItemId: item.ParentItemId,
-                RelationType: (int)item.RelationType,  // ✅ Dodano RelationType
+                RelationType: (int)item.RelationType,
                 Order: item.Order,
-                NetValue: item.NetValue,       // ✅ Dodano obliczone wartości
+                NetValue: item.NetValue,
                 GrossValue: item.GrossValue,
                 VatValue: item.VatValue,
-                FieldValues: item.FieldValues.Select(fv =>
+                FieldValues: (fieldValues ?? []).Select(fv =>
                 {
-                    // Pobierz wartość w odpowiednim typie
-                    var (stringValue, decimalValue, boolValue, dateTimeValue) = FieldValueConverter.GetTypedValue(fv, (int)fv.FieldDefinition.FieldType);
-                    
+                    var (stringValue, decimalValue, boolValue, dateTimeValue) =
+                        FieldValueConverter.GetTypedValue(fv, (int)fv.FieldDefinition.FieldType);
+
+                    List<CostEstimateFieldFileWeb>? files = null;
+                    if (fv.FieldDefinition.FieldType == FieldType.ItemSystemFiles && fv.Files.Count > 0)
+                    {
+                        files = fv.Files
+                            .Where(f => !f.IsDeleted)
+                            .OrderBy(f => f.Order)
+                            .Select(f =>
+                            {
+                                fileSasUris.TryGetValue(f.Id, out var sasInfo);
+                                return new CostEstimateFieldFileWeb(
+                                    Id: f.Id,
+                                    OriginalFileName: f.OriginalFileName,
+                                    ContentType: f.ContentType,
+                                    FileSize: f.FileSize,
+                                    Order: f.Order,
+                                    SasUriPreview: sasInfo?.PreviewUri,
+                                    SasUriDownload: sasInfo?.DownloadUri,
+                                    CreatedAt: f.CreatedAt
+                                );
+                            })
+                            .ToList();
+                    }
+
                     return new CostEstimateFieldValueWeb(
                         Id: fv.Id,
                         FieldDefinitionId: fv.FieldDefinitionId,
@@ -172,22 +306,24 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                         StringValue: stringValue,
                         DecimalValue: decimalValue,
                         BoolValue: boolValue,
-                        DateTimeValue: dateTimeValue
+                        DateTimeValue: dateTimeValue,
+                        Files: files
                     );
                 }).ToList(),
-                Options: item.Options  // ✅ Już filtrowane przez property (RelationType == Option)
-                    .Where(o => !o.IsDeleted)
-                    .OrderBy(o => o.Order)
-                    .Select(option => BuildItemWeb(option))
-                    .ToList(),
-                Components: item.Components  // ✅ Dodano Components (filtrowane przez property: RelationType == Component)
-                    .Where(c => !c.IsDeleted)
-                    .OrderBy(c => c.Order)
-                    .Select(component => BuildItemWeb(component))
-                    .ToList(),
+                Options: options,
+                Components: components,
                 CreatedAt: item.CreatedAt,
                 UpdatedAt: item.UpdatedAt
             );
         }
+    }
+
+    /// <summary>
+    /// Cache model for SAS URIs per file
+    /// </summary>
+    public sealed class CostEstimateFieldFileSasInfo
+    {
+        public required string PreviewUri { get; init; }
+        public required string DownloadUri { get; init; }
     }
 }

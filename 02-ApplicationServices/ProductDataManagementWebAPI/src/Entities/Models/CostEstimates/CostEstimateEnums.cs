@@ -134,6 +134,13 @@
         /// </summary>
         ItemSystemSelected = 104,
 
+        /// <summary>
+        /// Pliki (collection) - kolekcja załączonych plików (PDF, JPG)
+        /// Pliki przechowywane w Azure Blob Storage, max 50 MB na plik
+        /// Scope: ItemSystem
+        /// </summary>
+        ItemSystemFiles = 105,
+
         // ============================================================================
         // ITEM CALCULATED FIELDS (Prefix: ItemCalculated)
         // Range: 200-299
@@ -146,14 +153,14 @@
         ItemCalculatedUnitPriceNet = 200,
         
         /// <summary>
-        /// Stawka VAT w procentach (decimal)
+        /// Stawka VAT (decimal, zakres 0–1, gdzie 0.23 = 23%)
         /// Scope: ItemCalculated
         /// </summary>
         ItemCalculatedVatRate = 201,
         
         /// <summary>
         /// Cena jednostkowa brutto (decimal)
-        /// Formula: UnitPriceNet * (1 + VatRate/100)
+        /// Formula: UnitPriceNet * (1 + VatRate)
         /// Scope: ItemCalculated
         /// </summary>
         ItemCalculatedUnitPriceGross = 202,
@@ -174,14 +181,14 @@
         
         /// <summary>
         /// Wartość VAT jednostkowa (decimal)
-        /// Formula: UnitPriceNet * (VatRate / 100)
+        /// Formula: UnitPriceNet * VatRate
         /// Scope: ItemCalculated
         /// </summary>
         ItemCalculatedUnitVat = 205,
         
         /// <summary>
         /// Wartość VAT całkowita (decimal)
-        /// Formula: ValueNet * (VatRate / 100)
+        /// Formula: ValueNet * VatRate
         /// Scope: ItemCalculated
         /// </summary>
         ItemCalculatedTotalVat = 206,

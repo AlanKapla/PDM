@@ -88,7 +88,6 @@ export default function UploadNewVersionModal({
       onVersionUploaded();
       handleClose();
     } catch (error) {
-      console.error("Błąd podczas przesyłania nowej wersji:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,

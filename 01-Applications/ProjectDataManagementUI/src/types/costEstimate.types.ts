@@ -219,6 +219,28 @@ export interface TemplateUnitWeb {
   order: number;
 }
 
+// ===== DOMYŚLNE SZABLONY (READ-ONLY, SYSTEM) =====
+
+/**
+ * Element listy domyślnych szablonów kosztorysów
+ * Szablony systemowe identyfikowane przez slug, nie przez GUID
+ */
+export interface DefaultCostEstimateTemplateListItemWeb {
+  slug: string;          // identyfikator, np. "basic-cost-estimate"
+  name: string;          // "Podstawowy kosztorys"
+  description: string | null;
+  category: string | null; // "Ogólne"
+}
+
+/**
+ * Request dla tworzenia szablonu użytkownika z domyślnego
+ */
+export interface CreateCostEstimateTemplateFromDefaultRequest {
+  slug: string;          // slug domyślnego szablonu, np. "basic-cost-estimate"
+  name: string;          // nazwa nowego szablonu użytkownika
+  description?: string;  // opcjonalny opis
+}
+
 export interface CostEstimateListItem {
   id: string;
   tenantId: string;
@@ -387,6 +409,7 @@ export enum FieldType {
   ItemCalculatedValueGross = 204,
   ItemCalculatedUnitVat = 205,
   ItemCalculatedTotalVat = 206,
+  // ItemCalculatedDiscount = 207, // usunięto pole rabatu
 
   // ITEM GENERIC FIELDS (300-399)
   ItemGenericInteger = 300,
@@ -449,6 +472,7 @@ export enum CalculatedFieldType {
   ValueGross = 4,          // → FieldType.ItemCalculatedValueGross (204)
   UnitVat = 5,             // → FieldType.ItemCalculatedUnitVat (205)
   TotalVat = 6,            // → FieldType.ItemCalculatedTotalVat (206)
+  // Discount = 7,            // → FieldType.ItemCalculatedDiscount (207) // usunięto pole rabatu
 }
 
 /**

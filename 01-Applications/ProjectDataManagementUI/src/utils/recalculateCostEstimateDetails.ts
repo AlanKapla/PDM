@@ -46,6 +46,31 @@ const getSourceFieldValue = (
   return undefined;
 };
 
+/** 
+ * Sprawdza czy pozycja jest zaznaczona do sumowania (pole Selected = 104).
+ * Logika musi być spójna z backendem (CostEstimateCalculationService.IsItemSelectedForSumming):
+ * - Jeśli szablon nie ma pola Selected → wszystkie pozycje są sumowane
+ * - Jeśli ma pole Selected → tylko pozycje z BoolValue == true są sumowane
+ *   (null, undefined, false → pozycja NIE jest sumowana)
+ */
+const isItemSelected = (
+  item: CostEstimateItemWeb,
+  selectedFieldId: string | undefined,
+): boolean => {
+  // Jeśli szablon nie ma pola Selected, wszystkie pozycje są sumowane
+  if (!selectedFieldId) return true;
+  
+  const fv = item.fieldValues.find((v) => v.fieldDefinitionId === selectedFieldId);
+  // Jeśli pole nie ma wartości, pozycja NIE jest sumowana (spójne z backendem)
+  if (!fv) return false;
+  // Sprawdź boolValue - tylko true oznacza zaznaczone (spójne z backendem: BoolValue == true)
+  if (fv.boolValue === true) return true;
+  // Fallback: stringValue 'true'
+  if (fv.stringValue?.toLowerCase() === 'true') return true;
+  // Domyślnie NIE sumowana (false, null, undefined)
+  return false;
+};
+
 /** Ustawia wartość pola w pozycji (typowane jako decimalValue) */
 const setItemFieldValue = (
   item: CostEstimateItemWeb,
@@ -289,8 +314,13 @@ export function recalculateCostEstimateDetails(
         if (cf.sumInGroup === true) summaryFieldIds.add(cf.id);
       }
 
+      // Filtruj pozycje po polu Selected (tylko zaznaczone biorą udział w sumowaniu)
+      const selectedItems = updatedItems.filter((itm) =>
+        isItemSelected(itm, selectedFieldDef?.id)
+      );
+
       for (const fieldId of summaryFieldIds) {
-        groupSummaryValues[fieldId] = updatedItems.reduce(
+        groupSummaryValues[fieldId] = selectedItems.reduce(
           (sum, itm) => sum + getItemFieldValue(itm, fieldId),
           0,
         );
@@ -305,7 +335,11 @@ export function recalculateCostEstimateDetails(
     }
 
     if (valueNetDef) {
-      groupTotalNet = updatedItems.reduce(
+      // Filtruj pozycje po polu Selected
+      const selectedItems = updatedItems.filter((itm) =>
+        isItemSelected(itm, selectedFieldDef?.id)
+      );
+      groupTotalNet = selectedItems.reduce(
         (sum, itm) => sum + getItemFieldValue(itm, valueNetDef.id),
         0,
       );
@@ -315,7 +349,10 @@ export function recalculateCostEstimateDetails(
       );
     }
     if (valueGrossDef) {
-      groupTotalGross = updatedItems.reduce(
+      const selectedItems = updatedItems.filter((itm) =>
+        isItemSelected(itm, selectedFieldDef?.id)
+      );
+      groupTotalGross = selectedItems.reduce(
         (sum, itm) => sum + getItemFieldValue(itm, valueGrossDef.id),
         0,
       );
@@ -325,7 +362,10 @@ export function recalculateCostEstimateDetails(
       );
     }
     if (totalVatDef) {
-      groupTotalVat = updatedItems.reduce(
+      const selectedItems = updatedItems.filter((itm) =>
+        isItemSelected(itm, selectedFieldDef?.id)
+      );
+      groupTotalVat = selectedItems.reduce(
         (sum, itm) => sum + getItemFieldValue(itm, totalVatDef.id),
         0,
       );
@@ -368,21 +408,26 @@ export function recalculateCostEstimateDetails(
     };
 
     const allItems = collectAllItems(recalculatedRootGroups);
+    
+    // Filtruj pozycje po polu Selected (tylko zaznaczone biorą udział w sumowaniu)
+    const selectedItems = allItems.filter((itm) =>
+      isItemSelected(itm, selectedFieldDef?.id)
+    );
 
     if (valueNetDef) {
-      totalNet = allItems.reduce(
+      totalNet = selectedItems.reduce(
         (sum, itm) => sum + getItemFieldValue(itm, valueNetDef.id),
         0,
       );
     }
     if (valueGrossDef) {
-      totalGross = allItems.reduce(
+      totalGross = selectedItems.reduce(
         (sum, itm) => sum + getItemFieldValue(itm, valueGrossDef.id),
         0,
       );
     }
     if (totalVatDef) {
-      totalVat = allItems.reduce(
+      totalVat = selectedItems.reduce(
         (sum, itm) => sum + getItemFieldValue(itm, totalVatDef.id),
         0,
       );
@@ -394,7 +439,7 @@ export function recalculateCostEstimateDetails(
       if (cf.sumInTotal === true) totalSummaryFieldIds.add(cf.id);
     }
     for (const fieldId of totalSummaryFieldIds) {
-      totalSummaryValues[fieldId] = allItems.reduce(
+      totalSummaryValues[fieldId] = selectedItems.reduce(
         (sum, itm) => sum + getItemFieldValue(itm, fieldId),
         0,
       );

@@ -13,6 +13,8 @@ import type {
   SummaryFieldWeb,
   UiConfigurationWeb,
   ColumnConfigurationWeb,
+  DefaultCostEstimateTemplateListItemWeb,
+  CreateCostEstimateTemplateFromDefaultRequest,
 } from "../types/costEstimate.types";
 
 // ===== INTERFACES FOR TEMPLATE STRUCTURE =====
@@ -258,4 +260,73 @@ export const costEstimateTemplateApi = {
   approveVersion: async (templateId: string, versionId: string): Promise<void> => {
     await axiosClient.post(`/cost-estimate-template/${templateId}/versions/${versionId}/approve`);
   },
+
+  // ===== DOMYŚLNE SZABLONY (SYSTEMOWE) =====
+
+  /**
+   * Pobiera listę wszystkich dostępnych szablonów domyślnych
+   */
+  getDefaultTemplates: async (): Promise<DefaultCostEstimateTemplateListItemWeb[]> => {
+    const response = await axiosClient.get<DefaultCostEstimateTemplateListItemWeb[]>(
+      "/cost-estimate-template/defaults"
+    );
+    return response.data;
+  },
+
+  /**
+   * Pobiera pełną strukturę szablonu domyślnego
+   * @param slug - Identyfikator szablonu, np. "basic-cost-estimate"
+   */
+  getDefaultTemplate: async (slug: string): Promise<CostEstimateTemplateStructureWeb> => {
+    const response = await axiosClient.get<CostEstimateTemplateStructureWeb>(
+      `/cost-estimate-template/defaults/${slug}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Tworzy nowy szablon użytkownika z pełną strukturą skopiowaną z domyślnego szablonu
+   * Nowe GUIDy pól generowane są po stronie serwera
+   * @returns GUID nowego szablonu
+   */
+  createFromDefault: async (data: CreateCostEstimateTemplateFromDefaultRequest): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      "/cost-estimate-template/from-default",
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Usuwa szablon (soft delete)
+   * Tylko właściciel może usunąć szablon
+   * Istniejące kosztorysy korzystające z szablonu nadal działają
+   */
+  deleteTemplate: async (id: string): Promise<void> => {
+    await axiosClient.delete(`/cost-estimate-template/${id}`);
+  },
+
+  /**
+   * Duplikuje szablon z pełną strukturą (pola, waluty, jednostki)
+   * Nowe GUIDy pól generowane są po stronie serwera
+   * Tylko właściciel szablonu może go duplikować
+   * @param id ID szablonu źródłowego
+   * @param data Nazwa i opis nowego szablonu
+   * @returns GUID nowego szablonu
+   */
+  duplicateTemplate: async (id: string, data: DuplicateCostEstimateTemplateRequest): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/cost-estimate-template/${id}/duplicate`,
+      data
+    );
+    return response.data;
+  },
 };
+
+/**
+ * Request model dla duplikowania szablonu kosztorysu
+ */
+export interface DuplicateCostEstimateTemplateRequest {
+  name: string;
+  description?: string;
+}

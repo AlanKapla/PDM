@@ -20,6 +20,7 @@ import {
   InputLeftElement,
   Select,
   Flex,
+  Link,
 } from '@chakra-ui/react';
 import {
   Plus,
@@ -36,6 +37,9 @@ import {
   FolderPlus,
   ListPlus,
   GitBranch,
+  ChevronsDown,
+  ChevronsUp,
+  ExternalLink,
 } from 'lucide-react';
 import {
   DndContext,
@@ -57,6 +61,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   getFieldValueAsString,
+  isTemporaryId,
   type CostEstimateDetailsWeb,
   type CostEstimateGroupWeb,
   type CostEstimateItemWeb,
@@ -76,8 +81,8 @@ import { FieldScope } from '../../types/costEstimate.types';
 // Wydzielone moduły
 // ---------------------------------------------------------------------------
 import {
-  SOURCE_FIELD_TYPES,
-  CALCULATED_FIELD_TYPES,
+  isSourceFieldType,
+  isCalculatedFieldType,
   round2,
   readFieldValue,
   getSourceValues,
@@ -92,6 +97,7 @@ import {
 } from '../../utils/costEstimateCalculations';
 import { FormattedNumericInput } from '../common/FormattedNumericInput';
 import { UnitComboBox } from '../common/UnitComboBox';
+import { FileFieldRenderer } from './FileFieldRenderer';
 import { SortableGroupRow } from './rows/SortableGroupRow';
 import { SortableItemRow } from './rows/SortableItemRow';
 import {
@@ -108,11 +114,53 @@ interface CostEstimateTableViewProps {
   details: CostEstimateDetailsWeb;
   editable?: boolean;
   onDataChange?: (updated: CostEstimateDetailsWeb) => void;
-  onAddGroup?: () => string | undefined;
+  onAddGroup?: () => Promise<string | undefined>;
   onDeleteGroup?: (groupId: string) => void;
-  onAddSubGroup?: (parentGroupId: string) => string | undefined;
-  onAddItem?: (groupId: string) => void;
+  onAddSubGroup?: (parentGroupId: string) => Promise<string | undefined>;
+  onAddItem?: (groupId: string) => Promise<string | undefined>;
   onDeleteItem?: (groupId: string, itemId: string) => void;
+  /**
+   * Callback do dodania opcji (relationType=1) lub komponentu (relationType=2) do pozycji
+   * @param groupId ID grupy
+   * @param parentItemId ID pozycji nadrzędnej
+   * @param relationType 1=Option, 2=Component
+   */
+  onAddChildItem?: (groupId: string, parentItemId: string, relationType: 1 | 2) => Promise<string | undefined>;
+  /** Callback do uploadu plików do pola typu ItemSystemFiles (Replace All strategy) */
+  onUploadFiles?: (itemId: string, fieldDefinitionId: string, files: File[]) => Promise<string[]>;
+  /** Callback wywoływany po pomyślnym uploadzie plików — do odświeżenia danych */
+  onUploadSuccess?: () => void;
+  /** 
+   * Callback do autosave pojedynczego pola (z debounce po stronie rodzica)
+   * Jeśli podany, zmiany pól będą wysyłane przez ten callback zamiast tylko przez onDataChange
+   */
+  onFieldAutosave?: (params: {
+    entityType: 'group' | 'item';
+    entityId: string;
+    fieldValueId: string | null;
+    fieldDefinitionId: string;
+    fieldType: number;
+    /** Typ wartości pola - określa które pole DTO wypełnić */
+    valueType: 'string' | 'numeric' | 'boolean' | 'date';
+    value: string | undefined;
+  }) => void;
+  /**
+   * Callback do zmiany kolejności pozycji w grupie (drag & drop)
+   * @param groupId ID grupy
+   * @param itemOrders Tablica { itemId, order } z nową kolejnością
+   */
+  onReorderItems?: (groupId: string, itemOrders: Array<{ itemId: string; order: number }>) => Promise<void>;
+  /**
+   * Callback do zmiany kolejności grup (drag & drop) — obsługuje też przenoszenie między parentami
+   * @param groupOrders Tablica { groupId, parentGroupId, order } z nową strukturą
+   */
+  onReorderGroups?: (groupOrders: Array<{ groupId: string; parentGroupId: string | null; order: number }>) => Promise<void>;
+  /**
+   * Callback do przenoszenia pozycji między grupami (drag & drop)
+   * @param itemId ID przenoszonej pozycji
+   * @param targetGroupId ID grupy docelowej
+   */
+  onMoveItem?: (itemId: string, targetGroupId: string) => Promise<void>;
   /** Maksymalna wysokość tabeli — domyślnie 'calc(100vh - 220px)' */
   maxTableHeight?: string;
 }
@@ -130,6 +178,13 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   onAddSubGroup,
   onAddItem,
   onDeleteItem,
+  onAddChildItem,
+  onUploadFiles,
+  onUploadSuccess,
+  onFieldAutosave,
+  onReorderItems,
+  onReorderGroups,
+  onMoveItem,
   maxTableHeight = 'calc(100vh - 220px)',
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -175,8 +230,56 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   const showTotalSummary = summaryConfig?.showTotalSummary ?? true;
   const totalSummaryFields = summaryConfig?.totalSummaryFields || [];
 
-  // Funkcja formatująca wartość do wyświetlania w trybie podglądu
-  const formatDisplayValue = useCallback((value: string | undefined, fieldDef?: any): string => {
+  /** Regex do wykrywania URL-i w tekście */
+  const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
+
+  /** 
+   * Renderuje tekst z wykrytymi linkami jako klikalne elementy.
+   * Linki otwierają się w nowym oknie.
+   */
+  const renderTextWithLinks = useCallback((text: string): React.ReactNode => {
+    if (!text) return text;
+    
+    // Reset regex lastIndex przed użyciem
+    URL_REGEX.lastIndex = 0;
+    const parts = text.split(URL_REGEX);
+    if (parts.length === 1) return text; // Brak linków
+    
+    return parts.map((part, index) => {
+      URL_REGEX.lastIndex = 0;
+      if (URL_REGEX.test(part)) {
+        URL_REGEX.lastIndex = 0;
+        return (
+          <Link
+            key={index}
+            href={part}
+            isExternal
+            color="blue.500"
+            textDecoration="underline"
+            _hover={{ color: 'blue.600' }}
+            onClick={(e) => e.stopPropagation()}
+            display="inline-flex"
+            alignItems="center"
+            gap={1}
+          >
+            {part.length > 50 ? `${part.slice(0, 50)}...` : part}
+            <ExternalLink size={10} />
+          </Link>
+        );
+      }
+      return part;
+    });
+  }, []);
+
+  /** Sprawdza czy tekst zawiera URL */
+  const containsUrl = useCallback((text: string | undefined): boolean => {
+    if (!text) return false;
+    URL_REGEX.lastIndex = 0;
+    return URL_REGEX.test(text);
+  }, []);
+
+  // Funkcja formatująca wartość do wyświetlania w trybie podglądu (z obsługą linków)
+  const formatDisplayValue = useCallback((value: string | undefined, fieldDef?: any): React.ReactNode => {
     if (value === undefined || value === null || value === '') {
       return '—';
     }
@@ -185,6 +288,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       isNumeric?: boolean;
       isBoolean?: boolean;
       isDate?: boolean;
+      isText?: boolean;
     } | undefined;
     
     // Boolean - wyświetl jako Tak/Nie
@@ -211,8 +315,13 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       }
     }
     
+    // Tekst - sprawdź czy zawiera link
+    if (containsUrl(value)) {
+      return renderTextWithLinks(value);
+    }
+    
     return value;
-  }, []);
+  }, [containsUrl, renderTextWithLinks]);
 
   // ========== SORTOWANIE I FILTROWANIE ==========
 
@@ -381,15 +490,25 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
   // ========== FILTROWANIE I SORTOWANIE POZYCJI ==========
 
+  // Copilot: Renderowanie pól zawsze na podstawie definicji z templateStructure.
+  // Powód: Po dodaniu grupy/pozycji nie ma już fieldValues[] – UI musi korzystać z definicji pól z szablonu.
+  // suggested change: uproszczenie logiki, obsługa null/undefined fieldValues
   const getItemFieldValueForColumn = (item: CostEstimateItemWeb, col: { fieldId: string; fieldDef?: any; childField?: any; type: string }): string | number | boolean | undefined => {
     if (col.type === 'childField' && col.childField) {
-      const optionFieldValue = item.options?.find(opt => 
-        opt.fieldValues.some(fv => fv.fieldDefinitionId === col.childField.id)
-      )?.fieldValues.find(fv => fv.fieldDefinitionId === col.childField.id);
+      // Szukaj wartości opcji po definicji, ale nie zakładaj obecności fieldValues
+      // Copilot: zabezpieczenie przed błędem gdy fieldValues jest undefined
+      const foundOption = item.options?.find(opt =>
+        Array.isArray(opt.fieldValues) && opt.fieldValues.some(fv => fv.fieldDefinitionId === col.childField.id)
+      );
+      const optionFieldValue = foundOption && Array.isArray(foundOption.fieldValues)
+        ? foundOption.fieldValues.find(fv => fv.fieldDefinitionId === col.childField.id)
+        : undefined;
       return getFieldValueAsString(optionFieldValue);
     }
     const fieldDef = col.fieldDef;
     if (!fieldDef) return undefined;
+    // Jeśli fieldValues nie istnieje (np. po dodaniu) – zwróć pustą wartość
+    if (!item.fieldValues) return undefined;
     const fieldValue = item.fieldValues.find(fv => fv.fieldDefinitionId === fieldDef.id);
     return getFieldValueAsString(fieldValue);
   };
@@ -553,19 +672,40 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     });
   };
 
-  const handleAddGroupWithExpand = () => {
+  /** Zbiera rekurencyjnie ID wszystkich grup */
+  const collectAllGroupIds = useCallback((groups: CostEstimateGroupWeb[]): string[] => {
+    const ids: string[] = [];
+    for (const g of groups) {
+      ids.push(g.id);
+      if (g.childGroups?.length) {
+        ids.push(...collectAllGroupIds(g.childGroups));
+      }
+    }
+    return ids;
+  }, []);
+
+  const expandAll = useCallback(() => {
+    setCollapsedGroups(new Set());
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    const allIds = collectAllGroupIds(details.rootGroups);
+    setCollapsedGroups(new Set(allIds));
+  }, [details.rootGroups, collectAllGroupIds]);
+
+  const handleAddGroupWithExpand = async () => {
     if (onAddGroup) {
-      const newGroupId = onAddGroup();
+      const newGroupId = await onAddGroup();
       if (newGroupId) {
         expandGroup(newGroupId);
       }
     }
   };
 
-  const handleAddSubGroupWithExpand = (parentGroupId: string) => {
+  const handleAddSubGroupWithExpand = async (parentGroupId: string) => {
     if (onAddSubGroup) {
       expandGroup(parentGroupId);
-      const newSubGroupId = onAddSubGroup(parentGroupId);
+      const newSubGroupId = await onAddSubGroup(parentGroupId);
       if (newSubGroupId) {
         expandGroup(newSubGroupId);
       }
@@ -573,10 +713,10 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   };
 
   /** Dodaj pozycję i automatycznie rozwiń grupę nadrzędną */
-  const handleAddItemWithExpand = (groupId: string) => {
+  const handleAddItemWithExpand = async (groupId: string) => {
     if (onAddItem) {
       expandGroup(groupId);
-      onAddItem(groupId);
+      await onAddItem(groupId);
     }
   };
 
@@ -597,42 +737,43 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     const activeIdStr = active.id as string;
     const overIdStr = over.id as string;
 
-    const isGroupDrag = activeIdStr.startsWith('group-');
-    const isItemDrag = activeIdStr.startsWith('item-');
-    const isOptionDrag = activeIdStr.startsWith('option-');
+    // Separator '::' — odporny na myślniki w GUID-ach
+    const isGroupDrag = activeIdStr.startsWith('group::');
+    const isItemDrag = activeIdStr.startsWith('item::');
+    const isOptionDrag = activeIdStr.startsWith('option::');
 
-    if (isGroupDrag && overIdStr.startsWith('group-')) {
-      const activeGroupId = activeIdStr.replace('group-', '');
-      const overGroupId = overIdStr.replace('group-', '');
+    if (isGroupDrag && overIdStr.startsWith('group::')) {
+      const activeGroupId = activeIdStr.replace('group::', '');
+      const overGroupId = overIdStr.replace('group::', '');
       handleReorderGroups(activeGroupId, overGroupId);
-    } else if (isOptionDrag && overIdStr.startsWith('option-')) {
-      const activeParts = activeIdStr.replace('option-', '').split('-');
-      const overParts = overIdStr.replace('option-', '').split('-');
+    } else if (isOptionDrag && overIdStr.startsWith('option::')) {
+      const activeParts = activeIdStr.replace('option::', '').split('::');
+      const overParts = overIdStr.replace('option::', '').split('::');
       
       if (activeParts.length >= 3 && overParts.length >= 3) {
         const activeGroupId = activeParts[0];
         const activeItemId = activeParts[1];
-        const activeOptionId = activeParts.slice(2).join('-');
+        const activeOptionId = activeParts[2];
         const overGroupId = overParts[0];
         const overItemId = overParts[1];
-        const overOptionId = overParts.slice(2).join('-');
+        const overOptionId = overParts[2];
         
         if (activeGroupId === overGroupId && activeItemId === overItemId) {
           handleReorderOptions(activeGroupId, activeItemId, activeOptionId, overOptionId);
         }
       }
     } else if (isItemDrag) {
-      const activeParts = activeIdStr.replace('item-', '').split('-');
+      const activeParts = activeIdStr.replace('item::', '').split('::');
       
       if (activeParts.length >= 2) {
         const activeGroupId = activeParts[0];
-        const activeItemId = activeParts.slice(1).join('-');
+        const activeItemId = activeParts[1];
         
-        if (overIdStr.startsWith('item-')) {
-          const overParts = overIdStr.replace('item-', '').split('-');
+        if (overIdStr.startsWith('item::')) {
+          const overParts = overIdStr.replace('item::', '').split('::');
           if (overParts.length >= 2) {
             const overGroupId = overParts[0];
-            const overItemId = overParts.slice(1).join('-');
+            const overItemId = overParts[1];
             
             if (activeGroupId === overGroupId) {
               handleReorderItems(activeGroupId, activeItemId, overItemId);
@@ -640,8 +781,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               handleMoveItemToGroup(activeGroupId, activeItemId, overGroupId, overItemId);
             }
           }
-        } else if (overIdStr.startsWith('group-')) {
-          const overGroupId = overIdStr.replace('group-', '');
+        } else if (overIdStr.startsWith('group::')) {
+          const overGroupId = overIdStr.replace('group::', '');
           if (activeGroupId !== overGroupId) {
             handleMoveItemToGroup(activeGroupId, activeItemId, overGroupId, null);
           }
@@ -689,7 +830,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     });
   };
 
-  const handleMoveItemToGroup = (
+  const handleMoveItemToGroup = async (
     sourceGroupId: string, 
     itemId: string, 
     targetGroupId: string, 
@@ -725,7 +866,11 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       return groups.map(group => {
         if (group.id === targetGroupId && movedItem) {
           const items = group.items || [];
-          const updatedItem = { ...movedItem, groupId: targetGroupId };
+          // Zachowaj oryginalne ID — backend tylko zmienia groupId pozycji
+          const updatedItem: CostEstimateItemWeb = {
+            ...movedItem,
+            groupId: targetGroupId,
+          };
           
           if (targetItemId) {
             const targetIndex = items.findIndex(item => item.id === targetItemId);
@@ -755,7 +900,18 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     if (!movedItem) return;
     const afterAdd = addItemToTarget(afterRemove);
 
+    // Optimistic update lokalne
     onDataChange({ ...details, rootGroups: afterAdd });
+
+    // Wywołaj API dla przeniesienia pozycji
+    if (onMoveItem) {
+      try {
+        await onMoveItem(itemId, targetGroupId);
+      } catch (error) {
+        // Rollback — przywróć oryginalny stan
+        onDataChange(details);
+      }
+    }
   };
 
   const handleReorderGroups = (activeGroupId: string, overGroupId: string) => {
@@ -813,12 +969,32 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
         }));
       };
 
+      const updatedRootGroups = activeInfo.parent === null 
+        ? updatedSiblings.map(g => ({ ...g, childGroups: g.childGroups || [] }))
+        : updateGroupsInTree(details.rootGroups, undefined);
+
+      // Optimistic update lokalne
       onDataChange({
         ...details,
-        rootGroups: activeInfo.parent === null 
-          ? updatedSiblings.map(g => ({ ...g, childGroups: g.childGroups || [] }))
-          : updateGroupsInTree(details.rootGroups, undefined),
+        rootGroups: updatedRootGroups,
       });
+
+      // Wywołaj API dla reorder grup
+      if (onReorderGroups) {
+        const collectAllGroupOrders = (groups: CostEstimateGroupWeb[], parentId: string | null): Array<{ groupId: string; parentGroupId: string | null; order: number }> => {
+          const result: Array<{ groupId: string; parentGroupId: string | null; order: number }> = [];
+          groups.forEach((g, idx) => {
+            result.push({ groupId: g.id, parentGroupId: parentId, order: idx });
+            result.push(...collectAllGroupOrders(g.childGroups || [], g.id));
+          });
+          return result;
+        };
+        const allGroupOrders = collectAllGroupOrders(updatedRootGroups, null);
+        onReorderGroups(allGroupOrders).catch((error) => {
+          // Rollback — przywróć oryginalny stan
+          onDataChange(details);
+        });
+      }
     } else {
       handleMoveGroupToNewParent(activeGroupId, overGroupId, activeInfo, overInfo);
     }
@@ -865,10 +1041,28 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     const afterRemove = removeGroupFromSource(details.rootGroups);
     const afterAdd = addGroupToTarget(afterRemove, null);
 
+    // Optimistic update lokalne
     onDataChange({ ...details, rootGroups: afterAdd });
+
+    // Wywołaj API dla reorder grup (ze wszystkimi grupami i ich nowymi parentami)
+    if (onReorderGroups) {
+      const collectAllGroupOrders = (groups: CostEstimateGroupWeb[], parentId: string | null): Array<{ groupId: string; parentGroupId: string | null; order: number }> => {
+        const result: Array<{ groupId: string; parentGroupId: string | null; order: number }> = [];
+        groups.forEach((g, idx) => {
+          result.push({ groupId: g.id, parentGroupId: parentId, order: idx });
+          result.push(...collectAllGroupOrders(g.childGroups || [], g.id));
+        });
+        return result;
+      };
+      const allGroupOrders = collectAllGroupOrders(afterAdd, null);
+      onReorderGroups(allGroupOrders).catch((error) => {
+        // Rollback — przywróć oryginalny stan
+        onDataChange(details);
+      });
+    }
   };
 
-  const handleReorderItems = (groupId: string, activeItemId: string, overItemId: string) => {
+  const handleReorderItems = async (groupId: string, activeItemId: string, overItemId: string) => {
     if (!onDataChange) return;
 
     const updateGroupItems = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] => {
@@ -893,10 +1087,39 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       });
     };
 
+    const updatedRootGroups = updateGroupItems(details.rootGroups);
+    
+    // Optimistic update lokalne
     onDataChange({
       ...details,
-      rootGroups: updateGroupItems(details.rootGroups),
+      rootGroups: updatedRootGroups,
     });
+
+    // Wywołaj API dla reorder pozycji w grupie
+    if (onReorderItems) {
+      // Znajdź grupę i pobierz nową kolejność itemów
+      const findGroup = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb | null => {
+        for (const g of groups) {
+          if (g.id === groupId) return g;
+          const found = findGroup(g.childGroups || []);
+          if (found) return found;
+        }
+        return null;
+      };
+      const targetGroup = findGroup(updatedRootGroups);
+      if (targetGroup) {
+        const itemOrders = (targetGroup.items || []).map((item, idx) => ({
+          itemId: item.id,
+          order: idx,
+        }));
+        try {
+          await onReorderItems(groupId, itemOrders);
+        } catch (error) {
+          // Rollback — przywróć oryginalny stan
+          onDataChange(details);
+        }
+      }
+    }
   };
 
   // ========== SORTABLE IDS ==========
@@ -906,20 +1129,20 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     
     flatRows.forEach(row => {
       if (row.type === 'group' && row.group) {
-        ids.push(`group-${row.group.id}`);
+        ids.push(`group::${row.group.id}`);
       } else if (row.type === 'item' && row.item && row.groupId) {
-        ids.push(`item-${row.groupId}-${row.item.id}`);
+        ids.push(`item::${row.groupId}::${row.item.id}`);
         const itemComponents = row.item.components || [];
         itemComponents.forEach((comp: CostEstimateItemWeb) => {
-          ids.push(`comp-${row.groupId}-${row.item!.id}-${comp.id}`);
+          ids.push(`comp::${row.groupId}::${row.item!.id}::${comp.id}`);
           const compOptions = comp.options || [];
           compOptions.forEach((option: any) => {
-            ids.push(`comp-option-${row.groupId}-${comp.id}-${option.id}`);
+            ids.push(`comp-option::${row.groupId}::${comp.id}::${option.id}`);
           });
         });
         const itemOptions = row.item.options || [];
         itemOptions.forEach((option: any) => {
-          ids.push(`option-${row.groupId}-${row.item!.id}-${option.id}`);
+          ids.push(`option::${row.groupId}::${row.item!.id}::${option.id}`);
         });
       }
     });
@@ -928,6 +1151,55 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   }, [flatRows]);
 
   // ========== FIELD VALUE GETTERS / SETTERS ==========
+
+  /**
+   * Określa typ wartości pola na podstawie fieldTypeConfig lub fieldType
+   * Używane do autosave - mówi jakiego pola w DTO użyć (stringValue/decimalValue/boolValue/dateTimeValue)
+   */
+  const getFieldValueType = (fieldDef: { 
+    fieldType?: number; 
+    fieldTypeConfig?: { isNumeric?: boolean; isBoolean?: boolean; isDate?: boolean; isText?: boolean } 
+  }): 'string' | 'numeric' | 'boolean' | 'date' => {
+    const cfg = fieldDef?.fieldTypeConfig;
+    
+    // Preferuj fieldTypeConfig jeśli dostępny
+    if (cfg) {
+      if (cfg.isNumeric) return 'numeric';
+      if (cfg.isBoolean) return 'boolean';
+      if (cfg.isDate) return 'date';
+      return 'string';
+    }
+    
+    // Fallback na fieldType gdy fieldTypeConfig niedostępny
+    const ft = fieldDef?.fieldType;
+    if (ft === undefined) return 'string';
+    
+    // Numeric types:
+    // - ItemCalculated: 200-206
+    // - ItemGeneric: 300 (Integer), 301 (Decimal)
+    // - ItemSystem: 101 (Quantity)
+    // - GroupHeader: 8 (Budget)
+    if ((ft >= 200 && ft <= 206) || ft === 300 || ft === 301 || ft === 101 || ft === 8) {
+      return 'numeric';
+    }
+    
+    // Boolean types:
+    // - ItemSystem: 104 (Selected)
+    // - ItemGeneric: 303 (Boolean)
+    if (ft === 104 || ft === 303) {
+      return 'boolean';
+    }
+    
+    // Date types:
+    // - ItemGeneric: 304 (Date), 305 (DateTime)
+    // - GroupHeader: 3 (StartDate), 4 (EndDate) - ale tylko w kontekście grup
+    if (ft === 304 || ft === 305) {
+      return 'date';
+    }
+    
+    // Wszystko inne to string
+    return 'string';
+  };
 
   const getGroupFieldValue = (group: CostEstimateGroupWeb, fieldId: string): string | undefined => {
     const fieldValue = group.fieldValues.find((fv) => fv.fieldDefinitionId === fieldId);
@@ -942,6 +1214,16 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       (fv) => fv.fieldDefinitionId === fieldId
     );
     return getFieldValueAsString(fieldValue);
+  };
+
+  /** Zwraca pełne CostEstimateFieldValueWeb dla podanego fieldId — potrzebne dla pól z plikami */
+  const getItemFieldValueFull = (
+    item: CostEstimateItemWeb,
+    fieldId: string
+  ): CostEstimateFieldValueWeb | undefined => {
+    return item.fieldValues.find(
+      (fv) => fv.fieldDefinitionId === fieldId
+    );
   };
 
   // Helper: tworzy obiekt wartości pola z odpowiednimi typowanymi polami
@@ -989,11 +1271,41 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   const updateGroupFieldValue = (groupId: string, fieldId: string, value: string | undefined) => {
     if (!onDataChange) return;
 
-    const updateGroup = (group: CostEstimateGroupWeb): CostEstimateGroupWeb => {
-      if (group.id === groupId) {
-        const existingIndex = group.fieldValues.findIndex((fv) => fv.fieldDefinitionId === fieldId);
-        const newFieldValues = [...group.fieldValues];
-        const ghDef = templateStructure.groupHeaderFields.find((f: GroupHeaderFieldWeb) => f.id === fieldId);
+    // Znajdź definicję pola
+    const ghDef = templateStructure.groupHeaderFields.find((f: GroupHeaderFieldWeb) => f.id === fieldId);
+    const fieldType = ghDef?.fieldType ?? ghDef?.fieldTypeConfig?.fieldType ?? 2; // default: string
+    const valueType = getFieldValueType({ fieldType, fieldTypeConfig: ghDef?.fieldTypeConfig });
+
+    // Znajdź grupę i istniejący fieldValueId
+    const findGroup = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb | undefined => {
+      for (const g of groups) {
+        if (g.id === groupId) return g;
+        const found = findGroup(g.childGroups || []);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const group = findGroup(details.rootGroups);
+    const existingFieldValue = group?.fieldValues.find(fv => fv.fieldDefinitionId === fieldId);
+
+    // Wywołaj autosave jeśli dostępne, grupa jest zapisana (nie temp_) i fieldValue istnieje w bazie
+    if (onFieldAutosave && !isTemporaryId(groupId) && existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
+      onFieldAutosave({
+        entityType: 'group',
+        entityId: groupId,
+        fieldValueId: existingFieldValue.id,
+        fieldDefinitionId: fieldId,
+        fieldType,
+        valueType,
+        value,
+      });
+    }
+
+    // Aktualizuj lokalny stan (optimistic update)
+    const updateGroup = (g: CostEstimateGroupWeb): CostEstimateGroupWeb => {
+      if (g.id === groupId) {
+        const existingIndex = g.fieldValues.findIndex((fv) => fv.fieldDefinitionId === fieldId);
+        const newFieldValues = [...g.fieldValues];
 
         if (existingIndex >= 0) {
           if (value === undefined || value === '') {
@@ -1015,11 +1327,11 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
           ));
         }
 
-        return { ...group, fieldValues: newFieldValues };
+        return { ...g, fieldValues: newFieldValues };
       }
       return {
-        ...group,
-        childGroups: (group.childGroups || []).map(updateGroup),
+        ...g,
+        childGroups: (g.childGroups || []).map(updateGroup),
       };
     };
 
@@ -1040,17 +1352,63 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   ) => {
     if (!onDataChange) return;
 
+    // Znajdź definicję pola i istniejący fieldValue
+    const sysDef = templateStructure.systemFields.find((f: SystemFieldWeb) => f.id === fieldId);
+    const calcDef = templateStructure.calculatedFields.find((f: CalculatedFieldWeb) => f.id === fieldId);
+    const genDef = templateStructure.genericFields.find((f: GenericFieldWeb) => f.id === fieldId);
+    const def: any = sysDef || calcDef || genDef;
+    const fieldType = def?.fieldType ?? def?.fieldTypeConfig?.fieldType ?? 2; // default: string
+    const valueType = getFieldValueType({ fieldType, fieldTypeConfig: def?.fieldTypeConfig });
+
+    // Znajdź item i istniejący fieldValueId
+    const findItem = (groups: CostEstimateGroupWeb[]): CostEstimateItemWeb | undefined => {
+      for (const g of groups) {
+        if (g.id === groupId) {
+          return g.items?.find(i => i.id === itemId);
+        }
+        const found = findItem(g.childGroups || []);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const item = findItem(details.rootGroups);
+    const existingFieldValue = item?.fieldValues.find(fv => fv.fieldDefinitionId === fieldId);
+
+    // Copilot: obsługa autosave dla nowego pola (fieldValueId === null)
+    // Powód: zgodnie z nowym API, jeśli pole nie istnieje w bazie, należy wysłać PATCH /fields z fieldValueId: null i fieldDefinitionId
+    if (onFieldAutosave && !isTemporaryId(itemId)) {
+      if (existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
+        // Aktualizacja istniejącej wartości pola
+        onFieldAutosave({
+          entityType: 'item',
+          entityId: itemId,
+          fieldValueId: existingFieldValue.id,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      } else {
+        // Tworzenie nowej wartości pola
+        onFieldAutosave({
+          entityType: 'item',
+          entityId: itemId,
+          fieldValueId: null,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      }
+    }
+
+    // Aktualizuj lokalny stan (optimistic update)
     const updateGroup = (group: CostEstimateGroupWeb): CostEstimateGroupWeb => {
       if (group.id === groupId) {
-        const items = (group.items || []).map((item) => {
-          if (item.id === itemId) {
-            const existingIndex = item.fieldValues.findIndex((fv) => fv.fieldDefinitionId === fieldId);
-            let newFieldValues = [...item.fieldValues];
-
-            const sysDef = templateStructure.systemFields.find((f: SystemFieldWeb) => f.id === fieldId);
-            const calcDef = templateStructure.calculatedFields.find((f: CalculatedFieldWeb) => f.id === fieldId);
-            const genDef = templateStructure.genericFields.find((f: GenericFieldWeb) => f.id === fieldId);
-            const def: any = sysDef || calcDef || genDef;
+        const items = (group.items || []).map((it) => {
+          if (it.id === itemId) {
+            const existingIndex = it.fieldValues.findIndex((fv) => fv.fieldDefinitionId === fieldId);
+            let newFieldValues = [...it.fieldValues];
 
             const scopeMap: Record<typeof fieldSource, FieldScope> = {
               system: FieldScope.ItemSystem,
@@ -1078,17 +1436,19 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               ));
             }
 
-            let updatedItem: CostEstimateItemWeb = { ...item, fieldValues: newFieldValues };
+            let updatedItem: CostEstimateItemWeb = { ...it, fieldValues: newFieldValues };
 
             const changedFieldType = def?.fieldType ?? def?.fieldTypeConfig?.fieldType;
-            if (SOURCE_FIELD_TYPES.has(changedFieldType)) {
+            const changedFieldScope = def?.fieldScope ?? def?.fieldTypeConfig?.fieldScope;
+            if (isSourceFieldType(changedFieldType, changedFieldScope)) {
               updatedItem = recalculateItem(updatedItem, templateStructure);
-            } else if (CALCULATED_FIELD_TYPES.has(changedFieldType)) {
+            } else if (isCalculatedFieldType(changedFieldType, changedFieldScope)) {
               updatedItem = recalculateItem(updatedItem, templateStructure, changedFieldType);
             }
 
-            // Gdy zmieniono ilość (101) → przelicz opcje/warianty
-            if (changedFieldType === 101 && updatedItem.options && updatedItem.options.length > 0) {
+            // Gdy zmieniono ilość (101 lub legacy 1) → przelicz opcje/warianty
+            const isQuantityField = changedFieldType === 101 || (changedFieldType === 1 && changedFieldScope === 1);
+            if (isQuantityField && updatedItem.options && updatedItem.options.length > 0) {
               const recalculatedOptions = updatedItem.options.map((opt) => ({
                 ...opt,
                 fieldValues: recalculateOption(opt.fieldValues || [], templateStructure, updatedItem),
@@ -1098,7 +1458,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
             return updatedItem;
           }
-          return item;
+          return it;
         });
         return { ...group, items };
       }
@@ -1121,15 +1481,38 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     value: string | undefined,
     onChange: (value: string | undefined) => void,
     disabled: boolean = false,
-    itemAllValues?: AllItemValues
+    itemAllValues?: AllItemValues,
+    itemId?: string,
+    fieldDefinitionId?: string,
+    files?: import('../../types/costEstimate.types.new').CostEstimateFieldFileWeb[] | null
   ) => {
      const cfg = fieldDef.fieldTypeConfig as
-       | { isNumeric: boolean; isText: boolean; isDate: boolean; isBoolean: boolean; isCollection: boolean; valueTypeName?: string }
+       | { isNumeric: boolean; isText: boolean; isDate: boolean; isBoolean: boolean; isCollection: boolean; isFile?: boolean; valueTypeName?: string }
        | undefined;
 
      const calcFieldType = fieldDef?.fieldType ?? fieldDef?.fieldTypeConfig?.fieldType;
-     const isCalcField = CALCULATED_FIELD_TYPES.has(calcFieldType);
+     const calcFieldScope = fieldDef?.fieldScope ?? fieldDef?.fieldTypeConfig?.fieldScope;
+     const isCalcField = isCalculatedFieldType(calcFieldType, calcFieldScope);
      const shouldBeReadonly = isCalcField && itemAllValues != null && canComputeFromAvailable(calcFieldType, itemAllValues);
+
+     // Pola typu pliki (ItemSystemFiles, fieldType = 105)
+     if (cfg?.isFile || calcFieldType === 105) {
+       // Upload dostępny tylko dla zapisanych pozycji (nie temp_)
+       const isSavedItem = itemId && !isTemporaryId(itemId);
+       const canUpload = isSavedItem && onUploadFiles && fieldDefinitionId;
+       
+       return (
+         <FileFieldRenderer
+           files={files}
+           onUpload={canUpload 
+             ? (filesToUpload: File[]) => onUploadFiles(itemId, fieldDefinitionId, filesToUpload) 
+             : undefined}
+           onUploadSuccess={onUploadSuccess}
+           readOnly={disabled || !editable || !isSavedItem}
+           compact
+         />
+       );
+     }
 
      // Pola z isCollection są obsługiwane przez expandedColumns jako osobne kolumny childFields
      if (cfg?.isCollection) {
@@ -1139,10 +1522,11 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
      // Readonly — pole obliczane lub zablokowane przez komponenty
      if (shouldBeReadonly || disabled) {
        const isNumForDisplay = cfg?.isNumeric || [0, 1].includes(fieldDef.fieldType);
+       const isTextWithLink = !isNumForDisplay && value && containsUrl(value);
        const displayValue = value !== undefined && value !== ''
          ? (isNumForDisplay
              ? parseFloat(value).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-             : value)
+             : (isTextWithLink ? renderTextWithLinks(value) : value))
          : '—';
        return (
          <Text 
@@ -1155,6 +1539,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            borderRadius="md"
            color="gray.700"
            title={disabled ? 'Wartość obliczana z komponentów' : 'Wartość obliczana automatycznie'}
+           wordBreak="break-word"
          >
            {displayValue}
          </Text>
@@ -1292,20 +1677,41 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
        );
      }
 
-     // String (default)
+     // String (default) - z wykrywaniem linków
+     const hasLink = containsUrl(value);
      return (
-       <Input
-         type="text"
-         value={value || ''}
-         onChange={(e) => onChange(e.target.value || undefined)}
-         isDisabled={disabled}
-         size="sm"
-         variant="outline"
-         bg="white"
-         borderColor="gray.300"
-         _hover={{ borderColor: 'blue.400' }}
-         _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
-       />
+       <HStack spacing={1} w="100%">
+         <Input
+           type="text"
+           value={value || ''}
+           onChange={(e) => onChange(e.target.value || undefined)}
+           isDisabled={disabled}
+           size="sm"
+           variant="outline"
+           bg="white"
+           borderColor="gray.300"
+           _hover={{ borderColor: 'blue.400' }}
+           _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
+           flex={1}
+         />
+         {hasLink && (
+           <Tooltip label="Otwórz link">
+             <IconButton
+               aria-label="Otwórz link"
+               icon={<ExternalLink size={14} />}
+               size="xs"
+               variant="ghost"
+               colorScheme="blue"
+               onClick={() => {
+                 const match = value?.match(URL_REGEX);
+                 if (match && match[0]) {
+                   window.open(match[0], '_blank', 'noopener,noreferrer');
+                 }
+               }}
+             />
+           </Tooltip>
+         )}
+       </HStack>
      );
    };
 
@@ -1331,7 +1737,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     return fields;
   }, [templateStructure]);
 
-  const addOptionToItem = (groupId: string, itemId: string) => {
+  const addOptionToItem = async (groupId: string, itemId: string) => {
+    // Wywołaj API jeśli dostępne
+    if (onAddChildItem) {
+      await onAddChildItem(groupId, itemId, 1); // 1 = Option
+      return;
+    }
+    
+    // Fallback: tylko lokalna zmiana (legacy)
     if (!onDataChange) return;
 
     const addOptionTo = (target: CostEstimateItemWeb): CostEstimateItemWeb => {
@@ -1457,7 +1870,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     return { ...item, fieldValues: updatedFieldValues };
   };
 
-  const addComponentToItem = (groupId: string, itemId: string) => {
+  const addComponentToItem = async (groupId: string, itemId: string) => {
+    // Wywołaj API jeśli dostępne
+    if (onAddChildItem) {
+      await onAddChildItem(groupId, itemId, 2); // 2 = Component
+      return;
+    }
+    
+    // Fallback: tylko lokalna zmiana (legacy)
     if (!onDataChange) return;
 
     const calcFieldIds = new Set(
@@ -1542,6 +1962,43 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   ) => {
     if (!onDataChange) return;
 
+    // Znajdź definicję pola i istniejący fieldValue dla autosave
+    const sysDef = templateStructure.systemFields?.find((f: SystemFieldWeb) => f.id === fieldId);
+    const calcDef = templateStructure.calculatedFields?.find((f: CalculatedFieldWeb) => f.id === fieldId);
+    const genDef = templateStructure.genericFields?.find((f: GenericFieldWeb) => f.id === fieldId);
+    const def: any = sysDef || calcDef || genDef;
+    const fieldType = def?.fieldType ?? def?.fieldTypeConfig?.fieldType ?? 2;
+    const valueType = getFieldValueType({ fieldType, fieldTypeConfig: def?.fieldTypeConfig });
+
+    // Znajdź komponent i istniejący fieldValueId dla autosave
+    const findComponent = (groups: CostEstimateGroupWeb[]): CostEstimateItemWeb | undefined => {
+      for (const g of groups) {
+        if (g.id === groupId) {
+          const parentItem = g.items?.find(i => i.id === itemId);
+          return parentItem?.components?.find(c => c.id === componentId);
+        }
+        const found = findComponent(g.childGroups || []);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const component = findComponent(details.rootGroups);
+    const existingFieldValue = component?.fieldValues.find(fv => fv.fieldDefinitionId === fieldId);
+
+    // Wywołaj autosave jeśli dostępne, komponent jest zapisany (nie temp_) i fieldValue istnieje w bazie
+    // Komponenty to itemy, więc używamy entityType: 'item' z componentId jako entityId
+    if (onFieldAutosave && !isTemporaryId(componentId) && existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
+      onFieldAutosave({
+        entityType: 'item',
+        entityId: componentId,
+        fieldValueId: existingFieldValue.id,
+        fieldDefinitionId: fieldId,
+        fieldType,
+        valueType,
+        value,
+      });
+    }
+
     const updateGroup = (group: CostEstimateGroupWeb): CostEstimateGroupWeb => {
       if (group.id === groupId) {
         const items = (group.items || []).map((item) => {
@@ -1550,11 +2007,6 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               if (comp.id === componentId) {
                 const existingIndex = comp.fieldValues.findIndex((fv) => fv.fieldDefinitionId === fieldId);
                 let newFieldValues = [...comp.fieldValues];
-
-                const sysDef = templateStructure.systemFields?.find((f: SystemFieldWeb) => f.id === fieldId);
-                const calcDef = templateStructure.calculatedFields?.find((f: CalculatedFieldWeb) => f.id === fieldId);
-                const genDef = templateStructure.genericFields?.find((f: GenericFieldWeb) => f.id === fieldId);
-                const def: any = sysDef || calcDef || genDef;
 
                 const scopeMap: Record<typeof fieldSource, FieldScope> = {
                   system: FieldScope.ItemSystem,
@@ -1584,9 +2036,10 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
                 let updatedComp: CostEstimateItemWeb = { ...comp, fieldValues: newFieldValues };
                 const changedFieldType = def?.fieldType ?? def?.fieldTypeConfig?.fieldType;
-                if (SOURCE_FIELD_TYPES.has(changedFieldType)) {
+                const changedFieldScope = def?.fieldScope ?? def?.fieldTypeConfig?.fieldScope;
+                if (isSourceFieldType(changedFieldType, changedFieldScope)) {
                   updatedComp = recalculateItem(updatedComp, templateStructure);
-                } else if (CALCULATED_FIELD_TYPES.has(changedFieldType)) {
+                } else if (isCalculatedFieldType(changedFieldType, changedFieldScope)) {
                   updatedComp = recalculateItem(updatedComp, templateStructure, changedFieldType);
                 }
 
@@ -1647,10 +2100,56 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       fieldType = def.fieldType ?? def.fieldTypeConfig?.fieldType;
     }
     
+    // Znajdź opcję i istniejący fieldValueId dla autosave
+    const findOption = (groups: CostEstimateGroupWeb[]): CostEstimateItemWeb | undefined => {
+      for (const g of groups) {
+        if (g.id === groupId) {
+          // Szukaj w itemach
+          for (const item of (g.items || [])) {
+            if (item.id === itemId) {
+              return item.options?.find(o => o.id === optionId);
+            }
+            // Szukaj w komponentach
+            for (const comp of (item.components || [])) {
+              if (comp.id === itemId) {
+                return comp.options?.find(o => o.id === optionId);
+              }
+            }
+          }
+        }
+        const found = findOption(g.childGroups || []);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    const option = findOption(details.rootGroups);
+    const existingFieldValue = option?.fieldValues.find(fv => fv.fieldDefinitionId === fieldId);
+
+    // Wywołaj autosave jeśli dostępne, opcja jest zapisana (nie temp_) i fieldValue istnieje w bazie
+    // Opcje to itemy, więc używamy entityType: 'item' z optionId jako entityId
+    const valueType = getFieldValueType({ fieldType, fieldTypeConfig: def?.fieldTypeConfig });
+    if (onFieldAutosave && !isTemporaryId(optionId) && existingFieldValue?.id && !isTemporaryId(existingFieldValue.id) && fieldType !== undefined) {
+      onFieldAutosave({
+        entityType: 'item',
+        entityId: optionId,
+        fieldValueId: existingFieldValue.id,
+        fieldDefinitionId: fieldId,
+        fieldType,
+        valueType,
+        value,
+      });
+    }
+
     const isSelectingOption = fieldType === 104 && value === 'true';
+    
+    // Znajdź pole Selected w systemFields (fieldType 104)
+    const selectedFieldDef = (templateStructure.systemFields || []).find(
+      (f: any) => f.fieldName === 'selected' || (f.fieldType ?? f.fieldTypeConfig?.fieldType) === 104
+    );
 
     const updateOwnerOptions = (owner: CostEstimateItemWeb, parentItemForCalc: CostEstimateItemWeb): CostEstimateItemWeb => {
             let updatedOptionFieldValues: any[] = [];
+            let isThisOptionSelected = false; // czy ta opcja (optionId) jest/będzie zaznaczona
             
             const options = (owner.options || []).map((opt) => {
               if (opt.id === optionId) {
@@ -1686,16 +2185,42 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                 updatedOptionFieldValues = newFieldValues;
                 
                 const changedFieldType = def?.fieldType ?? def?.fieldTypeConfig?.fieldType;
+                const changedFieldScope = def?.fieldScope ?? def?.fieldTypeConfig?.fieldScope;
                 let recalculated: any[];
-                if (SOURCE_FIELD_TYPES.has(changedFieldType)) {
+                if (isSourceFieldType(changedFieldType, changedFieldScope)) {
                   recalculated = recalculateOption(newFieldValues, templateStructure, parentItemForCalc);
-                } else if (CALCULATED_FIELD_TYPES.has(changedFieldType)) {
+                } else if (isCalculatedFieldType(changedFieldType, changedFieldScope)) {
                   recalculated = recalculateOption(newFieldValues, templateStructure, parentItemForCalc, changedFieldType);
                 } else {
                   recalculated = newFieldValues;
                 }
                 
                 updatedOptionFieldValues = recalculated;
+                
+                // Sprawdź czy ta opcja jest zaznaczona (po aktualizacji)
+                // Szukamy po fieldType 104 (Selected), nie po id - bo opcje używają childFields z innymi id
+                const selectedFv = recalculated.find(
+                  (fv: any) => fv.fieldType === 104
+                );
+                // Jeśli nie ma pola fieldType, sprawdź przez definicję w childFields
+                if (!selectedFv && selectedFieldDef) {
+                  // Znajdź childField odpowiadający Selected
+                  const optionsField = (templateStructure.systemFields || []).find(
+                    (f: any) => f.fieldTypeConfig?.isCollection && f.childFields?.length > 0
+                  );
+                  const selectedChildField = optionsField?.childFields?.find(
+                    (cf: any) => (cf.fieldType ?? cf.fieldTypeConfig?.fieldType) === 104
+                  );
+                  if (selectedChildField) {
+                    const selectedFvByChildId = recalculated.find(
+                      (fv: any) => fv.fieldDefinitionId === selectedChildField.id
+                    );
+                    isThisOptionSelected = selectedFvByChildId?.boolValue === true;
+                  }
+                } else {
+                  isThisOptionSelected = selectedFv?.boolValue === true;
+                }
+                
                 return { ...opt, fieldValues: recalculated };
               } else if (isSelectingOption) {
                 // Radio behavior — odznacz pozostałe opcje
@@ -1706,6 +2231,21 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                     ...newFieldValues[selectedFieldIdx],
                     boolValue: false,
                   };
+                  
+                  // Autosave dla odznaczanej opcji (radio behavior)
+                  const deselectedFieldValue = opt.fieldValues[selectedFieldIdx];
+                  if (onFieldAutosave && !isTemporaryId(opt.id) && deselectedFieldValue?.id && !isTemporaryId(deselectedFieldValue.id) && fieldType !== undefined) {
+                    onFieldAutosave({
+                      entityType: 'item',
+                      entityId: opt.id,
+                      fieldValueId: deselectedFieldValue.id,
+                      fieldDefinitionId: fieldId,
+                      fieldType,
+                      valueType: 'boolean', // fieldType 104 = Selected jest zawsze boolean
+                      value: 'false',
+                    });
+                  }
+                  
                   return { ...opt, fieldValues: newFieldValues };
                 }
               }
@@ -1713,13 +2253,24 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             });
             
             // Kopiuj wartości pól kalkulowanych z wybranej opcji do właściciela
-            if (isSelectingOption) {
+            // - gdy właśnie zaznaczamy opcję (isSelectingOption)
+            // - LUB gdy zmieniamy wartość w opcji która jest już zaznaczona (isThisOptionSelected)
+            if (isSelectingOption || isThisOptionSelected) {
               const updatedFieldValues = [...owner.fieldValues];
               
               const optionsField = (templateStructure.systemFields || []).find(
                 (f: any) => f.fieldTypeConfig?.isCollection && f.childFields?.length > 0
               );
               const childFieldDefs = optionsField?.childFields || [];
+              
+              // Zbierz pola do autosave (owner = item lub component)
+              const fieldsToAutosave: Array<{
+                fieldValueId: string;
+                fieldDefinitionId: string;
+                fieldType: number;
+                valueType: 'string' | 'numeric' | 'boolean' | 'date';
+                value: string | undefined;
+              }> = [];
               
               for (const childFieldDef of childFieldDefs) {
                 const childFieldType = childFieldDef.fieldType ?? childFieldDef.fieldTypeConfig?.fieldType;
@@ -1739,13 +2290,25 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                 );
                 
                 if (existingIdx !== -1) {
+                  const existingFv = updatedFieldValues[existingIdx];
                   updatedFieldValues[existingIdx] = {
-                    ...updatedFieldValues[existingIdx],
+                    ...existingFv,
                     stringValue: optFv?.stringValue,
                     decimalValue: optFv?.decimalValue,
                     boolValue: optFv?.boolValue,
                     dateTimeValue: optFv?.dateTimeValue,
                   };
+                  
+                  // Dodaj do autosave jeśli pole istnieje i owner jest zapisany
+                  if (existingFv.id && !isTemporaryId(existingFv.id)) {
+                    fieldsToAutosave.push({
+                      fieldValueId: existingFv.id,
+                      fieldDefinitionId: mainCalcField.id,
+                      fieldType: childFieldType,
+                      valueType: 'numeric', // Pola kalkulowane 200-206 są zawsze numeryczne
+                      value: optFv?.decimalValue?.toString() ?? optFv?.stringValue,
+                    });
+                  }
                 } else if (optFv) {
                   updatedFieldValues.push({
                     id: `temp_${Date.now()}_${mainCalcField.id}`,
@@ -1758,6 +2321,21 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                     decimalValue: optFv.decimalValue,
                     boolValue: optFv.boolValue,
                     dateTimeValue: optFv.dateTimeValue,
+                  });
+                }
+              }
+              
+              // Wywołaj autosave dla skopiowanych pól pozycji/komponentu
+              if (onFieldAutosave && !isTemporaryId(owner.id)) {
+                for (const field of fieldsToAutosave) {
+                  onFieldAutosave({
+                    entityType: 'item',
+                    entityId: owner.id,
+                    fieldValueId: field.fieldValueId,
+                    fieldDefinitionId: field.fieldDefinitionId,
+                    fieldType: field.fieldType,
+                    valueType: field.valueType,
+                    value: field.value,
                   });
                 }
               }
@@ -2028,22 +2606,47 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
   return (
     <Box bg="white" borderRadius="xl" shadow="lg" borderWidth="1px">
-      {/* Pasek z przyciskiem czyszczenia filtrów */}
-      {hasActiveFilters && (
-        <Box px={4} py={2} bg="orange.50" borderBottomWidth="1px" borderBottomColor="orange.200">
+      {/* Pasek narzędziowy: Rozwiń/Zwiń + filtry */}
+      {(flatRows.length > 0 || hasActiveFilters) && (
+        <Box px={4} py={2} borderBottomWidth="1px" borderBottomColor="gray.200">
           <HStack justify="space-between" align="center">
-            <Text fontSize="sm" color="orange.700">
-              Aktywne filtry: {Object.keys(filters).length}
-            </Text>
-            <Button
-              size="sm"
-              colorScheme="orange"
-              variant="ghost"
-              leftIcon={<X size={14} />}
-              onClick={clearAllFilters}
-            >
-              Wyczyść wszystkie filtry
-            </Button>
+            {/* Lewa strona: Rozwiń / Zwiń */}
+            <HStack spacing={1}>
+              <Button
+                size="xs"
+                variant="ghost"
+                leftIcon={<ChevronsDown size={14} />}
+                onClick={expandAll}
+              >
+                Rozwiń
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                leftIcon={<ChevronsUp size={14} />}
+                onClick={collapseAll}
+              >
+                Zwiń
+              </Button>
+            </HStack>
+
+            {/* Prawa strona: info o filtrach */}
+            {hasActiveFilters && (
+              <HStack spacing={2}>
+                <Text fontSize="sm" color="orange.700">
+                  Aktywne filtry: {Object.keys(filters).length}
+                </Text>
+                <Button
+                  size="sm"
+                  colorScheme="orange"
+                  variant="ghost"
+                  leftIcon={<X size={14} />}
+                  onClick={clearAllFilters}
+                >
+                  Wyczyść wszystkie filtry
+                </Button>
+              </HStack>
+            )}
           </HStack>
         </Box>
       )}
@@ -2113,7 +2716,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                 if (row.type === 'group' && row.group) {
                   const group = row.group;
                   const isCollapsed = collapsedGroups.has(group.id);
-                  const sortableId = `group-${group.id}`;
+                  const sortableId = `group::${group.id}`;
 
                   return (
                     <SortableGroupRow
@@ -2145,7 +2748,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
                 if (row.type === 'item' && row.item && row.groupId) {
                   const item = row.item;
-                  const sortableId = `item-${row.groupId}-${item.id}`;
+                  const sortableId = `item::${row.groupId}::${item.id}`;
 
                   return (
                     <SortableItemRow
@@ -2161,6 +2764,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       expandedColumns={expandedColumns}
                       getColumnWidth={getColumnWidth}
                       getItemFieldValue={getItemFieldValue}
+                      getItemFieldValueFull={getItemFieldValueFull}
                       updateItemFieldValue={updateItemFieldValue}
                       updateOptionFieldValue={updateOptionFieldValue}
                       updateComponentFieldValue={updateComponentFieldValue}

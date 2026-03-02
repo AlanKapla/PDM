@@ -14,9 +14,16 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
 {
     /// <summary>
     /// Handler dla aktualizacji kosztorysu
-    /// Usuwa wszystkie istniejące grupy/pozycje i tworzy nowe według RootGroups
-    /// Waliduje strukturę grup i wartości pół przed aktualizacją
+    /// Waliduje strukturę grup i wartości pól przed aktualizacją
     /// Automatycznie przelicza sumy po aktualizacji
+    ///
+    /// Optymalizacje DB:
+    /// - Jeden load początkowy z AllGroups.FieldValues + AllItems.FieldValues (brak N+1)
+    /// - Pre-built słowniki z załadowanych danych (bez re-query do DB)
+    /// - DeleteRange/InsertRange zamiast per-encji Delete/Insert
+    /// - Brak pośrednich SaveChanges w pętlach - jeden SaveChanges po całej hierarchii
+    /// - Zmutowane tracked encje zapisywane przez change tracking (bez explicit Update)
+    /// - Inwaliacja cache po zapisie
     /// </summary>
     public class UpdateCostEstimateCommandHandler : IRequestHandler<UpdateCostEstimateCommand, Unit>
     {
@@ -27,6 +34,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
         private readonly IRepository<CostEstimateItem> itemRepository;
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
         private readonly ICostEstimateCalculationService calculationService;
+        private readonly ICostEstimateCacheService ceCacheService;
         private readonly CostEstimateGroupValidator groupValidator;
         private readonly CostEstimateItemValidator itemValidator;
         private readonly ICurrentUser currentUser;
@@ -39,6 +47,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             IRepository<CostEstimateItem> itemRepository,
             IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
             ICostEstimateCalculationService calculationService,
+            ICostEstimateCacheService ceCacheService,
             CostEstimateGroupValidator groupValidator,
             CostEstimateItemValidator itemValidator,
             ICurrentUser currentUser)
@@ -50,6 +59,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             this.itemRepository = itemRepository;
             this.itemFieldValueRepository = itemFieldValueRepository;
             this.calculationService = calculationService;
+            this.ceCacheService = ceCacheService;
             this.groupValidator = groupValidator;
             this.itemValidator = itemValidator;
             this.currentUser = currentUser;
@@ -57,39 +67,30 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
 
         public async Task<Unit> Handle(UpdateCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            // Get cost estimate first
-            var costEstimates = await costEstimateRepository.GetBySearch(
-                c => c.Id == request.CostEstimateId && 
+            // Jeden query - ładuje grupy z FV + WSZYSTKIE pozycje (main/opcje/komponenty) z FV
+            // Eliminuje N+1 dla grup i pozycji w kolejnych krokach
+            var costEstimate = await costEstimateRepository.GetFirstBySearch(
+                c => c.Id == request.CostEstimateId &&
                      c.TenantId == request.TenantId &&
                      c.ProjectId == request.ProjectId &&
                      !c.IsDeleted &&
                      c.OwnerId == currentUser.Id,
                 q => q.Include(c => c.AllGroups.Where(g => !g.IsDeleted))
                           .ThenInclude(g => g.FieldValues)
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
-                              .ThenInclude(w => w.FieldValues)
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
-                              .ThenInclude(w => w.Options.Where(o => !o.IsDeleted))
-                                  .ThenInclude(o => o.FieldValues));
-
-            var costEstimate = costEstimates.FirstOrDefault()
+                      .Include(c => c.AllItems.Where(i => !i.IsDeleted))
+                          .ThenInclude(i => i.FieldValues))
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            // Now get template with version and definitions
-            var templates = await templateRepository.GetBySearch(
+            var template = await templateRepository.GetFirstBySearch(
                 t => t.Id == costEstimate.TemplateId,
                 q => q
                     .Include(v => v.GroupFieldDefinitions)
                     .Include(v => v.SystemFieldDefinitions)
                     .Include(v => v.CalculatedFieldDefinitions)
-                    .Include(v => v.GenericFieldDefinitions));
-
-            var template = templates.FirstOrDefault()
+                    .Include(v => v.GenericFieldDefinitions))
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
-            // ✅ Zbuduj słowniki field definitions raz na początku
+            // Słowniki definicji pól - budowane raz na początku
             var groupFieldDefinitionsById = template.GroupFieldDefinitions.ToDictionary(f => f.Id);
             var allItemFieldDefinitionsById = template.SystemFieldDefinitions
                 .Cast<CostEstimateTemplateFieldDefinitionBase>()
@@ -97,102 +98,84 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                 .Concat(template.GenericFieldDefinitions)
                 .ToDictionary(f => f.Id);
 
-            // Validate group hierarchy before updating
+            // Walidacja hierarchii grup przed aktualizacją
             var tempGroups = BuildTemporaryGroupsForValidation(request.RootGroups, costEstimate.Id);
-            var hierarchyValidation = groupValidator.ValidateGroupHierarchy(
-                template,
-                tempGroups,
-                cancellationToken);
-
+            var hierarchyValidation = groupValidator.ValidateGroupHierarchy(template, tempGroups, cancellationToken);
             if (!hierarchyValidation.IsValid)
-            {
                 throw new ValidationApiException(string.Join("; ", hierarchyValidation.Errors));
-            }
 
             var now = DateTime.UtcNow;
 
-            // ✅ Zrób snapshot istniejących group IDs PRZED update (aby nie uwzględnić nowo dodanych)
-            var existingGroupIds = costEstimate.AllGroups
-                .Select(g => g.Id)
-                .ToHashSet();
+            // Pre-built słowniki z załadowanych danych - zero dodatkowych zapytań do DB
+            var allExistingGroupsById = costEstimate.AllGroups.ToDictionary(g => g.Id);
+            var allExistingItemsById = costEstimate.AllItems.ToDictionary(i => i.Id);
 
-            // Update basic properties
+            // Snapshot ID grup PRZED update (aby poprawnie wykryć grupy do usunięcia)
+            var existingGroupIds = allExistingGroupsById.Keys.ToHashSet();
+
+            // Aktualizacja właściwości bazowych
             costEstimate.Name = request.Name;
             costEstimate.Description = request.Description;
             costEstimate.Status = request.Status;
             costEstimate.UpdatedAt = now;
 
-            await costEstimateRepository.Update(costEstimate);
-
-            // Strategy: Update/Create/Delete based on Id matching
+            // Aktualizacja hierarchii grup - używa załadowanych danych, brak dodatkowych DB queries
             await UpdateGroupHierarchyAsync(
                 costEstimate.Id,
                 groupFieldDefinitionsById,
                 allItemFieldDefinitionsById,
                 request.RootGroups,
-                costEstimate.AllGroups.ToList(),
+                allExistingGroupsById,
+                allExistingItemsById,
                 null,
                 0,
                 now,
                 cancellationToken);
 
-            // ✅ Delete groups that were in DB but are no longer in request
-            // Używamy existingGroupIds (snapshot sprzed update) zamiast costEstimate.AllGroups (tracked!)
+            // Soft-delete grup nieobecnych w request - z załadowanych danych, bez DB query
             var requestedGroupIds = CollectAllGroupIds(request.RootGroups);
-            var groupIdsToDelete = existingGroupIds
-                .Where(id => !requestedGroupIds.Contains(id))
-                .ToHashSet();
+            var groupsToDelete = allExistingGroupsById.Values
+                .Where(g => !requestedGroupIds.Contains(g.Id))
+                .ToList();
 
-            if (groupIdsToDelete.Any())
+            foreach (var g in groupsToDelete)
             {
-                // Pobierz grupy do soft delete z bazy (nie używaj costEstimate.AllGroups - tracked!)
-                var groupsToDelete = await groupRepository.GetBySearch(
-                    g => groupIdsToDelete.Contains(g.Id) && !g.IsDeleted);
-
-                foreach (var group in groupsToDelete)
-                {
-                    group.IsDeleted = true;
-                    group.DeletedAt = now;
-                    await groupRepository.Update(group);
-                }
-
-                await groupRepository.SaveChangesAsync(cancellationToken);
+                g.IsDeleted = true;
+                g.DeletedAt = now;
+                // Tracked entity - EF change tracking wykrywa mutację automatycznie
             }
 
-            // Reload cost estimate with all groups and items for calculation
-            // UWAGA: Options i Components są filtrowane w kodzie przez RelationType!
+            // Jeden SaveChanges dla całej hierarchii (grupy + pozycje + wartości pól)
+            // EF Core przetwarza DELETE przed INSERT - brak naruszeń unique constraint
+            await costEstimateRepository.SaveChangesAsync(cancellationToken);
+
+            // Przeładowanie do kalkulacji z nowym stanem DB
             var costEstimateForCalculation = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId && !c.IsDeleted,
                 q => q.Include(c => c.Template)
                         .ThenInclude(t => t.CalculatedFieldDefinitions)
                       .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted && w.RelationType == ItemRelationType.None))  // ✅ Tylko główne pozycje
+                          .ThenInclude(g => g.Items.Where(w => !w.IsDeleted && w.RelationType == ItemRelationType.None))
                               .ThenInclude(w => w.FieldValues)
                                   .ThenInclude(fv => fv.FieldDefinition)
-                      .Include(c => c.AllItems.Where(i => !i.IsDeleted && i.ParentItemId != null))  // ✅ Wszystkie child items (Options + Components)
+                      .Include(c => c.AllItems.Where(i => !i.IsDeleted && i.ParentItemId != null))
                           .ThenInclude(i => i.FieldValues)
-                              .ThenInclude(fv => fv.FieldDefinition));
+                              .ThenInclude(fv => fv.FieldDefinition))
+                ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            if (costEstimateForCalculation == null)
-            {
-                throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
-            }
-            
-            // ✅ Populate Options i Components dla wszystkich pozycji
+            // Populate Options/Components hierarchy
             costEstimateForCalculation.PopulateItemHierarchy();
 
-            // Recalculate totals after update
+            // Przelicz sumy
             calculationService.RecalculateCostEstimate(costEstimateForCalculation);
 
-            // Save calculated totals
-            await costEstimateRepository.Update(costEstimateForCalculation);
-            
-            foreach (var group in costEstimateForCalculation.AllGroups.Where(g => !g.IsDeleted))
-            {
-                await groupRepository.Update(group);
-            }
-            
+            // NIE wywołuj Update/UpdateRange po PopulateItemHierarchy - powoduje duplicate key errors
+            // EF change tracking wykrywa mutacje na tracked encjach automatycznie
             await costEstimateRepository.SaveChangesAsync(cancellationToken);
+
+            // Inwaliacja cache po zapisie
+            await ceCacheService.InvalidateCostEstimateAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             return Unit.Value;
         }
@@ -221,24 +204,25 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
 
                 if (groupDto.ChildGroups.Count > 0)
                 {
-                    var childGroups = BuildTemporaryGroupsForValidation(
-                        groupDto.ChildGroups,
-                        costEstimateId,
-                        groupId,
-                        level + 1);
-                    groups.AddRange(childGroups);
+                    groups.AddRange(BuildTemporaryGroupsForValidation(
+                        groupDto.ChildGroups, costEstimateId, groupId, level + 1));
                 }
             }
 
             return groups;
         }
 
+        /// <summary>
+        /// Aktualizuje hierarchię grup rekurencyjnie.
+        /// Używa pre-loaded słowników - brak dodatkowych zapytań do DB.
+        /// </summary>
         private async Task UpdateGroupHierarchyAsync(
             Guid costEstimateId,
             Dictionary<Guid, CostEstimateTemplateGroupFieldDefinition> groupFieldDefinitionsById,
             Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allItemFieldDefinitionsById,
             List<CostEstimateGroupDto> groupDtos,
-            List<CostEstimateGroup> existingGroups,
+            Dictionary<Guid, CostEstimateGroup> allExistingGroupsById,
+            Dictionary<Guid, CostEstimateItem> allExistingItemsById,
             Guid? parentGroupId,
             int level,
             DateTime now,
@@ -248,35 +232,30 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             {
                 CostEstimateGroup group;
                 Guid groupId;
-                bool isNewGroup = false;
 
-                if (groupDto.Id.HasValue && existingGroups.Any(g => g.Id == groupDto.Id.Value))
+                if (groupDto.Id.HasValue && allExistingGroupsById.TryGetValue(groupDto.Id.Value, out var existingGroup))
                 {
-                    // Update existing group
-                    group = existingGroups.First(g => g.Id == groupDto.Id.Value);
+                    // Aktualizacja istniejącej grupy (tracked entity)
+                    group = existingGroup;
                     groupId = group.Id;
 
                     group.ParentGroupId = parentGroupId;
                     group.Level = level;
                     group.Order = groupDto.Order;
                     group.UpdatedAt = now;
+                    // Tracked entity - EF change tracking wykrywa mutację, nie wywołujemy Update()
 
-                    await groupRepository.Update(group);
-
-                    // Delete old field values and create new ones
-                    var existingFieldValues = await groupFieldValueRepository.GetBySearch(
-                        fv => fv.GroupId == groupId);
-
-                    foreach (var fv in existingFieldValues)
+                    // Usuń stare wartości pól - używamy załadowanych danych (brak DB query)
+                    // DeleteRange zamiast per-encji Delete
+                    if (group.FieldValues.Count > 0)
                     {
-                        await groupFieldValueRepository.Delete(fv);
+                        await groupFieldValueRepository.DeleteRange(group.FieldValues.ToList());
                     }
                 }
                 else
                 {
-                    // Create new group
+                    // Nowa grupa
                     groupId = Guid.NewGuid();
-                    isNewGroup = true;
                     group = new CostEstimateGroup
                     {
                         Id = groupId,
@@ -292,19 +271,14 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                     };
 
                     await groupRepository.Insert(group);
-                    
-                    // ✅ SaveChanges po Insert nowej grupy aby Id było w DB dla FK field values
-                    await groupRepository.SaveChangesAsync(cancellationToken);
+                    // Brak SaveChanges - EF Core rozwiązuje kolejność FK w końcowym SaveChanges
                 }
 
-                // Validate and create field values using dictionary and typed properties
+                // Walidacja i tworzenie wartości pól
                 var fieldValues = groupDto.FieldValues.Select(fv =>
                 {
-                    // Pobierz definicję pola aby znać FieldType
                     if (!groupFieldDefinitionsById.TryGetValue(fv.FieldDefinitionId, out var fieldDef))
-                    {
                         throw new ValidationApiException($"Field definition {fv.FieldDefinitionId} not found in template");
-                    }
 
                     var fieldValue = new CostEstimateGroupFieldValue
                     {
@@ -314,51 +288,38 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                         CreatedAt = now
                     };
 
-                    // Ustaw wartość w odpowiednim polu typowanym
                     FieldValueConverter.SetTypedValue(
-                        fieldValue,
-                        (int)fieldDef.FieldType,
-                        fv.StringValue,
-                        fv.DecimalValue,
-                        fv.BoolValue,
-                        fv.DateTimeValue
-                    );
+                        fieldValue, (int)fieldDef.FieldType,
+                        fv.StringValue, fv.DecimalValue, fv.BoolValue, fv.DateTimeValue);
 
                     return fieldValue;
                 }).ToList();
 
                 var fieldValidation = groupValidator.ValidateGroupFieldValues(
-                    groupFieldDefinitionsById,
-                    fieldValues,
-                    cancellationToken);
+                    groupFieldDefinitionsById, fieldValues, cancellationToken);
 
                 if (!fieldValidation.IsValid)
-                {
                     throw new ValidationApiException($"Group field validation failed: {string.Join("; ", fieldValidation.Errors)}");
+
+                // InsertRange zamiast per-encji Insert
+                if (fieldValues.Count > 0)
+                {
+                    await groupFieldValueRepository.InsertRange(fieldValues);
+                    // Brak SaveChanges - EF Core przetwarza DELETE przed INSERT w SaveChanges
+                    // (brak naruszenia unique constraint na (GroupId, FieldDefinitionId))
                 }
 
-                foreach (var fieldValue in fieldValues)
-                {
-                    await groupFieldValueRepository.Insert(fieldValue);
-                }
-                
-                // ✅ SaveChanges po field values
-                if (fieldValues.Any())
-                {
-                    await groupFieldValueRepository.SaveChangesAsync(cancellationToken);
-                }
-
-                // Update/Create work scope items with validation
+                // Aktualizacja pozycji dla tej grupy
                 await UpdateItemsAsync(
                     costEstimateId,
                     allItemFieldDefinitionsById,
                     groupId,
                     groupDto.Items,
-                    existingGroups.FirstOrDefault(g => g.Id == groupId)?.Items.ToList() ?? new List<CostEstimateItem>(),
+                    allExistingItemsById,
                     now,
                     cancellationToken);
 
-                // Recursively update child groups
+                // Rekurencja dla podgrup
                 if (groupDto.ChildGroups.Count > 0)
                 {
                     await UpdateGroupHierarchyAsync(
@@ -366,7 +327,8 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                         groupFieldDefinitionsById,
                         allItemFieldDefinitionsById,
                         groupDto.ChildGroups,
-                        existingGroups,
+                        allExistingGroupsById,
+                        allExistingItemsById,
                         groupId,
                         level + 1,
                         now,
@@ -375,23 +337,36 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             }
         }
 
+        /// <summary>
+        /// Aktualizuje główne pozycje dla grupy.
+        /// Używa słownika pre-loaded pozycji - brak dodatkowych zapytań do DB.
+        /// </summary>
         private async Task UpdateItemsAsync(
             Guid costEstimateId,
             Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allItemFieldDefinitionsById,
             Guid groupId,
             List<CostEstimateItemDto> itemDtos,
-            List<CostEstimateItem> existingItems,
+            Dictionary<Guid, CostEstimateItem> allExistingItemsById,
             DateTime now,
             CancellationToken cancellationToken)
         {
-            var requestedItemIds = itemDtos.Where(i => i.Id.HasValue).Select(i => i.Id!.Value).ToHashSet();
+            var requestedItemIds = itemDtos
+                .Where(i => i.Id.HasValue)
+                .Select(i => i.Id!.Value)
+                .ToHashSet();
 
-            var itemsToDelete = existingItems.Where(i => !requestedItemIds.Contains(i.Id)).ToList();
-            foreach (var item in itemsToDelete)
+            // Soft-delete głównych pozycji nieobecnych w request (tracked entities)
+            var mainItemsToDelete = allExistingItemsById.Values
+                .Where(i => i.GroupId == groupId &&
+                            i.RelationType == ItemRelationType.None &&
+                            !requestedItemIds.Contains(i.Id))
+                .ToList();
+
+            foreach (var item in mainItemsToDelete)
             {
                 item.IsDeleted = true;
                 item.DeletedAt = now;
-                await itemRepository.Update(item);
+                // Tracked entity - EF change tracking wykrywa mutację automatycznie
             }
 
             foreach (var itemDto in itemDtos)
@@ -400,79 +375,77 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                     costEstimateId,
                     allItemFieldDefinitionsById,
                     groupId,
-                    parentItemId: null,              // ParentItemId = null dla głównych pozycji
-                    relationType: ItemRelationType.None,  // ✅ Główne pozycje mają RelationType = None
+                    parentItemId: null,
+                    relationType: ItemRelationType.None,
                     itemDto,
-                    existingItems,
+                    allExistingItemsById,
                     now,
                     cancellationToken);
             }
         }
 
+        /// <summary>
+        /// Aktualizuje pojedynczą pozycję (rekurencyjnie obsługuje opcje i komponenty).
+        /// Używa słownika pre-loaded pozycji - brak dodatkowych zapytań do DB.
+        /// </summary>
         private async Task UpdateSingleItemAsync(
             Guid costEstimateId,
             Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allItemFieldDefinitionsById,
             Guid groupId,
             Guid? parentItemId,
-            ItemRelationType relationType,  // ✅ RelationType jako parametr (określany przez backend, nie UI!)
+            ItemRelationType relationType,
             CostEstimateItemDto itemDto,
-            List<CostEstimateItem> existingItems,
+            Dictionary<Guid, CostEstimateItem> allExistingItemsById,
             DateTime now,
             CancellationToken cancellationToken)
         {
             CostEstimateItem item;
             Guid itemId;
-            bool isNewItem = false;
 
-            if (itemDto.Id.HasValue && existingItems.Any(i => i.Id == itemDto.Id.Value))
+            if (itemDto.Id.HasValue && allExistingItemsById.TryGetValue(itemDto.Id.Value, out var existingItem))
             {
-                item = existingItems.First(i => i.Id == itemDto.Id.Value);
+                // Aktualizacja istniejącej pozycji (tracked entity)
+                item = existingItem;
                 itemId = item.Id;
 
                 item.ParentItemId = parentItemId;
-                item.RelationType = relationType;  // ✅ UPDATE - użyj parametru, nie DTO!
+                item.RelationType = relationType;
                 item.Order = itemDto.Order;
                 item.UpdatedAt = now;
+                // Tracked entity - EF change tracking wykrywa mutację, nie wywołujemy Update()
 
-                await itemRepository.Update(item);
-
-                var existingFieldValues = await itemFieldValueRepository.GetBySearch(
-                    fv => fv.ItemId == itemId);
-
-                foreach (var fv in existingFieldValues)
+                // Usuń stare wartości pól - używamy załadowanych FieldValues (brak DB query)
+                // DeleteRange zamiast per-encji Delete
+                if (item.FieldValues.Count > 0)
                 {
-                    await itemFieldValueRepository.Delete(fv);
+                    await itemFieldValueRepository.DeleteRange(item.FieldValues.ToList());
                 }
             }
             else
             {
+                // Nowa pozycja
                 itemId = Guid.NewGuid();
-                isNewItem = true;
                 item = new CostEstimateItem
                 {
                     Id = itemId,
                     CostEstimateId = costEstimateId,
                     GroupId = groupId,
                     ParentItemId = parentItemId,
-                    RelationType = relationType,  // ✅ INSERT - użyj parametru, nie DTO!
+                    RelationType = relationType,
                     Order = itemDto.Order,
                     CreatedAt = now,
                     IsDeleted = false
                 };
 
                 await itemRepository.Insert(item);
-                
-                // ✅ SaveChanges po Insert nowego itemu aby Id było w DB dla FK field values
-                await itemRepository.SaveChangesAsync(cancellationToken);
+                // Brak SaveChanges - EF Core rozwiązuje kolejność FK w końcowym SaveChanges
             }
 
+            // Tworzenie nowych wartości pól
             var itemFieldValues = itemDto.FieldValues.Select(fv =>
             {
-                // Pobierz definicję pola aby znać FieldType
                 if (!allItemFieldDefinitionsById.TryGetValue(fv.FieldDefinitionId, out var fieldDef))
-                {
                     throw new ValidationApiException($"Field definition {fv.FieldDefinitionId} not found in template");
-                }
 
                 var fieldValue = new CostEstimateItemFieldValue
                 {
@@ -482,191 +455,139 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
                     CreatedAt = now
                 };
 
-                // Ustaw wartość w odpowiednim polu typowanym
                 FieldValueConverter.SetTypedValue(
-                    fieldValue,
-                    (int)fieldDef.FieldType,
-                    fv.StringValue,
-                    fv.DecimalValue,
-                    fv.BoolValue,
-                    fv.DateTimeValue
-                );
+                    fieldValue, (int)fieldDef.FieldType,
+                    fv.StringValue, fv.DecimalValue, fv.BoolValue, fv.DateTimeValue);
 
                 return fieldValue;
             }).ToList();
 
+            // Walidacja wartości pól
             var itemFieldValidation = itemValidator.ValidateItemFieldValues(
-                allItemFieldDefinitionsById,
-                itemFieldValues,
-                cancellationToken);
+                allItemFieldDefinitionsById, itemFieldValues, cancellationToken);
 
             if (!itemFieldValidation.IsValid)
-            {
                 throw new ValidationApiException($"Work scope item field validation failed: {string.Join("; ", itemFieldValidation.Errors)}");
+
+            ValidateFieldRange(itemFieldValues, allItemFieldDefinitionsById, FieldType.ItemCalculatedVatRate, "VatRate");
+
+            // InsertRange zamiast per-encji Insert
+            if (itemFieldValues.Count > 0)
+            {
+                await itemFieldValueRepository.InsertRange(itemFieldValues);
+                // Brak SaveChanges - EF Core obsługuje FK ordering w końcowym SaveChanges
             }
 
-            foreach (var fieldValue in itemFieldValues)
+            // Rekurencyjne przetwarzanie opcji
+            if (itemDto.Options != null && itemDto.Options.Count > 0)
             {
-                await itemFieldValueRepository.Insert(fieldValue);
-            }
-            
-            // ✅ SaveChanges po field values
-            if (itemFieldValues.Any())
-            {
-                await itemFieldValueRepository.SaveChangesAsync(cancellationToken);
-            }
-
-            // ✅ Rekurencyjnie obsłuż opcje (jeśli są)
-            if (itemDto.Options != null && itemDto.Options.Any())
-            {
-                // ✅ Walidacja: opcje mogą być tylko w pozycjach głównych (None) lub komponentach (Component)
-                // Opcje NIE MOGĄ być w opcjach (Option) - tylko 2 poziomy dozwolone
                 if (relationType == ItemRelationType.Option)
-                {
                     throw new ValidationApiException(
                         $"Item {itemId}: Options cannot have their own Options. " +
                         $"Maximum nesting: Position → Component → Option.");
-                }
-                
-                // ✅ Walidacja: tylko jedna opcja może mieć Selected = true
+
                 ValidateOnlyOneOptionIsSelected(itemDto.Options, allItemFieldDefinitionsById);
 
-                // ✅ Pobierz istniejące opcje tego itemu (child items z ParentItemId == itemId)
-                var existingOptions = await itemRepository.GetBySearch(
-                    i => i.ParentItemId == itemId && !i.IsDeleted,
-                    q => q.Include(i => i.FieldValues));
+                // Filtrujemy istniejące opcje z pre-loaded słownika - brak DB query
+                var existingOptionIds = allExistingItemsById.Values
+                    .Where(i => i.ParentItemId == itemId && i.RelationType == ItemRelationType.Option)
+                    .Select(i => i.Id)
+                    .ToHashSet();
 
-                var existingOptionsList = existingOptions.ToList();
-
-                // ✅ Rekurencyjnie przetwórz każdą opcję
                 foreach (var optionDto in itemDto.Options)
                 {
                     await UpdateSingleItemAsync(
-                        costEstimateId,
-                        allItemFieldDefinitionsById,
-                        groupId,
-                        parentItemId: itemId,               // ParentItemId dla opcji
-                        relationType: ItemRelationType.Option,  // ✅ Backend określa RelationType = Option
-                        optionDto,
-                        existingOptionsList,
-                        now,
-                        cancellationToken);
+                        costEstimateId, allItemFieldDefinitionsById, groupId,
+                        parentItemId: itemId,
+                        relationType: ItemRelationType.Option,
+                        optionDto, allExistingItemsById, now, cancellationToken);
                 }
-                
-                // ✅ Usuń opcje które nie są już w request
+
+                // Soft-delete opcji nieobecnych w request
                 var requestedOptionIds = itemDto.Options
                     .Where(o => o.Id.HasValue)
                     .Select(o => o.Id!.Value)
                     .ToHashSet();
-                
-                var optionsToDelete = existingOptionsList
-                    .Where(o => !requestedOptionIds.Contains(o.Id))
-                    .ToList();
-                
-                foreach (var option in optionsToDelete)
+
+                foreach (var optionId in existingOptionIds.Where(id => !requestedOptionIds.Contains(id)))
                 {
-                    option.IsDeleted = true;
-                    option.DeletedAt = now;
-                    await itemRepository.Update(option);
-                }
-                
-                // ✅ SaveChanges po soft delete opcji
-                if (optionsToDelete.Any())
-                {
-                    await itemRepository.SaveChangesAsync(cancellationToken);
+                    if (allExistingItemsById.TryGetValue(optionId, out var optionToDelete))
+                    {
+                        optionToDelete.IsDeleted = true;
+                        optionToDelete.DeletedAt = now;
+                        // Tracked entity - EF change tracking wykrywa mutację automatycznie
+                    }
                 }
             }
-            
-            // ✅ Rekurencyjnie obsłuż komponenty (jeśli są)
-            if (itemDto.Components != null && itemDto.Components.Any())
+
+            // Rekurencyjne przetwarzanie komponentów
+            if (itemDto.Components != null && itemDto.Components.Count > 0)
             {
-                // ✅ Walidacja: pozycja z komponentami może mieć tylko pola opisowe (System, Generic)
-                // Blokujemy tylko pola KALKULOWANE (Calculated) - te są obliczane z komponentów
+                // Walidacja: pozycja z komponentami nie może mieć pól kalkulowanych
                 var calculatedFields = itemDto.FieldValues
-                    .Where(fv => 
+                    .Where(fv =>
                     {
                         if (!allItemFieldDefinitionsById.TryGetValue(fv.FieldDefinitionId, out var fieldDef))
-                        {
                             throw new ValidationApiException(
                                 $"Field definition {fv.FieldDefinitionId} not found in template. " +
                                 $"Cannot set field that doesn't exist in template.");
-                        }
-                        
-                        // FieldType 200-209 = Calculated fields
+
                         return fieldDef is CostEstimateTemplateItemCalculatedFieldDefinition;
                     })
                     .ToList();
-                
-                if (calculatedFields.Any())
+
+                if (calculatedFields.Count > 0)
                 {
-                    var fieldNames = string.Join(", ", calculatedFields.Select(f => 
+                    var fieldNames = string.Join(", ", calculatedFields.Select(f =>
                     {
                         allItemFieldDefinitionsById.TryGetValue(f.FieldDefinitionId, out var def);
                         return def?.Label ?? "Unknown";
                     }));
-                    
+
                     throw new ValidationApiException(
                         $"Item {itemId}: Item with Components cannot have calculated fields. " +
                         $"These fields are auto-calculated from components: {fieldNames}. " +
                         $"You can only set descriptive fields (Name, Description, Unit, Custom fields).");
                 }
-                
-                // ✅ Walidacja: komponenty mogą być tylko w pozycjach głównych (None)
-                // Komponenty NIE MOGĄ być w komponentach ani opcjach
+
                 if (relationType != ItemRelationType.None)
-                {
                     throw new ValidationApiException(
                         $"Item {itemId}: Only main positions (RelationType=None) can have Components. " +
                         $"Components and Options cannot have their own Components.");
-                }
 
-                // ✅ Pobierz istniejące komponenty tego itemu
-                var existingComponents = await itemRepository.GetBySearch(
-                    i => i.ParentItemId == itemId && i.RelationType == ItemRelationType.Component && !i.IsDeleted,
-                    q => q.Include(i => i.FieldValues));
+                // Filtrujemy istniejące komponenty z pre-loaded słownika - brak DB query
+                var existingComponentIds = allExistingItemsById.Values
+                    .Where(i => i.ParentItemId == itemId && i.RelationType == ItemRelationType.Component)
+                    .Select(i => i.Id)
+                    .ToHashSet();
 
-                var existingComponentsList = existingComponents.ToList();
-
-                // ✅ Rekurencyjnie przetwórz każdy komponent
                 foreach (var componentDto in itemDto.Components)
                 {
                     await UpdateSingleItemAsync(
-                        costEstimateId,
-                        allItemFieldDefinitionsById,
-                        groupId,
-                        parentItemId: itemId,                      // ParentItemId dla komponentu
-                        relationType: ItemRelationType.Component,  // ✅ Backend określa RelationType = Component
-                        componentDto,
-                        existingComponentsList,
-                        now,
-                        cancellationToken);
+                        costEstimateId, allItemFieldDefinitionsById, groupId,
+                        parentItemId: itemId,
+                        relationType: ItemRelationType.Component,
+                        componentDto, allExistingItemsById, now, cancellationToken);
                 }
-                
-                // ✅ Usuń komponenty które nie są już w request
+
+                // Soft-delete komponentów nieobecnych w request
                 var requestedComponentIds = itemDto.Components
                     .Where(c => c.Id.HasValue)
                     .Select(c => c.Id!.Value)
                     .ToHashSet();
-                
-                var componentsToDelete = existingComponentsList
-                    .Where(c => !requestedComponentIds.Contains(c.Id))
-                    .ToList();
-                
-                foreach (var component in componentsToDelete)
+
+                foreach (var componentId in existingComponentIds.Where(id => !requestedComponentIds.Contains(id)))
                 {
-                    component.IsDeleted = true;
-                    component.DeletedAt = now;
-                    await itemRepository.Update(component);
-                }
-                
-                // ✅ SaveChanges po soft delete komponentów
-                if (componentsToDelete.Any())
-                {
-                    await itemRepository.SaveChangesAsync(cancellationToken);
+                    if (allExistingItemsById.TryGetValue(componentId, out var componentToDelete))
+                    {
+                        componentToDelete.IsDeleted = true;
+                        componentToDelete.DeletedAt = now;
+                        // Tracked entity - EF change tracking wykrywa mutację automatycznie
+                    }
                 }
             }
         }
-        
+
         /// <summary>
         /// Waliduje że tylko jedna opcja może mieć Selected = true
         /// </summary>
@@ -674,34 +595,50 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             List<CostEstimateItemDto> options,
             Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allItemFieldDefinitionsById)
         {
-            // Znajdź definicję pola ItemSystemSelected (FieldType = 104)
             var selectedFieldDefinition = allItemFieldDefinitionsById.Values
                 .FirstOrDefault(f => f.FieldType == FieldType.ItemSystemSelected);
-            
+
             if (selectedFieldDefinition == null)
-            {
                 return;
-            }
-            
+
             int selectedCount = 0;
-            
+
             foreach (var option in options)
             {
                 var selectedFieldValue = option.FieldValues
                     .FirstOrDefault(fv => fv.FieldDefinitionId == selectedFieldDefinition.Id);
-                
+
                 if (selectedFieldValue?.BoolValue == true)
-                {
                     selectedCount++;
-                }
             }
-            
+
             if (selectedCount > 1)
-            {
                 throw new ValidationApiException("Only one option can have Selected field set to true");
+        }
+
+        /// <summary>
+        /// Waliduje że wartość pola mieści się w zakresie 0–1
+        /// </summary>
+        private static void ValidateFieldRange(
+            List<CostEstimateItemFieldValue> fieldValues,
+            Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allItemFieldDefinitionsById,
+            FieldType targetFieldType,
+            string fieldLabel)
+        {
+            foreach (var fv in fieldValues)
+            {
+                if (!allItemFieldDefinitionsById.TryGetValue(fv.FieldDefinitionId, out var fieldDef))
+                    continue;
+
+                if (fieldDef.FieldType != targetFieldType)
+                    continue;
+
+                if (fv.DecimalValue.HasValue && (fv.DecimalValue.Value < 0m || fv.DecimalValue.Value > 1m))
+                    throw new ValidationApiException(
+                        $"{fieldLabel} value must be between 0 and 1. Provided: {fv.DecimalValue.Value}");
             }
         }
-        
+
         /// <summary>
         /// Zbiera wszystkie ID grup z hierarchii (rekurencyjnie)
         /// </summary>
@@ -712,18 +649,10 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             foreach (var group in groups)
             {
                 if (group.Id.HasValue)
-                {
                     ids.Add(group.Id.Value);
-                }
 
                 if (group.ChildGroups.Count > 0)
-                {
-                    var childIds = CollectAllGroupIds(group.ChildGroups);
-                    foreach (var id in childIds)
-                    {
-                        ids.Add(id);
-                    }
-                }
+                    ids.UnionWith(CollectAllGroupIds(group.ChildGroups));
             }
 
             return ids;

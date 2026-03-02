@@ -1,7 +1,12 @@
 ﻿using Business.Interfaces.WebModels.CostEstimateTemplates;
 using CQRS.CostEstimateTemplates.CreateCostEstimateTemplate;
+using CQRS.CostEstimateTemplates.CreateCostEstimateTemplateFromDefault;
+using CQRS.CostEstimateTemplates.DeleteCostEstimateTemplate;
+using CQRS.CostEstimateTemplates.DuplicateCostEstimateTemplate;
 using CQRS.CostEstimateTemplates.GetCostEstimateTemplateDetails;
 using CQRS.CostEstimateTemplates.GetCostEstimateTemplates;
+using CQRS.CostEstimateTemplates.GetDefaultCostEstimateTemplateDetails;
+using CQRS.CostEstimateTemplates.GetDefaultCostEstimateTemplates;
 using CQRS.CostEstimateTemplates.GetFieldTypeConfigurations;
 using CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate;
 using MediatR;
@@ -47,6 +52,32 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
+        /// Get all available default (system) templates
+        /// </summary>
+        /// <returns>List of default templates</returns>
+        [HttpGet]
+        [Route("defaults")]
+        [ProducesResponseType(typeof(List<DefaultCostEstimateTemplateListItemWeb>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetDefaultTemplates()
+        {
+            return Ok(await Send(new GetDefaultCostEstimateTemplatesQuery()));
+        }
+
+        /// <summary>
+        /// Get default template details by slug with full structure
+        /// </summary>
+        /// <param name="slug">Template slug identifier</param>
+        /// <returns>Template structure with all fields, currencies, units and UI configuration</returns>
+        [HttpGet]
+        [Route("defaults/{slug}")]
+        [ProducesResponseType(typeof(CostEstimateTemplateStructureWeb), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetDefaultTemplateDetails([FromRoute] string slug)
+        {
+            return Ok(await Send(new GetDefaultCostEstimateTemplateDetailsQuery(slug)));
+        }
+
+        /// <summary>
         /// Get template details by ID with full structure
         /// </summary>
         /// <param name="id">Template ID</param>
@@ -76,6 +107,23 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
+        /// Create new template from a default (system) template.
+        /// Copies the full structure (fields, currencies, units) with new server-generated GUIDs.
+        /// </summary>
+        /// <param name="command">Slug of the default template, name and optional description</param>
+        /// <returns>Created template ID</returns>
+        [HttpPost]
+        [Route("from-default")]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CreateTemplateFromDefault([FromBody] CreateCostEstimateTemplateFromDefaultCommand command)
+        {
+            var templateId = await Send(command);
+            return CreatedAtAction(nameof(GetTemplateDetails), new { id = templateId }, templateId);
+        }
+
+        /// <summary>
         /// Update existing template
         /// </summary>
         /// <param name="id">Template ID</param>
@@ -96,6 +144,47 @@ namespace WebApi.Controllers
 
             await Send(command);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Delete a template (soft delete)
+        /// Only the template owner can delete it
+        /// Existing cost estimates using this template are not affected
+        /// </summary>
+        /// <param name="id">Template ID</param>
+        /// <returns>No content</returns>
+        [HttpDelete]
+        [Route("{id:guid}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> DeleteTemplate([FromRoute] Guid id)
+        {
+            await Send(new DeleteCostEstimateTemplateCommand(id));
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Duplicate an existing template with all its structure (fields, currencies, units)
+        /// New field GUIDs are generated server-side
+        /// Only the template owner can duplicate it
+        /// </summary>
+        /// <param name="id">Source template ID</param>
+        /// <param name="command">Name and optional description for the new template</param>
+        /// <returns>Created template ID</returns>
+        [HttpPost]
+        [Route("{id:guid}/duplicate")]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> DuplicateTemplate(
+            [FromRoute] Guid id,
+            [FromBody] DuplicateCostEstimateTemplateCommand command)
+        {
+            command = command with { SourceTemplateId = id };
+            var templateId = await Send(command);
+            return CreatedAtAction(nameof(GetTemplateDetails), new { id = templateId }, templateId);
         }
     }
 }

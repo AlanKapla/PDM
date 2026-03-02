@@ -3,7 +3,7 @@ import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack } from '@chakra-ui/rea
 import { GripVertical, Trash2, GitBranch, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
+import type { CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../../../types/costEstimate.types.new';
 import { getAllValues } from '../../../utils/costEstimateCalculations';
 import { getFieldSource } from '../../../utils/resolveFieldDefinition';
 import type {
@@ -32,6 +32,8 @@ export interface SortableComponentRowProps {
   expandedColumns: ExpandedColumn[];
   getColumnWidth: GetColumnWidthFn;
   getItemFieldValue: (item: CostEstimateItemWeb, fieldId: string) => string | undefined;
+  /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
+  getItemFieldValueFull: (item: CostEstimateItemWeb, fieldId: string) => CostEstimateFieldValueWeb | undefined;
   updateComponentFieldValue: (
     groupId: string,
     itemId: string,
@@ -71,6 +73,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
   expandedColumns,
   getColumnWidth,
   getItemFieldValue,
+  getItemFieldValueFull,
   updateComponentFieldValue,
   removeComponentFromItem,
   updateOptionFieldValue,
@@ -252,6 +255,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
 
           if (fieldDef) {
             const value = getItemFieldValue(component, fieldDef.id);
+            const fieldValueFull = getItemFieldValueFull(component, fieldDef.id);
             return (
               <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
                 {editable ? (
@@ -268,7 +272,10 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
                         newValue
                       ),
                     false,
-                    componentAllValues
+                    componentAllValues,
+                    component.id,
+                    fieldDef.id,
+                    fieldValueFull?.files
                   )
                 ) : (
                   <Text fontSize="sm" textAlign="center" isTruncated>
@@ -292,7 +299,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
         componentOptions.map((option: any, optIndex: number) => (
         <SortableOptionRow
           key={`comp-option-${component.id}-${option.id}`}
-          id={`comp-option-${groupId}-${component.id}-${option.id}`}
+          id={`comp-option::${groupId}::${component.id}::${option.id}`}
           option={option}
           optIndex={optIndex}
           item={component}
@@ -302,6 +309,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           templateStructure={templateStructure}
           expandedColumns={expandedColumns}
           getColumnWidth={getColumnWidth}
+          getItemFieldValueFull={getItemFieldValueFull}
           updateOptionFieldValue={updateOptionFieldValue}
           removeOptionFromItem={removeOptionFromItem}
           renderFieldInput={renderFieldInput}

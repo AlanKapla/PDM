@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
+import type { CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../../../types/costEstimate.types.new';
 import { getAllValues } from '../../../utils/costEstimateCalculations';
 import { getFieldSource } from '../../../utils/resolveFieldDefinition';
 import type {
@@ -48,6 +48,8 @@ export interface SortableItemRowProps {
   expandedColumns: ExpandedColumn[];
   getColumnWidth: GetColumnWidthFn;
   getItemFieldValue: (item: CostEstimateItemWeb, fieldId: string) => string | undefined;
+  /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
+  getItemFieldValueFull: (item: CostEstimateItemWeb, fieldId: string) => CostEstimateFieldValueWeb | undefined;
   updateItemFieldValue: (
     groupId: string,
     itemId: string,
@@ -96,6 +98,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   expandedColumns,
   getColumnWidth,
   getItemFieldValue,
+  getItemFieldValueFull,
   updateItemFieldValue,
   updateOptionFieldValue,
   updateComponentFieldValue,
@@ -186,8 +189,13 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                   />
                 </Tooltip>
               )}
-              {onAddOption && !hasComponents && (
-                <Tooltip label="Dodaj opcję/wariant">
+              {onAddOption && (
+                <Tooltip 
+                  label={hasComponents 
+                    ? "Nie można dodać opcji do pozycji z komponentami" 
+                    : "Dodaj opcję/wariant"
+                  }
+                >
                   <IconButton
                     aria-label="Dodaj opcję"
                     icon={<GitBranch size={14} />}
@@ -195,11 +203,18 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     colorScheme="purple"
                     variant="ghost"
                     onClick={() => handleAddOption(groupId, item.id)}
+                    isDisabled={hasComponents}
+                    opacity={hasComponents ? 0.4 : 1}
                   />
                 </Tooltip>
               )}
               {onAddComponent && (
-                <Tooltip label="Dodaj komponent (składnik pozycji)">
+                <Tooltip 
+                  label={hasOptions 
+                    ? "Nie można dodać komponentu do pozycji z opcjami" 
+                    : "Dodaj komponent (składnik pozycji)"
+                  }
+                >
                   <IconButton
                     aria-label="Dodaj komponent"
                     icon={<Layers size={14} />}
@@ -207,6 +222,8 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     colorScheme="green"
                     variant="ghost"
                     onClick={() => handleAddComponent(groupId, item.id)}
+                    isDisabled={hasOptions}
+                    opacity={hasOptions ? 0.4 : 1}
                   />
                 </Tooltip>
               )}
@@ -315,6 +332,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
 
           if (fieldDef) {
             const value = getItemFieldValue(item, fieldDef.id);
+            const fieldValueFull = getItemFieldValueFull(item, fieldDef.id);
             const itemAllValues = getAllValues(item, templateStructure);
             // Gdy pozycja ma komponenty — blokuj TYLKO pola kalkulowane (sumy z komponentów)
             const isCalcFieldForDisable = fieldSource === 'calculated';
@@ -336,7 +354,10 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     value,
                     (newValue) => updateItemFieldValue(groupId, item.id, fieldDef.id, fieldSource, newValue),
                     disabledByComponents,
-                    itemAllValues
+                    itemAllValues,
+                    item.id,
+                    fieldDef.id,
+                    fieldValueFull?.files
                   )
                 ) : (
                   <Text fontSize="sm" textAlign="center" isTruncated>
@@ -360,7 +381,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
         itemComponents.map((comp: CostEstimateItemWeb, compIndex: number) => (
           <SortableComponentRow
             key={`comp-${item.id}-${comp.id}`}
-            id={`comp-${groupId}-${item.id}-${comp.id}`}
+            id={`comp::${groupId}::${item.id}::${comp.id}`}
             component={comp}
             compIndex={compIndex}
             parentItem={item}
@@ -371,6 +392,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             expandedColumns={expandedColumns}
             getColumnWidth={getColumnWidth}
             getItemFieldValue={getItemFieldValue}
+            getItemFieldValueFull={getItemFieldValueFull}
             updateComponentFieldValue={updateComponentFieldValue}
             removeComponentFromItem={removeComponentFromItem}
             updateOptionFieldValue={updateOptionFieldValue}
@@ -386,7 +408,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
         itemOptions.map((option: any, optIndex: number) => (
           <SortableOptionRow
             key={`option-${item.id}-${option.id}`}
-            id={`option-${groupId}-${item.id}-${option.id}`}
+            id={`option::${groupId}::${item.id}::${option.id}`}
             option={option}
             optIndex={optIndex}
             item={item}
@@ -396,6 +418,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             templateStructure={templateStructure}
             expandedColumns={expandedColumns}
             getColumnWidth={getColumnWidth}
+            getItemFieldValueFull={getItemFieldValueFull}
             updateOptionFieldValue={updateOptionFieldValue}
             removeOptionFromItem={removeOptionFromItem}
             renderFieldInput={renderFieldInput}

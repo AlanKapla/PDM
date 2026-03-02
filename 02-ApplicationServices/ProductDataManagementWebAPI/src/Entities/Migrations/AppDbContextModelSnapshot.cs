@@ -430,6 +430,68 @@ namespace Entities.Migrations
                     b.ToTable("CostEstimates");
                 });
 
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateFieldFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BlobName")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CostEstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FieldValueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CostEstimateId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("FieldValueId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CostEstimateId", "IsDeleted");
+
+                    b.ToTable("CostEstimateFieldFiles");
+                });
+
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1917,6 +1979,33 @@ namespace Entities.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateFieldFile", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
+                        .WithMany()
+                        .HasForeignKey("CostEstimateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItemFieldValue", "FieldValue")
+                        .WithMany("Files")
+                        .HasForeignKey("FieldValueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CostEstimate");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("FieldValue");
+                });
+
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroup", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
@@ -2619,6 +2708,11 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItem", b =>
                 {
                     b.Navigation("FieldValues");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItemFieldValue", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("Entities.Models.Permission", b =>

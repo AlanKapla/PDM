@@ -1,4 +1,4 @@
-﻿import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack, Badge, HStack } from "@chakra-ui/react";
+import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack, Badge, HStack } from "@chakra-ui/react";
 import { Building2, FolderKanban, Settings, Briefcase, FileText, RefreshCw, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -18,7 +18,6 @@ export default function Dashboard() {
         const pending = invitations.filter((inv: { status: number }) => inv.status === InvitationStatus.Pending);
         setInvitationsCount(pending.length);
       } catch (error) {
-        console.error("Błąd pobierania zaproszeń:", error);
       }
     };
 

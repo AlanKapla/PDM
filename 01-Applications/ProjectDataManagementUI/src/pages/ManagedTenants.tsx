@@ -70,7 +70,6 @@ export default function ManagedTenants() {
         const tenantsData = await getAdminTenants();
         setTenants(tenantsData);
       } catch (error) {
-        console.error("Błąd ładowania danych:", error);
       } finally {
         setLoading(false);
       }
@@ -115,7 +114,6 @@ export default function ManagedTenants() {
         });
       }
     } catch (error) {
-      console.error("Błąd tworzenia tenanta:", error);
       toast({
         title: "Błąd",
         description: "Wystąpił problem z połączeniem",
@@ -162,7 +160,6 @@ export default function ManagedTenants() {
         });
       }
     } catch (error) {
-      console.error("Błąd usuwania członka:", error);
       toast({
         title: "Wystąpił błąd połączenia",
         description: "Sprawdź połączenie internetowe i spróbuj ponownie",

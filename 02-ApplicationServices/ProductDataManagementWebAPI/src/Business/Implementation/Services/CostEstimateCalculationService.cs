@@ -23,6 +23,9 @@ namespace Business.Implementation.Services
             bool shouldSumValueGrossInGroup = ShouldSumFieldInGroup(costEstimate.Template, FieldType.ItemCalculatedValueGross);
             bool shouldSumTotalVatInGroup = ShouldSumFieldInGroup(costEstimate.Template, FieldType.ItemCalculatedTotalVat);
 
+            // Sprawdź czy szablon definiuje pole ItemSystemSelected
+            bool hasSelectedField = HasSelectedFieldDefined(costEstimate.Template);
+
             decimal? totalNet = null;
             decimal? totalGross = null;
             decimal? totalVat = null;
@@ -37,7 +40,8 @@ namespace Business.Implementation.Services
                     allGroups, 
                     shouldSumValueNetInGroup, 
                     shouldSumValueGrossInGroup, 
-                    shouldSumTotalVatInGroup);
+                    shouldSumTotalVatInGroup,
+                    hasSelectedField);
 
                 // ✅ Sumuj w total jeśli szablon ma SumInTotal = true
                 if (shouldSumValueNetInTotal)
@@ -88,12 +92,42 @@ namespace Business.Implementation.Services
             return field != null;
         }
 
+        /// <summary>
+        /// Sprawdza czy szablon definiuje pole ItemSystemSelected
+        /// </summary>
+        private static bool HasSelectedFieldDefined(CostEstimateTemplate template)
+        {
+            return template.SystemFieldDefinitions?
+                .Any(f => f.FieldType == FieldType.ItemSystemSelected) == true;
+        }
+
+        /// <summary>
+        /// Sprawdza czy pozycja jest zaznaczona do sumowania.
+        /// Jeśli szablon nie definiuje pola ItemSystemSelected, pozycja zawsze bierze udział w sumowaniu.
+        /// Jeśli definiuje - pozycja bierze udział tylko gdy BoolValue == true.
+        /// </summary>
+        private static bool IsItemSelectedForSumming(CostEstimateItem item, bool hasSelectedField)
+        {
+            if (!hasSelectedField)
+            {
+                return true;
+            }
+
+            var selectedFieldValue = item.FieldValues
+                .FirstOrDefault(fv => fv.FieldDefinition != null
+                    && fv.FieldDefinition.FieldScope == FieldScope.ItemSystem
+                    && fv.FieldDefinition.FieldType == FieldType.ItemSystemSelected);
+
+            return selectedFieldValue?.BoolValue == true;
+        }
+
         private static (decimal Net, decimal Gross, decimal Vat) RecalculateGroup(
             CostEstimateGroup group,
             List<CostEstimateGroup> allGroups,
             bool shouldSumValueNetInGroup,
             bool shouldSumValueGrossInGroup,
-            bool shouldSumTotalVatInGroup)
+            bool shouldSumTotalVatInGroup,
+            bool hasSelectedField)
         {
             if (group == null)
             {
@@ -110,18 +144,24 @@ namespace Business.Implementation.Services
             foreach (var item in mainItems)
             {
                 CalculateItemValues(item);
-                
+
+                // Pozycja bierze udział w sumowaniu tylko gdy jest zaznaczona (lub szablon nie definiuje pola Selected)
+                if (!IsItemSelectedForSumming(item, hasSelectedField))
+                {
+                    continue;
+                }
+
                 // Sumuj tylko jeśli szablon ma zdefiniowane pole z SumInGroup = true i wartość istnieje
                 if (shouldSumValueNetInGroup && item.NetValue.HasValue)
                 {
                     groupNet = (groupNet ?? 0m) + item.NetValue.Value;
                 }
-                
+
                 if (shouldSumValueGrossInGroup && item.GrossValue.HasValue)
                 {
                     groupGross = (groupGross ?? 0m) + item.GrossValue.Value;
                 }
-                
+
                 if (shouldSumTotalVatInGroup && item.VatValue.HasValue)
                 {
                     groupVat = (groupVat ?? 0m) + item.VatValue.Value;
@@ -137,7 +177,8 @@ namespace Business.Implementation.Services
                     allGroups,
                     shouldSumValueNetInGroup,
                     shouldSumValueGrossInGroup,
-                    shouldSumTotalVatInGroup);
+                    shouldSumTotalVatInGroup,
+                    hasSelectedField);
                 
                 // Sumuj tylko jeśli szablon ma zdefiniowane pole z SumInGroup = true
                 if (shouldSumValueNetInGroup)
@@ -268,7 +309,7 @@ namespace Business.Implementation.Services
         {
             if (unitPriceNet.HasValue && vatRate.HasValue)
             {
-                var calculated = unitPriceNet.Value * (1 + vatRate.Value / 100m);
+                var calculated = unitPriceNet.Value * (1 + vatRate.Value);
 
                 if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitPriceGross, out var fieldValue))
                 {
@@ -289,7 +330,7 @@ namespace Business.Implementation.Services
         {
             if (unitPriceNet.HasValue && vatRate.HasValue)
             {
-                var calculated = unitPriceNet.Value * (vatRate.Value / 100m);
+                var calculated = unitPriceNet.Value * vatRate.Value;
 
                 if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitVat, out var fieldValue))
                 {
@@ -333,7 +374,7 @@ namespace Business.Implementation.Services
         {
             if (valueNet.HasValue && vatRate.HasValue)
             {
-                var calculated = valueNet.Value * (vatRate.Value / 100m);
+                var calculated = valueNet.Value * vatRate.Value;
 
                 if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedTotalVat, out var fieldValue))
                 {

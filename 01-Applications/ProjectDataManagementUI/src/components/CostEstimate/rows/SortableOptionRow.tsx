@@ -4,7 +4,7 @@ import { GripVertical, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getFieldValueAsString } from '../../../types/costEstimate.types.new';
-import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
+import type { CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../../../types/costEstimate.types.new';
 import { getAllOptionValues } from '../../../utils/costEstimateCalculations';
 import type {
   ExpandedColumn,
@@ -30,6 +30,8 @@ export interface SortableOptionRowProps {
   templateStructure: any;
   expandedColumns: ExpandedColumn[];
   getColumnWidth: GetColumnWidthFn;
+  /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
+  getItemFieldValueFull: (item: CostEstimateItemWeb, fieldId: string) => CostEstimateFieldValueWeb | undefined;
   updateOptionFieldValue: (
     groupId: string,
     itemId: string,
@@ -58,6 +60,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
   templateStructure,
   expandedColumns,
   getColumnWidth,
+  getItemFieldValueFull,
   updateOptionFieldValue,
   removeOptionFromItem,
   renderFieldInput,
@@ -150,6 +153,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
           (fv: any) => fv.fieldDefinitionId === col.childField.id
         );
         const childValue = getFieldValueAsString(optionFieldValue) ?? '';
+        const fieldValueFull = getItemFieldValueFull(option, col.childField.id);
 
         let fieldSource: FieldSource = 'system';
         if (templateStructure.calculatedFields?.find((f: any) => f.id === col.childField.id)) {
@@ -178,7 +182,10 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
                     newValue
                   ),
                 false,
-                optionAllValues
+                optionAllValues,
+                option.id,
+                col.childField.id,
+                fieldValueFull?.files
               )
             ) : (
               <Text fontSize="sm" textAlign="center" isTruncated>

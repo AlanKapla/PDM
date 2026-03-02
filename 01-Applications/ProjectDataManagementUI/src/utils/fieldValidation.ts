@@ -120,7 +120,6 @@ export function validateGenericField(
             };
           }
         } catch (e) {
-          console.error('Invalid regex pattern:', field.pattern);
         }
       }
 
@@ -292,7 +291,6 @@ export function evaluateVisibilityCondition(
     const func = new Function(...Object.keys(allValues), `return ${condition}`);
     return func(...Object.values(allValues));
   } catch (e) {
-    console.error('Error evaluating visibility condition:', condition, e);
     return true; // W przypadku błędu pokazuj pole
   }
 }
@@ -310,7 +308,6 @@ export function evaluateRequiredCondition(
     const func = new Function(...Object.keys(allValues), `return ${condition}`);
     return func(...Object.values(allValues));
   } catch (e) {
-    console.error('Error evaluating required condition:', condition, e);
     return false;
   }
 }

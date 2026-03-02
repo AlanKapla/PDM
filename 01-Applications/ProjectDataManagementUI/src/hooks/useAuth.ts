@@ -38,7 +38,6 @@ export const useAuth = (): UseAuthReturn => {
       setIsLoading(true);
       await instance.loginRedirect(loginRequest);
     } catch (error) {
-      console.error("Login error:", error);
       setIsLoading(false);
       throw error;
     }
@@ -54,7 +53,6 @@ export const useAuth = (): UseAuthReturn => {
         account: activeAccount,
       });
     } catch (error) {
-      console.error("Logout error:", error);
       setIsLoading(false);
       throw error;
     }
@@ -65,7 +63,6 @@ export const useAuth = (): UseAuthReturn => {
    */
   const getAccessToken = async (): Promise<string | null> => {
     if (!activeAccount) {
-      console.warn("No active account found. User must login first.");
       return null;
     }
 
@@ -78,7 +75,6 @@ export const useAuth = (): UseAuthReturn => {
 
       return response.accessToken;
     } catch (error) {
-      console.warn("Silent token acquisition failed. Attempting redirect...", error);
 
       try {
         // If silent acquisition fails, try redirect
@@ -88,7 +84,6 @@ export const useAuth = (): UseAuthReturn => {
         });
         return null; // Redirect will refresh the page
       } catch (redirectError) {
-        console.error("Token acquisition failed:", redirectError);
         throw redirectError;
       }
     }

@@ -62,7 +62,6 @@ export default function Profile() {
       showError("Funkcja niedostępna", "Aktualizacja profilu nie jest jeszcze zaimplementowana w MSAL");
       setIsEditing(false);
     } catch (error) {
-      console.error("Błąd aktualizacji profilu:", error);
       showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setSaving(false);

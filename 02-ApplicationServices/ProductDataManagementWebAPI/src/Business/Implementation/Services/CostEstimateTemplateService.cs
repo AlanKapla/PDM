@@ -1,10 +1,14 @@
-﻿using Business.Implementation.Helpers;
+﻿using System.Reflection;
+using System.Text.Json;
+using Business.Implementation.Helpers;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimateTemplates;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace Business.Implementation.Services
@@ -22,8 +26,11 @@ namespace Business.Implementation.Services
         private readonly IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository;
         private readonly IRepository<CostEstimateTemplateItemGenericFieldDefinition> genericFieldRepository;
         private readonly IRepository<CostEstimate> costEstimateRepository;
+        private readonly IRepository<CostEstimateFieldFile> fieldFileRepository;
         private readonly ICostEstimateCalculationService calculationService;
+        private readonly IBlobStorageService blobStorageService;
         private readonly ICacheService cacheService;
+        private readonly ILogger<CostEstimateTemplateService> logger;
 
         public CostEstimateTemplateService(
             IRepository<CostEstimateTemplate> templateRepository,
@@ -34,8 +41,11 @@ namespace Business.Implementation.Services
             IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository,
             IRepository<CostEstimateTemplateItemGenericFieldDefinition> genericFieldRepository,
             IRepository<CostEstimate> costEstimateRepository,
+            IRepository<CostEstimateFieldFile> fieldFileRepository,
             ICostEstimateCalculationService calculationService,
-            ICacheService cacheService)
+            IBlobStorageService blobStorageService,
+            ICacheService cacheService,
+            ILogger<CostEstimateTemplateService> logger)
         {
             this.templateRepository = templateRepository;
             this.currencyRepository = currencyRepository;
@@ -45,8 +55,11 @@ namespace Business.Implementation.Services
             this.calculatedFieldRepository = calculatedFieldRepository;
             this.genericFieldRepository = genericFieldRepository;
             this.costEstimateRepository = costEstimateRepository;
+            this.fieldFileRepository = fieldFileRepository;
             this.calculationService = calculationService;
+            this.blobStorageService = blobStorageService;
             this.cacheService = cacheService;
+            this.logger = logger;
         }
 
         #region CRUD Operations
@@ -513,6 +526,17 @@ namespace Business.Implementation.Services
             var calculatedToDelete = await CollectFieldsToDeleteAsync(calculatedFieldRepository, templateId, newFieldNames);
             var genericToDelete = await CollectFieldsToDeleteAsync(genericFieldRepository, templateId, newFieldNames);
 
+            // Delete blob files for ItemSystemFiles fields being removed
+            var fileFieldIds = systemToDelete
+                .Where(f => f.FieldType == FieldType.ItemSystemFiles)
+                .Select(f => f.Id)
+                .ToHashSet();
+
+            if (fileFieldIds.Count > 0)
+            {
+                await DeleteBlobFilesForFieldDefinitionsAsync(fileFieldIds, cancellationToken);
+            }
+
             // First pass: delete child fields (with ParentFieldId) across ALL scopes
             // to avoid FK violations on the self-referencing ParentFieldId constraint (TPH single table)
             await DeleteFilteredFieldsAsync(groupFieldRepository, groupToDelete.Where(f => f.ParentFieldId.HasValue), cancellationToken);
@@ -561,6 +585,33 @@ namespace Business.Implementation.Services
 
             await repository.DeleteRange(fieldsList);
             await repository.SaveChangesAsync(cancellationToken);
+        }
+
+        private async Task DeleteBlobFilesForFieldDefinitionsAsync(
+            HashSet<Guid> fieldDefinitionIds,
+            CancellationToken cancellationToken)
+        {
+            var filesToDelete = (await fieldFileRepository.GetBySearch(
+                f => fieldDefinitionIds.Contains(f.FieldValue.FieldDefinitionId) &&
+                     !f.IsDeleted)).ToList();
+
+            if (filesToDelete.Count == 0)
+            {
+                return;
+            }
+
+            // Only delete blobs from Azure — DB records will be cascade-deleted
+            // when the field definition is removed
+            string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.CostEstimates);
+
+            foreach (var file in filesToDelete)
+            {
+                await blobStorageService.DeleteAsync(containerName, file.BlobName, cancellationToken);
+            }
+
+            logger.LogInformation(
+                "Deleted {FileCount} blobs for removed field definitions {FieldDefinitionIds}",
+                filesToDelete.Count, string.Join(", ", fieldDefinitionIds));
         }
 
         private async Task UpsertFieldsInBatchAsync(
@@ -861,6 +912,8 @@ namespace Business.Implementation.Services
                 ce => ce.TemplateId == templateId && !ce.IsDeleted,
                 q => q.Include(ce => ce.Template)
                         .ThenInclude(t => t.CalculatedFieldDefinitions)
+                      .Include(ce => ce.Template)
+                        .ThenInclude(t => t.SystemFieldDefinitions)
                       .Include(ce => ce.AllGroups)
                         .ThenInclude(g => g.Items)
                         .ThenInclude(i => i.FieldValues)
@@ -875,6 +928,299 @@ namespace Business.Implementation.Services
             {
                 await costEstimateRepository.SaveChangesAsync(cancellationToken);
             }
+        }
+
+        #endregion
+
+        #region Default Templates
+
+        private static readonly Lazy<Dictionary<string, DefaultTemplateJson>> DefaultTemplatesCache = new(LoadDefaultTemplatesFromResources);
+
+        private static readonly JsonSerializerOptions DefaultTemplateJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        public List<DefaultCostEstimateTemplateListItemWeb> GetDefaultTemplates()
+        {
+            return DefaultTemplatesCache.Value.Values
+                .Select(t => new DefaultCostEstimateTemplateListItemWeb(
+                    Slug: t.Slug,
+                    Name: t.Name,
+                    Description: t.Description,
+                    Category: t.Category
+                ))
+                .ToList();
+        }
+
+        public CostEstimateTemplateStructureWeb? GetDefaultTemplateDetails(string slug)
+        {
+            if (!DefaultTemplatesCache.Value.TryGetValue(slug, out var template))
+            {
+                return null;
+            }
+
+            return MapDefaultTemplateToStructure(template);
+        }
+
+        private static Dictionary<string, DefaultTemplateJson> LoadDefaultTemplatesFromResources()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            var result = new Dictionary<string, DefaultTemplateJson>(StringComparer.OrdinalIgnoreCase);
+
+            var resourceNames = assembly.GetManifestResourceNames()
+                .Where(n => n.Contains("DefaultTemplates") && n.EndsWith(".json"));
+
+            foreach (var resourceName in resourceNames)
+            {
+                using var stream = assembly.GetManifestResourceStream(resourceName);
+                if (stream == null) continue;
+
+                var template = JsonSerializer.Deserialize<DefaultTemplateJson>(stream, DefaultTemplateJsonOptions);
+                if (template != null)
+                {
+                    result[template.Slug] = template;
+                }
+            }
+
+            return result;
+        }
+
+        private static CostEstimateTemplateStructureWeb MapDefaultTemplateToStructure(DefaultTemplateJson template)
+        {
+            var currencies = template.Currencies
+                .Select((c, i) => new CurrencyWeb(
+                    GenerateDeterministicGuid($"{template.Slug}:currency:{c.Code}"),
+                    c.Code, c.Name, c.Symbol, c.IsDefault, c.Order))
+                .OrderBy(c => c.Order)
+                .ToList();
+
+            var units = template.Units
+                .Select(u => new UnitWeb(
+                    GenerateDeterministicGuid($"{template.Slug}:unit:{u.Code}"),
+                    u.Code, u.Name, u.Symbol, u.Category, u.IsDefault, u.Order))
+                .OrderBy(u => u.Order)
+                .ToList();
+
+            var groupHeaderFields = MapFieldDtosToWeb(template.GroupHeaderFields);
+            var systemFields = MapFieldDtosToWeb(template.SystemFields);
+            var calculatedFields = MapFieldDtosToWeb(template.CalculatedFields);
+            var genericFields = MapFieldDtosToWeb(template.GenericFields);
+
+            var allFields = template.GroupHeaderFields
+                .Concat(template.SystemFields)
+                .Concat(template.CalculatedFields)
+                .Concat(template.GenericFields)
+                .Where(f => f.IsVisible)
+                .ToList();
+
+            var columns = allFields
+                .Select((f, index) => new ColumnConfigurationWeb(
+                    FieldId: f.FieldName,
+                    FieldName: f.FieldName,
+                    FieldType: f.FieldType,
+                    FieldLabel: f.Label,
+                    FieldScope: CostEstimateFieldTypeHelper.GetFieldTypeConfig(f.FieldType)?.FieldScope ?? 0,
+                    Order: index
+                ))
+                .ToList();
+
+            var uiConfig = columns.Count > 0 ? new UiConfigurationWeb(columns) : null;
+
+            return new CostEstimateTemplateStructureWeb(
+                TemplateId: template.TemplateId,
+                MaxGroupLevel: template.MaxGroupLevel,
+                Currencies: currencies,
+                Units: units,
+                GroupHeaderFields: groupHeaderFields,
+                SystemFields: systemFields,
+                CalculatedFields: calculatedFields,
+                GenericFields: genericFields,
+                UiConfiguration: uiConfig
+            );
+        }
+
+        private static List<FieldDefinitionWeb> MapFieldDtosToWeb(List<FieldDefinitionDto> fields)
+        {
+            return fields.Select(MapFieldDtoToWeb).ToList();
+        }
+
+        private static FieldDefinitionWeb MapFieldDtoToWeb(FieldDefinitionDto field)
+        {
+            var fieldTypeConfig = CostEstimateFieldTypeHelper.GetFieldTypeConfig(field.FieldType)
+                ?? new CostEstimateFieldTypeConfigWeb(
+                    FieldType: field.FieldType,
+                    FieldScope: 0,
+                    NamePl: field.Label,
+                    ValueTypeName: "string",
+                    IsNumeric: false,
+                    IsText: true,
+                    IsDate: false,
+                    IsBoolean: false,
+                    IsCollection: false
+                );
+
+            List<FieldDefinitionWeb>? childFields = null;
+            if (field.ChildFields != null && field.ChildFields.Count > 0)
+            {
+                childFields = MapFieldDtosToWeb(field.ChildFields);
+            }
+
+            return new FieldDefinitionWeb(
+                Id: field.FieldName,
+                FieldName: field.FieldName,
+                Label: field.Label,
+                IsSortable: field.IsSortable,
+                IsFilterable: field.IsFilterable,
+                IsVisible: field.IsVisible,
+                IsReadonly: field.IsReadonly,
+                FieldTypeConfig: fieldTypeConfig,
+                SumInGroup: field.SumInGroup,
+                SumInTotal: field.SumInTotal,
+                ChildFields: childFields
+            );
+        }
+
+        private static Guid GenerateDeterministicGuid(string seed)
+        {
+            var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(seed));
+            return new Guid(hash.AsSpan(0, 16));
+        }
+
+        public async Task<Guid> CreateTemplateFromDefaultAsync(
+            Guid ownerId,
+            string slug,
+            string name,
+            string? description,
+            CancellationToken cancellationToken = default)
+        {
+            if (!DefaultTemplatesCache.Value.TryGetValue(slug, out var defaultTemplate))
+            {
+                throw new NotFoundApiException("Default template", slug);
+            }
+
+            var templateId = await CreateTemplateAsync(ownerId, name, description, cancellationToken);
+
+            var template = await templateRepository.GetFirstBySearch(t => t.Id == templateId)
+                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), templateId.ToString());
+
+            var groupFields = RegenerateFieldGuids(defaultTemplate.GroupHeaderFields);
+            var systemFields = RegenerateFieldGuids(defaultTemplate.SystemFields);
+            var calculatedFields = RegenerateFieldGuids(defaultTemplate.CalculatedFields);
+            var genericFields = RegenerateFieldGuids(defaultTemplate.GenericFields);
+
+            var columnLayout = groupFields
+                .Concat(systemFields)
+                .Concat(calculatedFields)
+                .Concat(genericFields)
+                .Where(f => f.IsVisible)
+                .Select(f => f.FieldName)
+                .ToList();
+
+            await UpdateTemplateAsync(
+                template,
+                name,
+                description,
+                defaultTemplate.Category,
+                canAddGroups: true,
+                canBranchGroups: true,
+                maxGroupLevel: defaultTemplate.MaxGroupLevel,
+                autoNumberGroups: false,
+                groupNumberFormat: null,
+                updateStructure: true,
+                defaultTemplate.Currencies,
+                defaultTemplate.Units,
+                groupFields,
+                systemFields,
+                calculatedFields,
+                genericFields,
+                new UiConfigurationDto(columnLayout),
+                cancellationToken);
+
+            return templateId;
+        }
+
+        private static List<FieldDefinitionDto> RegenerateFieldGuids(List<FieldDefinitionDto> fields)
+        {
+            return fields.Select(f => f with
+            {
+                FieldName = Guid.NewGuid(),
+                ChildFields = f.ChildFields != null ? RegenerateFieldGuids(f.ChildFields) : null
+            }).ToList();
+        }
+
+        private static List<FieldDefinitionDto> MapFieldWebsToDtos(List<FieldDefinitionWeb> fields)
+        {
+            return fields.Select(f => new FieldDefinitionDto(
+                FieldName: Guid.NewGuid(),
+                FieldType: f.FieldTypeConfig.FieldType,
+                Label: f.Label,
+                IsSortable: f.IsSortable,
+                IsFilterable: f.IsFilterable,
+                IsVisible: f.IsVisible,
+                IsReadonly: f.IsReadonly,
+                SumInGroup: f.SumInGroup,
+                SumInTotal: f.SumInTotal,
+                ChildFields: f.ChildFields != null ? MapFieldWebsToDtos(f.ChildFields) : null
+            )).ToList();
+        }
+
+        public async Task<Guid> DuplicateTemplateAsync(
+            CostEstimateTemplate sourceTemplate,
+            Guid ownerId,
+            string name,
+            string? description,
+            CancellationToken cancellationToken = default)
+        {
+            var structure = await BuildTemplateStructureAsync(sourceTemplate, cancellationToken);
+
+            var templateId = await CreateTemplateAsync(ownerId, name, description, cancellationToken);
+
+            var newTemplate = await templateRepository.GetFirstBySearch(t => t.Id == templateId)
+                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), templateId.ToString());
+
+            var currencies = structure.Currencies
+                .Select(c => new CurrencyDto(c.Code, c.Name, c.Symbol, c.IsDefault, c.Order))
+                .ToList();
+
+            var units = structure.Units
+                .Select(u => new UnitDto(u.Code, u.Name, u.Symbol, u.Category, u.IsDefault, u.Order))
+                .ToList();
+
+            var groupFields = MapFieldWebsToDtos(structure.GroupHeaderFields);
+            var systemFields = MapFieldWebsToDtos(structure.SystemFields);
+            var calculatedFields = MapFieldWebsToDtos(structure.CalculatedFields);
+            var genericFields = MapFieldWebsToDtos(structure.GenericFields);
+
+            var columnLayout = groupFields
+                .Concat(systemFields)
+                .Concat(calculatedFields)
+                .Concat(genericFields)
+                .Where(f => f.IsVisible)
+                .Select(f => f.FieldName)
+                .ToList();
+
+            await UpdateTemplateAsync(
+                newTemplate,
+                name,
+                description,
+                sourceTemplate.Category,
+                sourceTemplate.CanAddGroups,
+                sourceTemplate.CanBranchGroups,
+                sourceTemplate.MaxGroupLevel,
+                sourceTemplate.AutoNumberGroups,
+                sourceTemplate.GroupNumberFormat,
+                updateStructure: true,
+                currencies,
+                units,
+                groupFields,
+                systemFields,
+                calculatedFields,
+                genericFields,
+                new UiConfigurationDto(columnLayout),
+                cancellationToken);
+
+            return templateId;
         }
 
         #endregion

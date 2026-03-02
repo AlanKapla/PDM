@@ -44,6 +44,7 @@ namespace Entities.Context
         public DbSet<CostEstimateGroupFieldValue> CostEstimateGroupFieldValues => Set<CostEstimateGroupFieldValue>();
         public DbSet<CostEstimateItem> CostEstimateItems => Set<CostEstimateItem>();
         public DbSet<CostEstimateItemFieldValue> CostEstimateItemFieldValues => Set<CostEstimateItemFieldValue>();
+        public DbSet<CostEstimateFieldFile> CostEstimateFieldFiles => Set<CostEstimateFieldFile>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();

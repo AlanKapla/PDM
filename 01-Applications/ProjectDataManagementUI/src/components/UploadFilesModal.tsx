@@ -83,7 +83,6 @@ export default function UploadFilesModal({
       const data: ProjectFilePackageWeb[] = response.data;
       setPackages(data);
     } catch (error) {
-      console.error("Błąd pobierania paczek:", error);
       showError("Błąd", "Nie udało się pobrać listy paczek");
     } finally {
       setLoadingPackages(false);
@@ -200,7 +199,6 @@ export default function UploadFilesModal({
       onFilesUploaded();
       onClose();
     } catch (error) {
-      console.error("Błąd uploadu plików:", error);
       const { title, description } = handleApiError(error);
       showError(title, description);
     } finally {

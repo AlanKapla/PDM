@@ -43,7 +43,6 @@ export default function CollaboratingTenants() {
           setActiveTenantId(user.activeTenantId);
         }
       } catch (error) {
-        console.error("Błąd ładowania danych:", error);
       } finally {
         setLoading(false);
       }
@@ -81,7 +80,6 @@ export default function CollaboratingTenants() {
         });
       }
     } catch (error) {
-      console.error("Błąd zmiany tenanta:", error);
       toast({
         title: "Błąd",
         description: "Wystąpił problem z połączeniem",

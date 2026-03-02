@@ -1212,7 +1212,6 @@ export default function ProjectSimpleCosts() {
 
       await Promise.all(fetchPromises);
     } catch (error) {
-      console.error("Błąd podczas pobierania projektu:", error);
     } finally {
       setLoading(false);
     }
@@ -1277,7 +1276,6 @@ export default function ProjectSimpleCosts() {
       setShowNewCostRow(false);
       refreshData();
     } catch (error) {
-      console.error("Błąd podczas dodawania kosztu:", error);
       showError("Wystąpił błąd podczas dodawania kosztu");
     } finally {
       setAddingNewCost(false);
@@ -1327,7 +1325,6 @@ export default function ProjectSimpleCosts() {
       setEditDocumentFile(null);
       refreshData();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji kosztu:", error);
       showError("Wystąpił błąd podczas aktualizacji kosztu");
     } finally {
       setSavingCost(false);
@@ -1351,7 +1348,6 @@ export default function ProjectSimpleCosts() {
       showSuccess("Koszt został usunięty");
       refreshData();
     } catch (error) {
-      console.error("Błąd podczas usuwania kosztu:", error);
       showError("Wystąpił błąd podczas usuwania kosztu");
     } finally {
       setDeletingCostId(null);
@@ -1407,7 +1403,6 @@ export default function ProjectSimpleCosts() {
       showSuccess("Status rozliczenia został zaktualizowany");
       refreshData();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji statusu:", error);
       showError("Wystąpił błąd podczas aktualizacji statusu");
     } finally {
       setEditingClosedCostId(null);
@@ -1450,7 +1445,6 @@ export default function ProjectSimpleCosts() {
       showSuccess("Status rozliczenia został zaktualizowany");
       refreshData();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji statusu:", error);
       showError("Wystąpił błąd podczas aktualizacji statusu");
     } finally {
       setEditingSharedCostId(null);

@@ -74,7 +74,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setLoading(false);
         }
       } catch (error: any) {
-        console.error("❌ AuthContext: Error fetching user:", error);
         if (isMounted) {
           setUser(null);
           setLoading(false);
@@ -91,12 +90,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
   useEffect(() => {
-    console.log("AUTH state", { 
-      isAuthenticated, 
-      hasUser: !!user, 
-      accountCount: accounts.length,
-      signalRInitialized
-    });
 
     if (!isAuthenticated) {
       setSignalRInitialized(false);
@@ -105,39 +98,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Jeśli już zainicjalizowane, nie rób ponownie
     if (signalRInitialized) {
-      console.log("✅ SignalR already initialized, skipping");
       return;
     }
 
     // Sprawdź czy mamy account (token)
     const account = instance.getActiveAccount() || accounts[0];
     if (!account) {
-      console.warn("⚠️ No MSAL account available yet");
       return;
     }
 
     // Oznacz jako inicjalizowane
     setSignalRInitialized(true);
-    console.log("🚀 Initializing SignalR for the first time...");
 
     // Set resync callback (no cache needed - just log)
     notificationHubService.setAfterReconnect(async () => {
-      console.log("🔄 SignalR reconnected - notifications will be fetched from API when needed");
     });
 
     // Inicjalizacja: NAJPIERW connect, POTEM cache
     const initializeSignalR = async () => {
       try {
         // 1. Uruchom połączenie NAJPIERW (żeby nie tracić eventów)
-        console.log("🔌 Starting SignalR connection...");
         await notificationHubService.startConnection();
-        console.log("✅ SignalR connected - ready to receive real-time notifications");
       } catch (error) {
-        console.error("❌ Failed to initialize SignalR:", error);
         // Jeśli init failed, spróbuj ponownie za 5s
         setTimeout(() => {
-          console.log("🔄 Retrying SignalR init...");
-          initializeSignalR().catch(e => console.error("❌ Retry failed:", e));
+          initializeSignalR().catch(() => {});
         }, 5000);
       }
     };
@@ -161,16 +146,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           await notificationHubService.ping();
         } catch (error) {
-          console.warn("⚠️ SignalR ping failed -> force restart");
-          notificationHubService.forceRestart().catch(e => 
-            console.error("❌ Force restart failed:", e)
-          );
+          notificationHubService.forceRestart().catch(() => {});
         }
       } else if (state === HubConnectionState.Disconnected || state === null) {
-        console.warn("⚠️ SignalR disconnected -> force restart");
-        notificationHubService.forceRestart().catch(e =>
-          console.error("❌ Force restart failed:", e)
-        );
+        notificationHubService.forceRestart().catch(() => {});
       }
     }, 15000); // 15s
 
@@ -185,15 +164,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        console.log("👁️ Tab visible again, checking SignalR...");
         const state = notificationHubService.getConnectionState();
         
         if (state !== HubConnectionState.Connected) {
-          console.warn("⚠️ SignalR not connected (state:", state, ") -> force restart");
           try {
             await notificationHubService.forceRestart();
           } catch (error) {
-            console.error("❌ Failed to restart SignalR:", error);
           }
         }
       }
@@ -208,21 +184,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Legacy login method - now deprecated, redirects to B2C
   const login = async (_email: string, _password: string) => {
-    console.warn("Legacy login method called. Redirecting to Azure AD B2C...");
     await instance.loginRedirect();
     return { success: true };
   };
 
   // Legacy Google login - now deprecated, use B2C Google provider
   const googleLogin = async (_token: string) => {
-    console.warn("Legacy Google login called. Redirecting to Azure AD B2C...");
     await instance.loginRedirect();
     return { success: true };
   };
 
   // Legacy Google register - now deprecated, use B2C
   const googleRegister = async (_token: string) => {
-    console.warn("Legacy Google register called. Redirecting to Azure AD B2C...");
     await instance.loginRedirect();
     return { success: true };
   };
@@ -230,14 +203,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Logout
   // Logout - clear state and redirect to MSAL logout
   const logout = async () => {
-    console.log("🚪 Logging out...");
     
     // ✅ Zatrzymaj SignalR przed wylogowaniem
-    console.log("🔔 Stopping SignalR connection...");
     try {
       await notificationHubService.stopConnection();
     } catch (error) {
-      console.error("❌ Error stopping SignalR:", error);
     }
     
     // Clear app state
@@ -257,7 +227,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const setIsAuthenticated = (_value: boolean) => {
-    console.warn("setIsAuthenticated is deprecated with Azure AD B2C");
   };
 
   // Refresh user data from /user/me (po zmianie aktywnego tenanta)
@@ -268,7 +237,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await axiosClient.get("/user/me");
       setUser(response.data);
     } catch (error) {
-      console.error("❌ Error refreshing user:", error);
     }
   };
 

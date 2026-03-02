@@ -186,6 +186,18 @@ namespace Business.Implementation.Helpers
                         IsDate: false,
                         IsBoolean: true,
                         IsCollection: false
+                    ),
+                    new CostEstimateFieldTypeConfigWeb(
+                        FieldType: (int)FieldType.ItemSystemFiles,
+                        FieldScope: (int)FieldScope.ItemSystem,
+                        NamePl: "Pliki",
+                        ValueTypeName: "file",
+                        IsNumeric: false,
+                        IsText: false,
+                        IsDate: false,
+                        IsBoolean: false,
+                        IsCollection: false,
+                        IsFile: true
                     )
                 },
 
@@ -268,8 +280,8 @@ namespace Business.Implementation.Helpers
                         IsDate: false,
                         IsBoolean: false,
                         IsCollection: false
-                    )
-                },
+                    ),
+                    },
 
             // ITEM GENERIC FIELDS (300-399)
             [(int)FieldScope.ItemGeneric] = new[]

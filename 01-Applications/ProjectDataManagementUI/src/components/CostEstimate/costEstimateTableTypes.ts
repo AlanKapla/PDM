@@ -58,13 +58,19 @@ export type RenderFieldInputFn = (
   value: string | undefined,
   onChange: (value: string | undefined) => void,
   disabled?: boolean,
-  itemAllValues?: AllItemValues
+  itemAllValues?: AllItemValues,
+  /** ID pozycji — wymagane dla pól typu pliki (upload) */
+  itemId?: string,
+  /** ID definicji pola — wymagane dla pól typu pliki (upload) */
+  fieldDefinitionId?: string,
+  /** Pliki dołączone do pola — tylko dla fieldType === 105 (ItemSystemFiles) */
+  files?: import('../../types/costEstimate.types.new').CostEstimateFieldFileWeb[] | null
 ) => React.ReactNode;
 
 export type FormatDisplayValueFn = (
   value: string | undefined,
   fieldDef?: any
-) => string;
+) => React.ReactNode;
 
 export type GetColumnWidthFn = (
   fieldId: string,

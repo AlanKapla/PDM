@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Heading,
@@ -82,7 +82,6 @@ export default function Projects() {
         const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
         setProjects(projectsResponse.data);
       } catch (err) {
-        console.error("Błąd pobierania projektów:", err);
         setError("Nie udało się pobrać projektów");
         setProjects([]);
       } finally {
@@ -100,7 +99,6 @@ export default function Projects() {
         const data = await getUserTenants();
         setTenants(data);
       } catch (err) {
-        console.error("Błąd pobierania organizacji:", err);
       } finally {
         setTenantsLoading(false);
       }
@@ -117,7 +115,6 @@ export default function Projects() {
       await refreshUser();
       showSuccess("Organizacja przełączona");
     } catch (err) {
-      console.error("Błąd przełączania organizacji:", err);
       const { title, description } = handleApiError(err);
       showError(title, description);
     } finally {
@@ -156,7 +153,6 @@ export default function Projects() {
       const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
       setProjects(projectsResponse.data);
     } catch (error) {
-      console.error("Błąd podczas tworzenia projektu:", error);
       const { title, description } = handleApiError(error);
       showError(title, description);
     } finally {

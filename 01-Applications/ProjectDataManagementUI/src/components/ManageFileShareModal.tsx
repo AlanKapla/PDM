@@ -81,7 +81,6 @@ export const ManageFileShareModal = ({
       onShareUpdated();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji udostępnienia:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,

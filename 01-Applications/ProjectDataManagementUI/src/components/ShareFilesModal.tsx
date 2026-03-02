@@ -77,7 +77,6 @@ export default function ShareFilesModal({
       );
       setMembers(filteredMembers);
     } catch (error) {
-      console.error("Błąd podczas pobierania członków:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy członków projektu",
@@ -156,7 +155,6 @@ export default function ShareFilesModal({
       onFilesShared();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas udostępniania plików:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,

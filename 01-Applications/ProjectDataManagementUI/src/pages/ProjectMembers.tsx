@@ -96,7 +96,6 @@ export default function ProjectMembers() {
       const roles = await roleApi.getAvailableRoles('project');
       setAvailableRoles(roles);
     } catch (error) {
-      console.error("Błąd ładowania ról:", error);
     }
   };
 

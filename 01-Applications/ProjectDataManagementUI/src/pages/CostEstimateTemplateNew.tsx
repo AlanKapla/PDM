@@ -62,7 +62,6 @@ export default function CostEstimateTemplateNew() {
       // Przekieruj do edycji nowo utworzonego szablonu (result to ID szablonu)
       navigate(`/cost-estimate-templates/${result}/edit`);
     } catch (error) {
-      console.error("Błąd podczas tworzenia szablonu:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się utworzyć szablonu",

@@ -63,5 +63,37 @@ namespace Business.Interfaces.Services
         Task<CostEstimateTemplateStructureWeb> GetTemplateStructureCachedAsync(
             CostEstimateTemplate template,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns a list of all available default (system) templates loaded from embedded JSON resources
+        /// </summary>
+        List<DefaultCostEstimateTemplateListItemWeb> GetDefaultTemplates();
+
+        /// <summary>
+        /// Returns the full structure of a default template by its slug identifier
+        /// </summary>
+        CostEstimateTemplateStructureWeb? GetDefaultTemplateDetails(string slug);
+
+        /// <summary>
+        /// Creates a new user template by copying the full structure from a default (system) template.
+        /// Generates new fieldName GUIDs server-side. Returns the new template ID.
+        /// </summary>
+        Task<Guid> CreateTemplateFromDefaultAsync(
+            Guid ownerId,
+            string slug,
+            string name,
+            string? description,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Duplicates an existing user template with all its structure (fields, currencies, units).
+        /// Generates new fieldName GUIDs. Returns the new template ID.
+        /// </summary>
+        Task<Guid> DuplicateTemplateAsync(
+            CostEstimateTemplate sourceTemplate,
+            Guid ownerId,
+            string name,
+            string? description,
+            CancellationToken cancellationToken = default);
     }
 }

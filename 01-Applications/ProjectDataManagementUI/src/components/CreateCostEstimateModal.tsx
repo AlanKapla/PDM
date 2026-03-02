@@ -80,7 +80,6 @@ export default function CreateCostEstimateModal({
           );
           setTemplates(templatesWithStructure);
         } catch (error) {
-          console.error("Error loading templates:", error);
           toast({
             title: "Błąd",
             description: "Nie udało się pobrać szablonów kosztorysów",

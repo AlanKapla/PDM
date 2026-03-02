@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -110,7 +110,6 @@ export default function TenantDetails() {
         setTenant(tenantData);
         setEditedName(tenantData.name);
       } catch (error) {
-        console.error("Błąd ładowania tenanta:", error);
         toast({
           title: "Błąd",
           description: "Nie udało się załadować danych organizacji",
@@ -127,7 +126,6 @@ export default function TenantDetails() {
         const roles = await roleApi.getAvailableRoles('tenant');
         setAvailableRoles(roles);
       } catch (error) {
-        console.error('Failed to load roles:', error);
       }
     }
 
@@ -171,7 +169,6 @@ export default function TenantDetails() {
         });
       }
     } catch (error) {
-      console.error("Błąd aktualizacji:", error);
       toast({
         title: "Błąd",
         description: "Wystąpił problem z połączeniem",
@@ -235,7 +232,6 @@ export default function TenantDetails() {
         });
       }
     } catch (error) {
-      console.error("Błąd zapraszania:", error);
       toast({
         title: "Błąd",
         description: "Wystąpił problem z połączeniem",
@@ -277,7 +273,6 @@ export default function TenantDetails() {
         });
       }
     } catch (error) {
-      console.error("Błąd usuwania członka:", error);
       toast({
         title: "Błąd",
         description: "Wystąpił problem z połączeniem",
@@ -320,7 +315,6 @@ export default function TenantDetails() {
         });
       }
     } catch (error) {
-      console.error("Błąd usuwania zaproszenia:", error);
       toast({
         title: "Błąd",
         description: "Wystąpił problem z połączeniem",
@@ -370,7 +364,6 @@ export default function TenantDetails() {
         });
       }
     } catch (error) {
-      console.error("Błąd zmiany roli:", error);
       toast({
         title: "Błąd",
         description: "Wystąpił problem z połączeniem",
@@ -408,7 +401,6 @@ export default function TenantDetails() {
         setTenant(updated);
       }
     } catch (error) {
-      console.error("Błąd podczas toggle tenant status:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,

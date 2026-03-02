@@ -18,17 +18,14 @@ export default function AuthCallback() {
   useEffect(() => {
     // Only run once, and only if we haven't handled callback yet
     if (hasHandledCallback.current) {
-      console.log("⏭️ AuthCallback: Already handled, skipping");
       return;
     }
 
     const handleCallback = async () => {
-      console.log("🔄 AuthCallback: inProgress=", inProgress, "isAuthenticated=", isAuthenticated);
 
       // CRITICAL: Wait for MSAL to finish processing the redirect
       // Don't do ANYTHING until inProgress === None
       if (inProgress !== InteractionStatus.None) {
-        console.log("⏳ AuthCallback: Waiting for MSAL to finish (inProgress=" + inProgress + ")");
         return; // Don't mark as handled yet - wait for next render
       }
 
@@ -54,21 +51,15 @@ export default function AuthCallback() {
                 const stateObj = JSON.parse(decodeURIComponent(parts[1]));
                 if (stateObj.returnUrl) {
                   returnUrl = stateObj.returnUrl;
-                  console.log("📍 AuthCallback: Found returnUrl in state:", returnUrl);
                 }
               }
             } catch (e) {
-              console.warn("⚠️ AuthCallback: Could not parse state, using default:", e);
             }
           }
         } catch (error) {
-          console.warn("⚠️ AuthCallback: Error reading state:", error);
         }
-        
-        console.log("✅ AuthCallback: Authentication successful, redirecting to", returnUrl);
         navigate(returnUrl, { replace: true });
       } else {
-        console.log("❌ AuthCallback: Authentication failed, redirecting to login");
         navigate("/login", { replace: true });
       }
     };

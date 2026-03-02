@@ -14,8 +14,27 @@ import {
   IconButton,
   Tooltip,
   Badge,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
 } from "@chakra-ui/react";
-import { FileText, Plus, Edit, Copy } from "lucide-react";
+import { FileText, Plus, Edit, Copy, Trash2 } from "lucide-react";
+import { useRef } from "react";
 import MainLayout from "../layout/MainLayout";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
@@ -23,9 +42,7 @@ import { formatDate } from "../utils/formatters";
 import {
   costEstimateTemplateApi,
   type CostEstimateTemplateListItem,
-  type CostEstimateTemplateDetails,
 } from "../api/costEstimateTemplateApi";
-import { convertFieldTypeToLegacy } from "../utils/fieldTypeLabels";
 
 export default function CostEstimateTemplates() {
   const { showSuccess, showError } = useToastNotification();
@@ -33,6 +50,17 @@ export default function CostEstimateTemplates() {
 
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
+  const [templateToDelete, setTemplateToDelete] = useState<CostEstimateTemplateListItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+
+  // Stan dla modalu duplikowania
+  const [templateToDuplicate, setTemplateToDuplicate] = useState<CostEstimateTemplateListItem | null>(null);
+  const [duplicateName, setDuplicateName] = useState("");
+  const [duplicateDescription, setDuplicateDescription] = useState("");
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const { isOpen: isDuplicateOpen, onOpen: onDuplicateOpen, onClose: onDuplicateClose } = useDisclosure();
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -48,7 +76,6 @@ export default function CostEstimateTemplates() {
       const data = await costEstimateTemplateApi.getTemplates();
       setTemplates(Array.isArray(data) ? data : []);
     } catch (error: any) {
-      console.error('Error fetching templates:', error);
       showError('Nie udało się załadować szablonów', error?.message || 'Wystąpił nieoczekiwany błąd');
       setTemplates([]);
     } finally {
@@ -60,108 +87,74 @@ export default function CostEstimateTemplates() {
     navigate(`/cost-estimate-templates/${templateId}/edit`);
   };
 
+  const openDeleteConfirmation = (template: CostEstimateTemplateListItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTemplateToDelete(template);
+    onDeleteOpen();
+  };
 
-
-  const handleDuplicateTemplate = async (templateId: string) => {
+  const handleDeleteTemplate = async () => {
+    if (!templateToDelete) return;
+    
+    setIsDeleting(true);
     try {
-      const details = await costEstimateTemplateApi.getTemplateDetails(templateId);
-      if (!details.structure) {
-        showError('Nie można zduplikować szablonu', 'Szablon nie ma struktury');
-        return;
+      await costEstimateTemplateApi.deleteTemplate(templateToDelete.id);
+      showSuccess('Szablon został usunięty');
+      onDeleteClose();
+      setTemplateToDelete(null);
+      fetchTemplates();
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        showError('Szablon nie został znaleziony', 'Szablon mógł zostać już usunięty lub nie masz uprawnień');
+      } else {
+        showError('Nie udało się usunąć szablonu', error?.message || 'Wystąpił nieoczekiwany błąd');
       }
-      
-      const structure = details.structure;
-      
-      // Mapuj pola z web modeli do DTO
-      const groupHeaderFields = structure.groupHeaderFields.map(f => ({
-        fieldName: f.id || crypto.randomUUID(),
-        fieldType: f.fieldType,
-        label: f.customLabel || `Pole etapu`,
-        isSortable: false,
-        isFilterable: false,
-        isVisible: f.isVisible,
-      }));
-      
-      const systemFields = structure.systemFields.map(f => ({
-        fieldName: f.fieldName,
-        fieldType: convertFieldTypeToLegacy(f.fieldType),
-        label: f.label,
-        isSortable: false,
-        isFilterable: false,
-        isVisible: f.isVisible,
-      }));
-      
-      const calculatedFields = structure.calculatedFields.map(f => ({
-        fieldName: f.fieldName,
-        fieldType: convertFieldTypeToLegacy(f.fieldType),
-        label: f.label,
-        isSortable: f.isSortable,
-        isFilterable: f.isFilterable,
-        isVisible: f.isVisible,
-      }));
-      
-      const genericFields = structure.genericFields.map(f => ({
-        fieldName: f.fieldName,
-        fieldType: convertFieldTypeToLegacy(f.fieldType),
-        label: f.label,
-        isSortable: f.isSortable,
-        isFilterable: f.isFilterable,
-        isVisible: f.isVisible,
-      }));
-      
-      // Krok 1: Utwórz nowy szablon z nazwą i opisem
-      const newTemplateId = await costEstimateTemplateApi.createTemplate({
-        name: `${details.name} (kopia)`,
-        description: details.description,
-      });
-      
-      // Krok 2: Zaktualizuj nowy szablon całą strukturą
-      await costEstimateTemplateApi.updateTemplate(newTemplateId, {
-        templateId: newTemplateId,
-        name: `${details.name} (kopia)`,
-        description: details.description,
-        category: details.category,
-        canAddGroups: details.canAddGroups,
-        canBranchGroups: details.canBranchGroups,
-        maxGroupLevel: details.maxGroupLevel,
-        autoNumberGroups: details.autoNumberGroups,
-        groupNumberFormat: details.groupNumberFormat,
-        updateStructure: true,
-        currencies: structure.currencies.map(c => ({
-          code: c.code,
-          name: c.name,
-          symbol: c.symbol,
-          isDefault: c.isDefault,
-          order: c.order,
-        })),
-        units: structure.units.map(u => ({
-          code: u.code,
-          name: u.name,
-          symbol: u.symbol,
-          category: u.category,
-          isDefault: u.isDefault,
-          order: u.order,
-        })),
-        groupHeaderFields,
-        systemFields,
-        calculatedFields,
-        genericFields,
-        summaryConfiguration: structure.summaryConfiguration ? {
-          showGroupSummary: structure.summaryConfiguration.showGroupSummary,
-          showTotalSummary: structure.summaryConfiguration.showTotalSummary,
-          groupSummaryFields: structure.summaryConfiguration.groupSummaryFields.map(f => f.fieldName),
-          totalSummaryFields: structure.summaryConfiguration.totalSummaryFields.map(f => f.fieldName),
-        } : undefined,
-        uiConfiguration: structure.uiConfiguration ? {
-          columnLayout: structure.uiConfiguration.columns.map(col => col.fieldName),
-        } : undefined,
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const openDuplicateModal = (template: CostEstimateTemplateListItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTemplateToDuplicate(template);
+    setDuplicateName(`Kopia — ${template.name}`);
+    setDuplicateDescription(template.description || "");
+    onDuplicateOpen();
+  };
+
+  const handleCloseDuplicateModal = () => {
+    onDuplicateClose();
+    setTemplateToDuplicate(null);
+    setDuplicateName("");
+    setDuplicateDescription("");
+  };
+
+  const handleDuplicateTemplate = async () => {
+    if (!templateToDuplicate) return;
+    if (!duplicateName.trim()) {
+      showError('Nazwa jest wymagana', 'Wprowadź nazwę dla nowego szablonu');
+      return;
+    }
+
+    setIsDuplicating(true);
+    try {
+      const newTemplateId = await costEstimateTemplateApi.duplicateTemplate(templateToDuplicate.id, {
+        name: duplicateName.trim(),
+        description: duplicateDescription.trim() || undefined,
       });
       
       showSuccess("Szablon został zduplikowany");
-      fetchTemplates();
+      handleCloseDuplicateModal();
+      // Przekieruj do edycji nowego szablonu
+      navigate(`/cost-estimate-templates/${newTemplateId}/edit`);
     } catch (error: any) {
-      console.error('Error duplicating template:', error);
-      showError('Nie udało się zduplikować szablonu', error?.message || 'Wystąpił nieoczekiwany błąd');
+      if (error?.response?.status === 404) {
+        showError('Szablon nie został znaleziony', 'Szablon mógł zostać usunięty lub nie masz uprawnień');
+      } else {
+        showError('Nie udało się zduplikować szablonu', error?.message || 'Wystąpił nieoczekiwany błąd');
+      }
+    } finally {
+      setIsDuplicating(false);
     }
   };
 
@@ -182,7 +175,7 @@ export default function CostEstimateTemplates() {
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="green"
-              onClick={() => navigate('/cost-estimate-templates/new')}
+              onClick={() => navigate('/cost-estimate-templates/select')}
             >
               Nowy szablon
             </Button>
@@ -227,10 +220,17 @@ export default function CostEstimateTemplates() {
                               icon={<Copy size={16} />}
                               size="sm"
                               variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDuplicateTemplate(template.id);
-                              }}
+                              onClick={(e) => openDuplicateModal(template, e)}
+                            />
+                          </Tooltip>
+                          <Tooltip label="Usuń szablon">
+                            <IconButton
+                              aria-label="Usuń"
+                              icon={<Trash2 size={16} />}
+                              size="sm"
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={(e) => openDeleteConfirmation(template, e)}
                             />
                           </Tooltip>
                         </HStack>
@@ -254,7 +254,91 @@ export default function CostEstimateTemplates() {
           )}
         </VStack>
 
+        {/* Modal potwierdzenia usunięcia */}
+        <AlertDialog
+          isOpen={isDeleteOpen}
+          leastDestructiveRef={cancelRef}
+          onClose={onDeleteClose}
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent>
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                Usuń szablon
+              </AlertDialogHeader>
 
+              <AlertDialogBody>
+                Czy na pewno chcesz usunąć szablon <strong>{templateToDelete?.name}</strong>?
+                <Text mt={2} fontSize="sm" color="gray.600">
+                  Istniejące kosztorysy korzystające z tego szablonu nadal będą działać.
+                </Text>
+              </AlertDialogBody>
+
+              <AlertDialogFooter>
+                <Button ref={cancelRef} onClick={onDeleteClose} isDisabled={isDeleting}>
+                  Anuluj
+                </Button>
+                <Button
+                  colorScheme="red"
+                  onClick={handleDeleteTemplate}
+                  ml={3}
+                  isLoading={isDeleting}
+                  loadingText="Usuwanie..."
+                >
+                  Usuń
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
+
+        {/* Modal duplikowania szablonu */}
+        <Modal isOpen={isDuplicateOpen} onClose={handleCloseDuplicateModal}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Duplikuj szablon</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody pb={6}>
+              <VStack spacing={4}>
+                <FormControl isRequired>
+                  <FormLabel>Nazwa nowego szablonu</FormLabel>
+                  <Input
+                    value={duplicateName}
+                    onChange={(e) => setDuplicateName(e.target.value)}
+                    placeholder="Wprowadź nazwę"
+                    maxLength={200}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Opis</FormLabel>
+                  <Textarea
+                    value={duplicateDescription}
+                    onChange={(e) => setDuplicateDescription(e.target.value)}
+                    placeholder="Opcjonalny opis szablonu"
+                    maxLength={2000}
+                    rows={3}
+                  />
+                </FormControl>
+                <Text fontSize="sm" color="gray.600">
+                  Wszystkie pola, waluty i jednostki zostaną skopiowane do nowego szablonu.
+                </Text>
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button onClick={handleCloseDuplicateModal} mr={3} isDisabled={isDuplicating}>
+                Anuluj
+              </Button>
+              <Button
+                colorScheme="green"
+                onClick={handleDuplicateTemplate}
+                isLoading={isDuplicating}
+                loadingText="Duplikowanie..."
+                isDisabled={!duplicateName.trim()}
+              >
+                Duplikuj
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Box>
     </MainLayout>
   );

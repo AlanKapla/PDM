@@ -37,5 +37,10 @@ namespace Entities.Models.CostEstimates
         /// - if (FieldDefinition.FieldScope == FieldScope.ItemCalculated) { ... }
         /// </summary>
         public virtual CostEstimateTemplateFieldDefinitionBase FieldDefinition { get; set; } = default!;
+
+        /// <summary>
+        /// Kolekcja plików dołączonych do tego pola (tylko dla FieldType == ItemSystemFiles)
+        /// </summary>
+        public virtual ICollection<CostEstimateFieldFile> Files { get; set; } = new List<CostEstimateFieldFile>();
     }
 }

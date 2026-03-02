@@ -247,10 +247,8 @@ function canAddSubGroup(
   groups: CostEstimateGroup[],
   maxNestingLevel: number | undefined
 ): boolean {
-  console.log('[canAddSubGroup]', { groupId, maxNestingLevel });
   
   if (!maxNestingLevel || maxNestingLevel === 0) {
-    console.log('[canAddSubGroup] No limit - returning true');
     return true; // Brak limitu
   }
 
@@ -276,17 +274,14 @@ function canAddSubGroup(
 
   // Top-level grupy są na poziomie 1, więc zaczynamy od 1
   const currentLevel = findGroupLevel(groupId, groups, 1);
-  console.log('[canAddSubGroup]', { currentLevel, maxNestingLevel });
   
   if (currentLevel === null) {
-    console.log('[canAddSubGroup] Group not found - returning false');
     return false;
   }
 
   // Jeśli maxNestingLevel = 3, to można mieć grupy na poziomach 1, 2, 3
   // Więc podgrupę można dodać tylko jeśli currentLevel < maxNestingLevel
   const canAdd = currentLevel < maxNestingLevel;
-  console.log('[canAddSubGroup] Result:', canAdd);
   return canAdd;
 }
 
@@ -403,18 +398,6 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
       }
     });
   }
-
-  console.log('[CostEstimateExcelView] All columns unified:', {
-    columnLayout,
-    columns: allColumns.map(c => ({ 
-      type: c.fieldType, 
-      name: c.fieldType === 'groupHeader' 
-        ? GroupHeaderFieldType[c.field.type] 
-        : c.fieldType === 'calculated' || c.fieldType === 'generic'
-        ? c.field.name
-        : (c as any).fullName
-    }))
-  });
 
   // Spłaszcz strukturę do wierszy tabeli
   const flatRows = useMemo(() => {
@@ -952,7 +935,6 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
               Brak etapów w kosztorysie.
             </Text>
             {(() => {
-              console.log('[CostEstimateExcelView] Empty state:', { editable, hasOnAddGroup: !!onAddGroup });
               return editable;
             })() && (
               <Tooltip

@@ -4,6 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { projectApi } from "../api/projectApi";
 import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
+import { costEstimateApiNew } from "../api/costEstimateApiNew";
 import { useAuth } from "../context/AuthContext";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
@@ -20,6 +21,7 @@ export default function Breadcrumbs() {
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbSegment[]>([]);
   const [projectName, setProjectName] = useState<string>("");
   const [templateName, setTemplateName] = useState<string>("");
+  const [costEstimateName, setCostEstimateName] = useState<string>("");
 
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const bgColor = useColorModeValue("white", "gray.800");
@@ -43,6 +45,21 @@ export default function Breadcrumbs() {
     }
   );
 
+  // Globalny cache dla cost estimate details
+  const costEstimateDetailsCache = useGlobalCache(
+    `cost-estimate-details-${params.estimateId}`,
+    async () => {
+      if (!user?.activeTenantId || !params.projectId || !params.estimateId) {
+        throw new Error('Missing tenant, project or estimate ID');
+      }
+      return await costEstimateApiNew.getCostEstimateDetails(
+        user.activeTenantId,
+        params.projectId,
+        params.estimateId
+      );
+    }
+  );
+
   // Pobierz nazwę projektu jeśli jest w URL
   // useGlobalCache zapobiega duplikacji requestów - jeśli cache istnieje, zwraca z cache
   useEffect(() => {
@@ -52,7 +69,6 @@ export default function Breadcrumbs() {
           const projectDetails = await projectDetailsCache.fetch();
           setProjectName(projectDetails.name);
         } catch (error) {
-          console.error("Błąd pobierania nazwy projektu:", error);
           setProjectName("");
         }
       } else {
@@ -71,7 +87,6 @@ export default function Breadcrumbs() {
           const templateDetails = await templateDetailsCache.fetch();
           setTemplateName(templateDetails.name);
         } catch (error) {
-          console.error("Błąd pobierania nazwy szablonu:", error);
           setTemplateName("");
         }
       } else {
@@ -81,6 +96,24 @@ export default function Breadcrumbs() {
 
     fetchTemplateName();
   }, [params.templateId]);
+
+  // Pobierz nazwę kosztorysu jeśli jest w URL
+  useEffect(() => {
+    const fetchCostEstimateName = async () => {
+      if (params.estimateId && params.projectId && user?.activeTenantId) {
+        try {
+          const costEstimateDetails = await costEstimateDetailsCache.fetch();
+          setCostEstimateName(costEstimateDetails.name);
+        } catch (error) {
+          setCostEstimateName("");
+        }
+      } else {
+        setCostEstimateName("");
+      }
+    };
+
+    fetchCostEstimateName();
+  }, [params.estimateId, params.projectId, user?.activeTenantId]);
 
   // Generuj breadcrumbs po załadowaniu nazwy projektu
   useEffect(() => {
@@ -124,7 +157,8 @@ export default function Breadcrumbs() {
           } else if (pathSegments[2] === "cost-estimates") {
             if (params.estimateId) {
               segments.push({ label: "Kosztorysy", path: `/projects/${params.projectId}/cost-estimates` });
-              segments.push({ label: "Edycja kosztorysu", path: location.pathname, isCurrentPage: true });
+              const costEstimateLabel = costEstimateName || "Kosztorys";
+              segments.push({ label: costEstimateLabel, path: location.pathname, isCurrentPage: true });
             } else {
               segments.push({ label: "Kosztorysy", path: `/projects/${params.projectId}/cost-estimates`, isCurrentPage: true });
             }
@@ -154,6 +188,8 @@ export default function Breadcrumbs() {
           }
         } else if (pathSegments[1] === "new") {
           segments.push({ label: "Nowy szablon", path: "/cost-estimate-templates/new", isCurrentPage: true });
+        } else if (pathSegments[1] === "select") {
+          segments.push({ label: "Wybierz szablon", path: "/cost-estimate-templates/select", isCurrentPage: true });
         } else {
           segments[segments.length - 1].isCurrentPage = true;
         }
@@ -167,7 +203,7 @@ export default function Breadcrumbs() {
     };
 
     generateBreadcrumbs();
-  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, params.templateId, projectName, templateName]);
+  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, params.templateId, projectName, templateName, costEstimateName]);
 
   if (breadcrumbs.length <= 1) {
     return null;

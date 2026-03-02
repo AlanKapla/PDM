@@ -1,4 +1,4 @@
-﻿import React, { useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -15,13 +15,29 @@ import {
   StatNumber,
   StatGroup,
   useColorModeValue,
-  Kbd,
   Icon,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  useDisclosure,
+  VStack,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from '@chakra-ui/react';
 import {
   ArrowLeft,
-  Save,
-  RefreshCw,
   Eye,
   Pencil,
   Maximize2,
@@ -29,6 +45,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
+  RefreshCw,
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import MainLayout from '../layout/MainLayout';
@@ -37,11 +54,15 @@ import { costEstimateApiNew } from '../api/costEstimateApiNew';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToastNotification } from '../hooks/useToastNotification';
+import { useFieldAutosave } from '../hooks/useFieldAutosave';
 import { recalculateCostEstimateDetails } from '../utils/recalculateCostEstimateDetails';
 import type {
   CostEstimateDetailsWeb,
   CostEstimateGroupWeb,
   CostEstimateItemWeb,
+  CostEstimateFieldValueWeb,
+  AddGroupRequestDto,
+  AddItemRequestDto,
 } from '../types/costEstimate.types.new';
 import {
   CostEstimateStatus,
@@ -91,15 +112,29 @@ export const CostEstimateEditPage: React.FC = () => {
 
   // ---- Stan ----
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
   const [details, setDetails] = useState<CostEstimateDetailsWeb | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isEditMode, setIsEditMode] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Ref do timeout auto-recalculate (2s po ostatnim zapisie)
+  const autoRecalcTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // ---- Dialog usuwania grupy ----
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
+
+  // ---- Modal edycji nazwy/opisu ----
+  const { isOpen: isEditMetaOpen, onOpen: onEditMetaOpen, onClose: onEditMetaClose } = useDisclosure();
+  const [editName, setEditName] = useState('');
+
+  // ---- Modal ostrzeżenia o niezapisanych zmianach ----
+  const { isOpen: isUnsavedOpen, onOpen: onUnsavedOpen, onClose: onUnsavedClose } = useDisclosure();
+  const unsavedCancelRef = useRef<HTMLButtonElement>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [isBackNavigation, setIsBackNavigation] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
 
   // ---- Kolory (dark mode ready) ----
   const toolbarBg = useColorModeValue('white', 'gray.800');
@@ -110,32 +145,104 @@ export const CostEstimateEditPage: React.FC = () => {
 
   // Ref do hasChanges — potrzebny w navigate guard (closure)
   const hasChangesRef = React.useRef(hasChanges);
-  hasChangesRef.current = hasChanges;
+  useEffect(() => {
+    hasChangesRef.current = hasChanges;
+  }, [hasChanges]);
 
-  /** Nawigacja z potwierdzeniem gdy są niezapisane zmiany */
-  const safeNavigate = useCallback(
-    (to: string) => {
-      if (
-        hasChangesRef.current &&
-        !window.confirm('Masz niezapisane zmiany. Czy na pewno chcesz opuścić stronę?')
-      ) {
-        return;
-      }
+  // ========== RĘCZNA OBSŁUGA NAWIGACJI Z OSTRZEŻENIEM ==========
+  const handleConfirmLeave = useCallback(() => {
+    onUnsavedClose();
+    setHasChanges(false);
+    hasChangesRef.current = false;
+    
+    if (isBackNavigation) {
+      // Nawigacja przyciskiem wstecz - użyj history.back()
+      setIsBackNavigation(false);
+      setPendingNavigation(null);
+      window.history.back();
+    } else if (pendingNavigation) {
+      // Normalna nawigacja przez safeNavigate
+      navigate(pendingNavigation);
+      setPendingNavigation(null);
+    }
+  }, [pendingNavigation, isBackNavigation, navigate, onUnsavedClose]);
+
+  const handleCancelLeave = useCallback(() => {
+    onUnsavedClose();
+    setPendingNavigation(null);
+    setIsBackNavigation(false);
+  }, [onUnsavedClose]);
+
+  /** Bezpieczna nawigacja - pokazuje modal jeśli są niezapisane zmiany */
+  const safeNavigate = useCallback((to: string) => {
+    if (hasChangesRef.current) {
+      setPendingNavigation(to);
+      onUnsavedOpen();
+    } else {
       navigate(to);
-    },
-    [navigate],
-  );
+    }
+  }, [navigate, onUnsavedOpen]);
+
+  /** Otwiera modal edycji z aktualnymi wartościami */
+  const handleOpenEditMeta = useCallback(() => {
+    if (details) {
+      setEditName(details.name);
+      setEditDescription(details.description || '');
+      onEditMetaOpen();
+    }
+  }, [details, onEditMetaOpen]);
+
+  /** Zapisuje zmiany nazwy/opisu */
+  const handleSaveMetaChanges = useCallback(() => {
+    if (!details) return;
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      showError('Błąd', 'Nazwa kosztorysu nie może być pusta');
+      return;
+    }
+    setDetails({
+      ...details,
+      name: trimmedName,
+      description: editDescription.trim() || undefined,
+    });
+    setHasChanges(true);
+    onEditMetaClose();
+  }, [details, editName, editDescription, onEditMetaClose, showError]);
 
   // ========== BEFOREUNLOAD (zamykanie karty / odświeżanie) ==========
-
   useEffect(() => {
-    if (!hasChanges) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChangesRef.current) {
+        e.preventDefault();
+      }
     };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [hasChanges]);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // ========== POPSTATE (przycisk wstecz/dalej przeglądarki) ==========
+  useEffect(() => {
+    // Zapisz aktualną pozycję w historii
+    const currentPath = window.location.pathname + window.location.search;
+    
+    const handlePopState = () => {
+      if (hasChangesRef.current) {
+        // Przywróć poprzedni URL (anuluj nawigację)
+        window.history.pushState(null, '', currentPath);
+        // Oznacz jako nawigację wstecz i pokaż modal
+        setIsBackNavigation(true);
+        onUnsavedOpen();
+      }
+    };
+    
+    // Dodaj wpis do historii, aby móc przechwycić przycisk wstecz
+    window.history.pushState(null, '', currentPath);
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [onUnsavedOpen]);
 
   // ========== ŁADOWANIE DANYCH ==========
 
@@ -167,47 +274,146 @@ export const CostEstimateEditPage: React.FC = () => {
     }
   };
 
-  // ========== ZAPIS ==========
-
-  const handleSave = useCallback(async () => {
-    if (!user?.activeTenantId || !projectId || !estimateId || !details) return;
+  // ========== AUTO-RECALCULATE W TLE ==========
+  
+  const AUTO_RECALC_DELAY_MS = 2000; // 2s po ostatnim zapisie
+  
+  /**
+   * Uruchamia przeliczanie kosztorysu w tle.
+   * Wywoływane automatycznie po zapisie pola (z debounce 2s).
+   * Nie pobiera danych - UI ma aktualne dane lokalnie, chodzi tylko o synchronizację backendu.
+   */
+  const runAutoRecalculate = useCallback(async () => {
+    if (!user?.activeTenantId || !projectId || !estimateId) return;
+    
     try {
-      setSaving(true);
-      const updateDto = {
-        name: details.name,
-        description: details.description,
-        status: details.status,
-        rootGroups: details.rootGroups.map((g) => convertGroupWebToDto(g)),
-      };
-      await costEstimateApiNew.updateCostEstimate(
+      setIsRecalculating(true);
+      
+      // Przelicz kosztorys na backendzie (bez pobierania - UI ma aktualne dane)
+      await costEstimateApiNew.recalculate(
         user.activeTenantId,
         projectId,
         estimateId,
-        updateDto,
       );
+      
+      setHasChanges(false);
+      setLastSavedAt(new Date());
+    } catch (err) {
+      // Nie pokazuj błędu użytkownikowi - przeliczanie w tle
+    } finally {
+      setIsRecalculating(false);
+    }
+  }, [user?.activeTenantId, projectId, estimateId]);
+  
+  /**
+   * Planuje auto-recalculate z debounce.
+   * Każdy kolejny zapis resetuje timer.
+   */
+  const scheduleAutoRecalculate = useCallback(() => {
+    // Anuluj poprzedni timeout
+    if (autoRecalcTimeoutRef.current) {
+      clearTimeout(autoRecalcTimeoutRef.current);
+    }
+    
+    // Ustaw nowy timeout
+    autoRecalcTimeoutRef.current = setTimeout(() => {
+      runAutoRecalculate();
+      autoRecalcTimeoutRef.current = null;
+    }, AUTO_RECALC_DELAY_MS);
+  }, [runAutoRecalculate]);
+  
+  // Cleanup timeout przy unmount
+  useEffect(() => {
+    return () => {
+      if (autoRecalcTimeoutRef.current) {
+        clearTimeout(autoRecalcTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // ========== AUTOSAVE PÓL Z DEBOUNCE ==========
+
+  const { scheduleFieldSave, flushPendingChanges } = useFieldAutosave({
+    params: user?.activeTenantId && projectId && estimateId 
+      ? { tenantId: user.activeTenantId, projectId, costEstimateId: estimateId }
+      : null,
+    onSaveSuccess: () => {
+      // Po udanym zapisie pola - zaplanuj auto-recalculate
+      scheduleAutoRecalculate();
+    },
+    onSaveError: (_fieldInfo, error) => {
+      showError('Błąd zapisu', 'Nie udało się zapisać zmiany pola');
+    },
+    enabled: isEditMode,
+  });
+
+  /**
+   * Przelicza kosztorys na backendzie i pobiera aktualne dane.
+   * Używane przez przycisk "Odśwież" i Ctrl+S.
+   */
+  const handleRefresh = useCallback(async () => {
+    if (!user?.activeTenantId || !projectId || !estimateId) return;
+    
+    try {
+      setIsRecalculating(true);
+      
+      // Flush pending changes
+      await flushPendingChanges();
+      
+      // Przelicz kosztorys na backendzie
+      await costEstimateApiNew.recalculate(
+        user.activeTenantId,
+        projectId,
+        estimateId,
+      );
+      
+      // Pobierz aktualne dane z bazy
       await loadCostEstimate();
       setHasChanges(false);
       setLastSavedAt(new Date());
-      showSuccess('Zapisano', 'Kosztorys został zapisany pomyślnie');
     } catch (err) {
-      showError(
-        'Błąd zapisu',
-        err instanceof Error ? err.message : 'Nie udało się zapisać kosztorysu',
-      );
     } finally {
-      setSaving(false);
+      setIsRecalculating(false);
     }
-  }, [user?.activeTenantId, projectId, estimateId, details]);
+  }, [user?.activeTenantId, projectId, estimateId, flushPendingChanges]);
+
+  // Handler dla autosave wywoływany z tabeli
+  const handleFieldAutosave = useCallback((params: {
+    entityType: 'group' | 'item';
+    entityId: string;
+    fieldValueId: string | null;
+    fieldDefinitionId: string;
+    fieldType: number;
+    valueType: 'string' | 'numeric' | 'boolean' | 'date';
+    value: string | undefined;
+  }) => {
+    scheduleFieldSave(
+      {
+        entityType: params.entityType,
+        entityId: params.entityId,
+        fieldValueId: params.fieldValueId,
+        fieldDefinitionId: params.fieldDefinitionId,
+        fieldType: params.fieldType,
+        valueType: params.valueType,
+      },
+      params.value
+    );
+  }, [scheduleFieldSave]);
 
   // ========== KEYBOARD SHORTCUTS ==========
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ctrl+S / Cmd+S → Zapisz
+      // Ctrl+S / Cmd+S → Przelicz i pobierz aktualne dane
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (hasChanges && !saving && isEditMode && details) {
-          handleSave();
+        if (isEditMode && details && !isRecalculating) {
+          // Anuluj zaplanowane auto-recalculate
+          if (autoRecalcTimeoutRef.current) {
+            clearTimeout(autoRecalcTimeoutRef.current);
+            autoRecalcTimeoutRef.current = null;
+          }
+          handleRefresh();
         }
       }
       // Esc → wyjście z fullscreen
@@ -217,7 +423,7 @@ export const CostEstimateEditPage: React.FC = () => {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [hasChanges, saving, isEditMode, details, isFullscreen, handleSave]);
+  }, [isEditMode, details, isFullscreen, isRecalculating, handleRefresh]);
 
   // ========== MUTACJE DANYCH ==========
 
@@ -230,11 +436,13 @@ export const CostEstimateEditPage: React.FC = () => {
     [],
   );
 
-  const handleAddGroup = useCallback((): string | undefined => {
-    if (!details) return undefined;
-    const newGroupId = `temp_${Date.now()}`;
-    const newGroup: CostEstimateGroupWeb = {
-      id: newGroupId,
+  const handleAddGroup = useCallback(async (): Promise<string | undefined> => {
+    if (!user?.activeTenantId || !projectId || !estimateId || !details) return undefined;
+    
+    // Optimistic update - dodaj tymczasową grupę od razu
+    const tempId = `temp_group_${Date.now()}`;
+    const tempGroup: CostEstimateGroupWeb = {
+      id: tempId,
       parentGroupId: undefined,
       level: 0,
       order: details.rootGroups.length,
@@ -248,33 +456,79 @@ export const CostEstimateEditPage: React.FC = () => {
       createdAt: new Date().toISOString(),
       updatedAt: undefined,
     };
-    setDetails({ ...details, rootGroups: [...details.rootGroups, newGroup] });
-    setHasChanges(true);
-    return newGroupId;
-  }, [details]);
+    
+    // Od razu pokaż nową grupę w UI
+    setDetails(prev => prev ? { ...prev, rootGroups: [...prev.rootGroups, tempGroup] } : prev);
+    
+    try {
+      const request: AddGroupRequestDto = {
+        parentGroupId: null,
+        order: details.rootGroups.length,
+      };
+      
+      const newGroupId = await costEstimateApiNew.addGroup(
+        user.activeTenantId,
+        projectId,
+        estimateId,
+        request
+      );
+      
+      // Zamień tymczasową grupę na prawdziwą z API (fieldValues puste — tworzone przez autosave)
+      setDetails(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rootGroups: prev.rootGroups.map(g => 
+            g.id === tempId 
+              ? { ...g, id: newGroupId, fieldValues: [] }
+              : g
+          ),
+        };
+      });
+      return newGroupId;
+    } catch (err) {
+      // Usuń tymczasową grupę przy błędzie
+      setDetails(prev => prev ? { ...prev, rootGroups: prev.rootGroups.filter(g => g.id !== tempId) } : prev);
+      showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać etapu');
+      return undefined;
+    }
+  }, [user?.activeTenantId, projectId, estimateId, details, showError]);
 
   const handleDeleteGroup = useCallback((groupId: string) => {
     setGroupToDelete(groupId);
   }, []);
 
-  const confirmDeleteGroup = useCallback(() => {
-    if (!details || !groupToDelete) return;
-    const deleteRecursive = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
-      groups
-        .filter((g) => g.id !== groupToDelete)
-        .map((g) => ({ ...g, childGroups: deleteRecursive(g.childGroups || []) }));
+  const confirmDeleteGroup = useCallback(async () => {
+    if (!user?.activeTenantId || !projectId || !estimateId || !details || !groupToDelete) return;
+    
+    try {
+      await costEstimateApiNew.deleteGroup(
+        user.activeTenantId,
+        projectId,
+        estimateId,
+        groupToDelete
+      );
+      
+      const deleteRecursive = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+        groups
+          .filter((g) => g.id !== groupToDelete)
+          .map((g) => ({ ...g, childGroups: deleteRecursive(g.childGroups || []) }));
 
-    setDetails({ ...details, rootGroups: deleteRecursive(details.rootGroups) });
-    setHasChanges(true);
-    setGroupToDelete(null);
-  }, [details, groupToDelete]);
+      setDetails({ ...details, rootGroups: deleteRecursive(details.rootGroups) });
+      setGroupToDelete(null);
+    } catch (err) {
+      showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć etapu');
+      setGroupToDelete(null);
+    }
+  }, [user?.activeTenantId, projectId, estimateId, details, groupToDelete, showError]);
 
   const handleAddSubGroup = useCallback(
-    (parentGroupId: string): string | undefined => {
-      if (!details) return undefined;
+    async (parentGroupId: string): Promise<string | undefined> => {
+      if (!user?.activeTenantId || !projectId || !estimateId || !details) return undefined;
 
       // Sprawdź limit zagnieżdżenia z szablonu
       const maxLevel = details.templateStructure?.maxGroupLevel;
+      let parentLevel: number | undefined;
       if (maxLevel != null) {
         const findGroupLevel = (groups: CostEstimateGroupWeb[]): number | undefined => {
           for (const g of groups) {
@@ -284,15 +538,29 @@ export const CostEstimateEditPage: React.FC = () => {
           }
           return undefined;
         };
-        const parentLevel = findGroupLevel(details.rootGroups);
+        parentLevel = findGroupLevel(details.rootGroups);
         if (parentLevel !== undefined && parentLevel >= maxLevel) {
           showError('Limit zagnieżdżenia', `Maksymalny poziom zagnieżdżenia etapów to ${maxLevel}`);
           return undefined;
         }
       }
 
-      const newId = `temp_${Date.now()}`;
-      const addSub = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+      // Oblicz order dla nowej grupy
+      const findParentGroup = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb | undefined => {
+        for (const g of groups) {
+          if (g.id === parentGroupId) return g;
+          const found = findParentGroup(g.childGroups || []);
+          if (found) return found;
+        }
+        return undefined;
+      };
+      const parentGroup = findParentGroup(details.rootGroups);
+      const childOrder = parentGroup ? (parentGroup.childGroups || []).length : 0;
+      const newLevel = (parentGroup?.level ?? 0) + 1;
+
+      // Optimistic update - dodaj tymczasową podgrupę od razu
+      const tempId = `temp_subgroup_${Date.now()}`;
+      const addTempSub = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
         groups.map((g) => {
           if (g.id === parentGroupId) {
             return {
@@ -300,10 +568,10 @@ export const CostEstimateEditPage: React.FC = () => {
               childGroups: [
                 ...(g.childGroups || []),
                 {
-                  id: newId,
+                  id: tempId,
                   parentGroupId,
-                  level: g.level + 1,
-                  order: (g.childGroups || []).length,
+                  level: newLevel,
+                  order: childOrder,
                   fieldValues: [],
                   totalNet: 0,
                   totalGross: 0,
@@ -317,19 +585,70 @@ export const CostEstimateEditPage: React.FC = () => {
               ],
             };
           }
-          return { ...g, childGroups: addSub(g.childGroups || []) };
+          return { ...g, childGroups: addTempSub(g.childGroups || []) };
         });
-      setDetails({ ...details, rootGroups: addSub(details.rootGroups) });
-      setHasChanges(true);
-      return newId;
+      
+      // Od razu pokaż nową podgrupę w UI
+      setDetails(prev => prev ? { ...prev, rootGroups: addTempSub(prev.rootGroups) } : prev);
+
+      try {
+        const request: AddGroupRequestDto = {
+          parentGroupId,
+          order: childOrder,
+        };
+        
+        const newSubGroupId = await costEstimateApiNew.addGroup(
+          user.activeTenantId,
+          projectId,
+          estimateId,
+          request
+        );
+
+        // Zamień tymczasową grupę na prawdziwą z API (fieldValues puste — tworzone przez autosave)
+        const replaceTempWithReal = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+          groups.map((g) => {
+            if (g.id === tempId) {
+              return { ...g, id: newSubGroupId, fieldValues: [] };
+            }
+            return { ...g, childGroups: replaceTempWithReal(g.childGroups || []) };
+          });
+        
+        setDetails(prev => prev ? { ...prev, rootGroups: replaceTempWithReal(prev.rootGroups) } : prev);
+        return newSubGroupId;
+      } catch (err) {
+        // Usuń tymczasową grupę przy błędzie
+        const removeTempGroup = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+          groups
+            .filter(g => g.id !== tempId)
+            .map(g => ({ ...g, childGroups: removeTempGroup(g.childGroups || []) }));
+        
+        setDetails(prev => prev ? { ...prev, rootGroups: removeTempGroup(prev.rootGroups) } : prev);
+        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać podetapu');
+        return undefined;
+      }
     },
-    [details],
+    [user?.activeTenantId, projectId, estimateId, details, showError],
   );
 
   const handleAddItem = useCallback(
-    (groupId: string) => {
-      if (!details) return;
-      const addIt = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+    async (groupId: string): Promise<string | undefined> => {
+      if (!user?.activeTenantId || !projectId || !estimateId || !details) return undefined;
+
+      // Oblicz order dla nowego itemu
+      const findGroup = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb | undefined => {
+        for (const g of groups) {
+          if (g.id === groupId) return g;
+          const found = findGroup(g.childGroups || []);
+          if (found) return found;
+        }
+        return undefined;
+      };
+      const group = findGroup(details.rootGroups);
+      const itemOrder = group ? (group.items || []).length : 0;
+
+      // Optimistic update - dodaj tymczasową pozycję od razu
+      const tempId = `temp_item_${Date.now()}`;
+      const addTempItem = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
         groups.map((g) => {
           if (g.id === groupId) {
             return {
@@ -337,10 +656,10 @@ export const CostEstimateEditPage: React.FC = () => {
               items: [
                 ...(g.items || []),
                 {
-                  id: `temp_${Date.now()}`,
+                  id: tempId,
                   groupId,
                   parentItemId: undefined,
-                  order: (g.items || []).length,
+                  order: itemOrder,
                   fieldValues: [],
                   options: [],
                   createdAt: new Date().toISOString(),
@@ -349,28 +668,287 @@ export const CostEstimateEditPage: React.FC = () => {
               ],
             };
           }
-          return { ...g, childGroups: addIt(g.childGroups || []) };
+          return { ...g, childGroups: addTempItem(g.childGroups || []) };
         });
-      setDetails({ ...details, rootGroups: addIt(details.rootGroups) });
-      setHasChanges(true);
+      
+      // Od razu pokaż nową pozycję w UI
+      setDetails(prev => prev ? { ...prev, rootGroups: addTempItem(prev.rootGroups) } : prev);
+
+      try {
+        const request: AddItemRequestDto = {
+          groupId,
+          order: itemOrder,
+          relationType: 0, // None - zwykły item
+        };
+        
+        const newItemId = await costEstimateApiNew.addItem(
+          user.activeTenantId,
+          projectId,
+          estimateId,
+          request
+        );
+
+        // Zamień tymczasową pozycję na prawdziwą z API (fieldValues puste — tworzone przez autosave)
+        const replaceTempWithReal = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+          groups.map((g) => {
+            if (g.id === groupId) {
+              return {
+                ...g,
+                items: (g.items || []).map(item =>
+                  item.id === tempId
+                    ? { ...item, id: newItemId, fieldValues: [] }
+                    : item
+                ),
+              };
+            }
+            return { ...g, childGroups: replaceTempWithReal(g.childGroups || []) };
+          });
+        
+        setDetails(prev => prev ? { ...prev, rootGroups: replaceTempWithReal(prev.rootGroups) } : prev);
+        
+        return newItemId;
+      } catch (err) {
+        // Usuń tymczasową pozycję przy błędzie
+        const removeTempItem = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+          groups.map((g) => {
+            if (g.id === groupId) {
+              return { ...g, items: (g.items || []).filter(i => i.id !== tempId) };
+            }
+            return { ...g, childGroups: removeTempItem(g.childGroups || []) };
+          });
+        
+        setDetails(prev => prev ? { ...prev, rootGroups: removeTempItem(prev.rootGroups) } : prev);
+        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać pozycji');
+        return undefined;
+      }
     },
-    [details],
+    [user?.activeTenantId, projectId, estimateId, details, showError],
   );
 
   const handleDeleteItem = useCallback(
-    (groupId: string, itemId: string) => {
-      if (!details) return;
-      const del = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
-        groups.map((g) => {
-          if (g.id === groupId) {
-            return { ...g, items: (g.items || []).filter((i) => i.id !== itemId) };
-          }
-          return { ...g, childGroups: del(g.childGroups || []) };
-        });
-      setDetails({ ...details, rootGroups: del(details.rootGroups) });
-      setHasChanges(true);
+    async (groupId: string, itemId: string) => {
+      if (!user?.activeTenantId || !projectId || !estimateId || !details) return;
+      
+      try {
+        await costEstimateApiNew.deleteItem(
+          user.activeTenantId,
+          projectId,
+          estimateId,
+          itemId
+        );
+        
+        const del = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+          groups.map((g) => {
+            if (g.id === groupId) {
+              return { ...g, items: (g.items || []).filter((i) => i.id !== itemId) };
+            }
+            return { ...g, childGroups: del(g.childGroups || []) };
+          });
+        setDetails({ ...details, rootGroups: del(details.rootGroups) });
+      } catch (err) {
+        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć pozycji');
+      }
     },
-    [details],
+    [user?.activeTenantId, projectId, estimateId, details, showError],
+  );
+
+  /**
+   * Dodaje opcję (relationType=1) lub komponent (relationType=2) do pozycji
+   * Wywołuje API POST /items z parentItemId
+   */
+  const handleAddChildItem = useCallback(
+    async (
+      groupId: string,
+      parentItemId: string,
+      relationType: 1 | 2 // 1=Option, 2=Component
+    ): Promise<string | undefined> => {
+      if (!user?.activeTenantId || !projectId || !estimateId || !details) return undefined;
+
+      // Znajdź parent item i oblicz order dla nowego child
+      const findItem = (groups: CostEstimateGroupWeb[]): CostEstimateItemWeb | undefined => {
+        for (const g of groups) {
+          for (const item of g.items || []) {
+            if (item.id === parentItemId) return item;
+            // Sprawdź też komponenty
+            for (const comp of item.components || []) {
+              if (comp.id === parentItemId) return comp;
+            }
+          }
+          const found = findItem(g.childGroups || []);
+          if (found) return found;
+        }
+        return undefined;
+      };
+      const parentItem = findItem(details.rootGroups);
+      const childCollection = relationType === 1 
+        ? (parentItem?.options || []) 
+        : (parentItem?.components || []);
+      const childOrder = childCollection.length;
+
+      // Optimistic update - dodaj tymczasowy element od razu
+      const tempId = relationType === 1 ? `temp_opt_${Date.now()}` : `temp_comp_${Date.now()}`;
+      const tempChild: CostEstimateItemWeb = {
+        id: tempId,
+        groupId,
+        parentItemId,
+        relationType,
+        order: childOrder,
+        fieldValues: [],
+        options: relationType === 1 ? undefined : [],
+        components: undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: undefined,
+      };
+
+      const addTempChild = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+        groups.map((g) => {
+          const updateItems = (items: CostEstimateItemWeb[]): CostEstimateItemWeb[] =>
+            items.map((item) => {
+              if (item.id === parentItemId) {
+                if (relationType === 1) {
+                  return { ...item, options: [...(item.options || []), tempChild] };
+                } else {
+                  return { ...item, components: [...(item.components || []), tempChild] };
+                }
+              }
+              // Sprawdź komponenty (opcje mogą być dodawane do komponentów)
+              if (item.components?.some(c => c.id === parentItemId)) {
+                return {
+                  ...item,
+                  components: item.components.map(comp => {
+                    if (comp.id === parentItemId && relationType === 1) {
+                      return { ...comp, options: [...(comp.options || []), tempChild] };
+                    }
+                    return comp;
+                  }),
+                };
+              }
+              return item;
+            });
+
+          return {
+            ...g,
+            items: updateItems(g.items || []),
+            childGroups: addTempChild(g.childGroups || []),
+          };
+        });
+
+      // Od razu pokaż w UI
+      setDetails(prev => prev ? { ...prev, rootGroups: addTempChild(prev.rootGroups) } : prev);
+
+      try {
+        const request: AddItemRequestDto = {
+          groupId,
+          order: childOrder,
+          relationType,
+          parentItemId,
+        };
+        
+        const newChildItemId = await costEstimateApiNew.addItem(
+          user.activeTenantId,
+          projectId,
+          estimateId,
+          request
+        );
+
+        // Zamień tymczasowy element na prawdziwy z API (fieldValues puste — tworzone przez autosave)
+        const replaceTempWithReal = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+          groups.map((g) => {
+            const updateItems = (items: CostEstimateItemWeb[]): CostEstimateItemWeb[] =>
+              items.map((item) => {
+                if (item.id === parentItemId) {
+                  if (relationType === 1) {
+                    return {
+                      ...item,
+                      options: (item.options || []).map(opt =>
+                        opt.id === tempId
+                          ? { ...opt, id: newChildItemId, fieldValues: [] }
+                          : opt
+                      ),
+                    };
+                  } else {
+                    return {
+                      ...item,
+                      components: (item.components || []).map(comp =>
+                        comp.id === tempId
+                          ? { ...comp, id: newChildItemId, fieldValues: [] }
+                          : comp
+                      ),
+                    };
+                  }
+                }
+                // Sprawdź komponenty (opcje mogą być dodawane do komponentów)
+                if (item.components?.some(c => c.id === parentItemId)) {
+                  return {
+                    ...item,
+                    components: item.components.map(comp => {
+                      if (comp.id === parentItemId && relationType === 1) {
+                        return {
+                          ...comp,
+                          options: (comp.options || []).map(opt =>
+                            opt.id === tempId
+                              ? { ...opt, id: newChildItemId, fieldValues: [] }
+                              : opt
+                          ),
+                        };
+                      }
+                      return comp;
+                    }),
+                  };
+                }
+                return item;
+              });
+
+            return {
+              ...g,
+              items: updateItems(g.items || []),
+              childGroups: replaceTempWithReal(g.childGroups || []),
+            };
+          });
+        
+        setDetails(prev => prev ? { ...prev, rootGroups: replaceTempWithReal(prev.rootGroups) } : prev);
+        return newChildItemId;
+      } catch (err) {
+        // Usuń tymczasowy element przy błędzie
+        const removeTempChild = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+          groups.map((g) => {
+            const updateItems = (items: CostEstimateItemWeb[]): CostEstimateItemWeb[] =>
+              items.map((item) => {
+                if (item.id === parentItemId) {
+                  if (relationType === 1) {
+                    return { ...item, options: (item.options || []).filter(opt => opt.id !== tempId) };
+                  } else {
+                    return { ...item, components: (item.components || []).filter(comp => comp.id !== tempId) };
+                  }
+                }
+                // Sprawdź komponenty
+                if (item.components?.some(c => c.id === parentItemId)) {
+                  return {
+                    ...item,
+                    components: item.components.map(comp => {
+                      if (comp.id === parentItemId && relationType === 1) {
+                        return { ...comp, options: (comp.options || []).filter(opt => opt.id !== tempId) };
+                      }
+                      return comp;
+                    }),
+                  };
+                }
+                return item;
+              });
+
+            return {
+              ...g,
+              items: updateItems(g.items || []),
+              childGroups: removeTempChild(g.childGroups || []),
+            };
+          });
+        
+        setDetails(prev => prev ? { ...prev, rootGroups: removeTempChild(prev.rootGroups) } : prev);
+        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać elementu');
+        return undefined;
+      }
+    },
+    [user?.activeTenantId, projectId, estimateId, details, showError],
   );
 
   // ========== PODSUMOWANIA Z SZABLONU ==========
@@ -401,6 +979,93 @@ export const CostEstimateEditPage: React.FC = () => {
       };
     });
   }, [details]);
+
+  // ========== PROPS PRZEKAZYWANE DO TABELI (hooki muszą być przed guards!) ==========
+
+  /**
+   * Reorder pozycji w grupie — wywołuje API PUT /{id}/groups/{groupId}/items/reorder
+   */
+  const handleReorderItems = useCallback(async (
+    groupId: string,
+    itemOrders: Array<{ itemId: string; order: number }>
+  ): Promise<void> => {
+    if (!user?.activeTenantId || !projectId || !estimateId) {
+      throw new Error('Brak wymaganych parametrów');
+    }
+    await costEstimateApiNew.reorderItems(
+      user.activeTenantId,
+      projectId,
+      estimateId,
+      groupId,
+      {
+        costEstimateId: estimateId,
+        items: itemOrders,
+      }
+    );
+  }, [user?.activeTenantId, projectId, estimateId]);
+
+  /**
+   * Reorder grup — wywołuje API PUT /{id}/groups/reorder
+   * Obsługuje też przenoszenie grup między parentami (parentGroupId)
+   */
+  const handleReorderGroups = useCallback(async (
+    groupOrders: Array<{ groupId: string; parentGroupId: string | null; order: number }>
+  ): Promise<void> => {
+    if (!user?.activeTenantId || !projectId || !estimateId) {
+      throw new Error('Brak wymaganych parametrów');
+    }
+    await costEstimateApiNew.reorderGroups(
+      user.activeTenantId,
+      projectId,
+      estimateId,
+      {
+        costEstimateId: estimateId,
+        groups: groupOrders,
+      }
+    );
+  }, [user?.activeTenantId, projectId, estimateId]);
+
+  /**
+   * Przeniesienie pozycji między grupami — wywołuje API PATCH /{id}/items/{itemId}/move
+   */
+  const handleMoveItem = useCallback(async (
+    itemId: string,
+    targetGroupId: string
+  ): Promise<void> => {
+    if (!user?.activeTenantId || !projectId || !estimateId) {
+      throw new Error('Brak wymaganych parametrów');
+    }
+    await costEstimateApiNew.moveItem(
+      user.activeTenantId,
+      projectId,
+      estimateId,
+      itemId,
+      {
+        costEstimateId: estimateId,
+        itemId,
+        targetGroupId,
+      }
+    );
+  }, [user?.activeTenantId, projectId, estimateId]);
+
+  const handleUploadFiles = useCallback(async (itemId: string, fieldDefinitionId: string, files: File[]): Promise<string[]> => {
+    if (!user?.activeTenantId || !projectId || !estimateId) {
+      throw new Error('Brak wymaganych parametrów');
+    }
+    return costEstimateApiNew.uploadCostEstimateItemFiles(
+      user.activeTenantId,
+      projectId,
+      estimateId,
+      itemId,
+      fieldDefinitionId,
+      files
+    );
+  }, [user?.activeTenantId, projectId, estimateId]);
+
+  const handleUploadSuccess = useCallback(() => {
+    // Po uploadzie odśwież dane kosztorysu, aby uzyskać nowe SAS URI
+    loadCostEstimate();
+  }, [loadCostEstimate]);
 
   // ========== GUARDS ==========
 
@@ -467,14 +1132,27 @@ export const CostEstimateEditPage: React.FC = () => {
 
           <HStack spacing={2} minW={0}>
             <Icon as={FileSpreadsheet} boxSize={5} color="blue.500" />
-            <Text
-              fontSize={{ base: 'md', md: 'lg' }}
-              fontWeight="bold"
-              isTruncated
-              maxW={{ base: '200px', md: '400px' }}
-            >
-              {details.name}
-            </Text>
+            <HStack spacing={1} minW={0}>
+              <Text
+                fontSize={{ base: 'md', md: 'lg' }}
+                fontWeight="bold"
+                isTruncated
+                maxW={{ base: '200px', md: '400px' }}
+              >
+                {details.name}
+              </Text>
+              {isEditMode && (
+                <Tooltip label="Edytuj nazwę i opis">
+                  <IconButton
+                    aria-label="Edytuj nazwę i opis"
+                    icon={<Pencil size={14} />}
+                    size="xs"
+                    variant="ghost"
+                    onClick={handleOpenEditMeta}
+                  />
+                </Tooltip>
+              )}
+            </HStack>
             <Badge colorScheme={statusInfo.color} fontSize="xs" flexShrink={0}>
               {statusInfo.label}
             </Badge>
@@ -483,65 +1161,49 @@ export const CostEstimateEditPage: React.FC = () => {
 
         {/* Prawa strona: akcje */}
         <HStack spacing={2} flexShrink={0}>
-          {/* Indicator niezapisanych zmian */}
-          {hasChanges && (
+          {/* Przycisk Odśwież */}
+          <Tooltip label="Przelicz i pobierz aktualny kosztorys">
+            <IconButton
+              aria-label="Odśwież"
+              icon={isRecalculating ? <Spinner size="xs" /> : <RefreshCw size={14} />}
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                // Anuluj zaplanowane auto-recalculate
+                if (autoRecalcTimeoutRef.current) {
+                  clearTimeout(autoRecalcTimeoutRef.current);
+                  autoRecalcTimeoutRef.current = null;
+                }
+                handleRefresh();
+              }}
+              isDisabled={isRecalculating}
+            />
+          </Tooltip>
+
+          {/* Wskaźnik przeliczania */}
+          {isRecalculating && (
             <HStack
               spacing={1}
-              bg="orange.50"
-              color="orange.600"
+              bg="blue.50"
+              color="blue.600"
               px={2}
               py={1}
               borderRadius="md"
               fontSize="xs"
               fontWeight="medium"
             >
-              <AlertCircle size={12} />
-              <Text>Niezapisane</Text>
+              <Spinner size="xs" />
+              <Text>Przeliczam...</Text>
             </HStack>
           )}
 
-          {/* Ostatni zapis */}
-          {lastSavedAt && !hasChanges && (
+          {/* Ostatnie przeliczenie */}
+          {lastSavedAt && !isRecalculating && (
             <HStack spacing={1} color="green.500" fontSize="xs">
               <CheckCircle2 size={12} />
-              <Text>Zapisano {formatTime(lastSavedAt)}</Text>
+              <Text>Przeliczono {formatTime(lastSavedAt)}</Text>
             </HStack>
           )}
-
-          {/* Przycisk zapisu z hintem Ctrl+S */}
-          <Tooltip
-            label={
-              <HStack spacing={1}>
-                <Text>Zapisz zmiany</Text>
-                <Kbd fontSize="2xs" bg="whiteAlpha.300">Ctrl+S</Kbd>
-              </HStack>
-            }
-            hasArrow
-          >
-            <Button
-              colorScheme="blue"
-              size="sm"
-              leftIcon={saving ? <Spinner size="xs" /> : <Save size={14} />}
-              onClick={handleSave}
-              isDisabled={!hasChanges || saving || !isEditMode}
-              isLoading={saving}
-              loadingText="Zapisuję…"
-            >
-              Zapisz
-            </Button>
-          </Tooltip>
-
-          {/* Odśwież */}
-          <Tooltip label="Odśwież dane z serwera">
-            <IconButton
-              aria-label="Odśwież"
-              icon={<RefreshCw size={14} />}
-              size="sm"
-              variant="outline"
-              onClick={loadCostEstimate}
-              isDisabled={loading}
-            />
-          </Tooltip>
 
           {/* Segmented toggle Edycja / Podgląd */}
           <HStack spacing={0} bg={segmentBg} borderRadius="md" p="2px">
@@ -611,7 +1273,7 @@ export const CostEstimateEditPage: React.FC = () => {
     </Box>
   );
 
-  // ========== PROPS PRZEKAZYWANE DO TABELI ==========
+  // ========== TABLE PROPS ==========
 
   const tableProps = {
     details,
@@ -622,6 +1284,13 @@ export const CostEstimateEditPage: React.FC = () => {
     onAddSubGroup: handleAddSubGroup,
     onAddItem: handleAddItem,
     onDeleteItem: handleDeleteItem,
+    onAddChildItem: handleAddChildItem,
+    onUploadFiles: handleUploadFiles,
+    onUploadSuccess: handleUploadSuccess,
+    onFieldAutosave: handleFieldAutosave,
+    onReorderItems: handleReorderItems,
+    onReorderGroups: handleReorderGroups,
+    onMoveItem: handleMoveItem,
   };
 
   // ========== FULLSCREEN ==========
@@ -688,7 +1357,83 @@ export const CostEstimateEditPage: React.FC = () => {
         colorScheme="red"
       />
 
+      {/* Modal edycji nazwy i opisu */}
+      <Modal isOpen={isEditMetaOpen} onClose={onEditMetaClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edytuj kosztorys</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Nazwa</FormLabel>
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Nazwa kosztorysu"
+                  autoFocus
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Opis</FormLabel>
+                <Textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Opcjonalny opis kosztorysu"
+                  rows={3}
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onEditMetaClose}>
+              Anuluj
+            </Button>
+            <Button colorScheme="blue" onClick={handleSaveMetaChanges}>
+              Zapisz
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
+      {/* Modal ostrzeżenia o niezapisanych zmianach */}
+      <AlertDialog
+        isOpen={isUnsavedOpen}
+        leastDestructiveRef={unsavedCancelRef}
+        onClose={handleCancelLeave}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              <HStack spacing={2}>
+                <AlertCircle size={24} color="orange" />
+                <Text>Niezapisane zmiany</Text>
+              </HStack>
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              <Text>
+                Masz niezapisane zmiany w kosztorysie. Czy na pewno chcesz opuścić tę stronę?
+              </Text>
+              <Text mt={2} color="gray.600" fontSize="sm">
+                Wszystkie niezapisane zmiany zostaną utracone.
+              </Text>
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={unsavedCancelRef} onClick={handleCancelLeave}>
+                Zostań na stronie
+              </Button>
+              <Button colorScheme="red" onClick={handleConfirmLeave} ml={3}>
+                Opuść bez zapisywania
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </MainLayout>
   );
 };
+
+export default CostEstimateEditPage;

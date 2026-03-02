@@ -1,4 +1,4 @@
-﻿import * as signalR from "@microsoft/signalr";
+import * as signalR from "@microsoft/signalr";
 import type { NotificationPayloadDto, NotificationMarkAsReadDto } from "../types/notification.types";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
@@ -43,8 +43,6 @@ class NotificationHubService {
       return this.connection;
     }
 
-    console.log("🔧 Creating new SignalR connection (singleton)");
-
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(`${API_BASE_URL}/api/hubs/notifications`, {
         // ✅ KLUCZOWE: accessTokenFactory wywoływane jest za KAŻDYM requestem
@@ -53,7 +51,6 @@ class NotificationHubService {
           const accounts = msalInstance.getAllAccounts();
           
           if (accounts.length === 0) {
-            console.warn("⚠️ No MSAL accounts found for SignalR");
             throw new Error("No authenticated user");
           }
 
@@ -64,10 +61,8 @@ class NotificationHubService {
               ...silentRequest,
               account: account,
             });
-            console.log("🔑 SignalR: Fresh token acquired from MSAL");
             return response.accessToken;
           } catch (error) {
-            console.error("❌ SignalR: Failed to acquire token:", error);
             throw error;
           }
         },
@@ -88,11 +83,9 @@ class NotificationHubService {
 
     // Lifecycle events z diagnostyką
     this.connection.onreconnecting((error) => {
-      console.warn("⚠️ SignalR reconnecting", { error, at: new Date().toISOString() });
     });
 
     this.connection.onreconnected(async (connectionId) => {
-      console.log("✅ SignalR reconnected", { connectionId, at: new Date().toISOString() });
       
       // Resolve readiness
       this.readyResolve?.();
@@ -103,13 +96,11 @@ class NotificationHubService {
         try {
           await this.afterReconnect();
         } catch (error) {
-          console.error("❌ Error in afterReconnect:", error);
         }
       }
     });
 
     this.connection.onclose((error) => {
-      console.error("❌ SignalR connection CLOSED", { error, at: new Date().toISOString() });
       // Reset readiness dla kolejnego połączenia
       this.readyPromise = null;
       this.readyResolve = null;
@@ -132,16 +123,6 @@ class NotificationHubService {
       const createdAt = payload.notification.createdAt;
       const latencyMs = Date.now() - new Date(createdAt).getTime();
       
-      console.log("🔔 [RECEIVE] ReceiveNotification", {
-        state: this.connection?.state,
-        receiveTimestamp,
-        notificationId: payload.notification.id,
-        createdAt,
-        latencyMs: `${latencyMs}ms`,
-        title: payload.notification.title,
-        unreadCounter: payload.unreadNotificationCounter
-      });
-      
       // Zapisz czas otrzymania
       this.lastNotificationTime = Date.now();
       
@@ -151,11 +132,8 @@ class NotificationHubService {
 
     // 🔄 Nasłuchuj na synchronizację między urządzeniami
     this.connection.on("ReceiveNotificationMarkAsRead", (dto: NotificationMarkAsReadDto) => {
-      console.log("🔄 Synchronizacja: Powiadomienie oznaczone jako przeczytane na innym urządzeniu:", dto);
       this.notifySyncListeners(dto);
     });
-
-    console.log("✅ SignalR handlers registered/refreshed");
   }
 
   private ensureReadyPromise(): Promise<void> {
@@ -176,7 +154,6 @@ class NotificationHubService {
     // Jeśli trwa łączenie - CZEKAJ na ready zamiast zwracać
     if (conn.state === signalR.HubConnectionState.Connecting || 
         conn.state === signalR.HubConnectionState.Reconnecting) {
-      console.log("⏳ SignalR connecting/reconnecting, waiting for ready...");
       await this.ensureReadyPromise();
       return;
     }
@@ -198,33 +175,24 @@ class NotificationHubService {
           this.readyResolve = null;
           return;
         }
-
-        console.log("🔌 Starting SignalR connection...");
         await conn.start();
         
         // Resolve readiness
         this.readyResolve?.();
         this.readyResolve = null;
         
-        console.log("✅ SignalR Connected. Connection ID:", conn.connectionId);
-        
         // 🔍 Sprawdź czy backend widzi UserIdentifier (oid)
         try {
           const userIdentifier = await conn.invoke("WhoAmI");
-          console.log("🔍 SignalR UserIdentifier (backend):", userIdentifier);
           
           if (userIdentifier === "NULL" || !userIdentifier) {
-            console.error("❌ Backend NIE widzi 'oid' claim! Powiadomienia NIE BĘDĄ działać!");
           } else {
-            console.log("✅ Backend poprawnie zidentyfikował użytkownika");
           }
         } catch (invokeError) {
-          console.error("❌ Błąd wywołania WhoAmI():", invokeError);
         }
 
         // NIE wywołuj afterReconnect przy pierwszym start - to jest zrobione osobno w AuthContext
       } catch (err) {
-        console.error("❌ SignalR Connection Error:", err);
         // NIE rób ręcznego retry - automaticReconnect się tym zajmie
         throw err;
       } finally {
@@ -239,9 +207,7 @@ class NotificationHubService {
     if (this.connection) {
       try {
         await this.connection.stop();
-        console.log("✅ SignalR Disconnected");
       } catch (error) {
-        console.error("❌ Error stopping SignalR:", error);
       }
       // NIE nulluj connection - zostaw jako singleton dla reconnect
     }
@@ -262,7 +228,6 @@ class NotificationHubService {
       try {
         listener(payload);
       } catch (error) {
-        console.error("Error in notification listener:", error);
       }
     });
   }
@@ -272,7 +237,6 @@ class NotificationHubService {
       try {
         listener(dto);
       } catch (error) {
-        console.error("Error in sync listener:", error);
       }
     });
   }
@@ -320,11 +284,9 @@ class NotificationHubService {
 
   // Wymuszony restart połączenia (np. po ping failure lub długim disconnected)
   async forceRestart(): Promise<void> {
-    console.log("🔄 Force restarting SignalR...");
     
     const conn = this.connection;
     if (!conn) {
-      console.warn("⚠️ No connection to restart");
       return this.startConnection();
     }
 
@@ -332,10 +294,8 @@ class NotificationHubService {
       // Stop jeśli nie jest disconnected
       if (conn.state !== signalR.HubConnectionState.Disconnected) {
         await conn.stop();
-        console.log("🛑 Connection stopped for restart");
       }
     } catch (stopError) {
-      console.warn("⚠️ Stop error (ignoring):", stopError);
     }
 
     // Krótka przerwa
@@ -344,14 +304,12 @@ class NotificationHubService {
     // Start ponownie
     try {
       await conn.start();
-      console.log("✅ Force restart completed");
       
       // Resync po restart
       if (this.afterReconnect) {
         await this.afterReconnect();
       }
     } catch (startError) {
-      console.error("❌ Force restart failed:", startError);
       throw startError;
     }
   }

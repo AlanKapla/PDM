@@ -18,6 +18,7 @@ import CostEstimateTemplates from "../pages/CostEstimateTemplates";
 // TemplateVersionHistory removed - versioning no longer supported
 import CostEstimateTemplateEditor from "../pages/CostEstimateTemplateEditor";
 import CostEstimateTemplateNew from "../pages/CostEstimateTemplateNew";
+import CostEstimateTemplateSelector from "../pages/CostEstimateTemplateSelector";
 import ProjectMembers from "../pages/ProjectMembers";
 import ProjectSchedules from "../pages/ProjectSchedules";
 import ProjectFiles from "../pages/ProjectFiles";
@@ -154,6 +155,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <CostEstimateTemplateNew />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/cost-estimate-templates/select"
+        element={
+          <ProtectedRoute>
+            <CostEstimateTemplateSelector />
           </ProtectedRoute>
         }
       />

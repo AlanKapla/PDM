@@ -1,6 +1,20 @@
 ﻿namespace Business.Interfaces.WebModels.CostEstimates
 {
     /// <summary>
+    /// Plik dołączony do pola kosztorysu typu ItemSystemFiles
+    /// </summary>
+    public record CostEstimateFieldFileWeb(
+        Guid Id,
+        string OriginalFileName,
+        string ContentType,
+        long FileSize,
+        int Order,
+        string? SasUriPreview,
+        string? SasUriDownload,
+        DateTime CreatedAt
+    );
+
+    /// <summary>
     /// Wartość pola w kosztorysie (wspólna dla grup i pozycji)
     /// Wartość zwracana w odpowiednim polu typowanym w zależności od FieldType
     /// </summary>
@@ -14,7 +28,8 @@
         string? StringValue,
         decimal? DecimalValue,
         bool? BoolValue,
-        DateTime? DateTimeValue
+        DateTime? DateTimeValue,
+        List<CostEstimateFieldFileWeb>? Files = null  // Pliki - tylko dla FieldType == ItemSystemFiles
     );
     
     /// <summary>

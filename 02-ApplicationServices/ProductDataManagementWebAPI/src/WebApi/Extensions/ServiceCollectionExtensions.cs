@@ -295,8 +295,11 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
             services.AddScoped<IRepository<CostEstimateGroup>, Repository<CostEstimateGroup>>();
             services.AddScoped<IRepository<CostEstimateGroupFieldValue>, Repository<CostEstimateGroupFieldValue>>();
+            services.AddScoped<IReadRepository<CostEstimateItem>, ReadRepository<CostEstimateItem>>();
             services.AddScoped<IRepository<CostEstimateItem>, Repository<CostEstimateItem>>();
+            services.AddScoped<IReadRepository<CostEstimateItemFieldValue>, ReadRepository<CostEstimateItemFieldValue>>();
             services.AddScoped<IRepository<CostEstimateItemFieldValue>, Repository<CostEstimateItemFieldValue>>();
+            services.AddScoped<IRepository<CostEstimateFieldFile>, Repository<CostEstimateFieldFile>>();
             services.AddScoped<IReadRepository<Role>, ReadRepository<Role>>();
             services.AddScoped<IRepository<Role>, Repository<Role>>();
             services.AddScoped<IReadRepository<Permission>, ReadRepository<Permission>>();
@@ -344,6 +347,12 @@ namespace WebApi.Extensions
             
             // Cost estimate template service - used in multiple handlers
             services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
+
+            // Cost estimate service
+            services.AddScoped<ICostEstimateService, CostEstimateService>();
+
+            // Cost estimate cache service
+            services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             
             // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();

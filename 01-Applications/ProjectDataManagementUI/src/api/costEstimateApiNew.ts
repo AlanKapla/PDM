@@ -5,6 +5,12 @@ import type {
   CreateCostEstimateWithDataDto,
   UpdateCostEstimateDto,
   CostEstimateGroupDto,
+  AddGroupRequestDto,
+  AddItemRequestDto,
+  ReorderGroupsRequestDto,
+  ReorderItemsRequestDto,
+  MoveItemRequestDto,
+  UpsertFieldValueRequestDto,
 } from "../types/costEstimate.types.new";
 
 // Import ResourceScope from projectApi
@@ -161,6 +167,222 @@ export const costEstimateApiNew = {
     const response = await axiosClient.post<string[]>(
       `/tenants/${tenantId}/project/${projectId}/cost-estimate/${id}/copy`,
       { targetProjectIds }
+    );
+    return response.data;
+  },
+
+  // ============================================================
+  // GROUP OPERATIONS
+  // ============================================================
+
+  /**
+   * Add a new group to a cost estimate
+   * @returns Created group with ID and initialized field values
+   */
+  addGroup: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    data: AddGroupRequestDto
+  ): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/groups`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Delete a group from cost estimate
+   */
+  deleteGroup: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    groupId: string
+  ): Promise<void> => {
+    await axiosClient.delete(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/groups/${groupId}`
+    );
+  },
+
+  /**
+   * Update a group field value
+   * Does NOT trigger automatic recalculation - call recalculate() separately if needed
+   */
+  upsertGroupField: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    groupId: string,
+    data: UpsertFieldValueRequestDto
+  ): Promise<string> => {
+    const response = await axiosClient.patch<string>(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/groups/${groupId}/fields`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Reorder groups within cost estimate
+   * Supports moving groups between different parents via parentGroupId
+   */
+  reorderGroups: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    data: ReorderGroupsRequestDto
+  ): Promise<void> => {
+    await axiosClient.put(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/groups/reorder`,
+      data
+    );
+  },
+
+  // ============================================================
+  // ITEM OPERATIONS
+  // ============================================================
+
+  /**
+   * Add a new item to a group in cost estimate
+   * @returns Created item with ID and initialized field values
+   */
+  addItem: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    data: AddItemRequestDto
+  ): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/items`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Delete an item from cost estimate
+   */
+  deleteItem: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    itemId: string
+  ): Promise<void> => {
+    await axiosClient.delete(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/items/${itemId}`
+    );
+  },
+
+  /**
+   * Update an item field value
+   * Does NOT trigger automatic recalculation - call recalculate() separately if needed
+   */
+  upsertItemField: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    itemId: string,
+    data: UpsertFieldValueRequestDto
+  ): Promise<string> => {
+    const response = await axiosClient.patch<string>(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/items/${itemId}/fields`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Reorder items within a group
+   */
+  reorderItems: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    groupId: string,
+    data: ReorderItemsRequestDto
+  ): Promise<void> => {
+    await axiosClient.put(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/groups/${groupId}/items/reorder`,
+      data
+    );
+  },
+
+  /**
+   * Move an item to a different group
+   * Options and components are moved together with the parent item
+   * Only main items (RelationType=None) can be moved
+   */
+  moveItem: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    itemId: string,
+    data: MoveItemRequestDto
+  ): Promise<void> => {
+    await axiosClient.patch(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/items/${itemId}/move`,
+      data
+    );
+  },
+
+  // ============================================================
+  // CALCULATION
+  // ============================================================
+
+  /**
+   * Recalculate all calculated fields in cost estimate
+   * Must be called explicitly after modifying field values that affect calculations
+   */
+  recalculate: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string
+  ): Promise<void> => {
+    await axiosClient.post(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/recalculate`
+    );
+  },
+
+  // ============================================================
+  // FILE OPERATIONS
+  // ============================================================
+
+  /**
+   * Upload files to a cost estimate field of type ItemSystemFiles (fieldType = 105)
+   * Replace all files for a cost estimate item field (Replace All strategy).
+   * Backend automatically creates FieldValue if it doesn't exist.
+   * Sending empty files array removes all existing files.
+   * 
+   * @param tenantId Tenant ID
+   * @param projectId Project ID
+   * @param costEstimateId Cost estimate ID
+   * @param itemId Item ID (CostEstimateItem)
+   * @param fieldDefinitionId Field definition ID (must be of type ItemSystemFiles = 105)
+   * @param files Array of files to upload (PDF/JPG, max 50 MB each, max 10 files)
+   * @returns Array of created file IDs (empty array if files were cleared)
+   */
+  uploadCostEstimateItemFiles: async (
+    tenantId: string,
+    projectId: string,
+    costEstimateId: string,
+    itemId: string,
+    fieldDefinitionId: string,
+    files: File[]
+  ): Promise<string[]> => {
+    const formData = new FormData();
+    formData.append('fieldDefinitionId', fieldDefinitionId);
+    files.forEach(file => formData.append('files', file));
+
+    const response = await axiosClient.post<string[]>(
+      `/tenants/${tenantId}/project/${projectId}/cost-estimate/${costEstimateId}/items/${itemId}/files`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
   },

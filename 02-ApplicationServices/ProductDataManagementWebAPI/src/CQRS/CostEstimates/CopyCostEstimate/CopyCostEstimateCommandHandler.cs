@@ -98,14 +98,18 @@ namespace CQRS.CostEstimates.CopyCostEstimate
 
                 // Deep copy groups and work scope items
                 var groupIdMapping = new Dictionary<Guid, Guid>(); // old ID => new ID
-                
+                var allCopiedGroups = new List<CostEstimateGroup>();
+                var allCopiedGroupFieldValues = new List<CostEstimateGroupFieldValue>();
+                var allCopiedItems = new List<CostEstimateItem>();
+                var allCopiedItemFieldValues = new List<CostEstimateItemFieldValue>();
+
                 // Copy all groups (maintain hierarchy)
                 foreach (var sourceGroup in sourceCostEstimate.AllGroups.OrderBy(g => g.Level))
                 {
                     var newGroupId = Guid.NewGuid();
                     groupIdMapping[sourceGroup.Id] = newGroupId;
-                    
-                    var copiedGroup = new CostEstimateGroup
+
+                    allCopiedGroups.Add(new CostEstimateGroup
                     {
                         Id = newGroupId,
                         CostEstimateId = copiedCostEstimate.Id,
@@ -120,14 +124,12 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         LastCalculatedAt = sourceGroup.LastCalculatedAt,
                         CreatedAt = now,
                         IsDeleted = false
-                    };
-                    
-                    await groupRepo.Insert(copiedGroup);
-                    
+                    });
+
                     // Copy group field values
                     foreach (var sourceFieldValue in sourceGroup.FieldValues)
                     {
-                        var copiedFieldValue = new CostEstimateGroupFieldValue
+                        allCopiedGroupFieldValues.Add(new CostEstimateGroupFieldValue
                         {
                             Id = Guid.NewGuid(),
                             GroupId = newGroupId,
@@ -137,33 +139,34 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                             BoolValue = sourceFieldValue.BoolValue,
                             DateTimeValue = sourceFieldValue.DateTimeValue,
                             CreatedAt = now
-                        };
-                        
-                        await groupFieldValueRepo.Insert(copiedFieldValue);
+                        });
                     }
-                    
+
                     // Copy work scope items for this group (tylko główne pozycje - ParentItemId == null)
                     var mainItems = sourceGroup.Items.Where(i => i.ParentItemId == null).ToList();
                     var itemIdMapping = new Dictionary<Guid, Guid>(); // old item ID => new item ID
-                    
+
                     foreach (var sourceItem in mainItems)
                     {
-                        await CopySingleItemWithOptionsAsync(
+                        CollectCopiedItems(
                             copiedCostEstimate.Id,
                             newGroupId,
-                            null, // ParentItemId = null dla głównych pozycji
+                            null,
                             sourceItem,
                             itemIdMapping,
                             now,
-                            cancellationToken);
+                            allCopiedItems,
+                            allCopiedItemFieldValues);
                     }
                 }
-                
-                // Save all changes for this copy
+
+                // Batch insert all collected entities
+                await groupRepo.InsertRange(allCopiedGroups);
+                await groupFieldValueRepo.InsertRange(allCopiedGroupFieldValues);
+                await itemRepo.InsertRange(allCopiedItems);
+                await itemFieldValueRepo.InsertRange(allCopiedItemFieldValues);
+
                 await groupRepo.SaveChangesAsync(cancellationToken);
-                await groupFieldValueRepo.SaveChangesAsync(cancellationToken);
-                await itemRepo.SaveChangesAsync(cancellationToken);
-                await itemFieldValueRepo.SaveChangesAsync(cancellationToken);
 
                 createdCostEstimateIds.Add(copiedCostEstimate.Id);
             }
@@ -171,19 +174,20 @@ namespace CQRS.CostEstimates.CopyCostEstimate
             return createdCostEstimateIds;
         }
 
-        private async Task CopySingleItemWithOptionsAsync(
+        private static void CollectCopiedItems(
             Guid costEstimateId,
             Guid groupId,
             Guid? parentItemId,
             CostEstimateItem sourceItem,
             Dictionary<Guid, Guid> itemIdMapping,
             DateTime now,
-            CancellationToken cancellationToken)
+            List<CostEstimateItem> allItems,
+            List<CostEstimateItemFieldValue> allFieldValues)
         {
             var newItemId = Guid.NewGuid();
             itemIdMapping[sourceItem.Id] = newItemId;
-            
-            var copiedItem = new CostEstimateItem
+
+            allItems.Add(new CostEstimateItem
             {
                 Id = newItemId,
                 CostEstimateId = costEstimateId,
@@ -192,14 +196,12 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                 Order = sourceItem.Order,
                 CreatedAt = now,
                 IsDeleted = false
-            };
-            
-            await itemRepo.Insert(copiedItem);
-            
+            });
+
             // Copy field values
             foreach (var sourceFieldValue in sourceItem.FieldValues)
             {
-                var copiedFieldValue = new CostEstimateItemFieldValue
+                allFieldValues.Add(new CostEstimateItemFieldValue
                 {
                     Id = Guid.NewGuid(),
                     ItemId = newItemId,
@@ -209,24 +211,23 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                     BoolValue = sourceFieldValue.BoolValue,
                     DateTimeValue = sourceFieldValue.DateTimeValue,
                     CreatedAt = now
-                };
-                
-                await itemFieldValueRepo.Insert(copiedFieldValue);
+                });
             }
-            
-            // Rekursywnie skopiuj opcje (jeśli są)
-            if (sourceItem.Options != null && sourceItem.Options.Any())
+
+            // Recursively collect options
+            if (sourceItem.Options != null)
             {
                 foreach (var sourceOption in sourceItem.Options.Where(o => !o.IsDeleted))
                 {
-                    await CopySingleItemWithOptionsAsync(
+                    CollectCopiedItems(
                         costEstimateId,
                         groupId,
-                        newItemId, // ParentItemId dla opcji
+                        newItemId,
                         sourceOption,
                         itemIdMapping,
                         now,
-                        cancellationToken);
+                        allItems,
+                        allFieldValues);
                 }
             }
         }

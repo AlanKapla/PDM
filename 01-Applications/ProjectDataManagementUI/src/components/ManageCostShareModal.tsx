@@ -1,4 +1,4 @@
-﻿import {
+import {
   Modal,
   ModalOverlay,
   ModalContent,
@@ -69,7 +69,6 @@ export const ManageCostShareModal = ({
       const filteredMembers = data.filter((member: ProjectMemberWeb) => !excludeIds.has(member.userId));
       setMembers(filteredMembers);
     } catch (error) {
-      console.error("Błąd podczas pobierania członków:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy członków projektu",
@@ -108,7 +107,6 @@ export const ManageCostShareModal = ({
       onShareUpdated();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji udostępnienia:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
