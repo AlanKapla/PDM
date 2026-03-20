@@ -55,30 +55,19 @@ export default function CollaboratingTenants() {
 
     setChangingTenant(true);
     try {
-      const success = await changeActiveTenant(newTenantId);
+      await changeActiveTenant(newTenantId);
+      setActiveTenantId(newTenantId);
+      toast({
+        title: "Organizacja przełączona",
+        description: "Organizacja została pomyślnie przełączona",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
       
-      if (success) {
-        setActiveTenantId(newTenantId);
-        toast({
-          title: "Organizacja przełączona",
-          description: "Organizacja została pomyślnie przełączona",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        toast({
-          title: "Błąd przełączania organizacji",
-          description: "Nie udało się przełączyć organizacji",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       toast({
         title: "Błąd",

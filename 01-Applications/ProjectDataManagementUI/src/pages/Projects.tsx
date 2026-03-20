@@ -99,6 +99,8 @@ export default function Projects() {
         const data = await getUserTenants();
         setTenants(data);
       } catch (err) {
+        showError("Nie udało się pobrać listy organizacji");
+        setTenants([]);
       } finally {
         setTenantsLoading(false);
       }

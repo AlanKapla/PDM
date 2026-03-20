@@ -33,13 +33,8 @@ export const getTenantDetails = async (tenantId: string): Promise<TenantDetails 
   }
 };
 
-export const changeActiveTenant = async (tenantId: string): Promise<boolean> => {
-  try {
-    await tenantApi.changeActiveTenant(tenantId);
-    return true;
-  } catch (error) {
-    return false;
-  }
+export const changeActiveTenant = async (tenantId: string): Promise<void> => {
+  await tenantApi.changeActiveTenant(tenantId);
 };
 
 export const createTenant = async (name: string): Promise<UserTenant | null> => {

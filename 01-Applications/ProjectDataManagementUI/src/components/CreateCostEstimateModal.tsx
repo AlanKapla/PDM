@@ -52,33 +52,20 @@ export default function CreateCostEstimateModal({
   const [description, setDescription] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
-  const [templates, setTemplates] = useState<TemplateWithStructure[]>([]);
+  const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
+  const [selectedTemplateDetails, setSelectedTemplateDetails] = useState<TemplateWithStructure | null>(null);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [loadingTemplateDetails, setLoadingTemplateDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load templates when modal opens
+  // Load template list when modal opens
   useEffect(() => {
     if (isOpen) {
       const loadTemplates = async () => {
         setLoadingTemplates(true);
         try {
           const templateList = await costEstimateTemplateApi.getTemplates();
-          // Pobierz szczegóły dla każdego szablonu, aby uzyskać strukturę i waluty
-          const templatesWithStructure: TemplateWithStructure[] = await Promise.all(
-            templateList.map(async (t) => {
-              try {
-                const details = await costEstimateTemplateApi.getTemplateDetails(t.id);
-                return {
-                  ...t,
-                  structure: details.structure,
-                  currencies: details.structure?.currencies || [],
-                };
-              } catch {
-                return { ...t, currencies: [] };
-              }
-            })
-          );
-          setTemplates(templatesWithStructure);
+          setTemplates(templateList);
         } catch (error) {
           toast({
             title: "Błąd",
@@ -95,31 +82,53 @@ export default function CreateCostEstimateModal({
     }
   }, [isOpen, toast]);
 
-  // Auto-select default currency when template changes
+  // Load details (currencies, structure) only for the selected template
   useEffect(() => {
-    if (selectedTemplateId) {
-      const template = templates.find(t => t.id === selectedTemplateId);
-      if (template && template.currencies && template.currencies.length > 0) {
-        const defaultCurrency = template.currencies.find(c => c.isDefault);
-        if (defaultCurrency) {
-          setSelectedCurrencyId(defaultCurrency.id);
-        } else {
-          // Jeśli brak domyślnej, wybierz pierwszą
-          setSelectedCurrencyId(template.currencies[0].id);
-        }
-      } else {
-        setSelectedCurrencyId("");
-      }
-    } else {
+    if (!selectedTemplateId) {
+      setSelectedTemplateDetails(null);
       setSelectedCurrencyId("");
+      return;
     }
-  }, [selectedTemplateId, templates]);
+
+    const loadDetails = async () => {
+      setLoadingTemplateDetails(true);
+      try {
+        const details = await costEstimateTemplateApi.getTemplateDetails(selectedTemplateId);
+        const templateBase = templates.find((t) => t.id === selectedTemplateId);
+        if (!templateBase) return;
+        const withDetails: TemplateWithStructure = {
+          ...templateBase,
+          structure: details.structure,
+          currencies: details.structure?.currencies || [],
+        };
+        setSelectedTemplateDetails(withDetails);
+
+        // Auto-select default currency
+        const currencies = details.structure?.currencies || [];
+        const defaultCurrency = currencies.find((c) => c.isDefault) ?? currencies[0];
+        setSelectedCurrencyId(defaultCurrency?.id ?? "");
+      } catch {
+        toast({
+          title: "Błąd",
+          description: "Nie udało się pobrać szczegółów szablonu",
+          status: "error",
+          duration: 5000,
+        });
+        setSelectedTemplateDetails(null);
+        setSelectedCurrencyId("");
+      } finally {
+        setLoadingTemplateDetails(false);
+      }
+    };
+    loadDetails();
+  }, [selectedTemplateId, templates, toast]);
 
   const handleClose = () => {
     setName("");
     setDescription("");
     setSelectedTemplateId("");
     setSelectedCurrencyId("");
+    setSelectedTemplateDetails(null);
     onClose();
   };
 
@@ -154,7 +163,7 @@ export default function CreateCostEstimateModal({
       return;
     }
 
-    const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+    const selectedTemplate = selectedTemplateDetails;
     if (!selectedTemplate) {
       toast({
         title: "Błąd",
@@ -212,7 +221,7 @@ export default function CreateCostEstimateModal({
     }
   };
 
-  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+  const selectedTemplate = selectedTemplateDetails;
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "xl" }}>
@@ -292,6 +301,15 @@ export default function CreateCostEstimateModal({
                 </Text>
               )}
             </FormControl>
+
+              {loadingTemplateDetails && (
+                <HStack mt={2} spacing={2}>
+                  <Spinner size="xs" />
+                  <Text fontSize="sm" color="gray.500">
+                    Ładowanie szczegółów szablonu...
+                  </Text>
+                </HStack>
+              )}
 
             {selectedTemplate && selectedTemplate.currencies && selectedTemplate.currencies.length > 0 && (
               <FormControl isRequired>

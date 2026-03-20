@@ -99,11 +99,15 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [isOpen]);
 
+  const listboxId = "unit-combobox-listbox";
+
   const dropdown =
     isOpen && filtered.length > 0
       ? ReactDOM.createPortal(
           <Box
             ref={dropdownRef}
+            id={listboxId}
+            role="listbox"
             style={dropdownStyle}
             bg="white"
             border="1px solid"
@@ -116,6 +120,8 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
             {filtered.map((unit) => (
               <Box
                 key={unit.id}
+                role="option"
+                aria-selected={value === unit.code}
                 px={3}
                 py={1.5}
                 fontSize="sm"
@@ -146,6 +152,10 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
     <>
       <Input
         ref={inputRef}
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-autocomplete="list"
+        aria-controls={isOpen ? listboxId : undefined}
         value={inputValue}
         onChange={(e) => {
           const v = e.target.value;
