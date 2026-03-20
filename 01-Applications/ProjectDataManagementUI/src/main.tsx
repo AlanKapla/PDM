@@ -77,7 +77,13 @@ async function initializeApp() {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register("/sw.js");
+      .register("/sw.js")
+      .catch((error) => {
+        // Obsługa błędów rejestracji Service Workera - zapobiega "Unhandled promise rejection"
+        if (import.meta.env.DEV) {
+          console.error("Service worker registration failed:", error);
+        }
+      });
   });
 }
 

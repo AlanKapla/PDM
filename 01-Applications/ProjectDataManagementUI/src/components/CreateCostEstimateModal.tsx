@@ -24,13 +24,8 @@ import {
   Spinner,
 } from "@chakra-ui/react";
 import { Plus, FileText } from "lucide-react";
-import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateStructureWeb, type CurrencyWeb } from "../api/costEstimateTemplateApi";
+import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CurrencyWeb } from "../api/costEstimateTemplateApi";
 import { costEstimateApi } from "../api/costEstimateApi";
-
-interface TemplateWithStructure extends CostEstimateTemplateListItem {
-  structure?: CostEstimateTemplateStructureWeb;
-  currencies?: CurrencyWeb[];
-}
 
 interface CreateCostEstimateModalProps {
   isOpen: boolean;
@@ -52,33 +47,20 @@ export default function CreateCostEstimateModal({
   const [description, setDescription] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
-  const [templates, setTemplates] = useState<TemplateWithStructure[]>([]);
+  const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [loadingTemplateDetails, setLoadingTemplateDetails] = useState(false);
+  const [selectedTemplateCurrencies, setSelectedTemplateCurrencies] = useState<CurrencyWeb[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load templates when modal opens
+  // Load template list when modal opens
   useEffect(() => {
     if (isOpen) {
       const loadTemplates = async () => {
         setLoadingTemplates(true);
         try {
           const templateList = await costEstimateTemplateApi.getTemplates();
-          // Pobierz szczegóły dla każdego szablonu, aby uzyskać strukturę i waluty
-          const templatesWithStructure: TemplateWithStructure[] = await Promise.all(
-            templateList.map(async (t) => {
-              try {
-                const details = await costEstimateTemplateApi.getTemplateDetails(t.id);
-                return {
-                  ...t,
-                  structure: details.structure,
-                  currencies: details.structure?.currencies || [],
-                };
-              } catch {
-                return { ...t, currencies: [] };
-              }
-            })
-          );
-          setTemplates(templatesWithStructure);
+          setTemplates(templateList);
         } catch (error) {
           toast({
             title: "Błąd",
@@ -95,31 +77,38 @@ export default function CreateCostEstimateModal({
     }
   }, [isOpen, toast]);
 
-  // Auto-select default currency when template changes
+  // Lazy-load template details (currencies) when a template is selected
   useEffect(() => {
-    if (selectedTemplateId) {
-      const template = templates.find(t => t.id === selectedTemplateId);
-      if (template && template.currencies && template.currencies.length > 0) {
-        const defaultCurrency = template.currencies.find(c => c.isDefault);
-        if (defaultCurrency) {
-          setSelectedCurrencyId(defaultCurrency.id);
-        } else {
-          // Jeśli brak domyślnej, wybierz pierwszą
-          setSelectedCurrencyId(template.currencies[0].id);
-        }
-      } else {
-        setSelectedCurrencyId("");
-      }
-    } else {
+    if (!selectedTemplateId) {
+      setSelectedTemplateCurrencies([]);
       setSelectedCurrencyId("");
+      return;
     }
-  }, [selectedTemplateId, templates]);
+    const loadDetails = async () => {
+      setLoadingTemplateDetails(true);
+      try {
+        const details = await costEstimateTemplateApi.getTemplateDetails(selectedTemplateId);
+        const currencies = details.structure?.currencies || [];
+        setSelectedTemplateCurrencies(currencies);
+        // Wybierz walutę domyślną lub pierwszą z listy; jeśli lista jest pusta, id pozostaje ""
+        const defaultCurrency = currencies.find(c => c.isDefault) ?? currencies[0];
+        setSelectedCurrencyId(defaultCurrency?.id ?? "");
+      } catch {
+        setSelectedTemplateCurrencies([]);
+        setSelectedCurrencyId("");
+      } finally {
+        setLoadingTemplateDetails(false);
+      }
+    };
+    loadDetails();
+  }, [selectedTemplateId]);
 
   const handleClose = () => {
     setName("");
     setDescription("");
     setSelectedTemplateId("");
     setSelectedCurrencyId("");
+    setSelectedTemplateCurrencies([]);
     onClose();
   };
 
@@ -165,7 +154,7 @@ export default function CreateCostEstimateModal({
       return;
     }
 
-    const selectedCurrency = selectedTemplate.currencies?.find(c => c.id === selectedCurrencyId);
+    const selectedCurrency = selectedTemplateCurrencies.find(c => c.id === selectedCurrencyId);
     if (!selectedCurrency) {
       toast({
         title: "Błąd",
@@ -293,7 +282,16 @@ export default function CreateCostEstimateModal({
               )}
             </FormControl>
 
-            {selectedTemplate && selectedTemplate.currencies && selectedTemplate.currencies.length > 0 && (
+            {selectedTemplateId && loadingTemplateDetails && (
+              <HStack mt={2} spacing={2}>
+                <Spinner size="xs" />
+                <Text fontSize="sm" color="gray.500">
+                  Ładowanie szczegółów szablonu...
+                </Text>
+              </HStack>
+            )}
+
+            {selectedTemplateId && !loadingTemplateDetails && selectedTemplateCurrencies.length > 0 && (
               <FormControl isRequired>
                 <FormLabel>Waluta kosztorysu</FormLabel>
                 <Select
@@ -301,7 +299,7 @@ export default function CreateCostEstimateModal({
                   onChange={(e) => setSelectedCurrencyId(e.target.value)}
                   placeholder="Wybierz walutę"
                 >
-                  {selectedTemplate.currencies.map((currency) => (
+                  {selectedTemplateCurrencies.map((currency) => (
                     <option key={currency.id} value={currency.id}>
                       {currency.name} ({currency.code}){currency.symbol ? ` - ${currency.symbol}` : ''}{currency.isDefault ? ' [Domyślna]' : ''}
                     </option>
@@ -313,7 +311,7 @@ export default function CreateCostEstimateModal({
               </FormControl>
             )}
 
-            {selectedTemplate && selectedTemplate.currencies && selectedTemplate.currencies.length === 0 && (
+            {selectedTemplateId && !loadingTemplateDetails && selectedTemplateCurrencies.length === 0 && (
               <Alert status="error" borderRadius="md">
                 <AlertIcon />
                 <Text fontSize="sm">
@@ -331,27 +329,6 @@ export default function CreateCostEstimateModal({
                   <Text fontSize="xs" color="gray.600" mb={2}>
                     {selectedTemplate.description}
                   </Text>
-                )}
-                {selectedTemplate.structure && (
-                  <Box mt={2} pt={2} borderTopWidth="1px" borderColor="blue.300">
-                    <Text fontSize="xs" color="gray.600">
-                      <strong>Struktura:</strong>
-                    </Text>
-                    <VStack align="stretch" spacing={1} mt={1}>
-                      <Text fontSize="xs" color="gray.600">
-                        • Pola nagłówka etapu: {selectedTemplate.structure.groupHeaderFields?.length ?? 0}
-                      </Text>
-                      <Text fontSize="xs" color="gray.600">
-                        • Pola kalkulowane: {selectedTemplate.structure.calculatedFields?.length ?? 0}
-                      </Text>
-                      <Text fontSize="xs" color="gray.600">
-                        • Pola dodatkowe: {selectedTemplate.structure.genericFields?.length ?? 0}
-                      </Text>
-                      <Text fontSize="xs" color="gray.600">
-                        • Waluty: {selectedTemplate.structure.currencies?.length ?? 0}
-                      </Text>
-                    </VStack>
-                  </Box>
                 )}
               </Box>
             )}

@@ -1,4 +1,5 @@
 import { useRef, useCallback } from 'react';
+import type { TouchEvent } from 'react';
 
 /**
  * Hook dodający obsługę przeciągania elementów na urządzeniach dotykowych (smartfony, tablety).
@@ -53,7 +54,7 @@ export function useTouchReorder({
       onReorder: (fromIndex: number, toIndex: number) => void
     ) => ({
       'data-touch-draggable': true,
-      onTouchStart: (e: React.TouchEvent) => {
+      onTouchStart: (e: TouchEvent) => {
         const target = e.target as HTMLElement;
         const interactiveEl = target.closest('input, textarea, select, button, [role="checkbox"], label');
         if (interactiveEl) return;
@@ -62,7 +63,7 @@ export function useTouchReorder({
         containerRef.current = (e.currentTarget as HTMLElement).parentElement;
         setDraggedIndex(index);
       },
-      onTouchMove: (e: React.TouchEvent) => {
+      onTouchMove: (e: TouchEvent) => {
         if (draggedIndex === null || !containerRef.current) return;
 
         e.preventDefault();

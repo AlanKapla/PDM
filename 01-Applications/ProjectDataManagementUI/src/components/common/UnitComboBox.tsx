@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import ReactDOM from 'react-dom';
 import { Box, Input, Text } from '@chakra-ui/react';
 
@@ -39,6 +39,7 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const listboxId = useId();
 
   // Synchronizuj inputValue z zewnętrzną wartością
   useEffect(() => {
@@ -104,6 +105,8 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
       ? ReactDOM.createPortal(
           <Box
             ref={dropdownRef}
+            id={listboxId}
+            role="listbox"
             style={dropdownStyle}
             bg="white"
             border="1px solid"
@@ -116,6 +119,8 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
             {filtered.map((unit) => (
               <Box
                 key={unit.id}
+                role="option"
+                aria-selected={value === unit.code}
                 px={3}
                 py={1.5}
                 fontSize="sm"
@@ -146,6 +151,11 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
     <>
       <Input
         ref={inputRef}
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-controls={isOpen ? listboxId : undefined}
+        aria-autocomplete="list"
         value={inputValue}
         onChange={(e) => {
           const v = e.target.value;

@@ -15,7 +15,10 @@ export function formatNumericDisplay(val: string): string {
   const num = parseFloat(dotVal);
   if (isNaN(num)) return val;
   const parts = dotVal.split('.');
-  const decimals = parts[1]?.length || 0;
+  const rawDecimals = parts[1]?.length || 0;
+  // Limit precyzji do 20 miejsc po przecinku — to max sensowna precyzja w UI
+  // (JS Number.EPSILON ~2.2e-16, wyświetlanie >20 miejsc nie ma wartości dla użytkownika)
+  const decimals = Math.min(rawDecimals, 20);
   if (decimals <= 2) {
     return num.toFixed(2).replace('.', ',');
   }
