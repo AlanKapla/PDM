@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useEffect } from 'react';
-import { costEstimateApiNew } from '../api/costEstimateApiNew';
+import { costEstimateApi } from '../api/costEstimateApi';
 import type { UpsertFieldValueRequestDto } from '../types/costEstimate.types.new';
 
 /** Klucz identyfikujący unikalne pole */
@@ -44,8 +44,11 @@ interface FieldInfo {
   valueType: FieldValueType;
 }
 
-/** Callback wywoływany po udanym zapisie */
-type OnSaveSuccess = (fieldInfo: FieldInfo) => void;
+/** Callback wywoływany po udanym zapisie.
+ * savedFieldValueId - ID zwrócone przez API (ważne gdy fieldValueId było null - pierwsze zapisanie pola)
+ * savedValue        - wartość która została zapisana (potrzebna do uzupełnienia lokalnego stanu)
+ */
+type OnSaveSuccess = (fieldInfo: FieldInfo, savedFieldValueId: string, savedValue: string | undefined) => void;
 
 /** Callback wywoływany przy błędzie */
 type OnSaveError = (fieldInfo: FieldInfo, error: Error) => void;
@@ -165,8 +168,9 @@ export function useFieldAutosave({
     const dto = createUpsertDto(fieldInfo.fieldValueId, fieldInfo.fieldDefinitionId, fieldInfo.valueType, value);
 
     try {
+      let savedFieldValueId: string;
       if (fieldInfo.entityType === 'group') {
-        await costEstimateApiNew.upsertGroupField(
+        savedFieldValueId = await costEstimateApi.upsertGroupField(
           tenantId,
           projectId,
           costEstimateId,
@@ -174,7 +178,7 @@ export function useFieldAutosave({
           dto
         );
       } else {
-        await costEstimateApiNew.upsertItemField(
+        savedFieldValueId = await costEstimateApi.upsertItemField(
           tenantId,
           projectId,
           costEstimateId,
@@ -183,11 +187,24 @@ export function useFieldAutosave({
         );
       }
 
-      onSaveSuccess?.(fieldInfo);
+      onSaveSuccess?.(fieldInfo, savedFieldValueId, value);
+
+      // Jeśli podczas lotu requestu użytkownik edytował to samo pole ponownie,
+      // to pending change ma jeszcze stary fieldValueId (null lub inny).
+      // Aktualizujemy fieldValueId w oczekującej zmianie, żeby kolejny zapis
+      // wysłał update zamiast ponownie tworzyć nowy rekord.
+      const key = getFieldKey(fieldInfo);
+      const stillPending = pendingChangesRef.current.get(key);
+      if (stillPending && stillPending.fieldInfo.fieldValueId !== savedFieldValueId) {
+        pendingChangesRef.current.set(key, {
+          ...stillPending,
+          fieldInfo: { ...stillPending.fieldInfo, fieldValueId: savedFieldValueId },
+        });
+      }
     } catch (error) {
       onSaveError?.(fieldInfo, error instanceof Error ? error : new Error(String(error)));
     }
-  }, [params, enabled, onSaveSuccess, onSaveError]);
+  }, [params, enabled, onSaveSuccess, onSaveError, getFieldKey]);
 
   /**
    * Zaplanuj zapis pola z debounce

@@ -13,26 +13,26 @@ namespace CQRS.Projects.RemoveProjectMember
     public class RemoveProjectMemberCommandHandler : IRequestHandler<RemoveProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
-        private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
+        private readonly IUserService userService;
 
         public RemoveProjectMemberCommandHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
-            IReadRepository<User> userRepo,
-            IReadRepository<Notification> notificationRepo)
+            IReadRepository<Notification> notificationRepo,
+            IUserService userService)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
-            this.userRepo = userRepo;
             this.notificationRepo = notificationRepo;
+            this.userService = userService;
         }
 
         public async Task<Unit> Handle(RemoveProjectMemberCommand request, CancellationToken cancellationToken)
@@ -47,9 +47,11 @@ namespace CQRS.Projects.RemoveProjectMember
                     && pm.UserId == request.UserId)
                 ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
-            await projectMemberRepo.Delete(projectMember);
+            var targetUser = await userService.GetProjectMemberAsync(
+                request.TenantId, request.ProjectId, request.UserId, cancellationToken);
 
-            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
+            await projectMemberRepo.Delete(projectMember);
+            await userService.InvalidateProjectMembersCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             NotificationDto notification = new NotificationDto
             {

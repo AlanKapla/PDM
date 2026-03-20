@@ -710,6 +710,52 @@ namespace Entities.Migrations
                     b.ToTable("CostEstimateItemFieldValues");
                 });
 
+            modelBuilder.Entity("Entities.Models.CostEstimates.SharedCostEstimate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CostEstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SharedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SharedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SharedWithUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CostEstimateId");
+
+                    b.HasIndex("SharedByUserId");
+
+                    b.HasIndex("CostEstimateId", "SharedWithUserId")
+                        .IsUnique();
+
+                    b.HasIndex("SharedWithUserId", "ProjectId");
+
+                    b.HasIndex("TenantId", "SharedByUserId");
+
+                    b.HasIndex("TenantId", "SharedWithUserId");
+
+                    b.HasIndex("TenantId", "ProjectId", "SharedByUserId");
+
+                    b.HasIndex("TenantId", "ProjectId", "SharedWithUserId");
+
+                    b.ToTable("SharedCostEstimates");
+                });
+
             modelBuilder.Entity("Entities.Models.MessageHistory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2086,6 +2132,65 @@ namespace Entities.Migrations
                     b.Navigation("FieldDefinition");
 
                     b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.SharedCostEstimate", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
+                        .WithMany()
+                        .HasForeignKey("CostEstimateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "SharedByUser")
+                        .WithMany()
+                        .HasForeignKey("SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "SharedWithUser")
+                        .WithMany()
+                        .HasForeignKey("SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.TenantMember", "SharedByTenantMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.TenantMember", "SharedWithTenantMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.ProjectMember", "SharedByProjectMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProjectId", "SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.ProjectMember", "SharedWithProjectMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProjectId", "SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CostEstimate");
+
+                    b.Navigation("SharedByProjectMember");
+
+                    b.Navigation("SharedByTenantMember");
+
+                    b.Navigation("SharedByUser");
+
+                    b.Navigation("SharedWithProjectMember");
+
+                    b.Navigation("SharedWithTenantMember");
+
+                    b.Navigation("SharedWithUser");
                 });
 
             modelBuilder.Entity("Entities.Models.MessageHistory", b =>

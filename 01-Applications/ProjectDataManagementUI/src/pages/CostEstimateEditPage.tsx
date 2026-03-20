@@ -46,15 +46,18 @@ import {
   AlertCircle,
   FileSpreadsheet,
   RefreshCw,
+  Share2,
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import MainLayout from '../layout/MainLayout';
 import { CostEstimateTableView } from '../components/CostEstimate/CostEstimateTableView';
-import { costEstimateApiNew } from '../api/costEstimateApiNew';
+import { costEstimateApi } from '../api/costEstimateApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import ShareCostEstimateModal from '../components/ShareCostEstimateModal';
 import { useToastNotification } from '../hooks/useToastNotification';
 import { useFieldAutosave } from '../hooks/useFieldAutosave';
+import { useResourcePermissions } from '../hooks/useResourcePermissions';
 import { recalculateCostEstimateDetails } from '../utils/recalculateCostEstimateDetails';
 import type {
   CostEstimateDetailsWeb,
@@ -66,6 +69,7 @@ import type {
 } from '../types/costEstimate.types.new';
 import {
   CostEstimateStatus,
+  CostEstimateAccessLevel,
   convertGroupWebToDto,
 } from '../types/costEstimate.types.new';
 
@@ -96,6 +100,36 @@ const formatCurrency = (value: number | undefined, symbol: string): string => {
 const formatTime = (date: Date): string =>
   date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
 
+/**
+ * Tworzy domyślne fieldValues dla nowo dodanej pozycji/komponentu/opcji.
+ * Odzwierciedla logikę backendową (CostEstimateService.CreateDefaultItemFieldValues).
+ *
+ * ItemSystemSelected (104):
+ *   - pozycja (relationType=0) i komponent (relationType=2): boolValue = true  (zaznaczone)
+ *   - opcja (relationType=1):                                boolValue = false (odznaczone)
+ */
+const FIELD_TYPE_SELECTED = 104; // FieldType.ItemSystemSelected
+const FIELD_SCOPE_ITEM_SYSTEM = 1; // FieldScope.ItemSystem
+
+function buildDefaultItemFieldValues(
+  templateStructure: CostEstimateDetailsWeb['templateStructure'],
+  relationType: 0 | 1 | 2
+): CostEstimateFieldValueWeb[] {
+  const selectedFieldDef = (templateStructure?.systemFields as any[])?.find(
+    (f: any) => (f.fieldType ?? f.fieldTypeConfig?.fieldType) === FIELD_TYPE_SELECTED
+  );
+
+  if (!selectedFieldDef) return [];
+
+  return [{
+    id: `temp_default_sel_${selectedFieldDef.id}`,
+    fieldDefinitionId: selectedFieldDef.id,
+    fieldType: FIELD_TYPE_SELECTED,
+    fieldScope: FIELD_SCOPE_ITEM_SYSTEM,
+    boolValue: relationType !== 1, // opcje domyślnie odznaczone; reszta zaznaczona
+  }];
+}
+
 // ---------------------------------------------------------------------------
 // Komponent strony
 // ---------------------------------------------------------------------------
@@ -110,6 +144,9 @@ export const CostEstimateEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToastNotification();
 
+  // ---- Uprawnienia do zasobu ----
+  const resourcePerms = useResourcePermissions(projectId);
+
   // ---- Stan ----
   const [loading, setLoading] = useState(true);
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -121,6 +158,9 @@ export const CostEstimateEditPage: React.FC = () => {
   // Ref do timeout auto-recalculate (2s po ostatnim zapisie)
   const autoRecalcTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  // ---- Modal udostępniania ----
+  const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
 
   // ---- Dialog usuwania grupy ----
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
@@ -256,7 +296,7 @@ export const CostEstimateEditPage: React.FC = () => {
     if (!user?.activeTenantId || !projectId || !estimateId) return;
     try {
       setLoading(true);
-      const data = await costEstimateApiNew.getCostEstimateDetails(
+      const data = await costEstimateApi.getCostEstimateDetails(
         user.activeTenantId,
         projectId,
         estimateId,
@@ -290,7 +330,7 @@ export const CostEstimateEditPage: React.FC = () => {
       setIsRecalculating(true);
       
       // Przelicz kosztorys na backendzie (bez pobierania - UI ma aktualne dane)
-      await costEstimateApiNew.recalculate(
+      await costEstimateApi.recalculate(
         user.activeTenantId,
         projectId,
         estimateId,
@@ -337,7 +377,78 @@ export const CostEstimateEditPage: React.FC = () => {
     params: user?.activeTenantId && projectId && estimateId 
       ? { tenantId: user.activeTenantId, projectId, costEstimateId: estimateId }
       : null,
-    onSaveSuccess: () => {
+    onSaveSuccess: (fieldInfo, savedFieldValueId, savedValue) => {
+      // Gdy pole było nowe (fieldValueId === null), zaktualizuj lokalny stan o nowe ID oraz wartość.
+      // Optimistic update tworzy wpis z id: 'temp_XXXXX'. Musimy go zastąpić prawdziwym ID.
+      // Gdybyśmy dodali nowy wpis, w tablicy byłyby dwa wpisy dla tego samego fieldDefinitionId,
+      // a kolejna edycja trafiałaby na temp_ → wysyłała fieldValueId: null → wyjątek z backendu.
+      if (fieldInfo.fieldValueId === null) {
+        // Zbuduj entry z właściwą wartością (ten sam mapping co createUpsertDto w hooku)
+        const buildEntry = (): Omit<CostEstimateFieldValueWeb, 'id'> => ({
+          fieldDefinitionId: fieldInfo.fieldDefinitionId,
+          fieldType: fieldInfo.fieldType,
+          fieldScope: 0,
+          ...(savedValue !== undefined && savedValue !== '' && {
+            ...(fieldInfo.valueType === 'numeric'
+              ? { decimalValue: parseFloat(savedValue.replace(',', '.')) || undefined }
+              : fieldInfo.valueType === 'boolean'
+              ? { boolValue: savedValue === 'true' || savedValue === '1' }
+              : fieldInfo.valueType === 'date'
+              ? { dateTimeValue: savedValue }
+              : { stringValue: savedValue }),
+          }),
+        });
+
+        // Zastąp istniejący temp entry prawdziwym ID, lub dodaj jeśli nie istnieje
+        const upsertFieldValue = (fieldValues: CostEstimateFieldValueWeb[]): CostEstimateFieldValueWeb[] => {
+          const idx = fieldValues.findIndex(fv => fv.fieldDefinitionId === fieldInfo.fieldDefinitionId);
+          if (idx >= 0) {
+            // Zastąp istniejący (temp lub stary) — zachowaj dane pola, nadpisz id i wartość
+            const updated = [...fieldValues];
+            updated[idx] = { ...updated[idx], ...buildEntry(), id: savedFieldValueId };
+            return updated;
+          }
+          return [...fieldValues, { ...buildEntry(), id: savedFieldValueId }];
+        };
+
+        setDetails(prev => {
+          if (!prev) return prev;
+
+          if (fieldInfo.entityType === 'group') {
+            const updateGroups = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+              groups.map(g => {
+                if (g.id === fieldInfo.entityId) {
+                  return { ...g, fieldValues: upsertFieldValue(g.fieldValues) };
+                }
+                return { ...g, childGroups: updateGroups(g.childGroups || []) };
+              });
+            return { ...prev, rootGroups: updateGroups(prev.rootGroups) };
+          } else {
+            // item – może być pozycją, opcją lub komponentem (dowolna głębokość)
+            const updateItems = (items: CostEstimateItemWeb[]): CostEstimateItemWeb[] =>
+              items.map(item => {
+                if (item.id === fieldInfo.entityId) {
+                  return { ...item, fieldValues: upsertFieldValue(item.fieldValues) };
+                }
+                return {
+                  ...item,
+                  options: item.options ? updateItems(item.options) : item.options,
+                  components: item.components ? updateItems(item.components) : item.components,
+                };
+              });
+
+            const updateGroups = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+              groups.map(g => ({
+                ...g,
+                items: updateItems(g.items || []),
+                childGroups: updateGroups(g.childGroups || []),
+              }));
+
+            return { ...prev, rootGroups: updateGroups(prev.rootGroups) };
+          }
+        });
+      }
+
       // Po udanym zapisie pola - zaplanuj auto-recalculate
       scheduleAutoRecalculate();
     },
@@ -361,7 +472,7 @@ export const CostEstimateEditPage: React.FC = () => {
       await flushPendingChanges();
       
       // Przelicz kosztorys na backendzie
-      await costEstimateApiNew.recalculate(
+      await costEstimateApi.recalculate(
         user.activeTenantId,
         projectId,
         estimateId,
@@ -466,7 +577,7 @@ export const CostEstimateEditPage: React.FC = () => {
         order: details.rootGroups.length,
       };
       
-      const newGroupId = await costEstimateApiNew.addGroup(
+      const newGroupId = await costEstimateApi.addGroup(
         user.activeTenantId,
         projectId,
         estimateId,
@@ -500,25 +611,30 @@ export const CostEstimateEditPage: React.FC = () => {
 
   const confirmDeleteGroup = useCallback(async () => {
     if (!user?.activeTenantId || !projectId || !estimateId || !details || !groupToDelete) return;
-    
+
+    const idToDelete = groupToDelete;
+
+    // Optimistic: usuń grupę natychmiast z UI, request idzie w tle
+    const deleteRecursive = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+      groups
+        .filter((g) => g.id !== idToDelete)
+        .map((g) => ({ ...g, childGroups: deleteRecursive(g.childGroups || []) }));
+
+    const prevDetails = details;
+    setDetails(prev => prev ? { ...prev, rootGroups: deleteRecursive(prev.rootGroups) } : prev);
+    setGroupToDelete(null);
+
     try {
-      await costEstimateApiNew.deleteGroup(
+      await costEstimateApi.deleteGroup(
         user.activeTenantId,
         projectId,
         estimateId,
-        groupToDelete
+        idToDelete
       );
-      
-      const deleteRecursive = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
-        groups
-          .filter((g) => g.id !== groupToDelete)
-          .map((g) => ({ ...g, childGroups: deleteRecursive(g.childGroups || []) }));
-
-      setDetails({ ...details, rootGroups: deleteRecursive(details.rootGroups) });
-      setGroupToDelete(null);
     } catch (err) {
+      // Przywróć stan przed usunięciem gdy API zwróci błąd
+      setDetails(prevDetails);
       showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć etapu');
-      setGroupToDelete(null);
     }
   }, [user?.activeTenantId, projectId, estimateId, details, groupToDelete, showError]);
 
@@ -597,7 +713,7 @@ export const CostEstimateEditPage: React.FC = () => {
           order: childOrder,
         };
         
-        const newSubGroupId = await costEstimateApiNew.addGroup(
+        const newSubGroupId = await costEstimateApi.addGroup(
           user.activeTenantId,
           projectId,
           estimateId,
@@ -660,7 +776,7 @@ export const CostEstimateEditPage: React.FC = () => {
                   groupId,
                   parentItemId: undefined,
                   order: itemOrder,
-                  fieldValues: [],
+                  fieldValues: buildDefaultItemFieldValues(details.templateStructure, 0),
                   options: [],
                   createdAt: new Date().toISOString(),
                   updatedAt: undefined,
@@ -681,7 +797,7 @@ export const CostEstimateEditPage: React.FC = () => {
           relationType: 0, // None - zwykły item
         };
         
-        const newItemId = await costEstimateApiNew.addItem(
+        const newItemId = await costEstimateApi.addItem(
           user.activeTenantId,
           projectId,
           estimateId,
@@ -696,7 +812,8 @@ export const CostEstimateEditPage: React.FC = () => {
                 ...g,
                 items: (g.items || []).map(item =>
                   item.id === tempId
-                    ? { ...item, id: newItemId, fieldValues: [] }
+                    // Zachowaj domyślne fieldValues z optimistic update, tylko nadaj prawdziwe ID
+                    ? { ...item, id: newItemId }
                     : item
                 ),
               };
@@ -728,24 +845,31 @@ export const CostEstimateEditPage: React.FC = () => {
   const handleDeleteItem = useCallback(
     async (groupId: string, itemId: string) => {
       if (!user?.activeTenantId || !projectId || !estimateId || !details) return;
-      
+
+      // Optimistic: usuń pozycję natychmiast z UI (działa też dla opcji/komponentów wywołanych z TableView).
+      // Dla opcji/komponentów filtr na g.items nic nie znajdzie (są zagnieżdżone głębiej),
+      // więc UI-remove był już wykonany przez removeOptionFromItem/removeComponentFromItem.
+      const del = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
+        groups.map((g) => {
+          if (g.id === groupId) {
+            return { ...g, items: (g.items || []).filter((i) => i.id !== itemId) };
+          }
+          return { ...g, childGroups: del(g.childGroups || []) };
+        });
+
+      const prevDetails = details;
+      setDetails(prev => prev ? { ...prev, rootGroups: del(prev.rootGroups) } : prev);
+
       try {
-        await costEstimateApiNew.deleteItem(
+        await costEstimateApi.deleteItem(
           user.activeTenantId,
           projectId,
           estimateId,
           itemId
         );
-        
-        const del = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
-          groups.map((g) => {
-            if (g.id === groupId) {
-              return { ...g, items: (g.items || []).filter((i) => i.id !== itemId) };
-            }
-            return { ...g, childGroups: del(g.childGroups || []) };
-          });
-        setDetails({ ...details, rootGroups: del(details.rootGroups) });
       } catch (err) {
+        // Przywróć stan przed usunięciem gdy API zwróci błąd
+        setDetails(prevDetails);
         showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć pozycji');
       }
     },
@@ -793,7 +917,7 @@ export const CostEstimateEditPage: React.FC = () => {
         parentItemId,
         relationType,
         order: childOrder,
-        fieldValues: [],
+        fieldValues: buildDefaultItemFieldValues(details.templateStructure, relationType),
         options: relationType === 1 ? undefined : [],
         components: undefined,
         createdAt: new Date().toISOString(),
@@ -844,14 +968,14 @@ export const CostEstimateEditPage: React.FC = () => {
           parentItemId,
         };
         
-        const newChildItemId = await costEstimateApiNew.addItem(
+        const newChildItemId = await costEstimateApi.addItem(
           user.activeTenantId,
           projectId,
           estimateId,
           request
         );
 
-        // Zamień tymczasowy element na prawdziwy z API (fieldValues puste — tworzone przez autosave)
+        // Zamień tymczasowy element na prawdziwy z API — zachowaj domyślne fieldValues z optimistic update
         const replaceTempWithReal = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
           groups.map((g) => {
             const updateItems = (items: CostEstimateItemWeb[]): CostEstimateItemWeb[] =>
@@ -862,7 +986,7 @@ export const CostEstimateEditPage: React.FC = () => {
                       ...item,
                       options: (item.options || []).map(opt =>
                         opt.id === tempId
-                          ? { ...opt, id: newChildItemId, fieldValues: [] }
+                          ? { ...opt, id: newChildItemId }
                           : opt
                       ),
                     };
@@ -871,7 +995,7 @@ export const CostEstimateEditPage: React.FC = () => {
                       ...item,
                       components: (item.components || []).map(comp =>
                         comp.id === tempId
-                          ? { ...comp, id: newChildItemId, fieldValues: [] }
+                          ? { ...comp, id: newChildItemId }
                           : comp
                       ),
                     };
@@ -887,7 +1011,7 @@ export const CostEstimateEditPage: React.FC = () => {
                           ...comp,
                           options: (comp.options || []).map(opt =>
                             opt.id === tempId
-                              ? { ...opt, id: newChildItemId, fieldValues: [] }
+                              ? { ...opt, id: newChildItemId }
                               : opt
                           ),
                         };
@@ -992,7 +1116,7 @@ export const CostEstimateEditPage: React.FC = () => {
     if (!user?.activeTenantId || !projectId || !estimateId) {
       throw new Error('Brak wymaganych parametrów');
     }
-    await costEstimateApiNew.reorderItems(
+    await costEstimateApi.reorderItems(
       user.activeTenantId,
       projectId,
       estimateId,
@@ -1014,7 +1138,7 @@ export const CostEstimateEditPage: React.FC = () => {
     if (!user?.activeTenantId || !projectId || !estimateId) {
       throw new Error('Brak wymaganych parametrów');
     }
-    await costEstimateApiNew.reorderGroups(
+    await costEstimateApi.reorderGroups(
       user.activeTenantId,
       projectId,
       estimateId,
@@ -1035,7 +1159,7 @@ export const CostEstimateEditPage: React.FC = () => {
     if (!user?.activeTenantId || !projectId || !estimateId) {
       throw new Error('Brak wymaganych parametrów');
     }
-    await costEstimateApiNew.moveItem(
+    await costEstimateApi.moveItem(
       user.activeTenantId,
       projectId,
       estimateId,
@@ -1052,7 +1176,7 @@ export const CostEstimateEditPage: React.FC = () => {
     if (!user?.activeTenantId || !projectId || !estimateId) {
       throw new Error('Brak wymaganych parametrów');
     }
-    return costEstimateApiNew.uploadCostEstimateItemFiles(
+    return costEstimateApi.uploadCostEstimateItemFiles(
       user.activeTenantId,
       projectId,
       estimateId,
@@ -1102,6 +1226,20 @@ export const CostEstimateEditPage: React.FC = () => {
 
   const statusInfo = STATUS_MAP[details.status] || STATUS_MAP[CostEstimateStatus.Draft];
 
+  // Uprawnienia do edycji wynikające z access level kosztorysu i uprawnień w projekcie
+  // Full (3) — właściciel lub admin: może edytować wszystko
+  const canFullEdit =
+    details.accessLevel === CostEstimateAccessLevel.Full &&
+    (resourcePerms.mine.canEdit || resourcePerms.all.canEdit);
+  // Restricted (2) — udostępniony: może edytować tylko pola nieoznaczone isReadonly
+  const canRestrictedEdit =
+    details.accessLevel === CostEstimateAccessLevel.Restricted &&
+    resourcePerms.shared.canEdit;
+
+  const canAnyEdit = canFullEdit || canRestrictedEdit;
+  const canShareResource =
+    canFullEdit && (resourcePerms.mine.canShare || resourcePerms.all.canShare);
+
   // ========== SHARED TOOLBAR (normalny + fullscreen) ==========
 
   const toolbar = (
@@ -1141,7 +1279,8 @@ export const CostEstimateEditPage: React.FC = () => {
               >
                 {details.name}
               </Text>
-              {isEditMode && (
+              {/* Zmiana nazwy dostępna tylko dla właściciela/admina (Full access) */}
+              {isEditMode && canFullEdit && (
                 <Tooltip label="Edytuj nazwę i opis">
                   <IconButton
                     aria-label="Edytuj nazwę i opis"
@@ -1161,24 +1300,40 @@ export const CostEstimateEditPage: React.FC = () => {
 
         {/* Prawa strona: akcje */}
         <HStack spacing={2} flexShrink={0}>
-          {/* Przycisk Odśwież */}
-          <Tooltip label="Przelicz i pobierz aktualny kosztorys">
-            <IconButton
-              aria-label="Odśwież"
-              icon={isRecalculating ? <Spinner size="xs" /> : <RefreshCw size={14} />}
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                // Anuluj zaplanowane auto-recalculate
-                if (autoRecalcTimeoutRef.current) {
-                  clearTimeout(autoRecalcTimeoutRef.current);
-                  autoRecalcTimeoutRef.current = null;
-                }
-                handleRefresh();
-              }}
-              isDisabled={isRecalculating}
-            />
-          </Tooltip>
+          {/* Przycisk Udostępnij — tylko właściciel/admin z uprawnieniem SHARE */}
+          {canShareResource && (
+            <Tooltip label="Zarządzaj dostępem do kosztorysu">
+              <IconButton
+                aria-label="Udostępnij"
+                icon={<Share2 size={14} />}
+                size="sm"
+                colorScheme="teal"
+                variant="outline"
+                onClick={onShareModalOpen}
+              />
+            </Tooltip>
+          )}
+
+          {/* Przycisk Odśwież — tylko Full access */}
+          {canFullEdit && (
+            <Tooltip label="Przelicz i pobierz aktualny kosztorys">
+              <IconButton
+                aria-label="Odśwież"
+                icon={isRecalculating ? <Spinner size="xs" /> : <RefreshCw size={14} />}
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  // Anuluj zaplanowane auto-recalculate
+                  if (autoRecalcTimeoutRef.current) {
+                    clearTimeout(autoRecalcTimeoutRef.current);
+                    autoRecalcTimeoutRef.current = null;
+                  }
+                  handleRefresh();
+                }}
+                isDisabled={isRecalculating}
+              />
+            </Tooltip>
+          )}
 
           {/* Wskaźnik przeliczania */}
           {isRecalculating && (
@@ -1205,7 +1360,8 @@ export const CostEstimateEditPage: React.FC = () => {
             </HStack>
           )}
 
-          {/* Segmented toggle Edycja / Podgląd */}
+          {/* Segmented toggle Edycja / Podgląd — widoczny tylko gdy user ma prawo edycji */}
+          {canAnyEdit && (
           <HStack spacing={0} bg={segmentBg} borderRadius="md" p="2px">
             <Button
               size="sm"
@@ -1232,6 +1388,7 @@ export const CostEstimateEditPage: React.FC = () => {
               Podgląd
             </Button>
           </HStack>
+          )}
 
           {/* Fullscreen toggle */}
           <Tooltip label={isFullscreen ? 'Zamknij pełny ekran (Esc)' : 'Pełny ekran'}>
@@ -1278,6 +1435,7 @@ export const CostEstimateEditPage: React.FC = () => {
   const tableProps = {
     details,
     editable: isEditMode,
+    accessLevel: details.accessLevel,
     onDataChange: handleDataChange,
     onAddGroup: handleAddGroup,
     onDeleteGroup: handleDeleteGroup,
@@ -1345,6 +1503,22 @@ export const CostEstimateEditPage: React.FC = () => {
           <CostEstimateTableView {...tableProps} />
         </Box>
       </Box>
+
+      {/* Modal udostępniania kosztorysu */}
+      {canShareResource && (
+        <ShareCostEstimateModal
+          isOpen={isShareModalOpen}
+          onClose={onShareModalClose}
+          tenantId={user.activeTenantId}
+          projectId={projectId}
+          costEstimateId={estimateId}
+          costEstimateName={details.name}
+          ownerId={details.ownerId}
+          currentUserId={user.id ?? ''}
+          currentSharedUsers={details.sharedWithUsers ?? []}
+          onShareUpdated={loadCostEstimate}
+        />
+      )}
 
       {/* Dialog usuwania grupy */}
       <ConfirmDialog

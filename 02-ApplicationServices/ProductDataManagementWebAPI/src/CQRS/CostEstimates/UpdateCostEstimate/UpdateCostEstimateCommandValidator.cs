@@ -2,9 +2,6 @@
 
 namespace CQRS.CostEstimates.UpdateCostEstimate
 {
-    /// <summary>
-    /// Walidator dla UpdateCostEstimateCommand
-    /// </summary>
     public class UpdateCostEstimateCommandValidator : AbstractValidator<UpdateCostEstimateCommand>
     {
         public UpdateCostEstimateCommandValidator()
@@ -18,9 +15,6 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
 
             RuleFor(x => x.Description)
                 .MaximumLength(1000).WithMessage("Description cannot exceed 1000 characters");
-
-            RuleFor(x => x.RootGroups)
-                .NotNull().WithMessage("Root groups collection is required");
         }
     }
 }

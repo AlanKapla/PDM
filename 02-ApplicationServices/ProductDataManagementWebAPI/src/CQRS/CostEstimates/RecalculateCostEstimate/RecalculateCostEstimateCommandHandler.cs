@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
@@ -18,6 +19,7 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
         private readonly ICostEstimateCalculationService calculationService;
         private readonly ICostEstimateCacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
 
         public RecalculateCostEstimateCommandHandler(
@@ -27,6 +29,7 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
             IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
             ICostEstimateCalculationService calculationService,
             ICostEstimateCacheService cacheService,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser)
         {
             this.costEstimateRepository = costEstimateRepository;
@@ -35,15 +38,22 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
             this.itemFieldValueRepository = itemFieldValueRepository;
             this.calculationService = calculationService;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
         }
 
         public async Task<Unit> Handle(RecalculateCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            // Validate via cache
             var cachedCostEstimate = await cacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, currentUser.Id, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+                throw new ForbiddenApiException("Only the owner or an admin or user with share can recalculate this cost estimate.");
 
             // Get template from cache (needed for CalculatedFieldDefinitions + SystemFieldDefinitions)
             var template = await cacheService.GetTemplateAsync(cachedCostEstimate.TemplateId, cancellationToken)

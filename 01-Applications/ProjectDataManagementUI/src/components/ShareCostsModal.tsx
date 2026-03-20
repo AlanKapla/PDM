@@ -214,7 +214,7 @@ export default function ShareCostsModal({
               {loadingCosts ? (
                 <HStack justify="center" py={4}>
                   <Spinner size="md" />
-                  <Text fontSize="sm">Ładowanie kosztów...</Text>
+                  <Text fontSize="sm">Ładowanie kosztorysów...</Text>
                 </HStack>
               ) : costs.length === 0 ? (
                 <Text fontSize="sm" color="gray.500">

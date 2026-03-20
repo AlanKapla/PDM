@@ -1,4 +1,6 @@
-﻿// Existing types from costEstimate.types.ts
+﻿import type { CostEstimateTemplateStructureWeb } from './costEstimate.types';
+
+// Existing types from costEstimate.types.ts
 export interface CostEstimateTemplate {
   id: string;
   name: string;
@@ -8,8 +10,6 @@ export interface CostEstimateTemplate {
   createdByUserName: string;
   itemsCount: number;
 }
-
-import type { CostEstimateTemplateStructureWeb } from './costEstimate.types';
 
 export enum CostEstimateStatus {
   Draft = 0,
@@ -41,6 +41,8 @@ export interface FieldDefinitionWeb {
   label: string;
   isSortable: boolean;
   isFilterable: boolean;
+  /** Pole oznaczone jako tylko do odczytu — Restricted users nie mogą go edytować */
+  isReadOnly?: boolean;
   fieldTypeConfig: CostEstimateFieldTypeConfigWeb;
   childFields?: FieldDefinitionWeb[] | null;
 }
@@ -64,6 +66,27 @@ export interface CostEstimateFieldValueDto {
 
 // Alias dla kompatybilności - grupy używają tego samego DTO
 export type CostEstimateGroupFieldValueDto = CostEstimateFieldValueDto;
+
+/**
+ * Poziom dostępu do kosztorysu
+ * Full=3 (owner/admin), Restricted=2 (shared user), None=0 (brak dostępu)
+ */
+export enum CostEstimateAccessLevel {
+  None = 0,
+  // ReadOnly = 1 — martwy kod, nigdy nie przyznawany
+  Restricted = 2,
+  Full = 3,
+}
+
+/**
+ * Wpis udostępnienia kosztorysu użytkownikowi
+ */
+export interface CostEstimateShareWeb {
+  userId: string;
+  fullName: string;
+  email: string;
+  sharedAt: string; // ISO 8601
+}
 
 /**
  * Typ relacji pozycji do pozycji nadrzędnej
@@ -227,6 +250,10 @@ export interface CostEstimateDetailsWeb {
   ownerId: string;
   ownerName: string;
   templateStructure: CostEstimateTemplateStructureWeb;
+  /** Poziom dostępu bieżącego użytkownika do kosztorysu */
+  accessLevel: CostEstimateAccessLevel;
+  /** Lista userów, którym kosztorys jest udostępniony */
+  sharedWithUsers: CostEstimateShareWeb[];
 }
 
 /**
@@ -248,6 +275,12 @@ export interface CostEstimateListItemWeb {
   updatedAt?: string;
   ownerId: string;
   ownerName: string;
+  /** Czy kosztorys jest udostępniony bieżącemu userowi przez innego */
+  isSharedWithMe: boolean;
+  /** Czy bieżący user udostępnił ten kosztorys innym */
+  isSharedByMe: boolean;
+  /** Lista userów, którym kosztorys jest udostępniony (widoczna dla ownera/admina) */
+  sharedWithUsers: CostEstimateShareWeb[];
 }
 
 // ========== HELPER FUNCTIONS ==========

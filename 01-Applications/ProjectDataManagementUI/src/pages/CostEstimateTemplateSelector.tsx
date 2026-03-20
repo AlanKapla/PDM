@@ -81,7 +81,7 @@ import type {
   CostEstimateItemWeb,
   CostEstimateFieldValueWeb,
 } from "../types/costEstimate.types.new";
-import { CostEstimateStatus } from "../types/costEstimate.types.new";
+import { CostEstimateStatus, CostEstimateAccessLevel } from "../types/costEstimate.types.new";
 
 export default function CostEstimateTemplateSelector() {
   const { showSuccess, showError } = useToastNotification();
@@ -180,6 +180,23 @@ export default function CostEstimateTemplateSelector() {
 
   const handleShowLivePreview = () => {
     onLivePreviewOpen();
+  };
+
+  // Podgląd kosztorysu — ładuje strukturę i od razu otwiera live preview (bez modalu struktury)
+  const handleLivePreview = async (template: DefaultCostEstimateTemplateListItemWeb) => {
+    setSelectedTemplate(template);
+    setLoadingStructure(true);
+    onLivePreviewOpen();
+
+    try {
+      const structure = await costEstimateTemplateApi.getDefaultTemplate(template.slug);
+      setTemplateStructure(structure);
+    } catch (error: any) {
+      showError('Nie udało się załadować struktury szablonu', error?.message);
+      setTemplateStructure(null);
+    } finally {
+      setLoadingStructure(false);
+    }
   };
 
   // Generowanie przykładowych danych kosztorysu na podstawie struktury szablonu
@@ -308,15 +325,25 @@ export default function CostEstimateTemplateSelector() {
                         </VStack>
 
                         <HStack spacing={2} pt={2}>
-                          <Tooltip label="Zobacz strukturę szablonu">
+                          <Tooltip label="Podgląd przykładowego kosztorysu">
                             <Button
                               size="sm"
                               leftIcon={<Eye size={16} />}
-                              variant="outline"
-                              onClick={() => handlePreviewTemplate(template)}
+                              variant="ghost"
+                              onClick={() => handleLivePreview(template)}
                               flex={1}
                             >
                               Podgląd
+                            </Button>
+                          </Tooltip>
+                          <Tooltip label="Szczegóły struktury szablonu">
+                            <Button
+                              size="sm"
+                              leftIcon={<Settings size={16} />}
+                              variant="ghost"
+                              onClick={() => handlePreviewTemplate(template)}
+                            >
+                              Szczegóły
                             </Button>
                           </Tooltip>
                           <Tooltip label="Utwórz szablon na podstawie tego szablonu">
@@ -736,7 +763,11 @@ export default function CostEstimateTemplateSelector() {
             </ModalHeader>
             <ModalCloseButton />
             <ModalBody p={6} bg="gray.50">
-              {previewData ? (
+              {loadingStructure ? (
+                <Box py={16}>
+                  <LoadingSpinner />
+                </Box>
+              ) : previewData ? (
                 <Box maxW="1600px" mx="auto">
                   <VStack spacing={4} align="stretch" mb={4}>
                     <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
@@ -759,7 +790,31 @@ export default function CostEstimateTemplateSelector() {
               )}
             </ModalBody>
             <ModalFooter borderTop="1px" borderColor="gray.200">
-              <Button onClick={onLivePreviewClose}>Zamknij</Button>
+              <HStack spacing={3}>
+                <Button
+                  variant="outline"
+                  leftIcon={<Settings size={16} />}
+                  onClick={() => {
+                    onLivePreviewClose();
+                    // Struktura już załadowana — wystarczy otworzyć modal szczegółów
+                    onPreviewOpen();
+                  }}
+                  isDisabled={loadingStructure}
+                >
+                  Szczegóły
+                </Button>
+                <Button variant="ghost" onClick={onLivePreviewClose}>Zamknij</Button>
+                <Button
+                  colorScheme="blue"
+                  leftIcon={<Plus size={18} />}
+                  onClick={() => {
+                    onLivePreviewClose();
+                    if (selectedTemplate) handleOpenCreateModal(selectedTemplate);
+                  }}
+                >
+                  Użyj tego szablonu
+                </Button>
+              </HStack>
             </ModalFooter>
           </ModalContent>
         </Modal>
@@ -1113,5 +1168,7 @@ function generateSampleCostEstimate(
     ownerId: 'preview-user',
     ownerName: 'Użytkownik podglądu',
     templateStructure: templateStructureForPreview,
+    accessLevel: CostEstimateAccessLevel.Full,
+    sharedWithUsers: [],
   };
 }

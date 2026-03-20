@@ -1,6 +1,8 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.CostEstimates;
+using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
@@ -16,6 +18,7 @@ namespace CQRS.CostEstimates.CopyCostEstimate
         private readonly IRepository<CostEstimateGroupFieldValue> groupFieldValueRepo;
         private readonly IRepository<CostEstimateItem> itemRepo;
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepo;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
 
         public CopyCostEstimateCommandHandler(
@@ -24,6 +27,7 @@ namespace CQRS.CostEstimates.CopyCostEstimate
             IRepository<CostEstimateGroupFieldValue> groupFieldValueRepo,
             IRepository<CostEstimateItem> itemRepo,
             IRepository<CostEstimateItemFieldValue> itemFieldValueRepo,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser)
         {
             this.costEstimateRepo = costEstimateRepo;
@@ -31,6 +35,7 @@ namespace CQRS.CostEstimates.CopyCostEstimate
             this.groupFieldValueRepo = groupFieldValueRepo;
             this.itemRepo = itemRepo;
             this.itemFieldValueRepo = itemFieldValueRepo;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
         }
 
@@ -57,14 +62,12 @@ namespace CQRS.CostEstimates.CopyCostEstimate
             CostEstimate? sourceCostEstimate = costEstimates.FirstOrDefault()
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            // 2. Authorization check: tenant admin OR project admin OR cost estimate owner
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, request.ProjectId, cancellationToken);
-            bool isOwner = sourceCostEstimate.OwnerId == currentUser.Id;
-            
-            if (!isAdmin && !isOwner)
-            {
-                throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
-            }
+
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, tenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel != CostEstimateAccessLevel.Full)
+                throw new ForbiddenApiException("Only the owner or an admin can copy this cost estimate.");
 
             List<Guid> createdCostEstimateIds = new List<Guid>();
             DateTime now = DateTime.UtcNow;

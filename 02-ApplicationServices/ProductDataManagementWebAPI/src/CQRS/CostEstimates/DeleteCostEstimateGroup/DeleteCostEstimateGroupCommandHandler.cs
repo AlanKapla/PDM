@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Configurations;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -9,7 +10,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 {
-    public class DeleteCostEstimateGroupCommandHandler : IRequestHandler<DeleteCostEstimateGroupCommand, Unit>
+    public sealed class DeleteCostEstimateGroupCommandHandler : IRequestHandler<DeleteCostEstimateGroupCommand, Unit>
     {
         private readonly IRepository<CostEstimateGroup> groupRepository;
         private readonly IRepository<CostEstimateItem> itemRepository;
@@ -18,6 +19,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
         private readonly IRepository<CostEstimateFieldFile> fieldFileRepository;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICostEstimateCacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteCostEstimateGroupCommandHandler> logger;
 
@@ -29,6 +31,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             IRepository<CostEstimateFieldFile> fieldFileRepository,
             IBlobStorageService blobStorageService,
             ICostEstimateCacheService cacheService,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser,
             ILogger<DeleteCostEstimateGroupCommandHandler> logger)
         {
@@ -39,6 +42,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             this.fieldFileRepository = fieldFileRepository;
             this.blobStorageService = blobStorageService;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -46,8 +50,21 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
         public async Task<Unit> Handle(DeleteCostEstimateGroupCommand request, CancellationToken cancellationToken)
         {
             var costEstimate = await cacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, currentUser.Id, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+            {
+                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+            }
+
+            if (accessLevel == CostEstimateAccessLevel.Restricted)
+            {
+                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
+            }
 
             var groupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
@@ -57,17 +74,17 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
                 throw new NotFoundApiException(nameof(CostEstimateGroup), request.GroupId.ToString());
             }
 
-            var now = DateTime.UtcNow;
+            DateTime now = DateTime.UtcNow;
 
             // Collect all descendant group IDs from cached dictionary
-            var allGroupIds = CollectDescendantGroupIds(groupsDict, request.GroupId);
+            HashSet<Guid> allGroupIds = CollectDescendantGroupIds(groupsDict, request.GroupId);
             allGroupIds.Add(request.GroupId);
 
             // Collect item IDs from cache
             var itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
-            var allItemIds = itemsDict.Values
+            HashSet<Guid> allItemIds = itemsDict.Values
                 .Where(i => allGroupIds.Contains(i.GroupId))
                 .Select(i => i.Id)
                 .ToHashSet();
@@ -75,7 +92,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             // Soft-delete files + delete blobs (before DB changes)
             if (allItemIds.Count > 0)
             {
-                var filesToDelete = (await fieldFileRepository.GetBySearch(
+                List<CostEstimateFieldFile> filesToDelete = (await fieldFileRepository.GetBySearch(
                     f => f.CostEstimateId == request.CostEstimateId &&
                          allItemIds.Contains(f.FieldValue.ItemId) &&
                          !f.IsDeleted)).ToList();
@@ -111,7 +128,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             // Soft-delete items
             if (allItemIds.Count > 0)
             {
-                var itemsToDelete = (await itemRepository.GetBySearch(
+                List<CostEstimateItem> itemsToDelete = (await itemRepository.GetBySearch(
                     i => allItemIds.Contains(i.Id) && !i.IsDeleted)).ToList();
 
                 foreach (var item in itemsToDelete)
@@ -124,7 +141,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             }
 
             // Soft-delete groups
-            var groupsToDelete = (await groupRepository.GetBySearch(
+            List<CostEstimateGroup> groupsToDelete = (await groupRepository.GetBySearch(
                 g => allGroupIds.Contains(g.Id) && !g.IsDeleted)).ToList();
 
             foreach (var g in groupsToDelete)
@@ -145,16 +162,36 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
         private static HashSet<Guid> CollectDescendantGroupIds(
             Dictionary<Guid, CostEstimateGroup> groupsDict,
-            Guid parentGroupId)
+            Guid rootGroupId)
         {
-            var result = new HashSet<Guid>();
+            Dictionary<Guid, List<Guid>> childrenByParentId = groupsDict.Values
+                .Where(g => g.ParentGroupId.HasValue)
+                .GroupBy(g => g.ParentGroupId!.Value)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Id).ToList());
 
-            foreach (var kvp in groupsDict)
+            HashSet<Guid> result = [];
+            Queue<Guid> queue = new();
+
+            if (!childrenByParentId.TryGetValue(rootGroupId, out List<Guid>? directChildren))
             {
-                if (kvp.Value.ParentGroupId == parentGroupId)
+                return result;
+            }
+
+            foreach (Guid id in directChildren)
+            {
+                queue.Enqueue(id);
+            }
+
+            while (queue.Count > 0)
+            {
+                Guid id = queue.Dequeue();
+                result.Add(id);
+                if (childrenByParentId.TryGetValue(id, out List<Guid>? children))
                 {
-                    result.Add(kvp.Key);
-                    result.UnionWith(CollectDescendantGroupIds(groupsDict, kvp.Key));
+                    foreach (Guid childId in children)
+                    {
+                        queue.Enqueue(childId);
+                    }
                 }
             }
 

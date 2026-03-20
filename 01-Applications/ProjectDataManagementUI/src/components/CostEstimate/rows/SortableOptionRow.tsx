@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack } from '@chakra-ui/react';
+import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox } from '@chakra-ui/react';
 import { GripVertical, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -27,6 +27,8 @@ export interface SortableOptionRowProps {
   groupId: string;
   indent: number;
   editable: boolean;
+  /** Czy user może edytować wartości pól (false tylko dla trybu podglądu). Niezależne od canStructuralEdit. */
+  canEditFields: boolean;
   templateStructure: any;
   expandedColumns: ExpandedColumn[];
   getColumnWidth: GetColumnWidthFn;
@@ -57,6 +59,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
   groupId,
   indent,
   editable,
+  canEditFields,
   templateStructure,
   expandedColumns,
   getColumnWidth,
@@ -168,7 +171,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
 
         return (
           <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
-            {editable ? (
+            {canEditFields ? (
               renderFieldInput(
                 col.childField,
                 childValue || undefined,
@@ -187,6 +190,13 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
                 col.childField.id,
                 fieldValueFull?.files
               )
+            ) : col.isBoolean ? (
+              <Checkbox
+                isChecked={childValue === 'true' || childValue === '1'}
+                isReadOnly
+                size="sm"
+                sx={{ cursor: 'default' }}
+              />
             ) : (
               <Text fontSize="sm" textAlign="center" isTruncated>
                 {formatDisplayValue(childValue, col.childField)}

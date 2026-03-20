@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -7,6 +8,8 @@ using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Business.Implementation.Helpers;
+using Microsoft.EntityFrameworkCore;
+using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.GetCostEstimateDetails
 {
@@ -14,12 +17,15 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
     /// Handler dla pobrania szczegółów kosztorysu
     /// Assembles full hierarchy from cached collections (no EF Include chains)
     /// </summary>
-    public class GetCostEstimateDetailsQueryHandler : IRequestHandler<GetCostEstimateDetailsQuery, CostEstimateDetailsWeb>
+    public sealed class GetCostEstimateDetailsQueryHandler : IRequestHandler<GetCostEstimateDetailsQuery, CostEstimateDetailsWeb>
     {
         private readonly ICostEstimateCacheService ceCacheService;
         private readonly ICostEstimateTemplateService costEstimateTemplateService;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
+        private readonly IReadRepository<SharedCostEstimate> sharedCeRepository;
+        private readonly ICurrentUser currentUser;
 
         private const int SasExpirationMinutes = 60;
         private static readonly TimeSpan SasCacheDuration = TimeSpan.FromMinutes(55);
@@ -28,39 +34,49 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             ICostEstimateCacheService ceCacheService,
             ICostEstimateTemplateService costEstimateTemplateService,
             IBlobStorageService blobStorageService,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            ICostEstimateAccessService ceAccessService,
+            IReadRepository<SharedCostEstimate> sharedCeRepository,
+            ICurrentUser currentUser)
         {
             this.ceCacheService = ceCacheService;
             this.costEstimateTemplateService = costEstimateTemplateService;
             this.blobStorageService = blobStorageService;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
+            this.sharedCeRepository = sharedCeRepository;
+            this.currentUser = currentUser;
         }
 
         public async Task<CostEstimateDetailsWeb> Handle(GetCostEstimateDetailsQuery request, CancellationToken cancellationToken)
         {
-            // 1. Get cost estimate from cache (no ownerId validation for read queries)
+            // 1. Get cost estimate from cache
             var costEstimate = await ceCacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, null, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            // 2. Get template from cache (for name + structure + currencies)
+            // 2. Verify access
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+
+            // 3. Get template from cache (for name + structure + currencies)
             var template = await ceCacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
-            // 3. Get all cached collections
+            // 4. Get all cached collections sequentially (independent Redis calls)
             var groupsDict = await ceCacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
-
             var groupFieldValuesDict = await ceCacheService.GetGroupFieldValuesDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
-
             var itemsDict = await ceCacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
-
             var itemFieldValuesDict = await ceCacheService.GetItemFieldValuesDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
-            // 4. Build lookup structures for efficient hierarchy assembly
+            // 5. Build lookup structures for efficient hierarchy assembly
             var groupFieldValuesByGroupId = groupFieldValuesDict.Values
                 .GroupBy(fv => fv.GroupId)
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -79,27 +95,69 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 .GroupBy(fv => fv.ItemId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            // 5. Build SAS URIs for files (cached separately in Redis)
+            // 6. Build SAS URIs for files (cached separately in Redis)
             var fileSasUris = await BuildFileSasUrisCachedAsync(
                 costEstimate.Id, itemFieldValuesDict, cancellationToken);
 
-            // 6. Get template structure via existing service
+            // 7. Get template structure via existing service
             var templateStructure = await costEstimateTemplateService.GetTemplateStructureCachedAsync(
                 template, cancellationToken);
 
-            // 7. Build hierarchical structure
+            // Restricted access widzi tylko kolumny z IsVisible = true.
+            // Full access widzi wszystkie kolumny (IsVisible jest ignorowane).
+            if (accessLevel == CostEstimateAccessLevel.Restricted && templateStructure.UiConfiguration is not null)
+            {
+                var visibleColumns = templateStructure.UiConfiguration.Columns
+                    .Where(c => c.IsVisible)
+                    .ToList();
+
+                templateStructure = templateStructure with
+                {
+                    UiConfiguration = new Business.Interfaces.WebModels.CostEstimateTemplates.UiConfigurationWeb(visibleColumns)
+                };
+            }
+
+            // 8. Build hierarchical structure
             var allGroups = groupsDict.Values.ToList();
+            var childGroupsByParentId = allGroups
+                .Where(g => g.ParentGroupId.HasValue)
+                .GroupBy(g => g.ParentGroupId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
             var rootGroups = BuildGroupHierarchy(
                 allGroups.Where(g => g.ParentGroupId == null).ToList(),
-                allGroups,
+                childGroupsByParentId,
                 groupFieldValuesByGroupId,
                 mainItemsByGroupId,
                 childItemsByParentId,
                 itemFieldValuesByItemId,
                 fileSasUris);
 
-            // 8. Resolve currency from cached template
-            var selectedCurrency = template.Currencies.First(c => c.Id == costEstimate.SelectedCurrencyId);
+            // 9. Resolve currency from cached template
+            CostEstimateTemplateCurrency selectedCurrency = template.Currencies
+                .FirstOrDefault(c => c.Id == costEstimate.SelectedCurrencyId)
+                ?? throw new NotFoundApiException(nameof(CostEstimateTemplateCurrency), costEstimate.SelectedCurrencyId.ToString());
+
+            // 10. Load shares — only for Full access (owner / admin), one query with nav props
+            IReadOnlyList<CostEstimateShareWeb> sharedWithUsers = [];
+            if (accessLevel == CostEstimateAccessLevel.Full)
+            {
+                var shares = (await sharedCeRepository.GetBySearch(
+                    s => s.CostEstimateId == request.CostEstimateId,
+                    q => q.Include(s => s.SharedWithProjectMember)
+                              .ThenInclude(pm => pm.TenantMember)
+                                  .ThenInclude(tm => tm.User))).ToList();
+
+                sharedWithUsers = shares
+                    .Select(s => new CostEstimateShareWeb(
+                        UserId: s.SharedWithUserId,
+                        FullName: $"{s.SharedWithProjectMember.TenantMember.User.FirstName} {s.SharedWithProjectMember.TenantMember.User.LastName}",
+                        Email: s.SharedWithProjectMember.TenantMember.User.Email,
+                        SharedAt: s.SharedAt
+                    ))
+                    .OrderBy(sw => sw.FullName)
+                    .ToList();
+            }
 
             return new CostEstimateDetailsWeb(
                 Id: costEstimate.Id,
@@ -122,7 +180,9 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 LastCalculatedAt: costEstimate.LastCalculatedAt,
                 OwnerId: costEstimate.OwnerId,
                 OwnerName: $"{costEstimate.Owner.FirstName} {costEstimate.Owner.LastName}",
-                TemplateStructure: templateStructure
+                TemplateStructure: templateStructure,
+                AccessLevel: accessLevel,
+                SharedWithUsers: sharedWithUsers
             );
         }
 
@@ -180,7 +240,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
 
         private List<CostEstimateGroupWeb> BuildGroupHierarchy(
             List<CostEstimateGroup> currentLevelGroups,
-            List<CostEstimateGroup> allGroups,
+            Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParentId,
             Dictionary<Guid, List<CostEstimateGroupFieldValue>> groupFieldValuesByGroupId,
             Dictionary<Guid, List<CostEstimateItem>> mainItemsByGroupId,
             Dictionary<Guid, List<CostEstimateItem>> childItemsByParentId,
@@ -221,8 +281,8 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                         TotalVat: group.TotalVat,
                         LastCalculatedAt: group.LastCalculatedAt,
                         ChildGroups: BuildGroupHierarchy(
-                            allGroups.Where(g => g.ParentGroupId == group.Id).ToList(),
-                            allGroups,
+                            childGroupsByParentId.TryGetValue(group.Id, out var children) ? children : [],
+                            childGroupsByParentId,
                             groupFieldValuesByGroupId,
                             mainItemsByGroupId,
                             childItemsByParentId,
@@ -316,14 +376,5 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 UpdatedAt: item.UpdatedAt
             );
         }
-    }
-
-    /// <summary>
-    /// Cache model for SAS URIs per file
-    /// </summary>
-    public sealed class CostEstimateFieldFileSasInfo
-    {
-        public required string PreviewUri { get; init; }
-        public required string DownloadUri { get; init; }
     }
 }

@@ -56,7 +56,6 @@ namespace Business.Implementation.Services
             Guid costEstimateId,
             Guid tenantId,
             Guid projectId,
-            Guid? ownerId,
             CancellationToken cancellationToken)
         {
             var costEstimate = await cacheService.GetOrAddAsync(
@@ -74,17 +73,6 @@ namespace Business.Implementation.Services
                 },
                 DefaultExpiration,
                 cancellationToken);
-
-            if (costEstimate == null)
-            {
-                return null;
-            }
-
-            // Validate owner after fetching from cache
-            if (ownerId.HasValue && costEstimate.OwnerId != ownerId.Value)
-            {
-                return null;
-            }
 
             return costEstimate;
         }
@@ -225,6 +213,13 @@ namespace Business.Implementation.Services
         public async Task InvalidateItemFieldValuesAsync(Guid costEstimateId, Guid tenantId, Guid projectId, CancellationToken cancellationToken)
         {
             await cacheService.RemoveCacheByKeyAsync(ItemFieldValuesKey(tenantId, projectId, costEstimateId), cancellationToken);
+        }
+
+        public async Task InvalidateTemplateAsync(Guid templateId, CancellationToken cancellationToken)
+        {
+            await cacheService.RemoveCacheByKeyAsync(TemplateKey(templateId), cancellationToken);
+
+            logger.LogDebug("Invalidated template cache for template {TemplateId}", templateId);
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Constants;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -16,6 +17,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
         private readonly IRepository<CostEstimateFieldFile> fieldFileRepository;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICostEstimateCacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteCostEstimateItemCommandHandler> logger;
 
@@ -25,6 +27,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             IRepository<CostEstimateFieldFile> fieldFileRepository,
             IBlobStorageService blobStorageService,
             ICostEstimateCacheService cacheService,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser,
             ILogger<DeleteCostEstimateItemCommandHandler> logger)
         {
@@ -33,6 +36,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             this.fieldFileRepository = fieldFileRepository;
             this.blobStorageService = blobStorageService;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -40,8 +44,18 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
         public async Task<Unit> Handle(DeleteCostEstimateItemCommand request, CancellationToken cancellationToken)
         {
             var costEstimate = await cacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, currentUser.Id, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+
+            if (accessLevel == CostEstimateAccessLevel.Restricted)
+                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
 
             var itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);

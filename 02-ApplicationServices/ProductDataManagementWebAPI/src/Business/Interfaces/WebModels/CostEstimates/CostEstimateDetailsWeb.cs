@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.WebModels.CostEstimateTemplates;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.CostEstimateTemplates;
 using Entities.Models;
 using Entities.Models.CostEstimates;
 
@@ -29,6 +30,8 @@ namespace Business.Interfaces.WebModels.CostEstimates
         DateTime? LastCalculatedAt,
         Guid OwnerId,
         string OwnerName,
-        CostEstimateTemplateStructureWeb TemplateStructure
+        CostEstimateTemplateStructureWeb TemplateStructure,
+        CostEstimateAccessLevel AccessLevel,
+        IReadOnlyList<CostEstimateShareWeb> SharedWithUsers
     );
 }

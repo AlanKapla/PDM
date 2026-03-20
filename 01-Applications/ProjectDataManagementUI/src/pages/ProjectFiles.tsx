@@ -956,7 +956,7 @@ export default function ProjectFiles() {
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
-                    <Text>Wszystkie pliki</Text>
+                    <Text>Wszystkie</Text>
                     <Badge colorScheme="purple" ml={2}>{(allFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
                 </Tab>
@@ -965,7 +965,7 @@ export default function ProjectFiles() {
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
-                    <Text>Moje pliki</Text>
+                    <Text>Moje</Text>
                     <Badge colorScheme="blue" ml={2}>{(myFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
                 </Tab>

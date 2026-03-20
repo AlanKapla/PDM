@@ -1,8 +1,6 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.CostEstimates;
-using Entities.Models;
-using MediatR;
 
 namespace CQRS.CostEstimates.CreateCostEstimate
 {

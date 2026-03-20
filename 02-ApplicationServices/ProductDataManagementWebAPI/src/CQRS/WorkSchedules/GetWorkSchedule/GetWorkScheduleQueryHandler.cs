@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
 using Entities.Models;
 using MediatR;
@@ -11,13 +12,16 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
     public class GetWorkScheduleQueryHandler : IRequestHandler<GetWorkScheduleQuery, WorkScheduleDetailsWeb>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
+        private readonly IUserService userService;
         private readonly ICurrentUser currentUser;
 
         public GetWorkScheduleQueryHandler(
             IRepository<WorkSchedule> workScheduleRepo,
+            IUserService userService,
             ICurrentUser currentUser)
         {
             this.workScheduleRepo = workScheduleRepo;
+            this.userService = userService;
             this.currentUser = currentUser;
         }
 
@@ -31,23 +35,17 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                       ws.ProjectId == request.ProjectId &&
                       ws.TenantId == request.TenantId,
                 include => include
-                    .Include(ws => ws.CreatedBy)
-                        .ThenInclude(tm => tm.User)
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
                             .ThenInclude(w => w.Periods),
                 include => include
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
-                            .ThenInclude(w => w.Assignments)
-                                .ThenInclude(a => a.ProjectMember)
-                                    .ThenInclude(pm => pm.TenantMember)
-                                        .ThenInclude(tm => tm.User),
+                            .ThenInclude(w => w.Assignments),
                 include => include
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
-                            .ThenInclude(w => w.Comments)
-                                .ThenInclude(c => c.CreatedBy))
+                            .ThenInclude(w => w.Comments))
                 ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
 
             // ─────────────────────────────────────────────────────────────────────
@@ -72,6 +70,10 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
             // ─────────────────────────────────────────────────────────────────────
             // STEP 3: Build response
             // ─────────────────────────────────────────────────────────────────────
+            var membersDict = (await userService.GetProjectMembersAsync(
+                request.TenantId, request.ProjectId, cancellationToken))
+                .ToDictionary(m => m.UserId);
+
             var result = new WorkScheduleDetailsWeb(
                 Id: workSchedule.Id,
                 TenantId: workSchedule.TenantId,
@@ -79,8 +81,8 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                 Name: workSchedule.Name,
                 CreatedAt: workSchedule.CreatedAt,
                 CreatedByUserId: workSchedule.CreatedByUserId,
-                CreatedByUserName: workSchedule.CreatedBy?.User != null
-                    ? $"{workSchedule.CreatedBy.User.FirstName} {workSchedule.CreatedBy.User.LastName}".Trim()
+                CreatedByUserName: membersDict.TryGetValue(workSchedule.CreatedByUserId, out var creator)
+                    ? creator.FullName
                     : "Unknown",
                 Stages: workSchedule.Stages
                     .OrderBy(s => s.Order)
@@ -107,7 +109,9 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                                 Assignees: w.Assignments
                                     .Select(a => new WorkScheduleStageWorkAssigneeWeb(
                                         UserId: a.UserId,
-                                        UserName: $"{a.ProjectMember.TenantMember.User.FirstName} {a.ProjectMember.TenantMember.User.LastName}".Trim()
+                                        UserName: membersDict.TryGetValue(a.UserId, out var assignee)
+                                            ? assignee.FullName
+                                            : "Unknown"
                                     ))
                                     .ToList(),
                                 Comments: w.Comments
@@ -116,7 +120,9 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                                         Id: c.Id,
                                         Content: c.Content,
                                         CreatedByUserId: c.CreatedByUserId,
-                                        CreatedByUserName: $"{c.CreatedBy.FirstName} {c.CreatedBy.LastName}".Trim(),
+                                        CreatedByUserName: membersDict.TryGetValue(c.CreatedByUserId, out var commenter)
+                                            ? commenter.FullName
+                                            : "Unknown",
                                         CreatedAt: c.CreatedAt
                                     ))
                                     .ToList()

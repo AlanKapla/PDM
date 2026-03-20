@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { costEstimateApiNew } from '../api/costEstimateApiNew';
+import { costEstimateApi } from '../api/costEstimateApi';
 import type {
   CostEstimateDetailsWeb,
   CostEstimateListItemWeb,
@@ -23,7 +23,7 @@ export function useCostEstimateDetails(
       setLoading(true);
       setError(null);
 
-      const data = await costEstimateApiNew.getCostEstimateDetails(
+      const data = await costEstimateApi.getCostEstimateDetails(
         tenantId,
         projectId,
         costEstimateId
@@ -66,7 +66,7 @@ export function useCostEstimateList(
       setLoading(true);
       setError(null);
 
-      const data = await costEstimateApiNew.getCostEstimatesByScope(
+      const data = await costEstimateApi.getCostEstimatesByScope(
         tenantId,
         projectId,
         scope

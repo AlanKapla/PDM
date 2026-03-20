@@ -64,6 +64,7 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         int FieldType,
         string FieldLabel,
         int FieldScope,
-        int Order
+        int Order,
+        bool IsVisible = true
     );
 }

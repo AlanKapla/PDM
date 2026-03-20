@@ -43,6 +43,8 @@ export interface SortableGroupRowProps {
   groupNumber: string;
   isCollapsed: boolean;
   editable: boolean;
+  /** Czy user może edytować wartości pól (false tylko dla trybu podglądu). Niezależne od canStructuralEdit. */
+  canEditFields: boolean;
   templateStructure: any;
   showGroupSummary: boolean;
   groupSummaryFields: any[];
@@ -87,6 +89,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
   groupNumber,
   isCollapsed,
   editable,
+  canEditFields,
   templateStructure,
   showGroupSummary,
   groupSummaryFields,
@@ -253,7 +256,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
           const value = getGroupFieldValue(group, groupHeaderField.id);
           return (
             <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-              {editable ? (
+              {canEditFields ? (
                 renderFieldInput(groupHeaderField, value, (newValue) =>
                   updateGroupFieldValue(group.id, groupHeaderField.id, newValue)
                 )

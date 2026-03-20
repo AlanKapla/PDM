@@ -947,7 +947,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
+                {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources || permissions.canReadSharedResources) && (
                   <Box
                     as="button"
                     bg={cardBg}

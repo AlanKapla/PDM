@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
@@ -13,15 +14,18 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
     {
         private readonly IRepository<CostEstimateGroup> groupRepository;
         private readonly ICostEstimateCacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
 
         public AddCostEstimateGroupCommandHandler(
             IRepository<CostEstimateGroup> groupRepository,
             ICostEstimateCacheService cacheService,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser)
         {
             this.groupRepository = groupRepository;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
         }
 
@@ -30,8 +34,18 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
             CancellationToken cancellationToken)
         {
             var costEstimate = await cacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, currentUser.Id, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+
+            if (accessLevel == CostEstimateAccessLevel.Restricted)
+                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
 
             var template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());

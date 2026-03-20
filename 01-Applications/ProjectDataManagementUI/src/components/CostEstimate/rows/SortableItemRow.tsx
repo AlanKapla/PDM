@@ -7,6 +7,7 @@ import {
   Tooltip,
   Badge,
   HStack,
+  Checkbox,
 } from '@chakra-ui/react';
 import {
   GripVertical,
@@ -44,6 +45,8 @@ export interface SortableItemRowProps {
   indent: number;
   itemNumber: number;
   editable: boolean;
+  /** Czy user może edytować wartości pól (false tylko dla trybu podglądu). Niezależne od canStructuralEdit. */
+  canEditFields: boolean;
   templateStructure: any;
   expandedColumns: ExpandedColumn[];
   getColumnWidth: GetColumnWidthFn;
@@ -94,6 +97,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   indent,
   itemNumber,
   editable,
+  canEditFields,
   templateStructure,
   expandedColumns,
   getColumnWidth,
@@ -348,7 +352,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                 overflow="hidden"
                 bg={hasComponents && isCalcFieldForDisable ? 'green.50' : undefined}
               >
-                {editable ? (
+                {canEditFields ? (
                   renderFieldInput(
                     fieldDef,
                     value,
@@ -359,6 +363,13 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     fieldDef.id,
                     fieldValueFull?.files
                   )
+                ) : col.isBoolean ? (
+                  <Checkbox
+                    isChecked={value === 'true' || value === '1'}
+                    isReadOnly
+                    size="sm"
+                    sx={{ cursor: 'default' }}
+                  />
                 ) : (
                   <Text fontSize="sm" textAlign="center" isTruncated>
                     {formatDisplayValue(value, fieldDef)}
@@ -388,6 +399,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             groupId={groupId}
             indent={indent}
             editable={editable}
+            canEditFields={canEditFields}
             templateStructure={templateStructure}
             expandedColumns={expandedColumns}
             getColumnWidth={getColumnWidth}
@@ -415,6 +427,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             groupId={groupId}
             indent={indent}
             editable={editable}
+            canEditFields={canEditFields}
             templateStructure={templateStructure}
             expandedColumns={expandedColumns}
             getColumnWidth={getColumnWidth}

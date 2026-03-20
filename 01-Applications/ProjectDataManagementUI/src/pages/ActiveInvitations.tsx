@@ -36,6 +36,7 @@ export default function ActiveInvitations() {
         const pendingInvitations = invitationsData.filter((inv: TenantInvitationWeb) => inv.status === InvitationStatus.Pending);
         setInvitations(pendingInvitations);
       } catch (error) {
+        console.error("Błąd ładowania zaproszeń:", error);
       } finally {
         setLoading(false);
       }
@@ -69,6 +70,7 @@ export default function ActiveInvitations() {
         });
       }
     } catch (error) {
+      console.error("Błąd akceptacji zaproszenia:", error);
       toast({
         title: "Wystąpił błąd połączenia",
         description: "Sprawdź połączenie internetowe i spróbuj ponownie",

@@ -1490,7 +1490,7 @@ export default function ProjectSimpleCosts() {
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
-                    <Text>Wszystkie koszty</Text>
+                    <Text>Wszystkie</Text>
                     <Badge colorScheme="purple" ml={2}>{allCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
@@ -1499,7 +1499,7 @@ export default function ProjectSimpleCosts() {
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
-                    <Text>Moje koszty</Text>
+                    <Text>Moje</Text>
                     <Badge colorScheme="blue" ml={2}>{myCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>

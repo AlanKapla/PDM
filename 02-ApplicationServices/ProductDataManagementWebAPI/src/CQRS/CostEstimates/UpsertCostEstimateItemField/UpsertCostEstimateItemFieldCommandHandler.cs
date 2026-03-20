@@ -1,61 +1,92 @@
 ﻿using Business.Implementation.Helpers;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
+using Entities.Models;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.UpsertCostEstimateItemField
 {
-    public class UpsertCostEstimateItemFieldCommandHandler
+    public sealed class UpsertCostEstimateItemFieldCommandHandler
         : IRequestHandler<UpsertCostEstimateItemFieldCommand, Guid>
     {
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
         private readonly ICostEstimateCacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
+        private readonly IUserService userService;
+        private readonly IReadRepository<Notification> notificationRepository;
+        private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
+        private readonly ILogger<UpsertCostEstimateItemFieldCommandHandler> logger;
 
         public UpsertCostEstimateItemFieldCommandHandler(
             IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
             ICostEstimateCacheService cacheService,
-            ICurrentUser currentUser)
+            ICostEstimateAccessService ceAccessService,
+            IUserService userService,
+            IReadRepository<Notification> notificationRepository,
+            INotificationSender notificationSender,
+            ICurrentUser currentUser,
+            ILogger<UpsertCostEstimateItemFieldCommandHandler> logger)
         {
             this.itemFieldValueRepository = itemFieldValueRepository;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
+            this.userService = userService;
+            this.notificationRepository = notificationRepository;
+            this.notificationSender = notificationSender;
             this.currentUser = currentUser;
+            this.logger = logger;
         }
 
         public async Task<Guid> Handle(UpsertCostEstimateItemFieldCommand request, CancellationToken cancellationToken)
         {
             var costEstimate = await cacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, currentUser.Id, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
 
             var itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             if (!itemsDict.ContainsKey(request.ItemId))
-            {
                 throw new NotFoundApiException(nameof(CostEstimateItem), request.ItemId.ToString());
-            }
 
-            if (request.FieldValueId is null)
+            Guid fieldValueId = request.FieldValueId is null
+                ? await AddFieldValue(request, costEstimate.TemplateId, accessLevel, cancellationToken)
+                : await UpdateFieldValue(request, accessLevel, cancellationToken);
+
+            if (costEstimate.OwnerId != currentUser.Id)
             {
-                return await AddFieldValue(request, costEstimate, cancellationToken);
+                await CostEstimateFieldUpdateNotificationHelper.SendOwnerNotificationAsync(
+                    request.TenantId, request.ProjectId, request.CostEstimateId,
+                    costEstimate.OwnerId, currentUser, userService, notificationRepository,
+                    notificationSender, logger, cancellationToken);
             }
 
-            return await UpdateFieldValue(request, cancellationToken);
+            return fieldValueId;
         }
 
         private async Task<Guid> AddFieldValue(
             UpsertCostEstimateItemFieldCommand request,
-            CostEstimate costEstimate,
+            Guid templateId,
+            CostEstimateAccessLevel accessLevel,
             CancellationToken cancellationToken)
         {
-            var template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
+            CostEstimateTemplate template = await cacheService.GetTemplateAsync(templateId, cancellationToken)
+                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), templateId.ToString());
 
             var fieldDef = template.SystemFieldDefinitions
                     .Cast<CostEstimateTemplateFieldDefinitionBase>()
@@ -65,6 +96,11 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
                 ?? throw new ValidationApiException(
                     $"Field definition {request.FieldDefinitionId} not found in template item fields");
 
+            if (accessLevel == CostEstimateAccessLevel.Restricted && fieldDef.IsReadonly)
+            {
+                throw new ForbiddenApiException("This field is read-only and cannot be modified.");
+            }
+
             if (fieldDef.FieldType is FieldType.ItemCalculatedVatRate
                 && request.DecimalValue.HasValue
                 && (request.DecimalValue.Value < 0m || request.DecimalValue.Value > 1m))
@@ -73,15 +109,33 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
                     $"VatRate value must be between 0 and 1. Provided: {request.DecimalValue.Value}");
             }
 
-            var existing = await itemFieldValueRepository.GetFirstBySearch(
-                fv => fv.ItemId == request.ItemId && fv.FieldDefinitionId == request.FieldDefinitionId);
+            var itemFieldValuesDict = await cacheService.GetItemFieldValuesDictionaryAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
-            if (existing != null)
+            // Jeśli pole już istnieje (np. stworzone jako domyślna wartość przy AddItem),
+            // traktujemy żądanie jako update zamiast rzucać ConflictApiException.
+            var existingFieldValue = itemFieldValuesDict.Values.FirstOrDefault(
+                fv => fv.ItemId == request.ItemId && fv.FieldDefinitionId == request.FieldDefinitionId!.Value);
+
+            if (existingFieldValue is not null)
             {
-                throw new ConflictApiException(
-                    nameof(CostEstimateItemFieldValue),
-                    request.FieldDefinitionId.ToString()!,
-                    $"Field value for definition {request.FieldDefinitionId} already exists on item {request.ItemId}");
+                FieldValueConverter.SetTypedValue(
+                    existingFieldValue,
+                    (int)fieldDef.FieldType,
+                    request.StringValue,
+                    request.DecimalValue,
+                    request.BoolValue,
+                    request.DateTimeValue);
+
+                existingFieldValue.UpdatedAt = DateTime.UtcNow;
+
+                await itemFieldValueRepository.Update(existingFieldValue);
+                await itemFieldValueRepository.SaveChangesAsync(cancellationToken);
+
+                await cacheService.InvalidateItemFieldValuesAsync(
+                    request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+                return existingFieldValue.Id;
             }
 
             var fieldValue = new CostEstimateItemFieldValue
@@ -110,13 +164,19 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
 
         private async Task<Guid> UpdateFieldValue(
             UpsertCostEstimateItemFieldCommand request,
+            CostEstimateAccessLevel accessLevel,
             CancellationToken cancellationToken)
         {
-            var fieldValue = await itemFieldValueRepository.GetFirstBySearch(
+            CostEstimateItemFieldValue fieldValue = await itemFieldValueRepository.GetFirstBySearch(
                 fv => fv.Id == request.FieldValueId!.Value &&
                       fv.ItemId == request.ItemId,
                 q => q.Include(fv => fv.FieldDefinition))
                 ?? throw new NotFoundApiException("ItemFieldValue", request.FieldValueId!.Value.ToString());
+
+            if (accessLevel == CostEstimateAccessLevel.Restricted && fieldValue.FieldDefinition.IsReadonly)
+            {
+                throw new ForbiddenApiException("This field is read-only and cannot be modified.");
+            }
 
             FieldValueConverter.SetTypedValue(
                 fieldValue,

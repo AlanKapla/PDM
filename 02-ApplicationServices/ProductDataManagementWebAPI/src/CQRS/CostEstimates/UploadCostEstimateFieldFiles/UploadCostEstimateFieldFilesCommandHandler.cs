@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -18,6 +19,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
         private readonly IBlobStorageService blobStorageService;
         private readonly ICostEstimateCacheService ceCacheService;
         private readonly ICacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UploadCostEstimateFieldFilesCommandHandler> logger;
 
@@ -28,6 +30,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             IBlobStorageService blobStorageService,
             ICostEstimateCacheService ceCacheService,
             ICacheService cacheService,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser,
             ILogger<UploadCostEstimateFieldFilesCommandHandler> logger)
         {
@@ -37,16 +40,26 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             this.blobStorageService = blobStorageService;
             this.ceCacheService = ceCacheService;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
 
         public async Task<List<Guid>> Handle(UploadCostEstimateFieldFilesCommand request, CancellationToken cancellationToken)
         {
-            // Validate cost estimate via cache (includes owner check)
+            // Validate cost estimate via cache
             var costEstimate = await ceCacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, currentUser.Id, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+            {
+                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+            }
 
             // Validate item belongs to cost estimate via cached items
             var itemsDict = await ceCacheService.GetItemsDictionaryAsync(
@@ -65,6 +78,11 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
                 .FirstOrDefault(fd => fd.Id == request.FieldDefinitionId &&
                                       fd.FieldType == FieldType.ItemSystemFiles)
                 ?? throw new ValidationApiException("Field definition not found or is not of type ItemSystemFiles");
+
+            if (accessLevel == CostEstimateAccessLevel.Restricted && fieldDef.IsReadonly)
+            {
+                throw new ForbiddenApiException("Shared users cannot upload files to a readonly field.");
+            }
 
             // Find or create field value for this item + field definition
             var fieldValue = await fieldValueReadRepo.GetFirstBySearch(

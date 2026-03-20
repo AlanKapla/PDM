@@ -304,8 +304,11 @@ namespace Business.Implementation.Services
             allFieldsList.AddRange(calculatedFieldsList);
             allFieldsList.AddRange(genericFieldsList);
 
+            // Kolumny budujemy bez filtrowania po IsVisible — cache jest neutralny.
+            // Filtrowanie po IsVisible odbywa się na poziomie query, w zależności od access level:
+            // Full access widzi wszystkie kolumny, Restricted widzi tylko IsVisible = true.
             var columns = allFieldsList
-                .Where(f => f.ParentFieldId == null && f.IsVisible)
+                .Where(f => f.ParentFieldId == null)
                 .OrderBy(f => f.Order)
                 .Select(f => new ColumnConfigurationWeb(
                     f.Id,
@@ -313,7 +316,8 @@ namespace Business.Implementation.Services
                     (int)f.FieldType,
                     f.Label,
                     (int)f.FieldScope,
-                    f.Order
+                    f.Order,
+                    f.IsVisible
                 ))
                 .ToList();
 

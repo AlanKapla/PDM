@@ -13,6 +13,8 @@ using CQRS.CostEstimates.GetCostEstimateDetails;
 using CQRS.CostEstimates.GetCostEstimates;
 using CQRS.CostEstimates.ReorderCostEstimateGroups;
 using CQRS.CostEstimates.ReorderCostEstimateItems;
+using CQRS.CostEstimates.ShareCostEstimate;
+using CQRS.CostEstimates.UpdateCostEstimateShares;
 using CQRS.CostEstimates.UpdateCostEstimate;
 using CQRS.CostEstimates.MoveCostEstimateItem;
 using CQRS.CostEstimates.RecalculateCostEstimate;
@@ -25,7 +27,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace WebApi.Controllers
 {
     [ApiController]
-    [Route("api/tenants/{tenantId:guid}/project/{projectId:guid}/cost-estimate")]
+    [Route("api/tenants/{tenantId:guid}/projects/{projectId:guid}/cost-estimate")]
     public class CostEstimateController : BaseApiController
     {
         public CostEstimateController(IMediator mediator) : base(mediator)
@@ -80,12 +82,11 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Create new cost estimate
-        /// Can create empty cost estimate or with full hierarchy of groups and work scope items
+        /// Create new cost estimate based on selected template
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="projectId">Project ID</param>
-        /// <param name="command">Cost estimate data with optional groups hierarchy</param>
+        /// <param name="command">Template, currency, name and optional description</param>
         /// <returns>Created cost estimate ID</returns>
         [HttpPost]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
@@ -109,14 +110,12 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Update existing cost estimate with full hierarchy
-        /// Replaces all groups and work scope items with provided data
-        /// Groups/items with Id will be updated, without Id will be created, missing will be deleted
+        /// Update cost estimate metadata (name and description)
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="projectId">Project ID</param>
         /// <param name="id">Cost estimate ID</param>
-        /// <param name="command">Updated cost estimate data with full hierarchy</param>
+        /// <param name="command">Updated name and description</param>
         /// <returns>No content</returns>
         [HttpPut("{id:guid}")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
@@ -276,7 +275,7 @@ namespace WebApi.Controllers
             };
 
             var result = await Send(command);
-            return Created($"api/tenants/{tenantId}/project/{projectId}/cost-estimate/details/{id}", result);
+            return Created($"api/tenants/{tenantId}/projects/{projectId}/cost-estimate/details/{id}", result);
         }
 
         /// <summary>
@@ -374,7 +373,7 @@ namespace WebApi.Controllers
             };
 
             var result = await Send(command);
-            return Created($"api/tenants/{tenantId}/project/{projectId}/cost-estimate/details/{id}", result);
+            return Created($"api/tenants/{tenantId}/projects/{projectId}/cost-estimate/details/{id}", result);
         }
 
         /// <summary>
@@ -491,7 +490,7 @@ namespace WebApi.Controllers
         /// <param name="id">Cost estimate ID</param>
         /// <returns>No content</returns>
         [HttpPost("{id:guid}/recalculate")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -526,7 +525,7 @@ namespace WebApi.Controllers
         /// <param name="command">Field value data (FieldValueId null = add, non-null = update)</param>
         /// <returns>Field value ID</returns>
         [HttpPatch("{id:guid}/groups/{groupId:guid}/fields")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -565,7 +564,7 @@ namespace WebApi.Controllers
         /// <param name="command">Field value data (FieldValueId null = add, non-null = update)</param>
         /// <returns>Field value ID</returns>
         [HttpPatch("{id:guid}/items/{itemId:guid}/fields")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -588,6 +587,63 @@ namespace WebApi.Controllers
 
             var fieldValueId = await Send(command);
             return Ok(fieldValueId);
+        }
+
+        // ==================================================================================
+        // SHARE OPERATIONS
+        // ==================================================================================
+
+        /// <summary>
+        /// Share a cost estimate with project members
+        /// </summary>
+        [HttpPost("{id:guid}/shares")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> ShareCostEstimate(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid id,
+            [FromBody] ShareCostEstimateRequestWeb body)
+        {
+            var command = new ShareCostEstimateCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostEstimateId = id,
+                ShareWithUserIds = body.UserIds
+            };
+
+            await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Sets the desired share state for a cost estimate.
+        /// Users in the list gain access (if not already), users missing from the list lose access.
+        /// Sends notifications to affected users.
+        /// </summary>
+        [HttpPut("{id:guid}/shares")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> UpdateCostEstimateShares(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid id,
+            [FromBody] UpdateCostEstimateSharesRequestWeb body)
+        {
+            var command = new UpdateCostEstimateSharesCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostEstimateId = id,
+                UserIds = body.UserIds
+            };
+
+            await Send(command);
+            return NoContent();
         }
     }
 }

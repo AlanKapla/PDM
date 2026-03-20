@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
@@ -11,23 +12,36 @@ namespace CQRS.CostEstimates.ReorderCostEstimateItems
     {
         private readonly IRepository<CostEstimateItem> itemRepository;
         private readonly ICostEstimateCacheService cacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
 
         public ReorderCostEstimateItemsCommandHandler(
             IRepository<CostEstimateItem> itemRepository,
             ICostEstimateCacheService cacheService,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser)
         {
             this.itemRepository = itemRepository;
             this.cacheService = cacheService;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
         }
 
         public async Task<Unit> Handle(ReorderCostEstimateItemsCommand request, CancellationToken cancellationToken)
         {
             var costEstimate = await cacheService.GetCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, currentUser.Id, cancellationToken)
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+
+
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel == CostEstimateAccessLevel.None)
+                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+
+            if (accessLevel == CostEstimateAccessLevel.Restricted)
+                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
 
             var groupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);

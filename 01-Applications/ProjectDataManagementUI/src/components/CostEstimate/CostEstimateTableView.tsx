@@ -62,6 +62,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   getFieldValueAsString,
   isTemporaryId,
+  CostEstimateAccessLevel,
   type CostEstimateDetailsWeb,
   type CostEstimateGroupWeb,
   type CostEstimateItemWeb,
@@ -113,6 +114,12 @@ import {
 interface CostEstimateTableViewProps {
   details: CostEstimateDetailsWeb;
   editable?: boolean;
+  /**
+   * Poziom dostępu bieżącego użytkownika do kosztorysu.
+   * Restricted (2) → pola z isReadOnly=true są zablokowane do edycji.
+   * Full (3) → brak dodatkowych ograniczeń (editable prop decyduje).
+   */
+  accessLevel?: CostEstimateAccessLevel;
   onDataChange?: (updated: CostEstimateDetailsWeb) => void;
   onAddGroup?: () => Promise<string | undefined>;
   onDeleteGroup?: (groupId: string) => void;
@@ -172,6 +179,7 @@ interface CostEstimateTableViewProps {
 export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   details,
   editable = false,
+  accessLevel,
   onDataChange,
   onAddGroup,
   onDeleteGroup,
@@ -187,6 +195,11 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   onMoveItem,
   maxTableHeight = 'calc(100vh - 220px)',
 }) => {
+  // Operacje strukturalne (dodawanie/usuwanie/reorder grup i pozycji) wymagają Full access level.
+  // Restricted user może edytować tylko wartości pól — nie może modyfikować struktury kosztorysu.
+  const canStructuralEdit =
+    editable && accessLevel !== CostEstimateAccessLevel.Restricted;
+
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   
   // Stan sortowania: { fieldId, direction: 'asc' | 'desc' }
@@ -1288,17 +1301,30 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     const group = findGroup(details.rootGroups);
     const existingFieldValue = group?.fieldValues.find(fv => fv.fieldDefinitionId === fieldId);
 
-    // Wywołaj autosave jeśli dostępne, grupa jest zapisana (nie temp_) i fieldValue istnieje w bazie
-    if (onFieldAutosave && !isTemporaryId(groupId) && existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
-      onFieldAutosave({
-        entityType: 'group',
-        entityId: groupId,
-        fieldValueId: existingFieldValue.id,
-        fieldDefinitionId: fieldId,
-        fieldType,
-        valueType,
-        value,
-      });
+    // Wywołaj autosave jeśli dostępne i grupa jest zapisana (nie temp_)
+    // Obsługa zarówno nowych pól (fieldValueId: null) jak i aktualizacji istniejących
+    if (onFieldAutosave && !isTemporaryId(groupId)) {
+      if (existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
+        onFieldAutosave({
+          entityType: 'group',
+          entityId: groupId,
+          fieldValueId: existingFieldValue.id,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      } else {
+        onFieldAutosave({
+          entityType: 'group',
+          entityId: groupId,
+          fieldValueId: null,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      }
     }
 
     // Aktualizuj lokalny stan (optimistic update)
@@ -1486,6 +1512,12 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     fieldDefinitionId?: string,
     files?: import('../../types/costEstimate.types.new').CostEstimateFieldFileWeb[] | null
   ) => {
+     // Restricted user nie może edytować pól oznaczonych jako isReadOnly/isReadonly
+     // (obie nazwy występują w zależności od wersji typów)
+     const isRestrictedReadonly =
+       accessLevel === CostEstimateAccessLevel.Restricted &&
+       (fieldDef?.isReadOnly === true || fieldDef?.isReadonly === true);
+     const effectiveDisabled = disabled || isRestrictedReadonly;
      const cfg = fieldDef.fieldTypeConfig as
        | { isNumeric: boolean; isText: boolean; isDate: boolean; isBoolean: boolean; isCollection: boolean; isFile?: boolean; valueTypeName?: string }
        | undefined;
@@ -1497,9 +1529,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
      // Pola typu pliki (ItemSystemFiles, fieldType = 105)
      if (cfg?.isFile || calcFieldType === 105) {
-       // Upload dostępny tylko dla zapisanych pozycji (nie temp_)
+       // Upload dostępny tylko dla zapisanych pozycji (nie temp_) i gdy pole nie jest readonly
        const isSavedItem = itemId && !isTemporaryId(itemId);
-       const canUpload = isSavedItem && onUploadFiles && fieldDefinitionId;
+       const canUpload = isSavedItem && onUploadFiles && fieldDefinitionId && !effectiveDisabled;
        
        return (
          <FileFieldRenderer
@@ -1508,7 +1540,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
              ? (filesToUpload: File[]) => onUploadFiles(itemId, fieldDefinitionId, filesToUpload) 
              : undefined}
            onUploadSuccess={onUploadSuccess}
-           readOnly={disabled || !editable || !isSavedItem}
+           readOnly={effectiveDisabled || !editable || !isSavedItem}
            compact
          />
        );
@@ -1520,7 +1552,22 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
      }
 
      // Readonly — pole obliczane lub zablokowane przez komponenty
-     if (shouldBeReadonly || disabled) {
+     if (shouldBeReadonly || effectiveDisabled) {
+       // Dla pól boolean zawsze renderuj readonly checkbox (nie tekst true/false)
+       if (cfg?.isBoolean || calcFieldType === 3) {
+         return (
+           <Flex justify="center" align="center" w="100%" h="100%">
+             <Checkbox
+               isChecked={value === 'true' || value === '1'}
+               isReadOnly
+               size="sm"
+               sx={{ cursor: 'default' }}
+               title={isRestrictedReadonly ? 'Pole tylko do odczytu' : undefined}
+             />
+           </Flex>
+         );
+       }
+
        const isNumForDisplay = cfg?.isNumeric || [0, 1].includes(fieldDef.fieldType);
        const isTextWithLink = !isNumForDisplay && value && containsUrl(value);
        const displayValue = value !== undefined && value !== ''
@@ -1538,7 +1585,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            py={1} 
            borderRadius="md"
            color="gray.700"
-           title={disabled ? 'Wartość obliczana z komponentów' : 'Wartość obliczana automatycznie'}
+           title={effectiveDisabled ? (isRestrictedReadonly ? 'Pole tylko do odczytu' : 'Wartość obliczana z komponentów') : 'Wartość obliczana automatycznie'}
            wordBreak="break-word"
          >
            {displayValue}
@@ -1554,7 +1601,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            units={templateStructure.units}
            value={value}
            onChange={onChange}
-           disabled={disabled}
+           disabled={effectiveDisabled}
          />
        );
      }
@@ -1565,7 +1612,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            <Checkbox
              isChecked={value === 'true' || value === '1'}
              onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
-             isDisabled={disabled}
+             isDisabled={effectiveDisabled}
              size="md"
              colorScheme="blue"
              borderColor="gray.400"
@@ -1588,7 +1635,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
          <FormattedNumericInput
            value={value}
            onChange={onChange}
-           disabled={disabled}
+           disabled={effectiveDisabled}
          />
        );
      }
@@ -1599,7 +1646,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            type="date"
            value={value || ''}
            onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={disabled}
+           isDisabled={effectiveDisabled}
            size="sm"
            variant="outline"
            bg="white"
@@ -1618,7 +1665,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            <Checkbox
              isChecked={value === 'true' || value === '1'}
              onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
-             isDisabled={disabled}
+             isDisabled={effectiveDisabled}
              size="md"
              colorScheme="blue"
              borderColor="gray.400"
@@ -1640,7 +1687,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
          <FormattedNumericInput
            value={value}
            onChange={onChange}
-           disabled={disabled}
+           disabled={effectiveDisabled}
          />
        );
      }
@@ -1650,7 +1697,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            type="date"
            value={value || ''}
            onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={disabled}
+           isDisabled={effectiveDisabled}
            size="sm"
            variant="outline"
            bg="white"
@@ -1666,7 +1713,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            type="datetime-local"
            value={value || ''}
            onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={disabled}
+           isDisabled={effectiveDisabled}
            size="sm"
            variant="outline"
            bg="white"
@@ -1685,7 +1732,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            type="text"
            value={value || ''}
            onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={disabled}
+           isDisabled={effectiveDisabled}
            size="sm"
            variant="outline"
            bg="white"
@@ -1814,6 +1861,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     };
 
     onDataChange({ ...details, rootGroups: details.rootGroups.map(updateGroup) });
+    // Wywołaj API w tle (UI już zaktualizowane przez onDataChange powyżej)
+    onDeleteItem?.(groupId, optionId);
   };
 
   // ========== ZARZĄDZANIE KOMPONENTAMI ==========
@@ -1950,6 +1999,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     };
 
     onDataChange({ ...details, rootGroups: details.rootGroups.map(updateGroup) });
+    // Wywołaj API w tle (UI już zaktualizowane przez onDataChange powyżej)
+    onDeleteItem?.(groupId, componentId);
   };
 
   const updateComponentFieldValue = (
@@ -1985,18 +2036,31 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     const component = findComponent(details.rootGroups);
     const existingFieldValue = component?.fieldValues.find(fv => fv.fieldDefinitionId === fieldId);
 
-    // Wywołaj autosave jeśli dostępne, komponent jest zapisany (nie temp_) i fieldValue istnieje w bazie
+    // Wywołaj autosave jeśli dostępne i komponent jest zapisany (nie temp_)
     // Komponenty to itemy, więc używamy entityType: 'item' z componentId jako entityId
-    if (onFieldAutosave && !isTemporaryId(componentId) && existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
-      onFieldAutosave({
-        entityType: 'item',
-        entityId: componentId,
-        fieldValueId: existingFieldValue.id,
-        fieldDefinitionId: fieldId,
-        fieldType,
-        valueType,
-        value,
-      });
+    // Obsługa zarówno nowych pól (fieldValueId: null) jak i aktualizacji istniejących
+    if (onFieldAutosave && !isTemporaryId(componentId)) {
+      if (existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
+        onFieldAutosave({
+          entityType: 'item',
+          entityId: componentId,
+          fieldValueId: existingFieldValue.id,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      } else {
+        onFieldAutosave({
+          entityType: 'item',
+          entityId: componentId,
+          fieldValueId: null,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      }
     }
 
     const updateGroup = (group: CostEstimateGroupWeb): CostEstimateGroupWeb => {
@@ -2125,19 +2189,32 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     const option = findOption(details.rootGroups);
     const existingFieldValue = option?.fieldValues.find(fv => fv.fieldDefinitionId === fieldId);
 
-    // Wywołaj autosave jeśli dostępne, opcja jest zapisana (nie temp_) i fieldValue istnieje w bazie
+    // Wywołaj autosave jeśli dostępne i opcja jest zapisana (nie temp_)
     // Opcje to itemy, więc używamy entityType: 'item' z optionId jako entityId
+    // Obsługa zarówno nowych pól (fieldValueId: null) jak i aktualizacji istniejących
     const valueType = getFieldValueType({ fieldType, fieldTypeConfig: def?.fieldTypeConfig });
-    if (onFieldAutosave && !isTemporaryId(optionId) && existingFieldValue?.id && !isTemporaryId(existingFieldValue.id) && fieldType !== undefined) {
-      onFieldAutosave({
-        entityType: 'item',
-        entityId: optionId,
-        fieldValueId: existingFieldValue.id,
-        fieldDefinitionId: fieldId,
-        fieldType,
-        valueType,
-        value,
-      });
+    if (onFieldAutosave && !isTemporaryId(optionId) && fieldType !== undefined) {
+      if (existingFieldValue?.id && !isTemporaryId(existingFieldValue.id)) {
+        onFieldAutosave({
+          entityType: 'item',
+          entityId: optionId,
+          fieldValueId: existingFieldValue.id,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      } else {
+        onFieldAutosave({
+          entityType: 'item',
+          entityId: optionId,
+          fieldValueId: null,
+          fieldDefinitionId: fieldId,
+          fieldType,
+          valueType,
+          value,
+        });
+      }
     }
 
     const isSelectingOption = fieldType === 104 && value === 'true';
@@ -2393,7 +2470,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     return (
       <Thead bgGradient="linear(to-r, blue.600, blue.700)" position="sticky" top={0} zIndex={10}>
         <Tr>
-          {editable && (
+          {canStructuralEdit && (
             <Th
               color="white"
               fontSize="xs"
@@ -2419,7 +2496,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             minW={`${POSITION_COL_MIN_WIDTH}px`}
             textAlign="center"
             position="sticky"
-            left={editable ? '120px' : 0}
+            left={canStructuralEdit ? '120px' : 0}
             zIndex={11}
             bg="blue.600"
             whiteSpace="nowrap"
@@ -2676,7 +2753,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             <Text fontSize="sm" color="gray.500" mb={6}>
               Rozpocznij tworzenie kosztorysu dodając pierwszy etap
             </Text>
-            {editable && onAddGroup && (
+            {canStructuralEdit && onAddGroup && (
               <Tooltip label="Dodaj etap">
                 <IconButton
                   aria-label="Dodaj etap"
@@ -2698,11 +2775,11 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             <SortableContext items={getSortableIds} strategy={verticalListSortingStrategy}>
               <Table size="sm" variant="simple" sx={{ 
                 tableLayout: 'fixed', 
-                minWidth: `${(editable ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
-                width: `${(editable ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
+                minWidth: `${(canStructuralEdit ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
+                width: `${(canStructuralEdit ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
               }}>
               <colgroup>
-                {editable && <col style={{ width: '120px' }} />}
+                {canStructuralEdit && <col style={{ width: '120px' }} />}
                 <col style={{ width: `${POSITION_COL_MIN_WIDTH}px` }} />
                 {expandedColumns.map((col) => (
                   <col key={col.fieldId} style={{ width: `${getColumnWidth(col.fieldId, col.width, col.label)}px` }} />
@@ -2727,7 +2804,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       indent={indent}
                       groupNumber={row.groupNumber || ''}
                       isCollapsed={isCollapsed}
-                      editable={editable}
+                      editable={canStructuralEdit}
+                      canEditFields={editable}
                       templateStructure={templateStructure}
                       showGroupSummary={showGroupSummary}
                       groupSummaryFields={groupSummaryFields}
@@ -2759,7 +2837,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       level={row.level}
                       indent={indent}
                       itemNumber={(row.itemIndex ?? 0) + 1}
-                      editable={editable}
+                      editable={canStructuralEdit}
+                      canEditFields={editable}
                       templateStructure={templateStructure}
                       expandedColumns={expandedColumns}
                       getColumnWidth={getColumnWidth}
@@ -2787,7 +2866,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               {showTotalSummary && (
                 <tfoot>
                   <Tr bg="purple.100" borderTopWidth="3px" borderTopColor="purple.500">
-                    {editable && (
+                    {canStructuralEdit && (
                       <Td p={2} w="120px" minW="120px" maxW="120px">
                         <Badge colorScheme="purple" fontSize="xs">SUMA</Badge>
                       </Td>
@@ -2877,7 +2956,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       </Box>
       
       {/* Przycisk dodawania grupy */}
-      {editable && onAddGroup && flatRows.length > 0 && (
+      {canStructuralEdit && onAddGroup && flatRows.length > 0 && (
         <Box px={4} py={3} borderTopWidth="1px" borderTopColor="gray.200">
           <Button
             leftIcon={<FolderPlus size={16} />}

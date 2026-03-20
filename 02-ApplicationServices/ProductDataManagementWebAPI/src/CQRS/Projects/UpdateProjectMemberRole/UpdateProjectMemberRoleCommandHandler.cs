@@ -15,32 +15,32 @@ namespace CQRS.Projects.UpdateProjectMemberRole
     public class UpdateProjectMemberRoleCommandHandler : IRequestHandler<UpdateProjectMemberRoleCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
-        private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly PermissionsVersionService permissionsVersionService;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
+        private readonly IUserService userService;
 
         public UpdateProjectMemberRoleCommandHandler(
             IReadRepository<Project> projectRepo,
-            IReadRepository<User> userRepo,
             IRepository<ProjectMember> projectMemberRepo,
             IReadRepository<Role> roleRepo,
             IReadRepository<Notification> notificationRepo,
             PermissionsVersionService permissionsVersionService,
             INotificationSender notificationSender,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IUserService userService)
         {
             this.projectRepo = projectRepo;
-            this.userRepo = userRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.roleRepo = roleRepo;
             this.notificationRepo = notificationRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
+            this.userService = userService;
         }
 
         public async Task<Unit> Handle(UpdateProjectMemberRoleCommand request, CancellationToken cancellationToken)
@@ -54,6 +54,9 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                     && m.UserId == request.UserId)
                 ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
+            var targetUser = await userService.GetProjectMemberAsync(
+                request.TenantId, request.ProjectId, request.UserId, cancellationToken);
+
             Role newRole = await roleRepo.GetFirstBySearch(
                 r => r.Id == request.RoleId && r.Scope == RoleScope.Project && r.IsActive,
                 cancellationToken)
@@ -63,11 +66,10 @@ namespace CQRS.Projects.UpdateProjectMemberRole
             projectMember.RoleId = newRole.Id;
 
             await projectMemberRepo.Update(projectMember);
+            await userService.InvalidateProjectMembersCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             // Bump permissions version for the user whose role changed
             await permissionsVersionService.BumpVersionAsync(request.UserId, cancellationToken);
-
-            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId);
 
             NotificationDto notification = new()
             {

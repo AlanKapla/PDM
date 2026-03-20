@@ -104,7 +104,7 @@ import { fieldTypeLabels, fieldScopeLabels, isSummableField, getFieldScope, conv
 import { getDefaultGroupHeaderLabel } from "../components/FieldRenderer";
 import type { CostEstimateTemplateDetails } from "../api/costEstimateTemplateApi";
 import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
-import { costEstimateApiNew } from "../api/costEstimateApiNew";
+import { costEstimateApi } from "../api/costEstimateApi";
 import { CostEstimateTableView } from "../components/CostEstimate/CostEstimateTableView";
 import type { 
   CostEstimateDetailsWeb, 
@@ -112,7 +112,7 @@ import type {
   CostEstimateItemWeb,
   CostEstimateFieldValueWeb,
 } from "../types/costEstimate.types.new";
-import { CostEstimateStatus } from "../types/costEstimate.types.new";
+import { CostEstimateStatus, CostEstimateAccessLevel } from "../types/costEstimate.types.new";
 
 // Aliasy dla kompatybilności wstecznej (jeśli używane w starym kodzie)
 type CostEstimateItemFieldValueWeb = CostEstimateFieldValueWeb;
@@ -363,7 +363,7 @@ export default function CostEstimateTemplateEditor() {
 
   const loadFieldConfigurations = async () => {
     try {
-      const configs = await costEstimateApiNew.getFieldTypeConfigurations();
+      const configs = await costEstimateApi.getFieldTypeConfigurations();
       setFieldTypeConfigs(configs);
       setConfigsLoaded(true);
     } catch (err) {
@@ -978,6 +978,8 @@ export default function CostEstimateTemplateEditor() {
       ownerId: 'preview-user',
       ownerName: 'Użytkownik podglądu',
       templateStructure,
+      accessLevel: CostEstimateAccessLevel.Full,
+      sharedWithUsers: [],
     };
   };
 
@@ -1046,6 +1048,7 @@ export default function CostEstimateTemplateEditor() {
       visible: true,
       sortable: true,
       filterable: true,
+      readOnly: false,
       fieldTypeConfig: config, // Zachowaj config z BE
     };
   };
@@ -1065,6 +1068,7 @@ export default function CostEstimateTemplateEditor() {
       visible: true,
       sortable: true,
       filterable: true,
+      readOnly: false,
       fieldTypeConfig: config, // Zachowaj config z BE
     };
   };
@@ -1474,8 +1478,8 @@ export default function CostEstimateTemplateEditor() {
     // UWAGA: Zbieramy tylko pola główne (parenty), bez childFields z pól Options
     const allFields: Array<{ name: string; label: string; type: string; colorScheme: string }> = [];
 
-    // Pola nagłówków grup (GroupName, Notes, etc.)
-    headerFields.forEach((field) => {
+    // Pola nagłówków grup (GroupName, Notes, etc.) — tylko widoczne
+    headerFields.filter(f => f.visible).forEach((field) => {
       allFields.push({
         name: field.name || `header_${field.type}_temp`,  // Fallback jeśli brak GUID (nie powinno się zdarzyć)
         label: field.customLabel || getDefaultGroupHeaderLabel(field.type),
@@ -1484,8 +1488,8 @@ export default function CostEstimateTemplateEditor() {
       });
     });
 
-    // Pola systemowe - tylko parenty, bez childFields
-    systemFields.forEach((field) => {
+    // Pola systemowe - tylko parenty, bez childFields — tylko widoczne
+    systemFields.filter(f => f.visible).forEach((field) => {
       allFields.push({
         name: field.name,
         label: field.label,
@@ -1494,8 +1498,8 @@ export default function CostEstimateTemplateEditor() {
       });
     });
 
-    // Pola obliczeniowe
-    calculatedFields.forEach((field) => {
+    // Pola obliczeniowe — tylko widoczne
+    calculatedFields.filter(f => f.visible).forEach((field) => {
       allFields.push({
         name: field.name,
         label: field.label,
@@ -1504,8 +1508,8 @@ export default function CostEstimateTemplateEditor() {
       });
     });
 
-    // Pola generyczne
-    genericFields.forEach((field) => {
+    // Pola generyczne — tylko widoczne
+    genericFields.filter(f => f.visible).forEach((field) => {
       allFields.push({
         name: field.name,
         label: field.label,
@@ -2466,6 +2470,7 @@ function SystemFieldsEditor({
       visible: true,
       sortable: true,
       filterable: true,
+      readOnly: false,
       fieldTypeConfig: config, // Zachowaj config z BE
     };
 
@@ -2537,6 +2542,7 @@ function SystemFieldsEditor({
       visible: true,
       sortable: true,
       filterable: true,
+      readOnly: false,
       fieldTypeConfig: config, // Zachowaj config z BE
     };
 

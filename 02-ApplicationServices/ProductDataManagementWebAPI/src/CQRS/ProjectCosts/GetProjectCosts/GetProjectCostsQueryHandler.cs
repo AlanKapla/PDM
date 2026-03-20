@@ -17,20 +17,20 @@ namespace CQRS.ProjectCosts.GetProjectCosts
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
-        private readonly IRepository<User> userRepo;
+        private readonly IUserService userService;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICurrentUser currentUser;
 
         public GetProjectCostsQueryHandler(
             IRepository<ProjectCost> projectCostRepo,
             IRepository<SharedProjectCost> sharedProjectCostRepo,
-            IRepository<User> userRepo,
+            IUserService userService,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser)
         {
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
-            this.userRepo = userRepo;
+            this.userService = userService;
             this.blobStorageService = blobStorageService;
             this.currentUser = currentUser;
         }
@@ -49,9 +49,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                         pc => pc.ProjectId == request.ProjectId 
                             && pc.TenantId == request.TenantId 
                             && !pc.IsDeleted,
-                        query => query
-                            .Include(pc => pc.SharedWith)
-                            .Include(pc => pc.TenantMember).ThenInclude(tm => tm.User));
+                        query => query.Include(pc => pc.SharedWith));
                     break;
 
                 case ResourceScope.Mine:
@@ -71,8 +69,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                             && spc.TenantId == request.TenantId 
                             && spc.SharedWithUserId == currentUser.Id,
                         query => query
-                            .Include(spc => spc.ProjectCost).ThenInclude(pc => pc.SharedWith)
-                            .Include(spc => spc.ProjectCost).ThenInclude(pc => pc.TenantMember).ThenInclude(tm => tm.User));
+                            .Include(spc => spc.ProjectCost).ThenInclude(pc => pc.SharedWith));
 
                     // Filter out deleted costs and extract ProjectCost entities
                     costs = sharedCosts
@@ -87,6 +84,10 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             }
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.ProjectCosts);
+
+            var membersDict = (await userService.GetProjectMembersAsync(
+                request.TenantId, request.ProjectId, cancellationToken))
+                .ToDictionary(m => m.UserId);
 
             // Map to DTOs
             var result = costs.Select(pc =>
@@ -103,7 +104,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                         pc.DocumentFileName, 
                         expiresInMinutes: 60, 
                         contentDisposition: "inline");
-                    
+
                     Uri sasUriDownload = blobStorageService.GenerateSasUri(
                         containerName, 
                         pc.DocumentBlobPath, 
@@ -115,24 +116,10 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                     downloadSasUrl = sasUriDownload.ToString();
                 }
 
-                // Get user name - either from navigation property or current user
-                string userName;
-                if (request.Scope == ResourceScope.All && pc.TenantMember?.User != null)
-                {
-                    userName = $"{pc.TenantMember.User.FirstName} {pc.TenantMember.User.LastName}";
-                }
-                else if (pc.UserId == currentUser.Id)
-                {
-                    userName = $"{currentUser.FirstName} {currentUser.LastName}";
-                }
-                else
-                {
-                    // Fallback - fetch user if needed (shouldn't happen often)
-                    var user = userRepo.GetBySearch(u => u.Id == pc.UserId).Result.FirstOrDefault();
-                    userName = user != null ? $"{user.FirstName} {user.LastName}" : "Unknown User";
-                }
+                string userName = membersDict.TryGetValue(pc.UserId, out var member)
+                    ? member.FullName
+                    : "Unknown";
 
-                // Get shared user IDs from navigation collection
                 var sharedWithUserIds = pc.SharedWith
                     .Select(spc => spc.SharedWithUserId)
                     .ToList();

@@ -13,13 +13,11 @@ namespace Business.Interfaces.Services
         /// <summary>
         /// Gets cost estimate from cache or loads from DB.
         /// Includes Owner and SelectedCurrency navigation properties.
-        /// If ownerId is provided, validates ownership after fetch (returns null if mismatch).
         /// </summary>
         Task<CostEstimate?> GetCostEstimateAsync(
             Guid costEstimateId,
             Guid tenantId,
             Guid projectId,
-            Guid? ownerId = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -110,6 +108,14 @@ namespace Business.Interfaces.Services
             Guid costEstimateId,
             Guid tenantId,
             Guid projectId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Invalidates the template cache entry so subsequent reads reload from DB.
+        /// Must be called whenever template structure, currencies or units are modified.
+        /// </summary>
+        Task InvalidateTemplateAsync(
+            Guid templateId,
             CancellationToken cancellationToken = default);
     }
 }

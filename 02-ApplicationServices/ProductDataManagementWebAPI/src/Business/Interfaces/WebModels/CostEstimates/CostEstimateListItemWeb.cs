@@ -1,4 +1,5 @@
-﻿using Entities.Models;
+﻿using Business.Interfaces.Constants;
+using Entities.Models;
 using Entities.Models.CostEstimates;
 
 namespace Business.Interfaces.WebModels.CostEstimates
@@ -21,6 +22,9 @@ namespace Business.Interfaces.WebModels.CostEstimates
         DateTime CreatedAt,
         DateTime? UpdatedAt,
         Guid OwnerId,
-        string OwnerName
+        string OwnerName,
+        bool IsSharedWithMe,
+        bool IsSharedByMe,
+        IReadOnlyList<CostEstimateShareWeb> SharedWithUsers
     );
 }

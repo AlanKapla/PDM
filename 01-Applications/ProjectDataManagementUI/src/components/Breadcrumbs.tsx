@@ -4,7 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { projectApi } from "../api/projectApi";
 import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
-import { costEstimateApiNew } from "../api/costEstimateApiNew";
+import { costEstimateApi } from "../api/costEstimateApi";
 import { useAuth } from "../context/AuthContext";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
@@ -52,7 +52,7 @@ export default function Breadcrumbs() {
       if (!user?.activeTenantId || !params.projectId || !params.estimateId) {
         throw new Error('Missing tenant, project or estimate ID');
       }
-      return await costEstimateApiNew.getCostEstimateDetails(
+      return await costEstimateApi.getCostEstimateDetails(
         user.activeTenantId,
         params.projectId,
         params.estimateId

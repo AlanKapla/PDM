@@ -293,6 +293,8 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<CostEstimateTemplateItemGenericFieldDefinition>, Repository<CostEstimateTemplateItemGenericFieldDefinition>>();
             services.AddScoped<IReadRepository<CostEstimate>, ReadRepository<CostEstimate>>();
             services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
+            services.AddScoped<IReadRepository<SharedCostEstimate>, ReadRepository<SharedCostEstimate>>();
+            services.AddScoped<IRepository<SharedCostEstimate>, Repository<SharedCostEstimate>>();
             services.AddScoped<IRepository<CostEstimateGroup>, Repository<CostEstimateGroup>>();
             services.AddScoped<IRepository<CostEstimateGroupFieldValue>, Repository<CostEstimateGroupFieldValue>>();
             services.AddScoped<IReadRepository<CostEstimateItem>, ReadRepository<CostEstimateItem>>();
@@ -353,6 +355,12 @@ namespace WebApi.Extensions
 
             // Cost estimate cache service
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
+
+            // Cost estimate access service
+            services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
+
+            // User service — caches project members per project
+            services.AddScoped<IUserService, UserService>();
             
             // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();
