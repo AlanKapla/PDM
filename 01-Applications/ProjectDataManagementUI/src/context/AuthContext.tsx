@@ -120,9 +120,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // 1. Uruchom połączenie NAJPIERW (żeby nie tracić eventów)
         await notificationHubService.startConnection();
       } catch (error) {
-        // Jeśli init failed, spróbuj ponownie za 5s
+        // Jeśli init failed, loguj w DEV i spróbuj ponownie za 5s
+        if (import.meta.env.DEV) {
+          console.error("Błąd inicjalizacji SignalR:", error);
+        }
         setTimeout(() => {
-          initializeSignalR().catch(() => {});
+          initializeSignalR().catch((retryError) => {
+            if (import.meta.env.DEV) {
+              console.error("Błąd retry inicjalizacji SignalR:", retryError);
+            }
+          });
         }, 5000);
       }
     };
@@ -146,10 +153,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           await notificationHubService.ping();
         } catch (error) {
-          notificationHubService.forceRestart().catch(() => {});
+          notificationHubService.forceRestart().catch((restartError) => {
+            if (import.meta.env.DEV) {
+              console.error("Błąd restartu SignalR po nieudanym ping:", restartError);
+            }
+          });
         }
       } else if (state === HubConnectionState.Disconnected || state === null) {
-        notificationHubService.forceRestart().catch(() => {});
+        notificationHubService.forceRestart().catch((restartError) => {
+          if (import.meta.env.DEV) {
+            console.error("Błąd restartu rozłączonego SignalR:", restartError);
+          }
+        });
       }
     }, 15000); // 15s
 

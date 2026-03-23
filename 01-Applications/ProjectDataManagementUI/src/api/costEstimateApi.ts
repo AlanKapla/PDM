@@ -34,8 +34,8 @@ export const costEstimateApi = {
   /**
    * Get field type configurations
    */
-  getFieldTypeConfigurations: async (): Promise<Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>> => {
-    const response = await axiosClient.get<Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>(
+  getFieldTypeConfigurations: async (): Promise<Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>> => {
+    const response = await axiosClient.get<Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>(
       `/cost-estimate-template/field-type-configurations`
     );
     return response.data;

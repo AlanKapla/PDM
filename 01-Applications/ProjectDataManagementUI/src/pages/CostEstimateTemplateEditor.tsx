@@ -244,7 +244,7 @@ export default function CostEstimateTemplateEditor() {
   const { createTouchHandlers } = useTouchReorder();
 
   // Field Type Configurations (loaded from BE)
-  const [fieldTypeConfigs, setFieldTypeConfigs] = useState<Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>({});
+  const [fieldTypeConfigs, setFieldTypeConfigs] = useState<Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>>({});
   const [configsLoaded, setConfigsLoaded] = useState(false);
 
   // ========== RĘCZNA OBSŁUGA NAWIGACJI Z OSTRZEŻENIEM ==========
@@ -2247,7 +2247,7 @@ interface HeaderFieldsEditorProps {
   onRemove: (index: number) => void;
   onUpdate: (index: number, updates: Partial<GroupHeaderFieldDefinition>) => void;
   onReorder: (reorderedFields: GroupHeaderFieldDefinition[]) => void;
-  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+  fieldTypeConfigs: Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
 }
 
 function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder, fieldTypeConfigs }: HeaderFieldsEditorProps) {
@@ -2393,7 +2393,7 @@ interface SystemFieldsEditorProps {
   onAdd: (type: SystemFieldType) => void;
   onRemove: (index: number) => void;
   onUpdate: (index: number, updates: Partial<SystemFieldDefinition>) => void;
-  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+  fieldTypeConfigs: Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
 }
 
 function SystemFieldsEditor({
@@ -2970,7 +2970,7 @@ interface CalculatedFieldsEditorProps {
   onAdd: (type: CalculatedFieldType) => void;
   onRemove: (index: number) => void;
   onUpdate: (index: number, updates: Partial<CalculatedFieldDefinition>) => void;
-  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+  fieldTypeConfigs: Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
   units: Array<{ code: string; name: string; symbol: string; }>;
 }
 
@@ -3161,7 +3161,7 @@ interface GenericFieldsEditorProps {
   onAdd: (type: GenericFieldType) => void;
   onRemove: (index: number) => void;
   onUpdate: (index: number, updates: Partial<GenericFieldDefinition>) => void;
-  fieldTypeConfigs: Record<number, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
+  fieldTypeConfigs: Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
 }
 
 function GenericFieldsEditor({
