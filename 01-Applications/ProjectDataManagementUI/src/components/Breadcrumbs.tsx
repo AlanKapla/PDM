@@ -181,8 +181,6 @@ export default function Breadcrumbs() {
             segments.push({ label: "Historia wersji", path: `/cost-estimate-templates/${params.templateId}/versions`, isCurrentPage: true });
           } else if (pathSegments[2] === "edit") {
             segments.push({ label: templateLabel, path: `/cost-estimate-templates/${params.templateId}/edit`, isCurrentPage: true });
-          } else if (pathSegments[1] === "new") {
-            segments.push({ label: "Nowy szablon", path: "/cost-estimate-templates/new", isCurrentPage: true });
           } else {
             segments[segments.length - 1].isCurrentPage = true;
           }

@@ -100,7 +100,12 @@ if (import.meta.env.DEV) {
 }
 
 // Start the app
-initializeApp().catch(() => { /* błąd inicjalizacji — obsłużony wewnątrz initializeApp */ });
+initializeApp().catch((error) => {
+  // Logujemy błąd inicjalizacji w DEV, aby ułatwić diagnostykę
+  if (import.meta.env.DEV) {
+    console.error("Błąd inicjalizacji aplikacji:", error);
+  }
+});
 
 // Export msalInstance for use in other modules (e.g., axios interceptors)
 export { msalInstance };

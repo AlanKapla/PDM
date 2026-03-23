@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import ReactDOM from 'react-dom';
 import { Box, Input, Text } from '@chakra-ui/react';
 
@@ -99,7 +99,8 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [isOpen]);
 
-  const listboxId = "unit-combobox-listbox";
+  const reactId = useId();
+  const listboxId = `unit-combobox-listbox-${reactId}`;
 
   const dropdown =
     isOpen && filtered.length > 0
