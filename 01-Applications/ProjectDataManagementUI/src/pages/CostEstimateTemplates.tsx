@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -87,7 +88,7 @@ export default function CostEstimateTemplates() {
     navigate(`/cost-estimate-templates/${templateId}/edit`);
   };
 
-  const openDeleteConfirmation = (template: CostEstimateTemplateListItem, e: React.MouseEvent) => {
+  const openDeleteConfirmation = (template: CostEstimateTemplateListItem, e: MouseEvent) => {
     e.stopPropagation();
     setTemplateToDelete(template);
     onDeleteOpen();
@@ -114,7 +115,7 @@ export default function CostEstimateTemplates() {
     }
   };
 
-  const openDuplicateModal = (template: CostEstimateTemplateListItem, e: React.MouseEvent) => {
+  const openDuplicateModal = (template: CostEstimateTemplateListItem, e: MouseEvent) => {
     e.stopPropagation();
     setTemplateToDuplicate(template);
     setDuplicateName(`Kopia — ${template.name}`);

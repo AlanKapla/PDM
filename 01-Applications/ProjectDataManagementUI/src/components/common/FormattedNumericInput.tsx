@@ -15,7 +15,7 @@ export function formatNumericDisplay(val: string): string {
   const num = parseFloat(dotVal);
   if (isNaN(num)) return val;
   const parts = dotVal.split('.');
-  const decimals = parts[1]?.length || 0;
+  const decimals = Math.min(parts[1]?.length || 0, 10);
   if (decimals <= 2) {
     return num.toFixed(2).replace('.', ',');
   }
