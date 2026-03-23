@@ -2,7 +2,18 @@ import axios from "axios";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://localhost:5001";
+// Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
+function requireEnvVar(key: string): string {
+  const value = import.meta.env[key];
+  if (!value) {
+    throw new Error(
+      `${key} is not defined. Configure it in your environment (e.g. .env or build pipeline).`
+    );
+  }
+  return value;
+}
+
+const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
 
 export const axiosClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,

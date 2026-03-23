@@ -9,6 +9,9 @@ import type { TouchEvent } from 'react';
  * Użycie: W komponencie wywołaj hook, a potem dodaj {...createTouchHandlers(index, ...)} do każdego
  * przeciągalnego elementu obok istniejących atrybutów draggable/onDragStart/onDragOver/onDragEnd.
  * 
+ * WAŻNE: Każdy przeciągalny element musi mieć ustawiony styl `touch-action: none` (lub `style={{ touchAction: 'none' }}`),
+ * aby `preventDefault()` na `touchmove` był skuteczny na iOS/Chrome i zapobiegał niezamierzonemu scrollowaniu.
+ * 
  * Parametry reorderingu (draggedIndex, setDraggedIndex, onReorder) przekazywane są
  * do createTouchHandlers, dzięki czemu hook można wywoływać na najwyższym poziomie komponentu,
  * a touch handlery generować wewnątrz render function.

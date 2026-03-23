@@ -19,11 +19,6 @@ import {
 import { FileText, Save, ArrowLeft } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
-import {
-  GroupHeaderFieldType,
-  type GroupHeaderFieldDefinition,
-  type CostEstimateTemplateStructure,
-} from "../types/costEstimate.types";
 
 export default function CostEstimateTemplateNew() {
   const navigate = useNavigate();

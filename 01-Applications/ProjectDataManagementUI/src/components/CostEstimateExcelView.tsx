@@ -27,7 +27,7 @@ import type {
   GenericFieldDefinition,
   GroupHeaderFieldDefinition,
 } from "../types/costEstimate.types";
-import { GroupHeaderFieldType, type CostEstimateTemplateDto } from "../types/costEstimate.types";
+import { GroupHeaderFieldType, GenericFieldType, type CostEstimateTemplateDto } from "../types/costEstimate.types";
 import { calculateWorkScope, canAutoCalculate } from "../utils/calculationEngine";
 import {
   CalculatedFieldRenderer,
@@ -352,6 +352,17 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
 
   const allColumns: ColumnDef[] = [];
 
+  // Pomocnicza funkcja rozwijająca pole kolekcji na kolumny podpól
+  const expandCollectionField = (collectionField: GenericFieldDefinition): void => {
+    if (!collectionField.nestedFields) return;
+    (collectionField.nestedFields.calculatedFields || []).forEach(nestedCalculatedField =>
+      allColumns.push({ fieldType: 'collection-calculated', collectionField, nestedField: nestedCalculatedField, fullName: `${collectionField.name}.${nestedCalculatedField.name}` })
+    );
+    (collectionField.nestedFields.genericFields || []).forEach(nestedGenericField =>
+      allColumns.push({ fieldType: 'collection-generic', collectionField, nestedField: nestedGenericField, fullName: `${collectionField.name}.${nestedGenericField.name}` })
+    );
+  };
+
   if (!columnLayout || columnLayout.length === 0) {
     // Brak columnLayout - użyj domyślnej kolejności:
     // 1. Nagłówki grup (po order)
@@ -369,7 +380,13 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
     genericFields
       .filter((f) => f.visible)
       .sort((a, b) => a.order - b.order)
-      .forEach(f => allColumns.push({ fieldType: 'generic', field: f }));
+      .forEach(f => {
+        if (f.type === GenericFieldType.Collection && f.nestedFields) {
+          expandCollectionField(f);
+        } else {
+          allColumns.push({ fieldType: 'generic', field: f });
+        }
+      });
   } else {
     // Iteruj przez columnLayout i buduj unified list
     columnLayout.forEach(fieldName => {
@@ -390,10 +407,14 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
         return;
       }
       
-      // Sprawdź czy to pole generyczne
+      // Sprawdź czy to pole generyczne — kolekcje rozwijamy na podpola
       const genField = genericFields.find(f => f.name === fieldName && f.visible);
       if (genField) {
-        allColumns.push({ fieldType: 'generic', field: genField });
+        if (genField.type === GenericFieldType.Collection && genField.nestedFields) {
+          expandCollectionField(genField);
+        } else {
+          allColumns.push({ fieldType: 'generic', field: genField });
+        }
         return;
       }
     });
