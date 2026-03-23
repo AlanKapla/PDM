@@ -38,7 +38,7 @@ export default function Breadcrumbs() {
 
   // Globalny cache dla template details
   const templateDetailsCache = useGlobalCache(
-    `template-details-${params.templateId}`,
+    `template-details-${params.templateId ?? 'none'}`,
     async () => {
       if (!params.templateId) throw new Error('Missing template ID');
       return await costEstimateTemplateApi.getTemplateDetails(params.templateId);
@@ -47,7 +47,7 @@ export default function Breadcrumbs() {
 
   // Globalny cache dla cost estimate details
   const costEstimateDetailsCache = useGlobalCache(
-    `cost-estimate-details-${params.estimateId}`,
+    `cost-estimate-details-${params.estimateId ?? 'none'}`,
     async () => {
       if (!user?.activeTenantId || !params.projectId || !params.estimateId) {
         throw new Error('Missing tenant, project or estimate ID');

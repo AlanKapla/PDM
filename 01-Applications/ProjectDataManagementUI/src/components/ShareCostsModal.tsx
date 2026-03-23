@@ -55,11 +55,12 @@ export default function ShareCostsModal({
       fetchMyCosts();
       fetchProjectMembers();
       setSelectedUserIds(new Set());
-      // selectedCostIds jest ustawiany w fetchMyCosts po pobraniu kosztów
     }
   }, [isOpen, tenantId, projectId]);
 
   const fetchMyCosts = async () => {
+    // Wyczyść selekcję przed każdym pobieraniem, aby nie zostały dane z poprzedniego otwarcia
+    setSelectedCostIds(new Set());
     try {
       setLoadingCosts(true);
       const response = await projectApi.getProjectUserCosts(tenantId, projectId);
@@ -68,6 +69,7 @@ export default function ShareCostsModal({
       // Domyślnie zaznacz wszystkie koszty
       setSelectedCostIds(new Set(data.map((cost) => cost.id)));
     } catch (error) {
+      setSelectedCostIds(new Set());
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy kosztów",

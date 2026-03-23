@@ -36,6 +36,7 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value || '');
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
@@ -72,6 +73,7 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
   const openDropdown = useCallback(() => {
     updateDropdownPosition();
     setIsOpen(true);
+    setActiveIndex(0);
   }, [updateDropdownPosition]);
 
   // Zamknij dropdown przy kliknięciu poza inputem i dropdownem
@@ -102,6 +104,15 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
   const reactId = useId();
   const listboxId = `unit-combobox-listbox-${reactId}`;
 
+  const getOptionBg = (index: number): string | undefined => {
+    if (index === activeIndex) return 'blue.100';
+    if (filtered[index]?.code === value) return 'blue.50';
+    return undefined;
+  };
+
+  const clampIndex = (index: number): number =>
+    Math.max(0, Math.min(index, filtered.length - 1));
+
   const dropdown =
     isOpen && filtered.length > 0
       ? ReactDOM.createPortal(
@@ -118,9 +129,10 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
             maxH="180px"
             overflowY="auto"
           >
-            {filtered.map((unit) => (
+            {filtered.map((unit, index) => (
               <Box
                 key={unit.id}
+                id={`unit-option-${reactId}-${unit.id}`}
                 role="option"
                 aria-selected={value === unit.code}
                 px={3}
@@ -128,11 +140,13 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
                 fontSize="sm"
                 cursor="pointer"
                 _hover={{ bg: 'blue.50' }}
-                bg={value === unit.code ? 'blue.100' : undefined}
+                bg={getOptionBg(index)}
+                onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => {
                   onChange(unit.code);
                   setInputValue(unit.code);
                   setIsOpen(false);
+                  setActiveIndex(null);
                 }}
               >
                 <Text fontWeight="medium">{unit.code}</Text>
@@ -157,17 +171,53 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
         aria-expanded={isOpen}
         aria-autocomplete="list"
         aria-controls={isOpen ? listboxId : undefined}
+        aria-activedescendant={
+          isOpen && activeIndex !== null && filtered[activeIndex]
+            ? `unit-option-${reactId}-${filtered[activeIndex].id}`
+            : undefined
+        }
         value={inputValue}
         onChange={(e) => {
           const v = e.target.value;
           setInputValue(v);
           onChange(v || undefined);
           openDropdown();
+          setActiveIndex(0);
         }}
         onClick={openDropdown}
         onFocus={openDropdown}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') setIsOpen(false);
+          if (e.key === 'Escape') {
+            setIsOpen(false);
+            setActiveIndex(null);
+            return;
+          }
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!isOpen) {
+              openDropdown();
+            } else if (filtered.length > 0) {
+              setActiveIndex((prev) => clampIndex((prev === null ? -1 : prev) + 1));
+            }
+            return;
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!isOpen) {
+              openDropdown();
+            } else if (filtered.length > 0) {
+              setActiveIndex((prev) => clampIndex((prev === null ? 0 : prev) - 1));
+            }
+            return;
+          }
+          if (e.key === 'Enter' && isOpen && activeIndex !== null && filtered[activeIndex]) {
+            e.preventDefault();
+            const selected = filtered[activeIndex];
+            onChange(selected.code);
+            setInputValue(selected.code);
+            setIsOpen(false);
+            setActiveIndex(null);
+          }
         }}
         isDisabled={disabled}
         size="sm"
