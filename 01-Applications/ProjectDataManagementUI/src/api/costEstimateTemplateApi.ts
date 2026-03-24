@@ -14,7 +14,6 @@ import type {
   UiConfigurationWeb,
   ColumnConfigurationWeb,
   DefaultCostEstimateTemplateListItemWeb,
-  CreateCostEstimateTemplateFromDefaultRequest,
 } from "../types/costEstimate.types";
 
 // ===== INTERFACES FOR TEMPLATE STRUCTURE =====
@@ -26,6 +25,7 @@ export interface CostEstimateTemplateStructureWeb {
   templateId: string;
   currencies: CurrencyWeb[];
   units: UnitWeb[];
+  categories: CategoryWeb[];
   groupHeaderFields: GroupHeaderFieldWeb[];
   systemFields: SystemFieldWeb[];
   calculatedFields: CalculatedFieldWeb[];
@@ -50,6 +50,13 @@ export interface UnitWeb {
   symbol: string;
   category?: string;
   isDefault: boolean;
+  order: number;
+}
+
+export interface CategoryWeb {
+  id: string;
+  name: string;
+  symbol: string | null;
   order: number;
 }
 
@@ -201,6 +208,11 @@ export interface UpdateCostEstimateTemplateRequest {
     isDefault: boolean;
     order: number;
   }>;
+  categories?: Array<{
+    name: string;
+    symbol: string | null;
+    order: number;
+  }>;
   groupHeaderFields?: GroupHeaderFieldDto[];
   systemFields?: SystemFieldDto[];
   calculatedFields?: CalculatedFieldDto[];
@@ -287,11 +299,13 @@ export const costEstimateTemplateApi = {
   /**
    * Tworzy nowy szablon użytkownika z pełną strukturą skopiowaną z domyślnego szablonu
    * Nowe GUIDy pól generowane są po stronie serwera
+   * @param slug - Identyfikator szablonu domyślnego, np. "basic-cost-estimate"
+   * @param data - Nazwa i opis nowego szablonu
    * @returns GUID nowego szablonu
    */
-  createFromDefault: async (data: CreateCostEstimateTemplateFromDefaultRequest): Promise<string> => {
+  createFromDefault: async (slug: string, data: { name: string; description?: string }): Promise<string> => {
     const response = await axiosClient.post<string>(
-      "/cost-estimate-template/from-default",
+      `/cost-estimate-template/defaults/${slug}`,
       data
     );
     return response.data;

@@ -3,6 +3,7 @@ import type {
   GenericFieldDefinition,
   GroupHeaderFieldDefinition,
 } from '../types/costEstimate.types';
+import { CalculatedFieldType } from '../types/costEstimate.types';
 
 export interface ValidationError {
   fieldName: string;
@@ -38,6 +39,16 @@ export function validateCalculatedField(
       fieldName: field.name,
       message: `${field.label} musi być liczbą`,
     };
+  }
+
+  // VatRate przechowywany jako ułamek dziesiętny (0–1), czyli 23% = 0.23
+  if (field.type === CalculatedFieldType.VatRate) {
+    if (fieldValue < 0) {
+      return { fieldName: field.name, message: `${field.label} nie może być ujemna` };
+    }
+    if (fieldValue > 1) {
+      return { fieldName: field.name, message: `${field.label} nie może przekraczać 100%` };
+    }
   }
 
   return null;

@@ -98,6 +98,7 @@ import {
 } from '../../utils/costEstimateCalculations';
 import { FormattedNumericInput } from '../common/FormattedNumericInput';
 import { UnitComboBox } from '../common/UnitComboBox';
+import { CategoryComboBox } from '../common/CategoryComboBox';
 import { FileFieldRenderer } from './FileFieldRenderer';
 import { SortableGroupRow } from './rows/SortableGroupRow';
 import { SortableItemRow } from './rows/SortableItemRow';
@@ -106,6 +107,56 @@ import {
   type FlatRow,
   type ExpandedColumn,
 } from './costEstimateTableTypes';
+
+// ---------------------------------------------------------------------------
+// VatRateInput — osobny komponent potrzebny do lokalnego stanu błędu
+// Wartość przechowywana jako ułamek dziesiętny (0.23 = 23%), user wpisuje %
+// ---------------------------------------------------------------------------
+const VatRateInput: React.FC<{
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  disabled?: boolean;
+}> = ({ value, onChange, disabled }) => {
+  const [error, setError] = React.useState<string | null>(null);
+
+  const pctDisplayVal = value !== undefined && value !== ''
+    ? String(Math.round(parseFloat(value) * 100 * 10000) / 10000)
+    : undefined;
+
+  const handleChange = (v: string | undefined) => {
+    if (v === undefined) {
+      setError(null);
+      onChange(undefined);
+      return;
+    }
+    const pct = parseFloat(v);
+    if (isNaN(pct)) {
+      setError(null);
+      onChange(undefined);
+      return;
+    }
+    if (pct < 0 || pct > 100) {
+      setError('Wartość musi być z zakresu 0–100%');
+      onChange(undefined);
+      return;
+    }
+    setError(null);
+    onChange(String(Math.round(pct / 100 * 10000) / 10000));
+  };
+
+  return (
+    <VStack spacing={0} align="stretch">
+      <FormattedNumericInput
+        value={pctDisplayVal}
+        onChange={handleChange}
+        disabled={disabled}
+      />
+      {error && (
+        <Text fontSize="xs" color="red.500" mt={1}>{error}</Text>
+      )}
+    </VStack>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -1526,6 +1577,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
      const calcFieldScope = fieldDef?.fieldScope ?? fieldDef?.fieldTypeConfig?.fieldScope;
      const isCalcField = isCalculatedFieldType(calcFieldType, calcFieldScope);
      const shouldBeReadonly = isCalcField && itemAllValues != null && canComputeFromAvailable(calcFieldType, itemAllValues);
+     // VatRate (201) — user wpisuje procent (23 = 23%), przechowywane jako ułamek dziesiętny (0.23)
+     const isVatRateField = calcFieldType === 201;
 
      // Pola typu pliki (ItemSystemFiles, fieldType = 105)
      if (cfg?.isFile || calcFieldType === 105) {
@@ -1570,15 +1623,18 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
        const isNumForDisplay = cfg?.isNumeric || [0, 1].includes(fieldDef.fieldType);
        const isTextWithLink = !isNumForDisplay && value && containsUrl(value);
-       const displayValue = value !== undefined && value !== ''
-         ? (isNumForDisplay
-             ? parseFloat(value).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-             : (isTextWithLink ? renderTextWithLinks(value) : value))
+       const readonlyNumericValue = value !== undefined && value !== '' ? parseFloat(value) : undefined;
+       const displayValue = readonlyNumericValue !== undefined
+         ? (isVatRateField
+             ? (readonlyNumericValue * 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' %'
+             : isNumForDisplay
+               ? readonlyNumericValue.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+               : (isTextWithLink ? renderTextWithLinks(value!) : value!))
          : '—';
        return (
          <Text 
            fontSize="sm" 
-           textAlign={isNumForDisplay ? 'right' : 'left'}
+           textAlign={isNumForDisplay || isVatRateField ? 'right' : 'left'}
            fontWeight="medium"
            bg="gray.100" 
            px={2} 
@@ -1599,6 +1655,19 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
        return (
          <UnitComboBox
            units={templateStructure.units}
+           value={value}
+           onChange={onChange}
+           disabled={effectiveDisabled}
+         />
+       );
+     }
+
+     // Pole kategorii — combobox z kategoriami z szablonu
+     const isCategoryField = fieldDef.fieldType === 106 || fieldDef.fieldTypeConfig?.fieldType === 106;
+     if (isCategoryField && templateStructure.categories && templateStructure.categories.length > 0) {
+       return (
+         <CategoryComboBox
+           categories={templateStructure.categories}
            value={value}
            onChange={onChange}
            disabled={effectiveDisabled}
@@ -1627,6 +1696,16 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
              }}
            />
          </Flex>
+       );
+     }
+
+     if (isVatRateField) {
+       return (
+         <VatRateInput
+           value={value}
+           onChange={onChange}
+           disabled={effectiveDisabled}
+         />
        );
      }
 

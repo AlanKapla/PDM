@@ -21,6 +21,7 @@ namespace Business.Implementation.Services
         private readonly IRepository<CostEstimateTemplate> templateRepository;
         private readonly IRepository<CostEstimateTemplateCurrency> currencyRepository;
         private readonly IRepository<CostEstimateTemplateUnit> unitRepository;
+        private readonly IRepository<CostEstimateTemplateCategory> categoryRepository;
         private readonly IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository;
         private readonly IRepository<CostEstimateTemplateItemSystemFieldDefinition> systemFieldRepository;
         private readonly IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository;
@@ -36,6 +37,7 @@ namespace Business.Implementation.Services
             IRepository<CostEstimateTemplate> templateRepository,
             IRepository<CostEstimateTemplateCurrency> currencyRepository,
             IRepository<CostEstimateTemplateUnit> unitRepository,
+            IRepository<CostEstimateTemplateCategory> categoryRepository,
             IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository,
             IRepository<CostEstimateTemplateItemSystemFieldDefinition> systemFieldRepository,
             IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository,
@@ -50,6 +52,7 @@ namespace Business.Implementation.Services
             this.templateRepository = templateRepository;
             this.currencyRepository = currencyRepository;
             this.unitRepository = unitRepository;
+            this.categoryRepository = categoryRepository;
             this.groupFieldRepository = groupFieldRepository;
             this.systemFieldRepository = systemFieldRepository;
             this.calculatedFieldRepository = calculatedFieldRepository;
@@ -106,6 +109,7 @@ namespace Business.Implementation.Services
             bool updateStructure,
             List<CurrencyDto>? currencies,
             List<UnitDto>? units,
+            List<CategoryDto>? categories,
             List<FieldDefinitionDto>? groupHeaderFields,
             List<FieldDefinitionDto>? systemFields,
             List<FieldDefinitionDto>? calculatedFields,
@@ -134,6 +138,11 @@ namespace Business.Implementation.Services
             if (units != null)
             {
                 await UpdateUnitsAsync(template.Id, units, cancellationToken);
+            }
+
+            if (categories != null)
+            {
+                await UpdateCategoriesAsync(template.Id, categories, cancellationToken);
             }
 
             if (updateStructure)
@@ -258,6 +267,17 @@ namespace Business.Implementation.Services
                 cancellationToken
             );
 
+            var categories = await categoryRepository.SelectAsync(
+                c => c.TemplateId == template.Id,
+                c => new CategoryWeb(
+                    c.Id,
+                    c.Name,
+                    c.Symbol,
+                    c.Order
+                ),
+                cancellationToken
+            );
+
             var groupHeaderFieldsList = await groupFieldRepository.GetBySearch(
                 f => f.TemplateId == template.Id && f.ParentFieldId == null,
                 q => q.Include(f => f.ChildFields)
@@ -330,6 +350,7 @@ namespace Business.Implementation.Services
                 template.MaxGroupLevel,
                 currencies.OrderBy(c => c.Order).ToList(),
                 units.OrderBy(u => u.Order).ToList(),
+                categories.OrderBy(c => c.Order).ToList(),
                 groupHeaderFields,
                 systemFields,
                 calculatedFields,
@@ -486,6 +507,55 @@ namespace Business.Implementation.Services
                 await unitRepository.InsertRange(toInsert);
 
             await unitRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        private async Task UpdateCategoriesAsync(
+            Guid templateId,
+            List<CategoryDto> categories,
+            CancellationToken cancellationToken)
+        {
+            var existingCategories = (await categoryRepository
+                .GetBySearch(c => c.TemplateId == templateId)).ToList();
+
+            var toUpdate = new List<CostEstimateTemplateCategory>();
+            var toInsert = new List<CostEstimateTemplateCategory>();
+            var incomingNames = categories.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var toDelete = existingCategories
+                .Where(c => !incomingNames.Contains(c.Name))
+                .ToList();
+
+            foreach (var categoryDto in categories)
+            {
+                var existing = existingCategories.FirstOrDefault(c =>
+                    string.Equals(c.Name, categoryDto.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (existing != null)
+                {
+                    existing.Symbol = categoryDto.Symbol;
+                    existing.Order = categoryDto.Order;
+                    toUpdate.Add(existing);
+                }
+                else
+                {
+                    toInsert.Add(new CostEstimateTemplateCategory
+                    {
+                        TemplateId = templateId,
+                        Name = categoryDto.Name,
+                        Symbol = categoryDto.Symbol,
+                        Order = categoryDto.Order
+                    });
+                }
+            }
+
+            if (toDelete.Any())
+                await categoryRepository.DeleteRange(toDelete);
+            if (toUpdate.Any())
+                await categoryRepository.UpdateRange(toUpdate);
+            if (toInsert.Any())
+                await categoryRepository.InsertRange(toInsert);
+
+            await categoryRepository.SaveChangesAsync(cancellationToken);
         }
 
         #endregion
@@ -1036,6 +1106,12 @@ namespace Business.Implementation.Services
                 MaxGroupLevel: template.MaxGroupLevel,
                 Currencies: currencies,
                 Units: units,
+                Categories: template.Categories
+                    .Select(c => new CategoryWeb(
+                        GenerateDeterministicGuid($"{template.Slug}:category:{c.Name}"),
+                        c.Name, c.Symbol, c.Order))
+                    .OrderBy(c => c.Order)
+                    .ToList(),
                 GroupHeaderFields: groupHeaderFields,
                 SystemFields: systemFields,
                 CalculatedFields: calculatedFields,
@@ -1134,6 +1210,7 @@ namespace Business.Implementation.Services
                 updateStructure: true,
                 defaultTemplate.Currencies,
                 defaultTemplate.Units,
+                defaultTemplate.Categories,
                 groupFields,
                 systemFields,
                 calculatedFields,
@@ -1191,6 +1268,10 @@ namespace Business.Implementation.Services
                 .Select(u => new UnitDto(u.Code, u.Name, u.Symbol, u.Category, u.IsDefault, u.Order))
                 .ToList();
 
+            var categories = structure.Categories
+                .Select(c => new CategoryDto(c.Name, c.Symbol, c.Order))
+                .ToList();
+
             var groupFields = MapFieldWebsToDtos(structure.GroupHeaderFields);
             var systemFields = MapFieldWebsToDtos(structure.SystemFields);
             var calculatedFields = MapFieldWebsToDtos(structure.CalculatedFields);
@@ -1217,6 +1298,7 @@ namespace Business.Implementation.Services
                 updateStructure: true,
                 currencies,
                 units,
+                categories,
                 groupFields,
                 systemFields,
                 calculatedFields,

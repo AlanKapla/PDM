@@ -88,7 +88,12 @@ namespace Entities.Models.CostEstimateTemplates
         /// Jednostki miary dostępne w szablonie
         /// </summary>
         public virtual ICollection<CostEstimateTemplateUnit> Units { get; set; } = new List<CostEstimateTemplateUnit>();
-        
+
+        /// <summary>
+        /// Kategorie dostępne w szablonie
+        /// </summary>
+        public virtual ICollection<CostEstimateTemplateCategory> Categories { get; set; } = new List<CostEstimateTemplateCategory>();
+
         /// <summary>
         /// Definicje pól nagłówka grupy
         /// </summary>

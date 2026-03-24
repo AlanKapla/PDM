@@ -31,4 +31,10 @@
     );
 
     public record UiConfigurationDto(List<Guid>? ColumnLayout);
+
+    public record CategoryDto(
+        string Name,
+        string? Symbol,
+        int Order
+    );
 }

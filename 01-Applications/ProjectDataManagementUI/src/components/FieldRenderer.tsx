@@ -14,6 +14,7 @@ import {
   Text,
   Icon,
   Tooltip,
+  Box,
 } from '@chakra-ui/react';
 import { Info, AlertCircle } from 'lucide-react';
 import type {
@@ -22,6 +23,7 @@ import type {
   GroupHeaderFieldDefinition,
   CostEstimateCollectionItem,
 } from '../types/costEstimate.types';
+import { CalculatedFieldType } from '../types/costEstimate.types';
 import {
   validateCalculatedField,
   validateGenericField,
@@ -53,18 +55,26 @@ export const CalculatedFieldRenderer: React.FC<CalculatedFieldRendererProps> = (
 }) => {
   const [displayValue, setDisplayValue] = React.useState<string>('');
   const [isFocused, setIsFocused] = React.useState(false);
+  // Ref do śledzenia czy wyświetlana wartość jest poza zakresem (dla VatRate)
+  // Pozwala zapobiec resetowaniu displayValue przez useEffect/onBlur gdy wartość jest nieprawidłowa
+  const isDisplayInvalidRef = React.useRef(false);
+
+  // VatRate jest przechowywany jako ułamek (0–1), ale wyświetlamy jako % (0–100)
+  const isVatRate = field.type === CalculatedFieldType.VatRate;
 
   // Synchronizuj displayValue z value gdy nie jest w fokusie
   React.useEffect(() => {
     if (!isFocused) {
+      if (isDisplayInvalidRef.current) return; // Nie nadpisuj – użytkownik widzi błąd
       if (value !== null && value !== undefined) {
+        const displayVal = isVatRate ? value * 100 : value;
         const precision = field.displayFormat === 'N0' ? 0 : 2;
-        setDisplayValue(value.toFixed(precision));
+        setDisplayValue(displayVal.toFixed(precision));
       } else {
         setDisplayValue('');
       }
     }
-  }, [value, isFocused, field.displayFormat]);
+  }, [value, isFocused, field.displayFormat, isVatRate]);
 
   // Evaluate visibility
   const isVisible = field.visible && evaluateVisibilityCondition(field.visibilityCondition, allValues);
@@ -79,51 +89,75 @@ export const CalculatedFieldRenderer: React.FC<CalculatedFieldRendererProps> = (
   // 3. Pole jest auto-calculated I można je obliczyć (są dostępne dane źródłowe)
   const isFieldReadOnly = readOnly || field.readOnly || (field.autoCalculated && canAutoCalculate);
 
-  // Validation
-  const error = validateCalculatedField(field, value, allValues);
+  // Walidacja: dla VatRate sprawdzamy displayValue (zakres 0–100%), bo value nie jest aktualizowane gdy poza zakresem
+  const displayNumeric = parseFloat(displayValue);
+  const vatRateDisplayError: { fieldName: string; message: string } | null = isVatRate && displayValue !== '' && !isNaN(displayNumeric)
+    ? displayNumeric < 0
+      ? { fieldName: field.name, message: `${field.label} nie może być ujemna` }
+      : displayNumeric > 100
+        ? { fieldName: field.name, message: `${field.label} nie może przekraczać 100%` }
+        : null
+    : null;
+  const error = vatRateDisplayError ?? validateCalculatedField(field, value, allValues);
 
   if (compact) {
     // Compact mode dla komórek tabeli
     return (
-      <Tooltip
-        label={error?.message || field.helpText}
-        hasArrow
-        isDisabled={!error && !field.helpText}
-      >
-        <NumberInput
-          value={displayValue}
-          onChange={(valueString, valueAsNumber) => {
-            setDisplayValue(valueString);
-            if (isNaN(valueAsNumber)) {
-              onChange(null);
-            } else {
-              const precision = field.displayFormat === 'N0' ? 0 : 2;
-              const rounded = precision === 0 ? Math.round(valueAsNumber) : Math.round(valueAsNumber * 100) / 100;
-              onChange(rounded);
-            }
-          }}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => {
-            setIsFocused(false);
-            // Formatuj wartość po wyjściu z pola
-            if (value !== null && value !== undefined) {
-              const precision = field.displayFormat === 'N0' ? 0 : 2;
-              setDisplayValue(value.toFixed(precision));
-            }
-          }}
-          isReadOnly={isFieldReadOnly}
-          isInvalid={!!error}
-          precision={field.displayFormat === 'N0' ? 0 : 2}
-          step={field.displayFormat === 'N0' ? 1 : 0.01}
-          size="sm"
-          bg={isFieldReadOnly ? 'gray.50' : 'white'}
+      <Box>
+        <Tooltip
+          label={error?.message || field.helpText}
+          hasArrow
+          isDisabled={!error && !field.helpText}
         >
-          <NumberInputField
-            placeholder={field.defaultValue || '0'}
-            borderColor={error ? 'red.300' : field.color ? field.color : undefined}
-          />
-        </NumberInput>
-      </Tooltip>
+          <NumberInput
+            value={displayValue}
+            onChange={(valueString, valueAsNumber) => {
+              setDisplayValue(valueString);
+              if (isNaN(valueAsNumber)) {
+                isDisplayInvalidRef.current = false;
+                onChange(null);
+              } else if (isVatRate) {
+                if (valueAsNumber < 0 || valueAsNumber > 100) {
+                  isDisplayInvalidRef.current = true; // Zablokuj reset – błąd musi być widoczny
+                  return;
+                }
+                isDisplayInvalidRef.current = false;
+                onChange(Math.round(valueAsNumber * 100) / 10000);
+              } else {
+                const precision = field.displayFormat === 'N0' ? 0 : 2;
+                const rounded = precision === 0 ? Math.round(valueAsNumber) : Math.round(valueAsNumber * 100) / 100;
+                onChange(rounded);
+              }
+            }}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => {
+              setIsFocused(false);
+              if (isDisplayInvalidRef.current) return; // Zachowaj błędną wartość – użytkownik musi ją poprawić
+              if (value !== null && value !== undefined) {
+                const displayVal = isVatRate ? value * 100 : value;
+                const precision = field.displayFormat === 'N0' ? 0 : 2;
+                setDisplayValue(displayVal.toFixed(precision));
+              }
+            }}
+            isReadOnly={isFieldReadOnly}
+            isInvalid={!!error}
+            precision={isVatRate ? 2 : field.displayFormat === 'N0' ? 0 : 2}
+            step={isVatRate ? 1 : field.displayFormat === 'N0' ? 1 : 0.01}
+            size="sm"
+            bg={isFieldReadOnly ? 'gray.50' : 'white'}
+          >
+            <NumberInputField
+              placeholder={field.defaultValue || '0'}
+              borderColor={error ? 'red.300' : field.color ? field.color : undefined}
+            />
+          </NumberInput>
+        </Tooltip>
+        {error && (
+          <Text fontSize="xs" color="red.500" mt={1}>
+            {error.message}
+          </Text>
+        )}
+      </Box>
     );
   }
 
@@ -147,7 +181,15 @@ export const CalculatedFieldRenderer: React.FC<CalculatedFieldRendererProps> = (
           onChange={(valueString, valueAsNumber) => {
             setDisplayValue(valueString);
             if (isNaN(valueAsNumber)) {
+              isDisplayInvalidRef.current = false;
               onChange(null);
+            } else if (isVatRate) {
+              if (valueAsNumber < 0 || valueAsNumber > 100) {
+                isDisplayInvalidRef.current = true;
+                return;
+              }
+              isDisplayInvalidRef.current = false;
+              onChange(Math.round(valueAsNumber * 100) / 10000);
             } else {
               const precision = field.displayFormat === 'N0' ? 0 : 2;
               const rounded = precision === 0 ? Math.round(valueAsNumber) : Math.round(valueAsNumber * 100) / 100;
@@ -157,15 +199,16 @@ export const CalculatedFieldRenderer: React.FC<CalculatedFieldRendererProps> = (
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
             setIsFocused(false);
-            // Formatuj wartość po wyjściu z pola
+            if (isDisplayInvalidRef.current) return;
             if (value !== null && value !== undefined) {
+              const displayVal = isVatRate ? value * 100 : value;
               const precision = field.displayFormat === 'N0' ? 0 : 2;
-              setDisplayValue(value.toFixed(precision));
+              setDisplayValue(displayVal.toFixed(precision));
             }
           }}
           isReadOnly={isFieldReadOnly}
-          precision={field.displayFormat === 'N0' ? 0 : 2}
-          step={field.displayFormat === 'N0' ? 1 : 0.01}
+          precision={isVatRate ? 2 : field.displayFormat === 'N0' ? 0 : 2}
+          step={isVatRate ? 1 : field.displayFormat === 'N0' ? 1 : 0.01}
           flex={1}
         >
           <NumberInputField

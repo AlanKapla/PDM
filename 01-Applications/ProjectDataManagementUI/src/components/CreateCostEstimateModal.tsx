@@ -224,9 +224,9 @@ export default function CreateCostEstimateModal({
   const selectedTemplate = selectedTemplateDetails;
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "xl" }}>
+    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "xl" }} scrollBehavior="inside">
       <ModalOverlay />
-      <ModalContent mx={{ base: 0, md: "auto" }}>
+      <ModalContent mx={{ base: 0, md: "auto" }} maxH="90vh">
         <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
           <HStack spacing={3}>
             <FileText size={iconSize} />

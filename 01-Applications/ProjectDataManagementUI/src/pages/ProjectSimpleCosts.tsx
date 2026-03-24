@@ -30,6 +30,8 @@ import {
   InputGroup,
   InputLeftElement,
   Tooltip,
+  FormControl,
+  FormErrorMessage,
 } from "@chakra-ui/react";
 import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download, Search, SortAsc, ChevronUp, ChevronDown } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -151,15 +153,15 @@ const AllCostsTab = memo(function AllCostsTab({
       <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
         <Box>
           <Text fontSize="xs" color="gray.600">Total:</Text>
-          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
         <Box>
           <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
         <Box>
           <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
       </HStack>
 
@@ -212,16 +214,21 @@ const AllCostsTab = memo(function AllCostsTab({
                     />
                   </Td>
                   <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={newCostData.vatRate}
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
-                      placeholder="0"
-                    />
+                    <FormControl isInvalid={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>
+                      <Input
+                        size="sm"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={newCostData.vatRate}
+                        onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
+                        placeholder="0"
+                      />
+                      <FormErrorMessage fontSize="xs">
+                        {parseFloat(newCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
+                      </FormErrorMessage>
+                    </FormControl>
                   </Td>
                   <Td>
                     <Input
@@ -281,7 +288,7 @@ const AllCostsTab = memo(function AllCostsTab({
                   {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
                     <Td textAlign="center">
                       <HStack spacing={1} justify="center">
-                        <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost}>Zapisz</Button>
+                        <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost} isDisabled={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>Zapisz</Button>
                         <Button size="sm" variant="ghost" onClick={() => { onShowNewCostRow(false); onDocumentFileChange(null); }}>Anuluj</Button>
                       </HStack>
                     </Td>
@@ -310,16 +317,21 @@ const AllCostsTab = memo(function AllCostsTab({
                     />
                   </Td>
                   <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={editingCostData.vatRate}
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
-                      placeholder="0"
-                    />
+                    <FormControl isInvalid={!!editingCostData.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>
+                      <Input
+                        size="sm"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={editingCostData.vatRate}
+                        onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
+                        placeholder="0"
+                      />
+                      <FormErrorMessage fontSize="xs">
+                        {parseFloat(editingCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
+                      </FormErrorMessage>
+                    </FormControl>
                   </Td>
                   <Td>
                     <Input
@@ -376,7 +388,7 @@ const AllCostsTab = memo(function AllCostsTab({
                   {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
                     <Td textAlign="center">
                       <HStack spacing={1} justify="center">
-                        <Button size="sm" colorScheme="green" onClick={onSaveEdit}>Zapisz</Button>
+                        <Button size="sm" colorScheme="green" onClick={onSaveEdit} isDisabled={!!editingCostData?.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>Zapisz</Button>
                         <Button size="sm" variant="ghost" onClick={onCancelEdit}>Anuluj</Button>
                       </HStack>
                     </Td>
@@ -390,7 +402,7 @@ const AllCostsTab = memo(function AllCostsTab({
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric>{cost.vatRate ?? 0}%</Td>
+                  <Td isNumeric>{cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
                     {canEditClosedCost ? (
@@ -591,15 +603,15 @@ const MyCostsTab = memo(function MyCostsTab({
       <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
         <Box>
           <Text fontSize="xs" color="gray.600">Total:</Text>
-          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
         <Box>
           <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
         <Box>
           <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
       </HStack>
 
@@ -648,16 +660,21 @@ const MyCostsTab = memo(function MyCostsTab({
                     />
                   </Td>
                   <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={newCostData.vatRate}
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
-                      placeholder="0"
-                    />
+                    <FormControl isInvalid={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>
+                      <Input
+                        size="sm"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={newCostData.vatRate}
+                        onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
+                        placeholder="0"
+                      />
+                      <FormErrorMessage fontSize="xs">
+                        {parseFloat(newCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
+                      </FormErrorMessage>
+                    </FormControl>
                   </Td>
                   <Td>
                     <Input
@@ -716,7 +733,7 @@ const MyCostsTab = memo(function MyCostsTab({
                   </Td>
                   <Td textAlign="center">
                     <HStack spacing={1} justify="center">
-                      <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost}>Zapisz</Button>
+                      <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost} isDisabled={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>Zapisz</Button>
                       <Button size="sm" variant="ghost" onClick={() => { onShowNewCostRow(false); onDocumentFileChange(null); }}>Anuluj</Button>
                     </HStack>
                   </Td>
@@ -743,16 +760,21 @@ const MyCostsTab = memo(function MyCostsTab({
                     />
                   </Td>
                   <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={editingCostData.vatRate}
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
-                      placeholder="0"
-                    />
+                    <FormControl isInvalid={!!editingCostData.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>
+                      <Input
+                        size="sm"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={editingCostData.vatRate}
+                        onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
+                        placeholder="0"
+                      />
+                      <FormErrorMessage fontSize="xs">
+                        {parseFloat(editingCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
+                      </FormErrorMessage>
+                    </FormControl>
                   </Td>
                   <Td>
                     <Input
@@ -814,7 +836,7 @@ const MyCostsTab = memo(function MyCostsTab({
                   </Td>
                   <Td textAlign="center">
                     <HStack spacing={1} justify="center">
-                      <Button size="sm" colorScheme="green" onClick={onSaveEdit} isLoading={savingCost}>Zapisz</Button>
+                      <Button size="sm" colorScheme="green" onClick={onSaveEdit} isLoading={savingCost} isDisabled={!!editingCostData?.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>Zapisz</Button>
                       <Button size="sm" variant="ghost" onClick={onCancelEdit}>Anuluj</Button>
                     </HStack>
                   </Td>
@@ -826,7 +848,7 @@ const MyCostsTab = memo(function MyCostsTab({
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric>{cost.vatRate ?? 0}%</Td>
+                  <Td isNumeric>{cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
                     {canEditClosedCost ? (
@@ -953,15 +975,15 @@ const SharedCostsTab = memo(function SharedCostsTab({
       <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
         <Box>
           <Text fontSize="xs" color="gray.600">Total:</Text>
-          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
         <Box>
           <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
         <Box>
           <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toFixed(2)} zł</Text>
+          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
         </Box>
       </HStack>
 
@@ -996,7 +1018,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric>{cost.vatRate ?? 0}%</Td>
+                  <Td isNumeric>{cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
                     {canEditClosedCost ? (
@@ -1155,11 +1177,12 @@ export default function ProjectSimpleCosts() {
   }, [projectId, resourcePerms.raw.loading]);
 
   // Automatyczne wyliczanie kwoty brutto dla nowego kosztu
+  // vatRate przechowywany jako % (np. 23), przeliczany na ułamek przy kalkulacji i przy zapisie
   useEffect(() => {
     const netAmount = parseFloat(newCostData.netAmount);
     const vatRate = parseFloat(newCostData.vatRate);
 
-    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0) {
+    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0 && vatRate <= 100) {
       const calculatedGross = netAmount * (1 + vatRate / 100);
       const roundedGross = Math.round(calculatedGross * 100) / 100;
 
@@ -1177,7 +1200,7 @@ export default function ProjectSimpleCosts() {
     const netAmount = parseFloat(editingCostData.netAmount);
     const vatRate = parseFloat(editingCostData.vatRate);
 
-    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0) {
+    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0 && vatRate <= 100) {
       const calculatedGross = netAmount * (1 + vatRate / 100);
       const roundedGross = Math.round(calculatedGross * 100) / 100;
 
@@ -1242,6 +1265,11 @@ export default function ProjectSimpleCosts() {
       showError("Nazwa i kwota brutto są wymagane");
       return;
     }
+    const newVatNum = parseFloat(newCostData.vatRate);
+    if (newCostData.vatRate !== '' && (isNaN(newVatNum) || newVatNum < 0 || newVatNum > 100)) {
+      showError("Stawka VAT musi być z zakresu 0–100%");
+      return;
+    }
 
     setAddingNewCost(true);
     try {
@@ -1254,7 +1282,7 @@ export default function ProjectSimpleCosts() {
           date: new Date(newCostData.date),
           description: newCostData.description || undefined,
           netAmount: newCostData.netAmount && parseFloat(newCostData.netAmount) !== 0 ? parseFloat(newCostData.netAmount) : null,
-          vatRate: newCostData.vatRate && parseFloat(newCostData.vatRate) !== 0 ? parseFloat(newCostData.vatRate) : null,
+          vatRate: newCostData.vatRate && parseFloat(newCostData.vatRate) !== 0 ? parseFloat(newCostData.vatRate) / 100 : null,
           grossAmount: parseFloat(newCostData.grossAmount),
           isClosed: newCostData.isClosed,
           document: documentFile || undefined,
@@ -1290,7 +1318,7 @@ export default function ProjectSimpleCosts() {
       date: cost.date.split('T')[0],
       description: cost.description || '',
       netAmount: (cost.netAmount ?? 0).toString(),
-      vatRate: (cost.vatRate ?? 0).toString(),
+      vatRate: (cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0).toString(),
       grossAmount: cost.grossAmount.toString(),
       isClosed: cost.isClosed,
     });
@@ -1298,7 +1326,11 @@ export default function ProjectSimpleCosts() {
 
   const handleSaveEdit = async () => {
     if (!user?.activeTenantId || !projectId || !editingCostId) return;
-
+    const editVatNum = parseFloat(editingCostData.vatRate);
+    if (editingCostData.vatRate !== '' && (isNaN(editVatNum) || editVatNum < 0 || editVatNum > 100)) {
+      showError("Stawka VAT musi być z zakresu 0–100%");
+      return;
+    }
     setSavingCost(true);
     try {
       await projectApi.updateProjectCost(
@@ -1311,7 +1343,7 @@ export default function ProjectSimpleCosts() {
           date: new Date(editingCostData.date),
           description: editingCostData.description || undefined,
           netAmount: editingCostData.netAmount && parseFloat(editingCostData.netAmount) !== 0 ? parseFloat(editingCostData.netAmount) : null,
-          vatRate: editingCostData.vatRate && parseFloat(editingCostData.vatRate) !== 0 ? parseFloat(editingCostData.vatRate) : null,
+          vatRate: editingCostData.vatRate && parseFloat(editingCostData.vatRate) !== 0 ? parseFloat(editingCostData.vatRate) / 100 : null,
           grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : null,
           isClosed: editingCostData.isClosed,
           document: editDocumentFile || undefined,

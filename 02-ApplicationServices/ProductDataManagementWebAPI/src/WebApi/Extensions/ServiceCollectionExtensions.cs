@@ -287,6 +287,7 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
             services.AddScoped<IRepository<CostEstimateTemplateCurrency>, Repository<CostEstimateTemplateCurrency>>();
             services.AddScoped<IRepository<CostEstimateTemplateUnit>, Repository<CostEstimateTemplateUnit>>();
+            services.AddScoped<IRepository<CostEstimateTemplateCategory>, Repository<CostEstimateTemplateCategory>>();
             services.AddScoped<IRepository<CostEstimateTemplateGroupFieldDefinition>, Repository<CostEstimateTemplateGroupFieldDefinition>>();
             services.AddScoped<IRepository<CostEstimateTemplateItemSystemFieldDefinition>, Repository<CostEstimateTemplateItemSystemFieldDefinition>>();
             services.AddScoped<IRepository<CostEstimateTemplateItemCalculatedFieldDefinition>, Repository<CostEstimateTemplateItemCalculatedFieldDefinition>>();

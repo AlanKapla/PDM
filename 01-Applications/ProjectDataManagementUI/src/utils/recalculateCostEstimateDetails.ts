@@ -184,7 +184,7 @@ export function recalculateCostEstimateDetails(
     let unitPriceGross: number | undefined;
     if (unitPriceGrossDef) {
       if (has.unitPriceNet && has.vatRate) {
-        unitPriceGross = unitPriceNet! * (1 + vatRate! / 100);
+        unitPriceGross = unitPriceNet! * (1 + vatRate!);
         updated = setItemFieldValue(updated, unitPriceGrossDef.id, unitPriceGross);
       } else {
         unitPriceGross = getSourceFieldValue(updated, unitPriceGrossDef.id);
@@ -194,7 +194,7 @@ export function recalculateCostEstimateDetails(
     let unitVat: number | undefined;
     if (unitVatDef) {
       if (has.unitPriceNet && has.vatRate) {
-        unitVat = unitPriceNet! * (vatRate! / 100);
+        unitVat = unitPriceNet! * vatRate!;
         updated = setItemFieldValue(updated, unitVatDef.id, unitVat);
       } else {
         unitVat = getSourceFieldValue(updated, unitVatDef.id);
@@ -214,7 +214,7 @@ export function recalculateCostEstimateDetails(
     let totalVat: number | undefined;
     if (totalVatDef) {
       if (valueNet !== undefined && has.vatRate) {
-        totalVat = valueNet * (vatRate! / 100);
+        totalVat = valueNet * vatRate!;
         updated = setItemFieldValue(updated, totalVatDef.id, totalVat);
       } else if (unitVat !== undefined && has.quantity) {
         totalVat = unitVat * quantity!;

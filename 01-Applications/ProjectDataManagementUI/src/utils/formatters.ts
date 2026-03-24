@@ -117,6 +117,6 @@ export const isPdfFile = (filename: string): boolean => {
  * Format currency amount with locale format
  */
 export const formatCurrency = (amount: number | null | undefined, currency: string = 'PLN'): string => {
-  if (amount === undefined || amount === null) return `0.00 ${currency}`;
-  return `${amount.toFixed(2)} ${currency}`;
+  if (amount === undefined || amount === null) return `0,00 ${currency}`;
+  return `${amount.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 };
