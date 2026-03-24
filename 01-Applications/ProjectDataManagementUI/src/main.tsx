@@ -29,21 +29,17 @@ async function initializeApp() {
 
   // Listen for sign-in event and set active account
   msalInstance.addEventCallback((event: EventMessage) => {
-    console.log("🎯 MSAL Event:", event.eventType, event);
     
     if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
       const payload = event.payload as AuthenticationResult;
       const account = payload.account;
       msalInstance.setActiveAccount(account);
-      console.log("✅ Login success event:", account);
     }
     
     if (event.eventType === EventType.LOGIN_FAILURE) {
-      console.error("❌ Login failure event:", event);
     }
     
     if (event.eventType === EventType.ACQUIRE_TOKEN_FAILURE) {
-      console.error("❌ Acquire token failure event:", event);
     }
     
     // NIE restartuj SignalR przy odświeżeniu tokenu - powoduje niestabilność
@@ -52,11 +48,9 @@ async function initializeApp() {
     // - automatycznym reconnect (gdy backend zwróci 401/403)
     
     if (event.eventType === EventType.HANDLE_REDIRECT_END) {
-      console.log("🏁 Handle redirect end event:", event);
     }
     
     if (event.eventType === EventType.HANDLE_REDIRECT_START) {
-      console.log("🚦 Handle redirect start event:", event);
     }
   });
 
@@ -75,7 +69,6 @@ async function initializeApp() {
         </React.StrictMode>
       );
     } else {
-      console.error("Nie znaleziono elementu #root – React nie został zamontowany.");
     }
   }
 }
@@ -85,8 +78,11 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
-      .then((reg) => console.log("Service Worker registered:", reg))
-      .catch((err) => console.error("Service Worker registration failed:", err));
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.error("Service worker registration failed:", error);
+        }
+      });
   });
 }
 
@@ -101,12 +97,15 @@ if (import.meta.env.DEV) {
       backendUserId: await service.testConnection()
     };
   };
-  
-  console.log("🛠 Dev mode: use window.signalRDiag() to check SignalR connection");
 }
 
 // Start the app
-initializeApp().catch(console.error);
+initializeApp().catch((error) => {
+  // Logujemy błąd inicjalizacji w DEV, aby ułatwić diagnostykę
+  if (import.meta.env.DEV) {
+    console.error("Błąd inicjalizacji aplikacji:", error);
+  }
+});
 
 // Export msalInstance for use in other modules (e.g., axios interceptors)
 export { msalInstance };

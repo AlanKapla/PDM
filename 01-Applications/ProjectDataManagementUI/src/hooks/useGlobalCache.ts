@@ -60,7 +60,6 @@ export function useGlobalCache<T>(
     // Sprawdź czy fetch już jest w trakcie (synchroniczne sprawdzenie przed race condition)
     const inProgress = fetchInProgress.get(cacheKey);
     if (inProgress) {
-      console.log(`⏳ Fetch already in progress for ${cacheKey}, waiting...`);
       const result = await inProgress;
       setDataState(result);
       return result;
@@ -79,7 +78,6 @@ export function useGlobalCache<T>(
         setDataState(result);
         return result;
       } catch (error) {
-        console.error(`Error fetching ${cacheKey}:`, error);
         throw error;
       } finally {
         setLoading(false);
@@ -93,7 +91,6 @@ export function useGlobalCache<T>(
     // Sprawdź ponownie czy w międzyczasie inny fetch nie wystartował
     const potentialDuplicate = fetchInProgress.get(cacheKey);
     if (potentialDuplicate !== fetchPromise) {
-      console.log(`⚠️ Race condition detected for ${cacheKey}, using existing fetch`);
       const result = await potentialDuplicate;
       setDataState(result);
       return result;

@@ -25,7 +25,7 @@ import {
   Mail,
 } from "lucide-react";
 
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, Link as RouterLink } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getActiveInvitations } from "../services/tenantService";
 import { InvitationStatus } from "../types/auth.types";
@@ -33,7 +33,6 @@ import { useGlobalCache } from "../hooks/useGlobalCache";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
 export function SidebarContent() {
-  const navigate = useNavigate();
   const location = useLocation();
 
   const [invitationsCount, setInvitationsCount] = useState(0);
@@ -54,7 +53,6 @@ export function SidebarContent() {
         const pending = invitations.filter((inv: { status: number }) => inv.status === InvitationStatus.Pending);
         setInvitationsCount(pending.length);
       } catch (error) {
-        console.error("Błąd pobierania zaproszeń:", error);
       }
     };
 
@@ -69,54 +67,63 @@ export function SidebarContent() {
 
   return (
     <VStack align="stretch" w="100%" spacing={2}>
-      {/* Przełącz organizację */}
-      <Button
+      {/* Przełącz organizację — przeniesione do strony Projekty (Select) */}
+      {/* <Button
+        as={RouterLink}
+        to="/tenants/collaborating"
         variant="ghost"
         justifyContent="flex-start"
         leftIcon={<RefreshCw size={20} />}
         w="100%"
         bg={location.pathname === "/tenants/collaborating" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/tenants/collaborating")}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        _activeLink={{ textDecoration: "none" }}
+        textDecoration="none"
       >
         Przełącz organizację
-      </Button>
+      </Button> */}
 
       {/* Projekty */}
       <Button
+        as={RouterLink}
+        to="/projects"
         variant="ghost"
         justifyContent="flex-start"
         leftIcon={<FolderKanban size={20} />}
         w="100%"
         bg={location.pathname === "/projects" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/projects")}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
       >
         Projekty
       </Button>
 
       {/* Zarządzaj organizacjami */}
       <Button
+        as={RouterLink}
+        to="/tenants/managed"
         variant="ghost"
         justifyContent="flex-start"
         leftIcon={<Building2 size={20} />}
         w="100%"
         bg={location.pathname === "/tenants/managed" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/tenants/managed")}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
       >
         Zarządzanie
       </Button>
 
       {/* Zaproszenia do organizacji */}
       <Button
+        as={RouterLink}
+        to="/tenants/invitations"
         variant="ghost"
         justifyContent="flex-start"
         leftIcon={<Mail size={20} />}
         w="100%"
         bg={location.pathname === "/tenants/invitations" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/tenants/invitations")}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
       >
         Zaproszenia
         {invitationsCount > 0 && (
@@ -128,39 +135,45 @@ export function SidebarContent() {
 
       {/* Zaplanowane prace */}
       <Button
+        as={RouterLink}
+        to="/assigned-works"
         variant="ghost"
         justifyContent="flex-start"
         leftIcon={<Briefcase size={20} />}
         w="100%"
         bg={location.pathname === "/assigned-works" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/assigned-works")}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
       >
         Zaplanowane prace
       </Button>
 
       {/* Szablony kosztorysów */}
       <Button
+        as={RouterLink}
+        to="/cost-estimate-templates"
         variant="ghost"
         justifyContent="flex-start"
         leftIcon={<FileText size={20} />}
         w="100%"
         bg={location.pathname === "/cost-estimate-templates" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/cost-estimate-templates")}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
       >
         Szablony kosztorysów
       </Button>
 
       {/* Ustawienia */}
       <Button
+        as={RouterLink}
+        to="/profile"
         variant="ghost"
         justifyContent="flex-start"
         leftIcon={<Settings size={20} />}
         w="100%"
         bg={location.pathname === "/profile" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg }}
-        onClick={() => navigate("/profile")}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
       >
         Ustawienia
       </Button>

@@ -33,7 +33,6 @@ export function useProjectPermissions(projectId: string | undefined) {
         setPermissions(projectDetails.userPermissions || []);
         setRoleCode(projectDetails.userRoleCode);
       } catch (error) {
-        console.error('Error fetching project permissions:', error);
         setPermissions([]);
         setRoleCode(undefined);
       } finally {

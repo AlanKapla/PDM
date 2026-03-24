@@ -2,7 +2,6 @@
 using Entities.Models;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
-using Repositiories.Repository.Interfaces;
 
 namespace CQRS.Files.UpdateFileShare
 {
@@ -37,11 +36,12 @@ namespace CQRS.Files.UpdateFileShare
                 })
                 .WithMessage("All users must be members of the project");
 
-            // User cannot share file with themselves
+            // Current user cannot share file with themselves
+            // Note: File owner is checked in handler (owner always has access, no need for explicit share)
             RuleFor(x => x.SharedWithUserIds)
                 .Must((command, userIds) => !userIds.Contains(currentUser.Id))
                 .When(x => x.SharedWithUserIds != null && x.SharedWithUserIds.Any())
-                .WithMessage("You cannot share a file with yourself");
+                .WithMessage("You cannot share a file with yourself. File owner and current user always have access without explicit sharing.");
         }
     }
 }

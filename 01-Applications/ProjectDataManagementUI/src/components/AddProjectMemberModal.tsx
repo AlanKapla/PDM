@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -71,7 +71,6 @@ export default function AddProjectMemberModal({
       const projectMembers: ProjectMemberWeb[] = projectMembersRes.data;
       setProjectMembers(projectMembers);
     } catch (error) {
-      console.error("Błąd pobierania członków:", error);
       showError("Błąd", "Nie udało się pobrać listy członków");
     } finally {
       setLoading(false);
@@ -92,7 +91,6 @@ export default function AddProjectMemberModal({
       await fetchData();
       onMemberAdded?.();
     } catch (error) {
-      console.error("Błąd dodawania członka:", error);
       const errorModule = await import("../utils/handleApiError");
       const { title, description } = errorModule.handleApiError(error);
       showError(title, description);

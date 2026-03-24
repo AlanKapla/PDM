@@ -20,20 +20,11 @@ export default function Home() {
   const authLoading = isAuthenticated && !account;
 
   useEffect(() => {
-    console.log("🔍 Home.tsx state:", {
-      isAuthenticated,
-      isLoading,
-      authLoading,
-      hasUser: !!account,
-    });
   }, [isAuthenticated, isLoading, authLoading, account]);
 
 
   const handleLogin = async () => {
     try {
-      console.log("🚀 Starting login redirect to External ID...");
-      console.log("🔧 Authority:", instance.getConfiguration().auth.authority);
-      console.log("🔧 Scopes:", loginRequest.scopes);
       
       // Preserve return URL through OAuth state
       const returnUrl = (location.state as any)?.from?.pathname || "/dashboard";
@@ -46,7 +37,6 @@ export default function Home() {
       
       // User will be redirected to External ID, then back to /auth/callback
     } catch (error) {
-      console.error("❌ Login redirect failed:", error);
     }
   };
 

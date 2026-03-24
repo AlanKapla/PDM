@@ -151,7 +151,6 @@ export default function ProjectDetails() {
       setProject(data);
       setEditedName(data.name);
     } catch (err) {
-      console.error(err);
       setError("Błąd podczas pobierania szczegółów projektu");
     } finally {
       setLoading(false);
@@ -167,7 +166,6 @@ export default function ProjectDetails() {
       const data = await projectMembersCache.fetch();
       setMembers(data);
     } catch (err) {
-      console.error("Błąd pobierania członków projektu:", err);
     } finally {
       setLoadingMembers(false);
     }
@@ -180,7 +178,6 @@ export default function ProjectDetails() {
       const response = await projectApi.getProjectFilePackages(user.activeTenantId, projectId, ResourceScope.Mine);
       setMyFiles(response.data);
     } catch (err) {
-      console.error("Błąd pobierania moich plików:", err);
     }
   };
 
@@ -191,7 +188,6 @@ export default function ProjectDetails() {
       const response = await projectApi.getProjectFilePackages(user.activeTenantId, projectId, ResourceScope.Shared);
       setSharedFiles(response.data);
     } catch (err) {
-      console.error("Błąd pobierania udostępnionych plików:", err);
     }
   };
 
@@ -203,7 +199,6 @@ export default function ProjectDetails() {
       const response = await projectApi.getMyWorkSchedules(user.activeTenantId, projectId);
       setWorkSchedules(response.data);
     } catch (err) {
-      console.error("Błąd pobierania harmonogramów:", err);
     } finally {
       setLoadingWorkSchedules(false);
     }
@@ -217,7 +212,6 @@ export default function ProjectDetails() {
       const response = await projectApi.getProjectUserCosts(user.activeTenantId, projectId);
       setProjectCosts(response.data);
     } catch (err) {
-      console.error("Błąd pobierania kosztów projektowych:", err);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać kosztów projektowych",
@@ -237,7 +231,6 @@ export default function ProjectDetails() {
       const response = await projectApi.getSharedProjectCosts(user.activeTenantId, projectId);
       setSharedCosts(response.data);
     } catch (err) {
-      console.error("Błąd pobierania udostępnionych kosztów:", err);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać udostępnionych kosztów",
@@ -330,7 +323,6 @@ export default function ProjectDetails() {
 
       await fetchProjectCosts();
     } catch (error) {
-      console.error("Błąd podczas dodawania kosztu:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -433,7 +425,6 @@ export default function ProjectDetails() {
       setDocumentFile(null);
       await fetchProjectCosts();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji kosztu:", error);
       const { title, description } = handleApiError(error);
       toast({
         title: "Błąd",
@@ -477,7 +468,6 @@ export default function ProjectDetails() {
 
       await fetchProjectCosts();
     } catch (error) {
-      console.error("Błąd podczas usuwania kosztu:", error);
       const { title, description } = handleApiError(error);
       toast({
         title: "Błąd",
@@ -514,7 +504,6 @@ export default function ProjectDetails() {
         }, 100);
       })
       .catch(error => {
-        console.error("Błąd podczas pobierania pliku:", error);
         toast({
           title: "Błąd",
           description: "Nie udało się pobrać pliku",
@@ -624,7 +613,6 @@ export default function ProjectDetails() {
       await fetchMyFiles();
       await fetchSharedFiles();
     } catch (error) {
-      console.error("Błąd podczas dodawania komentarza:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się dodać komentarza",
@@ -669,7 +657,6 @@ export default function ProjectDetails() {
       await fetchProjectDetails();
       await fetchMembers();
     } catch (error) {
-      console.error("Błąd podczas usuwania członka:", error);
       const { title, description } = handleApiError(error);
     } finally {
       setRemovingMember(null);
@@ -702,7 +689,6 @@ export default function ProjectDetails() {
       projectDetailsCache.clear();
       await fetchProjectDetails();
     } catch (error) {
-      console.error("Błąd podczas toggle project status:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -743,7 +729,6 @@ export default function ProjectDetails() {
       projectDetailsCache.clear();
       await fetchProjectDetails();
     } catch (error) {
-      console.error("Błąd aktualizacji:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -962,7 +947,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
+                {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources || permissions.canReadSharedResources) && (
                   <Box
                     as="button"
                     bg={cardBg}

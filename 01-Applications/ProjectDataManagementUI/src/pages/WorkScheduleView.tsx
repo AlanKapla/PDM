@@ -21,26 +21,22 @@ import {
   Td,
   Tooltip,
   useDisclosure,
-  Slider,
-  SliderTrack,
-  SliderFilledTrack,
-  SliderThumb,
   useToast,
   Textarea,
   Checkbox,
   useMediaQuery,
 } from "@chakra-ui/react";
 import "./WorkScheduleView.css";
-import { ArrowLeft, Edit, Clock, User, AlertTriangle, CalendarDays, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Clock, User, AlertTriangle, ChevronDown, Plus, Trash2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import TimelineToolbar from "../components/TimelineToolbar";
 import { projectApi } from "../api/projectApi";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import WorkDetailsModal from "../components/WorkDetailsModal";
 import { AuthContext } from "../context/AuthContext";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { WorkScheduleDetailsWeb, WorkScheduleStageWorkWeb } from "../types/workSchedule.types";
-
-type TimeScale = "days" | "weeks" | "months";
+import { useTimelineData, type TimeScale } from "../hooks/useTimelineData";
 
 export default function WorkScheduleView() {
   const { projectId, workScheduleId } = useParams<{ projectId: string; workScheduleId: string }>();
@@ -55,9 +51,7 @@ export default function WorkScheduleView() {
   const [schedule, setSchedule] = useState<WorkScheduleDetailsWeb | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeScale, setTimeScale] = useState<TimeScale>("weeks");
   const [error, setError] = useState<string | null>(null);
-  const [timeRangeMonths, setTimeRangeMonths] = useState(1); // ±1 month by default
   const [columnWidths, setColumnWidths] = useState({
     stage: isMobile ? 90 : 200,
     description: isMobile ? window.innerWidth - 110 : 350,
@@ -69,13 +63,21 @@ export default function WorkScheduleView() {
   const [isDirty, setIsDirty] = useState(false);
   const [scrollHintVisible, setScrollHintVisible] = useState(true);
 
-  const todayColumnRef = useRef<HTMLTableCellElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const {
+    timeScale, setTimeScale,
+    timeRangeMonths, setTimeRangeMonths,
+    hideWeekends, toggleWeekends,
+    dates, dateGroups,
+    isToday, formatTimelineDate,
+    isWorkInPeriod, getPeriodEnd,
+    todayColumnRef, scrollContainerRef, scrollToToday,
+  } = useTimelineData({ isMobile });
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const expiredBg = useColorModeValue("red.50", "red.900");
+  const todayBg = useColorModeValue("blue.100", "blue.800");
   const colors = {
     theadBg: useColorModeValue("gray.50", "gray.700"),
     stageBg: useColorModeValue("blue.50", "blue.900"),
@@ -112,7 +114,6 @@ export default function WorkScheduleView() {
 
       setSchedule(response.data);
     } catch (err) {
-      console.error("Błąd pobierania harmonogramu:", err);
       setError("Błąd podczas pobierania harmonogramu");
     } finally {
       setLoading(false);
@@ -126,7 +127,6 @@ export default function WorkScheduleView() {
       const response = await projectApi.getProjectMembers(user.activeTenantId, projectId);
       setMembers(response.data);
     } catch (err) {
-      console.error("Błąd pobierania członków:", err);
     }
   };
 
@@ -184,112 +184,6 @@ export default function WorkScheduleView() {
     }
 
     return 'normal';
-  };
-
-  const getTimelineData = () => {
-    if (!schedule) return { dates: [], minDate: null, maxDate: null, dateGroups: null };
-
-    const today = new Date();
-    const minDate = new Date(today);
-    minDate.setMonth(today.getMonth() - timeRangeMonths);
-    minDate.setDate(1);
-    minDate.setHours(0, 0, 0, 0);
-
-    const maxDate = new Date(today);
-    maxDate.setMonth(today.getMonth() + timeRangeMonths);
-    maxDate.setHours(0, 0, 0, 0);
-
-    const dates: Date[] = [];
-    const current = new Date(minDate);
-
-    if (timeScale === "days") {
-      // Simple day view
-      while (current <= maxDate) {
-        dates.push(new Date(current));
-        current.setDate(current.getDate() + 1);
-      }
-      return { dates, minDate, maxDate, dateGroups: null };
-    } else if (timeScale === "weeks") {
-      // Weeks view - each week divided into 7 day tiles
-      const day = current.getDay();
-      current.setDate(current.getDate() - (day === 0 ? 6 : day - 1)); // Start from Monday
-
-      const dateGroups: { label: string; count: number; startIdx: number }[] = [];
-      let groupStartIdx = 0;
-
-      while (current <= maxDate) {
-        const weekStart = new Date(current);
-        const weekEnd = new Date(current);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-
-        // Add 7 days for this week
-        for (let i = 0; i < 7; i++) {
-          dates.push(new Date(current));
-          current.setDate(current.getDate() + 1);
-        }
-
-        dateGroups.push({
-          label: `${weekStart.getDate()}.${weekStart.getMonth() + 1} - ${weekEnd.getDate()}.${weekEnd.getMonth() + 1}`,
-          count: 7,
-          startIdx: groupStartIdx,
-        });
-        groupStartIdx += 7;
-      }
-
-      return { dates, minDate, maxDate, dateGroups };
-    } else {
-      // Months view - each month divided into all days in the month
-      const dateGroups: { label: string; count: number; startIdx: number }[] = [];
-      let groupStartIdx = 0;
-
-      while (current <= maxDate) {
-        const monthStart = new Date(current);
-        const daysInMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dayDate = new Date(current.getFullYear(), current.getMonth(), day);
-          dates.push(dayDate);
-        }
-
-        dateGroups.push({
-          label: monthStart.toLocaleDateString("pl-PL", { month: "long", year: "numeric" }),
-          count: daysInMonth,
-          startIdx: groupStartIdx,
-        });
-        groupStartIdx += daysInMonth;
-
-        current.setMonth(current.getMonth() + 1);
-      }
-
-      return { dates, minDate, maxDate, dateGroups };
-    }
-  };
-
-  const isWorkInPeriod = (workStart: string, workEnd: string, periodStart: Date, periodEnd: Date): boolean => {
-    const start = new Date(workStart);
-    const end = new Date(workEnd);
-
-    // Praca nachodzi na okres, jeśli:
-    // - zaczyna się przed końcem okresu
-    // - kończy się po początku okresu
-    return start < periodEnd && end >= periodStart;
-  };
-
-  const getPeriodEnd = (periodStart: Date): Date => {
-    const end = new Date(periodStart);
-    end.setDate(end.getDate() + 1); // Always one day per cell
-    return end;
-  };
-
-  const formatTimelineDate = (date: Date): string => {
-    if (timeScale === "days") {
-      return isMobile ? `${date.getDate()}` : `${date.getDate()}.${date.getMonth() + 1}`;
-    } else if (timeScale === "weeks") {
-      const dayNames = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So"];
-      return isMobile ? dayNames[date.getDay()] : `${dayNames[date.getDay()]}\n${date.getDate()}.${date.getMonth() + 1}`;
-    } else {
-      return `${date.getDate()}`;
-    }
   };
 
   const handleEditMode = () => {
@@ -364,7 +258,6 @@ export default function WorkScheduleView() {
         duration: 2000,
       });
     } catch (error) {
-      console.error("Błąd zapisywania zmian:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się zapisać zmian",
@@ -448,7 +341,6 @@ export default function WorkScheduleView() {
         duration: 2000,
       });
     } catch (error) {
-      console.error("Błąd zapisywania zmian:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się zapisać zmian",
@@ -571,7 +463,6 @@ export default function WorkScheduleView() {
 
       setIsDirty(false);
     } catch (error) {
-      console.error("Błąd zapisywania zmian:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się zapisać zmian",
@@ -601,16 +492,6 @@ export default function WorkScheduleView() {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const scrollToToday = () => {
-    if (todayColumnRef.current) {
-      todayColumnRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center'
-      });
-    }
-  };
-
   const toggleStage = (stageId: string) => {
     setExpandedStages(prev => {
       const newSet = new Set(prev);
@@ -621,6 +502,15 @@ export default function WorkScheduleView() {
       }
       return newSet;
     });
+  };
+
+  const expandAllStages = () => {
+    const allIds = (editableSchedule || schedule)?.stages.map(s => s.id) || [];
+    setExpandedStages(new Set(allIds));
+  };
+
+  const collapseAllStages = () => {
+    setExpandedStages(new Set());
   };
 
   const handleWorkClick = (work: WorkScheduleStageWorkWeb) => {
@@ -645,21 +535,12 @@ export default function WorkScheduleView() {
     return { minDate, maxDate };
   };
 
-  const isToday = (date: Date): boolean => {
-    const today = new Date();
-    return date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear();
-  };
-
-  const { dates, dateGroups } = getTimelineData();
-
   // Scroll do dzisiejszej daty po załadowaniu
   useEffect(() => {
     if (!loading && schedule) {
       setTimeout(scrollToToday, 100);
     }
-  }, [loading, schedule]);
+  }, [loading, schedule, scrollToToday]);
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
@@ -765,7 +646,7 @@ export default function WorkScheduleView() {
           </HStack>
         </VStack>
 
-        {/* Controls - Hidden on mobile */}
+        {/* Controls */}
         {!isMobile && (
           <Box
             p={4}
@@ -774,76 +655,17 @@ export default function WorkScheduleView() {
             borderColor={borderColor}
             borderRadius="lg"
           >
-            <VStack spacing={4} align="stretch">
-              <HStack spacing={6} justify="space-between" flexWrap="wrap">
-                <HStack spacing={4}>
-                  <Text fontWeight="medium">Skala czasu:</Text>
-                  <HStack spacing={2}>
-                    <Button
-                      size="sm"
-                      variant={timeScale === "days" ? "solid" : "outline"}
-                      colorScheme="purple"
-                      onClick={() => setTimeScale("days")}
-                    >
-                      Dni
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={timeScale === "weeks" ? "solid" : "outline"}
-                      colorScheme="purple"
-                      onClick={() => setTimeScale("weeks")}
-                    >
-                      Tygodnie
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={timeScale === "months" ? "solid" : "outline"}
-                      colorScheme="purple"
-                      onClick={() => setTimeScale("months")}
-                    >
-                      Miesiące
-                    </Button>
-                  </HStack>
-                </HStack>
-                <Button
-                  size="sm"
-                  leftIcon={<CalendarDays size={16} />}
-                  colorScheme="blue"
-                  onClick={scrollToToday}
-                >
-                  Wróć do dzisiejszej daty
-                </Button>
-              </HStack>
-
-              {/* Time Range Slider */}
-              <HStack spacing={4}>
-                <Text fontWeight="medium" minW="120px" fontSize="sm">
-                  Zakres czasu:
-                </Text>
-                <Slider
-                  value={timeRangeMonths}
-                  onChange={setTimeRangeMonths}
-                  min={1}
-                  max={24}
-                  step={1}
-                  colorScheme="purple"
-                  flex={1}
-                  maxW="500px"
-                >
-                  <SliderTrack>
-                    <SliderFilledTrack />
-                  </SliderTrack>
-                  <SliderThumb boxSize={6}>
-                    <Box color="purple.500" fontSize="2xs" fontWeight="bold">
-                      {timeRangeMonths}
-                    </Box>
-                  </SliderThumb>
-                </Slider>
-                <Text fontSize="sm" color="gray.600" minW="180px">
-                  ±{timeRangeMonths} {timeRangeMonths === 1 ? "miesiąc" : timeRangeMonths < 5 ? "miesiące" : "miesięcy"}
-                </Text>
-              </HStack>
-            </VStack>
+            <TimelineToolbar
+              timeScale={timeScale}
+              setTimeScale={setTimeScale}
+              timeRangeMonths={timeRangeMonths}
+              setTimeRangeMonths={setTimeRangeMonths}
+              hideWeekends={hideWeekends}
+              toggleWeekends={toggleWeekends}
+              scrollToToday={scrollToToday}
+              onExpandAll={expandAllStages}
+              onCollapseAll={collapseAllStages}
+            />
           </Box>
         )}
 
@@ -970,22 +792,30 @@ export default function WorkScheduleView() {
                       />
                     )}
                   </Th>
-                  {!isMobile && dates.map((date, idx) => (
-                    <Th
-                      key={idx}
-                      textAlign="center"
-                      minW="30px"
-                      px={0.5}
-                      py={1}
-                      fontSize="2xs"
-                      fontWeight="normal"
-                      textTransform="none"
-                    >
-                      <Text fontSize="2xs" whiteSpace="pre-line" lineHeight="1">
-                        {formatTimelineDate(date)}
-                      </Text>
-                    </Th>
-                  ))}
+                  {!isMobile && dates.map((date, idx) => {
+                    const isTodayCol = isToday(date);
+                    return (
+                      <Th
+                        key={idx}
+                        textAlign="center"
+                        minW="30px"
+                        px={0.5}
+                        py={1}
+                        fontSize="2xs"
+                        fontWeight={isTodayCol ? "bold" : "normal"}
+                        textTransform="none"
+                        bg={isTodayCol ? todayBg : undefined}
+                        borderLeftWidth={isTodayCol ? "2px" : undefined}
+                        borderRightWidth={isTodayCol ? "2px" : undefined}
+                        borderColor={isTodayCol ? "blue.500" : undefined}
+                        color={isTodayCol ? "blue.700" : undefined}
+                      >
+                        <Text fontSize="2xs" whiteSpace="pre-line" lineHeight="1">
+                          {formatTimelineDate(date)}
+                        </Text>
+                      </Th>
+                    );
+                  })}
                 </Tr>
               </Thead>
               <Tbody>

@@ -3,7 +3,6 @@ using Business.Interfaces.Model;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.RemoveTenantInvitation

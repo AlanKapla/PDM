@@ -22,6 +22,21 @@ namespace Entities.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("CostEstimateItemCostEstimateItem", b =>
+                {
+                    b.Property<Guid>("ComponentsId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OptionsId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("ComponentsId", "OptionsId");
+
+                    b.HasIndex("OptionsId");
+
+                    b.ToTable("CostEstimateItemCostEstimateItem");
+                });
+
             modelBuilder.Entity("Entities.Models.Chat", b =>
                 {
                     b.Property<Guid>("Id")
@@ -92,7 +107,244 @@ namespace Entities.Migrations
                     b.ToTable("ChatMembers");
                 });
 
-            modelBuilder.Entity("Entities.Models.CostEstimate", b =>
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AutoNumberGroups")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("CanAddGroups")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("CanBranchGroups")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("GroupNumberFormat")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int?>("MaxGroupLevel")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("CostEstimateTemplates");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateCurrency", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symbol")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId");
+
+                    b.HasIndex("TemplateId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("TemplateId", "IsDefault");
+
+                    b.ToTable("CostEstimateTemplateCurrencies");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FieldDefinitionType")
+                        .IsRequired()
+                        .HasMaxLength(55)
+                        .HasColumnType("nvarchar(55)");
+
+                    b.Property<Guid>("FieldName")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FieldScope")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("FieldType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsFilterable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsReadonly")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSortable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsVisible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Order")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid?>("ParentFieldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentFieldId");
+
+                    b.HasIndex("TemplateId", "FieldName")
+                        .HasDatabaseName("IX_FieldDefinitionBase_TemplateId_FieldName");
+
+                    b.HasIndex("TemplateId", "FieldScope", "ParentFieldId", "Order")
+                        .HasDatabaseName("IX_FieldDefinitionBase_Order");
+
+                    b.ToTable("CostEstimateTemplateFieldDefinitionBase");
+
+                    b.HasDiscriminator<string>("FieldDefinitionType").HasValue("CostEstimateTemplateFieldDefinitionBase");
+
+                    b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId");
+
+                    b.HasIndex("TemplateId", "Category");
+
+                    b.HasIndex("TemplateId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("TemplateId", "IsDefault");
+
+                    b.ToTable("CostEstimateTemplateUnits");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -100,10 +352,6 @@ namespace Entities.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Data")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -131,6 +379,9 @@ namespace Entities.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("SelectedCurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -149,6 +400,10 @@ namespace Entities.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("TotalVat")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -162,6 +417,8 @@ namespace Entities.Migrations
 
                     b.HasIndex("ProjectId");
 
+                    b.HasIndex("SelectedCurrencyId");
+
                     b.HasIndex("Status");
 
                     b.HasIndex("TemplateId");
@@ -173,10 +430,75 @@ namespace Entities.Migrations
                     b.ToTable("CostEstimates");
                 });
 
-            modelBuilder.Entity("Entities.Models.CostEstimateTemplate", b =>
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateFieldFile", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BlobName")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CostEstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FieldValueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CostEstimateId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("FieldValueId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CostEstimateId", "IsDeleted");
+
+                    b.ToTable("CostEstimateFieldFiles");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CostEstimateId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
@@ -185,39 +507,253 @@ namespace Entities.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                    b.Property<DateTime?>("LastCalculatedAt")
+                        .HasColumnType("datetime2");
 
-                    b.Property<Guid>("OwnerId")
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ParentGroupId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("TemplateStructure")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<decimal?>("TotalGross")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TotalNet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TotalVat")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
+                    b.HasIndex("CostEstimateId");
 
                     b.HasIndex("IsDeleted");
 
-                    b.HasIndex("OwnerId");
+                    b.HasIndex("ParentGroupId");
 
-                    b.ToTable("CostEstimateTemplates");
+                    b.HasIndex("CostEstimateId", "Level");
+
+                    b.HasIndex("CostEstimateId", "ParentGroupId");
+
+                    b.HasIndex("ParentGroupId", "Order");
+
+                    b.ToTable("CostEstimateGroups");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroupFieldValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool?>("BoolValue")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeValue")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("DecimalValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<Guid>("FieldDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StringValue")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FieldDefinitionId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("GroupId", "FieldDefinitionId")
+                        .IsUnique();
+
+                    b.ToTable("CostEstimateGroupFieldValues");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CostEstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("GrossValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<decimal?>("NetValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ParentItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RelationType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(450)")
+                        .HasDefaultValue("None");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("VatValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CostEstimateId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("ParentItemId");
+
+                    b.HasIndex("GroupId", "Order");
+
+                    b.HasIndex("ParentItemId", "RelationType");
+
+                    b.ToTable("CostEstimateItems");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItemFieldValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool?>("BoolValue")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeValue")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("DecimalValue")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<Guid>("FieldDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StringValue")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FieldDefinitionId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ItemId", "FieldDefinitionId");
+
+                    b.ToTable("CostEstimateItemFieldValues");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.SharedCostEstimate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CostEstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SharedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SharedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SharedWithUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CostEstimateId");
+
+                    b.HasIndex("SharedByUserId");
+
+                    b.HasIndex("CostEstimateId", "SharedWithUserId")
+                        .IsUnique();
+
+                    b.HasIndex("SharedWithUserId", "ProjectId");
+
+                    b.HasIndex("TenantId", "SharedByUserId");
+
+                    b.HasIndex("TenantId", "SharedWithUserId");
+
+                    b.HasIndex("TenantId", "ProjectId", "SharedByUserId");
+
+                    b.HasIndex("TenantId", "ProjectId", "SharedWithUserId");
+
+                    b.ToTable("SharedCostEstimates");
                 });
 
             modelBuilder.Entity("Entities.Models.MessageHistory", b =>
@@ -881,7 +1417,14 @@ namespace Entities.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ProjectFileId")
+                    b.Property<string>("Access")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("ProjectFileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectFilePackageId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProjectId")
@@ -901,10 +1444,11 @@ namespace Entities.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ProjectFileId");
+
                     b.HasIndex("ProjectId");
 
-                    b.HasIndex("ProjectFileId", "SharedWithUserId")
-                        .IsUnique();
+                    b.HasIndex("ProjectFilePackageId", "SharedWithUserId");
 
                     b.HasIndex("SharedByUserId", "ProjectId");
 
@@ -913,6 +1457,10 @@ namespace Entities.Migrations
                     b.HasIndex("TenantId", "SharedByUserId");
 
                     b.HasIndex("TenantId", "SharedWithUserId");
+
+                    b.HasIndex("ProjectFilePackageId", "ProjectFileId", "SharedWithUserId")
+                        .IsUnique()
+                        .HasFilter("[ProjectFileId] IS NOT NULL");
 
                     b.ToTable("SharedProjectFiles");
                 });
@@ -1266,6 +1814,50 @@ namespace Entities.Migrations
                     b.ToTable("WorkScheduleStageWorkComments");
                 });
 
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateGroupFieldDefinition", b =>
+                {
+                    b.HasBaseType("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase");
+
+                    b.HasDiscriminator().HasValue("Group");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateItemCalculatedFieldDefinition", b =>
+                {
+                    b.HasBaseType("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase");
+
+                    b.Property<bool>("SumInGroup")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("SumInTotal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.HasIndex("TemplateId", "FieldType")
+                        .HasDatabaseName("IX_CalculatedFieldDefinition_TemplateId_FieldType");
+
+                    b.HasDiscriminator().HasValue("ItemCalculated");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateItemGenericFieldDefinition", b =>
+                {
+                    b.HasBaseType("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase");
+
+                    b.HasIndex("TemplateId", "FieldType")
+                        .HasDatabaseName("IX_GenericFieldDefinition_TemplateId_FieldType");
+
+                    b.HasDiscriminator().HasValue("ItemGeneric");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateItemSystemFieldDefinition", b =>
+                {
+                    b.HasBaseType("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase");
+
+                    b.HasDiscriminator().HasValue("ItemSystem");
+                });
+
             modelBuilder.Entity("Entities.Models.PermissionsVersionProfile", b =>
                 {
                     b.HasBaseType("Entities.Models.UserProfileBase");
@@ -1284,6 +1876,21 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasDiscriminator().HasValue("TenantPreferences");
+                });
+
+            modelBuilder.Entity("CostEstimateItemCostEstimateItem", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", null)
+                        .WithMany()
+                        .HasForeignKey("ComponentsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", null)
+                        .WithMany()
+                        .HasForeignKey("OptionsId")
+                        .OnDelete(DeleteBehavior.ClientCascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Entities.Models.Chat", b =>
@@ -1332,7 +1939,50 @@ namespace Entities.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Entities.Models.CostEstimate", b =>
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", b =>
+                {
+                    b.HasOne("Entities.Models.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateCurrency", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
+                        .WithMany("Currencies")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase", "ParentField")
+                        .WithMany("ChildFields")
+                        .HasForeignKey("ParentFieldId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ParentField");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateUnit", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
+                        .WithMany("Units")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>
                 {
                     b.HasOne("Entities.Models.User", "Owner")
                         .WithMany()
@@ -1346,7 +1996,13 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Entities.Models.CostEstimateTemplate", "Template")
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplateCurrency", "SelectedCurrency")
+                        .WithMany()
+                        .HasForeignKey("SelectedCurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
                         .WithMany()
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1362,20 +2018,179 @@ namespace Entities.Migrations
 
                     b.Navigation("Project");
 
+                    b.Navigation("SelectedCurrency");
+
                     b.Navigation("Template");
 
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("Entities.Models.CostEstimateTemplate", b =>
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateFieldFile", b =>
                 {
-                    b.HasOne("Entities.Models.User", "Owner")
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
                         .WithMany()
-                        .HasForeignKey("OwnerId")
+                        .HasForeignKey("CostEstimateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Owner");
+                    b.HasOne("Entities.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItemFieldValue", "FieldValue")
+                        .WithMany("Files")
+                        .HasForeignKey("FieldValueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CostEstimate");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("FieldValue");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroup", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
+                        .WithMany("AllGroups")
+                        .HasForeignKey("CostEstimateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateGroup", "ParentGroup")
+                        .WithMany("ChildGroups")
+                        .HasForeignKey("ParentGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CostEstimate");
+
+                    b.Navigation("ParentGroup");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroupFieldValue", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplateGroupFieldDefinition", "FieldDefinition")
+                        .WithMany()
+                        .HasForeignKey("FieldDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateGroup", "Group")
+                        .WithMany("FieldValues")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FieldDefinition");
+
+                    b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItem", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
+                        .WithMany("AllItems")
+                        .HasForeignKey("CostEstimateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateGroup", "Group")
+                        .WithMany("Items")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "ParentItem")
+                        .WithMany()
+                        .HasForeignKey("ParentItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CostEstimate");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("ParentItem");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItemFieldValue", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase", "FieldDefinition")
+                        .WithMany()
+                        .HasForeignKey("FieldDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "Item")
+                        .WithMany("FieldValues")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FieldDefinition");
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.SharedCostEstimate", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
+                        .WithMany()
+                        .HasForeignKey("CostEstimateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "SharedByUser")
+                        .WithMany()
+                        .HasForeignKey("SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.User", "SharedWithUser")
+                        .WithMany()
+                        .HasForeignKey("SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.TenantMember", "SharedByTenantMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.TenantMember", "SharedWithTenantMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.ProjectMember", "SharedByProjectMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProjectId", "SharedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.ProjectMember", "SharedWithProjectMember")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProjectId", "SharedWithUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CostEstimate");
+
+                    b.Navigation("SharedByProjectMember");
+
+                    b.Navigation("SharedByTenantMember");
+
+                    b.Navigation("SharedByUser");
+
+                    b.Navigation("SharedWithProjectMember");
+
+                    b.Navigation("SharedWithTenantMember");
+
+                    b.Navigation("SharedWithUser");
                 });
 
             modelBuilder.Entity("Entities.Models.MessageHistory", b =>
@@ -1683,7 +2498,12 @@ namespace Entities.Migrations
                     b.HasOne("Entities.Models.ProjectFile", "ProjectFile")
                         .WithMany("SharedWith")
                         .HasForeignKey("ProjectFileId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Entities.Models.ProjectFilePackage", "ProjectFilePackage")
+                        .WithMany()
+                        .HasForeignKey("ProjectFilePackageId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Entities.Models.Project", "Project")
@@ -1719,6 +2539,8 @@ namespace Entities.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("ProjectFile");
+
+                    b.Navigation("ProjectFilePackage");
 
                     b.Navigation("SharedByTenantMember");
 
@@ -1901,11 +2723,101 @@ namespace Entities.Migrations
                     b.Navigation("Work");
                 });
 
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateGroupFieldDefinition", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
+                        .WithMany("GroupFieldDefinitions")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateItemCalculatedFieldDefinition", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
+                        .WithMany("CalculatedFieldDefinitions")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateItemGenericFieldDefinition", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
+                        .WithMany("GenericFieldDefinitions")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateItemSystemFieldDefinition", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
+                        .WithMany("SystemFieldDefinitions")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
             modelBuilder.Entity("Entities.Models.Chat", b =>
                 {
                     b.Navigation("Members");
 
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", b =>
+                {
+                    b.Navigation("CalculatedFieldDefinitions");
+
+                    b.Navigation("Currencies");
+
+                    b.Navigation("GenericFieldDefinitions");
+
+                    b.Navigation("GroupFieldDefinitions");
+
+                    b.Navigation("SystemFieldDefinitions");
+
+                    b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateFieldDefinitionBase", b =>
+                {
+                    b.Navigation("ChildFields");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>
+                {
+                    b.Navigation("AllGroups");
+
+                    b.Navigation("AllItems");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroup", b =>
+                {
+                    b.Navigation("ChildGroups");
+
+                    b.Navigation("FieldValues");
+
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItem", b =>
+                {
+                    b.Navigation("FieldValues");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItemFieldValue", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("Entities.Models.Permission", b =>

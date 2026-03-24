@@ -1,4 +1,4 @@
-﻿import type { Configuration, PopupRequest, RedirectRequest } from "@azure/msal-browser";
+import type { Configuration, PopupRequest, RedirectRequest } from "@azure/msal-browser";
 
 // ==========================================
 // Microsoft Entra External ID Configuration
@@ -29,14 +29,6 @@ const redirectUri = `${window.location.origin}/auth/callback`;
 // Format: api://{api-client-id}/scope-name
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-configure-app-expose-web-apis
 export const loginScopes = [`api://${apiClientId}/access_as_user`];
-
-console.log('🔧 MSAL Config:', {
-  authorityUrl,
-  knownAuthority,
-  clientId,
-  redirectUri,
-  apiScopes: loginScopes,
-});
 
 // MSAL configuration for Microsoft Entra External ID
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-acquire-token

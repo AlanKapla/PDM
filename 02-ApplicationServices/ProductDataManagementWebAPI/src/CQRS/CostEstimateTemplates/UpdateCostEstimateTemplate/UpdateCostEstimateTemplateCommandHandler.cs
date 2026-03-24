@@ -1,0 +1,606 @@
+﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Model;
+using Entities.Models.CostEstimates;
+using Entities.Models.CostEstimateTemplates;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Repositories.Repository.Interfaces;
+
+namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
+{
+    public class UpdateCostEstimateTemplateCommandHandler : IRequestHandler<UpdateCostEstimateTemplateCommand, Unit>
+    {
+        private readonly IRepository<CostEstimateTemplate> templateRepository;
+        private readonly IRepository<CostEstimateTemplateVersion> versionRepository;
+        private readonly IRepository<CostEstimateTemplateCurrency> currencyRepository;
+        private readonly IRepository<CostEstimateTemplateUnit> unitRepository;
+        private readonly IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository;
+        private readonly IRepository<CostEstimateTemplateItemSystemFieldDefinition> systemFieldRepository;
+        private readonly IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository;
+        private readonly IRepository<CostEstimateTemplateItemGenericFieldDefinition> genericFieldRepository;
+        private readonly ICurrentUser currentUser;
+
+        public UpdateCostEstimateTemplateCommandHandler(
+            IRepository<CostEstimateTemplate> templateRepository,
+            IRepository<CostEstimateTemplateVersion> versionRepository,
+            IRepository<CostEstimateTemplateCurrency> currencyRepository,
+            IRepository<CostEstimateTemplateUnit> unitRepository,
+            IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository,
+            IRepository<CostEstimateTemplateItemSystemFieldDefinition> systemFieldRepository,
+            IRepository<CostEstimateTemplateItemCalculatedFieldDefinition> calculatedFieldRepository,
+            IRepository<CostEstimateTemplateItemGenericFieldDefinition> genericFieldRepository,
+            ICurrentUser currentUser)
+        {
+            this.templateRepository = templateRepository;
+            this.versionRepository = versionRepository;
+            this.currencyRepository = currencyRepository;
+            this.unitRepository = unitRepository;
+            this.groupFieldRepository = groupFieldRepository;
+            this.systemFieldRepository = systemFieldRepository;
+            this.calculatedFieldRepository = calculatedFieldRepository;
+            this.genericFieldRepository = genericFieldRepository;
+            this.currentUser = currentUser;
+        }
+
+        public async Task<Unit> Handle(UpdateCostEstimateTemplateCommand request, CancellationToken cancellationToken)
+        {
+            var now = DateTime.UtcNow;
+
+            var template = await templateRepository.GetFirstBySearch(
+                t => t.Id == request.TemplateId && t.OwnerId == currentUser.Id && !t.IsDeleted,
+                q => q.Include(t => t.Versions.Where(v => !v.IsDeleted)));
+            
+            if (template == null)
+            {
+                throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
+            }
+
+            var currentVersion = template.Versions.FirstOrDefault(v => v.Id == request.CurrentVersionId && !v.IsDeleted);
+            if (currentVersion == null)
+            {
+                throw new NotFoundApiException(nameof(CostEstimateTemplateVersion), request.CurrentVersionId.ToString());
+            }
+
+            template.Name = request.Name;
+            template.Description = request.Description;
+            template.UpdatedAt = now;
+
+            await templateRepository.Update(template);
+
+            currentVersion.Category = request.Category;
+            currentVersion.CanAddGroups = request.CanAddGroups;
+            currentVersion.CanBranchGroups = request.CanBranchGroups;
+            currentVersion.MaxGroupLevel = request.MaxGroupLevel;
+            currentVersion.AutoNumberGroups = request.AutoNumberGroups;
+            currentVersion.GroupNumberFormat = request.GroupNumberFormat;
+
+            await versionRepository.Update(currentVersion);
+            
+            await templateRepository.SaveChangesAsync(cancellationToken);
+
+            if (request.Currencies != null)
+            {
+                await UpdateCurrenciesAsync(currentVersion.Id, request.Currencies, cancellationToken);
+            }
+
+            if (request.Units != null)
+            {
+                await UpdateUnitsAsync(currentVersion.Id, request.Units, cancellationToken);
+            }
+
+            if (!request.UpdateStructure)
+            {
+                return Unit.Value;
+            }
+
+            CostEstimateTemplateVersion targetVersion = await GetOrCreateTargetVersionAsync(
+                template, 
+                currentVersion, 
+                request, 
+                now, 
+                cancellationToken);
+
+            await DeleteExistingStructureAsync(targetVersion.Id, cancellationToken);
+
+            var fieldNameToIdMap = new Dictionary<Guid, Guid>();
+            
+            var columnLayoutOrderMap = BuildColumnLayoutOrderMap(request.UiConfiguration?.ColumnLayout);
+
+            if (request.GroupHeaderFields != null)
+            {
+                await CreateFieldsInBatchAsync(
+                    request.GroupHeaderFields,
+                    targetVersion.Id,
+                    FieldScope.Group,
+                    fieldNameToIdMap,
+                    columnLayoutOrderMap,
+                    cancellationToken);
+            }
+
+            if (request.SystemFields != null)
+            {
+                await CreateFieldsInBatchAsync(
+                    request.SystemFields,
+                    targetVersion.Id,
+                    FieldScope.ItemSystem,
+                    fieldNameToIdMap,
+                    columnLayoutOrderMap,
+                    cancellationToken);
+            }
+
+            if (request.CalculatedFields != null)
+            {
+                await CreateFieldsInBatchAsync(
+                    request.CalculatedFields,
+                    targetVersion.Id,
+                    FieldScope.ItemCalculated,
+                    fieldNameToIdMap,
+                    columnLayoutOrderMap,
+                    cancellationToken);
+            }
+
+            if (request.GenericFields != null)
+            {
+                await CreateFieldsInBatchAsync(
+                    request.GenericFields,
+                    targetVersion.Id,
+                    FieldScope.ItemGeneric,
+                    fieldNameToIdMap,
+                    columnLayoutOrderMap,
+                    cancellationToken);
+            }
+
+            return Unit.Value;
+        }
+        
+        /// <summary>
+        /// Aktualizuje waluty dla wersji (update/insert)
+        /// </summary>
+        private async Task UpdateCurrenciesAsync(
+            Guid versionId, 
+            List<CurrencyDto> currencies, 
+            CancellationToken cancellationToken)
+        {
+            var existingCurrencies = (await currencyRepository
+                .GetBySearch(c => c.TemplateVersionId == versionId)).ToList();
+            
+            var toUpdate = new List<CostEstimateTemplateCurrency>();
+            var toInsert = new List<CostEstimateTemplateCurrency>();
+            
+            foreach (var currencyDto in currencies)
+            {
+                var existing = existingCurrencies.FirstOrDefault(c => c.Code == currencyDto.Code);
+                
+                if (existing != null)
+                {
+                    existing.Name = currencyDto.Name;
+                    existing.Symbol = currencyDto.Symbol;
+                    existing.IsDefault = currencyDto.IsDefault;
+                    existing.Order = currencyDto.Order;
+                    toUpdate.Add(existing);
+                }
+                else
+                {
+                    toInsert.Add(new CostEstimateTemplateCurrency
+                    {
+                        Id = Guid.NewGuid(),
+                        TemplateVersionId = versionId,
+                        Code = currencyDto.Code,
+                        Name = currencyDto.Name,
+                        Symbol = currencyDto.Symbol,
+                        IsDefault = currencyDto.IsDefault,
+                        Order = currencyDto.Order
+                    });
+                }
+            }
+            
+            if (toUpdate.Any())
+                await currencyRepository.UpdateRange(toUpdate);
+            if (toInsert.Any())
+                await currencyRepository.InsertRange(toInsert);
+            
+            await currencyRepository.SaveChangesAsync(cancellationToken);
+        }
+        
+        /// <summary>
+        /// Aktualizuje jednostki dla wersji (update/insert)
+        /// </summary>
+        private async Task UpdateUnitsAsync(
+            Guid versionId, 
+            List<UnitDto> units, 
+            CancellationToken cancellationToken)
+        {
+            var existingUnits = (await unitRepository
+                .GetBySearch(u => u.TemplateVersionId == versionId)).ToList();
+            
+            var toUpdate = new List<CostEstimateTemplateUnit>();
+            var toInsert = new List<CostEstimateTemplateUnit>();
+            
+            foreach (var unitDto in units)
+            {
+                var existing = existingUnits.FirstOrDefault(u => u.Code == unitDto.Code);
+                
+                if (existing != null)
+                {
+                    existing.Name = unitDto.Name;
+                    existing.Symbol = unitDto.Symbol;
+                    existing.Category = unitDto.Category;
+                    existing.IsDefault = unitDto.IsDefault;
+                    existing.Order = unitDto.Order;
+                    toUpdate.Add(existing);
+                }
+                else
+                {
+                    toInsert.Add(new CostEstimateTemplateUnit
+                    {
+                        Id = Guid.NewGuid(),
+                        TemplateVersionId = versionId,
+                        Code = unitDto.Code,
+                        Name = unitDto.Name,
+                        Symbol = unitDto.Symbol,
+                        Category = unitDto.Category,
+                        IsDefault = unitDto.IsDefault,
+                        Order = unitDto.Order
+                    });
+                }
+            }
+            
+            if (toUpdate.Any())
+                await unitRepository.UpdateRange(toUpdate);
+            if (toInsert.Any())
+                await unitRepository.InsertRange(toInsert);
+            
+            await unitRepository.SaveChangesAsync(cancellationToken);
+        }
+        
+        /// <summary>
+        /// Pobiera lub tworzy target version (Draft jeśli Approved, lub current)
+        /// </summary>
+        private async Task<CostEstimateTemplateVersion> GetOrCreateTargetVersionAsync(
+            CostEstimateTemplate template,
+            CostEstimateTemplateVersion currentVersion,
+            UpdateCostEstimateTemplateCommand request,
+            DateTime now,
+            CancellationToken cancellationToken)
+        {
+            if (currentVersion.Status == TemplateVersionStatus.Approved)
+            {
+                var maxVersionNumber = template.Versions.Max(v => v.VersionNumber);
+                
+                var targetVersion = new CostEstimateTemplateVersion
+                {
+                    Id = Guid.NewGuid(),
+                    TemplateId = template.Id,
+                    VersionNumber = maxVersionNumber + 1,
+                    VersionName = $"Draft v{maxVersionNumber + 1} (edited from Approved v{currentVersion.VersionNumber})",
+                    Status = TemplateVersionStatus.Draft,
+                    Category = request.Category,
+                    CanAddGroups = request.CanAddGroups,
+                    CanBranchGroups = request.CanBranchGroups,
+                    MaxGroupLevel = request.MaxGroupLevel,
+                    AutoNumberGroups = request.AutoNumberGroups,
+                    GroupNumberFormat = request.GroupNumberFormat,
+                    CreatedAt = now,
+                    IsDeleted = false
+                };
+
+                await versionRepository.Insert(targetVersion);
+                await versionRepository.SaveChangesAsync(cancellationToken);
+                
+                await CopyCurrenciesAndUnitsFromVersionAsync(currentVersion.Id, targetVersion.Id, cancellationToken);
+                
+                return targetVersion;
+            }
+            else
+            {
+                currentVersion.VersionName = request.Name;
+                await versionRepository.Update(currentVersion);
+                await versionRepository.SaveChangesAsync(cancellationToken);
+                
+                return currentVersion;
+            }
+        }
+        
+        /// <summary>
+        /// Kopiuje waluty i jednostki z bazowej wersji do nowej wersji Draft
+        /// </summary>
+        private async Task CopyCurrenciesAndUnitsFromVersionAsync(
+            Guid sourceVersionId,
+            Guid targetVersionId,
+            CancellationToken cancellationToken)
+        {
+            var sourceCurrencies = await currencyRepository.GetBySearch(c => c.TemplateVersionId == sourceVersionId);
+            var sourceUnits = await unitRepository.GetBySearch(u => u.TemplateVersionId == sourceVersionId);
+            
+            if (sourceCurrencies.Any())
+            {
+                var currenciesToInsert = sourceCurrencies.Select(c => new CostEstimateTemplateCurrency
+                {
+                    Id = Guid.NewGuid(),
+                    TemplateVersionId = targetVersionId,
+                    Code = c.Code,
+                    Name = c.Name,
+                    Symbol = c.Symbol,
+                    IsDefault = c.IsDefault,
+                    Order = c.Order
+                }).ToList();
+                
+                await currencyRepository.InsertRange(currenciesToInsert);
+            }
+            
+            if (sourceUnits.Any())
+            {
+                var unitsToInsert = sourceUnits.Select(u => new CostEstimateTemplateUnit
+                {
+                    Id = Guid.NewGuid(),
+                    TemplateVersionId = targetVersionId,
+                    Code = u.Code,
+                    Name = u.Name,
+                    Symbol = u.Symbol,
+                    Category = u.Category,
+                    IsDefault = u.IsDefault,
+                    Order = u.Order
+                }).ToList();
+                
+                await unitRepository.InsertRange(unitsToInsert);
+            }
+            
+            if (sourceCurrencies.Any() || sourceUnits.Any())
+            {
+                await currencyRepository.SaveChangesAsync(cancellationToken);
+            }
+        }
+        
+        /// <summary>
+        /// Buduje mapę FieldName -> Order na podstawie UiConfiguration.ColumnLayout
+        /// </summary>
+        private Dictionary<Guid, int> BuildColumnLayoutOrderMap(List<Guid>? columnLayout)
+        {
+            var orderMap = new Dictionary<Guid, int>();
+            
+            if (columnLayout == null || !columnLayout.Any())
+            {
+                return orderMap;
+            }
+            
+            for (int i = 0; i < columnLayout.Count; i++)
+            {
+                orderMap[columnLayout[i]] = i;
+            }
+            
+            return orderMap;
+        }
+        
+        /// <summary>
+        /// Usuwa całą istniejącą strukturę dla wersji (tylko pola) w batch
+        /// </summary>
+        private async Task DeleteExistingStructureAsync(
+            Guid versionId, 
+            CancellationToken cancellationToken)
+        {
+            // Usuń wszystkie pola - w TPH są w jednej tabeli, używamy DeleteRange dla każdego typu
+            var existingGroupFields = await groupFieldRepository
+                .GetBySearch(f => f.TemplateVersionId == versionId);
+            
+            if (existingGroupFields.Any())
+            {
+                await groupFieldRepository.DeleteRange(existingGroupFields);
+            }
+            
+            var existingSystemFields = await systemFieldRepository
+                .GetBySearch(f => f.TemplateVersionId == versionId);
+            
+            if (existingSystemFields.Any())
+            {
+                await systemFieldRepository.DeleteRange(existingSystemFields);
+            }
+            
+            var existingCalculatedFields = await calculatedFieldRepository
+                .GetBySearch(f => f.TemplateVersionId == versionId);
+            
+            if (existingCalculatedFields.Any())
+            {
+                await calculatedFieldRepository.DeleteRange(existingCalculatedFields);
+            }
+            
+            var existingGenericFields = await genericFieldRepository
+                .GetBySearch(f => f.TemplateVersionId == versionId);
+            
+            if (existingGenericFields.Any())
+            {
+                await genericFieldRepository.DeleteRange(existingGenericFields);
+            }
+
+            await groupFieldRepository.SaveChangesAsync(cancellationToken);
+        }
+        
+        /// <summary>
+        /// Tworzy pola w batch (z hierarchią) i buduje słownik FieldName -> Id
+        /// Używa repositories z pól klasy
+        /// </summary>
+        private async Task CreateFieldsInBatchAsync(
+            List<FieldDefinitionDto> fieldDtos,
+            Guid versionId,
+            FieldScope fieldScope,
+            Dictionary<Guid, Guid> fieldNameToIdMap,
+            Dictionary<Guid, int> columnLayoutOrderMap,
+            CancellationToken cancellationToken)
+        {
+            var fieldsToInsert = new List<CostEstimateTemplateFieldDefinitionBase>();
+            
+            foreach (var fieldDto in fieldDtos)
+            {
+                CollectFieldsRecursive(
+                    fieldDto,
+                    versionId,
+                    fieldScope,
+                    parentFieldId: null,
+                    orderInParent: null,
+                    fieldsToInsert,
+                    fieldNameToIdMap,
+                    columnLayoutOrderMap);
+            }
+            
+            if (!fieldsToInsert.Any())
+            {
+                return;
+            }
+            
+            // ✅ Batch insert - filtruj według typu (child fields mogą mieć różne FieldScope!)
+            var groupFields = fieldsToInsert.OfType<CostEstimateTemplateGroupFieldDefinition>().ToList();
+            if (groupFields.Any())
+            {
+                await groupFieldRepository.InsertRange(groupFields);
+            }
+            
+            var systemFields = fieldsToInsert.OfType<CostEstimateTemplateItemSystemFieldDefinition>().ToList();
+            if (systemFields.Any())
+            {
+                await systemFieldRepository.InsertRange(systemFields);
+            }
+            
+            var calculatedFields = fieldsToInsert.OfType<CostEstimateTemplateItemCalculatedFieldDefinition>().ToList();
+            if (calculatedFields.Any())
+            {
+                await calculatedFieldRepository.InsertRange(calculatedFields);
+            }
+            
+            var genericFields = fieldsToInsert.OfType<CostEstimateTemplateItemGenericFieldDefinition>().ToList();
+            if (genericFields.Any())
+            {
+                await genericFieldRepository.InsertRange(genericFields);
+            }
+            
+            // ✅ Jeden SaveChanges dla wszystkich typów (dzielą DbContext)
+            if (fieldsToInsert.Any())
+            {
+                await groupFieldRepository.SaveChangesAsync(cancellationToken);
+            }
+        }
+        
+        /// <summary>
+        /// Rekurencyjnie zbiera pola do insertu i buduje mapę FieldName -> Id
+        /// Nie zapisuje do bazy - tylko przygotowuje kolekcję
+        /// </summary>
+        private void CollectFieldsRecursive(
+            FieldDefinitionDto fieldDto,
+            Guid versionId,
+            FieldScope fieldScope,
+            Guid? parentFieldId,
+            int? orderInParent,
+            List<CostEstimateTemplateFieldDefinitionBase> fieldsToInsert,
+            Dictionary<Guid, Guid> fieldNameToIdMap,
+            Dictionary<Guid, int> columnLayoutOrderMap)
+        {
+            var fieldId = Guid.NewGuid();
+            
+            // Dodaj do mapy FieldName -> Id
+            fieldNameToIdMap[fieldDto.FieldName] = fieldId;
+            
+            // Określ kolejność pola:
+            // - Jeśli to pole główne (parentFieldId == null) i jest w columnLayoutOrderMap, użyj tej kolejności
+            // - Jeśli to child field, użyj orderInParent
+            // - W przeciwnym razie użyj 0
+            int order = 0;
+            if (parentFieldId == null && columnLayoutOrderMap.TryGetValue(fieldDto.FieldName, out var layoutOrder))
+            {
+                order = layoutOrder;
+            }
+            else if (orderInParent.HasValue)
+            {
+                order = orderInParent.Value;
+            }
+            
+            CostEstimateTemplateFieldDefinitionBase field = fieldScope switch
+            {
+                FieldScope.Group => new CostEstimateTemplateGroupFieldDefinition
+                {
+                    Id = fieldId,
+                    TemplateVersionId = versionId,
+                    FieldScope = fieldScope,
+                    FieldType = (FieldType)fieldDto.FieldType,
+                    FieldName = fieldDto.FieldName,
+                    Label = fieldDto.Label,
+                    IsSortable = fieldDto.IsSortable,
+                    IsFilterable = fieldDto.IsFilterable,
+                    ParentFieldId = parentFieldId,
+                    Order = order
+                },
+                
+                FieldScope.ItemSystem => new CostEstimateTemplateItemSystemFieldDefinition
+                {
+                    Id = fieldId,
+                    TemplateVersionId = versionId,
+                    FieldScope = fieldScope,
+                    FieldType = (FieldType)fieldDto.FieldType,
+                    FieldName = fieldDto.FieldName,
+                    Label = fieldDto.Label,
+                    IsSortable = fieldDto.IsSortable,
+                    IsFilterable = fieldDto.IsFilterable,
+                    ParentFieldId = parentFieldId,
+                    Order = order
+                },
+                
+                FieldScope.ItemCalculated => new CostEstimateTemplateItemCalculatedFieldDefinition
+                {
+                    Id = fieldId,
+                    TemplateVersionId = versionId,
+                    FieldScope = fieldScope,
+                    FieldType = (FieldType)fieldDto.FieldType,
+                    FieldName = fieldDto.FieldName,
+                    Label = fieldDto.Label,
+                    IsSortable = fieldDto.IsSortable,
+                    IsFilterable = fieldDto.IsFilterable,
+                    ParentFieldId = parentFieldId,
+                    Order = order,
+                    SumInGroup = fieldDto.SumInGroup,
+                    SumInTotal = fieldDto.SumInTotal
+                },
+                
+                FieldScope.ItemGeneric => new CostEstimateTemplateItemGenericFieldDefinition
+                {
+                    Id = fieldId,
+                    TemplateVersionId = versionId,
+                    FieldScope = fieldScope,
+                    FieldType = (FieldType)fieldDto.FieldType,
+                    FieldName = fieldDto.FieldName,
+                    Label = fieldDto.Label,
+                    IsSortable = fieldDto.IsSortable,
+                    IsFilterable = fieldDto.IsFilterable,
+                    ParentFieldId = parentFieldId,
+                    Order = order
+                },
+                
+                _ => throw new ValidationApiException($"Unsupported FieldScope: {fieldScope}")
+            };
+            
+            fieldsToInsert.Add(field);
+            
+            // Rekurencyjnie zbierz child fields
+            if (fieldDto.ChildFields != null && fieldDto.ChildFields.Any())
+            {
+                for (int i = 0; i < fieldDto.ChildFields.Count; i++)
+                {
+                    var childDto = fieldDto.ChildFields[i];
+                    
+                    var childFieldScope = Business.Implementation.Helpers.CostEstimateFieldTypeHelper.DetermineFieldScopeFromFieldType(childDto.FieldType);
+                    
+                    if (!childFieldScope.HasValue)
+                    {
+                        throw new ValidationApiException($"Unknown FieldType: {childDto.FieldType}");
+                    }
+                    
+                    CollectFieldsRecursive(
+                        childDto,
+                        versionId,
+                        childFieldScope.Value,
+                        parentFieldId: fieldId,
+                        orderInParent: i,
+                        fieldsToInsert,
+                        fieldNameToIdMap,
+                        columnLayoutOrderMap);
+                }
+            }
+        }
+    }
+}

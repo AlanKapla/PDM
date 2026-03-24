@@ -15,7 +15,6 @@ export default function LoggedOut() {
 
   useEffect(() => {
     // Final cleanup after logout redirect
-    console.log("✅ LoggedOut: Cleaning up remaining app storage...");
 
     // Clear any remaining non-MSAL storage
     Object.keys(localStorage).forEach(key => {
@@ -29,19 +28,10 @@ export default function LoggedOut() {
   const isLoading = inProgress !== InteractionStatus.None;
 
   useEffect(() => {
-    console.log("🔍 LoggedOut.tsx state:", {
-      isAuthenticated,
-      isLoading,
-      authLoading,
-      hasUser: !!user,
-    });
   }, [isAuthenticated, isLoading, authLoading, user]);
 
   const handleLogin = async () => {
     try {
-      console.log("🚀 Starting login redirect to External ID...");
-      console.log("🔧 Authority:", instance.getConfiguration().auth.authority);
-      console.log("🔧 Scopes:", loginRequest.scopes);
       
       // Preserve return URL through OAuth state
       const returnUrl = (location.state as any)?.from?.pathname || "/dashboard";
@@ -54,7 +44,6 @@ export default function LoggedOut() {
       
       // User will be redirected to External ID, then back to /auth/callback
     } catch (error) {
-      console.error("❌ Login redirect failed:", error);
     }
   };
 

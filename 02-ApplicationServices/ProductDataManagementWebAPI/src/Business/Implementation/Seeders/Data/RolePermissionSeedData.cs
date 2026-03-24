@@ -94,8 +94,12 @@ public static class RolePermissionSeedData
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectStatusManage),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesRead),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesWrite),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesShare),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesReadShared),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesWriteShared),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesReadAll),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesWriteAll),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesReadSingle),
 
             // TENANT.MEMBER
             RP(RoleCodes.TenantMember, PermissionCodes.TenantListAvailable),
@@ -131,6 +135,7 @@ public static class RolePermissionSeedData
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectView),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectMembersView),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesReadShared),
+            RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesWriteShared),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesReadSingle),
         };
     }

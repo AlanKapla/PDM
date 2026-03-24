@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
+import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -29,9 +29,10 @@ import {
   Th,
   Td,
   Textarea,
+  Tooltip,
   useToast,
 } from "@chakra-ui/react";
-import { ArrowLeft, FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User } from "lucide-react";
+import { ArrowLeft, FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
@@ -51,7 +52,7 @@ import { useAccordionIndex } from "../hooks/useAccordionIndex";
 
 interface FileTabBaseProps {
   files: ProjectFilePackageWeb[];
-  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
+  renderFileRow: (file: any, isShared: boolean, showOwner?: boolean) => JSX.Element;
   cardBg: string;
   borderColor: string;
   hoverBg: string;
@@ -61,35 +62,74 @@ interface FileTabBaseProps {
   onTogglePackage: (packageId: string) => void;
 }
 
-interface AllFilesTabProps extends FileTabBaseProps {
+type FilesTabScope = "all" | "mine" | "shared";
+
+interface FilesTabProps extends FileTabBaseProps {
+  scope: FilesTabScope;
   resourcePerms: ResourcePermissions;
-  onShareFilesModalOpen: () => void;
-  onUploadModalOpen: () => void;
+  onShareFilesModalOpen?: () => void;
+  onUploadModalOpen?: () => void;
 }
 
-interface MyFilesTabProps extends FileTabBaseProps {
-  resourcePerms: ResourcePermissions;
-  onShareFilesModalOpen: () => void;
-  onUploadModalOpen: () => void;
-}
+// Konfiguracja per-scope — unikamy duplikacji logiki w osobnych komponentach
+const SCOPE_CONFIG: Record<FilesTabScope, {
+  description: string;
+  emptyIcon: typeof FileText;
+  emptyTitle: string;
+  emptyDescription: string;
+  packageIcon: typeof FileText;
+  packageIconColor: string;
+  badgeColor: string;
+  isShared: boolean;
+  showOwner: boolean;
+  showOwnerInPackage: boolean;
+  ownerLabel?: string;
+}> = {
+  all: {
+    description: "Wszystkie pliki w projekcie (admin)",
+    emptyIcon: FileText,
+    emptyTitle: "Brak plików",
+    emptyDescription: "Nie ma jeszcze żadnych plików w tym projekcie",
+    packageIcon: FileText,
+    packageIconColor: "purple.600",
+    badgeColor: "purple",
+    isShared: false,
+    showOwner: true,
+    showOwnerInPackage: true,
+    ownerLabel: "właściciel",
+  },
+  mine: {
+    description: "Twoje pliki w projekcie",
+    emptyIcon: FileText,
+    emptyTitle: "Brak plików",
+    emptyDescription: "Nie masz jeszcze żadnych plików w tym projekcie",
+    packageIcon: FileText,
+    packageIconColor: "purple.600",
+    badgeColor: "blue",
+    isShared: false,
+    showOwner: false,
+    showOwnerInPackage: false,
+  },
+  shared: {
+    description: "Pliki udostępnione przez innych członków projektu",
+    emptyIcon: Share2,
+    emptyTitle: "Brak udostępnionych plików",
+    emptyDescription: "Nikt jeszcze nie udostępnił Ci plików w tym projekcie",
+    packageIcon: Share2,
+    packageIconColor: "teal.600",
+    badgeColor: "blue",
+    isShared: true,
+    showOwner: true,
+    showOwnerInPackage: true,
+    ownerLabel: "od",
+  },
+};
 
-interface SharedFilesTabProps {
-  files: ProjectFilePackageWeb[];
-  renderFileRow: (file: any, isShared: boolean) => JSX.Element;
-  cardBg: string;
-  borderColor: string;
-  hoverBg: string;
-  expandedPackageIds: Set<string>;
-  packageFiles: Map<string, any[]>;
-  loadingPackages: Set<string>;
-  onTogglePackage: (packageId: string) => void;
-}
-
-// === Tab Components jako osobne komponenty z React.memo ===
-const AllFilesTab = React.memo<AllFilesTabProps>(({ 
-  files, 
-  resourcePerms, 
-  onShareFilesModalOpen, 
+const FilesTab = React.memo<FilesTabProps>(({
+  scope,
+  files,
+  resourcePerms,
+  onShareFilesModalOpen,
   onUploadModalOpen,
   renderFileRow,
   cardBg,
@@ -98,9 +138,13 @@ const AllFilesTab = React.memo<AllFilesTabProps>(({
   expandedPackageIds,
   packageFiles,
   loadingPackages,
-  onTogglePackage
+  onTogglePackage,
 }) => {
+  const config = SCOPE_CONFIG[scope];
   const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
+  const perms = scope === "all" ? resourcePerms.all
+    : scope === "mine" ? resourcePerms.mine
+    : null; // shared — brak przycisków tworzenia/udostępniania
 
   if (!files) {
     return <LoadingSpinner />;
@@ -110,10 +154,10 @@ const AllFilesTab = React.memo<AllFilesTabProps>(({
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between">
         <Text fontSize="sm" color="gray.600">
-          Wszystkie pliki w projekcie (admin)
+          {config.description}
         </Text>
         <HStack spacing={2}>
-          {resourcePerms.all.canShare && (
+          {onShareFilesModalOpen && perms?.canShare && (
             <Button
               leftIcon={<Share2 size={18} />}
               colorScheme="orange"
@@ -123,10 +167,11 @@ const AllFilesTab = React.memo<AllFilesTabProps>(({
               Udostępnij grupowo
             </Button>
           )}
-          {resourcePerms.all.canCreate && (
+          {onUploadModalOpen && perms?.canCreate && (
             <Button
               leftIcon={<Upload size={18} />}
               colorScheme="green"
+              size="sm"
               onClick={onUploadModalOpen}
             >
               Dodaj pliki
@@ -137,9 +182,9 @@ const AllFilesTab = React.memo<AllFilesTabProps>(({
 
       {files.length === 0 ? (
         <EmptyState
-          icon={FileText}
-          title="Brak plików"
-          description="Nie ma jeszcze żadnych plików w tym projekcie"
+          icon={config.emptyIcon}
+          title={config.emptyTitle}
+          description={config.emptyDescription}
         />
       ) : (
         <Accordion allowMultiple index={expandedIndices}>
@@ -147,10 +192,12 @@ const AllFilesTab = React.memo<AllFilesTabProps>(({
             <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
               <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
-                  <Icon as={FileText} boxSize={5} color="purple.600" />
+                  <Icon as={config.packageIcon} boxSize={5} color={config.packageIconColor} />
                   <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
-                  <Badge colorScheme="purple" fontSize="sm">{pkg.totalFiles}</Badge>
-                  <Text fontSize="sm" color="gray.500">właściciel: {pkg.ownerName}</Text>
+                  <Badge colorScheme={config.badgeColor} fontSize="sm">{pkg.totalFiles}</Badge>
+                  {config.showOwnerInPackage && pkg.ownerName && (
+                    <Text fontSize="sm" color="gray.500">{config.ownerLabel}: {pkg.ownerName}</Text>
+                  )}
                 </HStack>
                 {loadingPackages.has(pkg.id) ? <LoadingSpinner /> : <AccordionIcon />}
               </AccordionButton>
@@ -158,181 +205,23 @@ const AllFilesTab = React.memo<AllFilesTabProps>(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
-                <Table size="sm" variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Nazwa pliku</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                      <Th>Akcje</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false))}
-                  </Tbody>
-                </Table>
-                )}
-              </AccordionPanel>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      )}
-    </VStack>
-  );
-});
-
-const MyFilesTab = React.memo<MyFilesTabProps>(({ 
-  files, 
-  resourcePerms, 
-  onShareFilesModalOpen, 
-  onUploadModalOpen,
-  renderFileRow,
-  cardBg,
-  borderColor,
-  hoverBg,
-  expandedPackageIds,
-  packageFiles,
-  loadingPackages,
-  onTogglePackage
-}) => {
-  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
-
-  if (!files) {
-    return <LoadingSpinner />;
-  }
-
-  return (
-    <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
-          Twoje pliki w projekcie
-        </Text>
-        {resourcePerms.mine.canCreate && (
-          <HStack spacing={2}>
-            {resourcePerms.mine.canShare && (
-              <Button
-                leftIcon={<Share2 size={18} />}
-                colorScheme="orange"
-                size="sm"
-                onClick={onShareFilesModalOpen}
-              >
-                Udostępnij grupowo
-              </Button>
-            )}
-            <Button
-              leftIcon={<Upload size={18} />}
-              colorScheme="green"
-              onClick={onUploadModalOpen}
-            >
-              Dodaj pliki
-            </Button>
-          </HStack>
-        )}
-      </HStack>
-
-      {files.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Brak plików"
-          description="Nie masz jeszcze żadnych plików w tym projekcie"
-        />
-      ) : (
-        <Accordion allowMultiple index={expandedIndices}>
-          {files.map((pkg) => (
-            <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
-              <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
-                <HStack flex="1" spacing={3}>
-                  <Icon as={FileText} boxSize={5} color="purple.600" />
-                  <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
-                  <Badge colorScheme="blue" fontSize="sm">{pkg.totalFiles}</Badge>
-                </HStack>
-                {loadingPackages.has(pkg.id) ? <LoadingSpinner /> : <AccordionIcon />}
-              </AccordionButton>
-              <AccordionPanel pb={4}>
-                {loadingPackages.has(pkg.id) ? (
-                  <LoadingSpinner />
-                ) : (
-                <Table size="sm" variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Nazwa pliku</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                      <Th>Akcje</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, false))}
-                  </Tbody>
-                </Table>
-                )}
-              </AccordionPanel>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      )}
-    </VStack>
-  );
-});
-
-const SharedFilesTab = React.memo<SharedFilesTabProps>(({ 
-  files, 
-  renderFileRow,
-  cardBg,
-  borderColor,
-  hoverBg,
-  expandedPackageIds,
-  packageFiles,
-  loadingPackages,
-  onTogglePackage
-}) => {
-  const expandedIndices = useAccordionIndex(expandedPackageIds, files || []);
-
-  if (!files) {
-    return <LoadingSpinner />;
-  }
-
-  return (
-    <VStack spacing={4} align="stretch">
-      <Text fontSize="sm" color="gray.600">
-        Pliki udostępnione przez innych członków projektu
-      </Text>
-
-      {files.length === 0 ? (
-        <EmptyState
-          icon={Share2}
-          title="Brak udostępnionych plików"
-          description="Nikt jeszcze nie udostępnił Ci plików w tym projekcie"
-        />
-      ) : (
-        <Accordion allowMultiple index={expandedIndices}>
-          {files.map((pkg) => (
-            <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
-              <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
-                <HStack flex="1" spacing={3}>
-                  <Icon as={Share2} boxSize={5} color="teal.600" />
-                  <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
-                  <Badge colorScheme="blue" fontSize="sm">{pkg.totalFiles}</Badge>
-                  <Text fontSize="sm" color="gray.500">od: {pkg.ownerName}</Text>
-                </HStack>
-                {loadingPackages.has(pkg.id) ? <LoadingSpinner /> : <AccordionIcon />}
-              </AccordionButton>
-              <AccordionPanel pb={4}>
-                {loadingPackages.has(pkg.id) ? (
-                  <LoadingSpinner />
-                ) : (
-                <Table size="sm" variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Nazwa pliku</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                      <Th>Akcje</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {(packageFiles.get(pkg.id) || []).map((file) => renderFileRow(file, true))}
-                  </Tbody>
-                </Table>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Nazwa pliku</Th>
+                        {config.showOwner && (
+                          <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                        )}
+                        <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                        <Th>Akcje</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {(packageFiles.get(pkg.id) || []).map((file) =>
+                        renderFileRow(file, config.isShared, config.showOwner)
+                      )}
+                    </Tbody>
+                  </Table>
                 )}
               </AccordionPanel>
             </AccordionItem>
@@ -441,6 +330,17 @@ export default function ProjectFiles() {
       const projectData = await projectDetailsCache.fetch();
       setProject(projectData);
 
+      // Pobierz członków projektu do udostępniania plików
+      try {
+        const membersResponse = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+        // Filtruj aktualnego użytkownika
+        const filteredMembers = membersResponse.data.filter(
+          (member: ProjectMemberWeb) => member.userId !== user.id
+        );
+        setMembers(filteredMembers);
+      } catch (error) {
+      }
+
       // Pobierz wszystkie zasoby równolegle według uprawnień
       const fetchPromises = [];
       if (resourcePerms.tabs.showAll) {
@@ -502,30 +402,46 @@ export default function ProjectFiles() {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const handleDownloadFile = (sasUrl: string, fileName: string) => {
-    fetch(sasUrl, { method: "GET", mode: "cors" })
-      .then(response => response.blob())
-      .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        }, 100);
-      })
-      .catch(error => {
-        console.error("Błąd podczas pobierania pliku:", error);
-        toast({
-          title: "Błąd",
-          description: "Nie udało się pobrać pliku",
-          status: "error",
-          duration: 3000,
-        });
-      });
+  // Pobieranie pliku przez SAS URL — używamy ukrytego <a> zamiast window.open,
+  // ponieważ window.open może być blokowany przez popup blockery.
+  // SAS URL z Content-Disposition: attachment wymusza pobranie z poprawną nazwą pliku.
+  const handleDownloadFile = async (fileId: string, sasUrl: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+
+    // Sprawdź czy SAS URL mógł wygasnąć (token ważny 60 min od załadowania danych)
+    let downloadUrl = sasUrl;
+    try {
+      const sasExpiry = extractSasExpiry(sasUrl);
+      if (!sasExpiry || sasExpiry <= new Date()) {
+        // SAS wygasł — pobierz świeże wersje pliku z API
+        const scope = getCurrentScope();
+        const res = await projectApi.getFileVersions(user.activeTenantId, projectId, fileId, scope);
+        const freshVersions = res.data;
+        const freshVersion = freshVersions?.[0]; // Najnowsza wersja
+        if (freshVersion?.sasUrlDownload) {
+          downloadUrl = freshVersion.sasUrlDownload;
+        }
+      }
+    } catch {
+      // W razie błędu spróbuj z oryginalnym URL-em
+    }
+
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => document.body.removeChild(link), 200);
+  };
+
+  // Wyciąga datę wygaśnięcia z SAS URL (parametr "se")
+  const extractSasExpiry = (sasUrl: string): Date | null => {
+    try {
+      const url = new URL(sasUrl);
+      const se = url.searchParams.get("se");
+      if (se) return new Date(se);
+    } catch { /* niepoprawny URL */ }
+    return null;
   };
 
   const toggleFileVersions = (fileId: string) => {
@@ -570,7 +486,6 @@ export default function ProjectFiles() {
         const res = await projectApi.getPackageFiles(user.activeTenantId, projectId, packageId, scope);
         setPackageFiles((prev) => new Map(prev).set(packageId, res.data));
       } catch (error) {
-        console.error('Error loading package files:', error);
         toast({
           title: "Błąd",
           description: "Nie udało się pobrać plików",
@@ -608,7 +523,6 @@ export default function ProjectFiles() {
         const res = await projectApi.getFileVersions(user.activeTenantId, projectId, fileId, scope);
         setFileVersions((prev) => new Map(prev).set(fileId, res.data));
       } catch (error) {
-        console.error('Error loading file versions:', error);
         toast({
           title: "Błąd",
           description: "Nie udało się pobrać wersji",
@@ -647,7 +561,6 @@ export default function ProjectFiles() {
         const res = await projectApi.getVersionComments(user.activeTenantId, projectId, fileId, versionId, scope);
         setVersionComments((prev) => new Map(prev).set(commentKey, res.data));
       } catch (error) {
-        console.error('Error loading version comments:', error);
         toast({
           title: "Błąd",
           description: "Nie udało się pobrać komentarzy",
@@ -739,8 +652,9 @@ export default function ProjectFiles() {
     }
   };
 
-  const renderFileRow = (file: any, isShared: boolean = false) => {
-    const fileId = isShared ? file.projectFileId : file.id;
+  const renderFileRow = (file: any, isShared: boolean = false, showOwner: boolean = true) => {
+    // Backend zawsze zwraca ProjectFileWeb z polem `id` — niezależnie od scope
+    const fileId = file.id;
 
     return (
       <React.Fragment key={fileId}>
@@ -759,56 +673,63 @@ export default function ProjectFiles() {
               )}
             </HStack>
           </Td>
-          <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
-            {isShared ? (file.originalOwnerUserName || "-") : (file.ownerName || "-")}
-          </Td>
+          {showOwner && (
+            <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
+              {file.originalOwnerUserName || file.ownerName || "-"}
+            </Td>
+          )}
           <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
             {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : "-"}
           </Td>
           <Td>
             <HStack spacing={1} flexWrap="wrap">
               {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) && (
-                <IconButton
-                  aria-label="Podgląd"
-                  icon={<Eye size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="purple"
-                  onClick={() => handlePreview(file.currentVersion.sasUrlView)}
-                />
+                <Tooltip label="Podgląd" hasArrow>
+                  <IconButton
+                    aria-label="Podgląd"
+                    icon={<Eye size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="purple"
+                    onClick={() => handlePreview(file.currentVersion.sasUrlView)}
+                  />
+                </Tooltip>
               )}
               {file.currentVersion && (
-                <IconButton
-                  aria-label="Pobierz"
-                  icon={<Download size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="blue"
-                  onClick={() => {
-                    const fileName = file.fileName || file.displayName || 'plik';
-                    handleDownloadFile(file.currentVersion.sasUrlDownload, fileName);
-                  }}
-                />
+                <Tooltip label="Pobierz plik" hasArrow>
+                  <IconButton
+                    aria-label="Pobierz"
+                    icon={<Download size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="blue"
+                    onClick={() => handleDownloadFile(fileId, file.currentVersion.sasUrlDownload)}
+                  />
+                </Tooltip>
               )}
               {((!isShared && resourcePerms.mine.canEdit) || (isShared && resourcePerms.shared.canEdit)) && (
-                <IconButton
-                  aria-label="Nowa wersja"
-                  icon={<Upload size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="green"
-                  onClick={() => openUploadVersionModal(file)}
-                />
+                <Tooltip label="Dodaj nową wersję" hasArrow>
+                  <IconButton
+                    aria-label="Nowa wersja"
+                    icon={<Plus size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="green"
+                    onClick={() => openUploadVersionModal(file)}
+                  />
+                </Tooltip>
               )}
               {!isShared && resourcePerms.mine.canManageShare && (
-                <IconButton
-                  aria-label="Zarządzaj udostępnieniem"
-                  icon={<Share2 size={16} />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="orange"
-                  onClick={() => openManageShareModal(file)}
-                />
+                <Tooltip label="Udostępnij" hasArrow>
+                  <IconButton
+                    aria-label="Udostępnij"
+                    icon={<Share2 size={16} />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="orange"
+                    onClick={() => openManageShareModal(file)}
+                  />
+                </Tooltip>
               )}
               {file.totalVersions && file.totalVersions > 0 && (
                 <Button
@@ -827,7 +748,7 @@ export default function ProjectFiles() {
         </Tr>
         {expandedVersionIds.has(fileId) && (
           <Tr key={`${fileId}-versions`}>
-            <Td colSpan={4} p={0}>
+            <Td colSpan={showOwner ? 4 : 3} p={0}>
               <Box bg={useColorModeValue("gray.50", "gray.900")} p={4}>
                 {loadingFiles.has(fileId) ? (
                   <LoadingSpinner />
@@ -861,25 +782,20 @@ export default function ProjectFiles() {
                             </HStack>
                             <HStack spacing={1}>
                               {isPreviewSupported(version.contentType) && (
-                                <IconButton
-                                  aria-label="Podgląd"
-                                  icon={<Eye size={14} />}
-                                  size="xs"
-                                  colorScheme="purple"
-                                  onClick={() => handlePreview(version.sasUrlView)}
-                                />
+                                <Tooltip label="Podgląd" hasArrow>
+                                  <IconButton
+                                    aria-label="Podgląd"
+                                    icon={<Eye size={14} />}
+                                    size="xs"
+                                    colorScheme="purple"
+                                    onClick={() => handlePreview(version.sasUrlView)}
+                                  />
+                                </Tooltip>
                               )}
                               <Button
                                 size="xs"
                                 leftIcon={<Download size={14} />}
-                                onClick={() => {
-                                  const fileName = file.fileName || file.displayName || 'plik';
-                                  const isCurrentVersion = version.id === file.currentVersion?.id;
-                                  const finalName = isCurrentVersion
-                                    ? fileName
-                                    : fileName.replace(/(\.[^.]+)$/, `_v${version.versionNumber}$1`);
-                                  handleDownloadFile(version.sasUrlDownload, finalName);
-                                }}
+                                onClick={() => handleDownloadFile(fileId, version.sasUrlDownload)}
                               >
                                 Pobierz
                               </Button>
@@ -1040,7 +956,7 @@ export default function ProjectFiles() {
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
-                    <Text>Wszystkie pliki</Text>
+                    <Text>Wszystkie</Text>
                     <Badge colorScheme="purple" ml={2}>{(allFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
                 </Tab>
@@ -1049,7 +965,7 @@ export default function ProjectFiles() {
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
-                    <Text>Moje pliki</Text>
+                    <Text>Moje</Text>
                     <Badge colorScheme="blue" ml={2}>{(myFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
                 </Tab>
@@ -1071,7 +987,8 @@ export default function ProjectFiles() {
                   {allFilesCache.loading ? (
                     <LoadingSpinner />
                   ) : (
-                    <AllFilesTab
+                    <FilesTab
+                      scope="all"
                       files={allFilesData}
                       resourcePerms={resourcePerms}
                       onShareFilesModalOpen={onShareFilesModalOpen}
@@ -1093,7 +1010,8 @@ export default function ProjectFiles() {
                   {myFilesCache.loading ? (
                     <LoadingSpinner />
                   ) : (
-                    <MyFilesTab
+                    <FilesTab
+                      scope="mine"
                       files={myFilesData}
                       resourcePerms={resourcePerms}
                       onShareFilesModalOpen={onShareFilesModalOpen}
@@ -1115,8 +1033,10 @@ export default function ProjectFiles() {
                   {sharedFilesCache.loading ? (
                     <LoadingSpinner />
                   ) : (
-                    <SharedFilesTab
+                    <FilesTab
+                      scope="shared"
                       files={sharedFilesData}
+                      resourcePerms={resourcePerms}
                       renderFileRow={renderFileRow}
                       cardBg={cardBg}
                       borderColor={borderColor}
@@ -1167,6 +1087,7 @@ export default function ProjectFiles() {
             sharedWithUserIds={fileToManageShare.sharedWithUserIds || []}
             members={members}
             currentUserId={user?.id || ""}
+            ownerUserId={fileToManageShare.ownerId}
             onShareUpdated={handleShareUpdated}
           />
         )}
@@ -1177,7 +1098,11 @@ export default function ProjectFiles() {
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
           onFilesShared={refreshData}
-          myPackages={myFilesCache.data || undefined}
+          myPackages={
+            activeTabIndex === allFilesTabIndex
+              ? allFilesCache.data || undefined
+              : myFilesCache.data || undefined
+          }
         />
       </Box>
     </MainLayout>

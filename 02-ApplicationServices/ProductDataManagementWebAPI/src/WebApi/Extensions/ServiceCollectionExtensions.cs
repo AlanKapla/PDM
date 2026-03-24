@@ -1,6 +1,7 @@
 ﻿using Azure.Identity;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
+using Business.Implementation.Validators;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
@@ -9,22 +10,21 @@ using Business.Interfaces.Services;
 using CQRS.Behaviours;
 using Entities.Context;
 using Entities.Models;
+using Entities.Models.CostEstimates;
+using Entities.Models.CostEstimateTemplates;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Graph;
-using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Repositiories.Repository.Interfaces;
-using Repositiories.Repository.Repositories;
 using Repositories.Repository.Interfaces;
+using Repositories.Repository.Repositories;
 using WebApi.Authorization;
 using WebApi.Services;
 
@@ -39,6 +39,7 @@ namespace WebApi.Extensions
             services
                 .AddApiBasics()
                 .AddDatabase(config)
+                .AddRedisCache(config)
                 .AddCqrs()
                 .AddAzureAdB2C(config)
                 .AddMicrosoftGraph(config)
@@ -138,6 +139,31 @@ namespace WebApi.Extensions
                                 49918, 49919, 49920
                             });
                     }));
+            return services;
+        }
+
+        public static IServiceCollection AddRedisCache(this IServiceCollection services, IConfiguration config)
+        {
+            var redisSettings = config.GetSection(RedisSettings.SectionName).Get<RedisSettings>();
+
+            if (redisSettings != null && redisSettings.IsEnabled && !string.IsNullOrWhiteSpace(redisSettings.ConnectionString))
+            {
+                services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
+                {
+                    var configuration = StackExchange.Redis.ConfigurationOptions.Parse(redisSettings.ConnectionString);
+                    configuration.AbortOnConnectFail = false;
+                    configuration.ConnectTimeout = 15000;
+                    configuration.SyncTimeout = 15000;
+                    configuration.Ssl = true;
+                    return StackExchange.Redis.ConnectionMultiplexer.Connect(configuration);
+                });
+            }
+            else
+            {
+                // Redis disabled - CacheService będzie działał w trybie bypass (bez cache)
+                services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp => null!);
+            }
+
             return services;
         }
 
@@ -259,8 +285,23 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<SharedProjectCost>, Repository<SharedProjectCost>>();
             services.AddScoped<IReadRepository<CostEstimateTemplate>, ReadRepository<CostEstimateTemplate>>();
             services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
+            services.AddScoped<IRepository<CostEstimateTemplateCurrency>, Repository<CostEstimateTemplateCurrency>>();
+            services.AddScoped<IRepository<CostEstimateTemplateUnit>, Repository<CostEstimateTemplateUnit>>();
+            services.AddScoped<IRepository<CostEstimateTemplateGroupFieldDefinition>, Repository<CostEstimateTemplateGroupFieldDefinition>>();
+            services.AddScoped<IRepository<CostEstimateTemplateItemSystemFieldDefinition>, Repository<CostEstimateTemplateItemSystemFieldDefinition>>();
+            services.AddScoped<IRepository<CostEstimateTemplateItemCalculatedFieldDefinition>, Repository<CostEstimateTemplateItemCalculatedFieldDefinition>>();
+            services.AddScoped<IRepository<CostEstimateTemplateItemGenericFieldDefinition>, Repository<CostEstimateTemplateItemGenericFieldDefinition>>();
             services.AddScoped<IReadRepository<CostEstimate>, ReadRepository<CostEstimate>>();
             services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
+            services.AddScoped<IReadRepository<SharedCostEstimate>, ReadRepository<SharedCostEstimate>>();
+            services.AddScoped<IRepository<SharedCostEstimate>, Repository<SharedCostEstimate>>();
+            services.AddScoped<IRepository<CostEstimateGroup>, Repository<CostEstimateGroup>>();
+            services.AddScoped<IRepository<CostEstimateGroupFieldValue>, Repository<CostEstimateGroupFieldValue>>();
+            services.AddScoped<IReadRepository<CostEstimateItem>, ReadRepository<CostEstimateItem>>();
+            services.AddScoped<IRepository<CostEstimateItem>, Repository<CostEstimateItem>>();
+            services.AddScoped<IReadRepository<CostEstimateItemFieldValue>, ReadRepository<CostEstimateItemFieldValue>>();
+            services.AddScoped<IRepository<CostEstimateItemFieldValue>, Repository<CostEstimateItemFieldValue>>();
+            services.AddScoped<IRepository<CostEstimateFieldFile>, Repository<CostEstimateFieldFile>>();
             services.AddScoped<IReadRepository<Role>, ReadRepository<Role>>();
             services.AddScoped<IRepository<Role>, Repository<Role>>();
             services.AddScoped<IReadRepository<Permission>, ReadRepository<Permission>>();
@@ -295,10 +336,40 @@ namespace WebApi.Extensions
             services.AddHostedService<NotificationMarkAsReadWorker>();
             services.AddScoped<INotificationMarkAsReadSender, QueuedNotificationMarkAsReadSender>();
 
+            // ✅ Background services
+            services.AddHostedService<FileShareConsolidationService>();
+
             services.AddSingleton<IMessageDispatcher, SignalRMessageDispatcher>();
             services.AddHostedService<MessageWorker>();
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
+            
+            // Cost estimate calculation service
+            services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
+            
+            // Cost estimate template service - used in multiple handlers
+            services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
+
+            // Cost estimate service
+            services.AddScoped<ICostEstimateService, CostEstimateService>();
+
+            // Cost estimate cache service
+            services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
+
+            // Cost estimate access service
+            services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
+
+            // User service — caches project members per project
+            services.AddScoped<IUserService, UserService>();
+            
+            // Cost estimate validators
+            services.AddScoped<CostEstimateGroupValidator>();
+            services.AddScoped<CostEstimateItemValidator>();
+            
+            // Cache service
+            services.AddScoped<ICacheService, CacheService>();
+            
+            services.AddScoped<IProjectFilesService, ProjectFilesService>();
 
             services.AddHostedService<StartupSeederService>();
             services.AddHostedService<RolePermissionSeederService>();
@@ -308,12 +379,8 @@ namespace WebApi.Extensions
 
         public static IServiceCollection AddMicrosoftGraph(this IServiceCollection services, IConfiguration config)
         {
-            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>();
-
-            if (azureAdB2CSettings == null)
-            {
-                throw new InvalidOperationException("AzureAdB2C settings are not configured");
-            }
+            var azureAdB2CSettings = config.GetSection(AzureAdB2CSettings.SectionName).Get<AzureAdB2CSettings>()
+                ?? throw new InvalidOperationException("AzureAdB2C settings are not configured");
 
             if (string.IsNullOrEmpty(azureAdB2CSettings.ClientSecret))
             {
@@ -342,6 +409,7 @@ namespace WebApi.Extensions
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
             services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
+            services.Configure<RedisSettings>(config.GetSection(RedisSettings.SectionName));
             return services;
         }
 

@@ -6,7 +6,6 @@ using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationTypeDto = Business.Interfaces.DTO.NotificationType;
 
@@ -16,7 +15,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
     {
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
         private readonly IRepository<ProjectCost> projectCostRepo;
-        private readonly IReadRepository<User> userRepo;
+        private readonly IUserService userService;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
@@ -25,7 +24,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
         public ShareProjectCostsCommandHandler(
             IRepository<SharedProjectCost> sharedProjectCostRepo,
             IRepository<ProjectCost> projectCostRepo,
-            IReadRepository<User> userRepo,
+            IUserService userService,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
@@ -33,7 +32,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
         {
             this.sharedProjectCostRepo = sharedProjectCostRepo;
             this.projectCostRepo = projectCostRepo;
-            this.userRepo = userRepo;
+            this.userService = userService;
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
@@ -136,13 +135,10 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
             Dictionary<Guid, string> costNamesDict,
             CancellationToken cancellationToken)
         {
-            var currentUserDetails = await userRepo.GetById(currentUser.Id);
-            if (currentUserDetails == null)
-            {
-                return;
-            }
+            var currentUserDetails = await userService.GetProjectMemberAsync(
+                request.TenantId, request.ProjectId, currentUser.Id, cancellationToken);
 
-            string sharerName = $"{currentUserDetails.FirstName} {currentUserDetails.LastName}".Trim();
+            string sharerName = currentUserDetails?.FullName ?? currentUser.FullName;
 
             string title;
             string message;
@@ -168,7 +164,8 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                 ["CostNames"] = costNamesDict.Values.Take(5).ToList()
             };
 
-            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == sharedWithUserId, cancellationToken);
+            var targetMember = await userService.GetProjectMemberAsync(
+                request.TenantId, request.ProjectId, sharedWithUserId, cancellationToken);
 
             var notificationDto = new NotificationDto
             {
@@ -176,7 +173,7 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 UserId = sharedWithUserId,
-                AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
+                AzureAdB2CObjectId = targetMember?.AzureAdB2CObjectId,
                 Type = NotificationTypeDto.Info,
                 Title = title,
                 Message = message,

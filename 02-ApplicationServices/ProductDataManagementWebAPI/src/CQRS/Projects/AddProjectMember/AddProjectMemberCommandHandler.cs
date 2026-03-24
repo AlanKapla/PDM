@@ -7,7 +7,6 @@ using CQRS.Helpers;
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
-using Repositiories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -16,29 +15,29 @@ namespace CQRS.Projects.AddProjectMember
     public class AddProjectMemberCommandHandler : IRequestHandler<AddProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
-        private readonly IReadRepository<User> userRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
+        private readonly IUserService userService;
 
         public AddProjectMemberCommandHandler(
             IReadRepository<Project> projectRepo,
-            IReadRepository<User> userRepo,
             IRepository<ProjectMember> projectMemberRepo,
             IReadRepository<Role> roleRepo,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IUserService userService)
         {
             this.projectRepo = projectRepo;
-            this.userRepo = userRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.roleRepo = roleRepo;
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
+            this.userService = userService;
         }
 
         public async Task<Unit> Handle(AddProjectMemberCommand request, CancellationToken cancellationToken)
@@ -53,6 +52,9 @@ namespace CQRS.Projects.AddProjectMember
                 cancellationToken)
                 ?? throw new InvalidOperationException($"{RoleCodes.ProjectViewer} role not found");
 
+            var targetUser = await userService.GetTenantMemberInfoAsync(
+                request.TenantId, request.UserId, cancellationToken);
+
             ProjectMember newMember = new ProjectMember
             {
                 TenantId = request.TenantId,
@@ -63,8 +65,7 @@ namespace CQRS.Projects.AddProjectMember
             };
 
             await projectMemberRepo.Insert(newMember);
-
-            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
+            await userService.InvalidateProjectMembersCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             NotificationDto notification = new NotificationDto
             {

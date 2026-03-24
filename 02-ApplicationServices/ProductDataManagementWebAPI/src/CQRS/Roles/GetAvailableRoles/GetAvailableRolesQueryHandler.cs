@@ -2,7 +2,7 @@
 using Entities.Enums;
 using Entities.Models;
 using MediatR;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 
 namespace CQRS.Roles.GetAvailableRoles
 {

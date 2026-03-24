@@ -1,4 +1,4 @@
-import { CalculatedFieldType } from '../types/costEstimate.types';
+import { CalculatedFieldType, SystemFieldType } from '../types/costEstimate.types';
 import type {
   CostEstimateDataModel,
   CostEstimateGroup,
@@ -13,6 +13,12 @@ import type {
  * Automatically calculates derived field values based on formulas
  */
 
+/**
+ * Klucz dla wartości Quantity w mapie wartości kalkulacji.
+ * Używamy wartości ujemnej, żeby nie kolidować z wartościami CalculatedFieldType.
+ * Quantity to pole systemowe (SystemFieldType.Quantity = 1), ale potrzebujemy go w kalkulacjach.
+ */
+const QUANTITY_KEY = -1;
 export interface CalculationContext {
   calculatedFields: CalculatedFieldDefinition[];
   genericFields?: any[];
@@ -130,8 +136,9 @@ export function canAutoCalculate(
   fieldType: CalculatedFieldType,
   values: Record<number, any>
 ): boolean {
-  const hasValue = (type: CalculatedFieldType): boolean => {
-    const val = values[type];
+  // Typ number zamiast CalculatedFieldType, aby obsłużyć też QUANTITY_KEY (-1)
+  const hasValue = (fieldKey: number): boolean => {
+    const val = values[fieldKey];
     return val !== null && val !== undefined && val !== '' && !isNaN(Number(val));
   };
 
@@ -142,11 +149,11 @@ export function canAutoCalculate(
 
     case CalculatedFieldType.ValueNet:
       // Wymaga UnitPriceNet i Quantity
-      return hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(CalculatedFieldType.Quantity);
+      return hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(QUANTITY_KEY);
 
     case CalculatedFieldType.ValueGross:
       // Wymaga UnitPriceGross i Quantity
-      return hasValue(CalculatedFieldType.UnitPriceGross) && hasValue(CalculatedFieldType.Quantity);
+      return hasValue(CalculatedFieldType.UnitPriceGross) && hasValue(QUANTITY_KEY);
 
     case CalculatedFieldType.UnitVat:
       // UnitVat = UnitPriceNet * (VatRate / 100) LUB UnitPriceGross - UnitPriceNet
@@ -156,7 +163,7 @@ export function canAutoCalculate(
     case CalculatedFieldType.TotalVat:
       // TotalVat = ValueNet * (VatRate / 100) LUB UnitVat * Quantity LUB ValueGross - ValueNet
       return (hasValue(CalculatedFieldType.ValueNet) && hasValue(CalculatedFieldType.VatRate)) ||
-             (hasValue(CalculatedFieldType.UnitVat) && hasValue(CalculatedFieldType.Quantity)) ||
+             (hasValue(CalculatedFieldType.UnitVat) && hasValue(QUANTITY_KEY)) ||
              (hasValue(CalculatedFieldType.ValueGross) && hasValue(CalculatedFieldType.ValueNet));
 
     default:
@@ -174,7 +181,8 @@ export function calculateFieldValue(
   values: Record<number, any>
 ): number | null {
   // Helper to get numeric value by field type (enum value)
-  const getNum = (type: CalculatedFieldType): number => {
+  // Typ number zamiast CalculatedFieldType, aby obsłużyć też QUANTITY_KEY (-1)
+  const getNum = (type: number): number => {
     const val = values[type];
     return typeof val === 'number' ? val : parseFloat(val) || 0;
   };
@@ -190,15 +198,26 @@ export function calculateFieldValue(
     case CalculatedFieldType.ValueNet: {
       // ValueNet = UnitPriceNet * Quantity
       const unitPriceNet = getNum(CalculatedFieldType.UnitPriceNet);
-      const quantity = getNum(CalculatedFieldType.Quantity);
+      const quantity = getNum(QUANTITY_KEY);
       return unitPriceNet * quantity;
     }
 
     case CalculatedFieldType.ValueGross: {
-      // ValueGross = UnitPriceGross * Quantity
+      // ValueGross = UnitPriceGross * Quantity LUB ValueNet + TotalVat
       const unitPriceGross = getNum(CalculatedFieldType.UnitPriceGross);
-      const quantity = getNum(CalculatedFieldType.Quantity);
-      return unitPriceGross * quantity;
+      const quantity = getNum(QUANTITY_KEY);
+      const valueNet = getNum(CalculatedFieldType.ValueNet);
+      const totalVat = getNum(CalculatedFieldType.TotalVat);
+      
+      // Metoda 1: UnitPriceGross * Quantity
+      if (unitPriceGross > 0 && quantity > 0) {
+        return unitPriceGross * quantity;
+      }
+      // Metoda 2: ValueNet + TotalVat
+      if (valueNet > 0 && totalVat >= 0) {
+        return valueNet + totalVat;
+      }
+      return 0;
     }
 
     case CalculatedFieldType.UnitVat: {
@@ -208,8 +227,8 @@ export function calculateFieldValue(
       const vatRate = getNum(CalculatedFieldType.VatRate);
       const unitPriceGross = getNum(CalculatedFieldType.UnitPriceGross);
       
-      // Preferuj obliczenie z UnitPriceNet i VatRate
-      if (unitPriceNet > 0 && vatRate > 0) {
+      // Preferuj obliczenie z UnitPriceNet i VatRate (vatRate >= 0 bo może być 0% VAT)
+      if (unitPriceNet > 0 && vatRate >= 0) {
         return unitPriceNet * (vatRate / 100);
       }
       // Alternatywnie: UnitPriceGross - UnitPriceNet
@@ -226,15 +245,15 @@ export function calculateFieldValue(
       const valueNet = getNum(CalculatedFieldType.ValueNet);
       const vatRate = getNum(CalculatedFieldType.VatRate);
       const unitVat = getNum(CalculatedFieldType.UnitVat);
-      const quantity = getNum(CalculatedFieldType.Quantity);
+      const quantity = getNum(QUANTITY_KEY);
       const valueGross = getNum(CalculatedFieldType.ValueGross);
       
-      // Preferuj obliczenie z ValueNet i VatRate
-      if (valueNet > 0 && vatRate > 0) {
+      // Preferuj obliczenie z ValueNet i VatRate (vatRate >= 0 bo może być 0% VAT)
+      if (valueNet > 0 && vatRate >= 0) {
         return valueNet * (vatRate / 100);
       }
       // Alternatywnie: UnitVat * Quantity
-      if (unitVat > 0 && quantity > 0) {
+      if (unitVat >= 0 && quantity > 0) {
         return unitVat * quantity;
       }
       // Alternatywnie: ValueGross - ValueNet
@@ -328,8 +347,8 @@ export function recalculateEstimate(
   summaryConfig?: {
     showGroupSummary: boolean;
     showTotalSummary: boolean;
-    groupSummaryFields: string[];
-    totalSummaryFields: string[];
+    groupSummaryFields?: string[] | any[];
+    totalSummaryFields?: string[] | any[];
   }
 ): CostEstimateDataModel {
   const context: CalculationContext = {
@@ -391,10 +410,13 @@ export function recalculateEstimate(
     }
 
     // Calculate group totals - TYLKO jeśli są wybrane pola do sumowania
-    if (summaryConfig?.showGroupSummary && summaryConfig.groupSummaryFields.length > 0) {
+    const groupFields = summaryConfig?.groupSummaryFields ?? [];
+    if (summaryConfig?.showGroupSummary && groupFields.length > 0) {
+      // Konwertuj SummaryFieldWeb[] na string[] jeśli potrzeba
+      const fieldNames = groupFields.map((f: any) => typeof f === 'string' ? f : f.fieldName);
       processed.groupTotals = calculateGroupTotals(
         processed,
-        summaryConfig.groupSummaryFields
+        fieldNames
       );
     }
 
@@ -406,10 +428,13 @@ export function recalculateEstimate(
 
   // Calculate overall totals - TYLKO jeśli są wybrane pola do sumowania
   let overallTotals: Record<string, number> | undefined;
-  if (summaryConfig?.showTotalSummary && summaryConfig.totalSummaryFields.length > 0) {
+  const totalFields = summaryConfig?.totalSummaryFields ?? [];
+  if (summaryConfig?.showTotalSummary && totalFields.length > 0) {
+    // Konwertuj SummaryFieldWeb[] na string[] jeśli potrzeba
+    const fieldNames = totalFields.map((f: any) => typeof f === 'string' ? f : f.fieldName);
     overallTotals = calculateOverallTotals(
       processedGroups,
-      summaryConfig.totalSummaryFields
+      fieldNames
     );
   }
 

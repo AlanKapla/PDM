@@ -71,7 +71,6 @@ export default function CopyCostEstimateModal({
       
       setProjects(filteredProjects);
     } catch (error) {
-      console.error("Błąd pobierania projektów:", error);
       showError("Nie udało się pobrać listy projektów");
     } finally {
       setLoading(false);
@@ -100,7 +99,6 @@ export default function CopyCostEstimateModal({
       onSuccess?.();
       handleClose();
     } catch (error) {
-      console.error("Błąd kopiowania kosztorysu:", error);
       showError("Nie udało się skopiować kosztorysu");
     } finally {
       setCopying(false);

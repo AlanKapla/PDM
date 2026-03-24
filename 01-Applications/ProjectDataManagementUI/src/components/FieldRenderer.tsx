@@ -671,9 +671,9 @@ export const GroupHeaderFieldRenderer: React.FC<GroupHeaderFieldRendererProps> =
 
 export function getDefaultGroupHeaderLabel(type: number): string {
   const labels: Record<number, string> = {
-    0: 'Nazwa grupy',
-    1: 'Opis grupy',
-    2: 'Numer grupy',
+    0: 'Nazwa etapu',
+    1: 'Opis etapu',
+    2: 'Numer etapu',
     3: 'Data rozpoczęcia',
     4: 'Data zakończenia',
     5: 'Status',

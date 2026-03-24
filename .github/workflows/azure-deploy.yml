@@ -1,6 +1,6 @@
 name: Deploy to Azure
 
-run-name: "Deploy PDM → Azure → ${{ github.event.inputs.environment }} → branch ${{ github.ref_name }}"
+run-name: "Deploy PDM → ${{ github.event.inputs.environment }} → ${{ github.ref_name }}"
 
 on:
   workflow_dispatch:
@@ -13,14 +13,120 @@ on:
         options:
           - production
           - staging
+      deploy_migration:
+        description: 'Run database migration'
+        required: true
+        default: true
+        type: boolean
+      deploy_api:
+        description: 'Deploy API (backend)'
+        required: true
+        default: true
+        type: boolean
+      deploy_ui:
+        description: 'Deploy UI (frontend)'
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
+  migrate-database:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.deploy_migration == 'true' }}
+    environment:
+      name: azure-${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef --version 10.0.1
+
+      - name: Restore solution
+        working-directory: 02-ApplicationServices/ProductDataManagementWebAPI
+        run: dotnet restore
+
+      - name: Generate idempotent SQL script
+        working-directory: 02-ApplicationServices/ProductDataManagementWebAPI/src/Entities
+        env:
+          ConnectionStrings__DefaultConnection: "Server=placeholder;Database=placeholder;"
+        run: |
+          dotnet ef migrations script \
+            --idempotent \
+            --output ${{ github.workspace }}/migration.sql \
+            --startup-project ../WebApi \
+            --project .
+          echo "=== Generated migration script ==="
+          head -50 ${{ github.workspace }}/migration.sql
+          echo "..."
+          wc -l ${{ github.workspace }}/migration.sql
+
+      - name: Upload migration script as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-sql-${{ github.event.inputs.environment }}
+          path: ${{ github.workspace }}/migration.sql
+          retention-days: 30
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Azure AD access token for SQL
+        id: get-token
+        shell: bash
+        run: |
+          TOKEN=$(az account get-access-token \
+            --resource https://database.windows.net/ \
+            --query accessToken \
+            --output tsv)
+          echo "::add-mask::$TOKEN"
+          echo "sql-token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Execute migration on Azure SQL
+        shell: pwsh
+        run: |
+          $serverName = "${{ vars.AZURE_SQL_SERVER }}"
+          $databaseName = "${{ vars.AZURE_SQL_DATABASE }}"
+          $scriptPath = "${{ github.workspace }}/migration.sql"
+          $token = "${{ steps.get-token.outputs.sql-token }}"
+
+          Write-Host "🗄️ Running migration on: $serverName / $databaseName"
+
+          # Instalacja modułu SqlServer (zawiera Invoke-Sqlcmd z obsługą Azure AD)
+          Install-Module -Name SqlServer -Force -AllowClobber -Scope CurrentUser
+
+          Invoke-Sqlcmd `
+            -ServerInstance $serverName `
+            -Database $databaseName `
+            -AccessToken $token `
+            -InputFile $scriptPath `
+            -QueryTimeout 120 `
+            -ErrorAction Stop `
+            -Verbose
+
+          Write-Host "✅ Migration completed successfully"
+
   build-and-deploy-api:
     runs-on: ubuntu-latest
+    needs: migrate-database
+    if: |
+      always() &&
+      github.event.inputs.deploy_api == 'true' &&
+      (needs.migrate-database.result == 'success' || needs.migrate-database.result == 'skipped')
     environment:
       name: azure-${{ github.event.inputs.environment }}
       url: ${{ vars.API_URL }}
@@ -104,6 +210,10 @@ jobs:
   build-and-deploy-ui:
     runs-on: ubuntu-latest
     needs: build-and-deploy-api
+    if: |
+      always() &&
+      github.event.inputs.deploy_ui == 'true' &&
+      (needs.build-and-deploy-api.result == 'success' || needs.build-and-deploy-api.result == 'skipped')
     environment:
       name: azure-${{ github.event.inputs.environment }}
       url: ${{ vars.FRONTEND_BASE_URL }}
@@ -177,15 +287,51 @@ jobs:
 
   verify-deployment:
     runs-on: ubuntu-latest
-    needs: [build-and-deploy-api, build-and-deploy-ui]
+    needs: [migrate-database, build-and-deploy-api, build-and-deploy-ui]
+    if: always() && !cancelled()
     environment:
       name: azure-${{ github.event.inputs.environment }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check for failures
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "❌ One or more deployment stages failed!"
+          echo "   Migration: ${{ needs.migrate-database.result }}"
+          echo "   API:       ${{ needs.build-and-deploy-api.result }}"
+          echo "   UI:        ${{ needs.build-and-deploy-ui.result }}"
+          exit 1
+
       - name: Verify full stack
         shell: pwsh
         run: |
+          $commitSha = "${{ github.sha }}"
+          $commitShort = $commitSha.Substring(0, 7)
+          $commitMessage = git log -1 --format='%s' $commitSha
+          $commitAuthor = git log -1 --format='%an' $commitSha
+          $commitDate = git log -1 --format='%ai' $commitSha
+          $branch = "${{ github.ref_name }}"
+
           Write-Host "🎉 Deployment completed successfully!"
-          Write-Host "API URL: ${{ vars.API_URL }}"
-          Write-Host "UI URL: ${{ vars.FRONTEND_BASE_URL }}"
-          Write-Host "Environment: azure-${{ github.event.inputs.environment }}"
+          Write-Host ""
+          Write-Host "📋 Commit info:"
+          Write-Host "   SHA:     $commitShort"
+          Write-Host "   Message: $commitMessage"
+          Write-Host "   Author:  $commitAuthor"
+          Write-Host "   Date:    $commitDate"
+          Write-Host "   Branch:  $branch"
+          Write-Host ""
+          Write-Host "🔧 Stages:"
+          Write-Host "   Migration: ${{ needs.migrate-database.result }}"
+          Write-Host "   API:       ${{ needs.build-and-deploy-api.result }}"
+          Write-Host "   UI:        ${{ needs.build-and-deploy-ui.result }}"
+          Write-Host ""
+          Write-Host "🌐 URLs:"
+          Write-Host "   API: ${{ vars.API_URL }}"
+          Write-Host "   UI:  ${{ vars.FRONTEND_BASE_URL }}"
+          Write-Host "   Env: azure-${{ github.event.inputs.environment }}"

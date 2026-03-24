@@ -1,10 +1,10 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Entities.Models;
+using Business.Interfaces.Services;
+using Business.Interfaces.WebModels.CostEstimates;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
+using Entities.Models.CostEstimates;
 
 namespace CQRS.CostEstimates.GetCostEstimates
 {
@@ -12,83 +12,118 @@ namespace CQRS.CostEstimates.GetCostEstimates
     /// Handler to get cost estimates based on scope (All, Mine, Shared)
     /// Only returns cost estimates where template is NOT deleted
     /// </summary>
-    public class GetCostEstimatesQueryHandler : IRequestHandler<GetCostEstimatesQuery, List<CostEstimateListItem>>
+    public sealed class GetCostEstimatesQueryHandler : IRequestHandler<GetCostEstimatesQuery, List<CostEstimateListItemWeb>>
     {
         private readonly IReadRepository<CostEstimate> costEstimateRepository;
-        private readonly IReadRepository<CostEstimateTemplate> templateRepository;
+        private readonly IReadRepository<SharedCostEstimate> sharedCeRepository;
+        private readonly ICostEstimateCacheService ceCacheService;
+        private readonly IUserService userService;
         private readonly ICurrentUser currentUser;
 
         public GetCostEstimatesQueryHandler(
             IReadRepository<CostEstimate> costEstimateRepository,
-            IReadRepository<CostEstimateTemplate> templateRepository,
+            IReadRepository<SharedCostEstimate> sharedCeRepository,
+            ICostEstimateCacheService ceCacheService,
+            IUserService userService,
             ICurrentUser currentUser)
         {
             this.costEstimateRepository = costEstimateRepository;
-            this.templateRepository = templateRepository;
+            this.sharedCeRepository = sharedCeRepository;
+            this.ceCacheService = ceCacheService;
+            this.userService = userService;
             this.currentUser = currentUser;
         }
 
-        public async Task<List<CostEstimateListItem>> Handle(GetCostEstimatesQuery request, CancellationToken cancellationToken)
+        public async Task<List<CostEstimateListItemWeb>> Handle(GetCostEstimatesQuery request, CancellationToken cancellationToken)
         {
-            // Shared cost estimates are not implemented yet
-            if (request.Scope == ResourceScope.Shared)
-            {
-                throw new ApiException(ApiExceptionReason.InvalidOperation, "Shared cost estimates are not yet supported");
-            }
-
             IEnumerable<CostEstimate> costEstimates;
 
             switch (request.Scope)
             {
                 case ResourceScope.All:
-                    // Get all cost estimates in the project where template is NOT deleted
                     costEstimates = await costEstimateRepository.GetBySearch(
-                        c => c.ProjectId == request.ProjectId && 
-                             c.TenantId == request.TenantId && 
+                        c => c.ProjectId == request.ProjectId &&
+                             c.TenantId == request.TenantId &&
                              !c.IsDeleted &&
-                             !c.Template.IsDeleted,  // Only non-deleted templates
-                        q => q.Include(c => c.Owner));
+                             !c.Template.IsDeleted);
                     break;
 
                 case ResourceScope.Mine:
-                    // Get only cost estimates owned by the current user where template is NOT deleted
                     costEstimates = await costEstimateRepository.GetBySearch(
-                        c => c.ProjectId == request.ProjectId && 
-                             c.TenantId == request.TenantId && 
+                        c => c.ProjectId == request.ProjectId &&
+                             c.TenantId == request.TenantId &&
                              c.OwnerId == currentUser.Id &&
                              !c.IsDeleted &&
-                             !c.Template.IsDeleted,  // Only non-deleted templates
-                        q => q.Include(c => c.Owner));
+                             !c.Template.IsDeleted);
+                    break;
+
+                case ResourceScope.Shared:
+                    HashSet<Guid> sharedCeIds = await sharedCeRepository.SelectToHashSetAsync(
+                        s => s.ProjectId == request.ProjectId &&
+                             s.TenantId == request.TenantId &&
+                             s.SharedWithUserId == currentUser.Id,
+                        s => s.CostEstimateId,
+                        cancellationToken);
+
+                    costEstimates = sharedCeIds.Count == 0
+                        ? Enumerable.Empty<CostEstimate>()
+                        : await costEstimateRepository.GetBySearch(
+                            c => sharedCeIds.Contains(c.Id) && !c.IsDeleted && !c.Template.IsDeleted);
                     break;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request.Scope));
             }
 
-            var costEstimatesList = costEstimates.ToList();
+            List<CostEstimate> costEstimatesList = costEstimates.ToList();
 
-            if (!costEstimatesList.Any())
+            if (costEstimatesList.Count == 0)
             {
-                return new List<CostEstimateListItem>();
+                return [];
             }
 
-            // Get unique template IDs from cost estimates
-            var templateIds = costEstimatesList
-                .Select(c => c.TemplateId)
-                .Distinct()
-                .ToList();
+            List<Guid> templateIds = costEstimatesList.Select(c => c.TemplateId).Distinct().ToList();
 
-            // Fetch templates in separate query (only non-deleted due to Global Query Filter)
-            var templates = await templateRepository.GetBySearch(
-                t => templateIds.Contains(t.Id));
+            var templateDict = new Dictionary<Guid, string>();
+            foreach (var tId in templateIds)
+            {
+                var t = await ceCacheService.GetTemplateAsync(tId, cancellationToken);
+                templateDict[tId] = t?.Name ?? "Unknown Template";
+            }
 
-            // Create dictionary for fast lookup
-            var templateDict = templates.ToDictionary(t => t.Id, t => t.Name);
+            var membersDict = (await userService.GetProjectMembersAsync(
+                request.TenantId, request.ProjectId, cancellationToken))
+                .ToDictionary(m => m.UserId);
 
-            // Map to list items
+            // For Mine scope: batch-load all shares grouped by CE ID
+            Dictionary<Guid, List<CostEstimateShareWeb>> sharesByCeId = [];
+
+            if (request.Scope != ResourceScope.Shared && costEstimatesList.Count > 0)
+            {
+                HashSet<Guid> mineIds = costEstimatesList.Select(c => c.Id).ToHashSet();
+
+                List<SharedCostEstimate> allShares = (await sharedCeRepository.GetBySearch(
+                    s => mineIds.Contains(s.CostEstimateId))).ToList();
+
+                sharesByCeId = allShares
+                    .GroupBy(s => s.CostEstimateId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(s =>
+                        {
+                            membersDict.TryGetValue(s.SharedWithUserId, out var m);
+                            return new CostEstimateShareWeb(
+                                UserId: s.SharedWithUserId,
+                                FullName: m?.FullName ?? "Unknown",
+                                Email: m?.Email ?? string.Empty,
+                                SharedAt: s.SharedAt
+                            );
+                        }).OrderBy(sw => sw.FullName).ToList());
+            }
+
             return costEstimatesList
                 .OrderByDescending(c => c.CreatedAt)
-                .Select(c => new CostEstimateListItem(
+                .Select(c => new CostEstimateListItemWeb(
                     Id: c.Id,
                     TenantId: c.TenantId,
                     ProjectId: c.ProjectId,
@@ -99,10 +134,14 @@ namespace CQRS.CostEstimates.GetCostEstimates
                     Status: c.Status,
                     TotalNet: c.TotalNet,
                     TotalGross: c.TotalGross,
+                    TotalVat: c.TotalVat,
                     CreatedAt: c.CreatedAt,
                     UpdatedAt: c.UpdatedAt,
                     OwnerId: c.OwnerId,
-                    OwnerName: $"{c.Owner.FirstName} {c.Owner.LastName}"
+                    OwnerName: membersDict.TryGetValue(c.OwnerId, out var owner) ? owner.FullName : "Unknown",
+                    IsSharedWithMe: request.Scope == ResourceScope.Shared,
+                    IsSharedByMe: sharesByCeId.ContainsKey(c.Id),
+                    SharedWithUsers: sharesByCeId.TryGetValue(c.Id, out var shares) ? shares : []
                 ))
                 .ToList();
         }

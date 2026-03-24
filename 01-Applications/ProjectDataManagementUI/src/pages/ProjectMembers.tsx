@@ -96,7 +96,6 @@ export default function ProjectMembers() {
       const roles = await roleApi.getAvailableRoles('project');
       setAvailableRoles(roles);
     } catch (error) {
-      console.error("Błąd ładowania ról:", error);
     }
   };
 
@@ -280,22 +279,26 @@ export default function ProjectMembers() {
                               </option>
                             ))}
                           </Select>
-                          <IconButton
-                            aria-label="Zapisz rolę"
-                            icon={<Save size={14} />}
-                            size="sm"
-                            colorScheme="green"
-                            onClick={() => handleUpdateMemberRole(member.userId)}
-                            isLoading={updatingRole}
-                          />
-                          <IconButton
-                            aria-label="Anuluj"
-                            icon={<X size={14} />}
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditingRoleMemberId(null)}
-                            isDisabled={updatingRole}
-                          />
+                          <Tooltip label="Zapisz rolę">
+                            <IconButton
+                              aria-label="Zapisz rolę"
+                              icon={<Save size={14} />}
+                              size="sm"
+                              colorScheme="green"
+                              onClick={() => handleUpdateMemberRole(member.userId)}
+                              isLoading={updatingRole}
+                            />
+                          </Tooltip>
+                          <Tooltip label="Anuluj">
+                            <IconButton
+                              aria-label="Anuluj"
+                              icon={<X size={14} />}
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingRoleMemberId(null)}
+                              isDisabled={updatingRole}
+                            />
+                          </Tooltip>
                         </HStack>
                       ) : (
                         <HStack spacing={2}>

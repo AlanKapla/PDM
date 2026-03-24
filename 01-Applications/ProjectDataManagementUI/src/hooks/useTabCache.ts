@@ -56,7 +56,6 @@ export function useTabCache<T>(
   const fetch = useCallback(async () => {
     // Sprawdź czy fetch już jest w trakcie dla tego cache key
     if (fetchInProgress.get(cacheKey)) {
-      console.log(`⏳ Fetch already in progress for ${cacheKey}, skipping`);
       return;
     }
 
@@ -80,7 +79,6 @@ export function useTabCache<T>(
       globalCache.set(cacheKey, cacheEntry);
       setDataState(result);
     } catch (error) {
-      console.error('Error fetching data:', error);
       throw error;
     } finally {
       setLoading(false);

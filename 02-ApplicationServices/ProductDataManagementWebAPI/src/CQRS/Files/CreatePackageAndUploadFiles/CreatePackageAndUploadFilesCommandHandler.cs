@@ -17,6 +17,7 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
         private readonly IRepository<ProjectFileVersionComment> commentRepo;
         private readonly IRepository<ProjectFilePackage> projectFilePackageRepo;
         private readonly IBlobStorageService blobStorageService;
+        private readonly IProjectFilesService projectFilesService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<CreatePackageAndUploadFilesCommandHandler> logger;
 
@@ -26,6 +27,7 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
             IRepository<ProjectFileVersionComment> commentRepo,
             IRepository<ProjectFilePackage> projectFilePackageRepo,
             IBlobStorageService blobStorageService,
+            IProjectFilesService projectFilesService,
             ICurrentUser currentUser,
             ILogger<CreatePackageAndUploadFilesCommandHandler> logger)
         {
@@ -34,6 +36,7 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
             this.commentRepo = commentRepo;
             this.projectFilePackageRepo = projectFilePackageRepo;
             this.blobStorageService = blobStorageService;
+            this.projectFilesService = projectFilesService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -202,6 +205,19 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
             {
                 await commentRepo.InsertRange(allComments);
             }
+
+            // Invalidate all relevant caches
+            await projectFilesService.InvalidateProjectFilesCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+            await projectFilesService.InvalidateProjectVersionsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+            
+            if (allComments.Any())
+            {
+                await projectFilesService.InvalidateProjectCommentsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+            }
+
+            logger.LogInformation(
+                "Created package {PackageName} with {FileCount} files for project {ProjectId}. Cache invalidated.",
+                request.PackageName, allProjectFiles.Count, request.ProjectId);
 
             return Unit.Value;
         }

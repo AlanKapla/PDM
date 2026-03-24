@@ -1,77 +1,57 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Entities.Models;
-using Entities.Models.CostEstimateData;
+using Business.Interfaces.Services;
+using Entities.Models.CostEstimates;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.UpdateCostEstimate
 {
-    /// <summary>
-    /// Handler dla aktualizacji wypełnionego kosztorysu
-    /// </summary>
-    public class UpdateCostEstimateCommandHandler : IRequestHandler<UpdateCostEstimateCommand, Unit>
+    public sealed class UpdateCostEstimateCommandHandler : IRequestHandler<UpdateCostEstimateCommand, Unit>
     {
         private readonly IRepository<CostEstimate> costEstimateRepository;
+        private readonly ICostEstimateCacheService ceCacheService;
+        private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
 
         public UpdateCostEstimateCommandHandler(
             IRepository<CostEstimate> costEstimateRepository,
+            ICostEstimateCacheService ceCacheService,
+            ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser)
         {
             this.costEstimateRepository = costEstimateRepository;
+            this.ceCacheService = ceCacheService;
+            this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
         }
 
         public async Task<Unit> Handle(UpdateCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            // 1. Verify cost estimate exists and belongs to the correct project/tenant
             var costEstimate = await costEstimateRepository.GetFirstBySearch(
-                c => c.Id == request.CostEstimateId && 
+                c => c.Id == request.CostEstimateId &&
                      c.TenantId == request.TenantId &&
                      c.ProjectId == request.ProjectId &&
-                     !c.IsDeleted);
+                     !c.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            if (costEstimate == null)
+            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+
+            if (accessLevel != CostEstimateAccessLevel.Full)
             {
-                throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
+                throw new ForbiddenApiException("Only the owner or an admin can update this cost estimate.");
             }
 
-            // 2. Authorization check: tenant admin OR project admin OR cost estimate owner
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            bool isOwner = costEstimate.OwnerId == currentUser.Id;
-            
-            if (!isAdmin && !isOwner)
-            {
-                throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
-            }
-
-            // 3. Update metadata
-            request.Data.Metadata = new CostEstimateMetadata
-            {
-                LastModified = DateTime.UtcNow,
-                LastModifiedBy = currentUser.Id,
-                SchemaVersion = request.Data.Metadata?.SchemaVersion ?? 1,
-                AdditionalInfo = request.Data.Metadata?.AdditionalInfo,
-                GroupCustomizations = request.Data.Metadata?.GroupCustomizations,
-                WorkScopeCustomizations = request.Data.Metadata?.WorkScopeCustomizations
-            };
-
-            // 4. Update properties
             costEstimate.Name = request.Name;
             costEstimate.Description = request.Description;
-            costEstimate.Status = request.Status;
-            costEstimate.Data = request.Data;
-            costEstimate.TotalNet = request.TotalNet;
-            costEstimate.TotalGross = request.TotalGross;
             costEstimate.UpdatedAt = DateTime.UtcNow;
-            costEstimate.LastCalculatedAt = request.TotalNet.HasValue || request.TotalGross.HasValue 
-                ? DateTime.UtcNow 
-                : costEstimate.LastCalculatedAt;
 
-            // 5. Save changes
             await costEstimateRepository.Update(costEstimate);
-            await costEstimateRepository.SaveChangesAsync(cancellationToken);
+
+            await ceCacheService.InvalidateCostEstimateAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             return Unit.Value;
         }

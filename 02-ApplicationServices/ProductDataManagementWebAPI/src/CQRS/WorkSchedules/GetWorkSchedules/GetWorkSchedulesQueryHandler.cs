@@ -1,10 +1,10 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.GetWorkSchedules
@@ -15,16 +15,16 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
     public class GetWorkSchedulesQueryHandler : IRequestHandler<GetWorkSchedulesQuery, List<WorkScheduleSummaryWeb>>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
-        private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IUserService userService;
         private readonly ICurrentUser currentUser;
 
         public GetWorkSchedulesQueryHandler(
             IRepository<WorkSchedule> workScheduleRepo,
-            IRepository<ProjectMember> projectMemberRepo,
+            IUserService userService,
             ICurrentUser currentUser)
         {
             this.workScheduleRepo = workScheduleRepo;
-            this.projectMemberRepo = projectMemberRepo;
+            this.userService = userService;
             this.currentUser = currentUser;
         }
 
@@ -41,29 +41,25 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
             switch (request.Scope)
             {
                 case ResourceScope.All:
-                    // Get all work schedules in the project (requires READ_ALL permission)
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
-                              ws.TenantId == request.TenantId,
-                        include => include
-                            .Include(ws => ws.CreatedBy)
-                                .ThenInclude(tm => tm.User));
+                              ws.TenantId == request.TenantId);
                     break;
 
                 case ResourceScope.Mine:
-                    // Get only work schedules created by the current user (requires READ permission)
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
                               ws.TenantId == request.TenantId &&
-                              ws.CreatedByUserId == currentUser.Id,
-                        include => include
-                            .Include(ws => ws.CreatedBy)
-                                .ThenInclude(tm => tm.User));
+                              ws.CreatedByUserId == currentUser.Id);
                     break;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request.Scope));
             }
+
+            var membersDict = (await userService.GetProjectMembersAsync(
+                request.TenantId, request.ProjectId, cancellationToken))
+                .ToDictionary(m => m.UserId);
 
             var result = workSchedules
                 .OrderByDescending(ws => ws.CreatedAt)
@@ -72,7 +68,9 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
                     Name: ws.Name,
                     CreatedAt: ws.CreatedAt,
                     CreatedByUserId: ws.CreatedByUserId,
-                    CreatedByUserName: $"{ws.CreatedBy.User.FirstName} {ws.CreatedBy.User.LastName}".Trim()
+                    CreatedByUserName: membersDict.TryGetValue(ws.CreatedByUserId, out var creator)
+                        ? creator.FullName
+                        : "Unknown"
                 ))
                 .ToList();
 

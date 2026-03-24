@@ -10,6 +10,8 @@
         Guid? ActiveTenantId { get; }
         bool IsAuthenticated { get; }
         bool IsSuperAdmin { get; }
+
+        string FullName => $"{FirstName} {LastName}".Trim();
         
         string? GetClaimValue(string claimType);
         

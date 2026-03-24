@@ -71,10 +71,10 @@ export default function UploadFilesModal({
   const { showSuccess, showError } = useToastNotification();
 
   useEffect(() => {
-    if (isOpen && mode === "existing") {
+    if (isOpen) {
       fetchMyPackages();
     }
-  }, [isOpen, mode, tenantId, projectId]);
+  }, [isOpen, tenantId, projectId]);
 
   const fetchMyPackages = async () => {
     setLoadingPackages(true);
@@ -83,7 +83,6 @@ export default function UploadFilesModal({
       const data: ProjectFilePackageWeb[] = response.data;
       setPackages(data);
     } catch (error) {
-      console.error("Błąd pobierania paczek:", error);
       showError("Błąd", "Nie udało się pobrać listy paczek");
     } finally {
       setLoadingPackages(false);
@@ -144,6 +143,16 @@ export default function UploadFilesModal({
       return;
     }
 
+    // Sprawdź czy paczka o tej nazwie już istnieje w paczkach użytkownika
+    if (mode === "new") {
+      const trimmedName = packageName.trim().toLowerCase();
+      const duplicate = packages.find(p => p.name.toLowerCase() === trimmedName);
+      if (duplicate) {
+        setPackageNameError("Paczka o tej nazwie już istnieje. Wybierz inną nazwę lub dodaj pliki do istniejącej paczki.");
+        return;
+      }
+    }
+
     if (mode === "existing" && !selectedPackageId) {
       showError("Błąd", "Wybierz paczkę");
       return;
@@ -190,7 +199,6 @@ export default function UploadFilesModal({
       onFilesUploaded();
       onClose();
     } catch (error) {
-      console.error("Błąd uploadu plików:", error);
       const { title, description } = handleApiError(error);
       showError(title, description);
     } finally {
@@ -255,8 +263,14 @@ export default function UploadFilesModal({
                 <Input
                   value={packageName}
                   onChange={(e) => {
-                    setPackageName(e.target.value);
-                    setPackageNameError("");
+                    const value = e.target.value;
+                    setPackageName(value);
+                    // Walidacja duplikatu nazwy na bieżąco
+                    if (value.trim() && packages.some(p => p.name.toLowerCase() === value.trim().toLowerCase())) {
+                      setPackageNameError("Paczka o tej nazwie już istnieje");
+                    } else {
+                      setPackageNameError("");
+                    }
                   }}
                   placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
                   isDisabled={uploading}

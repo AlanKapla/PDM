@@ -1,14 +1,19 @@
-﻿import axios from "axios";
+import axios from "axios";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8085";
+// Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
+function requireEnvVar(key: string): string {
+  const value = import.meta.env[key];
+  if (!value) {
+    throw new Error(
+      `${key} is not defined. Configure it in your environment (e.g. .env or build pipeline).`
+    );
+  }
+  return value;
+}
 
-console.log("=== AXIOS CLIENT CONFIG ===");
-console.log("VITE_API_BASE_URL from env:", import.meta.env.VITE_API_BASE_URL);
-console.log("Final API_BASE_URL:", API_BASE_URL);
-console.log("Full baseURL:", `${API_BASE_URL}/api`);
-console.log("===========================");
+const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
 
 export const axiosClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -34,23 +39,16 @@ axiosClient.interceptors.request.use(
         
         // Add token to Authorization header
         config.headers.Authorization = `Bearer ${response.accessToken}`;
-        
-        console.log("🔑 Token added to request:", config.url);
-        console.log("🔑 Token scopes:", response.scopes);
-        console.log("🔑 Token expires:", new Date(response.expiresOn || 0).toLocaleString());
       } catch (error: any) {
-        console.error("❌ acquireTokenSilent failed:", error.errorCode, error.errorMessage);
         
         // If silent acquisition fails, redirect to login
         // User will be redirected back after authentication
-        console.warn("🔄 Redirecting to login for token acquisition");
         await msalInstance.loginRedirect(silentRequest);
         
         // Reject the request - it will be retried after redirect
         return Promise.reject(new Error("Token acquisition required - redirecting to login"));
       }
     } else {
-      console.warn("⚠️ No accounts found - user not authenticated");
       // Don't add Authorization header - let the request proceed
       // Backend will return 401 and trigger error interceptor
     }
@@ -72,7 +70,6 @@ axiosClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Special case: /user/sync-b2c failed - token is invalid
       if (originalRequest.url?.includes('/user/sync-b2c')) {
-        console.error("❌ Authentication failed at /user/sync-b2c - token is invalid");
         // Don't redirect here - ProtectedRoute will handle it when user becomes null
       }
 
@@ -99,13 +96,11 @@ axiosClient.interceptors.response.use(
             // Retry the original request
             return axiosClient(originalRequest);
           } catch (tokenError) {
-            console.error("❌ Token refresh failed:", tokenError);
             // Don't redirect - ProtectedRoute will handle when user is null
             return Promise.reject(tokenError);
           }
         } else {
           // No accounts - token acquisition failed
-          console.warn("⚠️ No accounts found - user not authenticated");
           // Don't redirect - ProtectedRoute will handle it
         }
       }

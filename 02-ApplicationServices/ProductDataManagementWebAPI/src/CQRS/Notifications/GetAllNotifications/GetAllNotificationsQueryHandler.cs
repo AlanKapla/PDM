@@ -4,7 +4,7 @@ using Business.Interfaces.WebModels.Notifications;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 using System.Text.Json;
 using EntityNotificationType = Entities.Models.NotificationType;
 using DtoNotificationType = Business.Interfaces.DTO.NotificationType;

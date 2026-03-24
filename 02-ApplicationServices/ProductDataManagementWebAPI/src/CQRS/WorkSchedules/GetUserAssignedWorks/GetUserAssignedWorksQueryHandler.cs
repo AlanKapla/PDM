@@ -22,9 +22,9 @@ namespace CQRS.WorkSchedules.GetUserAssignedWorks
 
         public async Task<List<UserAssignedWorksGroupedWeb>> Handle(GetUserAssignedWorksQuery request, CancellationToken cancellationToken)
         {
-            // Get all assignments for the current user in the active tenant
+            // Get all assignments for the current user across all tenants
             var assignments = await assignmentRepo.GetBySearch(
-                a => a.TenantId == request.TenantId && a.UserId == currentUser.Id,
+                a => a.UserId == currentUser.Id,
                 include => include
                     .Include(a => a.Work)
                         .ThenInclude(w => w.Periods)
@@ -34,16 +34,21 @@ namespace CQRS.WorkSchedules.GetUserAssignedWorks
                     .Include(a => a.Work)
                         .ThenInclude(w => w.Stage)
                             .ThenInclude(s => s.WorkSchedule)
-                                .ThenInclude(ws => ws.Project));
+                                .ThenInclude(ws => ws.Project)
+                                    .ThenInclude(p => p.Tenant));
 
             // Group by Project > WorkSchedule > Stage > Work
             var groupedByProject = assignments
                 .GroupBy(a => new
                 {
+                    TenantId = a.Work.Stage.WorkSchedule.Project.TenantId,
+                    TenantName = a.Work.Stage.WorkSchedule.Project.Tenant.Name,
                     ProjectId = a.Work.Stage.WorkSchedule.ProjectId,
                     ProjectName = a.Work.Stage.WorkSchedule.Project.Name
                 })
                 .Select(projectGroup => new UserAssignedWorksGroupedWeb(
+                    TenantId: projectGroup.Key.TenantId,
+                    TenantName: projectGroup.Key.TenantName,
                     ProjectId: projectGroup.Key.ProjectId,
                     ProjectName: projectGroup.Key.ProjectName,
                     WorkSchedules: projectGroup

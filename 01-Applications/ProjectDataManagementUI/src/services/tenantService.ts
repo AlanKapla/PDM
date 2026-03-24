@@ -1,4 +1,4 @@
-﻿import { tenantApi } from "../api/tenantApi";
+import { tenantApi } from "../api/tenantApi";
 import type { UserTenant, TenantBasic, TenantDetails, ActiveTenant } from "../types/auth.types";
 
 /**
@@ -11,7 +11,6 @@ export const getUserTenants = async (): Promise<UserTenant[]> => {
     const response = await tenantApi.getUserTenants();
     return response.data;
   } catch (error) {
-    console.error("Error fetching user tenants:", error);
     return [];
   }
 };
@@ -21,7 +20,6 @@ export const getAdminTenants = async (): Promise<TenantBasic[]> => {
     const response = await tenantApi.getAdminTenants();
     return response.data;
   } catch (error) {
-    console.error("Error fetching admin tenants:", error);
     return [];
   }
 };
@@ -31,19 +29,12 @@ export const getTenantDetails = async (tenantId: string): Promise<TenantDetails 
     const response = await tenantApi.getTenantDetails(tenantId);
     return response.data;
   } catch (error) {
-    console.error("Error fetching tenant details:", error);
     return null;
   }
 };
 
-export const changeActiveTenant = async (tenantId: string): Promise<boolean> => {
-  try {
-    await tenantApi.changeActiveTenant(tenantId);
-    return true;
-  } catch (error) {
-    console.error("Error changing active tenant:", error);
-    return false;
-  }
+export const changeActiveTenant = async (tenantId: string): Promise<void> => {
+  await tenantApi.changeActiveTenant(tenantId);
 };
 
 export const createTenant = async (name: string): Promise<UserTenant | null> => {
@@ -51,7 +42,6 @@ export const createTenant = async (name: string): Promise<UserTenant | null> => 
     const response = await tenantApi.createTenant(name);
     return response.data;
   } catch (error) {
-    console.error("Error creating tenant:", error);
     return null;
   }
 };
@@ -61,7 +51,6 @@ export const updateTenant = async (tenantId: string, name: string): Promise<User
     const response = await tenantApi.updateTenant(tenantId, name);
     return response.data;
   } catch (error) {
-    console.error("Error updating tenant:", error);
     return null;
   }
 };
@@ -71,19 +60,15 @@ export const inviteTenantMember = async (tenantId: string, email: string): Promi
     await tenantApi.inviteMember(tenantId, email);
     return true;
   } catch (error) {
-    console.error("Error inviting tenant member:", error);
     return false;
   }
 };
 
 export const acceptTenantInvitation = async (token: string): Promise<boolean> => {
   try {
-    console.log("[Service] acceptTenantInvitation - Start");
     await tenantApi.acceptInvitation(token);
-    console.log("[Service] Zaproszenie zaakceptowane pomyślnie");
     return true;
   } catch (error) {
-    console.error("[Service] Błąd akceptacji zaproszenia:", error);
     return false;
   }
 };
@@ -93,7 +78,6 @@ export const removeTenantMember = async (tenantId: string, userId: string): Prom
     await tenantApi.removeMember(tenantId, userId);
     return true;
   } catch (error) {
-    console.error("Error removing tenant member:", error);
     return false;
   }
 };
@@ -103,7 +87,6 @@ export const removeTenantInvitation = async (tenantId: string, invitationId: str
     await tenantApi.removeInvitation(tenantId, invitationId);
     return true;
   } catch (error) {
-    console.error("Error removing tenant invitation:", error);
     return false;
   }
 };
@@ -113,7 +96,6 @@ export const getActiveInvitations = async () => {
     const response = await tenantApi.getActiveInvitations();
     return response.data;
   } catch (error) {
-    console.error("Error fetching active invitations:", error);
     return [];
   }
 };
@@ -123,7 +105,6 @@ export const updateTenantMemberRole = async (tenantId: string, userId: string, r
     await tenantApi.updateTenantMemberRole(tenantId, userId, roleId);
     return true;
   } catch (error) {
-    console.error("Error updating tenant member role:", error);
     return false;
   }
 };

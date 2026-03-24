@@ -684,7 +684,6 @@ export default function WorkScheduleFormModal({
       onSuccess?.();
       onClose();
     } catch (error) {
-      console.error(`Błąd ${mode === 'create' ? 'tworzenia' : 'aktualizacji'} harmonogramu:`, error);
       const { title, description } = handleApiError(error);
       toast({
         title,

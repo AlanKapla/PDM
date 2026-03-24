@@ -28,6 +28,7 @@ interface ManageFileShareModalProps {
   sharedWithUserIds: string[];
   members: ProjectMemberWeb[];
   currentUserId: string;
+  ownerUserId?: string;
   onShareUpdated: () => void;
 }
 
@@ -41,6 +42,7 @@ export const ManageFileShareModal = ({
   sharedWithUserIds,
   members,
   currentUserId,
+  ownerUserId,
   onShareUpdated,
 }: ManageFileShareModalProps) => {
   const toast = useToast();
@@ -79,7 +81,6 @@ export const ManageFileShareModal = ({
       onShareUpdated();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji udostępnienia:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -93,16 +94,17 @@ export const ManageFileShareModal = ({
     }
   };
 
-  // Filtruj członków - usuń właściciela i obecnego użytkownika
+  // Filtruj członków - usuń aktualnego użytkownika i właściciela pliku
+  const excludeIds = new Set([currentUserId, ownerUserId].filter(Boolean));
   const availableMembers = members.filter(
-    (member) => member.userId !== currentUserId
+    (member) => !excludeIds.has(member.userId)
   );
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "md" }}>
       <ModalOverlay />
       <ModalContent mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Zarządzaj udostępnieniem</ModalHeader>
+        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Udostępnij</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <VStack align="stretch" spacing={4}>

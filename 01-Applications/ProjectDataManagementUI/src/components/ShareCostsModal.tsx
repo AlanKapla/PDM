@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -55,18 +55,21 @@ export default function ShareCostsModal({
       fetchMyCosts();
       fetchProjectMembers();
       setSelectedUserIds(new Set());
-      setSelectedCostIds(new Set());
     }
   }, [isOpen, tenantId, projectId]);
 
   const fetchMyCosts = async () => {
+    // Wyczyść selekcję przed każdym pobieraniem, aby nie zostały dane z poprzedniego otwarcia
+    setSelectedCostIds(new Set());
     try {
       setLoadingCosts(true);
       const response = await projectApi.getProjectUserCosts(tenantId, projectId);
       const data: ProjectCostListItemWeb[] = response.data;
       setCosts(data);
+      // Domyślnie zaznacz wszystkie koszty
+      setSelectedCostIds(new Set(data.map((cost) => cost.id)));
     } catch (error) {
-      console.error("Błąd podczas pobierania kosztów:", error);
+      setSelectedCostIds(new Set());
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy kosztów",
@@ -84,11 +87,12 @@ export default function ShareCostsModal({
       setLoadingMembers(true);
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data = response.data;
-      // Wyklucz aktualnego użytkownika z listy
-      const filteredMembers = data.filter((member: ProjectMemberWeb) => member.email !== user?.email);
+      // Wyklucz aktualnego użytkownika z listy i filtruj członków bez userId
+      const filteredMembers = data.filter((member: ProjectMemberWeb) =>
+        member.userId && member.userId !== user?.id
+      );
       setMembers(filteredMembers);
     } catch (error) {
-      console.error("Błąd podczas pobierania członków:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy członków projektu",
@@ -164,7 +168,6 @@ export default function ShareCostsModal({
       onCostsShared();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas udostępniania kosztów:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -213,7 +216,7 @@ export default function ShareCostsModal({
               {loadingCosts ? (
                 <HStack justify="center" py={4}>
                   <Spinner size="md" />
-                  <Text fontSize="sm">Ładowanie kosztów...</Text>
+                  <Text fontSize="sm">Ładowanie kosztorysów...</Text>
                 </HStack>
               ) : costs.length === 0 ? (
                 <Text fontSize="sm" color="gray.500">
@@ -235,7 +238,10 @@ export default function ShareCostsModal({
                     >
                       <Checkbox
                         isChecked={selectedCostIds.has(cost.id)}
-                        onChange={() => toggleCostSelection(cost.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleCostSelection(cost.id);
+                        }}
                       />
                       <DollarSign size={16} />
                       <VStack align="start" spacing={0} flex="1">
@@ -288,7 +294,10 @@ export default function ShareCostsModal({
                     >
                       <Checkbox
                         isChecked={selectedUserIds.has(member.userId)}
-                        onChange={() => toggleUserSelection(member.userId)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleUserSelection(member.userId);
+                        }}
                       />
                       <User size={16} />
                       <VStack align="start" spacing={0} flex="1">

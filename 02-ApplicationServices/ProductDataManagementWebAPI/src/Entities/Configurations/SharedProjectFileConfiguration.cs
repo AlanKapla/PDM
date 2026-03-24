@@ -10,6 +10,18 @@ namespace Entities.Configurations
         {
             builder.HasKey(spf => spf.Id);
             
+            builder.Property(spf => spf.ProjectFilePackageId)
+                .IsRequired();
+            
+            builder.Property(spf => spf.ProjectFileId);  // Nullable
+            
+            builder.Property(spf => spf.Access)
+                .IsRequired()
+                .HasConversion(
+                    v => v.ToString(),  // ✅ Explicit: Enum → String
+                    v => (ProjectFileAccess)Enum.Parse(typeof(ProjectFileAccess), v))  // ✅ String → Enum
+                .HasColumnType("nvarchar(10)");  // ✅ Bez HasDefaultValue - zawsze ustawiamy explicit w kodzie
+            
             builder.Property(spf => spf.SharedAt)
                 .IsRequired();
 
@@ -18,12 +30,22 @@ namespace Entities.Configurations
                 .WithMany()
                 .HasForeignKey(spf => spf.ProjectId)
                 .OnDelete(DeleteBehavior.NoAction);
+            
+            // Relacja z ProjectFilePackage - ⚠️ RESTRICT instead of CASCADE
+            // Reason: ProjectFile → ProjectFilePackage (CASCADE) already exists
+            // When deleting Package → ProjectFiles are deleted → SharedProjectFiles are deleted (via ProjectFile FK)
+            // Direct Package → SharedProjectFile CASCADE would create multiple cascade paths
+            builder.HasOne(spf => spf.ProjectFilePackage)
+                .WithMany()
+                .HasForeignKey(spf => spf.ProjectFilePackageId)
+                .OnDelete(DeleteBehavior.Restrict);  // ✅ Changed from Cascade to Restrict
 
-            // Relacja z ProjectFile - Cascade jest OK, bo ProjectFile też jest cascade z Project
+            // Relacja z ProjectFile - Cascade OK (nullable bo może udostępniać całą paczkę)
             builder.HasOne(spf => spf.ProjectFile)
                 .WithMany(pf => pf.SharedWith)
                 .HasForeignKey(spf => spf.ProjectFileId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
 
             // Relacja z User (SharedByUser)
             builder.HasOne(spf => spf.SharedByUser)
@@ -51,15 +73,18 @@ namespace Entities.Configurations
                 .HasPrincipalKey(tm => new { tm.TenantId, tm.UserId })
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Unikalność - jeden plik może być udostępniony danemu użytkownikowi tylko raz
-            builder.HasIndex(spf => new { spf.ProjectFileId, spf.SharedWithUserId })
+            // Unikalność - jedna kombinacja PackageId + FileId + User może istnieć tylko raz
+            builder.HasIndex(spf => new { spf.ProjectFilePackageId, spf.ProjectFileId, spf.SharedWithUserId })
                 .IsUnique();
 
-            // Indeks dla szybkiego wyszukiwania plików udostępnionych użytkownikowi
+            // Indeks dla szybkiego wyszukiwania udostępnień użytkownika w projekcie
             builder.HasIndex(spf => new { spf.SharedWithUserId, spf.ProjectId });
             
-            // Indeks dla wyszukiwania plików udostępnionych przez użytkownika
+            // Indeks dla wyszukiwania plików/paczek udostępnionych przez użytkownika
             builder.HasIndex(spf => new { spf.SharedByUserId, spf.ProjectId });
+            
+            // Indeks dla wyszukiwania udostępnień paczki
+            builder.HasIndex(spf => new { spf.ProjectFilePackageId, spf.SharedWithUserId });
         }
     }
 }

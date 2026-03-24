@@ -1,7 +1,4 @@
-﻿using CQRS.CostEstimates.Validators;
-using Entities.Models;
-using FluentValidation;
-using Repositiories.Repository.Interfaces;
+﻿using FluentValidation;
 
 namespace CQRS.CostEstimates.CreateCostEstimate
 {
@@ -14,6 +11,9 @@ namespace CQRS.CostEstimates.CreateCostEstimate
         {
             RuleFor(x => x.TemplateId)
                 .NotEmpty().WithMessage("Template ID is required");
+
+            RuleFor(x => x.SelectedCurrencyId)
+                .NotEmpty().WithMessage("Currency selection is required");
 
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Cost estimate name is required")

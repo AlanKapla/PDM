@@ -184,7 +184,6 @@ export default function WorkDetailsModal({
       onWorkUpdated?.();
       onClose();
     } catch (error) {
-      console.error("Błąd aktualizacji pracy:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,

@@ -5,7 +5,7 @@ using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Entities.Models;
-using Repositiories.Repository.Interfaces;
+using Repositories.Repository.Interfaces;
 
 namespace Business.Implementation.Services
 {

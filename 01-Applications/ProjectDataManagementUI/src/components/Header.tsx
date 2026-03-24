@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext } from "react";
 import {
   Box,
   Text,
@@ -58,7 +58,6 @@ export default function Header({ onMenuOpen }: HeaderProps) {
           setActiveTenantName(null);
         }
       } catch (err) {
-        console.error("Błąd pobierania aktywnego tenanta:", err);
         setActiveTenantName(null);
       }
     };

@@ -4,7 +4,6 @@ using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
-using Repositiories.Repository.Interfaces;
 using Microsoft.Extensions.Options;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.DTO;

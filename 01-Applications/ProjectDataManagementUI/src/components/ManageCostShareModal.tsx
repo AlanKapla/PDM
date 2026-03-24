@@ -1,4 +1,4 @@
-﻿import {
+import {
   Modal,
   ModalOverlay,
   ModalContent,
@@ -30,6 +30,7 @@ interface ManageCostShareModalProps {
   costName: string;
   sharedWithUserIds: string[];
   currentUserId: string;
+  ownerUserId?: string;
   onShareUpdated: () => void;
 }
 
@@ -42,6 +43,7 @@ export const ManageCostShareModal = ({
   costName,
   sharedWithUserIds,
   currentUserId,
+  ownerUserId,
   onShareUpdated,
 }: ManageCostShareModalProps) => {
   const toast = useToast();
@@ -62,11 +64,11 @@ export const ManageCostShareModal = ({
       setLoadingMembers(true);
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data = response.data;
-      // Wyklucz aktualnego użytkownika z listy
-      const filteredMembers = data.filter((member: ProjectMemberWeb) => member.userId !== currentUserId);
+      // Wyklucz aktualnego użytkownika i właściciela kosztu z listy
+      const excludeIds = new Set([currentUserId, ownerUserId].filter(Boolean));
+      const filteredMembers = data.filter((member: ProjectMemberWeb) => !excludeIds.has(member.userId));
       setMembers(filteredMembers);
     } catch (error) {
-      console.error("Błąd podczas pobierania członków:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy członków projektu",
@@ -105,7 +107,6 @@ export const ManageCostShareModal = ({
       onShareUpdated();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas aktualizacji udostępnienia:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -123,7 +124,7 @@ export const ManageCostShareModal = ({
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader>Zarządzaj udostępnieniem kosztu</ModalHeader>
+        <ModalHeader>Udostępnij koszt</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <VStack align="stretch" spacing={4}>

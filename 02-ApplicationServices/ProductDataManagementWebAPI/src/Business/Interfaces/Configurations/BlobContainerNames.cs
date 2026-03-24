@@ -6,6 +6,7 @@
     public enum BlobContainerNames
     {
         Documentation,
-        ProjectCosts
+        ProjectCosts,
+        CostEstimates
     }
 }

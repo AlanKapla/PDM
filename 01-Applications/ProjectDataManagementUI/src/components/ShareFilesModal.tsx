@@ -17,10 +17,9 @@ import {
   useToast,
   Divider,
   Checkbox,
-  Spinner,
 } from "@chakra-ui/react";
 import { Share2, User, Package } from "lucide-react";
-import { projectApi, ResourceScope } from "../api/projectApi";
+import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectFilePackageWeb } from "../types/project.types";
@@ -43,58 +42,41 @@ export default function ShareFilesModal({
   myPackages,
 }: ShareFilesModalProps) {
   const [packages, setPackages] = useState<ProjectFilePackageWeb[]>([]);
-  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [selectedPackageIds, setSelectedPackageIds] = useState<Set<string>>(new Set());
   const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [loadingPackages, setLoadingPackages] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const toast = useToast();
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
     if (isOpen) {
-      if (myPackages) {
-        setPackages(myPackages);
-      } else {
-        fetchMyPackages();
-      }
+      setPackages(myPackages || []);
       fetchProjectMembers();
       setSelectedUserIds(new Set());
-      setSelectedFileIds(new Set());
+      setSelectedPackageIds(new Set());
     }
-  }, [isOpen, tenantId, projectId, myPackages]);
+  }, [isOpen, tenantId, projectId]);
 
-  const fetchMyPackages = async () => {
-    try {
-      setLoadingPackages(true);
-      const response = await projectApi.getProjectFilePackages(tenantId, projectId, ResourceScope.Mine);
-      const data: ProjectFilePackageWeb[] = response.data;
-      setPackages(data);
-    } catch (error) {
-      console.error("Błąd podczas pobierania plików:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać listy plików",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setLoadingPackages(false);
+  // Synchronizuj paczki z propsem — gdy rodzic zmieni źródło danych (np. zmiana zakładki)
+  useEffect(() => {
+    if (isOpen) {
+      setPackages(myPackages || []);
     }
-  };
+  }, [myPackages, isOpen]);
 
   const fetchProjectMembers = async () => {
     try {
       setLoadingMembers(true);
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data = response.data;
-      // Wyklucz aktualnego użytkownika z listy
-      const filteredMembers = data.filter((member: ProjectMemberWeb) => member.email !== user?.email);
+      // Wyklucz aktualnego użytkownika z listy (sprawdź po userId lub email)
+      const filteredMembers = data.filter((member: ProjectMemberWeb) => 
+        member.userId !== user?.id && member.email !== user?.email
+      );
       setMembers(filteredMembers);
     } catch (error) {
-      console.error("Błąd podczas pobierania członków:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się pobrać listy członków projektu",
@@ -107,29 +89,15 @@ export default function ShareFilesModal({
     }
   };
 
-  const toggleFileSelection = (fileId: string) => {
-    setSelectedFileIds((prev) => {
+  // Zaznacz/odznacz paczkę
+  const togglePackageSelection = (packageId: string) => {
+    setSelectedPackageIds(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(fileId)) {
-        newSet.delete(fileId);
+      if (newSet.has(packageId)) {
+        newSet.delete(packageId);
       } else {
-        newSet.add(fileId);
+        newSet.add(packageId);
       }
-      return newSet;
-    });
-  };
-
-  const togglePackageSelection = (pkg: ProjectFilePackageWeb) => {
-    const allSelected = pkg.files.every(f => selectedFileIds.has(f.id));
-    setSelectedFileIds((prev) => {
-      const newSet = new Set(prev);
-      pkg.files.forEach(f => {
-        if (allSelected) {
-          newSet.delete(f.id);
-        } else {
-          newSet.add(f.id);
-        }
-      });
       return newSet;
     });
   };
@@ -147,10 +115,10 @@ export default function ShareFilesModal({
   };
 
   const handleShare = async () => {
-    if (selectedFileIds.size === 0) {
+    if (selectedPackageIds.size === 0) {
       toast({
         title: "Błąd",
-        description: "Wybierz przynajmniej jeden plik",
+        description: "Wybierz przynajmniej jedną paczkę",
         status: "warning",
         duration: 3000,
         isClosable: true,
@@ -171,13 +139,15 @@ export default function ShareFilesModal({
 
     try {
       setLoading(true);
-      const fileIds = Array.from(selectedFileIds);
+      
       const userIds = Array.from(selectedUserIds);
-      await projectApi.shareFiles(tenantId, projectId, fileIds, userIds);
+      const packageIds = Array.from(selectedPackageIds);
+      
+      await projectApi.sharePackages(tenantId, projectId, packageIds, userIds);
 
       toast({
         title: "Sukces",
-        description: `Udostępniono ${selectedFileIds.size} plik(ów) dla ${selectedUserIds.size} użytkownik(ów)`,
+        description: `Udostępniono ${packageIds.length} paczek dla ${userIds.length} użytkownik(ów)`,
         status: "success",
         duration: 5000,
         isClosable: true,
@@ -185,7 +155,6 @@ export default function ShareFilesModal({
       onFilesShared();
       onClose();
     } catch (error) {
-      console.error("Błąd podczas udostępniania plików:", error);
       const { title, description } = handleApiError(error);
       toast({
         title,
@@ -217,48 +186,43 @@ export default function ShareFilesModal({
         <ModalCloseButton />
         <ModalBody>
           <VStack spacing={4} align="stretch">
-            {/* Wybór plików */}
+            {/* Wybór paczek */}
             <Box>
               <Text fontWeight="bold" mb={2}>
-                Wybierz pliki do udostępnienia ({selectedFileIds.size}):
+                Wybierz paczki do udostępnienia ({selectedPackageIds.size} wybrano):
               </Text>
-              {loadingPackages ? (
-                <HStack justify="center" py={4}>
-                  <Spinner size="md" />
-                  <Text fontSize="sm">Ładowanie plików...</Text>
-                </HStack>
-              ) : packages.length === 0 ? (
+              {packages.length === 0 ? (
                 <Text fontSize="sm" color="gray.500">
-                  Nie masz jeszcze żadnych plików do udostępnienia
+                  Nie masz jeszcze żadnych paczek do udostępnienia
                 </Text>
               ) : (
                 <VStack spacing={2} align="stretch" maxH="300px" overflowY="auto">
                   {packages.map((pkg) => {
-                    const allSelected = pkg.files.every(f => selectedFileIds.has(f.id));
-                    const someSelected = pkg.files.some(f => selectedFileIds.has(f.id));
+                    const isSelected = selectedPackageIds.has(pkg.id);
                     
                     return (
-                      <Box key={pkg.id} borderWidth="1px" borderRadius="md" p={3}>
-                        <HStack spacing={2} mb={2}>
+                      <Box 
+                        key={pkg.id} 
+                        borderWidth="1px" 
+                        borderRadius="md" 
+                        p={3}
+                        bg={isSelected ? "blue.50" : "transparent"}
+                        cursor="pointer"
+                        onClick={() => togglePackageSelection(pkg.id)}
+                        _hover={{ bg: isSelected ? "blue.100" : "gray.50" }}
+                      >
+                        <HStack spacing={2}>
                           <Checkbox
-                            isChecked={allSelected}
-                            isIndeterminate={someSelected && !allSelected}
-                            onChange={() => togglePackageSelection(pkg)}
+                            isChecked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              togglePackageSelection(pkg.id);
+                            }}
                           />
                           <Package size={16} />
                           <Text fontWeight="bold" fontSize="sm">{pkg.name}</Text>
+                          <Text fontSize="xs" color="gray.500">({pkg.totalFiles} plików)</Text>
                         </HStack>
-                        <VStack align="stretch" spacing={1} ml={6}>
-                          {pkg.files.map((file) => (
-                            <HStack key={file.id} spacing={2}>
-                              <Checkbox
-                                isChecked={selectedFileIds.has(file.id)}
-                                onChange={() => toggleFileSelection(file.id)}
-                              />
-                              <Text fontSize="sm">{file.displayName}</Text>
-                            </HStack>
-                          ))}
-                        </VStack>
                       </Box>
                     );
                   })}
@@ -268,7 +232,7 @@ export default function ShareFilesModal({
 
             <Alert status="info" fontSize="xs">
               <AlertIcon />
-              Udostępniasz pliki bazowe (wszystkie wersje). Członkowie będą mieli dostęp do wszystkich wersji wybranych plików.
+              Udostępniasz całe paczki plików. Członkowie będą mieli dostęp do wszystkich plików i wersji w wybranych paczkach.
             </Alert>
 
             <Divider />
@@ -300,7 +264,10 @@ export default function ShareFilesModal({
                     >
                       <Checkbox
                         isChecked={selectedUserIds.has(member.userId)}
-                        onChange={() => toggleUserSelection(member.userId)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleUserSelection(member.userId);
+                        }}
                       />
                       <User size={16} />
                       <VStack align="start" spacing={0} flex="1">
@@ -319,7 +286,7 @@ export default function ShareFilesModal({
 
             <Alert status="info" fontSize="sm">
               <AlertIcon />
-              Wybrani członkowie otrzymają dostęp do wybranych plików i będą mogli je przeglądać oraz pobierać.
+              Wybrani członkowie otrzymają dostęp do wybranych paczek i będą mogli je przeglądać oraz pobierać.
             </Alert>
           </VStack>
         </ModalBody>
@@ -337,12 +304,12 @@ export default function ShareFilesModal({
             onClick={handleShare}
             isLoading={loading}
             loadingText="Udostępnianie..."
-            isDisabled={selectedFileIds.size === 0 || selectedUserIds.size === 0 || loadingMembers || loadingPackages}
+            isDisabled={selectedPackageIds.size === 0 || selectedUserIds.size === 0 || loadingMembers}
             leftIcon={<Share2 size={18} />}
             width={{ base: "100%", md: "auto" }}
             order={{ base: 1, md: 2 }}
           >
-            Udostępnij ({selectedFileIds.size} dla {selectedUserIds.size})
+            Udostępnij ({selectedPackageIds.size} paczek dla {selectedUserIds.size})
           </Button>
         </ModalFooter>
       </ModalContent>

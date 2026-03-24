@@ -1,136 +1,161 @@
 ﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
 using Entities.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.GetFileVersions;
 
 public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery, List<ProjectFileVersionWeb>>
 {
-    private readonly IRepository<ProjectFile> fileRepo;
-    private readonly IRepository<ProjectFileVersion> versionRepo;
-    private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
+    private readonly IProjectFilesService projectFilesService;
+    private readonly IReadRepository<User> userRepository;
     private readonly ICurrentUser currentUser;
     private readonly IBlobStorageService blobStorageService;
 
     public GetFileVersionsQueryHandler(
-        IRepository<ProjectFile> fileRepo,
-        IRepository<ProjectFileVersion> versionRepo,
-        IRepository<SharedProjectFile> sharedProjectFileRepo,
+        IProjectFilesService projectFilesService,
+        IReadRepository<User> userRepository,
         ICurrentUser currentUser,
         IBlobStorageService blobStorageService)
     {
-        this.fileRepo = fileRepo;
-        this.versionRepo = versionRepo;
-        this.sharedProjectFileRepo = sharedProjectFileRepo;
+        this.projectFilesService = projectFilesService;
+        this.userRepository = userRepository;
         this.currentUser = currentUser;
         this.blobStorageService = blobStorageService;
     }
 
     public async Task<List<ProjectFileVersionWeb>> Handle(GetFileVersionsQuery request, CancellationToken cancellationToken)
     {
-        // Get file
-        var files = await fileRepo.GetBySearch(
-            pf => pf.Id == request.FileId &&
-                  pf.TenantId == request.TenantId &&
-                  pf.ProjectId == request.ProjectId &&
-                  !pf.IsDeleted
-        );
+        // Get file from cache
+        Dictionary<Guid, List<ProjectFileCacheDto>> allFilesByPackage = await projectFilesService.GetProjectPackageFilesAsync(
+            request.TenantId,
+            request.ProjectId,
+            cancellationToken);
 
-        var file = files.FirstOrDefault();
-        if (file == null)
+        // Find file in all packages
+        ProjectFileCacheDto? fileDto = allFilesByPackage.Values
+            .SelectMany(files => files)
+            .FirstOrDefault(f => f.Id == request.FileId);
+
+        if (fileDto == null)
         {
             throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
         }
 
-        // Check access
-        if (!await HasAccessToFileAsync(file, request.Scope, request.TenantId, request.ProjectId))
+        // Check access based on scope
+        bool hasAccess = await HasAccessToFileAsync(
+            fileDto,
+            request.Scope,
+            request.TenantId,
+            request.ProjectId,
+            cancellationToken);
+
+        if (!hasAccess)
         {
             return new List<ProjectFileVersionWeb>();
         }
 
-        // Get versions with creator
-        var versions = await versionRepo.GetBySearch(
-            v => v.ProjectFileId == request.FileId && !v.IsDeleted,
-            include => include.Include(v => v.CreatedByUser)
-        );
+        // Get versions from cache
+        Dictionary<Guid, List<ProjectFileVersionDto>> allVersionsByFile = await projectFilesService.GetProjectFilesVersionsAsync(
+            request.TenantId,
+            request.ProjectId,
+            cancellationToken);
+
+        if (!allVersionsByFile.TryGetValue(request.FileId, out List<ProjectFileVersionDto>? versionDtos))
+        {
+            return new List<ProjectFileVersionWeb>();
+        }
+
+        // Get unique CreatedByUserId and fetch users as dictionary
+        HashSet<Guid> createdByUserIds = versionDtos.Select(v => v.CreatedByUserId).ToHashSet();
+
+        Dictionary<Guid, User> userDict = await userRepository.GetDictionaryBySearchAsync(
+            u => createdByUserIds.Contains(u.Id),
+            cancellationToken);
 
         string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
-        string extension = Path.GetExtension(file.FileName);
+        string extension = Path.GetExtension(fileDto.FileName);
 
-        return versions
+        return versionDtos
             .OrderByDescending(v => v.VersionNumber)
-            .Select(v => MapToVersionWeb(v, file, extension, containerName))
+            .Select(v => MapToVersionWeb(v, fileDto, extension, containerName, userDict))
             .ToList();
     }
 
     private async Task<bool> HasAccessToFileAsync(
-        ProjectFile file,
+        ProjectFileCacheDto fileDto,
         ResourceScope scope,
         Guid tenantId,
-        Guid projectId)
+        Guid projectId,
+        CancellationToken cancellationToken)
     {
-        return scope switch
+        if (scope == ResourceScope.Mine)
         {
-            ResourceScope.Mine => file.OwnerId == currentUser.Id,
-            ResourceScope.Shared => await IsFileSharedWithUserAsync(file.Id, tenantId, projectId),
-            ResourceScope.All => true,
-            _ => false
-        };
-    }
+            return fileDto.OwnerId == currentUser.Id;
+        }
 
-    private async Task<bool> IsFileSharedWithUserAsync(Guid fileId, Guid tenantId, Guid projectId)
-    {
-        var sharedFiles = await sharedProjectFileRepo.GetBySearch(
-            spf => spf.TenantId == tenantId &&
-                   spf.ProjectId == projectId &&
-                   spf.ProjectFileId == fileId &&
-                   spf.SharedWithUserId == currentUser.Id
-        );
-        return sharedFiles.Any();
+        if (scope == ResourceScope.All)
+        {
+            return true;
+        }
+
+        // ResourceScope.Shared - use ProjectFilesService
+        return await projectFilesService.HasAccessToFileAsync(
+            currentUser,
+            tenantId,
+            projectId,
+            fileDto.ProjectFilePackageId,
+            fileDto.Id,
+            ResourceScope.Shared,
+            cancellationToken);
     }
 
     private ProjectFileVersionWeb MapToVersionWeb(
-        ProjectFileVersion version,
-        ProjectFile file,
+        ProjectFileVersionDto versionDto,
+        ProjectFileCacheDto fileDto,
         string extension,
-        string containerName)
+        string containerName,
+        Dictionary<Guid, User> userDict)
     {
-        bool isCurrentVersion = file.CurrentVersionId.HasValue && version.Id == file.CurrentVersionId.Value;
-        string fileNameWithVersion = isCurrentVersion
-            ? $"{file.DisplayName}{extension}"
-            : $"{file.DisplayName}_v{version.VersionNumber}{extension}";
+        bool isCurrentVersion = fileDto.CurrentVersionId.HasValue && versionDto.Id == fileDto.CurrentVersionId.Value;
+        string displayNameWithExtension = $"{fileDto.DisplayName}{extension}";
 
         Uri sasUriView = blobStorageService.GenerateSasUri(
             containerName,
-            version.BlobPath,
-            fileNameWithVersion,
+            versionDto.BlobPath,
+            displayNameWithExtension,
             expiresInMinutes: 60,
             contentDisposition: "inline");
 
         Uri sasUriDownload = blobStorageService.GenerateSasUri(
             containerName,
-            version.BlobPath,
-            fileNameWithVersion,
+            versionDto.BlobPath,
+            displayNameWithExtension,
             expiresInMinutes: 60,
             contentDisposition: "attachment");
 
+        string createdByUserName = string.Empty;
+        if (userDict.TryGetValue(versionDto.CreatedByUserId, out User? user))
+        {
+            createdByUserName = $"{user.FirstName} {user.LastName}".Trim();
+        }
+
         return new ProjectFileVersionWeb
         {
-            Id = version.Id,
-            ProjectFileId = version.ProjectFileId,
-            VersionNumber = version.VersionNumber,
-            ContentType = version.ContentType,
-            FileSizeBytes = version.FileSizeBytes,
-            CreatedAt = version.CreatedAt,
-            CreatedByUserId = version.CreatedByUserId,
-            CreatedByUserName = $"{version.CreatedByUser.FirstName} {version.CreatedByUser.LastName}".Trim(),
+            Id = versionDto.Id,
+            ProjectFileId = versionDto.ProjectFileId,
+            VersionNumber = versionDto.VersionNumber,
+            ContentType = versionDto.ContentType,
+            FileSizeBytes = versionDto.FileSizeBytes,
+            CreatedAt = versionDto.CreatedAt,
+            CreatedByUserId = versionDto.CreatedByUserId,
+            CreatedByUserName = createdByUserName,
             SasUrlView = sasUriView.ToString(),
             SasUrlDownload = sasUriDownload.ToString(),
             Comments = new List<ProjectFileVersionCommentWeb>()

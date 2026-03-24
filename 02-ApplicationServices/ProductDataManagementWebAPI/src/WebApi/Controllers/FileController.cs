@@ -6,7 +6,7 @@ using CQRS.Files.GetPackageFiles;
 using CQRS.Files.GetProjectFilePackages;
 using CQRS.Files.GetFileVersions;
 using CQRS.Files.GetVersionComments;
-using CQRS.Files.ShareProjectFiles;
+using CQRS.Files.SharePackages;
 using CQRS.Files.UpdateFileShare;
 using CQRS.Files.UploadProjectFiles;
 using CQRS.Files.UploadProjectFileVersion;
@@ -162,14 +162,15 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Share files with another project member
+        /// Share package(s) with project members
+        /// Always shares entire package with optional file exclusions (Deny)
         /// </summary>
-        [HttpPost("share")]
+        [HttpPost("packages/share")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
-        public async Task<IActionResult> ShareFiles(
+        public async Task<IActionResult> SharePackages(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
-            [FromBody] ShareProjectFilesCommand command)
+            [FromBody] SharePackagesCommand command)
         {
             command = command with { TenantId = tenantId, ProjectId = projectId };
 
