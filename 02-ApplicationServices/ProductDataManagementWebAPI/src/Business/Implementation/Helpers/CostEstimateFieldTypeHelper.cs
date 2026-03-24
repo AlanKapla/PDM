@@ -198,6 +198,17 @@ namespace Business.Implementation.Helpers
                         IsBoolean: false,
                         IsCollection: false,
                         IsFile: true
+                    ),
+                    new CostEstimateFieldTypeConfigWeb(
+                        FieldType: (int)FieldType.ItemSystemCategory,
+                        FieldScope: (int)FieldScope.ItemSystem,
+                        NamePl: "Kategoria",
+                        ValueTypeName: "string",
+                        IsNumeric: false,
+                        IsText: true,
+                        IsDate: false,
+                        IsBoolean: false,
+                        IsCollection: false
                     )
                 },
 

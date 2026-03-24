@@ -43,6 +43,7 @@ export interface CostEstimateTemplateStructureWeb {
   maxGroupLevel?: number | null;
   currencies: TemplateCurrencyWeb[];
   units: TemplateUnitWeb[];
+  categories: TemplateCategoryWeb[];
   groupHeaderFields: GroupHeaderFieldWeb[];
   systemFields: SystemFieldWeb[];
   calculatedFields: CalculatedFieldWeb[];
@@ -216,6 +217,13 @@ export interface TemplateUnitWeb {
   symbol: string;
   category?: string;
   isDefault: boolean;
+  order: number;
+}
+
+export interface TemplateCategoryWeb {
+  id: string;
+  name: string;
+  symbol: string | null;
   order: number;
 }
 
@@ -400,6 +408,7 @@ export enum FieldType {
   ItemSystemUnit = 102,
   ItemSystemOptions = 103,
   ItemSystemSelected = 104,
+  ItemSystemCategory = 106,
 
   // ITEM CALCULATED FIELDS (200-299)
   ItemCalculatedUnitPriceNet = 200,

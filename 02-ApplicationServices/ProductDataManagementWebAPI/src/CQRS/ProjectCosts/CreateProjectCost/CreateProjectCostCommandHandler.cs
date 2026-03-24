@@ -52,6 +52,7 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 NetAmount = netAmount,
                 VatRate = vatRate,
                 GrossAmount = grossAmount,
+                IsClosed = request.IsClosed,
                 HasDocument = request.Document != null,
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false

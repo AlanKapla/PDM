@@ -35,6 +35,7 @@ namespace Business.Interfaces.Services
             bool updateStructure,
             List<CurrencyDto>? currencies,
             List<UnitDto>? units,
+            List<CategoryDto>? categories,
             List<FieldDefinitionDto>? groupHeaderFields,
             List<FieldDefinitionDto>? systemFields,
             List<FieldDefinitionDto>? calculatedFields,

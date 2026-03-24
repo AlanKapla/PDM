@@ -5,8 +5,10 @@
     /// New fieldName GUIDs are generated server-side.
     /// </summary>
     public record CreateCostEstimateTemplateFromDefaultCommand(
-        string Slug,
         string Name,
         string? Description
-    ) : IRequestCommand<Guid>;
+    ) : IRequestCommand<Guid>
+    {
+        public string? Slug { get; init; }
+    }
 }

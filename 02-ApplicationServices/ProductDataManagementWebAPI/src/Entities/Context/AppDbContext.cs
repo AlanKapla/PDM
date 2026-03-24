@@ -35,6 +35,7 @@ namespace Entities.Context
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
         public DbSet<CostEstimateTemplateCurrency> CostEstimateTemplateCurrencies => Set<CostEstimateTemplateCurrency>();
         public DbSet<CostEstimateTemplateUnit> CostEstimateTemplateUnits => Set<CostEstimateTemplateUnit>();
+        public DbSet<CostEstimateTemplateCategory> CostEstimateTemplateCategories => Set<CostEstimateTemplateCategory>();
         public DbSet<CostEstimateTemplateGroupFieldDefinition> CostEstimateTemplateGroupFieldDefinitions => Set<CostEstimateTemplateGroupFieldDefinition>();
         public DbSet<CostEstimateTemplateItemSystemFieldDefinition> CostEstimateTemplateItemSystemFieldDefinitions => Set<CostEstimateTemplateItemSystemFieldDefinition>();
         public DbSet<CostEstimateTemplateItemCalculatedFieldDefinition> CostEstimateTemplateItemCalculatedFieldDefinitions => Set<CostEstimateTemplateItemCalculatedFieldDefinition>();

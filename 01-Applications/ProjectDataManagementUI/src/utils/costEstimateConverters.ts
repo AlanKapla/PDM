@@ -26,6 +26,7 @@ export interface CostEstimateTemplateStructureWeb {
   groupNumberFormat: string | null;
   currencies: CurrencyWeb[];
   units: UnitWeb[];
+  categories: CategoryWeb[];
   groupHeaderFields: FieldDefinitionWeb[];
   systemFields: FieldDefinitionWeb[];
   calculatedFields: FieldDefinitionWeb[];
@@ -50,6 +51,13 @@ export interface UnitWeb {
   symbol: string;
   category: string | null;
   isDefault: boolean;
+  order: number;
+}
+
+export interface CategoryWeb {
+  id: string;
+  name: string;
+  symbol: string | null;
   order: number;
 }
 

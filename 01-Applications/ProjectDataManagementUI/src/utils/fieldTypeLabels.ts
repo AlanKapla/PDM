@@ -33,6 +33,7 @@ export const fieldTypeLabels: Record<FieldType, string> = {
   [FieldType.ItemSystemUnit]: 'Jednostka miary',
   [FieldType.ItemSystemOptions]: 'Opcje',
   [FieldType.ItemSystemSelected]: 'Zaznaczenie',
+  [FieldType.ItemSystemCategory]: 'Kategoria',
 
   // ITEM CALCULATED FIELDS (200-299)
   [FieldType.ItemCalculatedUnitPriceNet]: 'Cena jednostkowa netto',

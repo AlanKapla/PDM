@@ -7,6 +7,7 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         int? MaxGroupLevel,
         List<CurrencyWeb> Currencies,
         List<UnitWeb> Units,
+        List<CategoryWeb> Categories,
         List<FieldDefinitionWeb> GroupHeaderFields,
         List<FieldDefinitionWeb> SystemFields,
         List<FieldDefinitionWeb> CalculatedFields,
@@ -30,6 +31,13 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         string Symbol,
         string? Category,
         bool IsDefault,
+        int Order
+    );
+
+    public record CategoryWeb(
+        Guid Id,
+        string Name,
+        string? Symbol,
         int Order
     );
     

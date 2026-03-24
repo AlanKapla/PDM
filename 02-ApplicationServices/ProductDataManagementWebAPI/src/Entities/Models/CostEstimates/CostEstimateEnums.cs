@@ -141,6 +141,12 @@
         /// </summary>
         ItemSystemFiles = 105,
 
+        /// <summary>
+        /// Kategoria pozycji (string) - wybrana z listy kategorii szablonu lub wpisana ręcznie
+        /// Scope: ItemSystem
+        /// </summary>
+        ItemSystemCategory = 106,
+
         // ============================================================================
         // ITEM CALCULATED FIELDS (Prefix: ItemCalculated)
         // Range: 200-299

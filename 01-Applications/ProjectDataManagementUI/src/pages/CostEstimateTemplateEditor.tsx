@@ -197,6 +197,12 @@ export default function CostEstimateTemplateEditor() {
     order: number;
   }>>([]);
 
+  const [categories, setCategories] = useState<Array<{
+    name: string;
+    symbol: string | null;
+    order: number;
+  }>>([]);
+
   const { isOpen: isConfirmSaveOpen, onOpen: onConfirmSaveOpen, onClose: onConfirmSaveClose } = useDisclosure();
   const { isOpen: isUnsavedOpen, onOpen: onUnsavedOpen, onClose: onUnsavedClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -612,6 +618,11 @@ export default function CostEstimateTemplateEditor() {
           isDefault: u.isDefault,
           order: u.order,
         })));
+        setCategories((struct.categories ?? []).map(c => ({
+          name: c.name,
+          symbol: c.symbol,
+          order: c.order,
+        })));
       }
     } catch (error: any) {
       toast({
@@ -856,6 +867,12 @@ export default function CostEstimateTemplateEditor() {
         symbol: u.symbol,
         category: u.category,
         isDefault: u.isDefault,
+        order: idx,
+      })),
+      categories: categories.map((c, idx) => ({
+        id: `cat-${idx}`,
+        name: c.name,
+        symbol: c.symbol,
         order: idx,
       })),
       groupHeaderFields: headerFields.map((f, idx) => ({
@@ -1318,6 +1335,7 @@ export default function CostEstimateTemplateEditor() {
           updateStructure: true, // Aktualizujemy strukturę
           currencies: finalCurrencies,
           units: units,
+          categories: categories.map((c, idx) => ({ name: c.name, symbol: c.symbol, order: idx })),
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),
             fieldType: f.fieldTypeConfig?.fieldType ?? f.type,
@@ -1396,6 +1414,7 @@ export default function CostEstimateTemplateEditor() {
           updateStructure: true,
           currencies: finalCurrencies,
           units: units,
+          categories: categories.map((c, idx) => ({ name: c.name, symbol: c.symbol, order: idx })),
           groupHeaderFields: headerFields.map(f => ({
             fieldName: f.name || generateFieldGuid(),
             fieldType: f.fieldTypeConfig?.fieldType ?? f.type,
@@ -1749,7 +1768,7 @@ export default function CostEstimateTemplateEditor() {
                 <Tab>
                   <HStack spacing={2}>
                     <Calculator size={18} />
-                    <Text>Waluty i jednostki</Text>
+                    <Text>Waluty, jednostki i kategorie</Text>
                   </HStack>
                 </Tab>
                 <Tab>
@@ -2105,6 +2124,84 @@ export default function CostEstimateTemplateEditor() {
                                   variant="ghost"
                                   onClick={() => {
                                     setUnits(units.filter((_, i) => i !== index));
+                                  }}
+                                />
+                              </HStack>
+                            </Box>
+                          ))}
+                        </VStack>
+                      )}
+                    </Box>
+
+                    {/* Kategorie */}
+                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
+                      <HStack spacing={2} mb={4} justify="space-between">
+                        <HStack spacing={2}>
+                          <Text fontSize="lg" fontWeight="bold">🏷️ Kategorie</Text>
+                          <Badge colorScheme="purple">{categories.length}</Badge>
+                        </HStack>
+                        <Button
+                          size="sm"
+                          leftIcon={<Plus size={16} />}
+                          onClick={() => {
+                            setCategories([...categories, {
+                              name: '',
+                              symbol: null,
+                              order: categories.length,
+                            }]);
+                          }}
+                        >
+                          Dodaj kategorię
+                        </Button>
+                      </HStack>
+
+                      {categories.length === 0 ? (
+                        <Box p={4} bg="gray.50" borderRadius="md" textAlign="center">
+                          <Text color="gray.600">Brak kategorii. Dodaj kategorię używając przycisku powyżej.</Text>
+                        </Box>
+                      ) : (
+                        <VStack spacing={3} align="stretch">
+                          {categories.map((cat, index) => (
+                            <Box key={index} p={4} bg="gray.50" borderRadius="md" borderWidth="1px">
+                              <HStack spacing={3} align="start">
+                                <HStack flex={1} spacing={3}>
+                                  <FormControl flex={2}>
+                                    <FormLabel fontSize="sm">Nazwa *</FormLabel>
+                                    <Input
+                                      size="sm"
+                                      value={cat.name}
+                                      onChange={(e) => {
+                                        const updated = [...categories];
+                                        updated[index] = { ...updated[index], name: e.target.value };
+                                        setCategories(updated);
+                                      }}
+                                      placeholder="Robocizna"
+                                    />
+                                  </FormControl>
+                                  <FormControl flex={1}>
+                                    <FormLabel fontSize="sm">Symbol</FormLabel>
+                                    <Input
+                                      size="sm"
+                                      value={cat.symbol ?? ''}
+                                      onChange={(e) => {
+                                        const updated = [...categories];
+                                        updated[index] = { ...updated[index], symbol: e.target.value || null };
+                                        setCategories(updated);
+                                      }}
+                                      placeholder="R"
+                                      maxLength={10}
+                                    />
+                                  </FormControl>
+                                </HStack>
+                                <IconButton
+                                  aria-label="Usuń kategorię"
+                                  icon={<Trash2 size={16} />}
+                                  size="sm"
+                                  colorScheme="red"
+                                  variant="ghost"
+                                  mt={6}
+                                  onClick={() => {
+                                    setCategories(categories.filter((_, i) => i !== index));
                                   }}
                                 />
                               </HStack>

@@ -18,6 +18,7 @@ namespace CQRS.ProjectCosts.CreateProjectCost
         public decimal? NetAmount { get; init; }
         public decimal? VatRate { get; init; }
         public decimal? GrossAmount { get; init; }
+        public bool IsClosed { get; init; }
         public IFormFile? Document { get; init; }
 
         public string PermissionCode => PermissionCodes.ProjectResourcesWrite;

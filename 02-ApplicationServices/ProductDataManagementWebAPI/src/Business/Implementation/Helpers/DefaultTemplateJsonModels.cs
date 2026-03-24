@@ -16,6 +16,7 @@ namespace Business.Implementation.Helpers
         public int? MaxGroupLevel { get; init; }
         public List<CurrencyDto> Currencies { get; init; } = [];
         public List<UnitDto> Units { get; init; } = [];
+        public List<CategoryDto> Categories { get; init; } = [];
         public List<FieldDefinitionDto> GroupHeaderFields { get; init; } = [];
         public List<FieldDefinitionDto> SystemFields { get; init; } = [];
         public List<FieldDefinitionDto> CalculatedFields { get; init; } = [];

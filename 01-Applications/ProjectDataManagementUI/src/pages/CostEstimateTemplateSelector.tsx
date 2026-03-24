@@ -155,11 +155,13 @@ export default function CostEstimateTemplateSelector() {
 
     setIsCreating(true);
     try {
-      const newTemplateId = await costEstimateTemplateApi.createFromDefault({
-        slug: selectedTemplate.slug,
-        name: newTemplateName.trim(),
-        description: newTemplateDescription.trim() || undefined,
-      });
+      const newTemplateId = await costEstimateTemplateApi.createFromDefault(
+        selectedTemplate.slug,
+        {
+          name: newTemplateName.trim(),
+          description: newTemplateDescription.trim() || undefined,
+        }
+      );
 
       showSuccess('Szablon został utworzony', 'Możesz teraz edytować strukturę szablonu');
       onCreateClose();
@@ -421,7 +423,7 @@ export default function CostEstimateTemplateSelector() {
                       <Tab>
                         <HStack spacing={2}>
                           <Calculator size={16} />
-                          <Text>Waluty i jednostki</Text>
+                          <Text>Waluty, jednostki i kategorie</Text>
                         </HStack>
                       </Tab>
                       <Tab>
@@ -660,6 +662,36 @@ export default function CostEstimateTemplateSelector() {
                               </Table>
                             ) : (
                               <Text color="gray.500" fontSize="sm">Brak zdefiniowanych jednostek</Text>
+                            )}
+                          </Box>
+
+                          {/* Kategorie */}
+                          <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderWidth="1px">
+                            <HStack spacing={2} mb={4}>
+                              <Text fontSize="lg">🏷️</Text>
+                              <Text fontSize="md" fontWeight="bold">Kategorie</Text>
+                              <Badge colorScheme="purple">{templateStructure.categories?.length || 0}</Badge>
+                            </HStack>
+
+                            {templateStructure.categories && templateStructure.categories.length > 0 ? (
+                              <Table size="sm" variant="simple">
+                                <Thead>
+                                  <Tr>
+                                    <Th>Nazwa</Th>
+                                    <Th>Symbol</Th>
+                                  </Tr>
+                                </Thead>
+                                <Tbody>
+                                  {templateStructure.categories.sort((a, b) => a.order - b.order).map((cat) => (
+                                    <Tr key={cat.id}>
+                                      <Td fontWeight="medium">{cat.name}</Td>
+                                      <Td>{cat.symbol || '-'}</Td>
+                                    </Tr>
+                                  ))}
+                                </Tbody>
+                              </Table>
+                            ) : (
+                              <Text color="gray.500" fontSize="sm">Brak zdefiniowanych kategorii</Text>
                             )}
                           </Box>
                         </VStack>
@@ -914,7 +946,7 @@ function generateSampleCostEstimate(
   const now = new Date().toISOString();
   const sampleGroups: CostEstimateGroupWeb[] = [];
 
-  const { groupHeaderFields, systemFields, calculatedFields, genericFields, currencies, units } = structure;
+  const { groupHeaderFields, systemFields, calculatedFields, genericFields, currencies, units, categories } = structure;
 
   // Generuj 2 przykładowe grupy
   for (let i = 0; i < 2; i++) {
@@ -941,6 +973,8 @@ function generateSampleCostEstimate(
           decimalValue = 10 + j * 5;
         } else if (fieldType === FieldType.ItemSystemUnit) {
           stringValue = units?.[0]?.code || 'szt';
+        } else if (fieldType === FieldType.ItemSystemCategory) {
+          stringValue = structure.categories?.[0]?.name || undefined;
         } else if (fieldType === FieldType.ItemSystemSelected) {
           boolValue = true;
         }
@@ -1137,6 +1171,12 @@ function generateSampleCostEstimate(
       symbol: u.symbol,
       category: u.category,
       isDefault: u.isDefault,
+      order: idx,
+    })) || [],
+    categories: categories?.map((c, idx) => ({
+      id: c.id || `cat-${idx}`,
+      name: c.name,
+      symbol: c.symbol,
       order: idx,
     })) || [],
     groupHeaderFields: groupHeaderFields || [],
