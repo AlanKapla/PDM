@@ -66,7 +66,7 @@ function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitation
       if (success) {
         toast({
           title: "Zaproszenie zaakceptowane",
-          description: `Dołączyłeś do organizacji „${inv.tenantName}"`,
+          description: `Dołączyłeś do organizacji "${inv.tenantName}"`,
           status: "success",
           duration: 4000,
           isClosable: true,
@@ -225,7 +225,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
         await changeActiveTenant(tenant.id);
         toast({
           title: "Organizacja utworzona",
-          description: `Organizacja „${trimmed}" została pomyślnie utworzona.`,
+          description: `Organizacja „${trimmed}” została pomyślnie utworzona.`,
           status: "success",
           duration: 4000,
           isClosable: true,
