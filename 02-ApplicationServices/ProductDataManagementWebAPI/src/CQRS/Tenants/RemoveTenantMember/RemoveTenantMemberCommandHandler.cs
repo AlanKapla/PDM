@@ -15,6 +15,7 @@ namespace CQRS.Tenants.RemoveTenantMember
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
+        private readonly IRepository<TenantPreferencesProfile> tenantPreferencesRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
@@ -23,6 +24,7 @@ namespace CQRS.Tenants.RemoveTenantMember
             IReadRepository<Tenant> tenantRepo,
             IReadRepository<User> userRepo,
             IRepository<TenantMember> tenantMemberRepo,
+            IRepository<TenantPreferencesProfile> tenantPreferencesRepo,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
@@ -30,6 +32,7 @@ namespace CQRS.Tenants.RemoveTenantMember
             this.tenantRepo = tenantRepo;
             this.userRepo = userRepo;
             this.tenantMemberRepo = tenantMemberRepo;
+            this.tenantPreferencesRepo = tenantPreferencesRepo;
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
@@ -48,6 +51,15 @@ namespace CQRS.Tenants.RemoveTenantMember
 
             tenantMember.IsActive = false;
             await tenantMemberRepo.Update(tenantMember);
+
+            TenantPreferencesProfile? tenantProfile = await tenantPreferencesRepo.GetFirstBySearch(
+                p => p.UserId == request.UserId && p.ActiveTenantId == request.TenantId);
+
+            if (tenantProfile != null)
+            {
+                tenantProfile.ActiveTenantId = null;
+                await tenantPreferencesRepo.Update(tenantProfile);
+            }
 
             User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
 

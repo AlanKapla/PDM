@@ -51,8 +51,11 @@ internal class Program
 
         app.UseGlobalExceptionHandling();
 
-        app.UseSwagger();
-        app.UseSwaggerUI();
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
 
         app.UseAuthentication();
         app.UseAuthorization();

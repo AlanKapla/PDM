@@ -942,7 +942,7 @@ export default function ProjectDetails() {
                   >
                     <VStack spacing={3}>
                       <Icon as={DollarSign} boxSize={8} color="red.600" />
-                      <Text fontWeight="bold" fontSize="md">Koszty</Text>
+                      <Text fontWeight="bold" fontSize="md">Wydatki</Text>
                     </VStack>
                   </Box>
                 )}
