@@ -52,6 +52,11 @@ import {
   Tr,
   Th,
   Td,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
 } from "@chakra-ui/react";
 import {
   Plus,
@@ -60,6 +65,7 @@ import {
   ChevronDown,
   Settings,
   List,
+  BookOpen,
   Calculator,
   Tag,
   EyeOff,
@@ -1747,36 +1753,46 @@ export default function CostEstimateTemplateEditor() {
 
             <Tabs colorScheme="blue" variant="enclosed">
               <TabList>
-                <Tab>
-                  <HStack spacing={2}>
-                    <Settings size={18} />
-                    <Text>Konfiguracja etapów</Text>
-                  </HStack>
-                </Tab>
-                <Tab>
-                  <HStack spacing={2}>
-                    <Tag size={18} />
-                    <Text>Pola etapów ({headerFields.length})</Text>
-                  </HStack>
-                </Tab>
-                <Tab>
-                  <HStack spacing={2}>
-                    <List size={18} />
-                    <Text>Pola pozycji ({systemFields.length + calculatedFields.length + genericFields.length})</Text>
-                  </HStack>
-                </Tab>
-                <Tab>
-                  <HStack spacing={2}>
-                    <Calculator size={18} />
-                    <Text>Waluty, jednostki i kategorie</Text>
-                  </HStack>
-                </Tab>
-                <Tab>
-                  <HStack spacing={2}>
-                    <Layout size={18} />
-                    <Text>Kolejność pól</Text>
-                  </HStack>
-                </Tab>
+                <Tooltip label="Zasady tworzenia etapów: czy można je dodawać, zagnieżdżać i numerować" placement="bottom" hasArrow>
+                  <Tab>
+                    <HStack spacing={2}>
+                      <Settings size={18} />
+                      <Text>Konfiguracja etapów</Text>
+                    </HStack>
+                  </Tab>
+                </Tooltip>
+                <Tooltip label="Pola nagłówka etapu: nazwa, opis, daty, status, odpowiedzialny i inne" placement="bottom" hasArrow>
+                  <Tab>
+                    <HStack spacing={2}>
+                      <Tag size={18} />
+                      <Text>Pola etapów ({headerFields.length})</Text>
+                    </HStack>
+                  </Tab>
+                </Tooltip>
+                <Tooltip label="Kolumny tabeli kosztorysu: pola systemowe (nazwa, ilość, jednostka), obliczeniowe (ceny, wartości) i własne" placement="bottom" hasArrow>
+                  <Tab>
+                    <HStack spacing={2}>
+                      <List size={18} />
+                      <Text>Pola pozycji ({systemFields.length + calculatedFields.length + genericFields.length})</Text>
+                    </HStack>
+                  </Tab>
+                </Tooltip>
+                <Tooltip label="Dostępne waluty, jednostki miary i kategorie robót do wyboru w kosztorysie" placement="bottom" hasArrow>
+                  <Tab>
+                    <HStack spacing={2}>
+                      <BookOpen size={18} />
+                      <Text>Parametry</Text>
+                    </HStack>
+                  </Tab>
+                </Tooltip>
+                <Tooltip label="Kolejność i widoczność kolumn w widoku tabeli kosztorysu" placement="bottom" hasArrow>
+                  <Tab>
+                    <HStack spacing={2}>
+                      <Layout size={18} />
+                      <Text>Kolejność pól</Text>
+                    </HStack>
+                  </Tab>
+                </Tooltip>
               </TabList>
 
               <TabPanels>
@@ -1850,61 +1866,87 @@ export default function CostEstimateTemplateEditor() {
                 </TabPanel>
 
                 <TabPanel>
-                  <VStack spacing={6} align="stretch">
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <HStack spacing={2} mb={4}>
-                        <FileText size={20} />
-                        <Text fontSize="lg" fontWeight="bold">Pola systemowe</Text>
-                      </HStack>
-                      <SystemFieldsEditor
-                        fields={systemFields}
-                        onAdd={handleAddSystemField}
-                        onRemove={handleRemoveSystemField}
-                        onUpdate={handleUpdateSystemField}
-                        fieldTypeConfigs={fieldTypeConfigs}
-                      />
-                    </Box>
+                  <Accordion allowMultiple defaultIndex={[]}>
+                    {/* Pola systemowe */}
+                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                        <HStack flex={1} spacing={2}>
+                          <FileText size={18} />
+                          <Text fontSize="md" fontWeight="bold">Pola systemowe</Text>
+                          <Badge colorScheme="blue">{systemFields.length}</Badge>
+                        </HStack>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel bg="white" pb={4} px={6}>
+                        <SystemFieldsEditor
+                          fields={systemFields}
+                          onAdd={handleAddSystemField}
+                          onRemove={handleRemoveSystemField}
+                          onUpdate={handleUpdateSystemField}
+                          fieldTypeConfigs={fieldTypeConfigs}
+                        />
+                      </AccordionPanel>
+                    </AccordionItem>
 
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <HStack spacing={2} mb={4}>
-                        <Calculator size={20} />
-                        <Text fontSize="lg" fontWeight="bold">Pola obliczeniowe</Text>
-                      </HStack>
-                      <CalculatedFieldsEditor
-                        fields={calculatedFields}
-                        onAdd={handleAddCalculatedField}
-                        onRemove={handleRemoveCalculatedField}
-                        onUpdate={handleUpdateCalculatedField}
-                        fieldTypeConfigs={fieldTypeConfigs}
-                        units={units}
-                      />
-                    </Box>
+                    {/* Pola obliczeniowe */}
+                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                        <HStack flex={1} spacing={2}>
+                          <Calculator size={18} />
+                          <Text fontSize="md" fontWeight="bold">Pola obliczeniowe</Text>
+                          <Badge colorScheme="green">{calculatedFields.length}</Badge>
+                        </HStack>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel bg="white" pb={4} px={6}>
+                        <CalculatedFieldsEditor
+                          fields={calculatedFields}
+                          onAdd={handleAddCalculatedField}
+                          onRemove={handleRemoveCalculatedField}
+                          onUpdate={handleUpdateCalculatedField}
+                          fieldTypeConfigs={fieldTypeConfigs}
+                          units={units}
+                        />
+                      </AccordionPanel>
+                    </AccordionItem>
 
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <HStack spacing={2} mb={4}>
-                        <Tag size={20} />
-                        <Text fontSize="lg" fontWeight="bold">Pola generyczne</Text>
-                      </HStack>
-                      <GenericFieldsEditor
-                        fields={genericFields}
-                        onAdd={handleAddGenericField}
-                        onRemove={handleRemoveGenericField}
-                        onUpdate={handleUpdateGenericField}
-                        fieldTypeConfigs={fieldTypeConfigs}
-                      />
-                    </Box>
-                  </VStack>
+                    {/* Pola generyczne */}
+                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
+                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                        <HStack flex={1} spacing={2}>
+                          <Tag size={18} />
+                          <Text fontSize="md" fontWeight="bold">Pola generyczne</Text>
+                          <Badge colorScheme="purple">{genericFields.length}</Badge>
+                        </HStack>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel bg="white" pb={4} px={6}>
+                        <GenericFieldsEditor
+                          fields={genericFields}
+                          onAdd={handleAddGenericField}
+                          onRemove={handleRemoveGenericField}
+                          onUpdate={handleUpdateGenericField}
+                          fieldTypeConfigs={fieldTypeConfigs}
+                        />
+                      </AccordionPanel>
+                    </AccordionItem>
+                  </Accordion>
                 </TabPanel>
 
                 <TabPanel>
-                  <VStack spacing={6} align="stretch">
+                  <Accordion allowMultiple defaultIndex={[]}>
                     {/* Waluty */}
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <HStack spacing={2} mb={4} justify="space-between">
-                        <HStack spacing={2}>
-                          <Text fontSize="lg" fontWeight="bold">💰 Waluty</Text>
+                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                        <HStack flex={1} spacing={2}>
+                          <Text fontSize="lg" lineHeight={1}>💰</Text>
+                          <Text fontSize="md" fontWeight="bold">Waluty</Text>
                           <Badge colorScheme="blue">{currencies.length}</Badge>
                         </HStack>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel bg="white" pb={4} px={6}>
+                      <HStack justify="flex-end" mb={4}>
                         <Button
                           size="sm"
                           leftIcon={<Plus size={16} />}
@@ -2004,15 +2046,21 @@ export default function CostEstimateTemplateEditor() {
                           ))}
                         </VStack>
                       )}
-                    </Box>
+                      </AccordionPanel>
+                    </AccordionItem>
 
                     {/* Jednostki */}
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <HStack spacing={2} mb={4} justify="space-between">
-                        <HStack spacing={2}>
-                          <Text fontSize="lg" fontWeight="bold">📏 Jednostki miar</Text>
+                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                        <HStack flex={1} spacing={2}>
+                          <Text fontSize="lg" lineHeight={1}>📏</Text>
+                          <Text fontSize="md" fontWeight="bold">Jednostki miar</Text>
                           <Badge colorScheme="green">{units.length}</Badge>
                         </HStack>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel bg="white" pb={4} px={6}>
+                      <HStack justify="flex-end" mb={4}>
                         <Button
                           size="sm"
                           leftIcon={<Plus size={16} />}
@@ -2131,15 +2179,21 @@ export default function CostEstimateTemplateEditor() {
                           ))}
                         </VStack>
                       )}
-                    </Box>
+                      </AccordionPanel>
+                    </AccordionItem>
 
                     {/* Kategorie */}
-                    <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-                      <HStack spacing={2} mb={4} justify="space-between">
-                        <HStack spacing={2}>
-                          <Text fontSize="lg" fontWeight="bold">🏷️ Kategorie</Text>
+                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                        <HStack flex={1} spacing={2}>
+                          <Text fontSize="lg" lineHeight={1}>🏷️</Text>
+                          <Text fontSize="md" fontWeight="bold">Kategorie</Text>
                           <Badge colorScheme="purple">{categories.length}</Badge>
                         </HStack>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel bg="white" pb={4} px={6}>
+                      <HStack justify="flex-end" mb={4}>
                         <Button
                           size="sm"
                           leftIcon={<Plus size={16} />}
@@ -2209,8 +2263,9 @@ export default function CostEstimateTemplateEditor() {
                           ))}
                         </VStack>
                       )}
-                    </Box>
-                  </VStack>
+                      </AccordionPanel>
+                    </AccordionItem>
+                  </Accordion>
                 </TabPanel>
 
                 <TabPanel>

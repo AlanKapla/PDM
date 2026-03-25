@@ -29,6 +29,11 @@ import {
   Alert,
   AlertIcon,
   Tooltip,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
   Tabs,
   TabList,
   TabPanels,
@@ -56,6 +61,7 @@ import {
   Layout,
   Settings,
   Play,
+  BookOpen,
 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { LoadingSpinner, EmptyState } from "../components/common";
@@ -408,30 +414,38 @@ export default function CostEstimateTemplateSelector() {
                   {/* Zakładki - jak w edytorze szablonu */}
                   <Tabs colorScheme="blue" variant="enclosed">
                     <TabList>
-                      <Tab>
-                        <HStack spacing={2}>
-                          <Tag size={16} />
-                          <Text>Pola etapów ({templateStructure.groupHeaderFields?.length || 0})</Text>
-                        </HStack>
-                      </Tab>
-                      <Tab>
-                        <HStack spacing={2}>
-                          <List size={16} />
-                          <Text>Pola pozycji ({(templateStructure.systemFields?.length || 0) + (templateStructure.calculatedFields?.length || 0) + (templateStructure.genericFields?.length || 0)})</Text>
-                        </HStack>
-                      </Tab>
-                      <Tab>
-                        <HStack spacing={2}>
-                          <Calculator size={16} />
-                          <Text>Waluty, jednostki i kategorie</Text>
-                        </HStack>
-                      </Tab>
-                      <Tab>
-                        <HStack spacing={2}>
-                          <Layout size={16} />
-                          <Text>Kolejność pól</Text>
-                        </HStack>
-                      </Tab>
+                      <Tooltip label="Pola nagłówka etapu: nazwa, opis, daty, status, odpowiedzialny i inne" placement="bottom" hasArrow>
+                        <Tab>
+                          <HStack spacing={2}>
+                            <Tag size={16} />
+                            <Text>Pola etapów ({templateStructure.groupHeaderFields?.length || 0})</Text>
+                          </HStack>
+                        </Tab>
+                      </Tooltip>
+                      <Tooltip label="Kolumny tabeli kosztorysu: pola systemowe (nazwa, ilość, jednostka), obliczeniowe (ceny, wartości) i własne" placement="bottom" hasArrow>
+                        <Tab>
+                          <HStack spacing={2}>
+                            <List size={16} />
+                            <Text>Pola pozycji ({(templateStructure.systemFields?.length || 0) + (templateStructure.calculatedFields?.length || 0) + (templateStructure.genericFields?.length || 0)})</Text>
+                          </HStack>
+                        </Tab>
+                      </Tooltip>
+                      <Tooltip label="Dostępne waluty, jednostki miary i kategorie robót do wyboru w kosztorysie" placement="bottom" hasArrow>
+                        <Tab>
+                          <HStack spacing={2}>
+                            <BookOpen size={16} />
+                            <Text>Parametry</Text>
+                          </HStack>
+                        </Tab>
+                      </Tooltip>
+                      <Tooltip label="Kolejność i widoczność kolumn w widoku tabeli kosztorysu" placement="bottom" hasArrow>
+                        <Tab>
+                          <HStack spacing={2}>
+                            <Layout size={16} />
+                            <Text>Kolejność pól</Text>
+                          </HStack>
+                        </Tab>
+                      </Tooltip>
                     </TabList>
 
                     <TabPanels>
@@ -477,224 +491,248 @@ export default function CostEstimateTemplateSelector() {
 
                       {/* Pola pozycji */}
                       <TabPanel>
-                        <VStack spacing={6} align="stretch">
+                        <Accordion allowMultiple defaultIndex={[]}>
                           {/* Pola systemowe */}
-                          <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderWidth="1px">
-                            <HStack spacing={2} mb={4}>
-                              <FileText size={18} />
-                              <Text fontSize="md" fontWeight="bold">Pola systemowe</Text>
-                              <Badge colorScheme="blue">{templateStructure.systemFields?.length || 0}</Badge>
-                            </HStack>
-                            
-                            {templateStructure.systemFields && templateStructure.systemFields.length > 0 ? (
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Etykieta</Th>
-                                    <Th>Widoczne</Th>
-                                    <Th>Sortowalne</Th>
-                                    <Th>Filtrowalne</Th>
-                                    <Th>Tylko do odczytu</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {templateStructure.systemFields.map((field, idx) => (
-                                    <Tr key={field.id || idx}>
-                                      <Td fontWeight="medium">{field.label}</Td>
-                                      <Td><Checkbox isChecked={field.isVisible} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isSortable} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isFilterable} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isReadonly} isReadOnly size="sm" /></Td>
+                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                            <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                              <HStack flex={1} spacing={2}>
+                                <FileText size={18} />
+                                <Text fontSize="md" fontWeight="bold">Pola systemowe</Text>
+                                <Badge colorScheme="blue">{templateStructure.systemFields?.length || 0}</Badge>
+                              </HStack>
+                              <AccordionIcon />
+                            </AccordionButton>
+                            <AccordionPanel bg="white" pb={4} px={4}>
+                              {templateStructure.systemFields && templateStructure.systemFields.length > 0 ? (
+                                <Table size="sm" variant="simple">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Etykieta</Th>
+                                      <Th>Widoczne</Th>
+                                      <Th>Sortowalne</Th>
+                                      <Th>Filtrowalne</Th>
+                                      <Th>Tylko do odczytu</Th>
                                     </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">Brak pól systemowych</Text>
-                            )}
-                          </Box>
+                                  </Thead>
+                                  <Tbody>
+                                    {templateStructure.systemFields.map((field, idx) => (
+                                      <Tr key={field.id || idx}>
+                                        <Td fontWeight="medium">{field.label}</Td>
+                                        <Td><Checkbox isChecked={field.isVisible} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isSortable} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isFilterable} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isReadonly} isReadOnly size="sm" /></Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">Brak pól systemowych</Text>
+                              )}
+                            </AccordionPanel>
+                          </AccordionItem>
 
                           {/* Pola kalkulowane */}
-                          <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderWidth="1px">
-                            <HStack spacing={2} mb={4}>
-                              <Calculator size={18} />
-                              <Text fontSize="md" fontWeight="bold">Pola kalkulowane</Text>
-                              <Badge colorScheme="green">{templateStructure.calculatedFields?.length || 0}</Badge>
-                            </HStack>
-                            
-                            {templateStructure.calculatedFields && templateStructure.calculatedFields.length > 0 ? (
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Etykieta</Th>
-                                    <Th>Widoczne</Th>
-                                    <Th>Sortowalne</Th>
-                                    <Th>Filtrowalne</Th>
-                                    <Th>Tylko do odczytu</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {templateStructure.calculatedFields.map((field, idx) => (
-                                    <Tr key={field.id || idx}>
-                                      <Td fontWeight="medium">{field.label}</Td>
-                                      <Td><Checkbox isChecked={field.isVisible} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isSortable} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isFilterable} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isReadonly} isReadOnly size="sm" /></Td>
+                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                            <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                              <HStack flex={1} spacing={2}>
+                                <Calculator size={18} />
+                                <Text fontSize="md" fontWeight="bold">Pola kalkulowane</Text>
+                                <Badge colorScheme="green">{templateStructure.calculatedFields?.length || 0}</Badge>
+                              </HStack>
+                              <AccordionIcon />
+                            </AccordionButton>
+                            <AccordionPanel bg="white" pb={4} px={4}>
+                              {templateStructure.calculatedFields && templateStructure.calculatedFields.length > 0 ? (
+                                <Table size="sm" variant="simple">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Etykieta</Th>
+                                      <Th>Widoczne</Th>
+                                      <Th>Sortowalne</Th>
+                                      <Th>Filtrowalne</Th>
+                                      <Th>Tylko do odczytu</Th>
                                     </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">Brak pól kalkulowanych</Text>
-                            )}
-                          </Box>
+                                  </Thead>
+                                  <Tbody>
+                                    {templateStructure.calculatedFields.map((field, idx) => (
+                                      <Tr key={field.id || idx}>
+                                        <Td fontWeight="medium">{field.label}</Td>
+                                        <Td><Checkbox isChecked={field.isVisible} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isSortable} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isFilterable} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isReadonly} isReadOnly size="sm" /></Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">Brak pól kalkulowanych</Text>
+                              )}
+                            </AccordionPanel>
+                          </AccordionItem>
 
                           {/* Pola generyczne */}
-                          <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderWidth="1px">
-                            <HStack spacing={2} mb={4}>
-                              <Tag size={18} />
-                              <Text fontSize="md" fontWeight="bold">Pola generyczne</Text>
-                              <Badge colorScheme="purple">{templateStructure.genericFields?.length || 0}</Badge>
-                            </HStack>
-                            
-                            {templateStructure.genericFields && templateStructure.genericFields.length > 0 ? (
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Etykieta</Th>
-                                    <Th>Widoczne</Th>
-                                    <Th>Sortowalne</Th>
-                                    <Th>Filtrowalne</Th>
-                                    <Th>Tylko do odczytu</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {templateStructure.genericFields.map((field, idx) => (
-                                    <Tr key={field.id || idx}>
-                                      <Td fontWeight="medium">{field.label}</Td>
-                                      <Td><Checkbox isChecked={field.isVisible} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isSortable} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isFilterable} isReadOnly size="sm" /></Td>
-                                      <Td><Checkbox isChecked={field.isReadonly} isReadOnly size="sm" /></Td>
+                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
+                            <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                              <HStack flex={1} spacing={2}>
+                                <Tag size={18} />
+                                <Text fontSize="md" fontWeight="bold">Pola generyczne</Text>
+                                <Badge colorScheme="purple">{templateStructure.genericFields?.length || 0}</Badge>
+                              </HStack>
+                              <AccordionIcon />
+                            </AccordionButton>
+                            <AccordionPanel bg="white" pb={4} px={4}>
+                              {templateStructure.genericFields && templateStructure.genericFields.length > 0 ? (
+                                <Table size="sm" variant="simple">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Etykieta</Th>
+                                      <Th>Widoczne</Th>
+                                      <Th>Sortowalne</Th>
+                                      <Th>Filtrowalne</Th>
+                                      <Th>Tylko do odczytu</Th>
                                     </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">Brak pól generycznych</Text>
-                            )}
-                          </Box>
-                        </VStack>
+                                  </Thead>
+                                  <Tbody>
+                                    {templateStructure.genericFields.map((field, idx) => (
+                                      <Tr key={field.id || idx}>
+                                        <Td fontWeight="medium">{field.label}</Td>
+                                        <Td><Checkbox isChecked={field.isVisible} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isSortable} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isFilterable} isReadOnly size="sm" /></Td>
+                                        <Td><Checkbox isChecked={field.isReadonly} isReadOnly size="sm" /></Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">Brak pól generycznych</Text>
+                              )}
+                            </AccordionPanel>
+                          </AccordionItem>
+                        </Accordion>
                       </TabPanel>
 
                       {/* Waluty i jednostki */}
                       <TabPanel>
-                        <VStack spacing={6} align="stretch">
+                        <Accordion allowMultiple defaultIndex={[]}>
                           {/* Waluty */}
-                          <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderWidth="1px">
-                            <HStack spacing={2} mb={4}>
-                              <Text fontSize="lg">💰</Text>
-                              <Text fontSize="md" fontWeight="bold">Waluty</Text>
-                              <Badge colorScheme="yellow">{templateStructure.currencies?.length || 0}</Badge>
-                            </HStack>
-                            
-                            {templateStructure.currencies && templateStructure.currencies.length > 0 ? (
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Kod</Th>
-                                    <Th>Nazwa</Th>
-                                    <Th>Symbol</Th>
-                                    <Th>Domyślna</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {templateStructure.currencies.sort((a, b) => a.order - b.order).map((currency) => (
-                                    <Tr key={currency.id}>
-                                      <Td fontWeight="medium">{currency.code}</Td>
-                                      <Td>{currency.name}</Td>
-                                      <Td>{currency.symbol || '-'}</Td>
-                                      <Td>
-                                        {currency.isDefault && <Badge colorScheme="green">Domyślna</Badge>}
-                                      </Td>
+                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                            <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                              <HStack flex={1} spacing={2}>
+                                <Text fontSize="lg" lineHeight={1}>💰</Text>
+                                <Text fontSize="md" fontWeight="bold">Waluty</Text>
+                                <Badge colorScheme="yellow">{templateStructure.currencies?.length || 0}</Badge>
+                              </HStack>
+                              <AccordionIcon />
+                            </AccordionButton>
+                            <AccordionPanel bg="white" pb={4} px={4}>
+                              {templateStructure.currencies && templateStructure.currencies.length > 0 ? (
+                                <Table size="sm" variant="simple">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Kod</Th>
+                                      <Th>Nazwa</Th>
+                                      <Th>Symbol</Th>
+                                      <Th>Domyślna</Th>
                                     </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">Brak zdefiniowanych walut</Text>
-                            )}
-                          </Box>
+                                  </Thead>
+                                  <Tbody>
+                                    {templateStructure.currencies.sort((a, b) => a.order - b.order).map((currency) => (
+                                      <Tr key={currency.id}>
+                                        <Td fontWeight="medium">{currency.code}</Td>
+                                        <Td>{currency.name}</Td>
+                                        <Td>{currency.symbol || '-'}</Td>
+                                        <Td>
+                                          {currency.isDefault && <Badge colorScheme="green">Domyślna</Badge>}
+                                        </Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">Brak zdefiniowanych walut</Text>
+                              )}
+                            </AccordionPanel>
+                          </AccordionItem>
 
                           {/* Jednostki */}
-                          <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderWidth="1px">
-                            <HStack spacing={2} mb={4}>
-                              <Text fontSize="lg">📏</Text>
-                              <Text fontSize="md" fontWeight="bold">Jednostki miar</Text>
-                              <Badge colorScheme="teal">{templateStructure.units?.length || 0}</Badge>
-                            </HStack>
-                            
-                            {templateStructure.units && templateStructure.units.length > 0 ? (
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Kod</Th>
-                                    <Th>Nazwa</Th>
-                                    <Th>Symbol</Th>
-                                    <Th>Kategoria</Th>
-                                    <Th>Domyślna</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {templateStructure.units.sort((a, b) => a.order - b.order).map((unit) => (
-                                    <Tr key={unit.id}>
-                                      <Td fontWeight="medium">{unit.code}</Td>
-                                      <Td>{unit.name}</Td>
-                                      <Td>{unit.symbol}</Td>
-                                      <Td>{unit.category || '-'}</Td>
-                                      <Td>
-                                        {unit.isDefault && <Badge colorScheme="green">Domyślna</Badge>}
-                                      </Td>
+                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                            <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                              <HStack flex={1} spacing={2}>
+                                <Text fontSize="lg" lineHeight={1}>📏</Text>
+                                <Text fontSize="md" fontWeight="bold">Jednostki miar</Text>
+                                <Badge colorScheme="teal">{templateStructure.units?.length || 0}</Badge>
+                              </HStack>
+                              <AccordionIcon />
+                            </AccordionButton>
+                            <AccordionPanel bg="white" pb={4} px={4}>
+                              {templateStructure.units && templateStructure.units.length > 0 ? (
+                                <Table size="sm" variant="simple">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Kod</Th>
+                                      <Th>Nazwa</Th>
+                                      <Th>Symbol</Th>
+                                      <Th>Kategoria</Th>
+                                      <Th>Domyślna</Th>
                                     </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">Brak zdefiniowanych jednostek</Text>
-                            )}
-                          </Box>
+                                  </Thead>
+                                  <Tbody>
+                                    {templateStructure.units.sort((a, b) => a.order - b.order).map((unit) => (
+                                      <Tr key={unit.id}>
+                                        <Td fontWeight="medium">{unit.code}</Td>
+                                        <Td>{unit.name}</Td>
+                                        <Td>{unit.symbol}</Td>
+                                        <Td>{unit.category || '-'}</Td>
+                                        <Td>
+                                          {unit.isDefault && <Badge colorScheme="green">Domyślna</Badge>}
+                                        </Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">Brak zdefiniowanych jednostek</Text>
+                              )}
+                            </AccordionPanel>
+                          </AccordionItem>
 
                           {/* Kategorie */}
-                          <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderWidth="1px">
-                            <HStack spacing={2} mb={4}>
-                              <Text fontSize="lg">🏷️</Text>
-                              <Text fontSize="md" fontWeight="bold">Kategorie</Text>
-                              <Badge colorScheme="purple">{templateStructure.categories?.length || 0}</Badge>
-                            </HStack>
-
-                            {templateStructure.categories && templateStructure.categories.length > 0 ? (
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Nazwa</Th>
-                                    <Th>Symbol</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {templateStructure.categories.sort((a, b) => a.order - b.order).map((cat) => (
-                                    <Tr key={cat.id}>
-                                      <Td fontWeight="medium">{cat.name}</Td>
-                                      <Td>{cat.symbol || '-'}</Td>
+                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
+                            <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                              <HStack flex={1} spacing={2}>
+                                <Text fontSize="lg" lineHeight={1}>🏷️</Text>
+                                <Text fontSize="md" fontWeight="bold">Kategorie</Text>
+                                <Badge colorScheme="purple">{templateStructure.categories?.length || 0}</Badge>
+                              </HStack>
+                              <AccordionIcon />
+                            </AccordionButton>
+                            <AccordionPanel bg="white" pb={4} px={4}>
+                              {templateStructure.categories && templateStructure.categories.length > 0 ? (
+                                <Table size="sm" variant="simple">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Nazwa</Th>
+                                      <Th>Symbol</Th>
                                     </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            ) : (
-                              <Text color="gray.500" fontSize="sm">Brak zdefiniowanych kategorii</Text>
-                            )}
-                          </Box>
-                        </VStack>
+                                  </Thead>
+                                  <Tbody>
+                                    {templateStructure.categories.sort((a, b) => a.order - b.order).map((cat) => (
+                                      <Tr key={cat.id}>
+                                        <Td fontWeight="medium">{cat.name}</Td>
+                                        <Td>{cat.symbol || '-'}</Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              ) : (
+                                <Text color="gray.500" fontSize="sm">Brak zdefiniowanych kategorii</Text>
+                              )}
+                            </AccordionPanel>
+                          </AccordionItem>
+                        </Accordion>
                       </TabPanel>
 
                       {/* Układ kolumn */}
