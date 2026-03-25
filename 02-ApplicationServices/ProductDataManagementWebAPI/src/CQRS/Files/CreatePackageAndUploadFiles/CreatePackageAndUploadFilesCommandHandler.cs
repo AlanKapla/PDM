@@ -2,6 +2,7 @@
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Files;
 using Entities.Models;
 using MediatR;
 using Microsoft.AspNetCore.Http;

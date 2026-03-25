@@ -53,6 +53,11 @@ function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitation
   const [localInvitations, setLocalInvitations] = useState(invitations);
   const toast = useToast();
 
+  useEffect(() => {
+    // Synchronizujemy lokalny stan z propsami, aby uniknąć niespójności UI
+    setLocalInvitations(invitations);
+  }, [invitations]);
+
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
