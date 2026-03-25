@@ -117,7 +117,7 @@ namespace WebApi.Extensions
                     { bearerScheme, Array.Empty<string>() }
                 });
 
-                c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
+                c.CustomSchemaIds(type => type.FullName?.Replace("+", ".") ?? type.Name);
             });
 
             return services;
