@@ -202,7 +202,7 @@ export default function ShareCostsModal({
             <Box display={{ base: "block", md: "none" }}>
               <Share2 size={20} />
             </Box>
-            <Text fontSize={{ base: "md", md: "lg" }}>Udostępnij koszty grupowo</Text>
+            <Text fontSize={{ base: "md", md: "lg" }}>Udostępnij wydatki grupowo</Text>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
@@ -211,16 +211,16 @@ export default function ShareCostsModal({
             {/* Wybór kosztów */}
             <Box>
               <Text fontWeight="bold" mb={2}>
-                Wybierz koszty do udostępnienia ({selectedCostIds.size}):
+                Wybierz wydatki do udostępnienia ({selectedCostIds.size}):
               </Text>
               {loadingCosts ? (
                 <HStack justify="center" py={4}>
                   <Spinner size="md" />
-                  <Text fontSize="sm">Ładowanie kosztorysów...</Text>
+                  <Text fontSize="sm">Ładowanie wydatków...</Text>
                 </HStack>
               ) : costs.length === 0 ? (
                 <Text fontSize="sm" color="gray.500">
-                  Nie masz jeszcze żadnych kosztów do udostępnienia
+                  Nie masz jeszcze żadnych wydatków do udostępnienia
                 </Text>
               ) : (
                 <VStack spacing={2} align="stretch" maxH="300px" overflowY="auto" borderWidth="1px" borderRadius="md" p={3}>
@@ -262,7 +262,7 @@ export default function ShareCostsModal({
 
             <Alert status="info" fontSize="xs">
               <AlertIcon />
-              Udostępniasz koszty do wglądu. Członkowie będą mogli je przeglądać.
+              Udostępniasz wydatki do wglądu. Członkowie będą mogli je przeglądać.
             </Alert>
 
             <Divider />

@@ -123,7 +123,7 @@ const AllCostsTab = memo(function AllCostsTab({
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between" flexWrap="wrap" gap={4}>
         <Text fontSize="sm" color="gray.600">
-          Wszystkie koszty w projekcie (admin)
+          Wszystkie wydatki w projekcie (admin)
         </Text>
         <HStack spacing={2}>
           {resourcePerms.all.canShare && (
@@ -573,7 +573,7 @@ const MyCostsTab = memo(function MyCostsTab({
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between" flexWrap="wrap" gap={4}>
         <Text fontSize="sm" color="gray.600">
-          Twoje koszty w projekcie
+          Twoje wydatki w projekcie
         </Text>
         <HStack spacing={2}>
           {resourcePerms.mine.canShare && (
@@ -968,7 +968,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
   return (
     <VStack spacing={4} align="stretch">
       <Text fontSize="sm" color="gray.600">
-        Koszty udostępnione przez innych członków projektu
+        Wydatki udostępnione przez innych członków projektu
       </Text>
 
       {/* Podsumowanie kosztów */}
@@ -1501,7 +1501,7 @@ export default function ProjectSimpleCosts() {
           <HStack spacing={3}>
             <Icon as={DollarSign} boxSize={8} color="red.600" />
             <VStack align="flex-start" spacing={0}>
-              <Heading size="lg">Koszty projektu</Heading>
+              <Heading size="lg">Wydatki</Heading>
               {projectName && <Text fontSize="sm" color="gray.600">{projectName}</Text>}
             </VStack>
           </HStack>
@@ -1512,7 +1512,7 @@ export default function ProjectSimpleCosts() {
             <EmptyState
               icon={DollarSign}
               title="Brak dostępu"
-              description="Nie masz uprawnień do przeglądania kosztów w tym projekcie"
+              description="Nie masz uprawnień do przeglądania wydatków w tym projekcie"
             />
           </Box>
         ) : (
@@ -1635,7 +1635,7 @@ export default function ProjectSimpleCosts() {
 
         <Box mt={6} p={4} bg="blue.50" rounded="md" borderWidth="1px" borderColor="blue.200">
           <Text fontSize="sm" color="blue.800">
-            💡 <strong>Wskazówka:</strong> To są proste koszty projektu (faktury, paragony). Dla zaawansowanych kosztorysów według szablonów przejdź do zakładki "Kosztorysy".
+            💡 <strong>Wskazówka:</strong> Tu rejestrujesz wydatki poniesione w projekcie (faktury, paragony, rozliczenia). Dla zaawansowanych kosztorysów według szablonów przejdź do zakładki "Kosztorysy".
           </Text>
         </Box>
 

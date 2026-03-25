@@ -38,7 +38,7 @@ export default function Breadcrumbs() {
 
   // Globalny cache dla template details
   const templateDetailsCache = useGlobalCache(
-    `template-details-${params.templateId ?? 'none'}`,
+    `template-details-${params.templateId}`,
     async () => {
       if (!params.templateId) throw new Error('Missing template ID');
       return await costEstimateTemplateApi.getTemplateDetails(params.templateId);
@@ -47,7 +47,7 @@ export default function Breadcrumbs() {
 
   // Globalny cache dla cost estimate details
   const costEstimateDetailsCache = useGlobalCache(
-    `cost-estimate-details-${params.estimateId ?? 'none'}`,
+    `cost-estimate-details-${params.estimateId}`,
     async () => {
       if (!user?.activeTenantId || !params.projectId || !params.estimateId) {
         throw new Error('Missing tenant, project or estimate ID');
@@ -153,7 +153,7 @@ export default function Breadcrumbs() {
           } else if (pathSegments[2] === "files") {
             segments.push({ label: "Pliki", path: `/projects/${params.projectId}/files`, isCurrentPage: true });
           } else if (pathSegments[2] === "costs") {
-            segments.push({ label: "Koszty", path: `/projects/${params.projectId}/costs`, isCurrentPage: true });
+            segments.push({ label: "Wydatki", path: `/projects/${params.projectId}/costs`, isCurrentPage: true });
           } else if (pathSegments[2] === "cost-estimates") {
             if (params.estimateId) {
               segments.push({ label: "Kosztorysy", path: `/projects/${params.projectId}/cost-estimates` });

@@ -1,7 +1,7 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using MediatR;
-using Microsoft.AspNetCore.Http;
+using CQRS.Files;
 
 namespace CQRS.Files.UploadProjectFiles
 {
@@ -24,13 +24,4 @@ namespace CQRS.Files.UploadProjectFiles
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 
-    /// <summary>
-    /// Pojedynczy plik z opcjonalną nazwą wyświetlaną i komentarzem
-    /// </summary>
-    public record FileUploadItem
-    {
-        public IFormFile File { get; init; } = default!;
-        public string? DisplayName { get; init; }
-        public string? Comment { get; init; }
     }
-}

@@ -5,6 +5,7 @@ import { AuthContext } from "../context/AuthContext";
 import { Flex, Spinner, Text, VStack } from "@chakra-ui/react";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
+import TenantAccessGuard from "../components/TenantAccessGuard";
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
   const { loading, user } = useContext(AuthContext);
@@ -42,5 +43,5 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  return <TenantAccessGuard>{children}</TenantAccessGuard>;
 }

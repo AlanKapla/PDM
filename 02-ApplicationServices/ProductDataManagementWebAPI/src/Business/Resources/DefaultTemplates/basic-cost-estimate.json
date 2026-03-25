@@ -56,6 +56,58 @@
       "order": 4
     }
   ],
+  "categories": [
+    {
+      "name": "Stan 0",
+      "symbol": "Stan 0",
+      "order": 0
+    },
+    {
+      "name": "SSZ",
+      "symbol": "SSZ",
+      "order": 1
+    },
+    {
+      "name": "SSO",
+      "symbol": "SSO",
+      "order": 2
+    },
+    {
+      "name": "Stolarka",
+      "symbol": "Stolarka",
+      "order": 3
+    },
+    {
+      "name": "Dach",
+      "symbol": "Dach",
+      "order": 4
+    },
+    {
+      "name": "Elektryka",
+      "symbol": "Elektryka",
+      "order": 5
+    },
+    {
+      "name": "Hydraulika",
+      "symbol": "Hydraulika",
+      "order": 6
+    },
+    {
+      "name": "Tynki",
+      "symbol": "Tynki",
+      "order": 7
+    },
+    {
+      "name": "Posadzki",
+      "symbol": "Posadzki",
+      "order": 8
+    },
+    {
+      "name": "Wykończenie",
+      "symbol": "Wykończenie",
+      "order": 9
+    }
+  ],
   "groupHeaderFields": [
     {
       "fieldName": "00000001-0001-0000-0000-000000000001",
