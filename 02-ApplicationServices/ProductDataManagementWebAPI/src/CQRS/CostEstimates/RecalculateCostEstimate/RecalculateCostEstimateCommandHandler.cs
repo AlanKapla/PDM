@@ -55,6 +55,9 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
             if (accessLevel == CostEstimateAccessLevel.None)
                 throw new ForbiddenApiException("Only the owner or an admin or user with share can recalculate this cost estimate.");
 
+            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+                throw new ForbiddenApiException("Read-only access does not allow recalculation.");
+
             // Get template from cache (needed for CalculatedFieldDefinitions + SystemFieldDefinitions)
             var template = await cacheService.GetTemplateAsync(cachedCostEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), cachedCostEstimate.TemplateId.ToString());

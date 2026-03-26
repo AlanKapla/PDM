@@ -46,7 +46,7 @@ public sealed class ProjectFilesService : IProjectFilesService
         this.logger = logger;
     }
 
-    #region File Access Methods
+    #region Package Access
 
     /// <summary>
     /// Zwraca IDs paczek do których user ma dostęp w projekcie zgodnie z ResourceScope
@@ -145,6 +145,26 @@ public sealed class ProjectFilesService : IProjectFilesService
             return new Dictionary<Guid, int>();
         }
 
+        Dictionary<Guid, List<ProjectFileCacheDto>> allFiles =
+            await GetProjectPackageFilesAsync(tenantId, projectId, cancellationToken);
+
+        if (resourceScope == ResourceScope.All)
+        {
+            return packageIds.ToDictionary(
+                id => id,
+                id => allFiles.TryGetValue(id, out List<ProjectFileCacheDto>? files) ? files.Count : 0);
+        }
+
+        if (resourceScope == ResourceScope.Mine)
+        {
+            return packageIds.ToDictionary(
+                id => id,
+                id => allFiles.TryGetValue(id, out List<ProjectFileCacheDto>? files)
+                    ? files.Count(f => f.OwnerId == currentUser.Id)
+                    : 0);
+        }
+
+        // Shared scope — needs share data from DB, cached
         string packageIdsKey = string.Join("-", packageIds.OrderBy(id => id));
         string cacheKey = $"file:access:{tenantId}:{projectId}:counts:{currentUser.Id}:{packageIdsKey}:{resourceScope}";
 
@@ -153,71 +173,44 @@ public sealed class ProjectFilesService : IProjectFilesService
             async () =>
             {
                 logger.LogDebug(
-                    "Loading accessible file counts for user {UserId}, {Count} packages, scope {Scope}",
+                    "Loading accessible file counts for user {UserId}, {Count} packages, scope Shared",
                     currentUser.Id,
-                    packageIds.Count,
-                    resourceScope);
+                    packageIds.Count);
 
+                IEnumerable<SharedProjectFile> shares = await sharedFileRepository.GetBySearch(
+                    spf => packageIds.Contains(spf.ProjectFilePackageId) &&
+                           spf.SharedWithUserId == currentUser.Id);
+
+                ILookup<Guid, SharedProjectFile> sharesByPackage = shares.ToLookup(s => s.ProjectFilePackageId);
                 Dictionary<Guid, int> counts = new Dictionary<Guid, int>();
 
-                if (resourceScope == ResourceScope.All)
+                foreach (Guid packageId in packageIds)
                 {
-                    foreach (Guid packageId in packageIds)
+                    List<SharedProjectFile> packageShares = sharesByPackage[packageId].ToList();
+                    bool hasPackageShare = packageShares.Any(s => s.ProjectFileId == null);
+
+                    if (hasPackageShare)
                     {
-                        int count = await fileRepository.CountAsync(
-                            f => f.ProjectFilePackageId == packageId && !f.IsDeleted,
-                            cancellationToken);
-                        
-                        counts[packageId] = count;
-                    }
-                }
-                else if (resourceScope == ResourceScope.Mine)
-                {
-                    foreach (Guid packageId in packageIds)
-                    {
-                        int count = await fileRepository.CountAsync(
-                            f => f.ProjectFilePackageId == packageId && 
-                                 f.OwnerId == currentUser.Id && 
-                                 !f.IsDeleted,
-                            cancellationToken);
-                        
-                        counts[packageId] = count;
-                    }
-                }
-                else if (resourceScope == ResourceScope.Shared)
-                {
-                    IEnumerable<SharedProjectFile> shares = await sharedFileRepository.GetBySearch(
-                        spf => packageIds.Contains(spf.ProjectFilePackageId) && 
-                               spf.SharedWithUserId == currentUser.Id);
-
-                    ILookup<Guid, SharedProjectFile> sharesByPackage = shares.ToLookup(s => s.ProjectFilePackageId);
-
-                    foreach (Guid packageId in packageIds)
-                    {
-                        List<SharedProjectFile> packageShares = sharesByPackage[packageId].ToList();
-
-                        bool hasPackageShare = packageShares.Any(s => s.ProjectFileId == null);
-
-                        if (hasPackageShare)
+                        if (allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? pf) && pf.Count > 0)
                         {
-                            int totalFiles = await fileRepository.CountAsync(
-                                pf => pf.ProjectFilePackageId == packageId && !pf.IsDeleted,
-                                cancellationToken);
-
+                            var existingFileIds = new HashSet<Guid>(pf.Select(f => f.Id));
+                            int totalFiles = pf.Count;
                             int excludedCount = packageShares.Count(s =>
                                 s.ProjectFileId.HasValue &&
-                                s.Access == ProjectFileAccess.Deny);
+                                s.Access == ProjectFileAccess.Deny &&
+                                existingFileIds.Contains(s.ProjectFileId.Value));
 
-                            counts[packageId] = totalFiles - excludedCount;
+                            counts[packageId] = Math.Max(0, totalFiles - excludedCount);
                         }
                         else
                         {
-                            int allowedCount = packageShares.Count(s =>
-                                s.ProjectFileId.HasValue &&
-                                s.Access == ProjectFileAccess.Allow);
-
-                            counts[packageId] = allowedCount;
+                            counts[packageId] = 0;
                         }
+                    }
+                    else
+                    {
+                        counts[packageId] = packageShares.Count(s =>
+                            s.ProjectFileId.HasValue && s.Access == ProjectFileAccess.Allow);
                     }
                 }
 
@@ -231,6 +224,107 @@ public sealed class ProjectFilesService : IProjectFilesService
     }
 
     /// <summary>
+    /// Zwraca słownik paczek dostępnych dla użytkownika w projekcie zgodnie z ResourceScope
+    /// </summary>
+    public async Task<Dictionary<Guid, ProjectFilePackageDto>> GetAccessiblePackagesAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default)
+    {
+        Dictionary<Guid, ProjectFilePackageDto> allPackages = await GetProjectFilePackagesAsync(
+            tenantId,
+            projectId,
+            cancellationToken);
+
+        if (allPackages.Count == 0)
+        {
+            return new Dictionary<Guid, ProjectFilePackageDto>();
+        }
+
+        HashSet<Guid> accessibleIds = await GetAccessiblePackageIdsAsync(
+            currentUser,
+            tenantId,
+            projectId,
+            resourceScope,
+            cancellationToken);
+
+        return allPackages
+            .Where(kvp => accessibleIds.Contains(kvp.Key))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+    }
+
+    /// <summary>
+    /// Zwraca pojedynczą paczkę dostępną dla użytkownika zgodnie z ResourceScope.
+    /// Zwraca null jeśli paczka nie istnieje lub użytkownik nie ma do niej dostępu.
+    /// </summary>
+    public async Task<ProjectFilePackageDto?> GetAccessiblePackageByIdAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        Guid packageId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default)
+    {
+        Dictionary<Guid, ProjectFilePackageDto> accessiblePackages = await GetAccessiblePackagesAsync(
+            currentUser, tenantId, projectId, resourceScope, cancellationToken);
+
+        return accessiblePackages.TryGetValue(packageId, out ProjectFilePackageDto? package) ? package : null;
+    }
+
+    #endregion
+
+    #region File Access
+
+    /// <summary>
+    /// Zwraca listę plików dostępnych dla użytkownika w paczce zgodnie z ResourceScope
+    /// </summary>
+    public async Task<List<ProjectFileCacheDto>> GetAccessibleFilesAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        Guid packageId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default)
+    {
+        Dictionary<Guid, List<ProjectFileCacheDto>> allFilesByPackage = await GetProjectPackageFilesAsync(
+            tenantId,
+            projectId,
+            cancellationToken);
+
+        if (!allFilesByPackage.TryGetValue(packageId, out List<ProjectFileCacheDto>? packageFiles))
+        {
+            return new List<ProjectFileCacheDto>();
+        }
+
+        if (resourceScope == ResourceScope.All)
+        {
+            return packageFiles;
+        }
+
+        if (resourceScope == ResourceScope.Mine)
+        {
+            return packageFiles.Where(f => f.OwnerId == currentUser.Id).ToList();
+        }
+
+        PackageAccessInfo accessInfo = await GetPackageAccessInfoAsync(
+            currentUser,
+            tenantId,
+            projectId,
+            packageId,
+            resourceScope,
+            cancellationToken);
+
+        if (accessInfo.IsPackageShared)
+        {
+            return packageFiles.Where(f => !accessInfo.ExcludedFileIds.Contains(f.Id)).ToList();
+        }
+
+        return packageFiles.Where(f => accessInfo.AllowedFileIds.Contains(f.Id)).ToList();
+    }
+
+    /// <summary>
     /// Zwraca informacje o dostępie do plików w paczce zgodnie z ResourceScope
     /// </summary>
     public async Task<PackageAccessInfo> GetPackageAccessInfoAsync(
@@ -241,6 +335,34 @@ public sealed class ProjectFilesService : IProjectFilesService
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default)
     {
+        if (resourceScope == ResourceScope.All)
+        {
+            return new PackageAccessInfo
+            {
+                IsPackageShared = true,
+                ExcludedFileIds = new HashSet<Guid>(),
+                AllowedFileIds = new HashSet<Guid>()
+            };
+        }
+
+        if (resourceScope == ResourceScope.Mine)
+        {
+            Dictionary<Guid, List<ProjectFileCacheDto>> allFiles =
+                await GetProjectPackageFilesAsync(tenantId, projectId, cancellationToken);
+
+            HashSet<Guid> myFileIds = allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? packageFiles)
+                ? packageFiles.Where(f => f.OwnerId == currentUser.Id).Select(f => f.Id).ToHashSet()
+                : new HashSet<Guid>();
+
+            return new PackageAccessInfo
+            {
+                IsPackageShared = false,
+                ExcludedFileIds = new HashSet<Guid>(),
+                AllowedFileIds = myFileIds
+            };
+        }
+
+        // Shared scope — cache per user/package since requires DB share lookup
         string cacheKey = $"file:access:{tenantId}:{projectId}:package:{currentUser.Id}:{packageId}:{resourceScope}";
 
         PackageAccessInfo? result = await cacheService.GetOrAddAsync(
@@ -248,39 +370,12 @@ public sealed class ProjectFilesService : IProjectFilesService
             async () =>
             {
                 logger.LogDebug(
-                    "Loading package access info for user {UserId}, package {PackageId}, scope {Scope}",
+                    "Loading package access info for user {UserId}, package {PackageId}",
                     currentUser.Id,
-                    packageId,
-                    resourceScope);
-
-                if (resourceScope == ResourceScope.All)
-                {
-                    return new PackageAccessInfo
-                    {
-                        IsPackageShared = true,
-                        ExcludedFileIds = new HashSet<Guid>(),
-                        AllowedFileIds = new HashSet<Guid>()
-                    };
-                }
-
-                if (resourceScope == ResourceScope.Mine)
-                {
-                    List<Guid> myFileIds = await fileRepository.GetIdsBySearchAsync(
-                        f => f.ProjectFilePackageId == packageId && 
-                             f.OwnerId == currentUser.Id && 
-                             !f.IsDeleted,
-                        cancellationToken);
-
-                    return new PackageAccessInfo
-                    {
-                        IsPackageShared = false,
-                        ExcludedFileIds = new HashSet<Guid>(),
-                        AllowedFileIds = myFileIds.ToHashSet()
-                    };
-                }
+                    packageId);
 
                 IEnumerable<SharedProjectFile> shares = await sharedFileRepository.GetBySearch(
-                    spf => spf.ProjectFilePackageId == packageId && 
+                    spf => spf.ProjectFilePackageId == packageId &&
                            spf.ProjectId == projectId &&
                            spf.TenantId == tenantId &&
                            spf.SharedWithUserId == currentUser.Id);
@@ -302,20 +397,18 @@ public sealed class ProjectFilesService : IProjectFilesService
                         AllowedFileIds = new HashSet<Guid>()
                     };
                 }
-                else
-                {
-                    HashSet<Guid> allowedFileIds = sharesList
-                        .Where(s => s.ProjectFileId.HasValue && s.Access == ProjectFileAccess.Allow)
-                        .Select(s => s.ProjectFileId!.Value)
-                        .ToHashSet();
 
-                    return new PackageAccessInfo
-                    {
-                        IsPackageShared = false,
-                        ExcludedFileIds = new HashSet<Guid>(),
-                        AllowedFileIds = allowedFileIds
-                    };
-                }
+                HashSet<Guid> allowedFileIds = sharesList
+                    .Where(s => s.ProjectFileId.HasValue && s.Access == ProjectFileAccess.Allow)
+                    .Select(s => s.ProjectFileId!.Value)
+                    .ToHashSet();
+
+                return new PackageAccessInfo
+                {
+                    IsPackageShared = false,
+                    ExcludedFileIds = new HashSet<Guid>(),
+                    AllowedFileIds = allowedFileIds
+                };
             },
             expiration: TimeSpan.FromMinutes(15),
             cancellationToken: cancellationToken
@@ -341,6 +434,23 @@ public sealed class ProjectFilesService : IProjectFilesService
         ResourceScope resourceScope,
         CancellationToken cancellationToken = default)
     {
+        if (resourceScope == ResourceScope.All)
+        {
+            Dictionary<Guid, List<ProjectFileCacheDto>> allFiles =
+                await GetProjectPackageFilesAsync(tenantId, projectId, cancellationToken);
+            return allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? files)
+                && files.Any(f => f.Id == fileId);
+        }
+
+        if (resourceScope == ResourceScope.Mine)
+        {
+            Dictionary<Guid, List<ProjectFileCacheDto>> allFiles =
+                await GetProjectPackageFilesAsync(tenantId, projectId, cancellationToken);
+            return allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? files)
+                && files.Any(f => f.Id == fileId && f.OwnerId == currentUser.Id);
+        }
+
+        // Shared scope — cache per user/file since requires DB share lookup
         string cacheKey = $"file:access:{tenantId}:{projectId}:file:{currentUser.Id}:{packageId}:{fileId}:{resourceScope}";
 
         BoolWrapper? result = await cacheService.GetOrAddAsync(
@@ -348,56 +458,25 @@ public sealed class ProjectFilesService : IProjectFilesService
             async () =>
             {
                 logger.LogDebug(
-                    "Checking file access for user {UserId}, package {PackageId}, file {FileId}, scope {Scope}",
+                    "Checking shared file access for user {UserId}, package {PackageId}, file {FileId}",
                     currentUser.Id,
                     packageId,
-                    fileId,
-                    resourceScope);
+                    fileId);
 
-                bool hasAccess = false;
+                IEnumerable<SharedProjectFile> shares = await sharedFileRepository.GetBySearch(
+                    spf => spf.ProjectFilePackageId == packageId &&
+                           spf.ProjectId == projectId &&
+                           spf.TenantId == tenantId &&
+                           spf.SharedWithUserId == currentUser.Id);
 
-                if (resourceScope == ResourceScope.All)
+                List<SharedProjectFile> sharesList = shares.ToList();
+
+                return new BoolWrapper
                 {
-                    hasAccess = await fileRepository.AnyAsync(
-                        f => f.Id == fileId && f.ProjectFilePackageId == packageId && !f.IsDeleted,
-                        cancellationToken);
-                }
-                else if (resourceScope == ResourceScope.Mine)
-                {
-                    hasAccess = await fileRepository.AnyAsync(
-                        f => f.Id == fileId && 
-                             f.ProjectFilePackageId == packageId && 
-                             f.OwnerId == currentUser.Id && 
-                             !f.IsDeleted,
-                        cancellationToken);
-                }
-                else
-                {
-                    IEnumerable<SharedProjectFile> shares = await sharedFileRepository.GetBySearch(
-                        spf => spf.ProjectFilePackageId == packageId && 
-                               spf.ProjectId == projectId &&
-                               spf.TenantId == tenantId &&
-                               spf.SharedWithUserId == currentUser.Id);
-
-                    List<SharedProjectFile> sharesList = shares.ToList();
-                    SharedProjectFile? packageShare = sharesList.FirstOrDefault(s => s.ProjectFileId == null);
-                    SharedProjectFile? fileShare = sharesList.FirstOrDefault(s => s.ProjectFileId == fileId);
-
-                    if (fileShare?.Access == ProjectFileAccess.Deny)
-                    {
-                        hasAccess = false;
-                    }
-                    else if (fileShare?.Access == ProjectFileAccess.Allow)
-                    {
-                        hasAccess = true;
-                    }
-                    else
-                    {
-                        hasAccess = packageShare != null;
-                    }
-                }
-
-                return new BoolWrapper { Value = hasAccess };
+                    Value = EvaluateSharedFileAccess(
+                        sharesList.FirstOrDefault(s => s.ProjectFileId == null),
+                        sharesList.FirstOrDefault(s => s.ProjectFileId == fileId))
+                };
             },
             expiration: TimeSpan.FromMinutes(15),
             cancellationToken: cancellationToken
@@ -449,20 +528,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                         SharedProjectFile? packageShare = userShares.FirstOrDefault(s => s.ProjectFileId == null);
                         SharedProjectFile? fileShare = userShares.FirstOrDefault(s => s.ProjectFileId == fileId);
 
-                        bool hasAccess = false;
-
-                        if (fileShare?.Access == ProjectFileAccess.Deny)
-                        {
-                            hasAccess = false;
-                        }
-                        else if (fileShare?.Access == ProjectFileAccess.Allow)
-                        {
-                            hasAccess = true;
-                        }
-                        else if (packageShare != null)
-                        {
-                            hasAccess = true;
-                        }
+                        bool hasAccess = EvaluateSharedFileAccess(packageShare, fileShare);
 
                         if (hasAccess)
                         {
@@ -483,6 +549,30 @@ public sealed class ProjectFilesService : IProjectFilesService
         );
 
         return result ?? new Dictionary<Guid, List<Guid>>();
+    }
+
+    /// <summary>
+    /// Pobiera plik po ID i sprawdza dostęp zgodnie z ResourceScope w jednym wywołaniu.
+    /// </summary>
+    public async Task<ProjectFileCacheDto?> GetAccessibleFileByIdAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default)
+    {
+        ProjectFileCacheDto? file = await GetFileByIdAsync(tenantId, projectId, fileId, cancellationToken);
+
+        if (file == null)
+        {
+            return null;
+        }
+
+        bool hasAccess = await HasAccessToFileAsync(
+            currentUser, tenantId, projectId, file.ProjectFilePackageId, fileId, resourceScope, cancellationToken);
+
+        return hasAccess ? file : null;
     }
 
     #endregion
@@ -583,6 +673,70 @@ public sealed class ProjectFilesService : IProjectFilesService
         );
 
         return result ?? new Dictionary<Guid, List<ProjectFileCacheDto>>();
+    }
+
+    /// <summary>
+    /// Pobiera pojedynczy plik po ID z cache projektu. Zwraca null jeśli plik nie istnieje.
+    /// </summary>
+    public async Task<ProjectFileCacheDto?> GetFileByIdAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        CancellationToken cancellationToken = default)
+    {
+        Dictionary<Guid, List<ProjectFileCacheDto>> allFilesByPackage = await GetProjectPackageFilesAsync(
+            tenantId,
+            projectId,
+            cancellationToken);
+
+        foreach (List<ProjectFileCacheDto> packageFiles in allFilesByPackage.Values)
+        {
+            ProjectFileCacheDto? file = packageFiles.FirstOrDefault(f => f.Id == fileId);
+            if (file != null)
+            {
+                return file;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Pobiera pojedynczą wersję pliku po ID pliku i ID wersji z cache projektu. Zwraca null jeśli wersja nie istnieje.
+    /// </summary>
+    public async Task<ProjectFileVersionDto?> GetFileVersionByIdAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        Guid versionId,
+        CancellationToken cancellationToken = default)
+    {
+        Dictionary<Guid, List<ProjectFileVersionDto>> allVersionsByFile = await GetProjectFilesVersionsAsync(
+            tenantId, projectId, cancellationToken);
+
+        if (!allVersionsByFile.TryGetValue(fileId, out List<ProjectFileVersionDto>? versions))
+        {
+            return null;
+        }
+
+        return versions.FirstOrDefault(v => v.Id == versionId);
+    }
+
+    /// <summary>
+    /// Pobiera wersje konkretnego pliku. Zwraca pustą listę jeśli plik nie ma wersji.
+    /// </summary>
+    public async Task<List<ProjectFileVersionDto>> GetFileVersionsAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        CancellationToken cancellationToken = default)
+    {
+        Dictionary<Guid, List<ProjectFileVersionDto>> allVersionsByFile = await GetProjectFilesVersionsAsync(
+            tenantId, projectId, cancellationToken);
+
+        return allVersionsByFile.TryGetValue(fileId, out List<ProjectFileVersionDto>? versions)
+            ? versions
+            : new List<ProjectFileVersionDto>();
     }
 
     /// <summary>
@@ -691,6 +845,23 @@ public sealed class ProjectFilesService : IProjectFilesService
         );
 
         return result ?? new Dictionary<Guid, List<ProjectFileVersionCommentDto>>();
+    }
+
+    /// <summary>
+    /// Pobiera komentarze dla konkretnej wersji pliku. Zwraca pustą listę jeśli brak komentarzy.
+    /// </summary>
+    public async Task<List<ProjectFileVersionCommentDto>> GetVersionCommentsAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid versionId,
+        CancellationToken cancellationToken = default)
+    {
+        Dictionary<Guid, List<ProjectFileVersionCommentDto>> allCommentsByVersion = await GetProjectFileVersionsCommentsAsync(
+            tenantId, projectId, cancellationToken);
+
+        return allCommentsByVersion.TryGetValue(versionId, out List<ProjectFileVersionCommentDto>? comments)
+            ? comments
+            : new List<ProjectFileVersionCommentDto>();
     }
 
     /// <summary>
@@ -873,6 +1044,47 @@ public sealed class ProjectFilesService : IProjectFilesService
         return results;
     }
 
+    /// <summary>
+    /// Zwraca podsumowanie wersji dla podanych plików: liczbę wersji oraz zbiór ID aktualnych wersji
+    /// </summary>
+    public async Task<FileVersionsSummary> GetFileVersionsSummaryAsync(
+        Guid tenantId,
+        Guid projectId,
+        IReadOnlyCollection<ProjectFileCacheDto> files,
+        CancellationToken cancellationToken = default)
+    {
+        if (files.Count == 0)
+        {
+            return new FileVersionsSummary();
+        }
+
+        Dictionary<Guid, List<ProjectFileVersionDto>> allVersionsByFile = await GetProjectFilesVersionsAsync(
+            tenantId,
+            projectId,
+            cancellationToken);
+
+        Dictionary<Guid, int> versionCounts = new Dictionary<Guid, int>(files.Count);
+        HashSet<Guid> currentVersionIds = new HashSet<Guid>(files.Count);
+
+        foreach (ProjectFileCacheDto file in files)
+        {
+            versionCounts[file.Id] = allVersionsByFile.TryGetValue(file.Id, out List<ProjectFileVersionDto>? versions)
+                ? versions.Count
+                : 0;
+
+            if (file.CurrentVersionId.HasValue)
+            {
+                currentVersionIds.Add(file.CurrentVersionId.Value);
+            }
+        }
+
+        return new FileVersionsSummary
+        {
+            VersionCounts = versionCounts,
+            CurrentVersionIds = currentVersionIds
+        };
+    }
+
     #endregion
 
     #region Cache Invalidation Methods
@@ -1003,6 +1215,16 @@ public sealed class ProjectFilesService : IProjectFilesService
     private sealed class BoolWrapper
     {
         public bool Value { get; set; }
+    }
+
+    /// <summary>
+    /// Ocenia dostęp do pliku zgodnie z modelem Allow/Deny dla zasobu udostępnionego
+    /// </summary>
+    private static bool EvaluateSharedFileAccess(SharedProjectFile? packageShare, SharedProjectFile? fileShare)
+    {
+        if (fileShare?.Access == ProjectFileAccess.Deny) return false;
+        if (fileShare?.Access == ProjectFileAccess.Allow) return true;
+        return packageShare != null;
     }
 
     #endregion

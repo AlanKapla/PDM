@@ -48,5 +48,15 @@
             Guid tenantId,
             Guid userId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns a dictionary of project members filtered by the provided user IDs.
+        /// Uses the cached members list — no extra DB query.
+        /// </summary>
+        Task<Dictionary<Guid, ProjectMemberUserInfo>> GetProjectMembersByIdsAsync(
+            Guid tenantId,
+            Guid projectId,
+            HashSet<Guid> userIds,
+            CancellationToken cancellationToken = default);
     }
 }

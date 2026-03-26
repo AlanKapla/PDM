@@ -106,5 +106,23 @@ namespace Business.Implementation.Services
                 AzureAdB2CObjectId = member.User.AzureAdB2CObjectId
             };
         }
+
+        public async Task<Dictionary<Guid, ProjectMemberUserInfo>> GetProjectMembersByIdsAsync(
+            Guid tenantId,
+            Guid projectId,
+            HashSet<Guid> userIds,
+            CancellationToken cancellationToken = default)
+        {
+            if (userIds.Count == 0)
+            {
+                return new Dictionary<Guid, ProjectMemberUserInfo>();
+            }
+
+            List<ProjectMemberUserInfo> members = await GetProjectMembersAsync(tenantId, projectId, cancellationToken);
+
+            return members
+                .Where(m => userIds.Contains(m.UserId))
+                .ToDictionary(m => m.UserId);
+        }
     }
 }

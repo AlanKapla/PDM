@@ -58,6 +58,9 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
             if (accessLevel == CostEstimateAccessLevel.None)
                 throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
 
+            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+                throw new ForbiddenApiException("Read-only access does not allow field modifications.");
+
             // Fetch template once — needed for Add path (field def lookup) and Restricted read-only check
             CostEstimateTemplate? template = null;
             if (request.FieldValueId is null || (accessLevel == CostEstimateAccessLevel.Restricted && request.FieldDefinitionId.HasValue))

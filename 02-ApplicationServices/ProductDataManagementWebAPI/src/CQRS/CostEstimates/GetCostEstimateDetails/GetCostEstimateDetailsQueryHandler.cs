@@ -105,7 +105,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
 
             // Restricted access widzi tylko kolumny z IsVisible = true.
             // Full access widzi wszystkie kolumny (IsVisible jest ignorowane).
-            if (accessLevel == CostEstimateAccessLevel.Restricted && templateStructure.UiConfiguration is not null)
+            if (accessLevel is CostEstimateAccessLevel.Restricted or CostEstimateAccessLevel.ReadOnly && templateStructure.UiConfiguration is not null)
             {
                 var visibleColumns = templateStructure.UiConfiguration.Columns
                     .Where(c => c.IsVisible)

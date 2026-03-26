@@ -57,6 +57,9 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             if (accessLevel == CostEstimateAccessLevel.Restricted)
                 throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
 
+            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+                throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
+
             var itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 

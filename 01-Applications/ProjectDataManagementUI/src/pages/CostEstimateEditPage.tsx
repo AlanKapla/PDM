@@ -1434,7 +1434,7 @@ export const CostEstimateEditPage: React.FC = () => {
 
   const tableProps = {
     details,
-    editable: isEditMode,
+    editable: isEditMode && canAnyEdit,
     accessLevel: details.accessLevel,
     onDataChange: handleDataChange,
     onAddGroup: handleAddGroup,

@@ -61,6 +61,11 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
                 throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
             }
 
+            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+            {
+                throw new ForbiddenApiException("Read-only access does not allow file uploads.");
+            }
+
             // Validate item belongs to cost estimate via cached items
             var itemsDict = await ceCacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
