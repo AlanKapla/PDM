@@ -58,6 +58,9 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             if (accessLevel == CostEstimateAccessLevel.None)
                 throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
 
+            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+                throw new ForbiddenApiException("Read-only access does not allow field modifications.");
+
             var itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 

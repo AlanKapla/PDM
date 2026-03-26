@@ -33,6 +33,39 @@ public interface IProjectFilesService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Zwraca słownik paczek dostępnych dla użytkownika w projekcie zgodnie z ResourceScope
+    /// </summary>
+    Task<Dictionary<Guid, ProjectFilePackageDto>> GetAccessiblePackagesAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Zwraca pojedynczą paczkę dostępną dla użytkownika zgodnie z ResourceScope.
+    /// Zwraca null jeśli paczka nie istnieje lub użytkownik nie ma do niej dostępu.
+    /// </summary>
+    Task<ProjectFilePackageDto?> GetAccessiblePackageByIdAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        Guid packageId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Zwraca listę plików dostępnych dla użytkownika w paczce zgodnie z ResourceScope
+    /// </summary>
+    Task<List<ProjectFileCacheDto>> GetAccessibleFilesAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        Guid packageId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Zwraca informacje o dostępie do plików w paczce zgodnie z ResourceScope
     /// </summary>
     Task<PackageAccessInfo> GetPackageAccessInfoAsync(
@@ -66,6 +99,18 @@ public interface IProjectFilesService
         HashSet<Guid> fileIds,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Pobiera plik po ID i sprawdza dostęp zgodnie z ResourceScope w jednym wywołaniu.
+    /// Zwraca null jeśli plik nie istnieje lub użytkownik nie ma dostępu.
+    /// </summary>
+    Task<ProjectFileCacheDto?> GetAccessibleFileByIdAsync(
+        ICurrentUser currentUser,
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        ResourceScope resourceScope,
+        CancellationToken cancellationToken = default);
+
     #endregion
 
     #region File Data Methods
@@ -87,6 +132,34 @@ public interface IProjectFilesService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Pobiera pojedynczy plik po ID z cache projektu. Zwraca null jeśli plik nie istnieje.
+    /// </summary>
+    Task<ProjectFileCacheDto?> GetFileByIdAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pobiera pojedynczą wersję pliku po ID pliku i ID wersji z cache projektu. Zwraca null jeśli wersja nie istnieje.
+    /// </summary>
+    Task<ProjectFileVersionDto?> GetFileVersionByIdAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        Guid versionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pobiera wersje konkretnego pliku. Zwraca pustą listę jeśli plik nie ma wersji.
+    /// </summary>
+    Task<List<ProjectFileVersionDto>> GetFileVersionsAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid fileId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Pobiera wszystkie wersje plików dla projektu pogrupowane według plików jako słownik [FileId -> Lista wersji]
     /// </summary>
     Task<Dictionary<Guid, List<ProjectFileVersionDto>>> GetProjectFilesVersionsAsync(
@@ -100,6 +173,15 @@ public interface IProjectFilesService
     Task<Dictionary<Guid, List<ProjectFileVersionCommentDto>>> GetProjectFileVersionsCommentsAsync(
         Guid tenantId,
         Guid projectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pobiera komentarze dla konkretnej wersji pliku. Zwraca pustą listę jeśli brak komentarzy.
+    /// </summary>
+    Task<List<ProjectFileVersionCommentDto>> GetVersionCommentsAsync(
+        Guid tenantId,
+        Guid projectId,
+        Guid versionId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -118,6 +200,15 @@ public interface IProjectFilesService
         Guid tenantId,
         Guid projectId,
         params Guid[] versionIds);
+
+    /// <summary>
+    /// Zwraca podsumowanie wersji dla podanych plików: liczbę wersji oraz zbiór ID aktualnych wersji
+    /// </summary>
+    Task<FileVersionsSummary> GetFileVersionsSummaryAsync(
+        Guid tenantId,
+        Guid projectId,
+        IReadOnlyCollection<ProjectFileCacheDto> files,
+        CancellationToken cancellationToken = default);
 
     #endregion
 
@@ -186,4 +277,20 @@ public record PackageAccessInfo
     /// IDs plików dozwolonych (Allow) - gdy IsPackageShared = false
     /// </summary>
     public HashSet<Guid> AllowedFileIds { get; init; } = new();
+}
+
+/// <summary>
+/// Podsumowanie wersji plików: liczba wersji i zbiór ID aktualnych wersji
+/// </summary>
+public record FileVersionsSummary
+{
+    /// <summary>
+    /// Słownik: FileId -> Liczba wersji
+    /// </summary>
+    public Dictionary<Guid, int> VersionCounts { get; init; } = [];
+
+    /// <summary>
+    /// Zbiór ID aktualnych wersji plików
+    /// </summary>
+    public HashSet<Guid> CurrentVersionIds { get; init; } = [];
 }

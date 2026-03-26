@@ -88,11 +88,9 @@ namespace Business.Implementation.Services
                         "Resolving access level for user {UserId}, cost estimate {CostEstimateId}",
                         currentUser.Id, costEstimateId);
 
-                    if (currentUser.IsSuperAdmin)
-                    {
-                        return new IntWrapper((int)CostEstimateAccessLevel.Full);
-                    }
-
+                    // TenantAdmin and ProjectAdmin always get full access.
+                    // For SuperAdmin this covers the case where they are also a TenantAdmin
+                    // or have been explicitly assigned the ProjectAdmin role.
                     bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken);
                     if (isAdmin)
                     {
@@ -119,9 +117,21 @@ namespace Business.Implementation.Services
                              && s.SharedWithUserId == currentUser.Id,
                         cancellationToken);
 
-                    return isShared
-                        ? new IntWrapper((int)CostEstimateAccessLevel.Restricted)
-                        : new IntWrapper((int)CostEstimateAccessLevel.None);
+                    if (isShared)
+                    {
+                        return new IntWrapper((int)CostEstimateAccessLevel.Restricted);
+                    }
+
+                    // SuperAdmin always has fallback read-only permissions in every project,
+                    // regardless of whether they hold a project membership.
+                    // A SuperAdmin who is a ProjectViewer or has no membership at all can
+                    // still read the cost estimate but must not be able to modify it.
+                    if (currentUser.IsSuperAdmin)
+                    {
+                        return new IntWrapper((int)CostEstimateAccessLevel.ReadOnly);
+                    }
+
+                    return new IntWrapper((int)CostEstimateAccessLevel.None);
                 },
                 CacheExpiration,
                 cancellationToken);

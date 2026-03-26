@@ -73,7 +73,7 @@ export type CostEstimateGroupFieldValueDto = CostEstimateFieldValueDto;
  */
 export enum CostEstimateAccessLevel {
   None = 0,
-  // ReadOnly = 1 — martwy kod, nigdy nie przyznawany
+  ReadOnly = 1,
   Restricted = 2,
   Full = 3,
 }
