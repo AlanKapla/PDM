@@ -40,8 +40,11 @@ namespace CQRS.CostEstimates.ReorderCostEstimateItems
             if (accessLevel == CostEstimateAccessLevel.None)
                 throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
 
-            if (accessLevel is CostEstimateAccessLevel.Restricted or CostEstimateAccessLevel.ReadOnly)
+            if (accessLevel == CostEstimateAccessLevel.Restricted)
                 throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
+
+            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+                throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
 
             var groupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);

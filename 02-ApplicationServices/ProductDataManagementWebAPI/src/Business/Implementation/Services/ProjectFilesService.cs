@@ -191,10 +191,21 @@ public sealed class ProjectFilesService : IProjectFilesService
 
                     if (hasPackageShare)
                     {
-                        int totalFiles = allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? pf) ? pf.Count : 0;
-                        int excludedCount = packageShares.Count(s =>
-                            s.ProjectFileId.HasValue && s.Access == ProjectFileAccess.Deny);
-                        counts[packageId] = totalFiles - excludedCount;
+                        if (allFiles.TryGetValue(packageId, out List<ProjectFileCacheDto>? pf) && pf.Count > 0)
+                        {
+                            var existingFileIds = new HashSet<Guid>(pf.Select(f => f.Id));
+                            int totalFiles = pf.Count;
+                            int excludedCount = packageShares.Count(s =>
+                                s.ProjectFileId.HasValue &&
+                                s.Access == ProjectFileAccess.Deny &&
+                                existingFileIds.Contains(s.ProjectFileId.Value));
+
+                            counts[packageId] = Math.Max(0, totalFiles - excludedCount);
+                        }
+                        else
+                        {
+                            counts[packageId] = 0;
+                        }
                     }
                     else
                     {

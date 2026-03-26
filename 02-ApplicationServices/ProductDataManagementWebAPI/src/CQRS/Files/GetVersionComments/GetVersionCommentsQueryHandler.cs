@@ -26,11 +26,11 @@ public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionComments
 
     public async Task<List<ProjectFileVersionCommentWeb>> Handle(GetVersionCommentsQuery request, CancellationToken cancellationToken)
     {
-        ProjectFileCacheDto? fileDto = await projectFilesService.GetAccessibleFileByIdAsync(
+        _ = await projectFilesService.GetAccessibleFileByIdAsync(
             currentUser, request.TenantId, request.ProjectId, request.FileId, request.Scope, cancellationToken)
             ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
-        ProjectFileVersionDto? versionDto = await projectFilesService.GetFileVersionByIdAsync(
+        _ = await projectFilesService.GetFileVersionByIdAsync(
             request.TenantId, request.ProjectId, request.FileId, request.VersionId, cancellationToken)
             ?? throw new NotFoundApiException(nameof(ProjectFileVersion), request.VersionId.ToString());
 

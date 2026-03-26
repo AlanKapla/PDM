@@ -26,7 +26,7 @@ public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery,
 
     public async Task<List<ProjectFileVersionWeb>> Handle(GetFileVersionsQuery request, CancellationToken cancellationToken)
     {
-        ProjectFileCacheDto? fileDto = await projectFilesService.GetAccessibleFileByIdAsync(
+        _ = await projectFilesService.GetAccessibleFileByIdAsync(
             currentUser, request.TenantId, request.ProjectId, request.FileId, request.Scope, cancellationToken)
             ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
