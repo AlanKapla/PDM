@@ -46,7 +46,7 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
         await messageWriteRepo.SaveChangesAsync(cancellationToken);
 
         await hubContext.Clients
-            .Group($"chat:{request.ChatId}")
+            .Group(ChatHubGroups.Chat(request.ChatId))
             .MessageDeleted(new MessageDeletedPayload(message.Id, request.ChatId));
 
         logger.LogDebug(

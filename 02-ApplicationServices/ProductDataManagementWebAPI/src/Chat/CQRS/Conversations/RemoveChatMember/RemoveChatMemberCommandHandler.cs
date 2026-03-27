@@ -84,7 +84,7 @@ public sealed class RemoveChatMemberCommandHandler : IRequestHandler<RemoveChatM
             request.UserId, chat.Id, currentUser.Id);
 
         await hubContext.Clients
-            .Group($"user:{request.UserId}")
+            .Group(ChatHubGroups.User(request.UserId))
             .RemovedFromChat(new RemovedFromChatPayload(chat.Id, null));
 
         return Unit.Value;

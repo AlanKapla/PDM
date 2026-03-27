@@ -45,7 +45,7 @@ public sealed class MarkAsReadCommandHandler : IRequestHandler<MarkAsReadCommand
         await chatMemberRepo.SaveChangesAsync(cancellationToken);
 
         await hubContext.Clients
-            .Group($"chat:{request.ChatId}")
+            .Group(ChatHubGroups.Chat(request.ChatId))
             .ReadReceipt(new ReadReceiptPayload(request.ChatId, currentUser.Id, readAt));
 
         logger.LogDebug(

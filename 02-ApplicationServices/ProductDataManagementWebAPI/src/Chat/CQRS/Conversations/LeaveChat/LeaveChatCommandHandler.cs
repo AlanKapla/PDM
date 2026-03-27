@@ -74,7 +74,7 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
         foreach (Guid userId in memberIds)
         {
             await hubContext.Clients
-                .Group($"user:{userId}")
+                .Group(ChatHubGroups.User(userId))
                 .ChatDeleted(chat.Id);
         }
 
@@ -91,7 +91,7 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
         await chatMemberRepo.Delete(membership);
 
         await hubContext.Clients
-            .Group($"user:{currentUser.Id}")
+            .Group(ChatHubGroups.User(currentUser.Id))
             .RemovedFromChat(new RemovedFromChatPayload(chat.Id, null));
 
         logger.LogInformation(

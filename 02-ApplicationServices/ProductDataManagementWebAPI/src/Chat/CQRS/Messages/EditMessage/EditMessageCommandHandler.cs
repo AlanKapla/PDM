@@ -62,7 +62,7 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
         await messageWriteRepo.SaveChangesAsync(cancellationToken);
 
         await hubContext.Clients
-            .Group($"chat:{request.ChatId}")
+            .Group(ChatHubGroups.Chat(request.ChatId))
             .MessageEdited(new MessageEditedPayload(
                 message.Id,
                 request.ChatId,

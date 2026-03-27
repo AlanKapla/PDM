@@ -113,7 +113,7 @@ public sealed class ChatDirectService : IChatDirectService
             });
 
         await hubContext.Clients
-            .Group($"user:{notifyUserId}")
+            .Group(ChatHubGroups.User(notifyUserId))
             .ChatCreated(chatWeb);
 
         return direct.Id;

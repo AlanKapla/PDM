@@ -34,12 +34,12 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
 
     public async Task<Guid> Handle(SendMessageCommand request, CancellationToken cancellationToken)
     {
-        List<Guid> memberIds = await chatMemberRepo.SelectAsync(
-            cm => cm.ChatId == request.ChatId,
-            cm => cm.UserId,
-            cancellationToken);
+        bool isMember = await chatMemberRepo.AnyAsync(
+             cm => cm.ChatId == request.ChatId &&
+                   cm.UserId == currentUser.Id,
+             cancellationToken);
 
-        if (!memberIds.Contains(currentUser.Id))
+        if (!isMember)
         {
             throw new ForbiddenApiException("You are not a member of this chat.");
         }
@@ -72,12 +72,9 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
             EditedAt: null,
             ReplyToMessageId: message.ReplyToMessageId);
 
-        foreach (Guid recipientId in memberIds.Where(id => id != currentUser.Id))
-        {
-            await hubContext.Clients
-                .Group($"user:{recipientId}")
-                .ReceiveMessage(messageWeb);
-        }
+        await hubContext.Clients
+            .Group(ChatHubGroups.Chat(request.ChatId))
+            .ReceiveMessage(messageWeb);
 
         logger.LogDebug(
             "Message {MessageId} sent to chat {ChatId} by user {UserId}",

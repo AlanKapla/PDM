@@ -67,15 +67,17 @@ export function ChatUnreadProvider({ children }: { children: ReactNode }) {
     // user.email zamiast user.id — email jest non-optional w UserProfile
   }, [user?.email]);
 
-  // Nowa wiadomość → inkrementuj licznik dla danego czatu
+  // Nowa wiadomość → inkrementuj licznik tylko jeśli wiadomość nie pochodzi od nas
   useEffect(() => {
     return chatHubService.onReceiveMessage((msg) => {
+      const currentUserId = userIdRef.current ?? user?.id;
+      if (currentUserId && msg.senderId === currentUserId) return;
       setUnreadByChatId((prev) => ({
         ...prev,
         [msg.chatId]: (prev[msg.chatId] ?? 0) + 1,
       }));
     });
-  }, []);
+  }, [user?.id]);
 
   // Odczytanie czatu (ReadReceipt od bieżącego usera) → zeruj
   useEffect(() => {

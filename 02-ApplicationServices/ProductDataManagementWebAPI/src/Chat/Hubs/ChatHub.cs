@@ -38,7 +38,7 @@ public sealed class ChatHub : Hub<IChatClient>
             return;
         }
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, ChatHubGroups.User(Guid.Parse(userId)));
 
         logger.LogDebug("ChatHub: user {UserId} connected ({ConnectionId})", userId, Context.ConnectionId);
 
@@ -62,7 +62,7 @@ public sealed class ChatHub : Hub<IChatClient>
     /// <summary>Join the SignalR group for the given chat to receive real-time events.</summary>
     public async Task JoinChat(Guid chatId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"chat:{chatId}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, ChatHubGroups.Chat(chatId));
 
         logger.LogDebug(
             "ChatHub: user {UserId} joined chat group {ChatId}",
@@ -73,7 +73,7 @@ public sealed class ChatHub : Hub<IChatClient>
     /// <summary>Leave the SignalR group for the given chat.</summary>
     public async Task LeaveChat(Guid chatId)
     {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"chat:{chatId}");
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChatHubGroups.Chat(chatId));
 
         logger.LogDebug(
             "ChatHub: user {UserId} left chat group {ChatId}",
@@ -105,7 +105,7 @@ public sealed class ChatHub : Hub<IChatClient>
         }
 
         await Clients
-            .OthersInGroup($"chat:{chatId}")
+            .OthersInGroup(ChatHubGroups.Chat(chatId))
             .UserTyping(new UserTypingPayload(chatId, Guid.Parse(userId), true));
     }
 
@@ -119,7 +119,7 @@ public sealed class ChatHub : Hub<IChatClient>
         }
 
         await Clients
-            .OthersInGroup($"chat:{chatId}")
+            .OthersInGroup(ChatHubGroups.Chat(chatId))
             .UserTyping(new UserTypingPayload(chatId, Guid.Parse(userId), false));
     }
 }

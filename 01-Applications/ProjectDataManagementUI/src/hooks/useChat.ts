@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useContext } from "react";
 import { chatApi } from "../api/chatApi";
 import { chatHubService } from "../services/chatHubService";
+import { AuthContext } from "../context/AuthContext";
 import type { ChatWeb, ChatMemberWeb, RemovedFromChatPayload, ChatDeletedPayload, MemberAddedPayload } from "../types/chat.types";
 
 /**
@@ -8,6 +9,10 @@ import type { ChatWeb, ChatMemberWeb, RemovedFromChatPayload, ChatDeletedPayload
  * dotyczące tworzenia nowych czatów i usuwania z czatu.
  */
 export function useChatList() {
+  const { user } = useContext(AuthContext);
+  const currentUserIdRef = useRef<string | null>(null);
+  useEffect(() => { currentUserIdRef.current = user?.id ?? null; }, [user?.id]);
+
   const [chats, setChats] = useState<ChatWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,10 +84,11 @@ export function useChatList() {
   // Aktualizuj ostatnią wiadomość i unreadCount na podstawie przychodzących wiadomości
   useEffect(() => {
     const unsubscribe = chatHubService.onReceiveMessage((message) => {
+      const isOwnMessage = currentUserIdRef.current && message.senderId === currentUserIdRef.current;
       setChats((prev) =>
         prev.map((c) =>
           c.id === message.chatId
-            ? { ...c, lastMessage: message, unreadCount: c.unreadCount + 1 }
+            ? { ...c, lastMessage: message, unreadCount: isOwnMessage ? c.unreadCount : c.unreadCount + 1 }
             : c
         )
       );

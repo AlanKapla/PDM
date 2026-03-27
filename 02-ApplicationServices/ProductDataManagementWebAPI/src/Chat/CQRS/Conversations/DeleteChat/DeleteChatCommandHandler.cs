@@ -66,7 +66,7 @@ public sealed class DeleteChatCommandHandler : IRequestHandler<DeleteChatCommand
         foreach (Guid userId in memberIds)
         {
             await hubContext.Clients
-                .Group($"user:{userId}")
+                .Group(ChatHubGroups.User(userId))
                 .ChatDeleted(chat.Id);
         }
 
