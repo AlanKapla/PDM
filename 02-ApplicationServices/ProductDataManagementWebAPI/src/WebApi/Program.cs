@@ -1,4 +1,5 @@
 ﻿using Microsoft.IdentityModel.Logging;
+using Chat.Registration;
 using WebApi.Extensions;
 
 internal class Program
@@ -66,6 +67,9 @@ internal class Program
             .RequireCors("AllowFrontend");
 
         app.MapHub<WebApi.Hubs.MessageHub>("/api/hubs/messages")
+            .RequireCors("AllowFrontend");
+
+        app.MapChatHub()
             .RequireCors("AllowFrontend");
 
         app.MapHealthChecks("/api/health");

@@ -1,7 +1,6 @@
 ﻿using Entities.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 namespace Entities.Configurations
 {
     public class ChatConfiguration : IEntityTypeConfiguration<Chat>
@@ -16,26 +15,8 @@ namespace Entities.Configurations
 
             builder.Property(c => c.IsGroupChat).IsRequired();
             builder.Property(c => c.CreatedAt).IsRequired();
-
-            builder.HasOne(c => c.Tenant)
-                .WithMany()
-                .HasForeignKey(c => c.TenantId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.HasOne(c => c.Project)
-                .WithMany()
-                .HasForeignKey(c => c.ProjectId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            builder.HasOne(c => c.CreatedBy)
-                .WithMany()
-                .HasForeignKey(c => new { c.TenantId, c.CreatedByUserId })
-                .HasPrincipalKey(t => new { t.TenantId, t.UserId })
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.HasIndex(c => c.TenantId);
-            builder.HasIndex(c => c.ProjectId);
-            builder.HasIndex(c => new { c.ProjectId, c.IsGroupChat });
+            builder.Property(c => c.ProjectId);
+            builder.Property(c => c.TenantId);
         }
     }
 }

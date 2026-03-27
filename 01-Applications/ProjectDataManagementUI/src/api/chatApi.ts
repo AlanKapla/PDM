@@ -1,120 +1,110 @@
 ﻿import { axiosClient } from "./axiosClient";
-
-export interface ChatWeb {
-  id: string;
-  name: string;
-  isGroupChat: boolean;
-  memberCount: number;
-  lastMessageAt?: string;
-  unreadCount: number;
-}
-
-export interface MessageWeb {
-  id: string;
-  chatId: string;
-  content: string;
-  senderId: string;
-  senderName: string;
-  sentAt: string;
-  isRead: boolean;
-}
-
-export interface CreateChatRequest {
-  name: string;
-  isGroupChat: boolean;
-  memberUserIds: string[];
-}
-
-export interface SendMessageRequest {
-  content: string;
-}
+import type {
+  ChatWeb,
+  ChatMemberWeb,
+  MessageWeb,
+  CreateChatRequest,
+  CreateChatResultWeb,
+  SendMessageRequest,
+  EditMessageRequest,
+  RenameChatRequest,
+  AddMemberRequest,
+  ProjectContactsGroupWeb,
+  AvailableMemberWeb,
+  ChatSearchResultWeb,
+} from "../types/chat.types";
 
 export const chatApi = {
-  /**
-   * Get all chats for project
-   */
-  getProjectChats: async (tenantId: string, projectId: string): Promise<ChatWeb[]> => {
-    const response = await axiosClient.get<ChatWeb[]>(
-      `/tenants/${tenantId}/project/${projectId}/chat`
+  getChats: async (): Promise<ChatWeb[]> => {
+    const response = await axiosClient.get<ChatWeb[]>("/chats");
+    return response.data;
+  },
+
+  getContacts: async (): Promise<ProjectContactsGroupWeb[]> => {
+    const response = await axiosClient.get<ProjectContactsGroupWeb[]>("/chats/contacts");
+    return response.data;
+  },
+
+  searchChats: async (q: string): Promise<ChatSearchResultWeb[]> => {
+    const response = await axiosClient.get<ChatSearchResultWeb[]>("/chats/search", {
+      params: { q },
+    });
+    return response.data;
+  },
+
+  getChatsByMembers: async (memberIds: string[]): Promise<ChatWeb[]> => {
+    const response = await axiosClient.get<ChatWeb[]>("/chats/by-members", {
+      params: { memberIds },
+    });
+    return response.data;
+  },
+
+  createChat: async (data: CreateChatRequest): Promise<CreateChatResultWeb> => {
+    const response = await axiosClient.post<CreateChatResultWeb>("/chats", data);
+    return response.data;
+  },
+
+  renameGroupChat: async (chatId: string, data: RenameChatRequest): Promise<void> => {
+    await axiosClient.patch(`/chats/${chatId}`, data);
+  },
+
+  getMembers: async (chatId: string): Promise<ChatMemberWeb[]> => {
+    const response = await axiosClient.get<ChatMemberWeb[]>(`/chats/${chatId}/members`);
+    return response.data;
+  },
+
+  getAvailableMembers: async (chatId: string): Promise<AvailableMemberWeb[]> => {
+    const response = await axiosClient.get<AvailableMemberWeb[]>(
+      `/chats/${chatId}/available-members`
     );
     return response.data;
   },
 
-  /**
-   * Create new chat
-   */
-  createChat: async (
-    tenantId: string,
-    projectId: string,
-    data: CreateChatRequest
-  ): Promise<string> => {
-    const response = await axiosClient.post<string>(
-      `/tenants/${tenantId}/project/${projectId}/chat`,
-      {
-        tenantId,
-        projectId,
-        ...data,
-      }
-    );
-    return response.data;
+  addMember: async (chatId: string, data: AddMemberRequest): Promise<void> => {
+    await axiosClient.post(`/chats/${chatId}/members`, data);
   },
 
-  /**
-   * Get messages for specific chat
-   */
-  getChatMessages: async (
-    tenantId: string,
-    projectId: string,
+  removeMember: async (chatId: string, userId: string): Promise<void> => {
+    await axiosClient.delete(`/chats/${chatId}/members/${userId}`);
+  },
+
+  leaveChat: async (chatId: string): Promise<void> => {
+    await axiosClient.post(`/chats/${chatId}/leave`);
+  },
+
+  deleteChat: async (chatId: string): Promise<void> => {
+    await axiosClient.delete(`/chats/${chatId}`);
+  },
+
+  getMessages: async (
     chatId: string,
-    pageNumber: number = 1,
-    pageSize: number = 50
+    pageSize = 50,
+    before?: string
   ): Promise<MessageWeb[]> => {
-    const response = await axiosClient.get<MessageWeb[]>(
-      `/tenants/${tenantId}/project/${projectId}/chat/${chatId}/messages`,
-      {
-        params: { pageNumber, pageSize },
-      }
-    );
+    const response = await axiosClient.get<MessageWeb[]>(`/chats/${chatId}/messages`, {
+      params: { pageSize, ...(before ? { before } : {}) },
+    });
     return response.data;
   },
 
-  /**
-   * Send message to chat
-   */
-  sendMessage: async (
-    tenantId: string,
-    projectId: string,
+  sendMessage: async (chatId: string, data: SendMessageRequest): Promise<{ id: string }> => {
+    const response = await axiosClient.post<{ id: string }>(`/chats/${chatId}/messages`, data);
+    return response.data;
+  },
+
+  editMessage: async (
     chatId: string,
-    content: string
-  ): Promise<string> => {
-    const response = await axiosClient.post<string>(
-      `/tenants/${tenantId}/project/${projectId}/chat/${chatId}/messages`,
-      {
-        tenantId,
-        projectId,
-        chatId,
-        content,
-      }
-    );
-    return response.data;
+    messageId: string,
+    data: EditMessageRequest
+  ): Promise<void> => {
+    await axiosClient.patch(`/chats/${chatId}/messages/${messageId}`, data);
   },
 
-  /**
-   * Mark all messages in chat as read
-   */
-  markMessagesAsRead: async (
-    tenantId: string,
-    projectId: string,
-    chatId: string
-  ): Promise<number> => {
-    const response = await axiosClient.put<number>(
-      `/tenants/${tenantId}/project/${projectId}/chat/${chatId}/read`,
-      {
-        tenantId,
-        projectId,
-        chatId,
-      }
-    );
-    return response.data;
+  deleteMessage: async (chatId: string, messageId: string): Promise<void> => {
+    await axiosClient.delete(`/chats/${chatId}/messages/${messageId}`);
+  },
+
+  markAsRead: async (chatId: string): Promise<void> => {
+    await axiosClient.put(`/chats/${chatId}/read`);
   },
 };

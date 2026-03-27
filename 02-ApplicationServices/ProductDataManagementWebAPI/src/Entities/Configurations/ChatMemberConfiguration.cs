@@ -17,13 +17,8 @@ namespace Entities.Configurations
                 .HasForeignKey(cm => cm.ChatId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            builder.HasOne(cm => cm.User)
-                .WithMany()
-                .HasForeignKey(cm => new { cm.TenantId, cm.UserId })
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.HasIndex(cm => new { cm.ChatId, cm.TenantId, cm.UserId }).IsUnique();
-            builder.HasIndex(cm => new { cm.TenantId, cm.UserId });
+            builder.HasIndex(cm => new { cm.ChatId, cm.UserId }).IsUnique();
+            builder.HasIndex(cm => cm.UserId);
         }
     }
 }
