@@ -510,20 +510,23 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
         flexShrink={0}
         align="flex-end"
         spacing={2}
+        minW={0}
+        w="100%"
       >
         <Textarea
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Napisz wiadomość... (Enter = wyślij, Shift+Enter = nowa linia)"
+          placeholder="Napisz wiadomość..."
           resize="none"
           rows={1}
           maxH="120px"
           overflowY="auto"
           flex={1}
-          fontSize="sm"
+          minW={0}
+          /* fontSize >= 16px zapobiega auto-zoom na iOS */
+          fontSize={{ base: "16px", md: "sm" }}
           borderRadius="xl"
-          sx={{ fieldSizing: "content" } as React.CSSProperties}
         />
         <Tooltip label={editingMessage ? "Zapisz" : "Wyślij (Enter)"}>
           <IconButton
@@ -534,6 +537,7 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
             isLoading={sending}
             isDisabled={!content.trim()}
             onClick={sendMessage}
+            flexShrink={0}
           />
         </Tooltip>
       </HStack>

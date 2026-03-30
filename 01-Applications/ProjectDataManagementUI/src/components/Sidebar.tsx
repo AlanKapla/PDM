@@ -86,6 +86,21 @@ export function SidebarContent() {
         Przełącz organizację
       </Button> */}
 
+      {/* Projekty */}
+      <Button
+        as={RouterLink}
+        to="/projects"
+        variant="ghost"
+        justifyContent="flex-start"
+        leftIcon={<FolderKanban size={20} />}
+        w="100%"
+        bg={location.pathname === "/projects" ? activeBg : "transparent"}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
+      >
+        Projekty
+      </Button>
+
       {/* Wiadomości */}
       <Button
         as={RouterLink}
@@ -121,21 +136,6 @@ export function SidebarContent() {
             {totalUnread > 99 ? "99+" : totalUnread}
           </Badge>
         )}
-      </Button>
-
-      {/* Projekty */}
-      <Button
-        as={RouterLink}
-        to="/projects"
-        variant="ghost"
-        justifyContent="flex-start"
-        leftIcon={<FolderKanban size={20} />}
-        w="100%"
-        bg={location.pathname === "/projects" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg, textDecoration: "none" }}
-        textDecoration="none"
-      >
-        Projekty
       </Button>
 
       {/* Zarządzaj organizacjami */}

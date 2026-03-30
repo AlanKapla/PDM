@@ -24,6 +24,7 @@ import {
   Spinner,
 } from "@chakra-ui/react";
 import { Plus, FileText } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
 import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateStructureWeb, type CurrencyWeb } from "../api/costEstimateTemplateApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 
@@ -291,6 +292,11 @@ export default function CreateCostEstimateModal({
                     <Text fontSize="xs" color="gray.600">
                       Musisz najpierw utworzyć szablon kosztorysu.
                     </Text>
+                    <RouterLink to="/cost-estimate-templates">
+                      <Text fontSize="xs" color="blue.500" mt={1} textDecoration="underline">
+                        Przejdź do zarządzania szablonami →
+                      </Text>
+                    </RouterLink>
                   </Box>
                 </Alert>
               )}

@@ -93,9 +93,6 @@ namespace Entities.Configurations
             builder.HasIndex(t => t.Category);
             builder.HasIndex(t => t.IsDeleted);
             builder.HasIndex(t => t.CreatedAt);
-            
-            // Global query filter for soft delete
-            builder.HasQueryFilter(t => !t.IsDeleted);
         }
     }
 }
