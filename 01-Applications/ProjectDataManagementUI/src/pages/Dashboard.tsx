@@ -1,5 +1,5 @@
 import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack, Badge, HStack } from "@chakra-ui/react";
-import { Building2, FolderKanban, Settings, Briefcase, FileText, RefreshCw, Mail } from "lucide-react";
+import { Building2, FolderKanban, Settings, Briefcase, FileText, RefreshCw, Mail, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import MainLayout from "../layout/MainLayout";
@@ -44,7 +44,14 @@ export default function Dashboard() {
       path: "/projects",
     },
     {
-      title: "Zarządzaj",
+      title: "Wiadomości",
+      description: "Komunikuj się z członkami projektów i organizacji",
+      icon: MessageSquare,
+      color: "blue.500",
+      path: "/chat",
+    },
+    {
+      title: "Zarządzanie",
       description: "Administruj swoimi organizacjami",
       icon: Building2,
       color: "blue.500",

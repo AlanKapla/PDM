@@ -1,0 +1,11 @@
+﻿using Chat.DTOs;
+using CQRS;
+
+namespace Chat.CQRS.Conversations.SearchChats;
+
+/// <summary>
+/// Searches chats the current user belongs to.
+/// Matches against: chat name, member full names, and message content.
+/// Returns matching chats; MatchingMessageIds is populated for message-content matches.
+/// </summary>
+public sealed record SearchChatsQuery(string Phrase) : IRequestQuery<List<ChatSearchResultWeb>>;

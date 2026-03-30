@@ -30,7 +30,6 @@ namespace CQRS.Chats.GetProjectChats
                 include => include.Include(cm => cm.Chat).ThenInclude(c => c.Messages));
 
             var chats = userChatMemberships
-                .Where(cm => cm.Chat.ProjectId == request.ProjectId)
                 .Select(cm => cm.Chat)
                 .Distinct()
                 .ToList();
@@ -48,8 +47,6 @@ namespace CQRS.Chats.GetProjectChats
 
                 result.Add(new ChatWeb(
                     Id: chat.Id,
-                    TenantId: chat.TenantId,
-                    ProjectId: chat.ProjectId,
                     Name: chat.Name,
                     IsGroupChat: chat.IsGroupChat,
                     CreatedAt: chat.CreatedAt,

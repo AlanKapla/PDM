@@ -12,30 +12,24 @@ namespace CQRS.Messages.SendMessage
     public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Guid>
     {
         private readonly IRepository<MessageHistory> messageRepo;
-        private readonly IReadRepository<Chat> chatRepo;
         private readonly ICurrentUser currentUser;
         private readonly IQueueStorageService queueStorage;
 
         public SendMessageCommandHandler(
             IRepository<MessageHistory> messageRepo,
-            IReadRepository<Chat> chatRepo,
             ICurrentUser currentUser,
             IQueueStorageService queueStorage)
         {
             this.messageRepo = messageRepo;
-            this.chatRepo = chatRepo;
             this.currentUser = currentUser;
             this.queueStorage = queueStorage;
         }
 
         public async Task<Guid> Handle(SendMessageCommand request, CancellationToken cancellationToken)
         {
-            var chat = await chatRepo.GetFirstBySearch(c => c.Id == request.ChatId, cancellationToken);
-
             MessageHistory message = new MessageHistory
             {
                 ChatId = request.ChatId,
-                TenantId = chat!.TenantId,
                 UserId = currentUser.Id,
                 Content = request.Content,
                 CreatedAt = DateTime.UtcNow

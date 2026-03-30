@@ -23,17 +23,20 @@ import {
   Settings,
   RefreshCw,
   Mail,
+  MessageSquare,
 } from "lucide-react";
 
 import { useLocation, Link as RouterLink } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { getActiveInvitations } from "../services/tenantService";
 import { InvitationStatus } from "../types/auth.types";
 import { useGlobalCache } from "../hooks/useGlobalCache";
+import { ChatUnreadContext } from "../context/ChatUnreadContext";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
 export function SidebarContent() {
   const location = useLocation();
+  const { totalUnread } = useContext(ChatUnreadContext);
 
   const [invitationsCount, setInvitationsCount] = useState(0);
 
@@ -96,6 +99,43 @@ export function SidebarContent() {
         textDecoration="none"
       >
         Projekty
+      </Button>
+
+      {/* Wiadomości */}
+      <Button
+        as={RouterLink}
+        to="/chat"
+        variant="ghost"
+        justifyContent="flex-start"
+        leftIcon={
+          <Box position="relative" display="inline-flex">
+            <MessageSquare size={20} color={totalUnread > 0 && !location.pathname.startsWith("/chat") ? "var(--chakra-colors-blue-500)" : undefined} />
+            {totalUnread > 0 && !location.pathname.startsWith("/chat") && (
+              <Box
+                position="absolute"
+                top="-3px"
+                right="-3px"
+                w="8px"
+                h="8px"
+                bg="blue.500"
+                borderRadius="full"
+                border="2px solid"
+                borderColor="white"
+              />
+            )}
+          </Box>
+        }
+        w="100%"
+        bg={location.pathname.startsWith("/chat") ? activeBg : "transparent"}
+        _hover={{ bg: hoverBg, textDecoration: "none" }}
+        textDecoration="none"
+      >
+        Wiadomości
+        {totalUnread > 0 && (
+          <Badge colorScheme="blue" borderRadius="full" fontSize="xs" ml="auto">
+            {totalUnread > 99 ? "99+" : totalUnread}
+          </Badge>
+        )}
       </Button>
 
       {/* Zarządzaj organizacjami */}

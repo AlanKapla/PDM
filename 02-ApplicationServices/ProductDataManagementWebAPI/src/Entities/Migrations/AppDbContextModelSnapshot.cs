@@ -57,21 +57,13 @@ namespace Entities.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<Guid>("ProjectId")
+                    b.Property<Guid?>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid?>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("ProjectId", "IsGroupChat");
-
-                    b.HasIndex("TenantId", "CreatedByUserId");
 
                     b.ToTable("Chats");
                 });
@@ -85,23 +77,23 @@ namespace Entities.Migrations
                     b.Property<Guid>("ChatId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("LastReadAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "UserId");
+                    b.HasIndex("UserId");
 
-                    b.HasIndex("ChatId", "TenantId", "UserId")
+                    b.HasIndex("ChatId", "UserId")
                         .IsUnique();
 
                     b.ToTable("ChatMembers");
@@ -804,7 +796,13 @@ namespace Entities.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EditedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReplyToMessageId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("UserId")
@@ -812,9 +810,10 @@ namespace Entities.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ChatId", "CreatedAt");
+                    b.HasIndex("ReplyToMessageId")
+                        .HasFilter("ReplyToMessageId IS NOT NULL");
 
-                    b.HasIndex("TenantId", "UserId");
+                    b.HasIndex("ChatId", "CreatedAt");
 
                     b.ToTable("MessageHistories");
                 });
@@ -1924,33 +1923,6 @@ namespace Entities.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Entities.Models.Chat", b =>
-                {
-                    b.HasOne("Entities.Models.Project", "Project")
-                        .WithMany()
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Entities.Models.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Entities.Models.TenantMember", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("TenantId", "CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("Project");
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("Entities.Models.ChatMember", b =>
                 {
                     b.HasOne("Entities.Models.Chat", "Chat")
@@ -1959,15 +1931,7 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Entities.Models.TenantMember", "User")
-                        .WithMany()
-                        .HasForeignKey("TenantId", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Chat");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", b =>
@@ -2243,15 +2207,14 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Entities.Models.TenantMember", "User")
+                    b.HasOne("Entities.Models.MessageHistory", "ReplyToMessage")
                         .WithMany()
-                        .HasForeignKey("TenantId", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .HasForeignKey("ReplyToMessageId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Chat");
 
-                    b.Navigation("User");
+                    b.Navigation("ReplyToMessage");
                 });
 
             modelBuilder.Entity("Entities.Models.Notification", b =>

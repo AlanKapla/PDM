@@ -15,19 +15,25 @@ namespace Entities.Configurations
                 .IsRequired();
 
             builder.Property(m => m.CreatedAt).IsRequired();
+            builder.Property(m => m.EditedAt);
+            builder.Property(m => m.DeletedAt);
+            builder.Property(m => m.ReplyToMessageId);
+
+            builder.Ignore(m => m.IsDeleted);
 
             builder.HasOne(m => m.Chat)
                 .WithMany(c => c.Messages)
                 .HasForeignKey(m => m.ChatId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            builder.HasOne(m => m.User)
+            builder.HasOne(m => m.ReplyToMessage)
                 .WithMany()
-                .HasForeignKey(m => new { m.TenantId, m.UserId })
+                .HasForeignKey(m => m.ReplyToMessageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasIndex(m => new { m.ChatId, m.CreatedAt });
-            builder.HasIndex(m => new { m.TenantId, m.UserId });
+            builder.HasIndex(m => m.ReplyToMessageId)
+                .HasFilter("ReplyToMessageId IS NOT NULL");
         }
     }
 }

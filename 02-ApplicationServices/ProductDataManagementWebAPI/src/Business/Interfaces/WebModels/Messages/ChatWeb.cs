@@ -2,8 +2,6 @@
 {
     public record ChatWeb(
         Guid Id,
-        Guid TenantId,
-        Guid ProjectId,
         string Name,
         bool IsGroupChat,
         DateTime CreatedAt,

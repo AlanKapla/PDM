@@ -7,6 +7,7 @@ using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using Chat.Registration;
 using CQRS.Behaviours;
 using Entities.Context;
 using Entities.Models;
@@ -47,7 +48,8 @@ namespace WebApi.Extensions
                 .AddAppRepositories()
                 .AddAppServices()
                 .AddConfigurations(config)
-                .AddFrontendCors(config);
+                .AddFrontendCors(config)
+                .AddChat(config);
 
             return services;
         }
@@ -270,11 +272,6 @@ namespace WebApi.Extensions
             services.AddScoped<IRepository<ProjectFileVersionComment>, Repository<ProjectFileVersionComment>>();
             services.AddScoped<IReadRepository<SharedProjectFile>, ReadRepository<SharedProjectFile>>();
             services.AddScoped<IRepository<SharedProjectFile>, Repository<SharedProjectFile>>();
-            services.AddScoped<IReadRepository<Chat>, ReadRepository<Chat>>();
-            services.AddScoped<IRepository<Chat>, Repository<Chat>>();
-            services.AddScoped<IRepository<ChatMember>, Repository<ChatMember>>();
-            services.AddScoped<IReadRepository<MessageHistory>, ReadRepository<MessageHistory>>();
-            services.AddScoped<IRepository<MessageHistory>, Repository<MessageHistory>>();
             services.AddScoped<IReadRepository<WorkSchedule>, ReadRepository<WorkSchedule>>();
             services.AddScoped<IRepository<WorkSchedule>, Repository<WorkSchedule>>();
             services.AddScoped<IRepository<WorkScheduleStage>, Repository<WorkScheduleStage>>();
@@ -364,6 +361,7 @@ namespace WebApi.Extensions
 
             // User service — caches project members per project
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IProjectMemberService, ProjectMemberService>();
             
             // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();
