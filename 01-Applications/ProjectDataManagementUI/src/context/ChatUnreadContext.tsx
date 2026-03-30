@@ -10,6 +10,7 @@ import {
 import { chatApi } from "../api/chatApi";
 import { chatHubService } from "../services/chatHubService";
 import { AuthContext } from "./AuthContext";
+import { isMockMode } from "../mocks/index";
 
 interface ChatUnreadContextType {
   totalUnread: number;
@@ -42,6 +43,9 @@ export function ChatUnreadProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const init = async () => {
+      // W trybie demo pomijamy SignalR i czaty – nie ma backendu
+      if (isMockMode()) return;
+
       try {
         await chatHubService.startConnection();
         if (cancelled) return;

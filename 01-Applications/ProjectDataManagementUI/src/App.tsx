@@ -1,13 +1,17 @@
 ﻿import { BrowserRouter } from "react-router-dom";
 import AppRouter from "./routes/AppRouter";
 import { AuthProvider } from "./context/AuthContext";
+import { DemoAuthProvider } from "./context/DemoAuthProvider";
 import { ProjectCacheProvider } from "./context/ProjectCacheContext";
 import { ChatUnreadProvider } from "./context/ChatUnreadContext";
 import CookieBanner from "./components/CookieBanner";
+import { isMockMode } from "./mocks/index";
+
+const ActiveAuthProvider = isMockMode() ? DemoAuthProvider : AuthProvider;
 
 function App() {
   return (
-    <AuthProvider>
+    <ActiveAuthProvider>
       <ProjectCacheProvider>
         <ChatUnreadProvider>
           <BrowserRouter>
@@ -16,7 +20,7 @@ function App() {
           </BrowserRouter>
         </ChatUnreadProvider>
       </ProjectCacheProvider>
-    </AuthProvider>
+    </ActiveAuthProvider>
   );
 }
 

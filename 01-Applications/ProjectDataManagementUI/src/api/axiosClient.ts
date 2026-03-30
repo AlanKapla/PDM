@@ -1,6 +1,8 @@
 import axios from "axios";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
+import { isMockMode } from "../mocks/index";
+import { demoAxiosAdapter } from "../mocks/mockAdapter";
 
 // Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
 function requireEnvVar(key: string): string {
@@ -13,11 +15,16 @@ function requireEnvVar(key: string): string {
   return value;
 }
 
-const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
+// W trybie demo baseURL nie jest weryfikowane – może być dowolne
+const API_BASE_URL = isMockMode()
+  ? "http://demo.local"
+  : requireEnvVar("VITE_API_BASE_URL");
 
 export const axiosClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
-  withCredentials: false, // Changed to false - using Bearer tokens instead of cookies
+  withCredentials: false,
+  // W trybie demo wszystkie żądania obsługuje adapter mockowy – żaden ruch sieciowy nie wychodzi
+  ...(isMockMode() && { adapter: demoAxiosAdapter }),
 });
 
 // Request interceptor to add access token
@@ -25,6 +32,11 @@ export const axiosClient = axios.create({
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-acquire-token
 axiosClient.interceptors.request.use(
   async (config) => {
+    // W trybie demo adapter jest ustawiony na instancji – interceptor tylko przepuszcza config
+    if (isMockMode()) {
+      return config;
+    }
+
     const accounts = msalInstance.getAllAccounts();
     
     if (accounts.length > 0) {

@@ -6,15 +6,20 @@ import { Flex, Spinner, Text, VStack } from "@chakra-ui/react";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import TenantAccessGuard from "../components/TenantAccessGuard";
+import { isMockMode } from "../mocks/index";
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { loading, user } = useContext(AuthContext);
-  const isAuthenticated = useIsAuthenticated();
+  const { loading, user, isAuthenticated: contextAuthenticated } = useContext(AuthContext);
+  const msalIsAuthenticated = useIsAuthenticated();
   const { inProgress } = useMsal();
   const location = useLocation();
 
+  // W trybie demo pomijamy MSAL – weryfikujemy tylko AuthContext
+  const isAuthenticated = isMockMode() ? contextAuthenticated : msalIsAuthenticated;
+
   // Czekaj na zakończenie MSAL initialization (handleRedirectPromise, login, logout, itp.)
-  if (inProgress !== InteractionStatus.None) {
+  // W trybie demo inProgress nigdy nie zmienia się z None, więc warunek nie blokuje
+  if (!isMockMode() && inProgress !== InteractionStatus.None) {
     return (
       <Flex justify="center" align="center" minH="100vh">
         <VStack spacing={4}>
