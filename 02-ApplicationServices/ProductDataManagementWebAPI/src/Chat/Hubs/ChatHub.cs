@@ -1,9 +1,12 @@
-﻿using Chat.CQRS.Messages.MarkAsRead;
+﻿using Business.Interfaces.Model;
+using Chat.CQRS.Messages.MarkAsRead;
 using Chat.CQRS.Messages.SendMessage;
+using Entities.Models;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+using Repositories.Repository.Interfaces;
 
 namespace Chat.Hubs;
 
@@ -15,11 +18,19 @@ namespace Chat.Hubs;
 public sealed class ChatHub : Hub<IChatClient>
 {
     private readonly IMediator mediator;
+    private readonly IReadRepository<ChatMember> chatMemberRepo;
+    private readonly ICurrentUser currentUser;
     private readonly ILogger<ChatHub> logger;
 
-    public ChatHub(IMediator mediator, ILogger<ChatHub> logger)
+    public ChatHub(
+        IMediator mediator,
+        IReadRepository<ChatMember> chatMemberRepo,
+        ICurrentUser currentUser,
+        ILogger<ChatHub> logger)
     {
         this.mediator = mediator;
+        this.chatMemberRepo = chatMemberRepo;
+        this.currentUser = currentUser;
         this.logger = logger;
     }
 
@@ -62,6 +73,14 @@ public sealed class ChatHub : Hub<IChatClient>
     /// <summary>Join the SignalR group for the given chat to receive real-time events.</summary>
     public async Task JoinChat(Guid chatId)
     {
+        bool isMember = await chatMemberRepo.AnyAsync(
+            cm => cm.ChatId == chatId && cm.UserId == currentUser.Id);
+
+        if (!isMember)
+        {
+            throw new HubException("You are not a member of this chat.");
+        }
+
         await Groups.AddToGroupAsync(Context.ConnectionId, ChatHubGroups.Chat(chatId));
 
         logger.LogDebug(

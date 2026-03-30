@@ -106,8 +106,8 @@ class ChatHubService {
     this.connection.on("RemovedFromChat", (payload: RemovedFromChatPayload) =>
       this.removedFromChatHandlers.forEach((h) => h(payload))
     );
-    this.connection.on("ChatDeleted", (payload: ChatDeletedPayload) =>
-      this.chatDeletedHandlers.forEach((h) => h(payload))
+    this.connection.on("ChatDeleted", (chatId: string) =>
+      this.chatDeletedHandlers.forEach((h) => h({ chatId }))
     );
   }
 
