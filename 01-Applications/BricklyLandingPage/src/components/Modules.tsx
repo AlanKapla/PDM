@@ -1,6 +1,6 @@
 import {
   FolderKanban, FileText, CalendarDays, FolderOpen,
-  MessageSquare, Building2, Mail, Briefcase, Settings, Calculator
+  MessageSquare, Building2, Mail, Briefcase, Calculator
 } from 'lucide-react'
 import './Modules.css'
 
