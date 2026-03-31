@@ -28,6 +28,11 @@ on:
         required: true
         default: true
         type: boolean
+      deploy_landing:
+        description: 'Deploy Landing Page (brickly.pro)'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -285,9 +290,82 @@ jobs:
             exit 1
           }
 
+  build-and-deploy-landing:
+    runs-on: ubuntu-latest
+    needs: migrate-database
+    if: |
+      always() &&
+      github.event.inputs.deploy_landing == 'true' &&
+      (needs.migrate-database.result == 'success' || needs.migrate-database.result == 'skipped')
+    environment:
+      name: azure-${{ github.event.inputs.environment }}
+      url: ${{ vars.LANDING_BASE_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 01-Applications/BricklyLandingPage/package-lock.json
+
+      - name: Install dependencies
+        working-directory: 01-Applications/BricklyLandingPage
+        run: npm ci
+
+      - name: Build Landing Page
+        working-directory: 01-Applications/BricklyLandingPage
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LANDING }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: '01-Applications/BricklyLandingPage/dist'
+          output_location: ''
+          skip_app_build: true
+
+      - name: Health check Landing Page
+        shell: pwsh
+        run: |
+          $url = "${{ vars.LANDING_BASE_URL }}"
+          $maxRetries = 10
+          $delay = 10
+          $ok = $false
+
+          Write-Host "Checking Landing Page at: $url"
+
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            Write-Host "Attempt $i/$maxRetries..."
+            try {
+              $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 10
+              if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+                Write-Host "✅ Landing Page OK: $($response.StatusCode)"
+                $ok = $true
+                break
+              }
+            }
+            catch {
+              Write-Host "⚠️ Check failed: $($_.Exception.Message)"
+            }
+            Start-Sleep -Seconds $delay
+          }
+
+          if (-not $ok) {
+            Write-Host "❌ Landing Page health check FAILED after $maxRetries attempts"
+            exit 1
+          }
+
   verify-deployment:
     runs-on: ubuntu-latest
-    needs: [migrate-database, build-and-deploy-api, build-and-deploy-ui]
+    needs: [migrate-database, build-and-deploy-api, build-and-deploy-ui, build-and-deploy-landing]
     if: always() && !cancelled()
     environment:
       name: azure-${{ github.event.inputs.environment }}
@@ -305,6 +383,7 @@ jobs:
           echo "   Migration: ${{ needs.migrate-database.result }}"
           echo "   API:       ${{ needs.build-and-deploy-api.result }}"
           echo "   UI:        ${{ needs.build-and-deploy-ui.result }}"
+          echo "   Landing:   ${{ needs.build-and-deploy-landing.result }}"
           exit 1
 
       - name: Verify full stack
@@ -330,8 +409,10 @@ jobs:
           Write-Host "   Migration: ${{ needs.migrate-database.result }}"
           Write-Host "   API:       ${{ needs.build-and-deploy-api.result }}"
           Write-Host "   UI:        ${{ needs.build-and-deploy-ui.result }}"
+          Write-Host "   Landing:   ${{ needs.build-and-deploy-landing.result }}"
           Write-Host ""
           Write-Host "🌐 URLs:"
-          Write-Host "   API: ${{ vars.API_URL }}"
-          Write-Host "   UI:  ${{ vars.FRONTEND_BASE_URL }}"
-          Write-Host "   Env: azure-${{ github.event.inputs.environment }}"
+          Write-Host "   API:     ${{ vars.API_URL }}"
+          Write-Host "   UI:      ${{ vars.FRONTEND_BASE_URL }}"
+          Write-Host "   Landing: ${{ vars.LANDING_BASE_URL }}"
+          Write-Host "   Env:     azure-${{ github.event.inputs.environment }}"
