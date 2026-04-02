@@ -21,6 +21,7 @@ namespace Business.Interfaces.WebModels.CostEstimates
         string Name,
         string? Description,
         CostEstimateStatus Status,
+        Guid? WorkScheduleId,
         List<CostEstimateGroupWeb> RootGroups,
         decimal? TotalNet,
         decimal? TotalGross,

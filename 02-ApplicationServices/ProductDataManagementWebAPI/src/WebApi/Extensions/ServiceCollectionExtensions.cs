@@ -11,6 +11,7 @@ using Chat.Registration;
 using CQRS.Behaviours;
 using Entities.Context;
 using Entities.Models;
+using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using FluentValidation;
@@ -136,12 +137,7 @@ namespace WebApi.Extensions
                         sql.EnableRetryOnFailure(
                             maxRetryCount: 5,
                             maxRetryDelay: TimeSpan.FromSeconds(30),
-                            errorNumbersToAdd: new[]
-                            {
-                                4060, 40197, 40501, 40613,
-                                10928, 10929,
-                                49918, 49919, 49920
-                            });
+                            errorNumbersToAdd: [4060, 40197, 40501, 40613, 10928, 10929, 49918, 49919, 49920]);
                     }));
             return services;
         }
@@ -244,81 +240,78 @@ namespace WebApi.Extensions
 
         public static IServiceCollection AddAppRepositories(this IServiceCollection services)
         {
+            // IRepository<User> intentionally resolves to ReadRepository — users are managed via Azure AD B2C
             services.AddScoped<IReadRepository<User>, ReadRepository<User>>();
             services.AddScoped<IRepository<User>, ReadRepository<User>>();
-            services.AddScoped<IReadRepository<Tenant>, ReadRepository<Tenant>>();
-            services.AddScoped<IRepository<Tenant>, Repository<Tenant>>(); 
-            services.AddScoped<IReadRepository<Project>, ReadRepository<Project>>();
-            services.AddScoped<IRepository<Project>, Repository<Project>>();
-            services.AddScoped<IReadRepository<ProjectGroup>, ReadRepository<ProjectGroup>>();
-            services.AddScoped<IRepository<TenantMember>, Repository<TenantMember>>();
-            services.AddScoped<IRepository<ProjectMember>, Repository<ProjectMember>>();
-            services.AddScoped<IRepository<ProjectGroupMember>, Repository<ProjectGroupMember>>();
-            services.AddScoped<IReadRepository<UserSession>, ReadRepository<UserSession>>();
-            services.AddScoped<IReadRepository<TenantPreferencesProfile>, ReadRepository<TenantPreferencesProfile>>();
-            services.AddScoped<IRepository<TenantPreferencesProfile>, Repository<TenantPreferencesProfile>>();
-            services.AddScoped<IReadRepository<PermissionsVersionProfile>, ReadRepository<PermissionsVersionProfile>>();
-            services.AddScoped<IRepository<PermissionsVersionProfile>, Repository<PermissionsVersionProfile>>();
-            services.AddScoped<IRepository<TenantInvitation>, Repository<TenantInvitation>>();
-            services.AddScoped<IReadRepository<Notification>, ReadRepository<Notification>>();
-            services.AddScoped<IRepository<Notification>, Repository<Notification>>();
-            services.AddScoped<IReadRepository<ProjectFilePackage>, ReadRepository<ProjectFilePackage>>();
-            services.AddScoped<IRepository<ProjectFilePackage>, Repository<ProjectFilePackage>>();
-            services.AddScoped<IReadRepository<ProjectFile>, ReadRepository<ProjectFile>>();
-            services.AddScoped<IRepository<ProjectFile>, Repository<ProjectFile>>();
-            services.AddScoped<IReadRepository<ProjectFileVersion>, ReadRepository<ProjectFileVersion>>();
-            services.AddScoped<IRepository<ProjectFileVersion>, Repository<ProjectFileVersion>>();
-            services.AddScoped<IReadRepository<ProjectFileVersionComment>, ReadRepository<ProjectFileVersionComment>>();
-            services.AddScoped<IRepository<ProjectFileVersionComment>, Repository<ProjectFileVersionComment>>();
-            services.AddScoped<IReadRepository<SharedProjectFile>, ReadRepository<SharedProjectFile>>();
-            services.AddScoped<IRepository<SharedProjectFile>, Repository<SharedProjectFile>>();
-            services.AddScoped<IReadRepository<WorkSchedule>, ReadRepository<WorkSchedule>>();
-            services.AddScoped<IRepository<WorkSchedule>, Repository<WorkSchedule>>();
-            services.AddScoped<IRepository<WorkScheduleStage>, Repository<WorkScheduleStage>>();
-            services.AddScoped<IRepository<WorkScheduleStageWork>, Repository<WorkScheduleStageWork>>();
-            services.AddScoped<IRepository<WorkScheduleStageWorkAssignment>, Repository<WorkScheduleStageWorkAssignment>>();
-            services.AddScoped<IRepository<WorkScheduleStageWorkComment>, Repository<WorkScheduleStageWorkComment>>();
-            services.AddScoped<IReadRepository<ProjectCost>, ReadRepository<ProjectCost>>();
-            services.AddScoped<IRepository<ProjectCost>, Repository<ProjectCost>>();
-            services.AddScoped<IReadRepository<SharedProjectCost>, ReadRepository<SharedProjectCost>>();
-            services.AddScoped<IRepository<SharedProjectCost>, Repository<SharedProjectCost>>();
-            services.AddScoped<IReadRepository<CostEstimateTemplate>, ReadRepository<CostEstimateTemplate>>();
-            services.AddScoped<IRepository<CostEstimateTemplate>, Repository<CostEstimateTemplate>>();
-            services.AddScoped<IRepository<CostEstimateTemplateCurrency>, Repository<CostEstimateTemplateCurrency>>();
-            services.AddScoped<IRepository<CostEstimateTemplateUnit>, Repository<CostEstimateTemplateUnit>>();
-            services.AddScoped<IRepository<CostEstimateTemplateCategory>, Repository<CostEstimateTemplateCategory>>();
-            services.AddScoped<IRepository<CostEstimateTemplateGroupFieldDefinition>, Repository<CostEstimateTemplateGroupFieldDefinition>>();
-            services.AddScoped<IRepository<CostEstimateTemplateItemSystemFieldDefinition>, Repository<CostEstimateTemplateItemSystemFieldDefinition>>();
-            services.AddScoped<IRepository<CostEstimateTemplateItemCalculatedFieldDefinition>, Repository<CostEstimateTemplateItemCalculatedFieldDefinition>>();
-            services.AddScoped<IRepository<CostEstimateTemplateItemGenericFieldDefinition>, Repository<CostEstimateTemplateItemGenericFieldDefinition>>();
-            services.AddScoped<IReadRepository<CostEstimate>, ReadRepository<CostEstimate>>();
-            services.AddScoped<IRepository<CostEstimate>, Repository<CostEstimate>>();
-            services.AddScoped<IReadRepository<SharedCostEstimate>, ReadRepository<SharedCostEstimate>>();
-            services.AddScoped<IRepository<SharedCostEstimate>, Repository<SharedCostEstimate>>();
-            services.AddScoped<IRepository<CostEstimateGroup>, Repository<CostEstimateGroup>>();
-            services.AddScoped<IRepository<CostEstimateGroupFieldValue>, Repository<CostEstimateGroupFieldValue>>();
-            services.AddScoped<IReadRepository<CostEstimateItem>, ReadRepository<CostEstimateItem>>();
-            services.AddScoped<IRepository<CostEstimateItem>, Repository<CostEstimateItem>>();
-            services.AddScoped<IReadRepository<CostEstimateItemFieldValue>, ReadRepository<CostEstimateItemFieldValue>>();
-            services.AddScoped<IRepository<CostEstimateItemFieldValue>, Repository<CostEstimateItemFieldValue>>();
-            services.AddScoped<IRepository<CostEstimateFieldFile>, Repository<CostEstimateFieldFile>>();
-            services.AddScoped<IReadRepository<Role>, ReadRepository<Role>>();
-            services.AddScoped<IRepository<Role>, Repository<Role>>();
-            services.AddScoped<IReadRepository<Permission>, ReadRepository<Permission>>();
-            services.AddScoped<IRepository<Permission>, Repository<Permission>>();
-            services.AddScoped<IRepository<RolePermission>, Repository<RolePermission>>();
+
+            services
+                .AddRepository<Tenant>()
+                .AddRepository<TenantPreferencesProfile>()
+                .AddRepository<PermissionsVersionProfile>()
+                .AddWriteRepository<TenantMember>()
+                .AddWriteRepository<TenantInvitation>()
+                .AddReadOnlyRepository<UserSession>();
+
+            services
+                .AddRepository<Project>()
+                .AddReadOnlyRepository<ProjectGroup>()
+                .AddWriteRepository<ProjectMember>()
+                .AddWriteRepository<ProjectGroupMember>();
+
+            services
+                .AddRepository<Notification>();
+
+            services
+                .AddRepository<ProjectFilePackage>()
+                .AddRepository<ProjectFile>()
+                .AddRepository<ProjectFileVersion>()
+                .AddRepository<ProjectFileVersionComment>()
+                .AddRepository<SharedProjectFile>();
+
+            services
+                .AddRepository<WorkSchedule>()
+                .AddWriteRepository<WorkScheduleStage>()
+                .AddWriteRepository<WorkScheduleStageWork>()
+                .AddWriteRepository<WorkScheduleStageWorkAssignment>()
+                .AddWriteRepository<WorkScheduleStageWorkComment>();
+
+            services
+                .AddRepository<ProjectCost>()
+                .AddRepository<SharedProjectCost>();
+
+            services
+                .AddRepository<CostEstimateTemplate>()
+                .AddWriteRepository<CostEstimateTemplateCurrency>()
+                .AddWriteRepository<CostEstimateTemplateUnit>()
+                .AddWriteRepository<CostEstimateTemplateCategory>()
+                .AddWriteRepository<CostEstimateTemplateGroupFieldDefinition>()
+                .AddWriteRepository<CostEstimateTemplateItemSystemFieldDefinition>()
+                .AddWriteRepository<CostEstimateTemplateItemCalculatedFieldDefinition>()
+                .AddWriteRepository<CostEstimateTemplateItemGenericFieldDefinition>();
+
+            services
+                .AddRepository<CostEstimate>()
+                .AddRepository<SharedCostEstimate>()
+                .AddWriteRepository<CostEstimateGroup>()
+                .AddWriteRepository<CostEstimateGroupFieldValue>()
+                .AddRepository<CostEstimateItem>()
+                .AddRepository<CostEstimateItemFieldValue>()
+                .AddWriteRepository<CostEstimateFieldFile>();
+
+            services
+                .AddRepository<Role>()
+                .AddRepository<Permission>()
+                .AddWriteRepository<RolePermission>();
+
             return services;
         }
 
         public static IServiceCollection AddAppServices(this IServiceCollection services)
         {
             services.AddScoped<ICurrentUser, CurrentUser>();
-            
-            // New permission-based services
             services.AddSingleton<IUserContextCache, InMemoryUserContextCache>();
             services.AddScoped<AccessService>();
             services.AddScoped<PermissionsVersionService>();
-            
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
             services.AddScoped<IEmailSender, QueuedEmailSender>();
@@ -329,47 +322,30 @@ namespace WebApi.Extensions
             services.AddHostedService<EmailWorker>();
 
             services.AddSingleton<INotificationDispatcher, SignalRNotificationDispatcher>();
-            services.AddHostedService<NotificationWorker>();
             services.AddScoped<INotificationSender, QueuedNotificationSender>();
+            services.AddHostedService<NotificationWorker>();
 
             services.AddSingleton<INotificationMarkAsReadDispatcher, SignalRNotificationMarkAsReadDispatcher>();
-            services.AddHostedService<NotificationMarkAsReadWorker>();
             services.AddScoped<INotificationMarkAsReadSender, QueuedNotificationMarkAsReadSender>();
+            services.AddHostedService<NotificationMarkAsReadWorker>();
 
-            // ✅ Background services
             services.AddHostedService<FileShareConsolidationService>();
 
             services.AddSingleton<IMessageDispatcher, SignalRMessageDispatcher>();
             services.AddHostedService<MessageWorker>();
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
-            
-            // Cost estimate calculation service
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
-            
-            // Cost estimate template service - used in multiple handlers
             services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
-
-            // Cost estimate service
             services.AddScoped<ICostEstimateService, CostEstimateService>();
-
-            // Cost estimate cache service
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
-
-            // Cost estimate access service
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
-
-            // User service — caches project members per project
+            services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
-            
-            // Cost estimate validators
             services.AddScoped<CostEstimateGroupValidator>();
             services.AddScoped<CostEstimateItemValidator>();
-            
-            // Cache service
             services.AddScoped<ICacheService, CacheService>();
-            
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
 
             services.AddHostedService<StartupSeederService>();
@@ -471,5 +447,16 @@ namespace WebApi.Extensions
 
             return services;
         }
+
+        public static IServiceCollection AddRepository<T>(this IServiceCollection services) where T : BaseEntity
+            => services
+                .AddScoped<IReadRepository<T>, ReadRepository<T>>()
+                .AddScoped<IRepository<T>, Repository<T>>();
+
+        public static IServiceCollection AddReadOnlyRepository<T>(this IServiceCollection services) where T : BaseEntity
+            => services.AddScoped<IReadRepository<T>, ReadRepository<T>>();
+
+        public static IServiceCollection AddWriteRepository<T>(this IServiceCollection services) where T : class
+            => services.AddScoped<IRepository<T>, Repository<T>>();
     }
 }

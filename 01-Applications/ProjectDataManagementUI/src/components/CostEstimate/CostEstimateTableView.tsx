@@ -577,6 +577,70 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     return getFieldValueAsString(fieldValue);
   };
 
+  const getGroupFieldValueForColumn = (group: CostEstimateGroupWeb, col: { fieldId: string; fieldDef?: any; type: string }): string | number | boolean | undefined => {
+    if (col.type === 'childField') return undefined;
+    const fieldDef = col.fieldDef;
+    if (!fieldDef) return undefined;
+    if (!group.fieldValues) return undefined;
+    const fieldValue = group.fieldValues.find(fv => fv.fieldDefinitionId === fieldDef.id);
+    return getFieldValueAsString(fieldValue);
+  };
+
+  const filterAndSortGroups = useCallback((groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] => {
+    let result = [...groups];
+
+    const isGroupCol = (col: ExpandedColumn) =>
+      col.type !== 'childField' &&
+      (templateStructure.groupHeaderFields as GroupHeaderFieldWeb[] ?? []).some(f => f.id === col.fieldDef?.id);
+
+    const activeFilters = Object.entries(filters);
+    const groupFilters = activeFilters.filter(([fieldId]) => {
+      const col = expandedColumns.find(c => c.fieldId === fieldId);
+      return col && isGroupCol(col);
+    });
+
+    if (groupFilters.length > 0) {
+      result = result.filter(group =>
+        groupFilters.every(([fieldId, filterValue]) => {
+          const col = expandedColumns.find(c => c.fieldId === fieldId);
+          if (!col) return true;
+          const groupValue = getGroupFieldValueForColumn(group, col);
+          if (col.isBoolean) {
+            if (filterValue === 'true') return groupValue === true || groupValue === 'true';
+            if (filterValue === 'false') return groupValue === false || groupValue === 'false' || groupValue === undefined || groupValue === null;
+            return true;
+          }
+          if (groupValue === undefined || groupValue === null) return false;
+          return String(groupValue).toLowerCase().includes(filterValue.toLowerCase());
+        })
+      );
+    }
+
+    if (sortConfig) {
+      const col = expandedColumns.find(c => c.fieldId === sortConfig.fieldId);
+      if (col && isGroupCol(col)) {
+        result.sort((a, b) => {
+          const valueA = getGroupFieldValueForColumn(a, col);
+          const valueB = getGroupFieldValueForColumn(b, col);
+          if (valueA === undefined && valueB === undefined) return 0;
+          if (valueA === undefined) return sortConfig.direction === 'asc' ? 1 : -1;
+          if (valueB === undefined) return sortConfig.direction === 'asc' ? -1 : 1;
+          const numA = parseFloat(String(valueA));
+          const numB = parseFloat(String(valueB));
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return sortConfig.direction === 'asc' ? numA - numB : numB - numA;
+          }
+          const strA = String(valueA).toLowerCase();
+          const strB = String(valueB).toLowerCase();
+          const comparison = strA.localeCompare(strB, 'pl');
+          return sortConfig.direction === 'asc' ? comparison : -comparison;
+        });
+      }
+    }
+
+    return result;
+  }, [filters, sortConfig, expandedColumns, templateStructure]);
+
   const filterOptions = useCallback((options: any[], optionFilters: [string, string][]): any[] => {
     if (optionFilters.length === 0) return options;
     
@@ -605,10 +669,16 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   const filterAndSortItems = useCallback((items: CostEstimateItemWeb[]): CostEstimateItemWeb[] => {
     let result = [...items];
     
+    const groupHeaderFieldIds = new Set(
+      (templateStructure.groupHeaderFields as GroupHeaderFieldWeb[] ?? []).map(f => f.id)
+    );
+    const isItemCol = (col: ExpandedColumn) =>
+      col.type !== 'childField' && !groupHeaderFieldIds.has(col.fieldDef?.id);
+
     const activeFilters = Object.entries(filters);
     const itemFilters = activeFilters.filter(([fieldId]) => {
       const col = expandedColumns.find(c => c.fieldId === fieldId);
-      return col && col.type !== 'childField';
+      return col && isItemCol(col);
     });
     const optionFilters = activeFilters.filter(([fieldId]) => {
       const col = expandedColumns.find(c => c.fieldId === fieldId);
@@ -669,7 +739,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     }
     
     return result;
-  }, [filters, sortConfig, expandedColumns]);
+}, [filters, sortConfig, expandedColumns, templateStructure]);
 
   // ========== FLAT ROWS ==========
 
@@ -680,8 +750,15 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       const groupNumber = parentNumber ? `${parentNumber}.${indexInParent + 1}` : `${indexInParent + 1}`;
       const filteredItems = filterAndSortItems(group.items || []);
       
-      const groupHasActiveFilters = Object.keys(filters).length > 0;
-      if (groupHasActiveFilters && filteredItems.length === 0 && (group.childGroups || []).length === 0) {
+      // Ukryj grupę tylko gdy są aktywne filtry ITEMOWE i nie ma pasujących pozycji ani podgrup
+      const groupHeaderFieldIds = new Set(
+        (templateStructure.groupHeaderFields as GroupHeaderFieldWeb[] ?? []).map(f => f.id)
+      );
+      const hasActiveItemFilters = Object.keys(filters).some(fieldId => {
+        const col = expandedColumns.find(c => c.fieldId === fieldId);
+        return col && col.type !== 'childField' && !groupHeaderFieldIds.has(col.fieldDef?.id);
+      });
+      if (hasActiveItemFilters && filteredItems.length === 0 && (group.childGroups || []).length === 0) {
         return;
       }
       
@@ -704,15 +781,15 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
           });
         });
 
-        (group.childGroups || []).forEach((child, childIndex) => {
+        filterAndSortGroups(group.childGroups || []).forEach((child, childIndex) => {
           processGroup(child, level + 1, groupNumber, childIndex);
         });
       }
     };
 
-    (details.rootGroups || []).forEach((group, index) => processGroup(group, 0, '', index));
+    filterAndSortGroups(details.rootGroups || []).forEach((group, index) => processGroup(group, 0, '', index));
     return rows;
-  }, [details.rootGroups, collapsedGroups, showGroupSummary, filterAndSortItems, filters]);
+  }, [details.rootGroups, collapsedGroups, showGroupSummary, filterAndSortItems, filterAndSortGroups, filters]);
 
   // ========== COLLAPSE / EXPAND ==========
 

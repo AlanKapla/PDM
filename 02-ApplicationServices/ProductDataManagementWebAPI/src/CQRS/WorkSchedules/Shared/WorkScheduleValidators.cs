@@ -80,6 +80,20 @@ namespace CQRS.WorkSchedules.Shared
         }
 
         /// <summary>
+        /// Flattens a tree of WorkScheduleStageDto into a single sequence (depth-first)
+        /// </summary>
+        public static IEnumerable<WorkScheduleStageDto> FlattenStages(IEnumerable<WorkScheduleStageDto> stages)
+        {
+            foreach (var stage in stages)
+            {
+                yield return stage;
+                if (stage.Children != null)
+                    foreach (var child in FlattenStages(stage.Children))
+                        yield return child;
+            }
+        }
+
+        /// <summary>
         /// Validates that all assigned users are project members
         /// </summary>
         public static async Task<bool> ValidateAssignedUsersAreProjectMembers<TStage, TWork>(
@@ -154,11 +168,14 @@ namespace CQRS.WorkSchedules.Shared
                 .MustAsync(async (command, cancellationToken) =>
                 {
                     var stages = GetStagesSelectorFunc()(command);
+                    var flatStages = stages != null
+                        ? WorkScheduleValidationHelper.FlattenStages(stages)
+                        : Enumerable.Empty<WorkScheduleStageDto>();
                     return await WorkScheduleValidationHelper.ValidateAssignedUsersAreProjectMembers(
                         projectMemberRepo,
                         GetTenantIdSelector()(command),
                         GetProjectIdSelector()(command),
-                        stages,
+                        flatStages,
                         stage => stage.Works,
                         work => work.AssignedUserIds,
                         cancellationToken);
@@ -226,6 +243,10 @@ namespace CQRS.WorkSchedules.Shared
             RuleForEach(x => x.Works)
                 .SetValidator(new WorkScheduleWorkDtoValidator())
                 .When(x => x.Works != null);
+
+            RuleForEach(x => x.Children)
+                .SetValidator(this)
+                .When(x => x.Children != null && x.Children.Count > 0);
         }
     }
 

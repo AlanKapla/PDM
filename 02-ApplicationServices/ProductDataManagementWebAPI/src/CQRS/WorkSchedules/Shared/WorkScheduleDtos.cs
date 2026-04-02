@@ -7,7 +7,8 @@
         Guid? Id,
         string Name,
         int Order,
-        List<WorkScheduleWorkDto>? Works
+        List<WorkScheduleWorkDto>? Works,
+        List<WorkScheduleStageDto>? Children
     );
 
     /// <summary>

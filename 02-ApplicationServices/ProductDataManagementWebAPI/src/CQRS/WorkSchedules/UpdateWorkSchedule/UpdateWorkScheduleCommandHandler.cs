@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.WorkSchedules;
 using Business.Interfaces.DTO;
@@ -23,6 +24,8 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
+        private readonly IWorkScheduleSyncService workScheduleSyncService;
+        private readonly ICostEstimateAccessService costEstimateAccessService;
         private readonly ICurrentUser currentUser;
 
         public UpdateWorkScheduleCommandHandler(
@@ -34,6 +37,8 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             IReadRepository<User> userRepo,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
+            IWorkScheduleSyncService workScheduleSyncService,
+            ICostEstimateAccessService costEstimateAccessService,
             ICurrentUser currentUser)
         {
             this.workScheduleRepo = workScheduleRepo;
@@ -44,6 +49,8 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             this.userRepo = userRepo;
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
+            this.workScheduleSyncService = workScheduleSyncService;
+            this.costEstimateAccessService = costEstimateAccessService;
             this.currentUser = currentUser;
         }
 
@@ -52,9 +59,33 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             Guid tenantId = request.TenantId;
             Guid projectId = request.ProjectId;
 
-            // 1. Load existing work schedule with all relations
+            WorkSchedule workSchedule = await LoadAndAuthorizeAsync(tenantId, projectId, request.WorkScheduleId, cancellationToken);
+
+            workSchedule.Name = request.Name;
+            await workScheduleRepo.Update(workSchedule);
+
+            if (workSchedule.CostEstimateId.HasValue)
+            {
+                CostEstimateAccessLevel accessLevel = await costEstimateAccessService.GetAccessLevelAsync(
+                    currentUser, tenantId, projectId, workSchedule.CostEstimateId.Value, cancellationToken);
+
+                if (accessLevel < CostEstimateAccessLevel.Full)
+                {
+                    throw new ForbiddenApiException("You do not have full access to the linked cost estimate.");
+                }
+
+                return await HandleSyncedUpdateAsync(workSchedule, request, tenantId, projectId, cancellationToken);
+            }
+
+            return await ExecuteManualUpdateAsync(workSchedule, request, tenantId, projectId, cancellationToken);
+        }
+
+        private async Task<WorkSchedule> LoadAndAuthorizeAsync(
+            Guid tenantId, Guid projectId, Guid workScheduleId,
+            CancellationToken cancellationToken)
+        {
             WorkSchedule? workSchedule = await workScheduleRepo.GetFirstBySearch(
-                ws => ws.Id == request.WorkScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId,
+                ws => ws.Id == workScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId && !ws.IsDeleted,
                 include => include
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
@@ -68,498 +99,716 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                         .ThenInclude(s => s.Works)
                             .ThenInclude(w => w.Comments)
                                 .ThenInclude(c => c.CreatedBy))
-                ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
+                ?? throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
 
-            // 2. Authorization check: tenant admin OR project admin OR work schedule owner
             bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken);
-            bool isOwner = workSchedule.CreatedByUserId == currentUser.Id;
-            
-            if (!isAdmin && !isOwner)
+
+            if (!isAdmin && workSchedule.CreatedByUserId != currentUser.Id)
             {
-                throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
+                throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
             }
 
-            // 3. Update work schedule name
-            workSchedule.Name = request.Name;
-            await workScheduleRepo.Update(workSchedule);
+            return workSchedule;
+        }
 
-            // Track assignment changes for notifications
+        private async Task<WorkScheduleDetailsWeb> ExecuteManualUpdateAsync(
+            WorkSchedule workSchedule,
+            UpdateWorkScheduleCommand request,
+            Guid tenantId, Guid projectId,
+            CancellationToken cancellationToken)
+        {
             HashSet<Guid> removedUserIds = new HashSet<Guid>();
             HashSet<Guid> addedUserIds = new HashSet<Guid>();
-
             List<WorkScheduleStageWeb> stageWebs = new List<WorkScheduleStageWeb>();
             Dictionary<Guid, string> userNameDict = new Dictionary<Guid, string>();
 
-            // Only process stages if they exist
             if (request.Stages != null && request.Stages.Count > 0)
             {
-                // Get existing stage IDs, work IDs, and assignment user IDs
-                var existingStageIds = workSchedule.Stages.Select(s => s.Id).ToHashSet();
-                var existingWorkIds = workSchedule.Stages.SelectMany(s => s.Works).Select(w => w.Id).ToHashSet();
-                var existingAssignments = workSchedule.Stages
+                Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork = workSchedule.Stages
                     .SelectMany(s => s.Works)
                     .SelectMany(w => w.Assignments)
-                    .ToList();
-
-                // Track all existing user assignments
-                var existingUserIdsByWork = existingAssignments
                     .GroupBy(a => a.WorkScheduleStageWorkId)
                     .ToDictionary(g => g.Key, g => g.Select(a => a.UserId).ToHashSet());
 
-                // Process incoming stages
-                var incomingStageIds = request.Stages.Where(s => s.Id.HasValue).Select(s => s.Id!.Value).ToHashSet();
-                var incomingWorkIds = request.Stages
-                    .Where(s => s.Works != null)
-                    .SelectMany(s => s.Works!)
-                    .Where(w => w.Id.HasValue)
-                    .Select(w => w.Id!.Value)
-                    .ToHashSet();
+                Dictionary<Guid, WorkScheduleStage> existingStagesById = workSchedule.Stages.ToDictionary(s => s.Id);
+                HashSet<Guid> incomingStageIds = CollectStageIds(request.Stages);
+                HashSet<Guid> incomingWorkIds = CollectWorkIds(request.Stages);
 
-                // Collect all stages and works to delete
-                var stagesToDelete = workSchedule.Stages.Where(s => !incomingStageIds.Contains(s.Id)).ToList();
-                var worksToDelete = workSchedule.Stages
+                List<WorkScheduleStage> stagesToDelete = workSchedule.Stages.Where(s => !incomingStageIds.Contains(s.Id)).ToList();
+                List<WorkScheduleStage> remainingStages = workSchedule.Stages.Except(stagesToDelete).ToList();
+                List<WorkScheduleStageWork> worksToDelete = remainingStages
                     .SelectMany(s => s.Works)
                     .Where(w => !incomingWorkIds.Contains(w.Id))
                     .ToList();
 
-                // Track removed users from deleted stages/works
-                foreach (var stage in stagesToDelete)
-                {
-                    foreach (var work in stage.Works)
-                    {
-                        foreach (var assignment in work.Assignments)
-                        {
-                            removedUserIds.Add(assignment.UserId);
-                        }
-                    }
-                }
+                CollectRemovedUserIdsFromStages(stagesToDelete, removedUserIds);
+                CollectRemovedUserIdsFromWorks(worksToDelete, removedUserIds);
 
-                foreach (var work in worksToDelete)
-                {
-                    foreach (var assignment in work.Assignments)
-                    {
-                        removedUserIds.Add(assignment.UserId);
-                    }
-                }
-
-                // Delete stages and works in batch
-                if (stagesToDelete.Any())
+                if (stagesToDelete.Count != 0)
                 {
                     await stageRepo.DeleteRange(stagesToDelete);
                 }
 
-                if (worksToDelete.Any())
+                if (worksToDelete.Count != 0)
                 {
                     await workRepo.DeleteRange(worksToDelete);
                 }
 
-                // Collect all unique user IDs from incoming works
-                var allUserIds = request.Stages
-                    .Where(s => s.Works != null)
-                    .SelectMany(s => s.Works!)
-                    .Where(w => w.AssignedUserIds != null)
-                    .SelectMany(w => w.AssignedUserIds!)
-                    .Distinct()
-                    .ToList();
-
-                // Fetch users directly - no need for TenantMember join just to get names
-                if (allUserIds.Any())
-                {
-                    var users = await userRepo.GetBySearch(u => allUserIds.Contains(u.Id));
-
-                    userNameDict = users.ToDictionary(
-                        u => u.Id,
-                        u => $"{u.FirstName} {u.LastName}".Trim()
-                    );
-                }
+                userNameDict = await BuildUserNameDictAsync(request.Stages, cancellationToken);
 
                 List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete = new List<WorkScheduleStageWorkAssignment>();
                 List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert = new List<WorkScheduleStageWorkAssignment>();
                 List<WorkScheduleStageWorkComment> allCommentsToDelete = new List<WorkScheduleStageWorkComment>();
                 List<WorkScheduleStageWorkComment> allCommentsToInsert = new List<WorkScheduleStageWorkComment>();
 
-                // Process stages
-                foreach (WorkScheduleStageDto stageDto in request.Stages)
-                {
-                    WorkScheduleStage stage;
+                stageWebs = await UpdateStagesAsync(
+                    request.Stages, null,
+                    workSchedule, existingStagesById, existingUserIdsByWork, userNameDict,
+                    tenantId, projectId,
+                    allAssignmentsToDelete, allAssignmentsToInsert,
+                    allCommentsToDelete, allCommentsToInsert,
+                    removedUserIds, addedUserIds, cancellationToken);
 
-                    if (stageDto.Id.HasValue)
-                    {
-                        // Update existing stage
-                        stage = workSchedule.Stages.First(s => s.Id == stageDto.Id.Value);
-                        stage.Name = stageDto.Name;
-                        stage.Order = stageDto.Order;
-                        await stageRepo.Update(stage);
-                    }
-                    else
-                    {
-                        // Create new stage
-                        stage = new WorkScheduleStage
-                        {
-                            TenantId = tenantId,
-                            WorkScheduleId = workSchedule.Id,
-                            Name = stageDto.Name,
-                            Order = stageDto.Order
-                        };
-                        await stageRepo.Insert(stage);
-                        await stageRepo.SaveChangesAsync(cancellationToken); // Need ID for works
-                    }
-
-                    List<WorkScheduleStageWorkWeb> workWebs = new List<WorkScheduleStageWorkWeb>();
-
-                    // Process works
-                    if (stageDto.Works != null)
-                    {
-                        foreach (WorkScheduleWorkDto workDto in stageDto.Works)
-                        {
-                            WorkScheduleStageWork work;
-                            HashSet<Guid> previousAssignedUsers = new HashSet<Guid>();
-
-                            if (workDto.Id.HasValue)
-                            {
-                                // Update existing work
-                                work = stage.Works.First(w => w.Id == workDto.Id.Value);
-                                work.Name = workDto.Name;
-                                work.Order = workDto.Order;
-                                work.ColorRgb = workDto.ColorRgb;
-
-                                // Build periods collection
-                                List<WorkScheduleStageWorkPeriod> periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
-                                {
-                                    StartDate = p.StartDate,
-                                    EndDate = p.EndDate,
-                                    IsClosed = workDto.IsClosed ? true : p.IsClosed
-                                }).ToList() ?? new List<WorkScheduleStageWorkPeriod>();
-
-                                // Apply automatic closure logic
-                                if (workDto.IsClosed)
-                                {
-                                    // If work is closed, all periods must be closed
-                                    foreach (var period in periods)
-                                    {
-                                        period.IsClosed = true;
-                                    }
-                                    work.IsClosed = true;
-                                }
-                                else
-                                {
-                                    // If all periods are closed, work should be closed
-                                    if (periods.Any() && periods.All(p => p.IsClosed))
-                                    {
-                                        work.IsClosed = true;
-                                    }
-                                    else
-                                    {
-                                        work.IsClosed = false;
-                                    }
-                                }
-
-                                // Clear and rebuild periods collection
-                                work.Periods.Clear();
-                                work.Periods = periods;
-
-                                await workRepo.Update(work);
-
-                                // Track previous assignments
-                                if (existingUserIdsByWork.TryGetValue(work.Id, out var previousUsers))
-                                {
-                                    previousAssignedUsers = previousUsers;
-                                }
-
-                                // Collect existing assignments for deletion
-                                var existingWorkAssignments = work.Assignments.ToList();
-                                if (existingWorkAssignments.Any())
-                                {
-                                    allAssignmentsToDelete.AddRange(existingWorkAssignments);
-                                }
-
-                                // Handle comments - collect existing comments for deletion
-                                var existingWorkComments = work.Comments.ToList();
-                                if (existingWorkComments.Any())
-                                {
-                                    allCommentsToDelete.AddRange(existingWorkComments);
-                                }
-                            }
-                            else
-                            {
-                                // Create new work
-                                // Build periods collection
-                                List<WorkScheduleStageWorkPeriod> periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
-                                {
-                                    StartDate = p.StartDate,
-                                    EndDate = p.EndDate,
-                                    IsClosed = workDto.IsClosed ? true : p.IsClosed
-                                }).ToList() ?? new List<WorkScheduleStageWorkPeriod>();
-
-                                // Determine work closure status
-                                bool isWorkClosed = false;
-                                if (workDto.IsClosed)
-                                {
-                                    // If work is closed, all periods must be closed
-                                    foreach (var period in periods)
-                                    {
-                                        period.IsClosed = true;
-                                    }
-                                    isWorkClosed = true;
-                                }
-                                else if (periods.Any() && periods.All(p => p.IsClosed))
-                                {
-                                    // If all periods are closed, work should be closed
-                                    isWorkClosed = true;
-                                }
-
-                                work = new WorkScheduleStageWork
-                                {
-                                    TenantId = tenantId,
-                                    WorkScheduleStageId = stage.Id,
-                                    Name = workDto.Name,
-                                    Order = workDto.Order,
-                                    ColorRgb = workDto.ColorRgb,
-                                    IsClosed = isWorkClosed,
-                                    Periods = periods
-                                };
-                                await workRepo.Insert(work);
-                                await workRepo.SaveChangesAsync(cancellationToken); // Need ID for assignments
-                            }
-
-                            // Prepare new assignments
-                            List<WorkScheduleStageWorkAssigneeWeb> assigneeWebs = new List<WorkScheduleStageWorkAssigneeWeb>();
-
-                            if (workDto.AssignedUserIds != null)
-                            {
-                                foreach (Guid userId in workDto.AssignedUserIds)
-                                {
-                                    WorkScheduleStageWorkAssignment assignment = new WorkScheduleStageWorkAssignment
-                                    {
-                                        WorkScheduleStageWorkId = work.Id,
-                                        TenantId = tenantId,
-                                        ProjectId = projectId,
-                                        UserId = userId
-                                    };
-
-                                    allAssignmentsToInsert.Add(assignment);
-
-                                    // Track assignment changes
-                                    if (!previousAssignedUsers.Contains(userId))
-                                    {
-                                        addedUserIds.Add(userId);
-                                    }
-
-                                    // Use pre-fetched user name from dictionary
-                                    string userName = userNameDict.ContainsKey(userId) 
-                                        ? userNameDict[userId] 
-                                        : "Unknown User";
-
-                                    assigneeWebs.Add(new WorkScheduleStageWorkAssigneeWeb(userId, userName));
-                                }
-
-                                // Track removed users from this work
-                                var currentAssignedUsers = workDto.AssignedUserIds.ToHashSet();
-                                foreach (var userId in previousAssignedUsers)
-                                {
-                                    if (!currentAssignedUsers.Contains(userId))
-                                    {
-                                        removedUserIds.Add(userId);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // All previous users were removed if no assigned users provided
-                                foreach (var userId in previousAssignedUsers)
-                                {
-                                    removedUserIds.Add(userId);
-                                }
-                            }
-
-                            // Prepare new comments
-                            List<WorkScheduleStageWorkCommentWeb> commentWebs = new List<WorkScheduleStageWorkCommentWeb>();
-
-                            if (workDto.Comments != null)
-                            {
-                                DateTime now = DateTime.UtcNow;
-                                string userName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
-
-                                foreach (WorkScheduleWorkCommentDto commentDto in workDto.Comments)
-                                {
-                                    WorkScheduleStageWorkComment comment = new WorkScheduleStageWorkComment
-                                    {
-                                        WorkScheduleStageWorkId = work.Id,
-                                        TenantId = tenantId,
-                                        Content = commentDto.Content,
-                                        CreatedByUserId = currentUser.Id,
-                                        CreatedAt = now
-                                    };
-
-                                    allCommentsToInsert.Add(comment);
-
-                                    commentWebs.Add(new WorkScheduleStageWorkCommentWeb(
-                                        comment.Id,
-                                        comment.Content,
-                                        comment.CreatedByUserId,
-                                        userName,
-                                        comment.CreatedAt
-                                    ));
-                                }
-                            }
-
-                            List<WorkScheduleStageWorkPeriodWeb> periodWebs = work.Periods
-                                .Select(p => new WorkScheduleStageWorkPeriodWeb(p.StartDate, p.EndDate, p.IsClosed))
-                                .ToList();
-
-                            workWebs.Add(new WorkScheduleStageWorkWeb(
-                                work.Id,
-                                work.Name,
-                                work.Order,
-                                work.ColorRgb,
-                                work.IsClosed,
-                                periodWebs,
-                                assigneeWebs,
-                                commentWebs
-                            ));
-                        }
-                    }
-
-                    stageWebs.Add(new WorkScheduleStageWeb(
-                        stage.Id,
-                        stage.Name,
-                        stage.Order,
-                        workWebs
-                    ));
-                }
-
-                // Delete all old assignments in batch
-                if (allAssignmentsToDelete.Any())
-                {
-                    await assignmentRepo.DeleteRange(allAssignmentsToDelete);
-                }
-
-                // Insert all new assignments in batch
-                if (allAssignmentsToInsert.Any())
-                {
-                    await assignmentRepo.InsertRange(allAssignmentsToInsert);
-                }
-
-                // Delete all old comments in batch
-                if (allCommentsToDelete.Any())
-                {
-                    await commentRepo.DeleteRange(allCommentsToDelete);
-                }
-
-                // Insert all new comments in batch
-                if (allCommentsToInsert.Any())
-                {
-                    await commentRepo.InsertRange(allCommentsToInsert);
-                }
+                await PersistBulkChangesAsync(allAssignmentsToDelete, allAssignmentsToInsert, allCommentsToDelete, allCommentsToInsert);
             }
             else
             {
-                // If no stages provided, delete all existing stages
-                if (workSchedule.Stages.Any())
-                {
-                    // Track removed users
-                    foreach (var stage in workSchedule.Stages)
-                    {
-                        foreach (var work in stage.Works)
-                        {
-                            foreach (var assignment in work.Assignments)
-                            {
-                                removedUserIds.Add(assignment.UserId);
-                            }
-                        }
-                    }
+                CollectRemovedUserIdsFromStages(workSchedule.Stages, removedUserIds);
 
+                if (workSchedule.Stages.Count != 0)
+                {
                     await stageRepo.DeleteRange(workSchedule.Stages.ToList());
                 }
             }
 
-            // Save all changes once
             await workScheduleRepo.SaveChangesAsync(cancellationToken);
 
-            // Get creator information
+            await SendAssignmentNotificationsAsync(
+                removedUserIds, addedUserIds,
+                workSchedule.Id, request.Name,
+                tenantId, projectId, cancellationToken);
+
             string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+            return new WorkScheduleDetailsWeb(
+                workSchedule.Id, workSchedule.TenantId, workSchedule.ProjectId,
+                workSchedule.CostEstimateId, workSchedule.Name, workSchedule.CreatedAt,
+                workSchedule.CreatedByUserId, createdByUserName, stageWebs);
+        }
 
-            // Send notifications only if there are changes
-            if (removedUserIds.Any() || addedUserIds.Any())
+        private async Task<Dictionary<Guid, string>> BuildUserNameDictAsync(
+            IEnumerable<WorkScheduleStageDto> stages,
+            CancellationToken cancellationToken)
+        {
+            List<Guid> allUserIds = WorkScheduleValidationHelper.FlattenStages(stages)
+                .Where(s => s.Works != null)
+                .SelectMany(s => s.Works!)
+                .Where(w => w.AssignedUserIds != null)
+                .SelectMany(w => w.AssignedUserIds!)
+                .Distinct()
+                .ToList();
+
+            if (allUserIds.Count == 0)
             {
-                // Remove users who are both removed and added (net zero change)
-                removedUserIds.ExceptWith(addedUserIds);
+                return new Dictionary<Guid, string>();
+            }
 
-                var allNotificationUserIds = removedUserIds.Union(addedUserIds).ToList();
-                var notificationUsers = await userRepo.GetBySearch(u => allNotificationUserIds.Contains(u.Id));
-                var notificationUserDict = notificationUsers.ToDictionary(u => u.Id);
+            IEnumerable<User> users = await userRepo.GetBySearch(u => allUserIds.Contains(u.Id));
+            return users.ToDictionary(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim());
+        }
 
-                foreach (Guid userId in removedUserIds)
+        private async Task SendAssignmentNotificationsAsync(
+            HashSet<Guid> removedUserIds,
+            HashSet<Guid> addedUserIds,
+            Guid workScheduleId,
+            string workScheduleName,
+            Guid tenantId,
+            Guid projectId,
+            CancellationToken cancellationToken)
+        {
+            if (removedUserIds.Count == 0 && addedUserIds.Count == 0)
+            {
+                return;
+            }
+
+            removedUserIds.ExceptWith(addedUserIds);
+
+            List<Guid> allNotificationUserIds = removedUserIds.Union(addedUserIds).ToList();
+            if (!allNotificationUserIds.Any())
+            {
+                return;
+            }
+
+            IEnumerable<User> notificationUsers = await userRepo.GetBySearch(u => allNotificationUserIds.Contains(u.Id));
+            Dictionary<Guid, User> notificationUserDict = notificationUsers.ToDictionary(u => u.Id);
+            string updatedByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+            foreach (Guid userId in removedUserIds)
+            {
+                notificationUserDict.TryGetValue(userId, out User? targetUser);
+                NotificationDto notification = new NotificationDto
                 {
-                    notificationUserDict.TryGetValue(userId, out User? targetUser);
-
-                    NotificationDto notification = new NotificationDto
+                    Id = Guid.NewGuid(), TenantId = tenantId, ProjectId = projectId, UserId = userId,
+                    AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
+                    Type = NotificationType.Info,
+                    Title = "Usunięto z harmonogramu prac",
+                    Message = $"Zostałeś usunięty z prac w harmonogramie: {workScheduleName}",
+                    CreatedAt = DateTimeOffset.UtcNow, Readed = false,
+                    Metadata = new Dictionary<string, object?>
                     {
-                        Id = Guid.NewGuid(),
-                        TenantId = tenantId,
-                        ProjectId = projectId,
-                        UserId = userId,
-                        AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
-                        Type = NotificationType.Info,
-                        Title = "Usunięto z harmonogramu prac",
-                        Message = $"Zostałeś usunięty z prac w harmonogramie: {request.Name}",
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        Readed = false,
-                        Metadata = new Dictionary<string, object?>
-                        {
-                            { "workScheduleId", workSchedule.Id },
-                            { "workScheduleName", request.Name },
-                            { "projectId", projectId },
-                            { "updatedByUserId", currentUser.Id },
-                            { "updatedByUserName", createdByUserName }
-                        }
-                    };
+                        { "workScheduleId", workScheduleId },
+                        { "workScheduleName", workScheduleName },
+                        { "projectId", projectId },
+                        { "updatedByUserId", currentUser.Id },
+                        { "updatedByUserName", updatedByUserName }
+                    }
+                };
+                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                await notificationSender.EnqueueAsync(payload, cancellationToken);
+            }
 
-                    var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
-                    await notificationSender.EnqueueAsync(payload, cancellationToken);
+            foreach (Guid userId in addedUserIds)
+            {
+                notificationUserDict.TryGetValue(userId, out User? targetUser);
+                NotificationDto notification = new NotificationDto
+                {
+                    Id = Guid.NewGuid(), TenantId = tenantId, ProjectId = projectId, UserId = userId,
+                    AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
+                    Type = NotificationType.Info,
+                    Title = "Przypisano do harmonogramu prac",
+                    Message = $"Zostałeś przypisany do prac w harmonogramie: {workScheduleName}",
+                    CreatedAt = DateTimeOffset.UtcNow, Readed = false,
+                    Metadata = new Dictionary<string, object?>
+                    {
+                        { "workScheduleId", workScheduleId },
+                        { "workScheduleName", workScheduleName },
+                        { "projectId", projectId },
+                        { "updatedByUserId", currentUser.Id },
+                        { "updatedByUserName", updatedByUserName }
+                    }
+                };
+                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                await notificationSender.EnqueueAsync(payload, cancellationToken);
+            }
+        }
+
+        private static HashSet<Guid> CollectStageIds(IEnumerable<WorkScheduleStageDto> stages)
+        {
+            HashSet<Guid> ids = new HashSet<Guid>();
+            foreach (WorkScheduleStageDto s in stages)
+            {
+                if (s.Id.HasValue)
+                {
+                    ids.Add(s.Id.Value);
                 }
 
-                foreach (Guid userId in addedUserIds)
+                if (s.Children != null)
                 {
-                    notificationUserDict.TryGetValue(userId, out User? targetUser);
-
-                    NotificationDto notification = new NotificationDto
+                    foreach (Guid id in CollectStageIds(s.Children))
                     {
-                        Id = Guid.NewGuid(),
-                        TenantId = tenantId,
-                        ProjectId = projectId,
-                        UserId = userId,
-                        AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
-                        Type = NotificationType.Info,
-                        Title = "Przypisano do harmonogramu prac",
-                        Message = $"Zostałeś przypisany do prac w harmonogramie: {request.Name}",
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        Readed = false,
-                        Metadata = new Dictionary<string, object?>
-                        {
-                            { "workScheduleId", workSchedule.Id },
-                            { "workScheduleName", request.Name },
-                            { "projectId", projectId },
-                            { "updatedByUserId", currentUser.Id },
-                            { "updatedByUserName", createdByUserName }
-                        }
-                    };
+                        ids.Add(id);
+                    }
+                }
+            }
+            return ids;
+        }
 
-                    var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
-                    await notificationSender.EnqueueAsync(payload, cancellationToken);
+        private static HashSet<Guid> CollectWorkIds(IEnumerable<WorkScheduleStageDto> stages)
+        {
+            HashSet<Guid> ids = [];
+            foreach (WorkScheduleStageDto s in stages)
+            {
+                if (s.Works != null)
+                {
+                    foreach (WorkScheduleWorkDto w in s.Works.Where(w => w.Id.HasValue))
+                    {
+                        ids.Add(w.Id!.Value);
+                    }
+                }
+
+                if (s.Children != null)
+                {
+                    foreach (Guid id in CollectWorkIds(s.Children))
+                    {
+                        ids.Add(id);
+                    }
+                }
+            }
+            return ids;
+        }
+
+        private async Task<List<WorkScheduleStageWeb>> UpdateStagesAsync(
+            List<WorkScheduleStageDto> stageDtos,
+            Guid? parentStageId,
+            WorkSchedule workSchedule,
+            Dictionary<Guid, WorkScheduleStage> existingStagesById,
+            Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork,
+            Dictionary<Guid, string> userNameDict,
+            Guid tenantId,
+            Guid projectId,
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete,
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert,
+            List<WorkScheduleStageWorkComment> allCommentsToDelete,
+            List<WorkScheduleStageWorkComment> allCommentsToInsert,
+            HashSet<Guid> removedUserIds,
+            HashSet<Guid> addedUserIds,
+            CancellationToken cancellationToken)
+        {
+            List<WorkScheduleStageWeb> result = new List<WorkScheduleStageWeb>();
+
+            foreach (WorkScheduleStageDto stageDto in stageDtos)
+            {
+                WorkScheduleStage stage = await UpsertStageAsync(
+                    stageDto, parentStageId, workSchedule, existingStagesById,
+                    tenantId, projectId, cancellationToken);
+
+                List<WorkScheduleStageWorkWeb> workWebs = new List<WorkScheduleStageWorkWeb>();
+
+                if (stageDto.Works != null)
+                {
+                    foreach (WorkScheduleWorkDto workDto in stageDto.Works)
+                    {
+                        (WorkScheduleStageWork work, HashSet<Guid> previousAssignedUsers) = await UpsertWorkAsync(
+                            workDto, stage, existingUserIdsByWork, tenantId,
+                            allAssignmentsToDelete, allCommentsToDelete, cancellationToken);
+
+                        List<WorkScheduleStageWorkAssigneeWeb> assigneeWebs = ProcessWorkAssignments(
+                            workDto, work, previousAssignedUsers, tenantId, projectId,
+                            userNameDict, allAssignmentsToInsert, removedUserIds, addedUserIds);
+
+                        List<WorkScheduleStageWorkCommentWeb> commentWebs = ProcessWorkComments(
+                            workDto, work, tenantId, allCommentsToInsert);
+
+                        List<WorkScheduleStageWorkPeriodWeb> periodWebs = work.Periods
+                            .Select(p => new WorkScheduleStageWorkPeriodWeb(p.StartDate, p.EndDate, p.IsClosed))
+                            .ToList();
+
+                        workWebs.Add(new WorkScheduleStageWorkWeb(
+                            work.Id, work.Name, work.Order, work.ColorRgb,
+                            work.IsClosed, periodWebs, assigneeWebs, commentWebs));
+                    }
+                }
+
+                List<WorkScheduleStageWeb> childWebs = stageDto.Children != null && stageDto.Children.Count > 0
+                    ? await UpdateStagesAsync(
+                        stageDto.Children, stage.Id, workSchedule,
+                        existingStagesById, existingUserIdsByWork, userNameDict,
+                        tenantId, projectId,
+                        allAssignmentsToDelete, allAssignmentsToInsert,
+                        allCommentsToDelete, allCommentsToInsert,
+                        removedUserIds, addedUserIds, cancellationToken)
+                    : new List<WorkScheduleStageWeb>();
+
+                result.Add(new WorkScheduleStageWeb(
+                    stage.Id, stage.Name, stage.Order, parentStageId, null,
+                    workWebs, childWebs));
+            }
+
+            return result;
+        }
+
+        private async Task<WorkScheduleStage> UpsertStageAsync(
+            WorkScheduleStageDto stageDto,
+            Guid? parentStageId,
+            WorkSchedule workSchedule,
+            Dictionary<Guid, WorkScheduleStage> existingStagesById,
+            Guid tenantId,
+            Guid projectId,
+            CancellationToken cancellationToken)
+        {
+            if (stageDto.Id.HasValue && existingStagesById.TryGetValue(stageDto.Id.Value, out WorkScheduleStage existingStage))
+            {
+                if (existingStage.CostEstimateGroupId == null)
+                {
+                    existingStage.Name = stageDto.Name;
+                    existingStage.Order = stageDto.Order;
+                    existingStage.ParentStageId = parentStageId;
+                    await stageRepo.Update(existingStage);
+                }
+                return existingStage;
+            }
+
+            WorkScheduleStage stage = new WorkScheduleStage
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workSchedule.Id,
+                ParentStageId = parentStageId,
+                Name = stageDto.Name,
+                Order = stageDto.Order
+            };
+            await stageRepo.Insert(stage);
+            await stageRepo.SaveChangesAsync(cancellationToken);
+            return stage;
+        }
+
+        private static List<WorkScheduleStageWorkPeriod> BuildPeriods(WorkScheduleWorkDto workDto)
+        {
+            List<WorkScheduleStageWorkPeriod> periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
+            {
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                IsClosed = workDto.IsClosed || p.IsClosed
+            }).ToList() ?? new List<WorkScheduleStageWorkPeriod>();
+
+            if (workDto.IsClosed)
+            {
+                foreach (WorkScheduleStageWorkPeriod period in periods)
+                {
+                    period.IsClosed = true;
                 }
             }
 
+            return periods;
+        }
+
+        private async Task<(WorkScheduleStageWork work, HashSet<Guid> previousAssignedUsers)> UpsertWorkAsync(
+            WorkScheduleWorkDto workDto,
+            WorkScheduleStage stage,
+            Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork,
+            Guid tenantId,
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete,
+            List<WorkScheduleStageWorkComment> allCommentsToDelete,
+            CancellationToken cancellationToken)
+        {
+            List<WorkScheduleStageWorkPeriod> periods = BuildPeriods(workDto);
+            bool isWorkClosed = workDto.IsClosed || (periods.Any() && periods.All(p => p.IsClosed));
+            HashSet<Guid> previousAssignedUsers = new HashSet<Guid>();
+
+            WorkScheduleStageWork? existingWork = workDto.Id.HasValue
+                ? stage.Works.FirstOrDefault(w => w.Id == workDto.Id.Value)
+                : null;
+
+            if (existingWork != null)
+            {
+                existingWork.Name = workDto.Name;
+                existingWork.Order = workDto.Order;
+                existingWork.ColorRgb = workDto.ColorRgb;
+                existingWork.IsClosed = isWorkClosed;
+                existingWork.Periods.Clear();
+                existingWork.Periods = periods;
+                await workRepo.Update(existingWork);
+
+                if (existingUserIdsByWork.TryGetValue(existingWork.Id, out HashSet<Guid> previousUsers))
+                {
+                    previousAssignedUsers = previousUsers;
+                }
+
+                allAssignmentsToDelete.AddRange(existingWork.Assignments);
+                allCommentsToDelete.AddRange(existingWork.Comments);
+
+                return (existingWork, previousAssignedUsers);
+            }
+
+            WorkScheduleStageWork newWork = new WorkScheduleStageWork
+            {
+                TenantId = tenantId,
+                WorkScheduleStageId = stage.Id,
+                Name = workDto.Name,
+                Order = workDto.Order,
+                ColorRgb = workDto.ColorRgb,
+                IsClosed = isWorkClosed,
+                Periods = periods
+            };
+            await workRepo.Insert(newWork);
+            await workRepo.SaveChangesAsync(cancellationToken);
+            return (newWork, previousAssignedUsers);
+        }
+
+        private static List<WorkScheduleStageWorkAssigneeWeb> ProcessWorkAssignments(
+            WorkScheduleWorkDto workDto,
+            WorkScheduleStageWork work,
+            HashSet<Guid> previousAssignedUsers,
+            Guid tenantId,
+            Guid projectId,
+            Dictionary<Guid, string> userNameDict,
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert,
+            HashSet<Guid> removedUserIds,
+            HashSet<Guid> addedUserIds)
+        {
+            List<WorkScheduleStageWorkAssigneeWeb> assigneeWebs = new List<WorkScheduleStageWorkAssigneeWeb>();
+
+            if (workDto.AssignedUserIds != null)
+            {
+                foreach (Guid userId in workDto.AssignedUserIds)
+                {
+                    allAssignmentsToInsert.Add(new WorkScheduleStageWorkAssignment
+                    {
+                        WorkScheduleStageWorkId = work.Id,
+                        TenantId = tenantId,
+                        ProjectId = projectId,
+                        UserId = userId
+                    });
+
+                    if (!previousAssignedUsers.Contains(userId))
+                    {
+                        addedUserIds.Add(userId);
+                    }
+
+                    assigneeWebs.Add(new WorkScheduleStageWorkAssigneeWeb(
+                        userId, userNameDict.GetValueOrDefault(userId, "Unknown User")));
+                }
+
+                HashSet<Guid> currentAssignedUsers = workDto.AssignedUserIds.ToHashSet();
+                foreach (Guid userId in previousAssignedUsers.Where(id => !currentAssignedUsers.Contains(id)))
+                {
+                    removedUserIds.Add(userId);
+                }
+            }
+            else
+            {
+                foreach (Guid userId in previousAssignedUsers)
+                {
+                    removedUserIds.Add(userId);
+                }
+            }
+
+            return assigneeWebs;
+        }
+
+        private List<WorkScheduleStageWorkCommentWeb> ProcessWorkComments(
+            WorkScheduleWorkDto workDto,
+            WorkScheduleStageWork work,
+            Guid tenantId,
+            List<WorkScheduleStageWorkComment> allCommentsToInsert)
+        {
+            List<WorkScheduleStageWorkCommentWeb> commentWebs = new List<WorkScheduleStageWorkCommentWeb>();
+
+            if (workDto.Comments == null)
+            {
+                return commentWebs;
+            }
+
+            DateTime now = DateTime.UtcNow;
+            string commenterName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+
+            foreach (WorkScheduleWorkCommentDto commentDto in workDto.Comments)
+            {
+                WorkScheduleStageWorkComment comment = new WorkScheduleStageWorkComment
+                {
+                    WorkScheduleStageWorkId = work.Id,
+                    TenantId = tenantId,
+                    Content = commentDto.Content,
+                    CreatedByUserId = currentUser.Id,
+                    CreatedAt = now
+                };
+                allCommentsToInsert.Add(comment);
+                commentWebs.Add(new WorkScheduleStageWorkCommentWeb(
+                    comment.Id, comment.Content, comment.CreatedByUserId,
+                    commenterName, comment.CreatedAt));
+            }
+
+            return commentWebs;
+        }
+
+        private async Task<List<WorkScheduleStage>> ReloadStagesWithWorksAsync(
+            Guid workScheduleId, CancellationToken cancellationToken)
+        {
+            return (await stageRepo.GetBySearch(
+                s => s.WorkScheduleId == workScheduleId && !s.IsDeleted,
+                include => include
+                    .Include(s => s.Works)
+                    .ThenInclude(w => w.Periods),
+                include => include
+                    .Include(s => s.Works)
+                    .ThenInclude(w => w.Assignments),
+                include => include
+                    .Include(s => s.Works)
+                    .ThenInclude(w => w.Comments)))
+                .ToList();
+        }
+
+        private async Task EnrichUserNameDictAsync(
+            List<WorkScheduleStage> stages,
+            Dictionary<Guid, string> userNameDict,
+            CancellationToken cancellationToken)
+        {
+            List<Guid> missingUserIds = stages
+                .SelectMany(s => s.Works)
+                .SelectMany(w => w.Assignments)
+                .Select(a => a.UserId)
+                .Distinct()
+                .Where(id => !userNameDict.ContainsKey(id))
+                .ToList();
+
+            if (!missingUserIds.Any())
+            {
+                return;
+            }
+
+            IEnumerable<User> additionalUsers = await userRepo.GetBySearch(u => missingUserIds.Contains(u.Id));
+            foreach (User u in additionalUsers)
+            {
+                userNameDict[u.Id] = $"{u.FirstName} {u.LastName}".Trim();
+            }
+        }
+
+        private async Task PersistBulkChangesAsync(
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete,
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert,
+            List<WorkScheduleStageWorkComment> allCommentsToDelete,
+            List<WorkScheduleStageWorkComment> allCommentsToInsert)
+        {
+            if (allAssignmentsToDelete.Count != 0)
+            {
+                await assignmentRepo.DeleteRange(allAssignmentsToDelete);
+            }
+
+            if (allAssignmentsToInsert.Count != 0)
+            {
+                await assignmentRepo.InsertRange(allAssignmentsToInsert);
+            }
+
+            if (allCommentsToDelete.Count != 0)
+            {
+                await commentRepo.DeleteRange(allCommentsToDelete);
+            }
+
+            if (allCommentsToInsert.Count != 0)
+            {
+                await commentRepo.InsertRange(allCommentsToInsert);
+            }
+        }
+
+        private static void CollectRemovedUserIdsFromStages(
+            IEnumerable<WorkScheduleStage> stages, HashSet<Guid> removedUserIds)
+        {
+            foreach (WorkScheduleStage stage in stages)
+            {
+                CollectRemovedUserIdsFromWorks(stage.Works, removedUserIds);
+            }
+        }
+
+        private static void CollectRemovedUserIdsFromWorks(
+            IEnumerable<WorkScheduleStageWork> works, HashSet<Guid> removedUserIds)
+        {
+            foreach (WorkScheduleStageWork work in works)
+            {
+                foreach (WorkScheduleStageWorkAssignment assignment in work.Assignments)
+                {
+                    removedUserIds.Add(assignment.UserId);
+                }
+            }
+        }
+
+        private async Task<WorkScheduleDetailsWeb> HandleSyncedUpdateAsync(
+            WorkSchedule workSchedule,
+            UpdateWorkScheduleCommand request,
+            Guid tenantId,
+            Guid projectId,
+            CancellationToken cancellationToken)
+        {
+            await workScheduleSyncService.SyncFromCostEstimateAsync(workSchedule, cancellationToken);
+
+            List<WorkScheduleStage> currentStages = await ReloadStagesWithWorksAsync(workSchedule.Id, cancellationToken);
+            Dictionary<Guid, WorkScheduleStage> stagesById = currentStages.ToDictionary(s => s.Id);
+
+            HashSet<Guid> removedUserIds = new HashSet<Guid>();
+            HashSet<Guid> addedUserIds = new HashSet<Guid>();
+            Dictionary<Guid, string> userNameDict = new Dictionary<Guid, string>();
+
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete = new List<WorkScheduleStageWorkAssignment>();
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert = new List<WorkScheduleStageWorkAssignment>();
+            List<WorkScheduleStageWorkComment> allCommentsToDelete = new List<WorkScheduleStageWorkComment>();
+            List<WorkScheduleStageWorkComment> allCommentsToInsert = new List<WorkScheduleStageWorkComment>();
+
+            if (request.Stages != null && request.Stages.Count > 0)
+            {
+                userNameDict = await BuildUserNameDictAsync(request.Stages, cancellationToken);
+
+                HashSet<Guid> incomingStageIds = CollectStageIds(request.Stages);
+                HashSet<Guid> incomingWorkIds = CollectWorkIds(request.Stages);
+
+                // Stages without CostEstimateGroupId are fully user-managed even in synced mode.
+                List<WorkScheduleStage> existingManualStages = currentStages.Where(s => s.CostEstimateGroupId == null).ToList();
+                List<WorkScheduleStage> manualStagesToDelete = existingManualStages.Where(s => !incomingStageIds.Contains(s.Id)).ToList();
+                CollectRemovedUserIdsFromStages(manualStagesToDelete, removedUserIds);
+
+                if (manualStagesToDelete.Count != 0)
+                {
+                    await stageRepo.DeleteRange(manualStagesToDelete);
+                }
+
+                List<WorkScheduleStage> remainingStages = currentStages.Except(manualStagesToDelete).ToList();
+                List<WorkScheduleStageWork> worksToDelete = remainingStages
+                    .SelectMany(s => s.Works)
+                    .Where(w => w.CostEstimateItemId == null && !incomingWorkIds.Contains(w.Id))
+                    .ToList();
+                CollectRemovedUserIdsFromWorks(worksToDelete, removedUserIds);
+
+                if (worksToDelete.Count != 0)
+                {
+                    await workRepo.DeleteRange(worksToDelete);
+                }
+
+                Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork = remainingStages
+                    .SelectMany(s => s.Works)
+                    .Where(w => !worksToDelete.Contains(w))
+                    .ToDictionary(w => w.Id, w => w.Assignments.Select(a => a.UserId).ToHashSet());
+
+                Dictionary<Guid, WorkScheduleStage> remainingStagesById = remainingStages.ToDictionary(s => s.Id);
+
+                await UpdateStagesAsync(
+                    request.Stages, null, workSchedule,
+                    remainingStagesById, existingUserIdsByWork, userNameDict,
+                    tenantId, projectId,
+                    allAssignmentsToDelete, allAssignmentsToInsert,
+                    allCommentsToDelete, allCommentsToInsert,
+                    removedUserIds, addedUserIds, cancellationToken);
+
+                await PersistBulkChangesAsync(allAssignmentsToDelete, allAssignmentsToInsert, allCommentsToDelete, allCommentsToInsert);
+            }
+
+            await workScheduleRepo.SaveChangesAsync(cancellationToken);
+
+            List<WorkScheduleStage> finalStages = await ReloadStagesWithWorksAsync(workSchedule.Id, cancellationToken);
+            await EnrichUserNameDictAsync(finalStages, userNameDict, cancellationToken);
+
+            await SendAssignmentNotificationsAsync(
+                removedUserIds, addedUserIds,
+                workSchedule.Id, request.Name,
+                tenantId, projectId, cancellationToken);
+
+            string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
             return new WorkScheduleDetailsWeb(
-                workSchedule.Id,
-                workSchedule.TenantId,
-                workSchedule.ProjectId,
-                workSchedule.Name,
-                workSchedule.CreatedAt,
-                workSchedule.CreatedByUserId,
-                createdByUserName,
-                stageWebs
-            );
+                workSchedule.Id, workSchedule.TenantId, workSchedule.ProjectId,
+                workSchedule.CostEstimateId, workSchedule.Name, workSchedule.CreatedAt,
+                workSchedule.CreatedByUserId, createdByUserName,
+                BuildStageTreeWithWorks(finalStages, null, userNameDict));
+        }
+
+        private static List<WorkScheduleStageWeb> BuildStageTreeWithWorks(
+            List<WorkScheduleStage> stages,
+            Guid? parentStageId,
+            Dictionary<Guid, string> userNameDict)
+        {
+            return stages
+                .Where(s => s.ParentStageId == parentStageId)
+                .OrderBy(s => s.Order)
+                .Select(s => new WorkScheduleStageWeb(
+                    s.Id,
+                    s.Name,
+                    s.Order,
+                    s.ParentStageId,
+                    s.CostEstimateGroupId,
+                    s.Works.OrderBy(w => w.Order).Select(w => new WorkScheduleStageWorkWeb(
+                        w.Id, w.Name, w.Order, w.ColorRgb, w.IsClosed,
+                        w.Periods.OrderBy(p => p.StartDate)
+                            .Select(p => new WorkScheduleStageWorkPeriodWeb(p.StartDate, p.EndDate, p.IsClosed))
+                            .ToList(),
+                        w.Assignments
+                            .Select(a => new WorkScheduleStageWorkAssigneeWeb(
+                                a.UserId,
+                                userNameDict.GetValueOrDefault(a.UserId, "Unknown User")))
+                            .ToList(),
+                        w.Comments.OrderBy(c => c.CreatedAt)
+                            .Select(c => new WorkScheduleStageWorkCommentWeb(
+                                c.Id, c.Content, c.CreatedByUserId,
+                                userNameDict.GetValueOrDefault(c.CreatedByUserId, "Unknown"),
+                                c.CreatedAt))
+                            .ToList()
+                    )).ToList(),
+                    BuildStageTreeWithWorks(stages, s.Id, userNameDict)))
+                .ToList();
         }
     }
 }

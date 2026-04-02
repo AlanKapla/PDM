@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260401090607_work-schedule-join-with-cost-estimate")]
+    partial class workschedulejoinwithcostestimate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1708,14 +1711,6 @@ namespace Entities.Migrations
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1736,8 +1731,6 @@ namespace Entities.Migrations
                     b.HasIndex("TenantId", "CreatedByUserId");
 
                     b.HasIndex("TenantId", "ProjectId");
-
-                    b.HasIndex("TenantId", "ProjectId", "IsDeleted");
 
                     b.ToTable("WorkSchedules");
                 });
@@ -1805,9 +1798,6 @@ namespace Entities.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<Guid?>("CostEstimateItemId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<bool>("IsClosed")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1828,8 +1818,6 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CostEstimateItemId");
 
                     b.HasIndex("WorkScheduleStageId", "Order");
 
@@ -2717,11 +2705,6 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.WorkScheduleStageWork", b =>
                 {
-                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "CostEstimateItem")
-                        .WithMany()
-                        .HasForeignKey("CostEstimateItemId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Entities.Models.WorkScheduleStage", "Stage")
                         .WithMany("Works")
                         .HasForeignKey("WorkScheduleStageId")
@@ -2755,8 +2738,6 @@ namespace Entities.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("WorkScheduleStageWorkId");
                         });
-
-                    b.Navigation("CostEstimateItem");
 
                     b.Navigation("Periods");
 

@@ -5,6 +5,7 @@
     /// </summary>
     public record WorkScheduleSummaryWeb(
         Guid Id,
+        Guid? CostEstimateId,
         string Name,
         DateTime CreatedAt,
         Guid CreatedByUserId,

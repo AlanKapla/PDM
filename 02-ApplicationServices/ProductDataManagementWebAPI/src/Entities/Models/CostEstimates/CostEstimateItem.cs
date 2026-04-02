@@ -1,4 +1,5 @@
-﻿using Entities.Models.Base;
+﻿using Entities.Models;
+using Entities.Models.Base;
 
 namespace Entities.Models.CostEstimates
 {
@@ -59,6 +60,7 @@ namespace Entities.Models.CostEstimates
         /// Pozycja nadrzędna (jeśli ta pozycja jest opcją lub komponentem)
         /// </summary>
         public virtual CostEstimateItem? ParentItem { get; set; }
+        public virtual ICollection<WorkScheduleStageWork> WorkScheduleStageWorks { get; set; } = new List<WorkScheduleStageWork>();
         
         /// <summary>
         /// Kolekcja child items (Options + Components razem)

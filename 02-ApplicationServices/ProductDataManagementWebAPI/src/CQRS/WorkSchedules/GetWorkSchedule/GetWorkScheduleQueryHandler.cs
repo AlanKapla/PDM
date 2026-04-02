@@ -30,10 +30,14 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
             // ─────────────────────────────────────────────────────────────────────
             // STEP 1: Load work schedule with all related data
             // ─────────────────────────────────────────────────────────────────────
+            if (request.TenantId != currentUser.ActiveTenantId)
+                throw new ForbiddenApiException("Access to this tenant is not allowed.");
+
             var workSchedule = await workScheduleRepo.GetFirstBySearch(
                 ws => ws.Id == request.WorkScheduleId &&
                       ws.ProjectId == request.ProjectId &&
-                      ws.TenantId == request.TenantId,
+                      ws.TenantId == request.TenantId &&
+                      !ws.IsDeleted,
                 include => include
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
@@ -74,22 +78,20 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                 request.TenantId, request.ProjectId, cancellationToken))
                 .ToDictionary(m => m.UserId);
 
-            var result = new WorkScheduleDetailsWeb(
-                Id: workSchedule.Id,
-                TenantId: workSchedule.TenantId,
-                ProjectId: workSchedule.ProjectId,
-                Name: workSchedule.Name,
-                CreatedAt: workSchedule.CreatedAt,
-                CreatedByUserId: workSchedule.CreatedByUserId,
-                CreatedByUserName: membersDict.TryGetValue(workSchedule.CreatedByUserId, out var creator)
-                    ? creator.FullName
-                    : "Unknown",
-                Stages: workSchedule.Stages
+            // Filter out soft-deleted stages and build a tree in memory
+            var activeStages = workSchedule.Stages.Where(s => !s.IsDeleted).ToList();
+
+            List<WorkScheduleStageWeb> BuildStageTree(Guid? parentId)
+            {
+                return activeStages
+                    .Where(s => s.ParentStageId == parentId)
                     .OrderBy(s => s.Order)
                     .Select(s => new WorkScheduleStageWeb(
                         Id: s.Id,
                         Name: s.Name,
                         Order: s.Order,
+                        ParentStageId: s.ParentStageId,
+                        CostEstimateGroupId: s.CostEstimateGroupId,
                         Works: s.Works
                             .OrderBy(w => w.Order)
                             .Select(w => new WorkScheduleStageWorkWeb(
@@ -103,16 +105,14 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                                     .Select(p => new WorkScheduleStageWorkPeriodWeb(
                                         StartDate: p.StartDate,
                                         EndDate: p.EndDate,
-                                        IsClosed: p.IsClosed
-                                    ))
+                                        IsClosed: p.IsClosed))
                                     .ToList(),
                                 Assignees: w.Assignments
                                     .Select(a => new WorkScheduleStageWorkAssigneeWeb(
                                         UserId: a.UserId,
                                         UserName: membersDict.TryGetValue(a.UserId, out var assignee)
                                             ? assignee.FullName
-                                            : "Unknown"
-                                    ))
+                                            : "Unknown"))
                                     .ToList(),
                                 Comments: w.Comments
                                     .OrderBy(c => c.CreatedAt)
@@ -123,14 +123,25 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                                         CreatedByUserName: membersDict.TryGetValue(c.CreatedByUserId, out var commenter)
                                             ? commenter.FullName
                                             : "Unknown",
-                                        CreatedAt: c.CreatedAt
-                                    ))
-                                    .ToList()
-                            ))
-                            .ToList()
-                    ))
-                    .ToList()
-            );
+                                        CreatedAt: c.CreatedAt))
+                                    .ToList()))
+                            .ToList(),
+                        ChildStages: BuildStageTree(s.Id)))
+                    .ToList();
+            }
+
+            var result = new WorkScheduleDetailsWeb(
+                Id: workSchedule.Id,
+                TenantId: workSchedule.TenantId,
+                ProjectId: workSchedule.ProjectId,
+                CostEstimateId: workSchedule.CostEstimateId,
+                Name: workSchedule.Name,
+                CreatedAt: workSchedule.CreatedAt,
+                CreatedByUserId: workSchedule.CreatedByUserId,
+                CreatedByUserName: membersDict.TryGetValue(workSchedule.CreatedByUserId, out var creator)
+                    ? creator.FullName
+                    : "Unknown",
+                Stages: BuildStageTree(null));
 
             return result;
         }

@@ -24,6 +24,12 @@ import {
   IconButton,
   useDisclosure,
   Tooltip,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from "@chakra-ui/react";
 import { Eye, Trash2, Plus, FileText, Copy, Share2, Users } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -86,7 +92,7 @@ interface CostEstimatesTabProps {
   formatDate: (date: string | Date | null | undefined) => string;
   handleViewCostEstimate: (id: string) => void;
   handleCopyCostEstimate: (costEstimate: CostEstimateListItemWeb) => void;
-  handleDeleteCostEstimate: (id: string) => void;
+  handleDeleteCostEstimate: (costEstimate: CostEstimateListItemWeb) => void;
   handleShareCostEstimate: (costEstimate: CostEstimateListItemWeb) => void;
   resourcePerms: ResourcePermissions;
   onCreateModalOpen: () => void;
@@ -246,7 +252,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                             size="xs"
                             colorScheme="red"
                             variant="ghost"
-                            onClick={() => handleDeleteCostEstimate(costEstimate.id)}
+                            onClick={() => handleDeleteCostEstimate(costEstimate)}
                           />
                         </Tooltip>
                       )}
@@ -272,12 +278,16 @@ export default function ProjectCosts() {
   const [project, setProject] = useState<any | null>(null);
   const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToShare, setCostEstimateToShare] = useState<CostEstimateListItemWeb | null>(null);
+  const [costEstimateToDelete, setCostEstimateToDelete] = useState<CostEstimateListItemWeb | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const hasFetchedProjectData = useRef(false);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
   const { isOpen: isCopyModalOpen, onOpen: onCopyModalOpen, onClose: onCopyModalClose } = useDisclosure();
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
+  const { isOpen: isDeleteModalOpen, onOpen: onDeleteModalOpen, onClose: onDeleteModalClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -383,16 +393,24 @@ export default function ProjectCosts() {
     fetchProjectData();
   };
 
-  const handleDeleteCostEstimate = async (costEstimateId: string) => {
-    if (!user?.activeTenantId || !projectId) return;
-    if (!confirm("Czy na pewno chcesz usunąć ten kosztorys?")) return;
+  const handleDeleteCostEstimate = (costEstimate: CostEstimateListItemWeb) => {
+    setCostEstimateToDelete(costEstimate);
+    onDeleteModalOpen();
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!user?.activeTenantId || !projectId || !costEstimateToDelete) return;
+    setIsDeleting(true);
     try {
-      await costEstimateApi.deleteCostEstimate(user.activeTenantId, projectId, costEstimateId);
+      await costEstimateApi.deleteCostEstimate(user.activeTenantId, projectId, costEstimateToDelete.id);
       showSuccess("Kosztorys został usunięty");
+      onDeleteModalClose();
+      setCostEstimateToDelete(null);
       refreshData();
     } catch (error: any) {
       showError('Nie udało się usunąć kosztorysu', error?.message || 'Wystąpił nieoczekiwany błąd');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -588,6 +606,38 @@ export default function ProjectCosts() {
             onShareUpdated={handleShareUpdated}
           />
         )}
+        {/* MODAL: DELETE COST ESTIMATE */}
+        <AlertDialog
+          isOpen={isDeleteModalOpen}
+          leastDestructiveRef={cancelDeleteRef}
+          onClose={onDeleteModalClose}
+          isCentered
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent>
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                Usuń kosztorys
+              </AlertDialogHeader>
+              <AlertDialogBody>
+                Czy na pewno chcesz usunąć kosztorys{" "}
+                <strong>{costEstimateToDelete?.name}</strong>? Tej operacji nie można cofnąć.
+              </AlertDialogBody>
+              <AlertDialogFooter gap={2}>
+                <Button ref={cancelDeleteRef} onClick={onDeleteModalClose} isDisabled={isDeleting}>
+                  Anuluj
+                </Button>
+                <Button
+                  colorScheme="red"
+                  onClick={handleDeleteConfirm}
+                  isLoading={isDeleting}
+                  loadingText="Usuwanie..."
+                >
+                  Usuń
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
       </Box>
     </MainLayout>
   );

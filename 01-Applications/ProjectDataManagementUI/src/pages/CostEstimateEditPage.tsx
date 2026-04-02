@@ -47,11 +47,14 @@ import {
   FileSpreadsheet,
   RefreshCw,
   Share2,
+  CalendarPlus,
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import MainLayout from '../layout/MainLayout';
 import { CostEstimateTableView } from '../components/CostEstimate/CostEstimateTableView';
 import { costEstimateApi } from '../api/costEstimateApi';
+import { projectApi } from '../api/projectApi';
+import WorkScheduleFormModal from '../components/WorkScheduleFormModal';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ShareCostEstimateModal from '../components/ShareCostEstimateModal';
@@ -158,6 +161,12 @@ export const CostEstimateEditPage: React.FC = () => {
   // Ref do timeout auto-recalculate (2s po ostatnim zapisie)
   const autoRecalcTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  // ---- Modal harmonogramu ----
+  const { isOpen: isScheduleModalOpen, onOpen: onScheduleModalOpen, onClose: onScheduleModalClose } = useDisclosure();
+  const [scheduleModalMode, setScheduleModalMode] = useState<'create' | 'edit'>('create');
+
+  const [projectMembers, setProjectMembers] = useState<any[]>([]);
 
   // ---- Modal udostępniania ----
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
@@ -292,6 +301,16 @@ export const CostEstimateEditPage: React.FC = () => {
     }
   }, [user?.activeTenantId, projectId, estimateId]);
 
+  const fetchProjectMembers = async () => {
+    if (!user?.activeTenantId || !projectId) return;
+    try {
+      const membersRes = await projectApi.getProjectMembers(user.activeTenantId, projectId);
+      setProjectMembers(membersRes.data ?? []);
+    } catch {
+      // ignoruj błąd pobierania członków projektu
+    }
+  };
+
   const loadCostEstimate = async () => {
     if (!user?.activeTenantId || !projectId || !estimateId) return;
     try {
@@ -304,6 +323,10 @@ export const CostEstimateEditPage: React.FC = () => {
       const recalculated = recalculateCostEstimateDetails(data);
       setDetails(recalculated);
       setHasChanges(false);
+      // Członkowie projektu potrzebni do modala tworzenia harmonogramu (tylko Full)
+      if (data.accessLevel === CostEstimateAccessLevel.Full) {
+        fetchProjectMembers();
+      }
     } catch (err) {
       showError(
         'Błąd ładowania',
@@ -1335,6 +1358,38 @@ export const CostEstimateEditPage: React.FC = () => {
             </Tooltip>
           )}
 
+          {/* Przycisk harmonogramu — widoczny tylko przy pełnym dostępie (accessLevel = Full) */}
+          {canFullEdit && (
+            details.workScheduleId ? (
+              <Tooltip label="Przejdź do harmonogramu powiązanego z kosztorysem">
+                <Button
+                  leftIcon={<CalendarPlus size={14} />}
+                  size="sm"
+                  colorScheme="orange"
+                  variant="outline"
+                  onClick={() => safeNavigate(`/projects/${projectId}/schedules/${details.workScheduleId}`)}
+                >
+                  Harmonogram
+                </Button>
+              </Tooltip>
+            ) : (
+              <Tooltip label="Utwórz harmonogram na podstawie kosztorysu">
+                <Button
+                  leftIcon={<CalendarPlus size={14} />}
+                  size="sm"
+                  colorScheme="orange"
+                  variant="outline"
+                  onClick={() => {
+                    setScheduleModalMode('create');
+                    onScheduleModalOpen();
+                  }}
+                >
+                  Utwórz harmonogram
+                </Button>
+              </Tooltip>
+            )
+          )}
+
           {/* Wskaźnik przeliczania */}
           {isRecalculating && (
             <HStack
@@ -1519,6 +1574,22 @@ export const CostEstimateEditPage: React.FC = () => {
           onShareUpdated={loadCostEstimate}
         />
       )}
+
+      {/* Modal harmonogramu powiązanego z kosztorysem */}
+      <WorkScheduleFormModal
+        mode={scheduleModalMode}
+        isOpen={isScheduleModalOpen}
+        onClose={onScheduleModalClose}
+        tenantId={user.activeTenantId}
+        projectId={projectId}
+        projectName=""
+        members={projectMembers}
+        initialCostEstimateId={scheduleModalMode === 'create' ? estimateId : undefined}
+        initialCostEstimateName={scheduleModalMode === 'create' ? details.name : undefined}
+        onSuccess={() => {
+          loadCostEstimate();
+        }}
+      />
 
       {/* Dialog usuwania grupy */}
       <ConfirmDialog

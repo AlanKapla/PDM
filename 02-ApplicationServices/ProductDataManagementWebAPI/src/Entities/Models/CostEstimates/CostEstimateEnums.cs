@@ -147,6 +147,13 @@
         /// </summary>
         ItemSystemCategory = 106,
 
+        /// <summary>
+        /// Zakres pracy harmonogramu (bool) - czy pozycja/komponent ma być dodana jako zakres pracy w harmonogramie
+        /// Gdy true, pozycja jest automatycznie synchronizowana jako WorkScheduleStageWork w powiązanym harmonogramie
+        /// Scope: ItemSystem
+        /// </summary>
+        ItemSystemIsWorkScope = 107,
+
         // ============================================================================
         // ITEM CALCULATED FIELDS (Prefix: ItemCalculated)
         // Range: 200-299

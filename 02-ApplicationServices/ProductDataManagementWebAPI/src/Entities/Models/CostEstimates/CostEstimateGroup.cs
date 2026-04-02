@@ -1,4 +1,5 @@
-﻿using Entities.Models.Base;
+﻿using Entities.Models;
+using Entities.Models.Base;
 
 namespace Entities.Models.CostEstimates
 {
@@ -22,5 +23,6 @@ namespace Entities.Models.CostEstimates
         public virtual ICollection<CostEstimateGroup> ChildGroups { get; set; } = new List<CostEstimateGroup>();
         public virtual ICollection<CostEstimateGroupFieldValue> FieldValues { get; set; } = new List<CostEstimateGroupFieldValue>();
         public virtual ICollection<CostEstimateItem> Items { get; set; } = new List<CostEstimateItem>();
+        public virtual ICollection<WorkScheduleStage> WorkScheduleStages { get; set; } = new List<WorkScheduleStage>();
     }
 }

@@ -4,6 +4,7 @@
         Guid Id,
         Guid TenantId,
         Guid ProjectId,
+        Guid? CostEstimateId,
         string Name,
         DateTime CreatedAt,
         Guid CreatedByUserId,
@@ -15,7 +16,10 @@
         Guid Id,
         string Name,
         int Order,
-        List<WorkScheduleStageWorkWeb> Works
+        Guid? ParentStageId,
+        Guid? CostEstimateGroupId,
+        List<WorkScheduleStageWorkWeb> Works,
+        List<WorkScheduleStageWeb> ChildStages
     );
 
     public record WorkScheduleStageWorkWeb(

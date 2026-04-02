@@ -1,4 +1,5 @@
-﻿using Entities.Models.Base;
+﻿using Entities.Models;
+using Entities.Models.Base;
 using Entities.Models.CostEstimateTemplates;
 
 namespace Entities.Models.CostEstimates
@@ -29,6 +30,7 @@ namespace Entities.Models.CostEstimates
         public virtual CostEstimateTemplateCurrency SelectedCurrency { get; set; } = default!;
         public virtual ICollection<CostEstimateGroup> AllGroups { get; set; } = new List<CostEstimateGroup>();
         public virtual ICollection<CostEstimateItem> AllItems { get; set; } = new List<CostEstimateItem>();
+        public virtual ICollection<WorkSchedule> WorkSchedules { get; set; } = new List<WorkSchedule>();
         
         public IEnumerable<CostEstimateGroup> RootGroups => AllGroups?.Where(g => g.ParentGroupId == null) ?? Enumerable.Empty<CostEstimateGroup>();
         

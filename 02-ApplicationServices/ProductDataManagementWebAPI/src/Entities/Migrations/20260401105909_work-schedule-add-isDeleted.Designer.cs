@@ -4,6 +4,7 @@ using Entities.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Entities.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260401105909_work-schedule-add-isDeleted")]
+    partial class workscheduleaddisDeleted
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1805,9 +1808,6 @@ namespace Entities.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<Guid?>("CostEstimateItemId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<bool>("IsClosed")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1828,8 +1828,6 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CostEstimateItemId");
 
                     b.HasIndex("WorkScheduleStageId", "Order");
 
@@ -2717,11 +2715,6 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.WorkScheduleStageWork", b =>
                 {
-                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "CostEstimateItem")
-                        .WithMany()
-                        .HasForeignKey("CostEstimateItemId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Entities.Models.WorkScheduleStage", "Stage")
                         .WithMany("Works")
                         .HasForeignKey("WorkScheduleStageId")
@@ -2755,8 +2748,6 @@ namespace Entities.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("WorkScheduleStageWorkId");
                         });
-
-                    b.Navigation("CostEstimateItem");
 
                     b.Navigation("Periods");
 
