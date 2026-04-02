@@ -209,6 +209,17 @@ namespace Business.Implementation.Helpers
                         IsDate: false,
                         IsBoolean: false,
                         IsCollection: false
+                    ),
+                    new CostEstimateFieldTypeConfigWeb(
+                        FieldType: (int)FieldType.ItemSystemIsWorkScope,
+                        FieldScope: (int)FieldScope.ItemSystem,
+                        NamePl: "Zakres pracy harmonogramu",
+                        ValueTypeName: "bool",
+                        IsNumeric: false,
+                        IsText: false,
+                        IsDate: false,
+                        IsBoolean: true,
+                        IsCollection: false
                     )
                 },
 

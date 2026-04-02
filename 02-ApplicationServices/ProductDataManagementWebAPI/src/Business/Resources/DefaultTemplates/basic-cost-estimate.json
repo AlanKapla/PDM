@@ -222,6 +222,17 @@
       "isReadonly": false,
       "sumInGroup": false,
       "sumInTotal": false
+    },
+    {
+      "fieldName": "00000001-0002-0000-0000-000000000005",
+      "fieldType": 107,
+      "label": "Zakres pracy harmonogramu",
+      "isSortable": false,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
     }
   ],
   "calculatedFields": [

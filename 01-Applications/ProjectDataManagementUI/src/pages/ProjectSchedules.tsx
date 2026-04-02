@@ -9,6 +9,7 @@ import {
   Icon,
   Button,
   Badge,
+  IconButton,
   useColorModeValue,
   useDisclosure,
   Tabs,
@@ -17,8 +18,14 @@ import {
   Tab,
   TabPanel,
   useMediaQuery,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from "@chakra-ui/react";
-import { Calendar, Clock, User } from "lucide-react";
+import { Calendar, Clock, User, Trash2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import { AuthContext } from "../context/AuthContext";
@@ -43,14 +50,15 @@ interface TabCacheResult<T> {
 
 interface ScheduleTabProps {
   cache: TabCacheResult<WorkScheduleSummaryWeb[]>;
-  renderSchedulesList: (schedules: WorkScheduleSummaryWeb[]) => JSX.Element;
+  renderSchedulesList: (schedules: WorkScheduleSummaryWeb[], canDelete: boolean) => JSX.Element;
   onOpen: () => void;
   resourcePerms: ResourcePermissions;
   isMobile: boolean;
+  canDelete: boolean;
 }
 
 // Komponent dla tabu "Moje harmonogramy"
-const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms, isMobile }) => {
+const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms, isMobile, canDelete }) => {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie harmonogramów..." />;
   }
@@ -75,13 +83,13 @@ const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesLis
           </Button>
         )}
       </HStack>
-      {renderSchedulesList(cache.data || [])}
+      {renderSchedulesList(cache.data || [], canDelete)}
     </VStack>
   );
 });
 
 // Komponent dla tabu "Wszystkie harmonogramy"
-const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms, isMobile }) => {
+const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, resourcePerms, isMobile, canDelete }) => {
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie harmonogramów..." />;
   }
@@ -106,7 +114,7 @@ const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesLi
           </Button>
         )}
       </HStack>
-      {renderSchedulesList(cache.data || [])}
+      {renderSchedulesList(cache.data || [], canDelete)}
     </VStack>
   );
 });
@@ -117,6 +125,10 @@ export default function ProjectSchedules() {
   const { user } = useContext(AuthContext);
   const { showError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+  const [scheduleToDelete, setScheduleToDelete] = useState<WorkScheduleSummaryWeb | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isMobile] = useMediaQuery("(max-width: 768px)");
 
   const [loading, setLoading] = useState(true);
@@ -213,6 +225,27 @@ export default function ProjectSchedules() {
     }
   };
 
+  const handleDeleteClick = (schedule: WorkScheduleSummaryWeb, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setScheduleToDelete(schedule);
+    onDeleteOpen();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!scheduleToDelete || !user?.activeTenantId || !projectId) return;
+    setIsDeleting(true);
+    try {
+      await projectApi.deleteWorkSchedule(user.activeTenantId, projectId, scheduleToDelete.id);
+      onDeleteClose();
+      setScheduleToDelete(null);
+      refreshData();
+    } catch {
+      showError("Nie udało się usunąć harmonogramu");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const refreshData = () => {
     mySchedulesCache.clear();
     allSchedulesCache.clear();
@@ -228,7 +261,7 @@ export default function ProjectSchedules() {
     resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 : 
     !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
 
-  const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[]) => {
+  const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[], canDelete: boolean) => {
     if (schedules.length === 0) {
       return (
         <EmptyState
@@ -255,23 +288,41 @@ export default function ProjectSchedules() {
             onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
             shadow="sm"
           >
-            <VStack align="flex-start" spacing={isMobile ? 1.5 : 3}>
-              <Text fontWeight="bold" fontSize={isMobile ? "md" : "xl"} noOfLines={2}>
-                {schedule.name}
-              </Text>
-              <HStack spacing={isMobile ? 3 : 6} fontSize={isMobile ? "9px" : "sm"} color="gray.600" flexWrap="wrap">
-                <HStack spacing={1} minW="0">
-                  <Icon as={User} boxSize={isMobile ? 3 : 4} flexShrink={0} />
-                  <Text noOfLines={1} fontSize={isMobile ? "9px" : "sm"}>
-                    {schedule.createdByUserName}
+            <HStack justify="space-between" align="flex-start">
+              <VStack align="flex-start" spacing={isMobile ? 1.5 : 3} flex={1} minW={0}>
+                <HStack spacing={2} align="center" flexWrap="wrap">
+                  <Text fontWeight="bold" fontSize={isMobile ? "md" : "xl"} noOfLines={2}>
+                    {schedule.name}
                   </Text>
+                  {schedule.costEstimateId && (
+                    <Badge colorScheme="orange" fontSize="xs" flexShrink={0}>Kosztorys</Badge>
+                  )}
                 </HStack>
-                <HStack spacing={1}>
-                  <Icon as={Clock} boxSize={isMobile ? 3 : 4} flexShrink={0} />
-                  <Text fontSize={isMobile ? "9px" : "sm"}>{formatDate(schedule.createdAt)}</Text>
+                <HStack spacing={isMobile ? 3 : 6} fontSize={isMobile ? "9px" : "sm"} color="gray.600" flexWrap="wrap">
+                  <HStack spacing={1} minW="0">
+                    <Icon as={User} boxSize={isMobile ? 3 : 4} flexShrink={0} />
+                    <Text noOfLines={1} fontSize={isMobile ? "9px" : "sm"}>
+                      {schedule.createdByUserName}
+                    </Text>
+                  </HStack>
+                  <HStack spacing={1}>
+                    <Icon as={Clock} boxSize={isMobile ? 3 : 4} flexShrink={0} />
+                    <Text fontSize={isMobile ? "9px" : "sm"}>{formatDate(schedule.createdAt)}</Text>
+                  </HStack>
                 </HStack>
-              </HStack>
-            </VStack>
+              </VStack>
+              {canDelete && (
+                <IconButton
+                  aria-label="Usuń harmonogram"
+                  icon={<Trash2 size={isMobile ? 14 : 16} />}
+                  size={isMobile ? "xs" : "sm"}
+                  colorScheme="red"
+                  variant="ghost"
+                  onClick={(e) => handleDeleteClick(schedule, e)}
+                  flexShrink={0}
+                />
+              )}
+            </HStack>
           </Box>
         ))}
       </VStack>
@@ -360,6 +411,7 @@ export default function ProjectSchedules() {
                     onOpen={onOpen}
                     resourcePerms={resourcePerms}
                     isMobile={isMobile}
+                    canDelete={resourcePerms.all.canEdit}
                   />
                 </TabPanel>
               )}
@@ -371,6 +423,7 @@ export default function ProjectSchedules() {
                     onOpen={onOpen}
                     resourcePerms={resourcePerms}
                     isMobile={isMobile}
+                    canDelete={resourcePerms.mine.canEdit}
                   />
                 </TabPanel>
               )}
@@ -388,6 +441,38 @@ export default function ProjectSchedules() {
           members={members}
           onSuccess={refreshData}
         />
+
+        <AlertDialog
+          isOpen={isDeleteOpen}
+          leastDestructiveRef={cancelDeleteRef}
+          onClose={onDeleteClose}
+          isCentered
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent>
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                Usuń harmonogram
+              </AlertDialogHeader>
+              <AlertDialogBody>
+                Czy na pewno chcesz usunąć harmonogram{" "}
+                <strong>{scheduleToDelete?.name}</strong>? Tej operacji nie można cofnąć.
+              </AlertDialogBody>
+              <AlertDialogFooter gap={2}>
+                <Button ref={cancelDeleteRef} onClick={onDeleteClose} isDisabled={isDeleting}>
+                  Anuluj
+                </Button>
+                <Button
+                  colorScheme="red"
+                  onClick={handleDeleteConfirm}
+                  isLoading={isDeleting}
+                  loadingText="Usuwanie..."
+                >
+                  Usuń
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
       </Box>
     </MainLayout>
   );

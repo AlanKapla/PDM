@@ -22,12 +22,14 @@ export interface CreateStageDto {
   name: string;
   order: number;
   works: CreateWorkDto[];
+  children?: CreateStageDto[];
 }
 
 export interface CreateWorkScheduleCommand {
   tenantId: string;
   projectId: string;
   name: string;
+  costEstimateId?: string | null;
   stages: CreateStageDto[];
 }
 
@@ -59,6 +61,7 @@ export interface UpdateStageDto {
   name: string;
   order: number;
   works: UpdateWorkDto[];
+  children?: UpdateStageDto[];
 }
 
 export interface UpdateWorkScheduleCommand {
@@ -72,6 +75,7 @@ export interface UpdateWorkScheduleCommand {
 // Response Web Models
 export interface WorkScheduleSummaryWeb {
   id: string;
+  costEstimateId?: string | null;
   name: string;
   createdAt: string;
   createdByUserId: string;
@@ -82,6 +86,7 @@ export interface WorkScheduleDetailsWeb {
   id: string;
   tenantId: string;
   projectId: string;
+  costEstimateId?: string | null;
   name: string;
   createdAt: string;
   createdByUserId: string;
@@ -93,7 +98,10 @@ export interface WorkScheduleStageWeb {
   id: string;
   name: string;
   order: number;
+  parentStageId?: string | null;
+  costEstimateGroupId?: string | null;
   works: WorkScheduleStageWorkWeb[];
+  childStages?: WorkScheduleStageWeb[];
 }
 
 export interface WorkScheduleStageWorkPeriodWeb {
@@ -126,6 +134,14 @@ export interface WorkScheduleStageWorkAssigneeWeb {
   userId: string;
   userName: string;
 }
+
+// Lokalne typy edycyjne — rozszerzają Web modele o opcjonalne ID nowo dodanych elementów przed zapisem
+export type EditableComment = Omit<WorkScheduleStageWorkCommentWeb, 'id'> & { id?: string };
+export type EditableWork = Omit<WorkScheduleStageWorkWeb, 'comments'> & { comments: EditableComment[] };
+export type EditableStage = Omit<WorkScheduleStageWeb, 'works' | 'childStages'> & {
+  works: EditableWork[];
+  childStages?: EditableStage[];
+};
 
 // User Assigned Works Types
 export interface UserAssignedWorksGroupedWeb {

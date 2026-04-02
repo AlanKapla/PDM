@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Constants;
 using CQRS.WorkSchedules.CreateWorkSchedule;
+using CQRS.WorkSchedules.DeleteWorkSchedule;
 using CQRS.WorkSchedules.GetWorkSchedules;
 using CQRS.WorkSchedules.GetWorkSchedule;
 using CQRS.WorkSchedules.UpdateWorkSchedule;
@@ -92,6 +93,24 @@ namespace WebApi.Controllers
             var query = new GetWorkScheduleQuery(tenantId, projectId, workScheduleId);
             var result = await Send(query);
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Deletes a work schedule. Only the owner or a tenant/project admin can delete it.
+        /// </summary>
+        /// <param name="tenantId">The tenant ID</param>
+        /// <param name="projectId">The project ID</param>
+        /// <param name="workScheduleId">The work schedule ID</param>
+        [HttpDelete("{workScheduleId}")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> DeleteWorkSchedule(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId)
+        {
+            var command = new DeleteWorkScheduleCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
+            await Send(command);
+            return NoContent();
         }
     }
 }

@@ -227,6 +227,7 @@ export const projectApi = {
     projectId: string,
     command: {
       name: string;
+      costEstimateId?: string | null;
       stages?: Array<{
         name: string;
         order: number;
@@ -245,6 +246,7 @@ export const projectApi = {
             content: string;
           }>;
         }>;
+        children?: any[];
       }>;
     }
   ) => {
@@ -252,6 +254,7 @@ export const projectApi = {
       tenantId,
       projectId,
       name: command.name,
+      costEstimateId: command.costEstimateId ?? null,
       stages: command.stages,
     });
   },
@@ -303,6 +306,7 @@ export const projectApi = {
             content: string;
           }>;
         }>;
+        children?: any[];
       }>;
     }
   ) => {
@@ -313,6 +317,11 @@ export const projectApi = {
       name: command.name,
       stages: command.stages,
     });
+  },
+
+  // Usuń harmonogram prac
+  deleteWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string) => {
+    return axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}`);
   },
 
   // Pobierz prace przypisane do użytkownika (cross-tenant)

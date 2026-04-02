@@ -250,6 +250,8 @@ export interface CostEstimateDetailsWeb {
   ownerId: string;
   ownerName: string;
   templateStructure: CostEstimateTemplateStructureWeb;
+  /** ID powiązanego harmonogramu (jeśli istnieje) */
+  workScheduleId?: string;
   /** Poziom dostępu bieżącego użytkownika do kosztorysu */
   accessLevel: CostEstimateAccessLevel;
   /** Lista userów, którym kosztorys jest udostępniony */

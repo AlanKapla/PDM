@@ -4,6 +4,7 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimates;
+using Entities.Models;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
@@ -25,6 +26,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
         private readonly ICacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
         private readonly IReadRepository<SharedCostEstimate> sharedCeRepository;
+        private readonly IReadRepository<WorkSchedule> workScheduleRepository;
         private readonly ICurrentUser currentUser;
 
         private const int SasExpirationMinutes = 60;
@@ -37,6 +39,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             ICacheService cacheService,
             ICostEstimateAccessService ceAccessService,
             IReadRepository<SharedCostEstimate> sharedCeRepository,
+            IReadRepository<WorkSchedule> workScheduleRepository,
             ICurrentUser currentUser)
         {
             this.ceCacheService = ceCacheService;
@@ -45,6 +48,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
             this.sharedCeRepository = sharedCeRepository;
+            this.workScheduleRepository = workScheduleRepository;
             this.currentUser = currentUser;
         }
 
@@ -159,6 +163,18 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                     .ToList();
             }
 
+            // 11. Resolve active work schedule linked to this cost estimate
+            var workSchedules = await workScheduleRepository.SelectAsync(
+                ws => ws.CostEstimateId == request.CostEstimateId &&
+                      ws.TenantId == request.TenantId &&
+                      ws.ProjectId == request.ProjectId &&
+                      !ws.IsDeleted,
+                ws => new { ws.Id, ws.CreatedAt },
+                cancellationToken);
+            Guid? activeWorkScheduleId = workSchedules
+                .OrderByDescending(ws => ws.CreatedAt)
+                .FirstOrDefault()?.Id;
+
             return new CostEstimateDetailsWeb(
                 Id: costEstimate.Id,
                 TenantId: costEstimate.TenantId,
@@ -171,6 +187,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 Name: costEstimate.Name,
                 Description: costEstimate.Description,
                 Status: costEstimate.Status,
+                WorkScheduleId: activeWorkScheduleId,
                 RootGroups: rootGroups,
                 TotalNet: costEstimate.TotalNet,
                 TotalGross: costEstimate.TotalGross,

@@ -25,9 +25,13 @@ import {
   Textarea,
   Checkbox,
   useMediaQuery,
+  Divider,
+  Input,
+  Wrap,
+  WrapItem,
 } from "@chakra-ui/react";
 import "./WorkScheduleView.css";
-import { ArrowLeft, Edit, Clock, User, AlertTriangle, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Clock, User, AlertTriangle, ChevronDown, Plus, Trash2, RefreshCw, FileSpreadsheet, MessageSquare } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import TimelineToolbar from "../components/TimelineToolbar";
 import { projectApi } from "../api/projectApi";
@@ -35,8 +39,105 @@ import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import WorkDetailsModal from "../components/WorkDetailsModal";
 import { AuthContext } from "../context/AuthContext";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
-import type { WorkScheduleDetailsWeb, WorkScheduleStageWorkWeb } from "../types/workSchedule.types";
+import type { WorkScheduleDetailsWeb, EditableComment, EditableWork, EditableStage, UpdateStageDto, UpdateWorkDto } from "../types/workSchedule.types";
 import { useTimelineData, type TimeScale } from "../hooks/useTimelineData";
+
+// Spłaszcza drzewo etapów do płaskiej listy z informacją o głębokości
+const flattenStagesToRows = (stages: EditableStage[], depth: number = 0): Array<{ stage: EditableStage; depth: number }> =>
+  [...stages]
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .flatMap(s => [
+      { stage: s, depth },
+      ...flattenStagesToRows(s.childStages ?? [], depth + 1),
+    ]);
+
+// Zbiera rekurencyjnie wszystkie ID etapów (dla "rozwiń wszystko")
+const getAllStageIds = (stages: EditableStage[]): string[] =>
+  stages.flatMap(s => [s.id, ...getAllStageIds(s.childStages ?? [])]);
+
+// Szuka pracy w drzewie etapów (mutuje znaleziony obiekt – działa na deep-copy)
+const findWorkInStages = (stages: EditableStage[], workId: string): EditableWork | null => {
+  for (const stage of stages) {
+    const work = stage.works?.find((w) => w.id === workId);
+    if (work) return work;
+    const found = findWorkInStages(stage.childStages ?? [], workId);
+    if (found) return found;
+  }
+  return null;
+};
+
+// Rekurencyjnie wywołuje mutację na etapie o podanym ID (działa na deep-copy)
+const mutateStageInTree = (stages: EditableStage[], stageId: string, mutator: (s: EditableStage) => void): boolean => {
+  for (const s of stages) {
+    if (s.id === stageId) { mutator(s); return true; }
+    if (mutateStageInTree(s.childStages ?? [], stageId, mutator)) return true;
+  }
+  return false;
+};
+
+// Rekurencyjnie usuwa etap po ID z drzewa
+const removeStageFromViewTree = (stages: EditableStage[], stageId: string): EditableStage[] =>
+  stages
+    .filter(s => s.id !== stageId)
+    .map(s => ({ ...s, childStages: removeStageFromViewTree(s.childStages ?? [], stageId) }));
+
+// Rekurencyjnie usuwa pracę po ID ze wszystkich etapów (działa na deep-copy)
+const removeWorkFromViewTree = (stages: EditableStage[], workId: string): void => {
+  for (const s of stages) {
+    const idx = (s.works ?? []).findIndex((w) => w.id === workId);
+    if (idx >= 0) {
+      s.works.splice(idx, 1);
+      s.works.forEach((w, i) => { w.order = i; });
+      return;
+    }
+    removeWorkFromViewTree(s.childStages ?? [], workId);
+  }
+};
+
+// Walidacja drzewa etapów przed zapisem — ta sama logika co w WorkScheduleFormModal
+function validateStagesTree(stages: EditableStage[]): string | null {
+  for (const stage of stages) {
+    if (!stage.name.trim()) return "Nazwa etapu jest wymagana dla wszystkich etapów";
+    if (stage.name.length > 200) return `Nazwa etapu "${stage.name}" nie może przekraczać 200 znaków`;
+    for (const work of stage.works ?? []) {
+      if (!work.name.trim()) return `Nazwa zakresu robót jest wymagana w etapie "${stage.name}"`;
+      if (work.name.length > 200) return `Nazwa zakresu robót "${work.name}" nie może przekraczać 200 znaków`;
+      for (const comment of work.comments ?? []) {
+        if (comment.content?.trim() && comment.content.length > 2000)
+          return `Komentarz w zakresie robót "${work.name}" nie może przekraczać 2000 znaków`;
+      }
+    }
+    const childError = validateStagesTree(stage.childStages ?? []);
+    if (childError) return childError;
+  }
+  return null;
+}
+
+// Buduje rekurencyjne polecenie aktualizacji etapu
+const mapStageToUpdateCommand = (stage: EditableStage): UpdateStageDto => ({
+  // Pomijaj tymczasowe ID nowo dodanych etapów/prac — backend sam je nada
+  ...(stage.id && !String(stage.id).startsWith('temp-') ? { id: stage.id } : {}),
+  name: stage.name,
+  order: stage.order,
+  works: (stage.works ?? []).map((work): UpdateWorkDto => ({
+    ...(work.id && !String(work.id).startsWith('temp-') ? { id: work.id } : {}),
+    name: work.name,
+    order: work.order,
+    colorRgb: work.colorRgb,
+    isClosed: work.isClosed,
+    periods: (work.periods ?? []).map((period) => ({
+      ...(period.id && !String(period.id).startsWith('temp-') ? { id: period.id } : {}),
+      startDate: period.startDate,
+      endDate: period.endDate,
+      isClosed: period.isClosed,
+    })),
+    assignedUserIds: (work.assignees ?? []).map((a) => a.userId),
+    comments: (work.comments ?? [])
+      .filter((c) => c.content && c.content.trim())
+      .map((c) => ({ ...(c.id && !String(c.id).startsWith('temp-') ? { id: c.id } : {}), content: c.content.trim() })),
+  })),
+  children: (stage.childStages ?? []).map(mapStageToUpdateCommand),
+});
 
 export default function WorkScheduleView() {
   const { projectId, workScheduleId } = useParams<{ projectId: string; workScheduleId: string }>();
@@ -57,10 +158,12 @@ export default function WorkScheduleView() {
     description: isMobile ? window.innerWidth - 110 : 350,
   });
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
-  const [selectedWork, setSelectedWork] = useState<WorkScheduleStageWorkWeb | null>(null);
+  const [selectedWork, setSelectedWork] = useState<EditableWork | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [editableSchedule, setEditableSchedule] = useState<WorkScheduleDetailsWeb | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [scrollHintVisible, setScrollHintVisible] = useState(true);
 
   const {
@@ -190,6 +293,10 @@ export default function WorkScheduleView() {
     onEditModalOpen();
   };
 
+  const handleToggleInlineEdit = () => {
+    setIsEditing(prev => !prev);
+  };
+
   const handleScheduleUpdated = () => {
     fetchSchedule();
   };
@@ -199,50 +306,29 @@ export default function WorkScheduleView() {
 
     const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
 
-    for (const stage of updatedSchedule.stages) {
-      const work = stage.works.find((w: any) => w.id === workId);
-      if (work) {
-        const newClosedState = !work.isClosed;
-        work.isClosed = newClosedState;
+    const work = findWorkInStages(updatedSchedule.stages, workId);
+    if (work) {
+      const newClosedState = !work.isClosed;
+      work.isClosed = newClosedState;
 
-        // Zaznaczenie zakresu pracy → zamknij wszystkie okresy
-        // Odznaczenie zakresu pracy → otwórz wszystkie okresy
-        work.periods.forEach((p: any) => p.isClosed = newClosedState);
-        break;
-      }
+      // Zaznaczenie zakresu pracy → zamknij wszystkie okresy
+      // Odznaczenie zakresu pracy → otwórz wszystkie okresy
+      work.periods.forEach((p: any) => p.isClosed = newClosedState);
     }
 
     setEditableSchedule(updatedSchedule);
+
+    // W trybie edycji inline zapis następuje przez przycisk Zapisz
+    if (isEditing) {
+      setIsDirty(true);
+      return;
+    }
 
     // Automatyczny zapis
     try {
       const command = {
         name: updatedSchedule.name,
-        stages: updatedSchedule.stages.map((stage: any) => ({
-          id: stage.id,
-          name: stage.name,
-          order: stage.order,
-          works: stage.works.map((work: any) => ({
-            id: work.id,
-            name: work.name,
-            order: work.order,
-            colorRgb: work.colorRgb,
-            isClosed: work.isClosed,
-            periods: work.periods.map((period: any) => ({
-              id: period.id,
-              startDate: period.startDate,
-              endDate: period.endDate,
-              isClosed: period.isClosed,
-            })),
-            assignedUserIds: work.assignees.map((a: any) => a.userId),
-            comments: (work.comments || [])
-              .filter((c: any) => c.content && c.content.trim())
-              .map((c: any) => ({
-                id: c.id,
-                content: c.content.trim(),
-              })),
-          })),
-        })),
+        stages: updatedSchedule.stages.map((stage: any) => mapStageToUpdateCommand(stage)),
       };
 
       const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
@@ -272,60 +358,39 @@ export default function WorkScheduleView() {
 
     const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
 
-    for (const stage of updatedSchedule.stages) {
-      const work = stage.works.find((w: any) => w.id === workId);
-      if (work) {
-        let period;
-        // Jeśli periodId to liczba (indeks), znajdź po indeksie
-        if (typeof periodId === 'number') {
-          period = work.periods[periodId];
-        } else {
-          // W przeciwnym razie znajdź po ID
-          period = work.periods.find((p: any) => p.id === periodId);
-        }
+    const work = findWorkInStages(updatedSchedule.stages, workId);
+    if (work) {
+      let period;
+      // Jeśli periodId to liczba (indeks), znajdź po indeksie
+      if (typeof periodId === 'number') {
+        period = work.periods[periodId];
+      } else {
+        // W przeciwnym razie znajdź po ID
+        period = work.periods.find((p: any) => p.id === periodId);
+      }
 
-        if (period) {
-          period.isClosed = !period.isClosed;
+      if (period) {
+        period.isClosed = !period.isClosed;
 
-          // Sprawdź czy wszystkie okresy są zamknięte
-          const allPeriodsClosed = work.periods.every((p: any) => p.isClosed);
-          work.isClosed = allPeriodsClosed;
-        }
-        break;
+        // Sprawdź czy wszystkie okresy są zamknięte
+        const allPeriodsClosed = work.periods.every((p: any) => p.isClosed);
+        work.isClosed = allPeriodsClosed;
       }
     }
 
     setEditableSchedule(updatedSchedule);
 
+    // W trybie edycji inline zapis następuje przez przycisk Zapisz
+    if (isEditing) {
+      setIsDirty(true);
+      return;
+    }
+
     // Automatyczny zapis
     try {
       const command = {
         name: updatedSchedule.name,
-        stages: updatedSchedule.stages.map((stage: any) => ({
-          id: stage.id,
-          name: stage.name,
-          order: stage.order,
-          works: stage.works.map((work: any) => ({
-            id: work.id,
-            name: work.name,
-            order: work.order,
-            colorRgb: work.colorRgb,
-            isClosed: work.isClosed,
-            periods: work.periods.map((period: any) => ({
-              id: period.id,
-              startDate: period.startDate,
-              endDate: period.endDate,
-              isClosed: period.isClosed,
-            })),
-            assignedUserIds: work.assignees.map((a: any) => a.userId),
-            comments: (work.comments || [])
-              .filter((c: any) => c.content && c.content.trim())
-              .map((c: any) => ({
-                id: c.id,
-                content: c.content.trim(),
-              })),
-          })),
-        })),
+        stages: updatedSchedule.stages.map((stage: any) => mapStageToUpdateCommand(stage)),
       };
 
       const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
@@ -355,19 +420,16 @@ export default function WorkScheduleView() {
 
     const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
 
-    for (const stage of updatedSchedule.stages) {
-      const work = stage.works.find((w: any) => w.id === workId);
-      if (work) {
-        if (!work.comments) work.comments = [];
-        work.comments.push({
-          id: undefined,
-          content: "",
-          createdAt: new Date().toISOString(),
-          createdByUserId: user?.id || "",
-          createdByUserName: user?.firstName + " " + user?.lastName || "Użytkownik",
-        });
-        break;
-      }
+    const work = findWorkInStages(updatedSchedule.stages, workId);
+    if (work) {
+      if (!work.comments) work.comments = [];
+      work.comments.push({
+        id: undefined,
+        content: "",
+        createdAt: new Date().toISOString(),
+        createdByUserId: user?.id || "",
+        createdByUserName: user?.firstName + " " + user?.lastName || "Użytkownik",
+      });
     }
 
     setEditableSchedule(updatedSchedule);
@@ -379,16 +441,13 @@ export default function WorkScheduleView() {
 
     const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
 
-    for (const stage of updatedSchedule.stages) {
-      const work = stage.works.find((w: any) => w.id === workId);
-      if (work && work.comments) {
-        const comment = work.comments.find((c: any) =>
-          commentId ? c.id === commentId : c.id === undefined
-        );
-        if (comment) {
-          comment.content = content;
-        }
-        break;
+    const work = findWorkInStages(updatedSchedule.stages, workId);
+    if (work && work.comments) {
+      const comment = work.comments.find((c: any) =>
+        commentId ? c.id === commentId : c.id === undefined
+      );
+      if (comment) {
+        comment.content = content;
       }
     }
 
@@ -401,17 +460,219 @@ export default function WorkScheduleView() {
 
     const updatedSchedule = JSON.parse(JSON.stringify(editableSchedule));
 
-    for (const stage of updatedSchedule.stages) {
-      const work = stage.works.find((w: any) => w.id === workId);
-      if (work && work.comments) {
-        work.comments = work.comments.filter((c: any) =>
-          commentId ? c.id !== commentId : c.id !== undefined
-        );
-        break;
-      }
+    const work = findWorkInStages(updatedSchedule.stages, workId);
+    if (work && work.comments) {
+      work.comments = work.comments.filter((c: any) =>
+        commentId ? c.id !== commentId : c.id !== undefined
+      );
     }
 
     setEditableSchedule(updatedSchedule);
+    setIsDirty(true);
+  };
+
+  const handleSyncFromCostEstimate = async () => {
+    if (!schedule || !user?.activeTenantId || !projectId || !workScheduleId) return;
+
+    try {
+      setIsSyncing(true);
+      const response = await projectApi.updateWorkSchedule(
+        user.activeTenantId,
+        projectId,
+        workScheduleId,
+        { name: schedule.name }
+      );
+      setSchedule(response.data);
+      setEditableSchedule(response.data);
+      setIsDirty(false);
+      toast({
+        title: "Synchronizacja zakończona",
+        description: "Struktura etapów została zaktualizowana wg kosztorysu",
+        status: "success",
+        duration: 4000,
+      });
+    } catch {
+      toast({
+        title: "Błąd synchronizacji",
+        description: "Nie udało się zsynchronizować harmonogramu z kosztorysem",
+        status: "error",
+        duration: 3000,
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // ——— Mutacje inline-edit editableSchedule ———
+
+  const updateStageName = (stageId: string, name: string) => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    mutateStageInTree(updated.stages, stageId, (s) => { s.name = name; });
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const updateWorkName = (workId: string, name: string) => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    const work = findWorkInStages(updated.stages, workId);
+    if (work) work.name = name;
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const addStage = () => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    updated.stages.push({
+      id: `temp-${Date.now()}`,
+      name: "",
+      order: updated.stages.length,
+      works: [],
+      childStages: [],
+      costEstimateGroupId: null,
+    });
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const addWork = (stageId: string) => {
+    if (!editableSchedule) return;
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    mutateStageInTree(updated.stages, stageId, (s) => {
+      s.works.push({
+        id: `temp-work-${Date.now()}`,
+        name: "",
+        order: s.works.length,
+        colorRgb: "#3182CE",
+        isClosed: false,
+        periods: [{ id: `temp-period-${Date.now()}`, startDate: today, endDate: tomorrow, isClosed: false }],
+        assignees: [],
+        comments: [],
+      });
+    });
+    setExpandedStages(prev => new Set([...prev, stageId]));
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const removeWork = (workId: string) => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    removeWorkFromViewTree(updated.stages, workId);
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const removeStage = (stageId: string) => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    updated.stages = removeStageFromViewTree(updated.stages, stageId);
+    updated.stages.forEach((s: any, i: number) => { s.order = i; });
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const handleSaveAndExitEdit = async () => {
+    if (!editableSchedule) return;
+    const validationError = validateStagesTree(editableSchedule.stages);
+    if (validationError) {
+      toast({ title: "Błąd walidacji", description: validationError, status: "error", duration: 4000 });
+      return;
+    }
+    await handleSaveChanges();
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    if (schedule) setEditableSchedule(JSON.parse(JSON.stringify(schedule)));
+    setIsDirty(false);
+    setIsEditing(false);
+  };
+
+  // Przełącza dzień na timeline: klik w komórkę dodaje/usuwa dzień, a sąsiadujące dni są automatycznie scalane w jeden okres
+  const toggleWorkPeriodAtDate = (workId: string, cellStart: Date, _cellEnd: Date) => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    const work = findWorkInStages(updated.stages, workId);
+    if (!work) return;
+    if (!work.periods) work.periods = [];
+
+    // Lokalna konwersja — unika błędu strefowego (toISOString zwraca UTC)
+    const toLocalStr = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const clickedStr = toLocalStr(cellStart);
+
+    // Zbierz wszystkie aktywne dni ze wszystkich okresów
+    // slice(0,10) — obcina ewentualny czas z daty zwróconej przez API (np. "2026-04-05T00:00:00Z")
+    // Mapa dzień → isClosed — zachowujemy stan wykonania przy przebudowie okresów
+    const activeDays = new Set<string>();
+    const dayClosedMap = new Map<string, boolean>();
+    for (const p of work.periods) {
+      const cur = new Date(p.startDate.slice(0, 10) + 'T00:00:00');
+      const end = new Date(p.endDate.slice(0, 10) + 'T00:00:00');
+      while (cur <= end) {
+        const dayStr = toLocalStr(cur);
+        activeDays.add(dayStr);
+        dayClosedMap.set(dayStr, !!p.isClosed);
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    // Toggle klikniętego dnia
+    if (activeDays.has(clickedStr)) {
+      activeDays.delete(clickedStr);
+    } else {
+      activeDays.add(clickedStr);
+    }
+
+    // Posortowane dni → scalaj sąsiadujące w okresy (odstęp ≥ 1 dzień = nowy okres)
+    // isClosed okresu = wszystkie jego dni były w zamkniętym oryginalnym okresie
+    const sortedDays = Array.from(activeDays).sort();
+    const newPeriods: any[] = [];
+    for (const day of sortedDays) {
+      if (newPeriods.length === 0) {
+        newPeriods.push({ id: `temp-period-${Date.now()}-0`, startDate: day, endDate: day, isClosed: dayClosedMap.get(day) ?? false });
+      } else {
+        const last = newPeriods[newPeriods.length - 1];
+        const nextDay = new Date(last.endDate + 'T00:00:00');
+        nextDay.setDate(nextDay.getDate() + 1);
+        if (toLocalStr(nextDay) === day) {
+          last.endDate = day; // Scal z poprzednim okresem
+          // Nowe dni (nie istniejące w dayClosedMap) dziedziczą stan isClosed scalającego okresu.
+          // Wyłącznie gdy dzień należał wcześniej do innego otwartego okresu (jawne false) → otwórz.
+          if (dayClosedMap.has(day) && dayClosedMap.get(day) === false) {
+            last.isClosed = false;
+          }
+        } else {
+          newPeriods.push({ id: `temp-period-${Date.now()}-${newPeriods.length}`, startDate: day, endDate: day, isClosed: dayClosedMap.get(day) ?? false });
+        }
+      }
+    }
+
+    work.periods = newPeriods;
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  // Przypisuje / odpina członka od danej pracy
+  const toggleWorkAssignee = (workId: string, userId: string, userName: string) => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    const work = findWorkInStages(updated.stages, workId);
+    if (!work) return;
+    if (!work.assignees) work.assignees = [];
+    const idx = work.assignees.findIndex((a: any) => a.userId === userId);
+    if (idx >= 0) {
+      work.assignees.splice(idx, 1);
+    } else {
+      work.assignees.push({ userId, userName });
+    }
+    setEditableSchedule(updated);
     setIsDirty(true);
   };
 
@@ -421,31 +682,7 @@ export default function WorkScheduleView() {
     try {
       const command = {
         name: editableSchedule.name,
-        stages: editableSchedule.stages.map((stage: any) => ({
-          id: stage.id,
-          name: stage.name,
-          order: stage.order,
-          works: stage.works.map((work: any) => ({
-            id: work.id,
-            name: work.name,
-            order: work.order,
-            colorRgb: work.colorRgb,
-            isClosed: work.isClosed,
-            periods: work.periods.map((period: any) => ({
-              id: period.id,
-              startDate: period.startDate,
-              endDate: period.endDate,
-              isClosed: period.isClosed,
-            })),
-            assignedUserIds: work.assignees.map((a: any) => a.userId),
-            comments: (work.comments || [])
-              .filter((c: any) => c.content && c.content.trim())
-              .map((c: any) => ({
-                id: c.id,
-                content: c.content.trim(),
-              })),
-          })),
-        })),
+        stages: editableSchedule.stages.map((stage: any) => mapStageToUpdateCommand(stage)),
       };
 
       const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
@@ -505,7 +742,7 @@ export default function WorkScheduleView() {
   };
 
   const expandAllStages = () => {
-    const allIds = (editableSchedule || schedule)?.stages.map(s => s.id) || [];
+    const allIds = getAllStageIds((editableSchedule || schedule)?.stages ?? []);
     setExpandedStages(new Set(allIds));
   };
 
@@ -513,7 +750,7 @@ export default function WorkScheduleView() {
     setExpandedStages(new Set());
   };
 
-  const handleWorkClick = (work: WorkScheduleStageWorkWeb) => {
+  const handleWorkClick = (work: EditableWork) => {
     setSelectedWork(work);
     onWorkDetailsOpen();
   };
@@ -595,52 +832,128 @@ export default function WorkScheduleView() {
                       <Clock size={14} />
                       <Text>{schedule && formatDateTime(schedule.createdAt)}</Text>
                     </HStack>
+                    {schedule?.costEstimateId && (
+                      <Badge colorScheme="orange" fontSize="xs">Powiązany z kosztorysem</Badge>
+                    )}
                   </HStack>
                 </VStack>
               </HStack>
               <div className="workschedule-actions">
-                <Button
-                  size={isMobile ? "xs" : "sm"}
-                  variant={showComments ? "solid" : "outline"}
-                  colorScheme="purple"
-                  onClick={() => setShowComments(!showComments)}
-                  width={isMobile ? "100%" : "auto"}
-                >
-                  {showComments ? "Ukryj komentarze" : "Pokaż komentarze"}
-                </Button>
-                {isDirty && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
+
+                {/* === NAWIGACJA: linki do powiązanych zasobów === */}
+                {schedule?.costEstimateId && (
+                  <Tooltip label="Przejdź do powiązanego kosztorysu">
+                    <Button
+                      leftIcon={<FileSpreadsheet size={isMobile ? 12 : 14} />}
+                      colorScheme="orange"
+                      variant="ghost"
+                      size={isMobile ? "xs" : "sm"}
+                      onClick={() => navigate(`/projects/${projectId}/cost-estimates/${schedule.costEstimateId}`)}
+                    >
+                      Kosztorys
+                    </Button>
+                  </Tooltip>
+                )}
+
+                {!isMobile && schedule?.costEstimateId && (
+                  <Divider orientation="vertical" height="20px" alignSelf="center" />
+                )}
+
+                {/* === WIDOK: przełączniki widoczności === */}
+                <Tooltip label={showComments ? "Ukryj komentarze do prac" : "Pokaż komentarze do prac"}>
+                  <Button
+                    leftIcon={<MessageSquare size={isMobile ? 12 : 14} />}
+                    size={isMobile ? "xs" : "sm"}
+                    variant={showComments ? "solid" : "ghost"}
+                    colorScheme="purple"
+                    onClick={() => setShowComments(!showComments)}
+                  >
+                    Komentarze
+                  </Button>
+                </Tooltip>
+
+                {!isMobile && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
+                  <Divider orientation="vertical" height="20px" alignSelf="center" />
+                )}
+
+                {/* === EDYCJA: akcje modyfikujące harmonogram === */}
+                {!isEditing && schedule?.costEstimateId && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
+                  <Tooltip label="Aktualizuje strukturę etapów na podstawie aktualnych grup w kosztorysie">
+                    <IconButton
+                      aria-label="Synchronizuj z kosztorysem"
+                      icon={<RefreshCw size={isMobile ? 12 : 14} />}
+                      size={isMobile ? "xs" : "sm"}
+                      colorScheme="orange"
+                      variant="outline"
+                      onClick={handleSyncFromCostEstimate}
+                      isLoading={isSyncing}
+                    />
+                  </Tooltip>
+                )}
+
+                {/* Tryb edycji inline — dodawanie etapów */}
+                {isEditing && (
+                  <Button
+                    leftIcon={<Plus size={isMobile ? 12 : 14} />}
+                    colorScheme="blue"
+                    variant="outline"
+                    size={isMobile ? "xs" : "sm"}
+                    onClick={addStage}
+                  >
+                    Dodaj etap
+                  </Button>
+                )}
+
+                {(permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
                   <>
+                    {!isEditing && (
+                      <Button
+                        leftIcon={<Edit size={isMobile ? 12 : 14} />}
+                        colorScheme="blue"
+                        variant="outline"
+                        size={isMobile ? "xs" : "sm"}
+                        onClick={handleEditMode}
+                      >
+                        Edytuj
+                      </Button>
+                    )}
+                    <Tooltip label={isEditing ? "Kliknij aby wyjść z trybu edycji inline" : "Włącz edycję inline — klikaj kafelki, edytuj nazwy, dodawaj etapy i zakresy"}>
+                      <Button
+                        leftIcon={<Edit size={isMobile ? 12 : 14} />}
+                        aria-label="Edycja inline"
+                        size={isMobile ? "xs" : "sm"}
+                        colorScheme={isEditing ? "blue" : "gray"}
+                        variant="outline"
+                        onClick={handleToggleInlineEdit}
+                      >
+                        {isEditing ? "Edycja inline ✓" : "Edycja inline"}
+                      </Button>
+                    </Tooltip>
+                  </>
+                )}
+
+                {/* === ZAPIS: widoczny gdy są niezapisane zmiany LUB trwa edycja inline === */}
+                {(isDirty || isEditing) && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
+                  <>
+                    {!isMobile && <Divider orientation="vertical" height="20px" alignSelf="center" />}
                     <Button
                       colorScheme="green"
-                      onClick={handleSaveChanges}
                       size={isMobile ? "xs" : "sm"}
-                      width={isMobile ? "100%" : "auto"}
+                      onClick={handleSaveAndExitEdit}
                     >
                       Zapisz
                     </Button>
                     <Button
+                      variant="ghost"
                       colorScheme="gray"
-                      onClick={() => {
-                        setEditableSchedule(JSON.parse(JSON.stringify(schedule)));
-                        setIsDirty(false);
-                      }}
                       size={isMobile ? "xs" : "sm"}
-                      width={isMobile ? "100%" : "auto"}
+                      onClick={handleCancelEdit}
                     >
                       Anuluj
                     </Button>
                   </>
                 )}
-                <Button
-                  leftIcon={<Edit size={18} />}
-                  colorScheme="purple"
-                  onClick={handleEditMode}
-                  size={isMobile ? "xs" : "sm"}
-                  isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
-                  width={isMobile ? "100%" : "auto"}
-                >
-                  Edytuj
-                </Button>
+
               </div>
             </div>
           </HStack>
@@ -819,12 +1132,12 @@ export default function WorkScheduleView() {
                 </Tr>
               </Thead>
               <Tbody>
-                {(editableSchedule || schedule)?.stages
-                  .sort((a, b) => a.order - b.order)
-                  .map((stage, stageIdx) => {
-                    const sortedWorks = stage.works.sort((a, b) => a.order - b.order);
+                {(() => {
+                  const flatRows = flattenStagesToRows([...((editableSchedule || schedule)?.stages ?? [])]);
+                  return flatRows.map(({ stage, depth }, flatIdx) => {
+                    const sortedWorks = [...stage.works].sort((a, b) => a.order - b.order);
                     const { minDate, maxDate } = getStageDataRange(stage);
-                    const isLastStage = stageIdx === (editableSchedule || schedule)!.stages.length - 1;
+                    const isLastStage = flatIdx === flatRows.length - 1;
                     const isExpanded = expandedStages.has(stage.id);
 
                     // Jeśli etap nie ma prac, renderuj pusty wiersz nagłówka
@@ -850,9 +1163,45 @@ export default function WorkScheduleView() {
                             borderBottomWidth={!isLastStage ? "4px" : undefined}
                             borderBottomColor={!isLastStage ? "purple.500" : undefined}
                           >
-                            <VStack align="flex-start" spacing={1}>
-                              <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
+                            <VStack align="flex-start" spacing={1} pl={depth * 4}>
+                              {isEditing && !stage.costEstimateGroupId ? (
+                                <Input
+                                  size="xs"
+                                  value={stage.name}
+                                  fontWeight="bold"
+                                  maxLength={200}
+                                  isInvalid={!stage.name.trim()}
+                                  onChange={(e) => updateStageName(stage.id, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  placeholder="Nazwa etapu (wymagane, max 200)"
+                                />
+                              ) : (
+                                <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
+                              )}
+                              {stage.costEstimateGroupId && (
+                                <Badge colorScheme="orange" fontSize="2xs" variant="subtle">Kosztorys</Badge>
+                              )}
                               <Badge colorScheme="gray" fontSize="2xs">Brak prac</Badge>
+                              {isEditing && (
+                                <HStack spacing={1}>
+                                  <Tooltip label="Dodaj zakres robót">
+                                    <IconButton
+                                      size="xs" icon={<Plus size={10} />} colorScheme="green" variant="ghost"
+                                      aria-label="Dodaj zakres robót"
+                                      onClick={(e) => { e.stopPropagation(); addWork(stage.id); }}
+                                    />
+                                  </Tooltip>
+                                  {!stage.costEstimateGroupId && (
+                                    <Tooltip label="Usuń etap">
+                                      <IconButton
+                                        size="xs" icon={<Trash2 size={10} />} colorScheme="red" variant="ghost"
+                                        aria-label="Usuń etap"
+                                        onClick={(e) => { e.stopPropagation(); removeStage(stage.id); }}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </HStack>
+                              )}
                             </VStack>
                           </Td>
                           <Td
@@ -870,6 +1219,15 @@ export default function WorkScheduleView() {
                             <Text fontSize="sm" color="gray.500" fontStyle="italic">
                               Brak zakresu robót w tym etapie
                             </Text>
+                            {isEditing && (
+                              <Button
+                                size="xs" leftIcon={<Plus size={10} />} colorScheme="green" variant="ghost"
+                                mt={1}
+                                onClick={() => addWork(stage.id)}
+                              >
+                                Dodaj zakres
+                              </Button>
+                            )}
                           </Td>
                           {!isMobile && dates.map((periodStart, idx) => {
                             const isTodayColumn = isToday(periodStart);
@@ -952,8 +1310,24 @@ export default function WorkScheduleView() {
                                     toggleStage(stage.id);
                                   }}
                                 />
-                                <VStack align="flex-start" spacing={1} flex={1}>
-                                  <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
+                                <VStack align="flex-start" spacing={1} flex={1} pl={depth * 4}>
+                                  {isEditing && !stage.costEstimateGroupId ? (
+                                    <Input
+                                      size="xs"
+                                      value={stage.name}
+                                      fontWeight="bold"
+                                      maxLength={200}
+                                      isInvalid={!stage.name.trim()}
+                                      onChange={(e) => updateStageName(stage.id, e.target.value)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      placeholder="Nazwa etapu (wymagane, max 200)"
+                                    />
+                                  ) : (
+                                    <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
+                                  )}
+                                  {stage.costEstimateGroupId && (
+                                    <Badge colorScheme="orange" fontSize="2xs" variant="subtle">Kosztorys</Badge>
+                                  )}
                                   {minDate && maxDate && !isMobile && (
                                     <Text fontSize="2xs" color="gray.500">
                                       {formatDate(minDate)} - {formatDate(maxDate)}
@@ -963,6 +1337,26 @@ export default function WorkScheduleView() {
                                     <Badge colorScheme="purple" fontSize="2xs">
                                       {sortedWorks.length} {sortedWorks.length === 1 ? 'praca' : sortedWorks.length < 5 ? 'prace' : 'prac'}
                                     </Badge>
+                                  )}
+                                  {isEditing && (
+                                    <HStack spacing={1}>
+                                      <Tooltip label="Dodaj zakres robót">
+                                        <IconButton
+                                          size="xs" icon={<Plus size={10} />} colorScheme="green" variant="ghost"
+                                          aria-label="Dodaj zakres robót"
+                                          onClick={(e) => { e.stopPropagation(); addWork(stage.id); }}
+                                        />
+                                      </Tooltip>
+                                      {!stage.costEstimateGroupId && (
+                                        <Tooltip label="Usuń etap">
+                                          <IconButton
+                                            size="xs" icon={<Trash2 size={10} />} colorScheme="red" variant="ghost"
+                                            aria-label="Usuń etap"
+                                            onClick={(e) => { e.stopPropagation(); removeStage(stage.id); }}
+                                          />
+                                        </Tooltip>
+                                      )}
+                                    </HStack>
                                   )}
                                 </VStack>
                               </HStack>
@@ -982,12 +1376,13 @@ export default function WorkScheduleView() {
                             borderRightWidth="2px"
                           >
                             <VStack align="flex-start" spacing={1}>
-                              <HStack spacing={2} width="100%">
+                              <HStack spacing={2} width="100%" align="flex-start">
                                 <Checkbox
                                   size="sm"
                                   isChecked={work.isClosed}
                                   onChange={() => toggleWorkClosed(work.id)}
                                   colorScheme="green"
+                                  mt={1}
                                   isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
                                 />
                                 <VStack align="flex-start" spacing={0} flex={1}>
@@ -1014,7 +1409,21 @@ export default function WorkScheduleView() {
                                         )}
                                       </>
                                     )}
-                                    <Text fontSize={isMobile ? "xs" : "sm"} fontWeight="medium">{work.name}</Text>
+                                    {isEditing ? (
+                                      <Input
+                                        size="xs"
+                                        value={work.name}
+                                        maxLength={200}
+                                        isInvalid={!work.name.trim()}
+                                        onChange={(e) => updateWorkName(work.id, e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        placeholder="Nazwa zakresu robót (wymagane, max 200)"
+                                        fontWeight="medium"
+                                        flex={1}
+                                      />
+                                    ) : (
+                                      <Text fontSize={isMobile ? "xs" : "sm"} fontWeight="medium">{work.name}</Text>
+                                    )}
                                   </HStack>
 
                                   {work.periods.length > 0 && (
@@ -1037,7 +1446,7 @@ export default function WorkScheduleView() {
                                     </VStack>
                                   )}
 
-                                  {work.assignees.length > 0 && (
+                                  {work.assignees.length > 0 && !isEditing && (
                                     <HStack spacing={1} flexWrap="wrap" mt={0.5}>
                                       {work.assignees.map((assignee: any) => (
                                         <Badge key={assignee.userId} colorScheme="purple" fontSize="2xs">
@@ -1047,27 +1456,80 @@ export default function WorkScheduleView() {
                                     </HStack>
                                   )}
 
-                                  {showComments && work.comments && work.comments.length > 0 && (
+                                  {/* Przypisanie osób w trybie inline-edycji */}
+                                  {isEditing && members.length > 0 && (
+                                    <Wrap spacing={1} mt={1}>
+                                      {members.map((member: any) => {
+                                        const isAssigned = (work.assignees ?? []).some((a: any) => a.userId === member.userId);
+                                        const displayName = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.email;
+                                        return (
+                                          <WrapItem key={member.userId}>
+                                            <Badge
+                                              colorScheme={isAssigned ? "blue" : "gray"}
+                                              variant={isAssigned ? "solid" : "outline"}
+                                              cursor="pointer"
+                                              fontSize="2xs"
+                                              px={2} py={0.5}
+                                              borderRadius="full"
+                                              onClick={(e) => { e.stopPropagation(); toggleWorkAssignee(work.id, member.userId, displayName); }}
+                                              _hover={{ opacity: 0.8 }}
+                                            >
+                                              {displayName}
+                                            </Badge>
+                                          </WrapItem>
+                                        );
+                                      })}
+                                    </Wrap>
+                                  )}
+
+                                  {showComments && (
                                     <VStack align="flex-start" spacing={1} width="100%" mt={1} pt={1} borderTopWidth="1px" fontSize="2xs">
-                                      <Text fontWeight="bold" fontSize="2xs">Kom:</Text>
-                                      {work.comments.map((comment: any, cIdx: number) => (
-                                        <HStack key={comment.id || cIdx} spacing={1} align="flex-start" width="100%">
-                                          <Text fontSize="2xs" flex={1} noOfLines={2}>
-                                            {comment.content}
-                                          </Text>
+                                      {work.comments && work.comments.length > 0 ? (
+                                        <>
+                                          <Text fontWeight="bold" fontSize="2xs">Kom:</Text>
+                                          {work.comments.map((comment: any, cIdx: number) => (
+                                            <HStack key={comment.id || `new-${cIdx}`} spacing={1} align="flex-start" width="100%">
+                                              {comment.id === undefined ? (
+                                                <Textarea
+                                                  value={comment.content}
+                                                  onChange={(e) => updateWorkComment(work.id, comment.id, e.target.value)}
+                                                  placeholder="Treść komentarza..."
+                                                  size="xs"
+                                                  fontSize="2xs"
+                                                  minH="40px"
+                                                  flex={1}
+                                                  autoFocus
+                                                  onClick={(e) => e.stopPropagation()}
+                                                />
+                                              ) : (
+                                                <Text fontSize="2xs" flex={1} noOfLines={2}>
+                                                  {comment.content}
+                                                </Text>
+                                              )}
+                                              {(permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
+                                                <IconButton
+                                                  aria-label="Usuń komentarz"
+                                                  icon={<Trash2 size={10} />}
+                                                  size="xs"
+                                                  colorScheme="red"
+                                                  variant="ghost"
+                                                  onClick={() => removeWorkComment(work.id, comment.id)}
+                                                />
+                                              )}
+                                            </HStack>
+                                          ))}
                                           {(permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
                                             <IconButton
-                                              aria-label="Usuń komentarz"
-                                              icon={<Trash2 size={10} />}
+                                              aria-label="Dodaj komentarz"
+                                              icon={<Plus size={10} />}
                                               size="xs"
-                                              colorScheme="red"
                                               variant="ghost"
-                                              onClick={() => removeWorkComment(work.id, comment.id)}
+                                              colorScheme="purple"
+                                              onClick={() => addWorkComment(work.id)}
                                             />
                                           )}
-                                        </HStack>
-                                      ))}
-                                      {(permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
+                                        </>
+                                      ) : (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
                                         <IconButton
                                           aria-label="Dodaj komentarz"
                                           icon={<Plus size={10} />}
@@ -1080,13 +1542,27 @@ export default function WorkScheduleView() {
                                     </VStack>
                                   )}
                                 </VStack>
+                                {isEditing && (
+                                  <Tooltip label="Usuń zakres robót">
+                                    <IconButton
+                                      size="xs"
+                                      icon={<Trash2 size={10} />}
+                                      colorScheme="red"
+                                      variant="ghost"
+                                      aria-label="Usuń zakres robót"
+                                      flexShrink={0}
+                                      mt={0.5}
+                                      onClick={(e) => { e.stopPropagation(); removeWork(work.id); }}
+                                    />
+                                  </Tooltip>
+                                )}
                               </HStack>
                             </VStack>
                           </Td>
                           {/* Timeline cells - desktop only */}
                           {!isMobile && dates.map((periodStart, idx) => {
                             const periodEnd = getPeriodEnd(periodStart);
-                            const isActive = work.periods.some(period =>
+                            const isActive = work.periods.some((period: any) =>
                               isWorkInPeriod(period.startDate, period.endDate, periodStart, periodEnd)
                             );
                             const isTodayColumn = isToday(periodStart);
@@ -1096,41 +1572,59 @@ export default function WorkScheduleView() {
                                 key={idx}
                                 ref={isTodayColumn ? todayColumnRef : undefined}
                                 p={0}
-                                bg={isActive ? work.colorRgb : (isTodayColumn ? colors.stageHoverBg : undefined)}
                                 position="relative"
+                                cursor={isEditing ? "crosshair" : isActive ? "pointer" : "default"}
+                                bg={isActive ? work.colorRgb : (isTodayColumn ? colors.stageHoverBg : undefined)}
                                 borderLeftWidth={isTodayColumn ? "2px" : undefined}
                                 borderRightWidth={isTodayColumn ? "2px" : undefined}
                                 borderColor={isTodayColumn ? "blue.500" : undefined}
+                                onClick={isEditing
+                                  ? () => toggleWorkPeriodAtDate(work.id, periodStart, periodEnd)
+                                  : isActive ? () => handleWorkClick(work) : undefined
+                                }
                               >
-                                {isActive && (
-                                  <Tooltip
-                                    label={`${work.name}${work.periods.length > 1 ? ` (${work.periods.length} okresów)` : ''} - Kliknij aby edytować`}
-                                  >
+                                {isActive ? (
+                                  <Tooltip label={isEditing
+                                    ? "Kliknij aby usunąć ten okres"
+                                    : `${work.name}${work.periods.length > 1 ? ` (${work.periods.length} okresów)` : ''} \u2013 kliknij aby edytować`
+                                  }>
                                     <Box
                                       h="100%"
                                       minH="50px"
                                       w="100%"
                                       bg={work.colorRgb}
-                                      cursor="pointer"
-                                      transition="opacity 0.2s"
-                                      onClick={() => handleWorkClick(work)}
-                                      _hover={{
-                                        opacity: 0.85,
-                                      }}
+                                      transition="opacity 0.1s"
+                                      _hover={{ opacity: 0.7 }}
                                       borderLeftWidth={isTodayColumn ? "2px" : undefined}
                                       borderRightWidth={isTodayColumn ? "2px" : undefined}
                                       borderColor={isTodayColumn ? "blue.500" : undefined}
                                     />
                                   </Tooltip>
+                                ) : (
+                                  <Tooltip
+                                    label={isEditing ? "Kliknij aby dodać okres" : undefined}
+                                    isDisabled={!isEditing}
+                                    openDelay={500}
+                                  >
+                                    <Box
+                                      h="100%"
+                                      minH="50px"
+                                      w="100%"
+                                      bg={isEditing ? work.colorRgb : undefined}
+                                      opacity={isEditing ? 0.08 : undefined}
+                                      transition="opacity 0.1s"
+                                      _hover={isEditing ? { opacity: 0.3 } : undefined}
+                                    />
+                                  </Tooltip>
                                 )}
-                                {!isActive && <Box h="100%" minH="50px" />}
                               </Td>
                             );
                           })}
                         </Tr>
                       );
                     });
-                  })}
+                  });
+                })()}
               </Tbody>
             </Table>
           </div>
@@ -1159,6 +1653,7 @@ export default function WorkScheduleView() {
           projectId={projectId || ""}
           workScheduleId={workScheduleId || ""}
           work={selectedWork}
+          members={members}
           onWorkUpdated={handleScheduleUpdated}
         />
       </Box>

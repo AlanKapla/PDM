@@ -9,11 +9,12 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
         Guid TenantId,
         Guid ProjectId,
         string Name,
+        Guid? CostEstimateId,
         List<WorkScheduleStageDto>? Stages
     ) : IRequestCommand<WorkScheduleDetailsWeb>, IAuthorizableRequest
     {
         public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-        
+
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

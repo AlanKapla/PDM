@@ -33,7 +33,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
             // Shared work schedules are not implemented yet
             if (request.Scope == ResourceScope.Shared)
             {
-                throw new ApiException(ApiExceptionReason.InvalidOperation, "Shared work schedules are not yet supported");
+                return new List<WorkScheduleSummaryWeb>();
             }
 
             IEnumerable<WorkSchedule> workSchedules;
@@ -43,14 +43,16 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
                 case ResourceScope.All:
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
-                              ws.TenantId == request.TenantId);
+                              ws.TenantId == request.TenantId &&
+                              !ws.IsDeleted);
                     break;
 
                 case ResourceScope.Mine:
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
                               ws.TenantId == request.TenantId &&
-                              ws.CreatedByUserId == currentUser.Id);
+                              ws.CreatedByUserId == currentUser.Id &&
+                              !ws.IsDeleted);
                     break;
 
                 default:
@@ -65,6 +67,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
                 .OrderByDescending(ws => ws.CreatedAt)
                 .Select(ws => new WorkScheduleSummaryWeb(
                     Id: ws.Id,
+                    CostEstimateId: ws.CostEstimateId,
                     Name: ws.Name,
                     CreatedAt: ws.CreatedAt,
                     CreatedByUserId: ws.CreatedByUserId,
