@@ -164,16 +164,11 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             }
 
             // 11. Resolve active work schedule linked to this cost estimate
-            var workSchedules = await workScheduleRepository.SelectAsync(
+            WorkSchedule? workSchedule = await workScheduleRepository.GetFirstBySearch(
                 ws => ws.CostEstimateId == request.CostEstimateId &&
                       ws.TenantId == request.TenantId &&
                       ws.ProjectId == request.ProjectId &&
-                      !ws.IsDeleted,
-                ws => new { ws.Id, ws.CreatedAt },
-                cancellationToken);
-            Guid? activeWorkScheduleId = workSchedules
-                .OrderByDescending(ws => ws.CreatedAt)
-                .FirstOrDefault()?.Id;
+                      !ws.IsDeleted, cancellationToken);
 
             return new CostEstimateDetailsWeb(
                 Id: costEstimate.Id,
@@ -187,7 +182,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 Name: costEstimate.Name,
                 Description: costEstimate.Description,
                 Status: costEstimate.Status,
-                WorkScheduleId: activeWorkScheduleId,
+                WorkScheduleId: workSchedule?.Id,
                 RootGroups: rootGroups,
                 TotalNet: costEstimate.TotalNet,
                 TotalGross: costEstimate.TotalGross,
