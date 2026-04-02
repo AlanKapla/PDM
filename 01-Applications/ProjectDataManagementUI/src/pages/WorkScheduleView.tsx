@@ -39,11 +39,11 @@ import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import WorkDetailsModal from "../components/WorkDetailsModal";
 import { AuthContext } from "../context/AuthContext";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
-import type { WorkScheduleDetailsWeb, WorkScheduleStageWorkWeb } from "../types/workSchedule.types";
+import type { WorkScheduleDetailsWeb, EditableComment, EditableWork, EditableStage, UpdateStageDto, UpdateWorkDto } from "../types/workSchedule.types";
 import { useTimelineData, type TimeScale } from "../hooks/useTimelineData";
 
 // Spłaszcza drzewo etapów do płaskiej listy z informacją o głębokości
-const flattenStagesToRows = (stages: any[], depth: number = 0): Array<{ stage: any; depth: number }> =>
+const flattenStagesToRows = (stages: EditableStage[], depth: number = 0): Array<{ stage: EditableStage; depth: number }> =>
   [...stages]
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     .flatMap(s => [
@@ -52,13 +52,13 @@ const flattenStagesToRows = (stages: any[], depth: number = 0): Array<{ stage: a
     ]);
 
 // Zbiera rekurencyjnie wszystkie ID etapów (dla "rozwiń wszystko")
-const getAllStageIds = (stages: any[]): string[] =>
+const getAllStageIds = (stages: EditableStage[]): string[] =>
   stages.flatMap(s => [s.id, ...getAllStageIds(s.childStages ?? [])]);
 
 // Szuka pracy w drzewie etapów (mutuje znaleziony obiekt – działa na deep-copy)
-const findWorkInStages = (stages: any[], workId: string): any | null => {
+const findWorkInStages = (stages: EditableStage[], workId: string): EditableWork | null => {
   for (const stage of stages) {
-    const work = stage.works?.find((w: any) => w.id === workId);
+    const work = stage.works?.find((w) => w.id === workId);
     if (work) return work;
     const found = findWorkInStages(stage.childStages ?? [], workId);
     if (found) return found;
@@ -67,7 +67,7 @@ const findWorkInStages = (stages: any[], workId: string): any | null => {
 };
 
 // Rekurencyjnie wywołuje mutację na etapie o podanym ID (działa na deep-copy)
-const mutateStageInTree = (stages: any[], stageId: string, mutator: (s: any) => void): boolean => {
+const mutateStageInTree = (stages: EditableStage[], stageId: string, mutator: (s: EditableStage) => void): boolean => {
   for (const s of stages) {
     if (s.id === stageId) { mutator(s); return true; }
     if (mutateStageInTree(s.childStages ?? [], stageId, mutator)) return true;
@@ -76,18 +76,18 @@ const mutateStageInTree = (stages: any[], stageId: string, mutator: (s: any) => 
 };
 
 // Rekurencyjnie usuwa etap po ID z drzewa
-const removeStageFromViewTree = (stages: any[], stageId: string): any[] =>
+const removeStageFromViewTree = (stages: EditableStage[], stageId: string): EditableStage[] =>
   stages
     .filter(s => s.id !== stageId)
     .map(s => ({ ...s, childStages: removeStageFromViewTree(s.childStages ?? [], stageId) }));
 
 // Rekurencyjnie usuwa pracę po ID ze wszystkich etapów (działa na deep-copy)
-const removeWorkFromViewTree = (stages: any[], workId: string): void => {
+const removeWorkFromViewTree = (stages: EditableStage[], workId: string): void => {
   for (const s of stages) {
-    const idx = (s.works ?? []).findIndex((w: any) => w.id === workId);
+    const idx = (s.works ?? []).findIndex((w) => w.id === workId);
     if (idx >= 0) {
       s.works.splice(idx, 1);
-      s.works.forEach((w: any, i: number) => { w.order = i; });
+      s.works.forEach((w, i) => { w.order = i; });
       return;
     }
     removeWorkFromViewTree(s.childStages ?? [], workId);
@@ -95,7 +95,7 @@ const removeWorkFromViewTree = (stages: any[], workId: string): void => {
 };
 
 // Walidacja drzewa etapów przed zapisem — ta sama logika co w WorkScheduleFormModal
-function validateStagesTree(stages: any[]): string | null {
+function validateStagesTree(stages: EditableStage[]): string | null {
   for (const stage of stages) {
     if (!stage.name.trim()) return "Nazwa etapu jest wymagana dla wszystkich etapów";
     if (stage.name.length > 200) return `Nazwa etapu "${stage.name}" nie może przekraczać 200 znaków`;
@@ -114,27 +114,27 @@ function validateStagesTree(stages: any[]): string | null {
 }
 
 // Buduje rekurencyjne polecenie aktualizacji etapu
-const mapStageToUpdateCommand = (stage: any): any => ({
+const mapStageToUpdateCommand = (stage: EditableStage): UpdateStageDto => ({
   // Pomijaj tymczasowe ID nowo dodanych etapów/prac — backend sam je nada
   ...(stage.id && !String(stage.id).startsWith('temp-') ? { id: stage.id } : {}),
   name: stage.name,
   order: stage.order,
-  works: (stage.works ?? []).map((work: any) => ({
+  works: (stage.works ?? []).map((work): UpdateWorkDto => ({
     ...(work.id && !String(work.id).startsWith('temp-') ? { id: work.id } : {}),
     name: work.name,
     order: work.order,
     colorRgb: work.colorRgb,
     isClosed: work.isClosed,
-    periods: (work.periods ?? []).map((period: any) => ({
+    periods: (work.periods ?? []).map((period) => ({
       ...(period.id && !String(period.id).startsWith('temp-') ? { id: period.id } : {}),
       startDate: period.startDate,
       endDate: period.endDate,
       isClosed: period.isClosed,
     })),
-    assignedUserIds: (work.assignees ?? []).map((a: any) => a.userId),
+    assignedUserIds: (work.assignees ?? []).map((a) => a.userId),
     comments: (work.comments ?? [])
-      .filter((c: any) => c.content && c.content.trim())
-      .map((c: any) => ({ id: c.id, content: c.content.trim() })),
+      .filter((c) => c.content && c.content.trim())
+      .map((c) => ({ ...(c.id && !String(c.id).startsWith('temp-') ? { id: c.id } : {}), content: c.content.trim() })),
   })),
   children: (stage.childStages ?? []).map(mapStageToUpdateCommand),
 });
@@ -158,7 +158,7 @@ export default function WorkScheduleView() {
     description: isMobile ? window.innerWidth - 110 : 350,
   });
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
-  const [selectedWork, setSelectedWork] = useState<WorkScheduleStageWorkWeb | null>(null);
+  const [selectedWork, setSelectedWork] = useState<EditableWork | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [editableSchedule, setEditableSchedule] = useState<WorkScheduleDetailsWeb | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -750,7 +750,7 @@ export default function WorkScheduleView() {
     setExpandedStages(new Set());
   };
 
-  const handleWorkClick = (work: WorkScheduleStageWorkWeb) => {
+  const handleWorkClick = (work: EditableWork) => {
     setSelectedWork(work);
     onWorkDetailsOpen();
   };

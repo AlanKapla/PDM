@@ -59,6 +59,16 @@ namespace Entities.Migrations
                 table: "WorkScheduleStages",
                 column: "ParentStageId");
 
+            // Bez uzupełnienia ProjectId indeks IX_WorkScheduleStages_TenantId_ProjectId nie będzie poprawnie działał
+            // dla istniejących rekordów — domyślna wartość '00000000-...' nigdy nie pasowałaby do żadnego projektu.
+            migrationBuilder.Sql(@"
+                UPDATE wss
+                SET wss.ProjectId = ws.ProjectId
+                FROM WorkScheduleStages wss
+                INNER JOIN WorkSchedules ws ON wss.WorkScheduleId = ws.Id
+                WHERE wss.ProjectId = '00000000-0000-0000-0000-000000000000'
+            ");
+
             migrationBuilder.CreateIndex(
                 name: "IX_WorkScheduleStages_TenantId_ProjectId",
                 table: "WorkScheduleStages",

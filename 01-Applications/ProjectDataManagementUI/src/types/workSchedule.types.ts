@@ -135,6 +135,14 @@ export interface WorkScheduleStageWorkAssigneeWeb {
   userName: string;
 }
 
+// Lokalne typy edycyjne — rozszerzają Web modele o opcjonalne ID nowo dodanych elementów przed zapisem
+export type EditableComment = Omit<WorkScheduleStageWorkCommentWeb, 'id'> & { id?: string };
+export type EditableWork = Omit<WorkScheduleStageWorkWeb, 'comments'> & { comments: EditableComment[] };
+export type EditableStage = Omit<WorkScheduleStageWeb, 'works' | 'childStages'> & {
+  works: EditableWork[];
+  childStages?: EditableStage[];
+};
+
 // User Assigned Works Types
 export interface UserAssignedWorksGroupedWeb {
   tenantId: string;

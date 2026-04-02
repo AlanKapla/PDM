@@ -90,7 +90,13 @@ namespace Business.Implementation.Services
                 existingStagesByGroupId, childGroupsByParent,
                 resultStages, cancellationToken);
 
+            // Zapisujemy wszystkie zmiany w etapach (soft-delete i aktualizacje) po zakończeniu przetwarzania grup.
+            await stageRepo.SaveChangesAsync(cancellationToken);
+
             await SyncWorksFromItemsAsync(workSchedule, resultStages, costEstimateId, cancellationToken);
+
+            // Zapisujemy wszystkie zmiany w pracach po zakończeniu synchronizacji zakresów pracy.
+            await workRepo.SaveChangesAsync(cancellationToken);
 
             return resultStages;
         }

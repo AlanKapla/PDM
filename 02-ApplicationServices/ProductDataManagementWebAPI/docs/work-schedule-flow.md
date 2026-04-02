@@ -38,7 +38,7 @@ Harmonogram działa w jednym z dwóch trybów, zależnie od wartości pola `cost
 | `costEstimateId` w `POST` | `null` | GUID istniejącego kosztorysu |
 | Struktura etapów | zarządzana przez UI | generowana automatycznie z grup kosztorysu |
 | Pole `stages` w `POST` | wysyłane przez UI | ignorowane przez API |
-| Pole `stages` w `PUT` | wysyłane przez UI (pełne drzewo) | ignorowane przez API (tylko `name` ma znaczenie) |
+| Pole `stages` w `PUT` | wysyłane przez UI (pełne drzewo) | używane wyłącznie do zarządzania ręcznymi etapami/pracami bez `costEstimateGroupId` / `costEstimateItemId`; etapy powiązane z kosztorysem są synchronizowane z kosztorysu (poza aktualizacją `name`) |
 | `costEstimateGroupId` na etapie w odpowiedzi | zawsze `null` | GUID grupy kosztorysu |
 | Zagnieżdżone etapy (`childStages`) | tak — dowolna głębokość, pole `children` w żądaniu | tak — odzwierciedla hierarchię grup kosztorysu |
 | Wymagany poziom dostępu do kosztorysu | — | `Full` (403 jeśli niższy) |

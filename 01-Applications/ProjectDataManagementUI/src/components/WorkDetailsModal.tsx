@@ -29,7 +29,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
-import type { WorkScheduleStageWorkWeb } from "../types/workSchedule.types";
+import type { EditableWork } from "../types/workSchedule.types";
 
 interface Member {
   userId: string;
@@ -42,7 +42,7 @@ interface WorkDetailsModalProps {
   tenantId: string;
   projectId: string;
   workScheduleId: string;
-  work: WorkScheduleStageWorkWeb | null;
+  work: EditableWork | null;
   members?: Member[];
   onWorkUpdated?: () => void;
 }
@@ -188,7 +188,7 @@ export default function WorkDetailsModal({
         name: stage.name,
         order: stage.order,
         works: stage.works.map(mapWork),
-        childStages: (stage.childStages ?? []).map(mapStage),
+        children: (stage.childStages ?? []).map(mapStage),
       });
 
       const command = {
