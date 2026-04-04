@@ -273,7 +273,8 @@ namespace WebApi.Extensions
                 .AddWriteRepository<WorkScheduleStage>()
                 .AddWriteRepository<WorkScheduleStageWork>()
                 .AddWriteRepository<WorkScheduleStageWorkAssignment>()
-                .AddWriteRepository<WorkScheduleStageWorkComment>();
+                .AddWriteRepository<WorkScheduleStageWorkComment>()
+                .AddWriteRepository<WorkScheduleStageWorkDependency>();
 
             services
                 .AddRepository<ProjectCost>()
@@ -341,6 +342,7 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
+            services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<CostEstimateGroupValidator>();

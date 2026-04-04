@@ -229,6 +229,8 @@ export function recalculateCostEstimateDetails(
         updated = setItemFieldValue(updated, valueGrossDef.id, unitPriceGross * quantity!);
       } else if (valueNet !== undefined && totalVat !== undefined) {
         updated = setItemFieldValue(updated, valueGrossDef.id, valueNet + totalVat);
+      } else if (valueNet !== undefined && has.vatRate) {
+        updated = setItemFieldValue(updated, valueGrossDef.id, valueNet * (1 + vatRate!));
       } else if (valueNet !== undefined) {
         updated = setItemFieldValue(updated, valueGrossDef.id, valueNet);
       }

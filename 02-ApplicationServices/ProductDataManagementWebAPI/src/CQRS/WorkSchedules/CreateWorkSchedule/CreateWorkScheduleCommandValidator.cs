@@ -63,5 +63,15 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
         {
             return cmd => cmd.Stages;
         }
+
+        protected override Expression<Func<CreateWorkScheduleCommand, IEnumerable<WorkScheduleWorkDependencyDto>?>> GetDependenciesSelector()
+        {
+            return cmd => cmd.Dependencies;
+        }
+
+        protected override Func<CreateWorkScheduleCommand, IEnumerable<WorkScheduleWorkDependencyDto>?> GetDependenciesSelectorFunc()
+        {
+            return cmd => cmd.Dependencies;
+        }
     }
 }

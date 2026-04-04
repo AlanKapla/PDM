@@ -232,6 +232,7 @@ export const projectApi = {
         name: string;
         order: number;
         works: Array<{
+          tempId?: string;
           name: string;
           order: number;
           colorRgb: string;
@@ -248,6 +249,14 @@ export const projectApi = {
         }>;
         children?: any[];
       }>;
+      dependencies?: Array<{
+        predecessorDbId?: string;
+        predecessorTempId?: string;
+        successorDbId?: string;
+        successorTempId?: string;
+        dependencyType: number;
+        lagDays: number;
+      }>;
     }
   ) => {
     return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/work-schedule`, {
@@ -256,6 +265,7 @@ export const projectApi = {
       name: command.name,
       costEstimateId: command.costEstimateId ?? null,
       stages: command.stages,
+      dependencies: command.dependencies,
     });
   },
 
@@ -290,6 +300,7 @@ export const projectApi = {
         order: number;
         works: Array<{
           id?: string;
+          tempId?: string;
           name: string;
           order: number;
           colorRgb: string;
@@ -308,6 +319,14 @@ export const projectApi = {
         }>;
         children?: any[];
       }>;
+      dependencies?: Array<{
+        predecessorDbId?: string;
+        predecessorTempId?: string;
+        successorDbId?: string;
+        successorTempId?: string;
+        dependencyType: number;
+        lagDays: number;
+      }>;
     }
   ) => {
     return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}`, {
@@ -316,12 +335,18 @@ export const projectApi = {
       workScheduleId,
       name: command.name,
       stages: command.stages,
+      dependencies: command.dependencies,
     });
   },
 
   // Usuń harmonogram prac
   deleteWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string) => {
     return axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}`);
+  },
+
+  // Synchronizuj harmonogram z powiązanym kosztorysem
+  syncWorkScheduleWithEstimate: async (tenantId: string, projectId: string, workScheduleId: string) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}/sync-with-estimate`);
   },
 
   // Pobierz prace przypisane do użytkownika (cross-tenant)

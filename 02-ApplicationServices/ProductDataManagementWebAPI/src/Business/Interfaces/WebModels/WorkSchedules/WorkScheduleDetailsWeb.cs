@@ -1,4 +1,6 @@
-﻿namespace Business.Interfaces.WebModels.WorkSchedules
+﻿using Entities.Models;
+
+namespace Business.Interfaces.WebModels.WorkSchedules
 {
     public record WorkScheduleDetailsWeb(
         Guid Id,
@@ -9,7 +11,8 @@
         DateTime CreatedAt,
         Guid CreatedByUserId,
         string CreatedByUserName,
-        List<WorkScheduleStageWeb> Stages
+        List<WorkScheduleStageWeb> Stages,
+        List<WorkScheduleWorkDependencyWeb> Dependencies
     );
 
     public record WorkScheduleStageWeb(
@@ -51,4 +54,13 @@
         string CreatedByUserName,
         DateTime CreatedAt
     );
+
+    public record WorkScheduleWorkDependencyWeb(
+        Guid Id,
+        Guid PredecessorWorkId,
+        Guid SuccessorWorkId,
+        WorkDependencyType DependencyType,
+        int LagDays
+    );
 }
+

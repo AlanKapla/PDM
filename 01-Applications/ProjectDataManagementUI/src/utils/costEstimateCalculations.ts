@@ -272,6 +272,7 @@ const COMPUTE_PATHS: Record<number, ComputePath[]> = {
     { requires: ['unitPriceNet', 'vatRate', 'quantity'], compute: v => round2(v.unitPriceNet! * (1 + v.vatRate!) * v.quantity! * getDiscountMultiplier(v)) },
     { requires: ['unitPriceGross', 'quantity'], compute: v => round2(v.unitPriceGross! * v.quantity! * getDiscountMultiplier(v)) },
     { requires: ['valueNet', 'totalVat'], compute: v => round2(v.valueNet! + v.totalVat!) },
+    { requires: ['valueNet', 'vatRate'], compute: v => round2(v.valueNet! * (1 + v.vatRate!)) },
     { requires: ['valueNet'], compute: v => round2(v.valueNet!) },
   ],
   // UnitVat = netto × VAT — rabat NIE wpływa na VAT jednostkowy

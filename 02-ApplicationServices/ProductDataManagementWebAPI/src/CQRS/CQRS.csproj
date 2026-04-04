@@ -71,6 +71,8 @@
 
   <ItemGroup>
     <Folder Include="Messages\GetProjectMessages\" />
+    <Folder Include="WorkSchedules\AddWorkDependency\" />
+    <Folder Include="WorkSchedules\RemoveWorkDependency\" />
   </ItemGroup>
 
 </Project>

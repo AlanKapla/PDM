@@ -1821,6 +1821,9 @@ namespace Entities.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1830,6 +1833,8 @@ namespace Entities.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CostEstimateItemId");
+
+                    b.HasIndex("TenantId", "ProjectId");
 
                     b.HasIndex("WorkScheduleStageId", "Order");
 
@@ -1887,6 +1892,51 @@ namespace Entities.Migrations
                     b.HasIndex("WorkScheduleStageWorkId", "CreatedAt");
 
                     b.ToTable("WorkScheduleStageWorkComments");
+                });
+
+            modelBuilder.Entity("Entities.Models.WorkScheduleStageWorkDependency", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DependencyType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LagDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid>("PredecessorWorkId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SuccessorWorkId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkScheduleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PredecessorWorkId");
+
+                    b.HasIndex("SuccessorWorkId");
+
+                    b.HasIndex("TenantId", "ProjectId");
+
+                    b.HasIndex("TenantId", "WorkScheduleId");
+
+                    b.HasIndex("WorkScheduleId", "PredecessorWorkId", "SuccessorWorkId", "DependencyType")
+                        .IsUnique();
+
+                    b.ToTable("WorkScheduleStageWorkDependencies");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateGroupFieldDefinition", b =>
@@ -2667,7 +2717,7 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.WorkSchedule", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
-                        .WithMany()
+                        .WithMany("WorkSchedules")
                         .HasForeignKey("CostEstimateId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -2693,7 +2743,7 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.WorkScheduleStage", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimates.CostEstimateGroup", "CostEstimateGroup")
-                        .WithMany()
+                        .WithMany("WorkScheduleStages")
                         .HasForeignKey("CostEstimateGroupId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -2718,7 +2768,7 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.WorkScheduleStageWork", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "CostEstimateItem")
-                        .WithMany()
+                        .WithMany("WorkScheduleStageWorks")
                         .HasForeignKey("CostEstimateItemId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -2801,6 +2851,33 @@ namespace Entities.Migrations
                     b.Navigation("Work");
                 });
 
+            modelBuilder.Entity("Entities.Models.WorkScheduleStageWorkDependency", b =>
+                {
+                    b.HasOne("Entities.Models.WorkScheduleStageWork", "PredecessorWork")
+                        .WithMany("PredecessorDependencies")
+                        .HasForeignKey("PredecessorWorkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.WorkScheduleStageWork", "SuccessorWork")
+                        .WithMany("SuccessorDependencies")
+                        .HasForeignKey("SuccessorWorkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.WorkSchedule", "WorkSchedule")
+                        .WithMany("Dependencies")
+                        .HasForeignKey("WorkScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PredecessorWork");
+
+                    b.Navigation("SuccessorWork");
+
+                    b.Navigation("WorkSchedule");
+                });
+
             modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateGroupFieldDefinition", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
@@ -2879,6 +2956,8 @@ namespace Entities.Migrations
                     b.Navigation("AllGroups");
 
                     b.Navigation("AllItems");
+
+                    b.Navigation("WorkSchedules");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroup", b =>
@@ -2888,11 +2967,15 @@ namespace Entities.Migrations
                     b.Navigation("FieldValues");
 
                     b.Navigation("Items");
+
+                    b.Navigation("WorkScheduleStages");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItem", b =>
                 {
                     b.Navigation("FieldValues");
+
+                    b.Navigation("WorkScheduleStageWorks");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItemFieldValue", b =>
@@ -2972,6 +3055,8 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.WorkSchedule", b =>
                 {
+                    b.Navigation("Dependencies");
+
                     b.Navigation("Stages");
                 });
 
@@ -2987,6 +3072,10 @@ namespace Entities.Migrations
                     b.Navigation("Assignments");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("PredecessorDependencies");
+
+                    b.Navigation("SuccessorDependencies");
                 });
 #pragma warning restore 612, 618
         }

@@ -18,5 +18,6 @@ namespace Entities.Models
         public TenantMember CreatedBy { get; set; } = default!;
         public CostEstimate? CostEstimate { get; set; }
         public ICollection<WorkScheduleStage> Stages { get; set; } = new List<WorkScheduleStage>();
+        public ICollection<WorkScheduleStageWorkDependency> Dependencies { get; set; } = new List<WorkScheduleStageWorkDependency>();
     }
 }

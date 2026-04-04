@@ -38,20 +38,18 @@ import {
 } from '@chakra-ui/react';
 import {
   ArrowLeft,
-  Eye,
   Pencil,
   Maximize2,
   Minimize2,
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
-  RefreshCw,
-  Share2,
-  CalendarPlus,
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import MainLayout from '../layout/MainLayout';
 import { CostEstimateTableView } from '../components/CostEstimate/CostEstimateTableView';
+import type { CostEstimateTableHandle } from '../components/CostEstimate/CostEstimateTableView';
+import CostEstimateToolbar from '../components/CostEstimateToolbar';
 import { costEstimateApi } from '../api/costEstimateApi';
 import { projectApi } from '../api/projectApi';
 import WorkScheduleFormModal from '../components/WorkScheduleFormModal';
@@ -165,6 +163,7 @@ export const CostEstimateEditPage: React.FC = () => {
   // ---- Modal harmonogramu ----
   const { isOpen: isScheduleModalOpen, onOpen: onScheduleModalOpen, onClose: onScheduleModalClose } = useDisclosure();
   const [scheduleModalMode, setScheduleModalMode] = useState<'create' | 'edit'>('create');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [projectMembers, setProjectMembers] = useState<any[]>([]);
 
@@ -185,12 +184,14 @@ export const CostEstimateEditPage: React.FC = () => {
   const [isBackNavigation, setIsBackNavigation] = useState(false);
   const [editDescription, setEditDescription] = useState('');
 
+  // ---- Ref do kontroli expand/collapse tabeli ----
+  const tableControlsRef = useRef<CostEstimateTableHandle | null>(null);
+
   // ---- Kolory (dark mode ready) ----
   const toolbarBg = useColorModeValue('white', 'gray.800');
   const toolbarBorder = useColorModeValue('gray.200', 'gray.700');
   const statBg = useColorModeValue('gray.50', 'gray.700');
   const pageBg = useColorModeValue('gray.50', 'gray.900');
-  const segmentBg = useColorModeValue('gray.100', 'gray.700');
 
   // Ref do hasChanges — potrzebny w navigate guard (closure)
   const hasChangesRef = React.useRef(hasChanges);
@@ -480,6 +481,22 @@ export const CostEstimateEditPage: React.FC = () => {
     },
     enabled: isEditMode,
   });
+
+  /**
+   * Synchronizuje powiązany harmonogram prac ze strukturą kosztorysu.
+   */
+  const handleSyncSchedule = async () => {
+    if (!user?.activeTenantId || !projectId || !details?.workScheduleId) return;
+    try {
+      setIsSyncing(true);
+      await projectApi.syncWorkScheduleWithEstimate(user.activeTenantId, projectId, details.workScheduleId);
+      showSuccess('Synchronizacja zakończona', 'Harmonogram został zaktualizowany wg kosztorysu');
+    } catch {
+      showError('Błąd synchronizacji', 'Nie udało się zsynchronizować harmonogramu');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   /**
    * Przelicza kosztorys na backendzie i pobiera aktualne dane.
@@ -1214,6 +1231,13 @@ export const CostEstimateEditPage: React.FC = () => {
     loadCostEstimate();
   }, [loadCostEstimate]);
 
+  /** Anuluje tryb edycji i odświeża dane z serwera */
+  const handleCancelEdit = useCallback(() => {
+    setIsEditMode(false);
+    setHasChanges(false);
+    loadCostEstimate();
+  }, [loadCostEstimate]);
+
   // ========== GUARDS ==========
 
   if (!user?.activeTenantId || !projectId || !estimateId) {
@@ -1277,7 +1301,7 @@ export const CostEstimateEditPage: React.FC = () => {
       zIndex={20}
       shadow="sm"
     >
-      {/* Wiersz 1: nawigacja, tytuł, akcje */}
+      {/* Wiersz 1: nawigacja, tytuł */}
       <Flex align="center" justify="space-between" gap={3} wrap="wrap">
         {/* Lewa strona: powrót + tytuł + status */}
         <HStack spacing={3} minW={0} flex={1}>
@@ -1302,7 +1326,6 @@ export const CostEstimateEditPage: React.FC = () => {
               >
                 {details.name}
               </Text>
-              {/* Zmiana nazwy dostępna tylko dla właściciela/admina (Full access) */}
               {isEditMode && canFullEdit && (
                 <Tooltip label="Edytuj nazwę i opis">
                   <IconButton
@@ -1321,76 +1344,8 @@ export const CostEstimateEditPage: React.FC = () => {
           </HStack>
         </HStack>
 
-        {/* Prawa strona: akcje */}
+        {/* Prawa strona: wskaźniki + fullscreen */}
         <HStack spacing={2} flexShrink={0}>
-          {/* Przycisk Udostępnij — tylko właściciel/admin z uprawnieniem SHARE */}
-          {canShareResource && (
-            <Tooltip label="Zarządzaj dostępem do kosztorysu">
-              <IconButton
-                aria-label="Udostępnij"
-                icon={<Share2 size={14} />}
-                size="sm"
-                colorScheme="teal"
-                variant="outline"
-                onClick={onShareModalOpen}
-              />
-            </Tooltip>
-          )}
-
-          {/* Przycisk Odśwież — tylko Full access */}
-          {canFullEdit && (
-            <Tooltip label="Przelicz i pobierz aktualny kosztorys">
-              <IconButton
-                aria-label="Odśwież"
-                icon={isRecalculating ? <Spinner size="xs" /> : <RefreshCw size={14} />}
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  // Anuluj zaplanowane auto-recalculate
-                  if (autoRecalcTimeoutRef.current) {
-                    clearTimeout(autoRecalcTimeoutRef.current);
-                    autoRecalcTimeoutRef.current = null;
-                  }
-                  handleRefresh();
-                }}
-                isDisabled={isRecalculating}
-              />
-            </Tooltip>
-          )}
-
-          {/* Przycisk harmonogramu — widoczny tylko przy pełnym dostępie (accessLevel = Full) */}
-          {canFullEdit && (
-            details.workScheduleId ? (
-              <Tooltip label="Przejdź do harmonogramu powiązanego z kosztorysem">
-                <Button
-                  leftIcon={<CalendarPlus size={14} />}
-                  size="sm"
-                  colorScheme="orange"
-                  variant="outline"
-                  onClick={() => safeNavigate(`/projects/${projectId}/schedules/${details.workScheduleId}`)}
-                >
-                  Harmonogram
-                </Button>
-              </Tooltip>
-            ) : (
-              <Tooltip label="Utwórz harmonogram na podstawie kosztorysu">
-                <Button
-                  leftIcon={<CalendarPlus size={14} />}
-                  size="sm"
-                  colorScheme="orange"
-                  variant="outline"
-                  onClick={() => {
-                    setScheduleModalMode('create');
-                    onScheduleModalOpen();
-                  }}
-                >
-                  Utwórz harmonogram
-                </Button>
-              </Tooltip>
-            )
-          )}
-
-          {/* Wskaźnik przeliczania */}
           {isRecalculating && (
             <HStack
               spacing={1}
@@ -1406,46 +1361,12 @@ export const CostEstimateEditPage: React.FC = () => {
               <Text>Przeliczam...</Text>
             </HStack>
           )}
-
-          {/* Ostatnie przeliczenie */}
           {lastSavedAt && !isRecalculating && (
             <HStack spacing={1} color="green.500" fontSize="xs">
               <CheckCircle2 size={12} />
               <Text>Przeliczono {formatTime(lastSavedAt)}</Text>
             </HStack>
           )}
-
-          {/* Segmented toggle Edycja / Podgląd — widoczny tylko gdy user ma prawo edycji */}
-          {canAnyEdit && (
-          <HStack spacing={0} bg={segmentBg} borderRadius="md" p="2px">
-            <Button
-              size="sm"
-              h="28px"
-              fontSize="xs"
-              leftIcon={<Pencil size={12} />}
-              variant={isEditMode ? 'solid' : 'ghost'}
-              colorScheme={isEditMode ? 'blue' : 'gray'}
-              onClick={() => setIsEditMode(true)}
-              borderRadius="md"
-            >
-              Edycja
-            </Button>
-            <Button
-              size="sm"
-              h="28px"
-              fontSize="xs"
-              leftIcon={<Eye size={12} />}
-              variant={!isEditMode ? 'solid' : 'ghost'}
-              colorScheme={!isEditMode ? 'blue' : 'gray'}
-              onClick={() => setIsEditMode(false)}
-              borderRadius="md"
-            >
-              Podgląd
-            </Button>
-          </HStack>
-          )}
-
-          {/* Fullscreen toggle */}
           <Tooltip label={isFullscreen ? 'Zamknij pełny ekran (Esc)' : 'Pełny ekran'}>
             <IconButton
               aria-label="Pełny ekran"
@@ -1458,7 +1379,39 @@ export const CostEstimateEditPage: React.FC = () => {
         </HStack>
       </Flex>
 
-      {/* Wiersz 2: karty podsumowań */}
+      {/* Wiersz 2: toolbar akcji – identyczny wzorzec co harmonogram */}
+      <Box mt={2}>
+        <CostEstimateToolbar
+          isEditMode={isEditMode}
+          hasChanges={hasChanges}
+          canEdit={canAnyEdit}
+          canShare={canShareResource}
+          hasSchedule={!!details.workScheduleId}
+          isSyncing={isSyncing}
+          isRecalculating={isRecalculating}
+          onExpandAll={() => tableControlsRef.current?.expandAll()}
+          onCollapseAll={() => tableControlsRef.current?.collapseAll()}
+          onSetViewMode={() => setIsEditMode(false)}
+          onSetEditMode={() => setIsEditMode(true)}
+          onSave={() => {
+            if (autoRecalcTimeoutRef.current) {
+              clearTimeout(autoRecalcTimeoutRef.current);
+              autoRecalcTimeoutRef.current = null;
+            }
+            handleRefresh();
+          }}
+          onCancelEdit={handleCancelEdit}
+          onNavigateToSchedule={() => safeNavigate(`/projects/${projectId}/schedules/${details.workScheduleId}`)}
+          onCreateSchedule={() => {
+            setScheduleModalMode('create');
+            onScheduleModalOpen();
+          }}
+          onSyncSchedule={handleSyncSchedule}
+          onShare={onShareModalOpen}
+        />
+      </Box>
+
+      {/* Wiersz 3: karty podsumowań */}
       {summaryStats.length > 0 && (
         <StatGroup mt={3} gap={3} flexWrap="wrap" justifyContent="flex-start">
           {summaryStats.map((stat) => (
@@ -1491,6 +1444,7 @@ export const CostEstimateEditPage: React.FC = () => {
     details,
     editable: isEditMode && canAnyEdit,
     accessLevel: details.accessLevel,
+    controlsRef: tableControlsRef,
     onDataChange: handleDataChange,
     onAddGroup: handleAddGroup,
     onDeleteGroup: handleDeleteGroup,

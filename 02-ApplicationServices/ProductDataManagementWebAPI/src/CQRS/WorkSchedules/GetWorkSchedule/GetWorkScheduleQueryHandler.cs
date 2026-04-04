@@ -49,7 +49,9 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                 include => include
                     .Include(ws => ws.Stages)
                         .ThenInclude(s => s.Works)
-                            .ThenInclude(w => w.Comments))
+                            .ThenInclude(w => w.Comments),
+                include => include
+                    .Include(ws => ws.Dependencies))
                 ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
 
             // ─────────────────────────────────────────────────────────────────────
@@ -141,7 +143,15 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                 CreatedByUserName: membersDict.TryGetValue(workSchedule.CreatedByUserId, out var creator)
                     ? creator.FullName
                     : "Unknown",
-                Stages: BuildStageTree(null));
+                Stages: BuildStageTree(null),
+                Dependencies: workSchedule.Dependencies
+                    .Select(d => new WorkScheduleWorkDependencyWeb(
+                        Id: d.Id,
+                        PredecessorWorkId: d.PredecessorWorkId,
+                        SuccessorWorkId: d.SuccessorWorkId,
+                        DependencyType: d.DependencyType,
+                        LagDays: d.LagDays))
+                    .ToList());
 
             return result;
         }

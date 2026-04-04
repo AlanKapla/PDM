@@ -14,19 +14,24 @@ namespace Business.Implementation.Services
         private readonly IRepository<CostEstimateItem> costEstimateItemRepo;
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IRepository<WorkScheduleStageWork> workRepo;
+        private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
         private readonly ILogger<WorkScheduleSyncService> logger;
+
+        private const string DefaultWorkColorRgb = "#3B82F6";
 
         public WorkScheduleSyncService(
             IRepository<CostEstimateGroup> costEstimateGroupRepo,
             IRepository<CostEstimateItem> costEstimateItemRepo,
             IRepository<WorkScheduleStage> stageRepo,
             IRepository<WorkScheduleStageWork> workRepo,
+            IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
             ILogger<WorkScheduleSyncService> logger)
         {
             this.costEstimateGroupRepo = costEstimateGroupRepo;
             this.costEstimateItemRepo = costEstimateItemRepo;
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
+            this.dependencyRepo = dependencyRepo;
             this.logger = logger;
         }
 
@@ -58,7 +63,11 @@ namespace Business.Implementation.Services
             var activeGroupIds = allGroups.Select(g => g.Id).ToHashSet();
 
             // Soft-delete stages whose cost estimate groups have been deleted
-            foreach (var stage in existingLinkedStages.Where(s => !activeGroupIds.Contains(s.CostEstimateGroupId!.Value)))
+            List<WorkScheduleStage> stagesToSoftDelete = existingLinkedStages
+                .Where(s => !activeGroupIds.Contains(s.CostEstimateGroupId!.Value))
+                .ToList();
+
+            foreach (var stage in stagesToSoftDelete)
             {
                 stage.IsDeleted = true;
                 stage.DeletedAt = DateTime.UtcNow;
@@ -66,6 +75,16 @@ namespace Business.Implementation.Services
                 logger.LogInformation(
                     "Soft-deleted work schedule stage {StageId} — linked cost estimate group {GroupId} is no longer active",
                     stage.Id, stage.CostEstimateGroupId);
+            }
+
+            if (stagesToSoftDelete.Count > 0)
+            {
+                var softDeletedStageIds = stagesToSoftDelete.Select(s => s.Id).ToHashSet();
+                var worksInSoftDeletedStages = (await workRepo.GetBySearch(
+                    w => softDeletedStageIds.Contains(w.WorkScheduleStageId)))
+                    .ToList();
+
+                await DeleteObsoleteWorkScopesAsync(worksInSoftDeletedStages, workSchedule.Id, cancellationToken);
             }
 
             var existingStagesByGroupId = existingLinkedStages
@@ -90,12 +109,10 @@ namespace Business.Implementation.Services
                 existingStagesByGroupId, childGroupsByParent,
                 resultStages, cancellationToken);
 
-            // Zapisujemy wszystkie zmiany w etapach (soft-delete i aktualizacje) po zakończeniu przetwarzania grup.
             await stageRepo.SaveChangesAsync(cancellationToken);
 
             await SyncWorksFromItemsAsync(workSchedule, resultStages, costEstimateId, cancellationToken);
 
-            // Zapisujemy wszystkie zmiany w pracach po zakończeniu synchronizacji zakresów pracy.
             await workRepo.SaveChangesAsync(cancellationToken);
 
             return resultStages;
@@ -202,54 +219,72 @@ namespace Business.Implementation.Services
                 if (!stageByGroupId.TryGetValue(groupId, out var stage))
                     continue;
 
-                var workScopeItems = groupItems
-                    .Where(IsWorkScopeItem)
-                    .ToList();
-
-                for (int i = 0; i < workScopeItems.Count; i++)
-                {
-                    var item = workScopeItems[i];
-                    activeItemIds.Add(item.Id);
-                    var name = ResolveItemName(item, i + 1);
-
-                    if (existingWorkByItemId.TryGetValue(item.Id, out var existingWork))
-                    {
-                        existingWork.Name = name;
-                        existingWork.Order = i;
-                        await workRepo.Update(existingWork);
-                    }
-                    else
-                    {
-                        var newWork = new WorkScheduleStageWork
-                        {
-                            TenantId = workSchedule.TenantId,
-                            WorkScheduleStageId = stage.Id,
-                            CostEstimateItemId = item.Id,
-                            Name = name,
-                            Order = i,
-                            ColorRgb = "#3B82F6"
-                        };
-                        await workRepo.Insert(newWork);
-                        logger.LogInformation(
-                            "Created work scope {WorkId} for cost estimate item {ItemId} in stage {StageId}",
-                            newWork.Id, item.Id, stage.Id);
-                    }
-                }
+                var workScopeItems = groupItems.Where(IsWorkScopeItem).ToList();
+                await UpsertWorkScopesForStageAsync(workSchedule, stage, workScopeItems, existingWorkByItemId, activeItemIds);
             }
 
             var worksToDelete = existingLinkedWorks
                 .Where(w => !activeItemIds.Contains(w.CostEstimateItemId!.Value))
                 .ToList();
 
-            if (worksToDelete.Count > 0)
+            await DeleteObsoleteWorkScopesAsync(worksToDelete, workSchedule.Id, cancellationToken);
+        }
+
+        private async Task UpsertWorkScopesForStageAsync(
+            WorkSchedule workSchedule,
+            WorkScheduleStage stage,
+            List<CostEstimateItem> workScopeItems,
+            Dictionary<Guid, WorkScheduleStageWork> existingWorkByItemId,
+            HashSet<Guid> activeItemIds)
+        {
+            for (int i = 0; i < workScopeItems.Count; i++)
             {
-                await workRepo.DeleteRange(worksToDelete);
-                foreach (var w in worksToDelete)
+                var item = workScopeItems[i];
+                activeItemIds.Add(item.Id);
+                var name = ResolveItemName(item, i + 1);
+
+                if (existingWorkByItemId.TryGetValue(item.Id, out var existingWork))
                 {
-                    logger.LogInformation(
-                        "Deleted work scope {WorkId} — linked cost estimate item {ItemId} is no longer a work scope",
-                        w.Id, w.CostEstimateItemId);
+                    existingWork.Name = name;
+                    existingWork.Order = i;
+                    await workRepo.Update(existingWork);
                 }
+                else
+                {
+                    var newWork = new WorkScheduleStageWork
+                    {
+                        TenantId = workSchedule.TenantId,
+                        WorkScheduleStageId = stage.Id,
+                        CostEstimateItemId = item.Id,
+                        Name = name,
+                        Order = i,
+                        ColorRgb = DefaultWorkColorRgb
+                    };
+                    await workRepo.Insert(newWork);
+                    logger.LogInformation(
+                        "Created work scope {WorkId} for cost estimate item {ItemId} in stage {StageId}",
+                        newWork.Id, item.Id, stage.Id);
+                }
+            }
+        }
+
+        private async Task DeleteObsoleteWorkScopesAsync(
+            List<WorkScheduleStageWork> worksToDelete,
+            Guid workScheduleId,
+            CancellationToken cancellationToken)
+        {
+            if (worksToDelete.Count == 0)
+                return;
+
+            var deletedWorkIds = worksToDelete.Select(w => w.Id).ToHashSet();
+            await DeleteDependenciesForWorksAsync(deletedWorkIds, workScheduleId, cancellationToken);
+            await workRepo.DeleteRange(worksToDelete);
+
+            foreach (var w in worksToDelete)
+            {
+                logger.LogInformation(
+                    "Deleted work scope {WorkId} — linked cost estimate item {ItemId} is no longer a work scope",
+                    w.Id, w.CostEstimateItemId);
             }
         }
 
@@ -267,6 +302,23 @@ namespace Business.Implementation.Services
                 ?.StringValue;
 
             return !string.IsNullOrWhiteSpace(nameValue) ? nameValue : $"Zakres pracy {order}";
+        }
+
+        private async Task DeleteDependenciesForWorksAsync(
+            HashSet<Guid> workIds,
+            Guid workScheduleId,
+            CancellationToken cancellationToken)
+        {
+            if (workIds.Count == 0)
+                return;
+
+            List<WorkScheduleStageWorkDependency> affected = (await dependencyRepo.GetBySearch(
+                d => d.WorkScheduleId == workScheduleId
+                     && (workIds.Contains(d.PredecessorWorkId) || workIds.Contains(d.SuccessorWorkId))))
+                .ToList();
+
+            if (affected.Count > 0)
+                await dependencyRepo.DeleteRange(affected);
         }
     }
 }

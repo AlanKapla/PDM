@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox } from '@chakra-ui/react';
+import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox, Box } from '@chakra-ui/react';
 import { GripVertical, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -85,7 +85,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
   };
 
   return (
-    <Tr ref={setNodeRef} style={style} bg="purple.50" _hover={{ bg: 'purple.100' }}>
+    <Tr ref={setNodeRef} style={style} bg="purple.50" _hover={{ bg: 'blue.50', cursor: 'pointer' }}>
       {editable && (
         <Td
           px={3}
@@ -110,6 +110,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
                 {...listeners}
               />
             </Tooltip>
+            <Box display="inline-flex" alignItems="center">
             <Tooltip label="Usuń opcję">
               <IconButton
                 aria-label="Usuń opcję"
@@ -120,6 +121,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
                 onClick={() => removeOptionFromItem(groupId, item.id, option.id)}
               />
             </Tooltip>
+            </Box>
           </HStack>
         </Td>
       )}

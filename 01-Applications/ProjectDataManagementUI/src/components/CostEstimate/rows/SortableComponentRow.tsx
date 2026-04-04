@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox } from '@chakra-ui/react';
+import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox, Box } from '@chakra-ui/react';
 import { GripVertical, Trash2, GitBranch, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -115,7 +115,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
 
   return (
     <React.Fragment>
-      <Tr ref={setNodeRef} style={style} bg="green.50" _hover={{ bg: 'green.100' }}>
+      <Tr ref={setNodeRef} style={style} bg="green.50" _hover={{ bg: 'blue.50', cursor: 'pointer' }}>
         {/* Akcje komponentu */}
         {editable && (
           <Td
@@ -141,6 +141,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
                   {...listeners}
                 />
               </Tooltip>
+              <Box display="inline-flex" alignItems="center" gap={1}>
               <Tooltip label="Usuń komponent">
                 <IconButton
                   aria-label="Usuń komponent"
@@ -163,6 +164,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
                   />
                 </Tooltip>
               )}
+              </Box>
             </HStack>
           </Td>
         )}

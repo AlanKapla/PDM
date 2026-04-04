@@ -134,6 +134,137 @@ namespace CQRS.WorkSchedules.Shared
 
             return projectMembers.Count == allUserIds.Count;
         }
+
+        /// <summary>
+        /// Builds a lookup map of all works from the stage tree, keyed by both DbId and TempId.
+        /// </summary>
+        public static Dictionary<Guid, WorkScheduleWorkDto> BuildWorkRefMap(IEnumerable<WorkScheduleStageDto> stages)
+        {
+            var map = new Dictionary<Guid, WorkScheduleWorkDto>();
+            foreach (var work in FlattenStages(stages).Where(s => s.Works != null).SelectMany(s => s.Works!))
+            {
+                if (work.Id.HasValue) map[work.Id.Value] = work;
+                if (work.TempId.HasValue) map[work.TempId.Value] = work;
+            }
+            return map;
+        }
+
+        /// <summary>
+        /// Detects a cycle in the dependency graph built from the provided dependency DTOs.
+        /// Only works visible in <paramref name="workMap"/> are included in the check.
+        /// </summary>
+        public static bool HasDependencyCycle(
+            IEnumerable<WorkScheduleWorkDependencyDto> dependencies,
+            Dictionary<Guid, WorkScheduleWorkDto> workMap)
+        {
+            var adjacency = new Dictionary<Guid, HashSet<Guid>>();
+
+            foreach (var dep in dependencies)
+            {
+                Guid? predKey = ResolveCanonicalKey(dep.PredecessorDbId, dep.PredecessorTempId, workMap);
+                Guid? succKey = ResolveCanonicalKey(dep.SuccessorDbId, dep.SuccessorTempId, workMap);
+                if (!predKey.HasValue || !succKey.HasValue) continue;
+
+                if (!adjacency.TryGetValue(predKey.Value, out var set))
+                {
+                    set = new HashSet<Guid>();
+                    adjacency[predKey.Value] = set;
+                }
+                set.Add(succKey.Value);
+            }
+
+            var visited = new HashSet<Guid>();
+            var inStack = new HashSet<Guid>();
+
+            bool HasCycle(Guid node)
+            {
+                if (inStack.Contains(node)) return true;
+                if (visited.Contains(node)) return false;
+                visited.Add(node);
+                inStack.Add(node);
+                if (adjacency.TryGetValue(node, out var successors))
+                {
+                    foreach (var succ in successors)
+                        if (HasCycle(succ)) return true;
+                }
+                inStack.Remove(node);
+                return false;
+            }
+
+            return adjacency.Keys.Any(n => !visited.Contains(n) && HasCycle(n));
+        }
+
+        /// <summary>
+        /// Checks whether any dependency conflicts with the periods of the referenced works.
+        /// Only validates if both works in the dependency have at least one period defined.
+        /// </summary>
+        public static bool HasPeriodDependencyConflict(
+            IEnumerable<WorkScheduleWorkDependencyDto> dependencies,
+            Dictionary<Guid, WorkScheduleWorkDto> workMap)
+        {
+            foreach (var dep in dependencies)
+            {
+                var predWork = ResolveWork(dep.PredecessorDbId, dep.PredecessorTempId, workMap);
+                var succWork = ResolveWork(dep.SuccessorDbId, dep.SuccessorTempId, workMap);
+
+                if (predWork?.Periods == null || predWork.Periods.Count == 0) continue;
+                if (succWork?.Periods == null || succWork.Periods.Count == 0) continue;
+
+                if (DependencyConflictsWithPeriods(dep, predWork.Periods, succWork.Periods))
+                    return true;
+            }
+            return false;
+        }
+
+        private static Guid? ResolveCanonicalKey(Guid? dbId, Guid? tempId, Dictionary<Guid, WorkScheduleWorkDto> workMap)
+        {
+            if (dbId.HasValue && workMap.TryGetValue(dbId.Value, out var w1)) return w1.Id ?? w1.TempId;
+            if (tempId.HasValue && workMap.TryGetValue(tempId.Value, out var w2)) return w2.Id ?? w2.TempId;
+            return null;
+        }
+
+        private static WorkScheduleWorkDto? ResolveWork(Guid? dbId, Guid? tempId, Dictionary<Guid, WorkScheduleWorkDto> workMap)
+        {
+            if (dbId.HasValue && workMap.TryGetValue(dbId.Value, out var w1)) return w1;
+            if (tempId.HasValue && workMap.TryGetValue(tempId.Value, out var w2)) return w2;
+            return null;
+        }
+
+        private static bool DependencyConflictsWithPeriods(
+            WorkScheduleWorkDependencyDto dep,
+            List<WorkScheduleWorkPeriodDto> predPeriods,
+            List<WorkScheduleWorkPeriodDto> succPeriods)
+        {
+            return dep.DependencyType switch
+            {
+                WorkDependencyType.FinishToStart =>
+                    succPeriods.Min(p => p.StartDate) < predPeriods.Max(p => p.EndDate).AddDays(dep.LagDays),
+                WorkDependencyType.StartToStart =>
+                    succPeriods.Min(p => p.StartDate) < predPeriods.Min(p => p.StartDate).AddDays(dep.LagDays),
+                WorkDependencyType.FinishToFinish =>
+                    succPeriods.Max(p => p.EndDate) < predPeriods.Max(p => p.EndDate).AddDays(dep.LagDays),
+                WorkDependencyType.StartToFinish =>
+                    succPeriods.Max(p => p.EndDate) < predPeriods.Min(p => p.StartDate).AddDays(dep.LagDays),
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// Builds the entity period list for a work item, propagating work-level closure to all periods.
+        /// Returns the computed periods and the resolved IsWorkClosed flag.
+        /// </summary>
+        public static (List<WorkScheduleStageWorkPeriod> Periods, bool IsWorkClosed) BuildPeriods(WorkScheduleWorkDto workDto)
+        {
+            List<WorkScheduleStageWorkPeriod> periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
+            {
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                IsClosed = workDto.IsClosed || p.IsClosed
+            }).ToList() ?? new List<WorkScheduleStageWorkPeriod>();
+
+            bool isWorkClosed = workDto.IsClosed || (periods.Count > 0 && periods.All(p => p.IsClosed));
+            return (periods, isWorkClosed);
+        }
     }
 
     #endregion
@@ -151,6 +282,7 @@ namespace CQRS.WorkSchedules.Shared
             ConfigureNameValidation();
             ConfigureProjectMembersValidation(projectMemberRepo);
             ConfigureStagesValidation();
+            ConfigureDependenciesValidation();
         }
 
         #region Configuration Methods
@@ -190,6 +322,81 @@ namespace CQRS.WorkSchedules.Shared
                 .When(x => GetStagesSelectorFunc()(x) != null);
         }
 
+        private void ConfigureDependenciesValidation()
+        {
+            RuleForEach(GetDependenciesSelector())
+                .SetValidator(new WorkScheduleWorkDependencyDtoValidator())
+                .When(x =>
+                {
+                    var deps = GetDependenciesSelectorFunc()(x);
+                    return deps != null && deps.Any();
+                });
+
+            RuleFor(x => x)
+                .Must(cmd =>
+                {
+                    var deps = GetDependenciesSelectorFunc()(cmd)?.ToList();
+                    if (deps == null || deps.Count == 0) return true;
+                    var stages = GetStagesSelectorFunc()(cmd);
+                    var workMap = stages != null
+                        ? WorkScheduleValidationHelper.BuildWorkRefMap(stages)
+                        : new Dictionary<Guid, WorkScheduleWorkDto>();
+
+                    foreach (var dep in deps)
+                    {
+                        bool predHasTempRef = dep.PredecessorTempId.HasValue && !dep.PredecessorDbId.HasValue;
+                        bool succHasTempRef = dep.SuccessorTempId.HasValue && !dep.SuccessorDbId.HasValue;
+
+                        if (predHasTempRef && !workMap.ContainsKey(dep.PredecessorTempId!.Value))
+                            return false;
+                        if (succHasTempRef && !workMap.ContainsKey(dep.SuccessorTempId!.Value))
+                            return false;
+                    }
+                    return true;
+                })
+                .WithMessage("One or more dependency TempId references do not match any work item in the provided stages")
+                .When(x =>
+                {
+                    var deps = GetDependenciesSelectorFunc()(x);
+                    return deps != null && deps.Any();
+                });
+
+            RuleFor(x => x)
+                .Must(cmd =>
+                {
+                    var deps = GetDependenciesSelectorFunc()(cmd)?.ToList();
+                    if (deps == null || deps.Count == 0) return true;
+                    var stages = GetStagesSelectorFunc()(cmd);
+                    var workMap = stages != null
+                        ? WorkScheduleValidationHelper.BuildWorkRefMap(stages)
+                        : new Dictionary<Guid, WorkScheduleWorkDto>();
+                    return !WorkScheduleValidationHelper.HasDependencyCycle(deps, workMap);
+                })
+                .WithMessage("Dependencies contain a circular reference")
+                .When(x =>
+                {
+                    var deps = GetDependenciesSelectorFunc()(x);
+                    return deps != null && deps.Any();
+                });
+
+            RuleFor(x => x)
+                .Must(cmd =>
+                {
+                    var deps = GetDependenciesSelectorFunc()(cmd)?.ToList();
+                    if (deps == null || deps.Count == 0) return true;
+                    var stages = GetStagesSelectorFunc()(cmd);
+                    if (stages == null) return true;
+                    var workMap = WorkScheduleValidationHelper.BuildWorkRefMap(stages);
+                    return !WorkScheduleValidationHelper.HasPeriodDependencyConflict(deps, workMap);
+                })
+                .WithMessage("One or more work dependencies conflict with the defined periods")
+                .When(x =>
+                {
+                    var deps = GetDependenciesSelectorFunc()(x);
+                    return deps != null && deps.Any();
+                });
+        }
+
         #endregion
 
         #region Abstract Selectors
@@ -218,6 +425,16 @@ namespace CQRS.WorkSchedules.Shared
         /// Gets the function for selecting Stages from the command (for ValidateAssignedUsersAreProjectMembers)
         /// </summary>
         protected abstract Func<TCommand, IEnumerable<WorkScheduleStageDto>?> GetStagesSelectorFunc();
+
+        /// <summary>
+        /// Gets the expression for selecting Dependencies from the command (for RuleForEach)
+        /// </summary>
+        protected abstract Expression<Func<TCommand, IEnumerable<WorkScheduleWorkDependencyDto>?>> GetDependenciesSelector();
+
+        /// <summary>
+        /// Gets the function for selecting Dependencies from the command (for cross-dependency validation)
+        /// </summary>
+        protected abstract Func<TCommand, IEnumerable<WorkScheduleWorkDependencyDto>?> GetDependenciesSelectorFunc();
 
         #endregion
     }
@@ -338,6 +555,37 @@ namespace CQRS.WorkSchedules.Shared
             RuleFor(x => x.Content)
                 .NotEmpty().WithMessage("Comment content is required")
                 .MaximumLength(2000).WithMessage("Comment content cannot exceed 2000 characters");
+        }
+    }
+
+    /// <summary>
+    /// Structural validator for a single WorkScheduleWorkDependencyDto.
+    /// Cross-dependency rules (cycle detection, period conflicts) are validated at the command level.
+    /// </summary>
+    public class WorkScheduleWorkDependencyDtoValidator : AbstractValidator<WorkScheduleWorkDependencyDto>
+    {
+        public WorkScheduleWorkDependencyDtoValidator()
+        {
+            RuleFor(x => x)
+                .Must(d => d.PredecessorDbId.HasValue || d.PredecessorTempId.HasValue)
+                .WithMessage("A dependency must specify either PredecessorDbId or PredecessorTempId");
+
+            RuleFor(x => x)
+                .Must(d => d.SuccessorDbId.HasValue || d.SuccessorTempId.HasValue)
+                .WithMessage("A dependency must specify either SuccessorDbId or SuccessorTempId");
+
+            RuleFor(x => x)
+                .Must(d =>
+                {
+                    if (d.PredecessorDbId.HasValue && d.PredecessorDbId == d.SuccessorDbId) return false;
+                    if (d.PredecessorTempId.HasValue && d.PredecessorTempId == d.SuccessorTempId) return false;
+                    return true;
+                })
+                .WithMessage("A work item cannot be both predecessor and successor in the same dependency");
+
+            RuleFor(x => x.DependencyType)
+                .IsInEnum()
+                .WithMessage("Invalid dependency type");
         }
     }
 

@@ -29,11 +29,16 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
-import type { EditableWork } from "../types/workSchedule.types";
+import type { EditableWork, WorkScheduleWorkDependencyWeb } from "../types/workSchedule.types";
+import { checkDependencyViolation, getWorkEffectiveDates } from "../utils/workScheduleDateConstraints";
+
+const DEP_TYPE_SHORT: Record<number, string> = { 0: 'FS', 1: 'SS', 2: 'FF', 3: 'SF' };
 
 interface Member {
   userId: string;
-  userName: string;
+  email: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface WorkDetailsModalProps {
@@ -44,6 +49,9 @@ interface WorkDetailsModalProps {
   workScheduleId: string;
   work: EditableWork | null;
   members?: Member[];
+  dependencies?: WorkScheduleWorkDependencyWeb[];
+  allWorks?: Array<{ workId: string; label: string }>;
+  workDateRanges?: Map<string, { startDate?: string; endDate?: string }>;
   onWorkUpdated?: () => void;
 }
 
@@ -61,6 +69,9 @@ export default function WorkDetailsModal({
   workScheduleId,
   work,
   members = [],
+  dependencies,
+  allWorks,
+  workDateRanges,
   onWorkUpdated,
 }: WorkDetailsModalProps) {
   const toast = useToast();
@@ -70,6 +81,12 @@ export default function WorkDetailsModal({
   const [submitting, setSubmitting] = useState(false);
 
   const borderColor = useColorModeValue("gray.200", "gray.700");
+
+  const getDisplayName = (m: Member) =>
+    [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email;
+
+  const getWorkName = (workId: string) =>
+    allWorks?.find(w => w.workId === workId)?.label ?? workId;
 
   useEffect(() => {
     if (isOpen && work) {
@@ -145,6 +162,27 @@ export default function WorkDetailsModal({
   const handleSubmit = async () => {
     if (!work) return;
 
+    // Walidacja zgodności nowych okresów z zależnościami (ostrzeżenia, nie blokuje zapisu)
+    const depsForThisWork = (dependencies ?? []).filter(
+      d => d.predecessorWorkId === work.id || d.successorWorkId === work.id
+    );
+    if (depsForThisWork.length > 0 && periods.length > 0) {
+      const newWorkDates = getWorkEffectiveDates(periods);
+      const updatedRanges = new Map(workDateRanges ?? []);
+      updatedRanges.set(work.id, newWorkDates);
+      for (const dep of depsForThisWork) {
+        const violation = checkDependencyViolation(
+          { predecessorId: dep.predecessorWorkId, successorId: dep.successorWorkId, dependencyType: dep.dependencyType, lagDays: dep.lagDays },
+          updatedRanges,
+          getWorkName(dep.predecessorWorkId),
+          getWorkName(dep.successorWorkId)
+        );
+        if (violation) {
+          toast({ title: 'Naruszenie zależności', description: violation, status: 'warning', duration: 8000, isClosable: true });
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
       const scheduleResponse = await projectApi.getWorkSchedule(tenantId, projectId, workScheduleId);
@@ -194,6 +232,18 @@ export default function WorkDetailsModal({
       const command = {
         name: schedule.name,
         stages: schedule.stages.map(mapStage),
+        dependencies: (schedule.dependencies ?? [])
+          .filter((dep: any) => dep.predecessorWorkId && dep.successorWorkId && dep.predecessorWorkId !== dep.successorWorkId)
+          .map((dep: any) => {
+            const isNewPred = String(dep.predecessorWorkId).startsWith('temp-');
+            const isNewSucc = String(dep.successorWorkId).startsWith('temp-');
+            return {
+              ...(isNewPred ? { predecessorTempId: dep.predecessorWorkId.slice(5) } : { predecessorDbId: dep.predecessorWorkId }),
+              ...(isNewSucc ? { successorTempId: dep.successorWorkId.slice(5) } : { successorDbId: dep.successorWorkId }),
+              dependencyType: dep.dependencyType,
+              lagDays: dep.lagDays,
+            };
+          }),
       };
 
       await projectApi.updateWorkSchedule(tenantId, projectId, workScheduleId, command);
@@ -250,6 +300,7 @@ export default function WorkDetailsModal({
                     borderRadius="md"
                     borderColor={borderColor}
                     flexWrap="wrap"
+                    _dark={{ borderColor: "gray.600" }}
                   >
                     <Text fontSize="xs" fontWeight="bold" minW="18px" color="gray.500">{idx + 1}.</Text>
                     <VStack align="flex-start" spacing={1} flex={1}>
@@ -301,6 +352,32 @@ export default function WorkDetailsModal({
 
             <Divider />
 
+            {/* Zależności — podgląd poprzedników i następników */}
+            {(dependencies ?? []).some(d => d.predecessorWorkId === work.id || d.successorWorkId === work.id) && (
+              <>
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="bold">Zależności</FormLabel>
+                  <VStack align="stretch" spacing={1}>
+                    {(dependencies ?? []).filter(d => d.successorWorkId === work.id).map(dep => (
+                      <HStack key={dep.id} spacing={2}>
+                        <Badge colorScheme="blue" variant="subtle" fontSize="xs">← {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
+                        <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.predecessorWorkId)}</Text>
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">+{dep.lagDays}d</Text>}
+                      </HStack>
+                    ))}
+                    {(dependencies ?? []).filter(d => d.predecessorWorkId === work.id).map(dep => (
+                      <HStack key={dep.id} spacing={2}>
+                        <Badge colorScheme="orange" variant="subtle" fontSize="xs">→ {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
+                        <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.successorWorkId)}</Text>
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">+{dep.lagDays}d</Text>}
+                      </HStack>
+                    ))}
+                  </VStack>
+                </FormControl>
+                <Divider />
+              </>
+            )}
+
             {/* Osoby przypisane */}
             {members.length > 0 && (
               <>
@@ -311,7 +388,7 @@ export default function WorkDetailsModal({
                       const isAssigned = assignedUserIds.includes(member.userId);
                       return (
                         <WrapItem key={member.userId}>
-                          <Tooltip label={isAssigned ? `Odznacz ${member.userName}` : `Przypisz ${member.userName}`}>
+                          <Tooltip label={isAssigned ? `Odznacz ${getDisplayName(member)}` : `Przypisz ${getDisplayName(member)}`}>
                             <HStack
                               spacing={2}
                               px={3}
@@ -325,9 +402,9 @@ export default function WorkDetailsModal({
                               _hover={{ bg: isAssigned ? "blue.100" : "gray.50" }}
                               transition="all 0.15s"
                             >
-                              <Avatar size="2xs" name={member.userName} />
+                              <Avatar size="2xs" name={getDisplayName(member)} />
                               <Text fontSize="xs" fontWeight={isAssigned ? "semibold" : "normal"} color={isAssigned ? "blue.700" : undefined}>
-                                {member.userName}
+                                {getDisplayName(member)}
                               </Text>
                               {isAssigned && <Badge colorScheme="blue" fontSize="2xs" variant="solid">✓</Badge>}
                             </HStack>

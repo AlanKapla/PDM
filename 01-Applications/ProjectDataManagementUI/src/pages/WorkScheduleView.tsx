@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -29,18 +29,42 @@ import {
   Input,
   Wrap,
   WrapItem,
+  Select,
+  Grid,
+  GridItem,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
 } from "@chakra-ui/react";
 import "./WorkScheduleView.css";
-import { ArrowLeft, Edit, Clock, User, AlertTriangle, ChevronDown, Plus, Trash2, RefreshCw, FileSpreadsheet, MessageSquare } from "lucide-react";
+import { ArrowLeft, ArrowRight, Edit, Clock, User, AlertTriangle, ChevronDown, Plus, Trash2, RefreshCw, FileSpreadsheet, MessageSquare } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import TimelineToolbar from "../components/TimelineToolbar";
+import WorkScheduleToolbar from "../components/WorkScheduleToolbar";
+import ScheduleScaleToolbar from "../components/ScheduleScaleToolbar";
 import { projectApi } from "../api/projectApi";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import WorkDetailsModal from "../components/WorkDetailsModal";
 import { AuthContext } from "../context/AuthContext";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
-import type { WorkScheduleDetailsWeb, EditableComment, EditableWork, EditableStage, UpdateStageDto, UpdateWorkDto } from "../types/workSchedule.types";
+import type { WorkScheduleDetailsWeb, EditableComment, EditableWork, EditableStage, UpdateStageDto, UpdateWorkDto, WorkScheduleWorkDependencyWeb, WorkScheduleWorkDependencyDto } from "../types/workSchedule.types";
+import {
+  getWorkEffectiveDates,
+  checkDependencyViolation,
+  cascadeAutoAdjust,
+  type GenericDependency,
+} from "../utils/workScheduleDateConstraints";
 import { useTimelineData, type TimeScale } from "../hooks/useTimelineData";
+
+// Krótkie etykiety typów zależności do wyświetlenia na timeline
+const DEP_TYPE_SHORT: Record<number, string> = { 0: 'FS', 1: 'SS', 2: 'FF', 3: 'SF' };
+const DEP_TYPE_LABEL: Record<number, string> = {
+  0: 'Koniec → Start',
+  1: 'Start → Start',
+  2: 'Koniec → Koniec',
+  3: 'Start → Koniec',
+};
 
 // Spłaszcza drzewo etapów do płaskiej listy z informacją o głębokości
 const flattenStagesToRows = (stages: EditableStage[], depth: number = 0): Array<{ stage: EditableStage; depth: number }> =>
@@ -113,14 +137,43 @@ function validateStagesTree(stages: EditableStage[]): string | null {
   return null;
 }
 
-// Buduje rekurencyjne polecenie aktualizacji etapu
+// Buduje payload zależności do API — filtruje niepodpane (puste ID lub ten sam zakres z obu stron).
+// Działa zarówno dla istniejących (pierwsze ładowanie z DB) jak i nowo dodanych inline.
+// Uwaga: pola predecessorDbId/successorDbId używane ponieważ selektory w panelu inline
+// oferują tylko zakrsy z realnym DB ID.
+const buildDependenciesPayload = (
+  dependencies: WorkScheduleWorkDependencyWeb[] | undefined
+): WorkScheduleWorkDependencyDto[] =>
+  (dependencies ?? [])
+    .filter(dep =>
+      dep.predecessorWorkId &&
+      dep.successorWorkId &&
+      dep.predecessorWorkId !== dep.successorWorkId
+    )
+    .map(dep => {
+      const isNewPred = String(dep.predecessorWorkId).startsWith('temp-');
+      const isNewSucc = String(dep.successorWorkId).startsWith('temp-');
+      return {
+        // Nowe zakresy (temp-) → predecessorTempId/successorTempId (UUID po prefiksie "temp-")
+        ...(isNewPred
+          ? { predecessorTempId: dep.predecessorWorkId.slice(5) }
+          : { predecessorDbId: dep.predecessorWorkId }),
+        ...(isNewSucc
+          ? { successorTempId: dep.successorWorkId.slice(5) }
+          : { successorDbId: dep.successorWorkId }),
+        dependencyType: dep.dependencyType,
+        lagDays: dep.lagDays,
+      };
+    });
+
+// Buduje polecenie aktualizacji etapu
 const mapStageToUpdateCommand = (stage: EditableStage): UpdateStageDto => ({
   // Pomijaj tymczasowe ID nowo dodanych etapów/prac — backend sam je nada
   ...(stage.id && !String(stage.id).startsWith('temp-') ? { id: stage.id } : {}),
   name: stage.name,
   order: stage.order,
   works: (stage.works ?? []).map((work): UpdateWorkDto => ({
-    ...(work.id && !String(work.id).startsWith('temp-') ? { id: work.id } : {}),
+    ...(work.id && !String(work.id).startsWith('temp-') ? { id: work.id } : { tempId: work.id.slice(5) }),
     name: work.name,
     order: work.order,
     colorRgb: work.colorRgb,
@@ -176,11 +229,80 @@ export default function WorkScheduleView() {
     todayColumnRef, scrollContainerRef, scrollToToday,
   } = useTimelineData({ isMobile });
 
+  // Mapa workId → nazwa zakresu (do wyświetlania etykiet zależności)
+  const workNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    const traverse = (stages: EditableStage[]) => {
+      for (const s of stages) {
+        for (const w of s.works ?? []) {
+          if (w.id && !String(w.id).startsWith('temp-')) map.set(w.id, w.name);
+        }
+        traverse(s.childStages ?? []);
+      }
+    };
+    traverse(editableSchedule?.stages ?? []);
+    return map;
+  }, [editableSchedule?.stages]);
+
+  // Płaska lista prac z realnym DB ID — do selectora zależności w trybie inline
+  const allDbWorks = React.useMemo(() => {
+    const works: Array<{ workId: string; label: string; isNew: boolean }> = [];
+    const traverse = (stageList: EditableStage[], pathLabel: string = '') => {
+      let idx = 0;
+      for (const s of [...stageList].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
+        const label = pathLabel ? `${pathLabel}.${idx + 1}` : `${idx + 1}`;
+        const stageName = s.name || `Etap ${label}`;
+        for (const w of (s.works ?? [])) {
+          if (w.id) {
+            const isNew = String(w.id).startsWith('temp-');
+            const suffix = isNew ? ' (niezapisany)' : '';
+            works.push({ workId: w.id, label: `${stageName} / ${w.name || '(bez nazwy)'}${suffix}`, isNew });
+          }
+        }
+        traverse(s.childStages ?? [], label);
+        idx++;
+      }
+    };
+    traverse(editableSchedule?.stages ?? []);
+    return works;
+  }, [editableSchedule?.stages]);
+
+  // Mapa: workId → efektywne daty (min start, max end) dla widoku inline
+  const viewWorkDateRanges = React.useMemo(() => {
+    const map = new Map<string, { startDate?: string; endDate?: string }>();
+    const traverse = (stageList: EditableStage[]) => {
+      for (const s of stageList) {
+        for (const w of s.works ?? []) {
+          if (w.id) map.set(w.id, getWorkEffectiveDates(w.periods ?? []));
+        }
+        traverse(s.childStages ?? []);
+      }
+    };
+    traverse(editableSchedule?.stages ?? []);
+    return map;
+  }, [editableSchedule?.stages]);
+
+  // Zależności w formacie generycznym (DB ID jako identyfikator)
+  const viewGenericDependencies = React.useMemo<GenericDependency[]>(
+    () =>
+      (editableSchedule?.dependencies ?? [])
+        .filter(d => d.predecessorWorkId && d.successorWorkId)
+        .map(d => ({
+          predecessorId: d.predecessorWorkId,
+          successorId: d.successorWorkId,
+          dependencyType: d.dependencyType,
+          lagDays: d.lagDays,
+        })),
+    [editableSchedule?.dependencies]
+  );
+
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const expiredBg = useColorModeValue("red.50", "red.900");
   const todayBg = useColorModeValue("blue.100", "blue.800");
+  const depAltBg = useColorModeValue("gray.50", "gray.750");
+  const depInvalidBg = useColorModeValue("orange.50", "orange.900");
   const colors = {
     theadBg: useColorModeValue("gray.50", "gray.700"),
     stageBg: useColorModeValue("blue.50", "blue.900"),
@@ -329,6 +451,7 @@ export default function WorkScheduleView() {
       const command = {
         name: updatedSchedule.name,
         stages: updatedSchedule.stages.map((stage: any) => mapStageToUpdateCommand(stage)),
+        dependencies: buildDependenciesPayload(updatedSchedule.dependencies),
       };
 
       const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
@@ -391,6 +514,7 @@ export default function WorkScheduleView() {
       const command = {
         name: updatedSchedule.name,
         stages: updatedSchedule.stages.map((stage: any) => mapStageToUpdateCommand(stage)),
+        dependencies: buildDependenciesPayload(updatedSchedule.dependencies),
       };
 
       const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
@@ -401,7 +525,7 @@ export default function WorkScheduleView() {
 
       toast({
         title: "Sukces",
-        description: "Status okresu został zaktualizowany",
+        description: "Status zakresu został zaktualizowany",
         status: "success",
         duration: 2000,
       });
@@ -476,14 +600,15 @@ export default function WorkScheduleView() {
 
     try {
       setIsSyncing(true);
-      const response = await projectApi.updateWorkSchedule(
+      await projectApi.syncWorkScheduleWithEstimate(
         user.activeTenantId,
         projectId,
-        workScheduleId,
-        { name: schedule.name }
+        workScheduleId
       );
-      setSchedule(response.data);
-      setEditableSchedule(response.data);
+      // Odśwież harmonogram po synchronizacji
+      const refreshed = await projectApi.getWorkSchedule(user.activeTenantId, projectId, workScheduleId);
+      setSchedule(refreshed.data);
+      setEditableSchedule(refreshed.data);
       setIsDirty(false);
       toast({
         title: "Synchronizacja zakończona",
@@ -544,7 +669,7 @@ export default function WorkScheduleView() {
     const updated = JSON.parse(JSON.stringify(editableSchedule));
     mutateStageInTree(updated.stages, stageId, (s) => {
       s.works.push({
-        id: `temp-work-${Date.now()}`,
+        id: `temp-${crypto.randomUUID()}`,
         name: "",
         order: s.works.length,
         colorRgb: "#3182CE",
@@ -563,6 +688,12 @@ export default function WorkScheduleView() {
     if (!editableSchedule) return;
     const updated = JSON.parse(JSON.stringify(editableSchedule));
     removeWorkFromViewTree(updated.stages, workId);
+    // Usuń zależności odwołujące się do usuniętego zakresu
+    if (updated.dependencies) {
+      updated.dependencies = updated.dependencies.filter(
+        (d: WorkScheduleWorkDependencyWeb) => d.predecessorWorkId !== workId && d.successorWorkId !== workId
+      );
+    }
     setEditableSchedule(updated);
     setIsDirty(true);
   };
@@ -655,6 +786,36 @@ export default function WorkScheduleView() {
     }
 
     work.periods = newPeriods;
+
+    // Walidacja ograniczeń dat wynikających z zależności
+    // Sprawdzamy czy NOWY zakres dat (po toggle) nie narusza żadnej zależności
+    if (viewGenericDependencies.length > 0) {
+      const newEffective = getWorkEffectiveDates(newPeriods);
+      // Tymczasowa mapa z nowymi datami tej pracy — reszta bez zmian
+      const tempDateRanges = new Map(viewWorkDateRanges);
+      tempDateRanges.set(workId, newEffective);
+
+      // Sprawdź wszystkie zależności, w których bierze udział ta praca
+      const relatedDeps = viewGenericDependencies.filter(
+        d => d.predecessorId === workId || d.successorId === workId
+      );
+      for (const dep of relatedDeps) {
+        const predName = workNameMap.get(dep.predecessorId) ?? 'Poprzednik';
+        const succName = workNameMap.get(dep.successorId) ?? 'Następnik';
+        const violation = checkDependencyViolation(dep, tempDateRanges, predName, succName);
+        if (violation) {
+          toast({
+            title: 'Zablokowane — naruszenie zależności',
+            description: violation,
+            status: 'warning',
+            duration: 5000,
+            isClosable: true,
+          });
+          return; // Nie aktualizuj stanu — cofnij toggle
+        }
+      }
+    }
+
     setEditableSchedule(updated);
     setIsDirty(true);
   };
@@ -676,6 +837,100 @@ export default function WorkScheduleView() {
     setIsDirty(true);
   };
 
+  // ——— Inline editing: zarządzanie zależnościami ———
+
+  const addInlineDep = () => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    if (!updated.dependencies) updated.dependencies = [];
+    updated.dependencies.push({
+      id: `temp-dep-${Date.now()}`,
+      predecessorWorkId: '',
+      successorWorkId: '',
+      dependencyType: 0,
+      lagDays: 0,
+    } as WorkScheduleWorkDependencyWeb);
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const updateInlineDep = (depId: string, changes: Partial<WorkScheduleWorkDependencyWeb>) => {
+    if (!editableSchedule) return;
+    const updated: typeof editableSchedule = JSON.parse(JSON.stringify(editableSchedule));
+    const dep = (updated.dependencies ?? []).find((d: WorkScheduleWorkDependencyWeb) => d.id === depId);
+    if (dep) Object.assign(dep, changes);
+
+    // Auto-shift kaskadowy (Tryb A) gdy zależność jest kompletna
+    const completeDep: WorkScheduleWorkDependencyWeb | undefined = dep;
+    if (completeDep?.predecessorWorkId && completeDep?.successorWorkId) {
+      // Zbuduj mapy potrzebne do kaskady na podstawie aktualnych stages (sprzed zapisu)
+      const periodsMap = new Map<string, typeof updated.stages[0]['works'][0]['periods']>();
+      const traversePeriods = (stageList: EditableStage[]) => {
+        for (const s of stageList) {
+          for (const w of s.works ?? []) {
+            if (w.id) periodsMap.set(w.id, w.periods ?? []);
+          }
+          traversePeriods(s.childStages ?? []);
+        }
+      };
+      traversePeriods(updated.stages);
+
+      const allGenericDeps: GenericDependency[] = (updated.dependencies ?? [])
+        .filter((d: WorkScheduleWorkDependencyWeb) => d.predecessorWorkId && d.successorWorkId)
+        .map((d: WorkScheduleWorkDependencyWeb) => ({
+          predecessorId: d.predecessorWorkId,
+          successorId: d.successorWorkId,
+          dependencyType: d.dependencyType,
+          lagDays: d.lagDays,
+        }));
+
+      const shifts = cascadeAutoAdjust(
+        [completeDep.predecessorWorkId],
+        allGenericDeps,
+        periodsMap,
+        workNameMap
+      );
+
+      if (shifts.size > 0) {
+        const applyShifts = (stageList: EditableStage[]): EditableStage[] =>
+          stageList.map(s => ({
+            ...s,
+            works: (s.works ?? []).map(w => {
+              if (!w.id) return w;
+              const shift = shifts.get(w.id);
+              return shift ? { ...w, periods: shift.periods as typeof w.periods } : w;
+            }),
+            childStages: applyShifts(s.childStages ?? []),
+          }));
+
+        updated.stages = applyShifts(updated.stages) as typeof updated.stages;
+
+        const shiftLines = Array.from(shifts.entries())
+          .map(([id, { shiftedBy }]) => `„${workNameMap.get(id) ?? id}" o ${shiftedBy} dni`)
+          .join(', ');
+
+        toast({
+          title: 'Daty przesunięte kaskadowo',
+          description: `Przesunięto: ${shiftLines}`,
+          status: 'info',
+          duration: 6000,
+          isClosable: true,
+        });
+      }
+    }
+
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
+  const removeInlineDep = (depId: string) => {
+    if (!editableSchedule) return;
+    const updated = JSON.parse(JSON.stringify(editableSchedule));
+    updated.dependencies = (updated.dependencies ?? []).filter((d: WorkScheduleWorkDependencyWeb) => d.id !== depId);
+    setEditableSchedule(updated);
+    setIsDirty(true);
+  };
+
   const handleSaveChanges = async () => {
     if (!editableSchedule || !user?.activeTenantId || !projectId || !workScheduleId) return;
 
@@ -683,6 +938,7 @@ export default function WorkScheduleView() {
       const command = {
         name: editableSchedule.name,
         stages: editableSchedule.stages.map((stage: any) => mapStageToUpdateCommand(stage)),
+        dependencies: buildDependenciesPayload(editableSchedule.dependencies),
       };
 
       const response = await projectApi.updateWorkSchedule(user.activeTenantId, projectId, workScheduleId, command);
@@ -833,154 +1089,51 @@ export default function WorkScheduleView() {
                       <Text>{schedule && formatDateTime(schedule.createdAt)}</Text>
                     </HStack>
                     {schedule?.costEstimateId && (
-                      <Badge colorScheme="orange" fontSize="xs">Powiązany z kosztorysem</Badge>
+                      <Badge colorScheme="gray" variant="subtle" fontSize="xs">Powiązany z kosztorysem</Badge>
                     )}
                   </HStack>
                 </VStack>
               </HStack>
-              <div className="workschedule-actions">
-
-                {/* === NAWIGACJA: linki do powiązanych zasobów === */}
-                {schedule?.costEstimateId && (
-                  <Tooltip label="Przejdź do powiązanego kosztorysu">
-                    <Button
-                      leftIcon={<FileSpreadsheet size={isMobile ? 12 : 14} />}
-                      colorScheme="orange"
-                      variant="ghost"
-                      size={isMobile ? "xs" : "sm"}
-                      onClick={() => navigate(`/projects/${projectId}/cost-estimates/${schedule.costEstimateId}`)}
-                    >
-                      Kosztorys
-                    </Button>
-                  </Tooltip>
-                )}
-
-                {!isMobile && schedule?.costEstimateId && (
-                  <Divider orientation="vertical" height="20px" alignSelf="center" />
-                )}
-
-                {/* === WIDOK: przełączniki widoczności === */}
-                <Tooltip label={showComments ? "Ukryj komentarze do prac" : "Pokaż komentarze do prac"}>
-                  <Button
-                    leftIcon={<MessageSquare size={isMobile ? 12 : 14} />}
-                    size={isMobile ? "xs" : "sm"}
-                    variant={showComments ? "solid" : "ghost"}
-                    colorScheme="purple"
-                    onClick={() => setShowComments(!showComments)}
-                  >
-                    Komentarze
-                  </Button>
-                </Tooltip>
-
-                {!isMobile && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
-                  <Divider orientation="vertical" height="20px" alignSelf="center" />
-                )}
-
-                {/* === EDYCJA: akcje modyfikujące harmonogram === */}
-                {!isEditing && schedule?.costEstimateId && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
-                  <Tooltip label="Aktualizuje strukturę etapów na podstawie aktualnych grup w kosztorysie">
-                    <IconButton
-                      aria-label="Synchronizuj z kosztorysem"
-                      icon={<RefreshCw size={isMobile ? 12 : 14} />}
-                      size={isMobile ? "xs" : "sm"}
-                      colorScheme="orange"
-                      variant="outline"
-                      onClick={handleSyncFromCostEstimate}
-                      isLoading={isSyncing}
-                    />
-                  </Tooltip>
-                )}
-
-                {/* Tryb edycji inline — dodawanie etapów */}
-                {isEditing && (
-                  <Button
-                    leftIcon={<Plus size={isMobile ? 12 : 14} />}
-                    colorScheme="blue"
-                    variant="outline"
-                    size={isMobile ? "xs" : "sm"}
-                    onClick={addStage}
-                  >
-                    Dodaj etap
-                  </Button>
-                )}
-
-                {(permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
-                  <>
-                    {!isEditing && (
-                      <Button
-                        leftIcon={<Edit size={isMobile ? 12 : 14} />}
-                        colorScheme="blue"
-                        variant="outline"
-                        size={isMobile ? "xs" : "sm"}
-                        onClick={handleEditMode}
-                      >
-                        Edytuj
-                      </Button>
-                    )}
-                    <Tooltip label={isEditing ? "Kliknij aby wyjść z trybu edycji inline" : "Włącz edycję inline — klikaj kafelki, edytuj nazwy, dodawaj etapy i zakresy"}>
-                      <Button
-                        leftIcon={<Edit size={isMobile ? 12 : 14} />}
-                        aria-label="Edycja inline"
-                        size={isMobile ? "xs" : "sm"}
-                        colorScheme={isEditing ? "blue" : "gray"}
-                        variant="outline"
-                        onClick={handleToggleInlineEdit}
-                      >
-                        {isEditing ? "Edycja inline ✓" : "Edycja inline"}
-                      </Button>
-                    </Tooltip>
-                  </>
-                )}
-
-                {/* === ZAPIS: widoczny gdy są niezapisane zmiany LUB trwa edycja inline === */}
-                {(isDirty || isEditing) && (permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit) && (
-                  <>
-                    {!isMobile && <Divider orientation="vertical" height="20px" alignSelf="center" />}
-                    <Button
-                      colorScheme="green"
-                      size={isMobile ? "xs" : "sm"}
-                      onClick={handleSaveAndExitEdit}
-                    >
-                      Zapisz
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      colorScheme="gray"
-                      size={isMobile ? "xs" : "sm"}
-                      onClick={handleCancelEdit}
-                    >
-                      Anuluj
-                    </Button>
-                  </>
-                )}
-
-              </div>
+              <WorkScheduleToolbar
+                hasCostEstimate={!!schedule?.costEstimateId}
+                showComments={showComments}
+                hideWeekends={hideWeekends}
+                isEditing={isEditing}
+                isDirty={isDirty}
+                isSyncing={isSyncing}
+                canEdit={permissions.mine.canEdit || permissions.all.canEdit || permissions.shared.canEdit}
+                onNavigateToCostEstimate={() => schedule?.costEstimateId && navigate(`/projects/${projectId}/cost-estimates/${schedule.costEstimateId}`)}
+                onToggleComments={() => setShowComments((v) => !v)}
+                onSyncFromCostEstimate={handleSyncFromCostEstimate}
+                onAddStage={addStage}
+                onEditMode={handleEditMode}
+                onToggleInlineEdit={handleToggleInlineEdit}
+                onSaveAndExitEdit={handleSaveAndExitEdit}
+                onCancelEdit={handleCancelEdit}
+                onToggleWeekends={toggleWeekends}
+                onScrollToToday={scrollToToday}
+                onExpandAll={expandAllStages}
+                onCollapseAll={collapseAllStages}
+              />
             </div>
           </HStack>
         </VStack>
 
-        {/* Controls */}
-        {!isMobile && (
-          <Box
-            p={4}
-            bg={cardBg}
-            borderWidth="1px"
-            borderColor={borderColor}
-            borderRadius="lg"
-          >
-            <TimelineToolbar
-              timeScale={timeScale}
-              setTimeScale={setTimeScale}
-              timeRangeMonths={timeRangeMonths}
-              setTimeRangeMonths={setTimeRangeMonths}
-              hideWeekends={hideWeekends}
-              toggleWeekends={toggleWeekends}
-              scrollToToday={scrollToToday}
-              onExpandAll={expandAllStages}
-              onCollapseAll={collapseAllStages}
-            />
-          </Box>
-        )}
+        {/* Skala i zakres czasu */}
+        <Box
+          p={3}
+          bg={cardBg}
+          borderWidth="1px"
+          borderColor={borderColor}
+          borderRadius="lg"
+        >
+          <ScheduleScaleToolbar
+            timeScale={timeScale}
+            setTimeScale={setTimeScale}
+            timeRangeMonths={timeRangeMonths}
+            setTimeRangeMonths={setTimeRangeMonths}
+          />
+        </Box>
 
         {/* Timeline View - Mobile only shows stage and description */}
         <Box
@@ -1179,11 +1332,11 @@ export default function WorkScheduleView() {
                                 <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
                               )}
                               {stage.costEstimateGroupId && (
-                                <Badge colorScheme="orange" fontSize="2xs" variant="subtle">Kosztorys</Badge>
+                                <Badge colorScheme="gray" fontSize="2xs" variant="outline">Kosztorys</Badge>
                               )}
                               <Badge colorScheme="gray" fontSize="2xs">Brak prac</Badge>
                               {isEditing && (
-                                <HStack spacing={1}>
+                                <HStack spacing={1} className="ws-row-actions">
                                   <Tooltip label="Dodaj zakres robót">
                                     <IconButton
                                       size="xs" icon={<Plus size={10} />} colorScheme="green" variant="ghost"
@@ -1274,6 +1427,8 @@ export default function WorkScheduleView() {
                           key={work.id}
                           bg={rowBg}
                           _hover={{ bg: hoverBg }}
+                          borderTopWidth={workIdx > 0 ? "1px" : undefined}
+                          borderTopColor={workIdx > 0 ? "gray.100" : undefined}
                           borderBottomWidth={!isLastStage && isLastWork ? "4px" : undefined}
                           borderBottomColor={!isLastStage && isLastWork ? "purple.500" : undefined}
                           display={!isExpanded && workIdx > 0 ? "none" : undefined}
@@ -1326,7 +1481,7 @@ export default function WorkScheduleView() {
                                     <Text fontWeight="bold" fontSize="sm">{stage.name}</Text>
                                   )}
                                   {stage.costEstimateGroupId && (
-                                    <Badge colorScheme="orange" fontSize="2xs" variant="subtle">Kosztorys</Badge>
+                                    <Badge colorScheme="gray" fontSize="2xs" variant="outline">Kosztorys</Badge>
                                   )}
                                   {minDate && maxDate && !isMobile && (
                                     <Text fontSize="2xs" color="gray.500">
@@ -1334,12 +1489,12 @@ export default function WorkScheduleView() {
                                     </Text>
                                   )}
                                   {!isExpanded && (
-                                    <Badge colorScheme="purple" fontSize="2xs">
+                                    <Badge colorScheme="gray" fontSize="2xs" variant="subtle">
                                       {sortedWorks.length} {sortedWorks.length === 1 ? 'praca' : sortedWorks.length < 5 ? 'prace' : 'prac'}
                                     </Badge>
                                   )}
                                   {isEditing && (
-                                    <HStack spacing={1}>
+                                    <HStack spacing={1} className="ws-row-actions">
                                       <Tooltip label="Dodaj zakres robót">
                                         <IconButton
                                           size="xs" icon={<Plus size={10} />} colorScheme="green" variant="ghost"
@@ -1377,14 +1532,17 @@ export default function WorkScheduleView() {
                           >
                             <VStack align="flex-start" spacing={1}>
                               <HStack spacing={2} width="100%" align="flex-start">
-                                <Checkbox
-                                  size="sm"
-                                  isChecked={work.isClosed}
-                                  onChange={() => toggleWorkClosed(work.id)}
-                                  colorScheme="green"
-                                  mt={1}
-                                  isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
-                                />
+                                <Tooltip label={work.isClosed ? "Oznacz jako aktywny" : "Oznacz zakres jako zakończony"} hasArrow placement="top" closeOnClick>
+                                  <Box as="span" display="inline-flex" mt={1}>
+                                    <Checkbox
+                                      size="sm"
+                                      isChecked={work.isClosed}
+                                      onChange={() => toggleWorkClosed(work.id)}
+                                      colorScheme="green"
+                                      isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
+                                    />
+                                  </Box>
+                                </Tooltip>
                                 <VStack align="flex-start" spacing={0} flex={1}>
                                   <HStack spacing={2}>
                                     {work.isClosed ? (
@@ -1434,13 +1592,17 @@ export default function WorkScheduleView() {
                                             {work.periods.length > 1 ? `${pIdx + 1}. ` : ''}
                                             {formatDate(period.startDate)} - {formatDate(period.endDate)}
                                           </Text>
-                                          <Checkbox
-                                            size="sm"
-                                            isChecked={period.isClosed}
-                                            onChange={() => togglePeriodClosed(work.id, period.id || pIdx)}
-                                            colorScheme="green"
-                                            isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
-                                          />
+                                          <Tooltip label={period.isClosed ? "Oznacz okres jako aktywny" : "Oznacz okres jako zakończony"} hasArrow placement="top" closeOnClick>
+                                            <Box as="span" display="inline-flex">
+                                              <Checkbox
+                                                size="sm"
+                                                isChecked={period.isClosed}
+                                                onChange={() => togglePeriodClosed(work.id, period.id || pIdx)}
+                                                colorScheme="green"
+                                                isDisabled={!permissions.mine.canEdit && !permissions.all.canEdit && !permissions.shared.canEdit}
+                                              />
+                                            </Box>
+                                          </Tooltip>
                                         </HStack>
                                       ))}
                                     </VStack>
@@ -1449,7 +1611,7 @@ export default function WorkScheduleView() {
                                   {work.assignees.length > 0 && !isEditing && (
                                     <HStack spacing={1} flexWrap="wrap" mt={0.5}>
                                       {work.assignees.map((assignee: any) => (
-                                        <Badge key={assignee.userId} colorScheme="purple" fontSize="2xs">
+                                        <Badge key={assignee.userId} colorScheme="gray" fontSize="2xs" variant="subtle">
                                           {assignee.userName}
                                         </Badge>
                                       ))}
@@ -1541,20 +1703,56 @@ export default function WorkScheduleView() {
                                       )}
                                     </VStack>
                                   )}
+
+                                  {/* Zależności — poprzednicy i następniki tego zakresu */}
+                                  {!isEditing && (() => {
+                                    const deps = editableSchedule?.dependencies ?? [];
+                                    const predecessors = deps.filter(d => d.successorWorkId === work.id);
+                                    const successors = deps.filter(d => d.predecessorWorkId === work.id);
+                                    if (predecessors.length === 0 && successors.length === 0) return null;
+                                    return (
+                                      <VStack align="flex-start" spacing={0.5} mt={0.5}>
+                                        {predecessors.map(dep => (
+                                          <Tooltip
+                                            key={dep.id}
+                                            label={`Zależy od: ${workNameMap.get(dep.predecessorWorkId) || dep.predecessorWorkId} — ${DEP_TYPE_LABEL[dep.dependencyType]}${dep.lagDays ? ` +${dep.lagDays}d` : ''}`}
+                                          >
+                                            <Badge colorScheme="gray" fontSize="2xs" variant="outline" cursor="default">
+                                              ← {DEP_TYPE_SHORT[dep.dependencyType]} {workNameMap.get(dep.predecessorWorkId) || '?'}
+                                              {dep.lagDays > 0 && ` +${dep.lagDays}d`}
+                                            </Badge>
+                                          </Tooltip>
+                                        ))}
+                                        {successors.map(dep => (
+                                          <Tooltip
+                                            key={dep.id}
+                                            label={`Blokuje: ${workNameMap.get(dep.successorWorkId) || dep.successorWorkId} — ${DEP_TYPE_LABEL[dep.dependencyType]}${dep.lagDays ? ` +${dep.lagDays}d` : ''}`}
+                                          >
+                                            <Badge colorScheme="gray" fontSize="2xs" variant="outline" cursor="default">
+                                              → {DEP_TYPE_SHORT[dep.dependencyType]} {workNameMap.get(dep.successorWorkId) || '?'}
+                                              {dep.lagDays > 0 && ` +${dep.lagDays}d`}
+                                            </Badge>
+                                          </Tooltip>
+                                        ))}
+                                      </VStack>
+                                    );
+                                  })()}
                                 </VStack>
                                 {isEditing && (
-                                  <Tooltip label="Usuń zakres robót">
-                                    <IconButton
-                                      size="xs"
-                                      icon={<Trash2 size={10} />}
-                                      colorScheme="red"
-                                      variant="ghost"
-                                      aria-label="Usuń zakres robót"
-                                      flexShrink={0}
-                                      mt={0.5}
-                                      onClick={(e) => { e.stopPropagation(); removeWork(work.id); }}
-                                    />
-                                  </Tooltip>
+                                  <Box className="ws-row-actions">
+                                    <Tooltip label="Usuń zakres robót">
+                                      <IconButton
+                                        size="xs"
+                                        icon={<Trash2 size={10} />}
+                                        colorScheme="red"
+                                        variant="ghost"
+                                        aria-label="Usuń zakres robót"
+                                        flexShrink={0}
+                                        mt={0.5}
+                                        onClick={(e) => { e.stopPropagation(); removeWork(work.id); }}
+                                      />
+                                    </Tooltip>
+                                  </Box>
                                 )}
                               </HStack>
                             </VStack>
@@ -1630,6 +1828,302 @@ export default function WorkScheduleView() {
           </div>
         </Box>
 
+        {/* Panel zależności — widoczny podczas edycji inline */}
+        {isEditing && (
+          <Box
+            bg={cardBg}
+            borderWidth="1px"
+            borderColor={borderColor}
+            borderRadius="lg"
+            p={isMobile ? 3 : 4}
+          >
+            <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
+              <VStack align="flex-start" spacing={0}>
+                <Text fontWeight="bold" fontSize={isMobile ? "sm" : "md"}>Zależności między zakresami</Text>
+                <Text fontSize="xs" color="gray.500">Określ, który zakres musi się zakończyć (lub rozpocząć), zanim inny może ruszyć</Text>
+              </VStack>
+            </HStack>
+
+            {/* Legenda typów — zwijana */}
+            <Accordion allowToggle mb={3} borderRadius="md" overflow="hidden">
+              <AccordionItem border="1px solid" borderColor={useColorModeValue("gray.200", "gray.600")} borderRadius="md">
+                <AccordionButton px={3} py={2} _expanded={{ bg: useColorModeValue("gray.50", "gray.700") }}>
+                  <Box flex="1" textAlign="left">
+                    <Text fontSize="xs" fontWeight="semibold" color="gray.500">Jak czytać typy zależności? (FS / SS / FF / SF)</Text>
+                  </Box>
+                  <AccordionIcon />
+                </AccordionButton>
+                <AccordionPanel pb={3} px={3} bg={useColorModeValue("gray.50", "gray.750")}>
+                  <Text fontSize="xs" color="gray.600" mb={2}>
+                    Zakres <strong>A</strong> (poprzednik) musi osiągnąć dany punkt, zanim zakres <strong>B</strong> (następnik) będzie mógł zacząć lub skończyć.
+                    Typ zależności opisuje <em>który koniec A warunkuje który koniec B</em>.
+                  </Text>
+                  <HStack spacing={4} flexWrap="wrap">
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">FS</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>rozpocząć</strong> (najczęstsze)</Text></HStack>
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">SS</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>rozpocząć</strong></Text></HStack>
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">FF</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>zakończyć</strong></Text></HStack>
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">SF</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>zakończyć</strong> (rzadkie)</Text></HStack>
+                  </HStack>
+                </AccordionPanel>
+              </AccordionItem>
+            </Accordion>
+
+            {allDbWorks.length < 2 ? (
+              <Text fontSize="sm" color="gray.400" textAlign="center" py={2}>
+                Zapisz co najmniej dwa zakresy robót, aby móc definiować zależności.
+              </Text>
+            ) : (editableSchedule?.dependencies ?? []).length === 0 ? (
+              <Text fontSize="sm" color="gray.400" textAlign="center" py={2}>
+                Brak zależności. Skorzystaj z przycisku poniżej, aby połączyć zakresy robót.
+              </Text>
+            ) : (
+              <VStack spacing={3} align="stretch">
+                {/* Nagłówek kolumn */}
+                <Grid
+                  templateColumns="2fr 3fr 90px 20px 2fr 36px"
+                  gap={2}
+                  px={3}
+                  display={isMobile ? "none" : "grid"}
+                >
+                  <Text fontSize="xs" color="gray.500" textAlign="center">Poprzednik (A — zakres wcześniejszy)</Text>
+                  <Text fontSize="xs" color="gray.500" textAlign="center">Typ zależności</Text>
+                  <Text fontSize="xs" color="gray.500" textAlign="center">Opóźnienie</Text>
+                  <Box />
+                  <Text fontSize="xs" color="gray.500" textAlign="center">Następnik (B — zakres zależny)</Text>
+                  <Box />
+                </Grid>
+
+                {(editableSchedule?.dependencies ?? []).map((dep: WorkScheduleWorkDependencyWeb, depIdx: number) => {
+                  const depTypeLabel = DEP_TYPE_SHORT[dep.dependencyType] ?? 'FS';
+                  const isValid = dep.predecessorWorkId && dep.successorWorkId && dep.predecessorWorkId !== dep.successorWorkId;
+                  return (
+                    <Box
+                      key={dep.id}
+                      p={isMobile ? 2 : 3}
+                      borderWidth="1px"
+                      borderRadius="md"
+                      borderColor={isValid ? borderColor : "orange.300"}
+                      bg={!isValid ? depInvalidBg : depIdx % 2 !== 0 ? depAltBg : undefined}
+                    >
+                      {/* Na mobile: etykiety nad polami */}
+                      {isMobile && (
+                        <VStack spacing={2} align="stretch">
+                          <Box>
+                            <Text fontSize="xs" color="gray.500" mb={1}>Poprzednik (A — zakres wcześniejszy)</Text>
+                            <Select
+                              size="sm"
+                              placeholder="— wybierz zakres A —"
+                              value={dep.predecessorWorkId}
+                              onChange={(e) => updateInlineDep(dep.id, { predecessorWorkId: e.target.value })}
+                              isInvalid={!dep.predecessorWorkId}
+                            >
+                              {allDbWorks
+                                .filter(w => w.workId !== dep.successorWorkId)
+                                .map(w => (
+                                  <option key={w.workId} value={w.workId}>{w.label}</option>
+                                ))
+                              }
+                            </Select>
+                          </Box>
+                          <HStack spacing={2}>
+                            <Box flex={1}>
+                              <Text fontSize="xs" color="gray.500" mb={1}>Typ ({depTypeLabel})</Text>
+                              <Select
+                                size="sm"
+                                value={String(dep.dependencyType)}
+                                onChange={(e) => updateInlineDep(dep.id, { dependencyType: parseInt(e.target.value, 10) })}
+                              >
+                                <option value="0">FS – A kończy → B startuje</option>
+                                <option value="1">SS – A startuje → B startuje</option>
+                                <option value="2">FF – A kończy → B kończy</option>
+                                <option value="3">SF – A startuje → B kończy</option>
+                              </Select>
+                            </Box>
+                            <Box>
+                              <Text fontSize="xs" color="gray.500" mb={1}>Opóźnienie</Text>
+                              <HStack spacing={1}>
+                                <Input
+                                  type="number"
+                                  size="sm"
+                                  defaultValue={dep.lagDays}
+                                  key={`lag-m-${dep.id}`}
+                                  onBlur={(e) => {
+                                    const v = parseInt(e.target.value, 10);
+                                    const next = isNaN(v) ? 0 : v;
+                                    if (next !== dep.lagDays) updateInlineDep(dep.id, { lagDays: next });
+                                    else e.target.value = String(dep.lagDays);
+                                  }}
+                                  w="60px"
+                                />
+                                <Text fontSize="xs" color="gray.500">dni</Text>
+                              </HStack>
+                            </Box>
+                          </HStack>
+                          <Box>
+                            <Text fontSize="xs" color="gray.500" mb={1}>Następnik (B — zakres zależny)</Text>
+                            <Select
+                              size="sm"
+                              placeholder="— wybierz zakres B —"
+                              value={dep.successorWorkId}
+                              onChange={(e) => updateInlineDep(dep.id, { successorWorkId: e.target.value })}
+                              isInvalid={!dep.successorWorkId}
+                            >
+                              {allDbWorks
+                                .filter(w => w.workId !== dep.predecessorWorkId)
+                                .map(w => (
+                                  <option key={w.workId} value={w.workId}>{w.label}</option>
+                                ))
+                              }
+                            </Select>
+                          </Box>
+                          <HStack justify="space-between">
+                            {!isValid && <Text fontSize="xs" color="orange.500">Uzupełnij oba zakresy</Text>}
+                            <Tooltip label="Usuń zależność">
+                              <IconButton
+                                aria-label="Usuń zależność"
+                                icon={<Trash2 size={14} />}
+                                size="sm"
+                                colorScheme="red"
+                                variant="ghost"
+                                ml="auto"
+                                onClick={() => removeInlineDep(dep.id)}
+                              />
+                            </Tooltip>
+                          </HStack>
+                        </VStack>
+                      )}
+
+                      {/* Na desktop: grid z ustalonymi kolumnami – zapobiega rozjeżdżaniu layoutu */}
+                      {!isMobile && (
+                        <Grid
+                          templateColumns="2fr 3fr 90px 20px 2fr 36px"
+                          gap={2}
+                          alignItems="center"
+                        >
+                          {/* Kolumna A – poprzednik */}
+                          <GridItem overflow="hidden">
+                            <Select
+                              size="sm"
+                              placeholder="— wybierz zakres A —"
+                              value={dep.predecessorWorkId}
+                              onChange={(e) => updateInlineDep(dep.id, { predecessorWorkId: e.target.value })}
+                              isInvalid={!dep.predecessorWorkId}
+                            >
+                              {allDbWorks
+                                .filter(w => w.workId !== dep.successorWorkId)
+                                .map(w => (
+                                  <option key={w.workId} value={w.workId}>{w.label}</option>
+                                ))
+                              }
+                            </Select>
+                          </GridItem>
+
+                          {/* Kolumna: typ zależności */}
+                          <GridItem>
+                            <Tooltip
+                              label={
+                                dep.dependencyType === 0 ? "FS: A musi się zakończyć, żeby B mogło się rozpocząć" :
+                                dep.dependencyType === 1 ? "SS: A musi się rozpocząć, żeby B mogło się rozpocząć" :
+                                dep.dependencyType === 2 ? "FF: A musi się zakończyć, żeby B mogło się zakończyć" :
+                                "SF: A musi się rozpocząć, żeby B mogło się zakończyć"
+                              }
+                              hasArrow
+                            >
+                              <Select
+                                size="sm"
+                                value={String(dep.dependencyType)}
+                                onChange={(e) => updateInlineDep(dep.id, { dependencyType: parseInt(e.target.value, 10) })}
+                              >
+                                <option value="0">FS – kończy → startuje</option>
+                                <option value="1">SS – startuje → startuje</option>
+                                <option value="2">FF – kończy → kończy</option>
+                                <option value="3">SF – startuje → kończy</option>
+                              </Select>
+                            </Tooltip>
+                          </GridItem>
+
+                          {/* Kolumna: opóźnienie */}
+                          <GridItem>
+                            <HStack spacing={1}>
+                              <Input
+                                type="number"
+                                size="sm"
+                                defaultValue={dep.lagDays}
+                                key={`lag-d-${dep.id}`}
+                                onBlur={(e) => {
+                                  const v = parseInt(e.target.value, 10);
+                                  const next = isNaN(v) ? 0 : v;
+                                  if (next !== dep.lagDays) updateInlineDep(dep.id, { lagDays: next });
+                                  else e.target.value = String(dep.lagDays);
+                                }}
+                                w="54px"
+                                flexShrink={0}
+                              />
+                              <Text fontSize="xs" color="gray.500" flexShrink={0}>dni</Text>
+                            </HStack>
+                          </GridItem>
+
+                          {/* Kolumna: strzałka */}
+                          <GridItem display="flex" alignItems="center" justifyContent="center">
+                            <ArrowRight size={16} color="gray" />
+                          </GridItem>
+
+                          {/* Kolumna B – następnik */}
+                          <GridItem overflow="hidden">
+                            <Select
+                              size="sm"
+                              placeholder="— wybierz zakres B —"
+                              value={dep.successorWorkId}
+                              onChange={(e) => updateInlineDep(dep.id, { successorWorkId: e.target.value })}
+                              isInvalid={!dep.successorWorkId}
+                            >
+                              {allDbWorks
+                                .filter(w => w.workId !== dep.predecessorWorkId)
+                                .map(w => (
+                                  <option key={w.workId} value={w.workId}>{w.label}</option>
+                                ))
+                              }
+                            </Select>
+                          </GridItem>
+
+                          {/* Kolumna: usuń */}
+                          <GridItem display="flex" alignItems="center" justifyContent="center">
+                            <Tooltip label="Usuń zależność">
+                              <IconButton
+                                aria-label="Usuń zależność"
+                                icon={<Trash2 size={14} />}
+                                size="sm"
+                                colorScheme="red"
+                                variant="ghost"
+                                onClick={() => removeInlineDep(dep.id)}
+                              />
+                            </Tooltip>
+                          </GridItem>
+                        </Grid>
+                      )}
+                    </Box>
+                  );
+                })}
+              </VStack>
+            )}
+
+            {/* Dodaj zależność — zawsze widoczny na dole panelu */}
+            {allDbWorks.length >= 2 && (
+              <Box pt={3}>
+                <Button
+                  leftIcon={<Plus size={14} />}
+                  colorScheme="teal"
+                  variant="outline"
+                  size={isMobile ? "xs" : "sm"}
+                  onClick={addInlineDep}
+                >
+                  Dodaj zależność
+                </Button>
+              </Box>
+            )}
+          </Box>
+        )}
+
         {/* Edit Modal */}
         {schedule && (
           <WorkScheduleFormModal
@@ -1654,6 +2148,9 @@ export default function WorkScheduleView() {
           workScheduleId={workScheduleId || ""}
           work={selectedWork}
           members={members}
+          dependencies={editableSchedule?.dependencies ?? []}
+          allWorks={allDbWorks}
+          workDateRanges={viewWorkDateRanges}
           onWorkUpdated={handleScheduleUpdated}
         />
       </Box>
