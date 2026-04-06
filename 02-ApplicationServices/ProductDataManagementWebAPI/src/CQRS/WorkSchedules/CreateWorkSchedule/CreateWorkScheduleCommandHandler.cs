@@ -20,7 +20,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepo;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
-        private readonly IReadRepository<User> userRepo;
+        private readonly IUserService userService;
         private readonly IWorkScheduleNotificationService workScheduleNotificationService;
         private readonly IWorkScheduleSyncService workScheduleSyncService;
         private readonly ICostEstimateAccessService costEstimateAccessService;
@@ -33,7 +33,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepo,
             IRepository<WorkScheduleStageWorkComment> commentRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
-            IReadRepository<User> userRepo,
+            IUserService userService,
             IWorkScheduleNotificationService workScheduleNotificationService,
             IWorkScheduleSyncService workScheduleSyncService,
             ICostEstimateAccessService costEstimateAccessService,
@@ -45,7 +45,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
             this.assignmentRepo = assignmentRepo;
             this.commentRepo = commentRepo;
             this.dependencyRepo = dependencyRepo;
-            this.userRepo = userRepo;
+            this.userService = userService;
             this.workScheduleNotificationService = workScheduleNotificationService;
             this.workScheduleSyncService = workScheduleSyncService;
             this.costEstimateAccessService = costEstimateAccessService;
@@ -130,7 +130,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
 
             if (request.Stages != null && request.Stages.Count > 0)
             {
-                Dictionary<Guid, string> userNameDict = await WorkScheduleQueryHelper.BuildUserNameDictAsync(userRepo, request.Stages, cancellationToken);
+                Dictionary<Guid, string> userNameDict = await WorkScheduleQueryHelper.BuildUserNameDictAsync(userService, tenantId, projectId, request.Stages, cancellationToken);
 
                 stageWebs = await CreateStagesAsync(
                     request.Stages, null,

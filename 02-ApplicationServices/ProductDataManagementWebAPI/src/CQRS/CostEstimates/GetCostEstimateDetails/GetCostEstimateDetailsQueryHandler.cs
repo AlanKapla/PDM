@@ -163,12 +163,13 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                     .ToList();
             }
 
-            // 11. Resolve active work schedule linked to this cost estimate
-            WorkSchedule? workSchedule = await workScheduleRepository.GetFirstBySearch(
+            // 11. Resolve active work schedule linked to this cost estimate (most recently created)
+            IEnumerable<WorkSchedule> linkedSchedules = await workScheduleRepository.GetBySearch(
                 ws => ws.CostEstimateId == request.CostEstimateId &&
                       ws.TenantId == request.TenantId &&
                       ws.ProjectId == request.ProjectId &&
-                      !ws.IsDeleted, cancellationToken);
+                      !ws.IsDeleted);
+            WorkSchedule? workSchedule = linkedSchedules.OrderByDescending(ws => ws.CreatedAt).FirstOrDefault();
 
             return new CostEstimateDetailsWeb(
                 Id: costEstimate.Id,

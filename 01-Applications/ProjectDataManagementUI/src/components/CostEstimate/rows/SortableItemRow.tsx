@@ -232,7 +232,9 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     opacity={hasOptions ? 0.4 : 1}
                   />
                 </Tooltip>
-              )}              </Box>            </HStack>
+              )}
+            </Box>
+          </HStack>
           </Td>
         )}
 

@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.WebModels.WorkSchedules;
+﻿using Business.Interfaces.Services;
+using Business.Interfaces.WebModels.WorkSchedules;
 using Entities.Models;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.Shared
 {
@@ -10,23 +10,26 @@ namespace CQRS.WorkSchedules.Shared
             $"{firstName} {lastName}".Trim();
 
         public static async Task<Dictionary<Guid, string>> BuildUserNameDictAsync(
-            IReadRepository<User> userRepo,
+            IUserService userService,
+            Guid tenantId,
+            Guid projectId,
             IEnumerable<WorkScheduleStageDto> stages,
             CancellationToken cancellationToken)
         {
-            List<Guid> allUserIds = WorkScheduleValidationHelper.FlattenStages(stages)
+            HashSet<Guid> allUserIds = WorkScheduleValidationHelper.FlattenStages(stages)
                 .Where(s => s.Works != null)
                 .SelectMany(s => s.Works!)
                 .Where(w => w.AssignedUserIds != null)
                 .SelectMany(w => w.AssignedUserIds!)
-                .Distinct()
-                .ToList();
+                .ToHashSet();
 
             if (allUserIds.Count == 0)
                 return new Dictionary<Guid, string>();
 
-            IEnumerable<User> users = await userRepo.GetBySearch(u => allUserIds.Contains(u.Id));
-            return users.ToDictionary(u => u.Id, u => FormatFullName(u.FirstName, u.LastName));
+            Dictionary<Guid, ProjectMemberUserInfo> members = await userService.GetProjectMembersByIdsAsync(
+                tenantId, projectId, allUserIds, cancellationToken);
+
+            return members.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.FullName);
         }
 
         public static (List<WorkScheduleStageWorkDependency> entities, List<WorkScheduleWorkDependencyWeb> webs) BuildDependencies(

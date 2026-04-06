@@ -19,7 +19,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepo;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
-        private readonly IReadRepository<User> userRepo;
+        private readonly IUserService userService;
         private readonly IWorkScheduleNotificationService workScheduleNotificationService;
         private readonly ICurrentUser currentUser;
 
@@ -30,7 +30,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepo,
             IRepository<WorkScheduleStageWorkComment> commentRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
-            IReadRepository<User> userRepo,
+            IUserService userService,
             IWorkScheduleNotificationService workScheduleNotificationService,
             ICurrentUser currentUser)
         {
@@ -40,7 +40,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             this.assignmentRepo = assignmentRepo;
             this.commentRepo = commentRepo;
             this.dependencyRepo = dependencyRepo;
-            this.userRepo = userRepo;
+            this.userService = userService;
             this.workScheduleNotificationService = workScheduleNotificationService;
             this.currentUser = currentUser;
         }
@@ -110,7 +110,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
 
                 await DeleteObsoleteStagesAndWorksAsync(workSchedule.Stages, incomingStageIds, incomingWorkIds, workSchedule.Id, removedUserIds, cancellationToken);
 
-                userNameDict = await WorkScheduleQueryHelper.BuildUserNameDictAsync(userRepo, request.Stages, cancellationToken);
+                userNameDict = await WorkScheduleQueryHelper.BuildUserNameDictAsync(userService, tenantId, projectId, request.Stages, cancellationToken);
 
                 List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete = new List<WorkScheduleStageWorkAssignment>();
                 List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert = new List<WorkScheduleStageWorkAssignment>();

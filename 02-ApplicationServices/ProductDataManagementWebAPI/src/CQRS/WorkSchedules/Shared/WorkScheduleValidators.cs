@@ -586,6 +586,10 @@ namespace CQRS.WorkSchedules.Shared
             RuleFor(x => x.DependencyType)
                 .IsInEnum()
                 .WithMessage("Invalid dependency type");
+
+            RuleFor(x => x.LagDays)
+                .InclusiveBetween(-365, 365)
+                .WithMessage("LagDays must be between -365 and 365");
         }
     }
 

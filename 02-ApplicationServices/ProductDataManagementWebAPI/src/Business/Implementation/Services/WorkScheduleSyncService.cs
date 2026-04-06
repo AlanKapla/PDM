@@ -254,6 +254,7 @@ namespace Business.Implementation.Services
                     var newWork = new WorkScheduleStageWork
                     {
                         TenantId = workSchedule.TenantId,
+                        ProjectId = workSchedule.ProjectId,
                         WorkScheduleStageId = stage.Id,
                         CostEstimateItemId = item.Id,
                         Name = name,
