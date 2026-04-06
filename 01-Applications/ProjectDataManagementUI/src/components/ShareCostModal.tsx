@@ -133,7 +133,7 @@ export default function ShareCostModal({
               <Text fontSize="sm" fontWeight="bold" mb={2}>
                 Koszt:
               </Text>
-              <Badge colorScheme="blue" fontSize="md" p={2}>
+              <Badge colorScheme="primary" fontSize="md" p={2}>
                 {cost.name}
               </Badge>
             </Box>
@@ -188,7 +188,7 @@ export default function ShareCostModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             leftIcon={<Share2 size={18} />}
             onClick={handleShare}
             isLoading={loading}

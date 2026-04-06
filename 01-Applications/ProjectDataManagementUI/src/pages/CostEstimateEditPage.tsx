@@ -1316,7 +1316,7 @@ export const CostEstimateEditPage: React.FC = () => {
           </Tooltip>
 
           <HStack spacing={2} minW={0}>
-            <Icon as={FileSpreadsheet} boxSize={5} color="blue.500" />
+            <Icon as={FileSpreadsheet} boxSize={5} color="primary.500" />
             <HStack spacing={1} minW={0}>
               <Text
                 fontSize={{ base: 'md', md: 'lg' }}
@@ -1349,8 +1349,8 @@ export const CostEstimateEditPage: React.FC = () => {
           {isRecalculating && (
             <HStack
               spacing={1}
-              bg="blue.50"
-              color="blue.600"
+              bg="primary.50"
+              color="primary.600"
               px={2}
               py={1}
               borderRadius="md"
@@ -1588,7 +1588,7 @@ export const CostEstimateEditPage: React.FC = () => {
             <Button variant="ghost" mr={3} onClick={onEditMetaClose}>
               Anuluj
             </Button>
-            <Button colorScheme="blue" onClick={handleSaveMetaChanges}>
+            <Button colorScheme="primary" onClick={handleSaveMetaChanges}>
               Zapisz
             </Button>
           </ModalFooter>

@@ -43,7 +43,7 @@ export default function HeaderUserMenu() {
       <Menu placement="bottom-end" strategy="fixed">
         <MenuButton as={Box} w="100%" cursor="pointer">
           <HStack spacing={3}>
-            <Avatar size="sm" bg="blue.600" color="white" src="" ignoreFallback>
+            <Avatar size="sm" bg="primary.600" color="white" src="" ignoreFallback>
               {initials}
             </Avatar>
             <Box minW={0} flex={1}>

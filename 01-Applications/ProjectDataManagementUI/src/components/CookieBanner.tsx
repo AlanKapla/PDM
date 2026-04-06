@@ -79,7 +79,7 @@ export default function CookieBanner() {
             </Button>
             <Button
               size="sm"
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={handleAccept}
               minW="100px"
             >

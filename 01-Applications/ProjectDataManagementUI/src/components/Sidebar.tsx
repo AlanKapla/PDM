@@ -65,7 +65,7 @@ export function SidebarContent() {
     return () => clearInterval(interval);
   }, []);
 
-  const activeBg = useColorModeValue("blue.100", "blue.700");
+  const activeBg = useColorModeValue("primary.100", "primary.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
 
   return (
@@ -109,7 +109,7 @@ export function SidebarContent() {
         justifyContent="flex-start"
         leftIcon={
           <Box position="relative" display="inline-flex">
-            <MessageSquare size={20} color={totalUnread > 0 && !location.pathname.startsWith("/chat") ? "var(--chakra-colors-blue-500)" : undefined} />
+            <MessageSquare size={20} color={totalUnread > 0 && !location.pathname.startsWith("/chat") ? "var(--chakra-colors-primary-500)" : undefined} />
             {totalUnread > 0 && !location.pathname.startsWith("/chat") && (
               <Box
                 position="absolute"
@@ -117,7 +117,7 @@ export function SidebarContent() {
                 right="-3px"
                 w="8px"
                 h="8px"
-                bg="blue.500"
+                bg="primary.500"
                 borderRadius="full"
                 border="2px solid"
                 borderColor="white"
@@ -132,7 +132,7 @@ export function SidebarContent() {
       >
         Wiadomości
         {totalUnread > 0 && (
-          <Badge colorScheme="blue" borderRadius="full" fontSize="xs" ml="auto">
+          <Badge colorScheme="primary" borderRadius="full" fontSize="xs" ml="auto">
             {totalUnread > 99 ? "99+" : totalUnread}
           </Badge>
         )}
@@ -239,7 +239,7 @@ export default function Sidebar() {
         left={4}
         zIndex={20}
         display={{ base: "flex", md: "none" }}
-        colorScheme="blue"
+        colorScheme="primary"
         size="sm"
       />
 

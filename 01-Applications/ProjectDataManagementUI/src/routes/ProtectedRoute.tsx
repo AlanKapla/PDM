@@ -18,7 +18,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     return (
       <Flex justify="center" align="center" minH="100vh">
         <VStack spacing={4}>
-          <Spinner size="xl" color="blue.500" thickness="4px" />
+          <Spinner size="xl" color="primary.500" thickness="4px" />
           <Text color="gray.600">Sprawdzanie sesji...</Text>
         </VStack>
       </Flex>
@@ -30,7 +30,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     return (
       <Flex justify="center" align="center" minH="100vh">
         <VStack spacing={4}>
-          <Spinner size="xl" color="blue.500" thickness="4px" />
+          <Spinner size="xl" color="primary.500" thickness="4px" />
           <Text color="gray.600">Ładowanie profilu użytkownika...</Text>
         </VStack>
       </Flex>

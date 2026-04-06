@@ -48,7 +48,7 @@ export default function NotificationBell() {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-  const unreadBg = useColorModeValue("blue.50", "blue.900");
+  const unreadBg = useColorModeValue("primary.50", "primary.900");
   const messageTextColor = useColorModeValue("gray.700", "gray.300");
 
   const fetchUnreadCounter = async () => {
@@ -282,7 +282,7 @@ export default function NotificationBell() {
   const renderNotifications = (notifications: NotificationWeb[]) => (
     loading ? (
       <Box textAlign="center" py={8}>
-        <Spinner size="lg" color="blue.500" />
+        <Spinner size="lg" color="primary.500" />
       </Box>
     ) : notifications.length === 0 ? (
       <Box textAlign="center" py={8}>
@@ -318,7 +318,7 @@ export default function NotificationBell() {
                     {notification.title}
                   </Text>
                   {!notification.readed && (
-                    <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
+                    <Badge colorScheme="primary" fontSize="xs" flexShrink={0}>
                       Nowe
                     </Badge>
                   )}
@@ -352,7 +352,7 @@ export default function NotificationBell() {
             <Button
               size="sm"
               variant="ghost"
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={loadMoreNotifications}
               isLoading={loadingMore}
               w="full"
@@ -413,14 +413,14 @@ export default function NotificationBell() {
             <HStack justify="space-between">
               <Text>Powiadomienia</Text>
               {unreadCount > 0 && (
-                <Badge colorScheme="blue">{unreadCount} nowych</Badge>
+                <Badge colorScheme="primary">{unreadCount} nowych</Badge>
               )}
             </HStack>
             {unreadCount > 0 && (
               <Button
                 size="xs"
                 variant="ghost"
-                colorScheme="blue"
+                colorScheme="primary"
                 onClick={handleMarkAllAsRead}
                 leftIcon={<Icon as={CheckCircle} boxSize={3} />}
                 justifyContent="flex-start"

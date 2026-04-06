@@ -155,7 +155,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   return (
     <React.Fragment>
       {/* Główny wiersz pozycji */}
-      <Tr ref={setNodeRef} style={style} bg="white" _hover={{ bg: 'blue.50', cursor: 'pointer' }}>
+      <Tr ref={setNodeRef} style={style} bg="white" _hover={{ bg: 'primary.50', cursor: 'pointer' }}>
         {/* Akcje pozycji - zamrożona kolumna */}
         {editable && (
           <Td
@@ -206,7 +206,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     aria-label="Dodaj opcję"
                     icon={<GitBranch size={14} />}
                     size="xs"
-                    colorScheme="purple"
+                    colorScheme="level2"
                     variant="ghost"
                     onClick={() => handleAddOption(groupId, item.id)}
                     isDisabled={hasComponents}
@@ -301,8 +301,8 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
 
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="purple.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                <Text fontSize="xs" color="purple.400" fontStyle="italic" textAlign="center">
+              <Td key={col.fieldId} p={2} bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                <Text fontSize="xs" color="level2.400" fontStyle="italic" textAlign="center">
                   {itemOptions.length > 0 ? `${itemOptions.length} opcji` : '—'}
                 </Text>
               </Td>

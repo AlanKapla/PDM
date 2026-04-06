@@ -210,7 +210,7 @@ export default function TemplateCreator() {
 
           {/* Akcje */}
           <HStack spacing={4}>
-            <Button colorScheme="blue" onClick={handleValidate}>
+            <Button colorScheme="primary" onClick={handleValidate}>
               Wyślij szablon do walidacji
             </Button>
             <Tag size="lg" colorScheme="gray">

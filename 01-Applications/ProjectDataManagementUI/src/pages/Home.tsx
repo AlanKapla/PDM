@@ -14,7 +14,7 @@ export default function Home() {
   const bg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
   const textColor = useColorModeValue("gray.700", "gray.200");
-  const accentColor = useColorModeValue("blue.600", "blue.400");
+  const accentColor = useColorModeValue("primary.600", "primary.400");
 
   const isLoading = inProgress === "login" || inProgress === "acquireToken";
   const authLoading = isAuthenticated && !account;
@@ -44,7 +44,7 @@ export default function Home() {
     return (
       <Flex minH="100vh" align="center" justify="center">
         <VStack spacing={4}>
-          <Spinner size="xl" color="blue.500" thickness="4px" />
+          <Spinner size="xl" color="primary.500" thickness="4px" />
           <Text>Przetwarzanie logowania...</Text>
         </VStack>
       </Flex>
@@ -94,7 +94,7 @@ export default function Home() {
           <VStack spacing={6} textAlign="center">
             <Heading
               size="2xl"
-              bgGradient="linear(to-r, blue.400, blue.600)"
+              bgGradient="linear(to-r, primary.400, primary.600)"
               bgClip="text"
               fontWeight="extrabold"
               lineHeight="1.3"
@@ -119,7 +119,7 @@ export default function Home() {
           >
             <VStack spacing={6}>
               <Button
-                colorScheme="blue"
+                colorScheme="primary"
                 size="lg"
                 w="full"
                 onClick={handleLogin}

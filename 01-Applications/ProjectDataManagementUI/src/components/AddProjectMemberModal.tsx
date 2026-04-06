@@ -177,7 +177,7 @@ export default function AddProjectMemberModal({
                         </HStack>
                         <Button
                           size="sm"
-                          colorScheme="blue"
+                          colorScheme="primary"
                           leftIcon={isAdding ? undefined : <Icon as={UserPlus} />}
                           onClick={() => handleAddMember(member.userId)}
                           isLoading={isAdding}

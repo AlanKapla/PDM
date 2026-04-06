@@ -111,7 +111,7 @@ export default function CostEstimateTemplateSelector() {
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
-  const hoverBg = useColorModeValue("blue.50", "blue.900");
+  const hoverBg = useColorModeValue("primary.50", "primary.900");
 
   useEffect(() => {
     fetchDefaultTemplates();
@@ -283,7 +283,7 @@ export default function CostEstimateTemplateSelector() {
             <HStack spacing={2}>
               <CheckCircle size={20} />
               <Heading size="md">Gotowe szablony</Heading>
-              <Badge colorScheme="blue">{defaultTemplates.length}</Badge>
+              <Badge colorScheme="primary">{defaultTemplates.length}</Badge>
             </HStack>
 
             {defaultTemplates.length === 0 ? (
@@ -301,7 +301,7 @@ export default function CostEstimateTemplateSelector() {
                     borderWidth="2px"
                     borderColor={borderColor}
                     _hover={{ 
-                      borderColor: "blue.400",
+                      borderColor: "primary.400",
                       bg: hoverBg,
                       transform: "translateY(-2px)",
                       shadow: "md"
@@ -319,7 +319,7 @@ export default function CostEstimateTemplateSelector() {
                               </Text>
                             </HStack>
                             {template.category && (
-                              <Badge colorScheme="purple" size="sm">
+                              <Badge colorScheme="level2" size="sm">
                                 {template.category}
                               </Badge>
                             )}
@@ -358,7 +358,7 @@ export default function CostEstimateTemplateSelector() {
                             <Button
                               size="sm"
                               leftIcon={<Plus size={16} />}
-                              colorScheme="blue"
+                              colorScheme="primary"
                               onClick={() => handleOpenCreateModal(template)}
                               flex={1}
                             >
@@ -390,7 +390,7 @@ export default function CostEstimateTemplateSelector() {
                   <Eye size={24} />
                   <Text>Struktura szablonu: {selectedTemplate?.name}</Text>
                   {selectedTemplate?.category && (
-                    <Badge colorScheme="purple">{selectedTemplate.category}</Badge>
+                    <Badge colorScheme="level2">{selectedTemplate.category}</Badge>
                   )}
                 </HStack>
               </HStack>
@@ -412,7 +412,7 @@ export default function CostEstimateTemplateSelector() {
                   )}
 
                   {/* Zakładki - jak w edytorze szablonu */}
-                  <Tabs colorScheme="blue" variant="enclosed">
+                  <Tabs colorScheme="primary" variant="enclosed">
                     <TabList>
                       <Tooltip label="Pola nagłówka etapu: nazwa, opis, daty, status, odpowiedzialny i inne" placement="bottom" hasArrow>
                         <Tab>
@@ -498,7 +498,7 @@ export default function CostEstimateTemplateSelector() {
                               <HStack flex={1} spacing={2}>
                                 <FileText size={18} />
                                 <Text fontSize="md" fontWeight="bold">Pola systemowe</Text>
-                                <Badge colorScheme="blue">{templateStructure.systemFields?.length || 0}</Badge>
+                                <Badge colorScheme="primary">{templateStructure.systemFields?.length || 0}</Badge>
                               </HStack>
                               <AccordionIcon />
                             </AccordionButton>
@@ -578,7 +578,7 @@ export default function CostEstimateTemplateSelector() {
                               <HStack flex={1} spacing={2}>
                                 <Tag size={18} />
                                 <Text fontSize="md" fontWeight="bold">Pola generyczne</Text>
-                                <Badge colorScheme="purple">{templateStructure.genericFields?.length || 0}</Badge>
+                                <Badge colorScheme="level2">{templateStructure.genericFields?.length || 0}</Badge>
                               </HStack>
                               <AccordionIcon />
                             </AccordionButton>
@@ -663,7 +663,7 @@ export default function CostEstimateTemplateSelector() {
                               <HStack flex={1} spacing={2}>
                                 <Text fontSize="lg" lineHeight={1}>📏</Text>
                                 <Text fontSize="md" fontWeight="bold">Jednostki miar</Text>
-                                <Badge colorScheme="teal">{templateStructure.units?.length || 0}</Badge>
+                                <Badge colorScheme="action">{templateStructure.units?.length || 0}</Badge>
                               </HStack>
                               <AccordionIcon />
                             </AccordionButton>
@@ -705,7 +705,7 @@ export default function CostEstimateTemplateSelector() {
                               <HStack flex={1} spacing={2}>
                                 <Text fontSize="lg" lineHeight={1}>🏷️</Text>
                                 <Text fontSize="md" fontWeight="bold">Kategorie</Text>
-                                <Badge colorScheme="purple">{templateStructure.categories?.length || 0}</Badge>
+                                <Badge colorScheme="level2">{templateStructure.categories?.length || 0}</Badge>
                               </HStack>
                               <AccordionIcon />
                             </AccordionButton>
@@ -799,7 +799,7 @@ export default function CostEstimateTemplateSelector() {
                   Zamknij
                 </Button>
                 <Button
-                  colorScheme="blue"
+                  colorScheme="primary"
                   leftIcon={<Plus size={18} />}
                   onClick={() => {
                     handleClosePreview();
@@ -840,10 +840,10 @@ export default function CostEstimateTemplateSelector() {
               ) : previewData ? (
                 <Box maxW="1600px" mx="auto">
                   <VStack spacing={4} align="stretch" mb={4}>
-                    <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                    <Box bg="primary.50" p={4} borderRadius="md" borderWidth="1px" borderColor="primary.200">
                       <HStack spacing={2}>
                         <AlertCircle size={20} color="blue" />
-                        <Text fontSize="sm" color="blue.700">
+                        <Text fontSize="sm" color="primary.700">
                           To jest podgląd szablonu z przykładowymi danymi. Dane są generowane automatycznie aby pokazać jak będzie wyglądał kosztorys stworzony na podstawie tego szablonu.
                         </Text>
                       </HStack>
@@ -875,7 +875,7 @@ export default function CostEstimateTemplateSelector() {
                 </Button>
                 <Button variant="ghost" onClick={onLivePreviewClose}>Zamknij</Button>
                 <Button
-                  colorScheme="blue"
+                  colorScheme="primary"
                   leftIcon={<Plus size={18} />}
                   onClick={() => {
                     onLivePreviewClose();
@@ -944,7 +944,7 @@ export default function CostEstimateTemplateSelector() {
                   Anuluj
                 </Button>
                 <Button
-                  colorScheme="blue"
+                  colorScheme="primary"
                   leftIcon={<Plus size={18} />}
                   onClick={handleCreateFromDefault}
                   isLoading={isCreating}

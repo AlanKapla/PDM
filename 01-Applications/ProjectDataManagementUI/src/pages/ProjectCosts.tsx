@@ -164,14 +164,14 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                         <Text>{costEstimate.name}</Text>
                         {costEstimate.isSharedByMe && (
                           <Tooltip label={`Udostępniono ${costEstimate.sharedWithUsers?.length ?? 0} osobom`}>
-                            <Badge colorScheme="purple" fontSize="2xs" display="flex" alignItems="center" gap={1}>
+                            <Badge colorScheme="level2" fontSize="2xs" display="flex" alignItems="center" gap={1}>
                               <Users size={10} />
                               {costEstimate.sharedWithUsers?.length ?? 0}
                             </Badge>
                           </Tooltip>
                         )}
                         {costEstimate.isSharedWithMe && (
-                          <Badge colorScheme="teal" fontSize="2xs">Udostępniony</Badge>
+                          <Badge colorScheme="action" fontSize="2xs">Udostępniony</Badge>
                         )}
                       </HStack>
                       {costEstimate.description && (
@@ -215,7 +215,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                           aria-label="Otwórz"
                           icon={<Eye size={14} />}
                           size="xs"
-                          colorScheme="blue"
+                          colorScheme="primary"
                           variant="ghost"
                           onClick={() => handleViewCostEstimate(costEstimate.id)}
                         />
@@ -226,7 +226,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                             aria-label="Udostępnij"
                             icon={<Share2 size={14} />}
                             size="xs"
-                            colorScheme="teal"
+                            colorScheme="action"
                             variant="ghost"
                             onClick={() => handleShareCostEstimate(costEstimate)}
                           />
@@ -238,7 +238,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                             aria-label="Kopiuj"
                             icon={<Copy size={14} />}
                             size="xs"
-                            colorScheme="purple"
+                            colorScheme="level2"
                             variant="ghost"
                             onClick={() => handleCopyCostEstimate(costEstimate)}
                           />
@@ -471,7 +471,7 @@ export default function ProjectCosts() {
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
-            <Icon as={FileText} boxSize={8} color="blue.600" />
+            <Icon as={FileText} boxSize={8} color="primary.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Kosztorysy projektowe</Heading>
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
@@ -480,7 +480,7 @@ export default function ProjectCosts() {
           {(resourcePerms.mine.canCreate || resourcePerms.all.canCreate) && (
             <Button
               leftIcon={<Plus size={18} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={onCreateModalOpen}
             >
               Nowy kosztorys
@@ -497,14 +497,14 @@ export default function ProjectCosts() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
+          <Tabs colorScheme="primary" variant="enclosed" onChange={setActiveTabIndex}>
             <TabList>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Wszystkie</Text>
-                    <Badge colorScheme="purple" ml={1}>{allCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="level2" ml={1}>{allCostEstimatesCache.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -513,7 +513,7 @@ export default function ProjectCosts() {
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Moje</Text>
-                    <Badge colorScheme="blue" ml={1}>{myCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="primary" ml={1}>{myCostEstimatesCache.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -522,7 +522,7 @@ export default function ProjectCosts() {
                   <HStack spacing={2}>
                     <Icon as={Users} boxSize={4} />
                     <Text>Udostępnione</Text>
-                    <Badge colorScheme="teal" ml={1}>{sharedCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="action" ml={1}>{sharedCostEstimatesCache.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}

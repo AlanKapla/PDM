@@ -131,7 +131,7 @@ export default function CopyCostEstimateModal({
 
             {loading ? (
               <Box textAlign="center" py={8}>
-                <Spinner size="lg" color="blue.500" />
+                <Spinner size="lg" color="primary.500" />
                 <Text mt={3} fontSize="sm" color="gray.600">
                   Ładowanie projektów...
                 </Text>
@@ -193,7 +193,7 @@ export default function CopyCostEstimateModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleCopy}
             isLoading={copying}
             isDisabled={selectedProjectIds.length === 0 || loading}

@@ -180,7 +180,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
               <Collapse in={openSections['summary'] ?? false} animateOpacity>
                 <Box pb={4}>
                   <HStack
-                    bg={level === 0 ? 'blue.50' : 'teal.50'}
+                    bg={level === 0 ? 'primary.50' : 'action.50'}
                     borderRadius="md"
                     px={3}
                     py={2}
@@ -188,13 +188,13 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
                   >
                     <VStack align="start" spacing={0}>
                       <Text fontSize="xs" color="gray.500">Pozycji</Text>
-                      <Badge colorScheme={level === 0 ? 'blue' : 'teal'}>{totalItems}</Badge>
+                      <Badge colorScheme={level === 0 ? 'primary' : 'action'}>{totalItems}</Badge>
                     </VStack>
                     <Divider orientation="vertical" h="32px" />
                     {fallbackValue !== null ? (
                       <VStack align="start" spacing={0}>
                         <Text fontSize="xs" color="gray.500">Łączna wartość</Text>
-                        <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'blue.700' : 'teal.700'}>
+                        <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'primary.700' : 'action.700'}>
                           {fallbackValue}
                         </Text>
                       </VStack>
@@ -204,7 +204,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
                           {i > 0 && <Divider orientation="vertical" h="32px" />}
                           <VStack align="start" spacing={0}>
                             <Text fontSize="xs" color="gray.500">{sv.label}</Text>
-                            <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'blue.700' : 'teal.700'}>
+                            <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'primary.700' : 'action.700'}>
                               {formatCurrencyValue(sv.value, currencySymbol)}
                             </Text>
                           </VStack>

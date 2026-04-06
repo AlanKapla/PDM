@@ -161,7 +161,7 @@ export default function ShareCostEstimateModal({
               <Text fontSize="sm" color="gray.500" mb={1}>
                 Kosztorys:
               </Text>
-              <Badge colorScheme="blue" fontSize="sm" px={3} py={1} borderRadius="md">
+              <Badge colorScheme="primary" fontSize="sm" px={3} py={1} borderRadius="md">
                 {costEstimateName}
               </Badge>
             </Box>
@@ -191,7 +191,7 @@ export default function ShareCostEstimateModal({
                     </HStack>
                   </Text>
                   {selectedUserIds.size > 0 && (
-                    <Badge colorScheme="blue" fontSize="xs">
+                    <Badge colorScheme="primary" fontSize="xs">
                       Wybrano: {selectedUserIds.size}
                     </Badge>
                   )}
@@ -215,15 +215,15 @@ export default function ShareCostEstimateModal({
                         p={2}
                         borderRadius="md"
                         cursor="pointer"
-                        bg={isSelected ? "blue.50" : "transparent"}
-                        _hover={{ bg: isSelected ? "blue.100" : "gray.50" }}
+                        bg={isSelected ? "primary.50" : "transparent"}
+                        _hover={{ bg: isSelected ? "primary.100" : "gray.50" }}
                         onClick={() => toggleUser(member.userId)}
                         spacing={3}
                       >
                         <Checkbox
                           isChecked={isSelected}
                           onChange={() => toggleUser(member.userId)}
-                          colorScheme="blue"
+                          colorScheme="primary"
                           onClick={(e) => e.stopPropagation()}
                         />
                         <Avatar
@@ -284,7 +284,7 @@ export default function ShareCostEstimateModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             leftIcon={<Share2 size={16} />}
             onClick={handleSave}
             isLoading={saving}

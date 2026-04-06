@@ -30,7 +30,7 @@ export default function CollaboratingTenants() {
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
-  const activeBg = useColorModeValue("blue.50", "blue.900");
+  const activeBg = useColorModeValue("primary.50", "primary.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function CollaboratingTenants() {
     return (
       <MainLayout>
         <VStack spacing={4} align="center" justify="center" minH="50vh">
-          <Spinner size="xl" color="blue.500" />
+          <Spinner size="xl" color="primary.500" />
           <Text>Ładowanie organizacji...</Text>
         </VStack>
       </MainLayout>
@@ -120,7 +120,7 @@ export default function CollaboratingTenants() {
                         p={4}
                         rounded="lg"
                         border="1px solid"
-                        borderColor={tenant.id === activeTenantId ? "blue.500" : borderColor}
+                        borderColor={tenant.id === activeTenantId ? "primary.500" : borderColor}
                         bg={tenant.id === activeTenantId ? activeBg : "transparent"}
                         transition="all 0.2s"
                       >
@@ -143,7 +143,7 @@ export default function CollaboratingTenants() {
                             </Radio>
                           </HStack>
                           {tenant.id === activeTenantId && (
-                            <Badge colorScheme="blue" display="flex" alignItems="center" gap={1} alignSelf={{ base: "flex-start", md: "center" }} ml={{ base: 6, md: 0 }}>
+                            <Badge colorScheme="primary" display="flex" alignItems="center" gap={1} alignSelf={{ base: "flex-start", md: "center" }} ml={{ base: 6, md: 0 }}>
                               <CheckCircle2 size={14} />
                               Włączona
                             </Badge>

@@ -113,7 +113,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
       py={2}
       pl={`${indent + 12}px`}
       bg="white"
-      _active={{ bg: 'blue.50' }}
+      _active={{ bg: 'primary.50' }}
       cursor="pointer"
       onClick={onTap}
       role="button"
@@ -136,7 +136,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
         )}
       </VStack>
       {fallbackValue !== null ? (
-        <Text fontSize="sm" fontWeight="medium" color="blue.700" whiteSpace="nowrap">
+        <Text fontSize="sm" fontWeight="medium" color="primary.700" whiteSpace="nowrap">
           {fallbackValue}
         </Text>
       ) : (
@@ -146,7 +146,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
               <Text fontSize="9px" color="gray.400" fontWeight="normal" whiteSpace="nowrap">
                 {sv.label}
               </Text>
-              <Text fontSize="sm" fontWeight="medium" color="blue.700" whiteSpace="nowrap">
+              <Text fontSize="sm" fontWeight="medium" color="primary.700" whiteSpace="nowrap">
                 {formatCurrencyValue(sv.value, currencySymbol)}
               </Text>
             </HStack>
@@ -214,9 +214,9 @@ const GroupCard: React.FC<GroupCardProps> = ({
   const items = group.items ?? [];
   const childGroups = group.childGroups ?? [];
 
-  const headerBg = level === 0 ? 'blue.100' : 'teal.50';
-  const headerBorderColor = level === 0 ? 'blue.300' : 'teal.200';
-  const badgeColorScheme = level === 0 ? 'blue' : 'teal';
+  const headerBg = level === 0 ? 'primary.100' : 'action.50';
+  const headerBorderColor = level === 0 ? 'primary.300' : 'action.200';
+  const badgeColorScheme = level === 0 ? 'primary' : 'action';
 
   // Domyślnie zwinięty
   const [isExpanded, setIsExpanded] = useState(false);
@@ -265,17 +265,17 @@ const GroupCard: React.FC<GroupCardProps> = ({
             {name}
           </Text>
           {fallbackValue !== null ? (
-            <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'blue.800' : 'teal.800'} whiteSpace="nowrap">
+            <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'primary.800' : 'action.800'} whiteSpace="nowrap">
               {fallbackValue}
             </Text>
           ) : (
             <VStack spacing={0} align="end">
               {summaryValues.map((sv) => (
                 <HStack key={sv.label} spacing={1} align="baseline">
-                  <Text fontSize="9px" color={level === 0 ? 'blue.400' : 'teal.400'} fontWeight="normal" whiteSpace="nowrap">
+                  <Text fontSize="9px" color={level === 0 ? 'primary.400' : 'action.400'} fontWeight="normal" whiteSpace="nowrap">
                     {sv.label}
                   </Text>
-                  <Text fontSize="xs" fontWeight="bold" color={level === 0 ? 'blue.800' : 'teal.800'} whiteSpace="nowrap">
+                  <Text fontSize="xs" fontWeight="bold" color={level === 0 ? 'primary.800' : 'action.800'} whiteSpace="nowrap">
                     {formatCurrencyValue(sv.value, currencySymbol)}
                   </Text>
                 </HStack>
@@ -345,7 +345,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
                   leftIcon={<ListPlus size={14} />}
                   size="xs"
                   variant="ghost"
-                  colorScheme="blue"
+                  colorScheme="primary"
                   onClick={() => onAddItem(group.id)}
                 >
                   Dodaj pozycję
@@ -356,7 +356,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
                   leftIcon={<FolderPlus size={14} />}
                   size="xs"
                   variant="ghost"
-                  colorScheme="teal"
+                  colorScheme="action"
                   onClick={() => onAddSubGroup(group.id)}
                 >
                   Dodaj pod-etap
@@ -481,7 +481,7 @@ export const CostEstimateMobileView: React.FC<CostEstimateMobileViewProps> = ({
           <Divider mb={3} />
           <Button
             leftIcon={<FolderPlus size={16} />}
-            colorScheme="blue"
+            colorScheme="primary"
             variant="ghost"
             size="sm"
             width="full"

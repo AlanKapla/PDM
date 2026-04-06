@@ -268,7 +268,7 @@ export default function WorkDetailsModal({
         <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
           <VStack align="flex-start" spacing={2}>
             <Text>Szczegóły zakresu prac</Text>
-            <Badge colorScheme="purple" fontSize={{ base: "xs", md: "md" }}>
+            <Badge colorScheme="level2" fontSize={{ base: "xs", md: "md" }}>
               {work.name}
             </Badge>
           </VStack>
@@ -283,7 +283,7 @@ export default function WorkDetailsModal({
                 <FormLabel fontSize="sm" fontWeight="bold" mb={0}>
                   Okresy wykonania
                 </FormLabel>
-                <Button size="sm" leftIcon={<Plus size={14} />} onClick={addPeriod} colorScheme="blue" variant="ghost">
+                <Button size="sm" leftIcon={<Plus size={14} />} onClick={addPeriod} colorScheme="primary" variant="ghost">
                   Dodaj okres
                 </Button>
               </HStack>
@@ -360,7 +360,7 @@ export default function WorkDetailsModal({
                   <VStack align="stretch" spacing={1}>
                     {(dependencies ?? []).filter(d => d.successorWorkId === work.id).map(dep => (
                       <HStack key={dep.id} spacing={2}>
-                        <Badge colorScheme="blue" variant="subtle" fontSize="xs">← {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
+                        <Badge colorScheme="primary" variant="subtle" fontSize="xs">← {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
                         <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.predecessorWorkId)}</Text>
                         {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">+{dep.lagDays}d</Text>}
                       </HStack>
@@ -395,18 +395,18 @@ export default function WorkDetailsModal({
                               py={1.5}
                               borderRadius="full"
                               borderWidth="1px"
-                              borderColor={isAssigned ? "blue.400" : borderColor}
-                              bg={isAssigned ? "blue.50" : undefined}
+                              borderColor={isAssigned ? "primary.400" : borderColor}
+                              bg={isAssigned ? "primary.50" : undefined}
                               cursor="pointer"
                               onClick={() => toggleAssignee(member.userId)}
-                              _hover={{ bg: isAssigned ? "blue.100" : "gray.50" }}
+                              _hover={{ bg: isAssigned ? "primary.100" : "gray.50" }}
                               transition="all 0.15s"
                             >
                               <Avatar size="2xs" name={getDisplayName(member)} />
-                              <Text fontSize="xs" fontWeight={isAssigned ? "semibold" : "normal"} color={isAssigned ? "blue.700" : undefined}>
+                              <Text fontSize="xs" fontWeight={isAssigned ? "semibold" : "normal"} color={isAssigned ? "primary.700" : undefined}>
                                 {getDisplayName(member)}
                               </Text>
-                              {isAssigned && <Badge colorScheme="blue" fontSize="2xs" variant="solid">✓</Badge>}
+                              {isAssigned && <Badge colorScheme="primary" fontSize="2xs" variant="solid">✓</Badge>}
                             </HStack>
                           </Tooltip>
                         </WrapItem>
@@ -428,7 +428,7 @@ export default function WorkDetailsModal({
                   size="sm"
                   leftIcon={<Plus size={14} />}
                   onClick={addComment}
-                  colorScheme="purple"
+                  colorScheme="level2"
                   variant="ghost"
                 >
                   Dodaj
@@ -474,7 +474,7 @@ export default function WorkDetailsModal({
           <Button variant="ghost" mr={3} onClick={onClose}>
             Anuluj
           </Button>
-          <Button colorScheme="blue" onClick={handleSubmit} isLoading={submitting}>
+          <Button colorScheme="primary" onClick={handleSubmit} isLoading={submitting}>
             Zapisz zmiany
           </Button>
         </ModalFooter>

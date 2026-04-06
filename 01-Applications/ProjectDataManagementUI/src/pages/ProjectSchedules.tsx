@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -72,7 +72,7 @@ const MySchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesLis
         {resourcePerms.mine.canCreate && (
           <Button
             leftIcon={<Calendar size={18} />}
-            colorScheme="purple"
+            colorScheme="level2"
             onClick={onOpen}
             size={isMobile ? "sm" : "md"}
             whiteSpace="normal"
@@ -103,7 +103,7 @@ const AllSchedulesTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesLi
         {resourcePerms.all.canCreate && (
           <Button
             leftIcon={<Calendar size={18} />}
-            colorScheme="purple"
+            colorScheme="level2"
             onClick={onOpen}
             size={isMobile ? "sm" : "md"}
             whiteSpace="normal"
@@ -351,7 +351,7 @@ export default function ProjectSchedules() {
           width="100%"
         >
           <HStack spacing={isMobile ? 2 : 3} align="flex-start">
-            <Icon as={Calendar} boxSize={isMobile ? 6 : 8} color="purple.600" flexShrink={0} />
+            <Icon as={Calendar} boxSize={isMobile ? 6 : 8} color="level2.600" flexShrink={0} />
             <VStack align="flex-start" spacing={isMobile ? 0.5 : 1}>
               <Heading size={isMobile ? "md" : "lg"}>Harmonogramy prac</Heading>
               {project && (
@@ -372,7 +372,7 @@ export default function ProjectSchedules() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex} isLazy>
+          <Tabs colorScheme="level2" variant="enclosed" onChange={setActiveTabIndex} isLazy>
             <TabList overflowX={isMobile ? "auto" : "visible"} pb={isMobile ? 2 : 0}>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold" fontSize={isMobile ? "xs" : "md"} px={isMobile ? 2 : 4} py={isMobile ? 2 : 4}>
@@ -381,7 +381,7 @@ export default function ProjectSchedules() {
                     <Text whiteSpace="nowrap" fontSize={isMobile ? "xs" : "md"}>
                       {isMobile ? "Wszystkie" : "Wszystkie harmonogramy"}
                     </Text>
-                    <Badge colorScheme="purple" fontSize={isMobile ? "7px" : "xs"}>
+                    <Badge colorScheme="level2" fontSize={isMobile ? "7px" : "xs"}>
                       {allSchedulesCache.data?.length || 0}
                     </Badge>
                   </HStack>
@@ -394,7 +394,7 @@ export default function ProjectSchedules() {
                     <Text whiteSpace="nowrap" fontSize={isMobile ? "xs" : "md"}>
                       {isMobile ? "Moje" : "Moje harmonogramy"}
                     </Text>
-                    <Badge colorScheme="blue" fontSize={isMobile ? "7px" : "xs"}>
+                    <Badge colorScheme="primary" fontSize={isMobile ? "7px" : "xs"}>
                       {mySchedulesCache.data?.length || 0}
                     </Badge>
                   </HStack>

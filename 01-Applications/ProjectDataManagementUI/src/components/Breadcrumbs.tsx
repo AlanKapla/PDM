@@ -228,7 +228,7 @@ export default function Breadcrumbs() {
         {breadcrumbs.map((crumb, index) => (
           <BreadcrumbItem key={index} isCurrentPage={crumb.isCurrentPage}>
             {crumb.isCurrentPage ? (
-              <BreadcrumbLink fontWeight="semibold" color="blue.600" noOfLines={1}>
+              <BreadcrumbLink fontWeight="semibold" color="primary.600" noOfLines={1}>
                 {crumb.label}
               </BreadcrumbLink>
             ) : (

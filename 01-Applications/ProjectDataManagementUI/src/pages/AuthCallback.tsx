@@ -70,7 +70,7 @@ export default function AuthCallback() {
   return (
     <Flex minH="100vh" align="center" justify="center">
       <VStack spacing={4}>
-        <Spinner size="xl" color="blue.500" thickness="4px" />
+        <Spinner size="xl" color="primary.500" thickness="4px" />
         <Text fontSize="lg" fontWeight="medium">
           Finalizowanie logowania...
         </Text>

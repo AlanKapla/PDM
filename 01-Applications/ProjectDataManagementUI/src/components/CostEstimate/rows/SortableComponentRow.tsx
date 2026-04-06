@@ -115,7 +115,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
 
   return (
     <React.Fragment>
-      <Tr ref={setNodeRef} style={style} bg="green.50" _hover={{ bg: 'blue.50', cursor: 'pointer' }}>
+      <Tr ref={setNodeRef} style={style} bg="level1.50" _hover={{ bg: 'primary.50', cursor: 'pointer' }}>
         {/* Akcje komponentu */}
         {editable && (
           <Td
@@ -158,7 +158,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
                     aria-label="Dodaj opcję"
                     icon={<GitBranch size={14} />}
                     size="xs"
-                    colorScheme="purple"
+                    colorScheme="level2"
                     variant="ghost"
                     onClick={() => handleAddOption(groupId, component.id)}
                   />
@@ -221,8 +221,8 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           // Pola opcji (childField) — pokaż liczbę opcji komponentu
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="purple.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
-                <Text fontSize="xs" color="purple.400" fontStyle="italic" textAlign="center">
+              <Td key={col.fieldId} p={2} bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+                <Text fontSize="xs" color="level2.400" fontStyle="italic" textAlign="center">
                   {componentOptions.length > 0 ? `${componentOptions.length} opcji` : '—'}
                 </Text>
               </Td>

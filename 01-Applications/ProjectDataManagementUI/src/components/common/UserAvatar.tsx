@@ -11,7 +11,7 @@ const UserAvatar = memo(function UserAvatar({
   firstName, 
   lastName, 
   size = "sm",
-  bg = "blue.600",
+  bg = "primary.600",
   color = "white",
   ...props 
 }: UserAvatarProps) {

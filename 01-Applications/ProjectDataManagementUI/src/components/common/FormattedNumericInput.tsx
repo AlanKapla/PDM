@@ -95,10 +95,10 @@ export const FormattedNumericInput: React.FC<FormattedNumericInputProps> = ({
       variant="outline"
       bg="white"
       borderColor="gray.300"
-      _hover={{ borderColor: 'blue.400' }}
+        _hover={{ borderColor: 'primary.400' }}
       _focus={{
-        borderColor: 'blue.500',
-        boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)',
+        borderColor: 'primary.500',
+        boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)',
       }}
     />
   );

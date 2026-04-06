@@ -293,7 +293,7 @@ export default function CreateCostEstimateModal({
                       Musisz najpierw utworzyć szablon kosztorysu.
                     </Text>
                     <RouterLink to="/cost-estimate-templates">
-                      <Text fontSize="xs" color="blue.500" mt={1} textDecoration="underline">
+                      <Text fontSize="xs" color="primary.500" mt={1} textDecoration="underline">
                         Przejdź do zarządzania szablonami →
                       </Text>
                     </RouterLink>
@@ -347,7 +347,7 @@ export default function CreateCostEstimateModal({
             )}
 
             {selectedTemplate && (
-              <Box p={3} borderWidth="1px" borderRadius="md" bg="blue.50" borderColor="blue.200">
+              <Box p={3} borderWidth="1px" borderRadius="md" bg="primary.50" borderColor="primary.200">
                 <Text fontSize="sm" fontWeight="bold" mb={1}>
                   {selectedTemplate.name}
                 </Text>
@@ -357,7 +357,7 @@ export default function CreateCostEstimateModal({
                   </Text>
                 )}
                 {selectedTemplate.structure && (
-                  <Box mt={2} pt={2} borderTopWidth="1px" borderColor="blue.300">
+                  <Box mt={2} pt={2} borderTopWidth="1px" borderColor="primary.300">
                     <Text fontSize="xs" color="gray.600">
                       <strong>Struktura:</strong>
                     </Text>
@@ -395,7 +395,7 @@ export default function CreateCostEstimateModal({
               Anuluj
             </Button>
             <Button
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={handleSubmit}
               isLoading={isSubmitting}
               loadingText="Tworzenie..."

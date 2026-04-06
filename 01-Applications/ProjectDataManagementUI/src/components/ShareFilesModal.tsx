@@ -206,10 +206,10 @@ export default function ShareFilesModal({
                         borderWidth="1px" 
                         borderRadius="md" 
                         p={3}
-                        bg={isSelected ? "blue.50" : "transparent"}
+                        bg={isSelected ? "primary.50" : "transparent"}
                         cursor="pointer"
                         onClick={() => togglePackageSelection(pkg.id)}
-                        _hover={{ bg: isSelected ? "blue.100" : "gray.50" }}
+                        _hover={{ bg: isSelected ? "primary.100" : "gray.50" }}
                       >
                         <HStack spacing={2}>
                           <Checkbox
@@ -258,8 +258,8 @@ export default function ShareFilesModal({
                       p={2}
                       borderRadius="md"
                       cursor="pointer"
-                      bg={selectedUserIds.has(member.userId) ? "blue.50" : "transparent"}
-                      _hover={{ bg: selectedUserIds.has(member.userId) ? "blue.100" : "gray.50" }}
+                      bg={selectedUserIds.has(member.userId) ? "primary.50" : "transparent"}
+                      _hover={{ bg: selectedUserIds.has(member.userId) ? "primary.100" : "gray.50" }}
                       onClick={() => toggleUserSelection(member.userId)}
                     >
                       <Checkbox
@@ -300,7 +300,7 @@ export default function ShareFilesModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleShare}
             isLoading={loading}
             loadingText="Udostępnianie..."

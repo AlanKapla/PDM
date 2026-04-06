@@ -87,7 +87,7 @@ export default function ActiveInvitations() {
     return (
       <MainLayout>
         <VStack spacing={4} align="center" justify="center" minH="50vh">
-          <Spinner size="xl" color="blue.500" />
+          <Spinner size="xl" color="primary.500" />
           <Text>Ładowanie zaproszeń...</Text>
         </VStack>
       </MainLayout>

@@ -330,9 +330,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             key={index}
             href={part}
             isExternal
-            color="blue.500"
+            color="primary.500"
             textDecoration="underline"
-            _hover={{ color: 'blue.600' }}
+            _hover={{ color: 'primary.600' }}
             onClick={(e) => e.stopPropagation()}
             display="inline-flex"
             alignItems="center"
@@ -1814,15 +1814,15 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
              onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
              isDisabled={effectiveDisabled}
              size="md"
-             colorScheme="blue"
+             colorScheme="primary"
              borderColor="gray.400"
              sx={{
                '.chakra-checkbox__control': {
                  borderWidth: '2px',
                  borderColor: 'gray.400',
                  bg: 'white',
-                 _checked: { bg: 'blue.500', borderColor: 'blue.500' },
-                 _hover: { borderColor: 'blue.400' },
+                 _checked: { bg: 'primary.500', borderColor: 'primary.500' },
+                 _hover: { borderColor: 'primary.400' },
                },
              }}
            />
@@ -1861,8 +1861,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            variant="outline"
            bg="white"
            borderColor="gray.300"
-           _hover={{ borderColor: 'blue.400' }}
-           _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
+           _hover={{ borderColor: 'primary.400' }}
+           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
          />
        );
      }
@@ -1877,20 +1877,24 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
              onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
              isDisabled={effectiveDisabled}
              size="md"
-             colorScheme="blue"
+             colorScheme="primary"
              borderColor="gray.400"
              sx={{
                '.chakra-checkbox__control': {
                  borderWidth: '2px',
                  borderColor: 'gray.400',
                  bg: 'white',
-                 _checked: { bg: 'blue.500', borderColor: 'blue.500' },
-                 _hover: { borderColor: 'blue.400' },
+                 _checked: { bg: 'primary.500', borderColor: 'primary.500' },
+                 _hover: { borderColor: 'primary.400' },
                },
              }}
            />
          </Flex>
        );
+     }
+
+
+     {
      }
      if (fieldType === 0 || fieldType === 1) {
        return (
@@ -1912,8 +1916,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            variant="outline"
            bg="white"
            borderColor="gray.300"
-           _hover={{ borderColor: 'blue.400' }}
-           _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
+           _hover={{ borderColor: 'primary.400' }}
+           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
          />
        );
      }
@@ -1928,8 +1932,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            variant="outline"
            bg="white"
            borderColor="gray.300"
-           _hover={{ borderColor: 'blue.400' }}
-           _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
+           _hover={{ borderColor: 'primary.400' }}
+           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
          />
        );
      }
@@ -1947,8 +1951,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            variant="outline"
            bg="white"
            borderColor="gray.300"
-           _hover={{ borderColor: 'blue.400' }}
-           _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
+           _hover={{ borderColor: 'primary.400' }}
+           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
            flex={1}
          />
          {hasLink && (
@@ -1958,7 +1962,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                icon={<ExternalLink size={14} />}
                size="xs"
                variant="ghost"
-               colorScheme="blue"
+               colorScheme="primary"
                onClick={() => {
                  const match = value?.match(URL_REGEX);
                  if (match && match[0]) {
@@ -2745,7 +2749,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
   const renderTableHeader = () => {
     return (
-      <Thead bg="blue.600" position="sticky" top={0} zIndex={10}>
+      <Thead bg="primary.600" position="sticky" top={0} zIndex={10}>
         <Tr>
           {canStructuralEdit && (
             <Th
@@ -2759,7 +2763,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               position="sticky"
               left={0}
               zIndex={11}
-              bg="blue.600"
+              bg="primary.600"
             >
               Akcje
             </Th>
@@ -2775,7 +2779,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             position="sticky"
             left={canStructuralEdit ? '120px' : 0}
             zIndex={11}
-            bg="blue.600"
+            bg="primary.600"
             whiteSpace="nowrap"
           >
             Pozycja
@@ -3151,14 +3155,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               {/* Stopka z podsumowaniem całkowitym — stale widoczna na dole */}
               {showTotalSummary && (
                 <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 5 }}>
-                  <Tr bg="purple.50" borderTopWidth="3px" borderTopColor="purple.300">
+                  <Tr bg="level2.50" borderTopWidth="3px" borderTopColor="level2.300">
                     {canStructuralEdit && (
                       <Td p={2} w="120px" minW="120px" maxW="120px">
-                        <Badge colorScheme="purple" fontSize="xs">SUMA</Badge>
+                        <Badge colorScheme="level2" fontSize="xs">SUMA</Badge>
                       </Td>
                     )}
                     <Td p={2} w={`${POSITION_COL_MIN_WIDTH}px`} minW={`${POSITION_COL_MIN_WIDTH}px`}>
-                      <Text fontSize="sm" fontWeight="bold" color="purple.700" whiteSpace="nowrap">
+                      <Text fontSize="sm" fontWeight="bold" color="level2.700" whiteSpace="nowrap">
                         PODSUMOWANIE KOSZTORYSU
                       </Text>
                     </Td>
@@ -3217,8 +3221,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                           
                           const currencySymbol = details.selectedCurrencySymbol || details.selectedCurrencyCode || '';
                           return (
-                            <Td key={col.fieldId} p={2} textAlign="center" bg="purple.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                              <Text fontSize="sm" fontWeight="bold" color="purple.700">
+                            <Td key={col.fieldId} p={2} textAlign="center" bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                              <Text fontSize="sm" fontWeight="bold" color="level2.700">
                                 Σ {(sumValue ?? 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}
                               </Text>
                             </Td>
@@ -3227,7 +3231,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       }
                       
                       return (
-                        <Td key={col.fieldId} p={2} bg="purple.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                        <Td key={col.fieldId} p={2} bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
                           <Text fontSize="xs" color="gray.400" fontStyle="italic" textAlign="center">—</Text>
                         </Td>
                       );
@@ -3246,7 +3250,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
         <Box px={4} py={3} borderTopWidth="1px" borderTopColor="gray.200">
           <Button
             leftIcon={<FolderPlus size={16} />}
-            colorScheme="blue"
+            colorScheme="primary"
             variant="ghost"
             size="sm"
             onClick={handleAddGroupWithExpand}

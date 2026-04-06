@@ -136,7 +136,7 @@ export default function UploadNewVersionModal({
                   <Text fontSize="xs" color="gray.600">
                     Aktualna wersja: v{file.currentVersion?.versionNumber}
                   </Text>
-                  <Badge colorScheme="purple" fontSize="xs">
+                  <Badge colorScheme="level2" fontSize="xs">
                     {file.totalVersions} {file.totalVersions === 1 ? "wersja" : "wersji"}
                   </Badge>
                 </HStack>
@@ -186,7 +186,7 @@ export default function UploadNewVersionModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             leftIcon={<Upload size={18} />}
             onClick={handleUpload}
             isLoading={uploading}

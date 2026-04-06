@@ -105,8 +105,8 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
   const listboxId = `unit-combobox-listbox-${reactId}`;
 
   const getOptionBg = (index: number): string | undefined => {
-    if (index === activeIndex) return 'blue.100';
-    if (filtered[index]?.code === value) return 'blue.50';
+  if (index === activeIndex) return 'primary.100';
+  if (filtered[index]?.code === value) return 'primary.50';
     return undefined;
   };
 
@@ -139,7 +139,7 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
                 py={1.5}
                 fontSize="sm"
                 cursor="pointer"
-                _hover={{ bg: 'blue.50' }}
+                _hover={{ bg: 'primary.50' }}
                 bg={getOptionBg(index)}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => {
@@ -225,10 +225,10 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
         placeholder="Jednostka..."
         bg="white"
         borderColor="gray.300"
-        _hover={{ borderColor: 'blue.400' }}
+        _hover={{ borderColor: 'primary.400' }}
         _focus={{
-          borderColor: 'blue.500',
-          boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)',
+          borderColor: 'primary.500',
+          boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)',
         }}
       />
       {dropdown}

@@ -179,7 +179,7 @@ export default function ManagedTenants() {
     return (
       <MainLayout>
         <VStack spacing={4} align="center" justify="center" minH="50vh">
-          <Spinner size="xl" color="blue.500" />
+          <Spinner size="xl" color="primary.500" />
           <Text>Ładowanie organizacji...</Text>
         </VStack>
       </MainLayout>
@@ -198,7 +198,7 @@ export default function ManagedTenants() {
             </HStack>
             <Button
               leftIcon={<Plus size={20} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={() => setIsCreatingTenant(true)}
               isDisabled={isCreatingTenant}
               width={{ base: "100%", md: "auto" }}
@@ -227,7 +227,7 @@ export default function ManagedTenants() {
                 </FormControl>
                 <HStack spacing={3}>
                   <Button
-                    colorScheme="blue"
+                    colorScheme="primary"
                     onClick={handleCreateTenant}
                     isLoading={creatingTenant}
                     flex={1}
@@ -275,7 +275,7 @@ export default function ManagedTenants() {
                     transition="all 0.2s"
                     _hover={{
                       shadow: "lg",
-                      borderColor: "blue.400",
+                      borderColor: "primary.400",
                       transform: "translateY(-2px)",
                     }}
                   >

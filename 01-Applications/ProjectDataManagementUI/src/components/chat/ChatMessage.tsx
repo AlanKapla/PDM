@@ -31,7 +31,7 @@ export default function ChatMessage({
   onEdit,
   onDelete,
 }: ChatMessageProps) {
-  const ownBg = useColorModeValue("blue.500", "blue.400");
+  const ownBg = useColorModeValue("primary.500", "primary.400");
   const otherBg = useColorModeValue("gray.100", "gray.700");
   const mutedColor = useColorModeValue("gray.500", "gray.400");
   const replyBg = useColorModeValue("blackAlpha.100", "whiteAlpha.100");
@@ -91,7 +91,7 @@ export default function ChatMessage({
             <Box
               bg={replyBg}
               borderLeft="3px solid"
-              borderColor={isOwn ? "whiteAlpha.600" : "blue.300"}
+              borderColor={isOwn ? "whiteAlpha.600" : "primary.300"}
               px={2}
               py={1}
               mb={1.5}

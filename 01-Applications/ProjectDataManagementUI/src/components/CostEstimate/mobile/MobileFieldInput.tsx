@@ -51,10 +51,10 @@ export const MobileFieldInput: React.FC<MobileFieldInputProps> = ({
           isChecked={checked}
           isDisabled={disabled}
           onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
-          colorScheme="blue"
+          colorScheme="primary"
           size="lg"
         />
-        <Text fontSize="sm" color={checked ? 'blue.700' : 'gray.500'}>
+        <Text fontSize="sm" color={checked ? 'primary.700' : 'gray.500'}>
           {checked ? 'Tak' : 'Nie'}
         </Text>
       </HStack>

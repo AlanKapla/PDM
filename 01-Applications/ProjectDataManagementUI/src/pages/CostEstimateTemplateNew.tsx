@@ -125,7 +125,7 @@ export default function CostEstimateTemplateNew() {
             </Button>
             <Button
               leftIcon={<Save size={18} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={handleSubmit}
               isLoading={isSubmitting}
               loadingText="Tworzenie..."

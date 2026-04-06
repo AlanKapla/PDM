@@ -300,13 +300,13 @@ export default function WorkScheduleView() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const expiredBg = useColorModeValue("red.50", "red.900");
-  const todayBg = useColorModeValue("blue.100", "blue.800");
+  const todayBg = useColorModeValue("primary.100", "primary.800");
   const depAltBg = useColorModeValue("gray.50", "gray.750");
   const depInvalidBg = useColorModeValue("orange.50", "orange.900");
   const colors = {
     theadBg: useColorModeValue("gray.50", "gray.700"),
-    stageBg: useColorModeValue("blue.50", "blue.900"),
-    stageHoverBg: useColorModeValue("blue.100", "blue.800"),
+    stageBg: useColorModeValue("primary.50", "primary.900"),
+    stageHoverBg: useColorModeValue("primary.100", "primary.800"),
     warningBg: useColorModeValue("yellow.50", "yellow.900"),
     completedBg: useColorModeValue("green.50", "green.900"),
   };
@@ -1224,7 +1224,7 @@ export default function WorkScheduleView() {
                         w="4px"
                         cursor="col-resize"
                         bg="transparent"
-                        _hover={{ bg: "blue.400" }}
+                        _hover={{ bg: "primary.400" }}
                         onMouseDown={(e) => handleResizeStart(e, 'stage')}
                       />
                     )}
@@ -1253,7 +1253,7 @@ export default function WorkScheduleView() {
                         w="4px"
                         cursor="col-resize"
                         bg="transparent"
-                        _hover={{ bg: "blue.400" }}
+                        _hover={{ bg: "primary.400" }}
                         onMouseDown={(e) => handleResizeStart(e, 'description')}
                       />
                     )}
@@ -1273,8 +1273,8 @@ export default function WorkScheduleView() {
                         bg={isTodayCol ? todayBg : undefined}
                         borderLeftWidth={isTodayCol ? "2px" : undefined}
                         borderRightWidth={isTodayCol ? "2px" : undefined}
-                        borderColor={isTodayCol ? "blue.500" : undefined}
-                        color={isTodayCol ? "blue.700" : undefined}
+                        borderColor={isTodayCol ? "primary.500" : undefined}
+                        color={isTodayCol ? "primary.700" : undefined}
                       >
                         <Text fontSize="2xs" whiteSpace="pre-line" lineHeight="1">
                           {formatTimelineDate(date)}
@@ -1299,7 +1299,7 @@ export default function WorkScheduleView() {
                         <Tr
                           key={stage.id}
                           borderBottomWidth={!isLastStage ? "4px" : undefined}
-                          borderBottomColor={!isLastStage ? "purple.500" : undefined}
+                          borderBottomColor={!isLastStage ? "level2.500" : undefined}
                         >
                           <Td
                             position="sticky"
@@ -1314,7 +1314,7 @@ export default function WorkScheduleView() {
                             verticalAlign="top"
                             borderRightWidth="2px"
                             borderBottomWidth={!isLastStage ? "4px" : undefined}
-                            borderBottomColor={!isLastStage ? "purple.500" : undefined}
+                            borderBottomColor={!isLastStage ? "level2.500" : undefined}
                           >
                             <VStack align="flex-start" spacing={1} pl={depth * 4}>
                               {isEditing && !stage.costEstimateGroupId ? (
@@ -1392,7 +1392,7 @@ export default function WorkScheduleView() {
                                 bg={isTodayColumn ? colors.stageHoverBg : undefined}
                                 borderLeftWidth={isTodayColumn ? "2px" : undefined}
                                 borderRightWidth={isTodayColumn ? "2px" : undefined}
-                                borderColor={isTodayColumn ? "blue.500" : undefined}
+                                borderColor={isTodayColumn ? "primary.500" : undefined}
                               >
                                 <Box h="100%" minH="50px" />
                               </Td>
@@ -1430,7 +1430,7 @@ export default function WorkScheduleView() {
                           borderTopWidth={workIdx > 0 ? "1px" : undefined}
                           borderTopColor={workIdx > 0 ? "gray.100" : undefined}
                           borderBottomWidth={!isLastStage && isLastWork ? "4px" : undefined}
-                          borderBottomColor={!isLastStage && isLastWork ? "purple.500" : undefined}
+                          borderBottomColor={!isLastStage && isLastWork ? "level2.500" : undefined}
                           display={!isExpanded && workIdx > 0 ? "none" : undefined}
                         >
                           {/* Stage name - merged vertically for all works */}
@@ -1449,7 +1449,7 @@ export default function WorkScheduleView() {
                               verticalAlign="top"
                               borderRightWidth="2px"
                               borderBottomWidth={!isLastStage && (isExpanded ? isLastWork : true) ? "4px" : undefined}
-                              borderBottomColor={!isLastStage && (isExpanded ? isLastWork : true) ? "purple.500" : undefined}
+                              borderBottomColor={!isLastStage && (isExpanded ? isLastWork : true) ? "level2.500" : undefined}
                               cursor="pointer"
                               onClick={() => toggleStage(stage.id)}
                               _hover={{ bg: colors.stageHoverBg }}
@@ -1627,7 +1627,7 @@ export default function WorkScheduleView() {
                                         return (
                                           <WrapItem key={member.userId}>
                                             <Badge
-                                              colorScheme={isAssigned ? "blue" : "gray"}
+                                              colorScheme={isAssigned ? "primary" : "gray"}
                                               variant={isAssigned ? "solid" : "outline"}
                                               cursor="pointer"
                                               fontSize="2xs"
@@ -1686,7 +1686,7 @@ export default function WorkScheduleView() {
                                               icon={<Plus size={10} />}
                                               size="xs"
                                               variant="ghost"
-                                              colorScheme="purple"
+                                              colorScheme="level2"
                                               onClick={() => addWorkComment(work.id)}
                                             />
                                           )}
@@ -1697,7 +1697,7 @@ export default function WorkScheduleView() {
                                           icon={<Plus size={10} />}
                                           size="xs"
                                           variant="ghost"
-                                          colorScheme="purple"
+                                          colorScheme="level2"
                                           onClick={() => addWorkComment(work.id)}
                                         />
                                       )}
@@ -1775,7 +1775,7 @@ export default function WorkScheduleView() {
                                 bg={isActive ? work.colorRgb : (isTodayColumn ? colors.stageHoverBg : undefined)}
                                 borderLeftWidth={isTodayColumn ? "2px" : undefined}
                                 borderRightWidth={isTodayColumn ? "2px" : undefined}
-                                borderColor={isTodayColumn ? "blue.500" : undefined}
+                                borderColor={isTodayColumn ? "primary.500" : undefined}
                                 onClick={isEditing
                                   ? () => toggleWorkPeriodAtDate(work.id, periodStart, periodEnd)
                                   : isActive ? () => handleWorkClick(work) : undefined
@@ -1795,7 +1795,7 @@ export default function WorkScheduleView() {
                                       _hover={{ opacity: 0.7 }}
                                       borderLeftWidth={isTodayColumn ? "2px" : undefined}
                                       borderRightWidth={isTodayColumn ? "2px" : undefined}
-                                      borderColor={isTodayColumn ? "blue.500" : undefined}
+                                      borderColor={isTodayColumn ? "primary.500" : undefined}
                                     />
                                   </Tooltip>
                                 ) : (
@@ -1859,10 +1859,10 @@ export default function WorkScheduleView() {
                     Typ zależności opisuje <em>który koniec A warunkuje który koniec B</em>.
                   </Text>
                   <HStack spacing={4} flexWrap="wrap">
-                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">FS</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>rozpocząć</strong> (najczęstsze)</Text></HStack>
-                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">SS</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>rozpocząć</strong></Text></HStack>
-                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">FF</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>zakończyć</strong></Text></HStack>
-                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="teal.500">SF</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>zakończyć</strong> (rzadkie)</Text></HStack>
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="action.500">FS</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>rozpocząć</strong> (najczęstsze)</Text></HStack>
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="action.500">SS</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>rozpocząć</strong></Text></HStack>
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="action.500">FF</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>zakończyć</strong></Text></HStack>
+                    <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="action.500">SF</Text><Text fontSize="xs" color="gray.600">— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>zakończyć</strong> (rzadkie)</Text></HStack>
                   </HStack>
                 </AccordionPanel>
               </AccordionItem>
@@ -2112,7 +2112,7 @@ export default function WorkScheduleView() {
               <Box pt={3}>
                 <Button
                   leftIcon={<Plus size={14} />}
-                  colorScheme="teal"
+                  colorScheme="action"
                   variant="outline"
                   size={isMobile ? "xs" : "sm"}
                   onClick={addInlineDep}

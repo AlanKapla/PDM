@@ -51,7 +51,7 @@ export default function LoggedOut() {
     return (
       <Flex minH="100vh" align="center" justify="center">
         <VStack spacing={4}>
-          <Spinner size="xl" color="blue.500" thickness="4px" />
+          <Spinner size="xl" color="primary.500" thickness="4px" />
           <Text>Przetwarzanie logowania...</Text>
         </VStack>
       </Flex>
@@ -78,7 +78,7 @@ export default function LoggedOut() {
           Zostałeś wylogowany z systemu. Twoja sesja została zamknięta.
         </Text>
         <Button
-          colorScheme="blue"
+          colorScheme="primary"
           size="lg"
           w="full"
           onClick={handleLogin}
@@ -93,7 +93,7 @@ export default function LoggedOut() {
 
         <Button
           variant="outline"
-          colorScheme="blue"
+          colorScheme="primary"
           size="lg"
           w="full"
           onClick={() => navigate("/")}

@@ -189,9 +189,9 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
               </HStack>
               <Collapse in={openSections['summary'] ?? false} animateOpacity>
                 <Box pb={4}>
-                  <HStack bg="blue.50" borderRadius="md" px={3} py={2}>
+                  <HStack bg="primary.50" borderRadius="md" px={3} py={2}>
                     <Text fontSize="xs" color="gray.500">Wartość:</Text>
-                    <Text fontSize="sm" fontWeight="bold" color="blue.700">{displayValue}</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="primary.700">{displayValue}</Text>
                   </HStack>
                 </Box>
               </Collapse>

@@ -166,7 +166,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
   return (
     <Box borderWidth="1px" borderRadius="md" overflow="hidden" bg="white">
       {/* Collection Header */}
-      <Box bg="purple.50" p={3} borderBottomWidth={isOpen ? '1px' : '0'}>
+      <Box bg="level2.50" p={3} borderBottomWidth={isOpen ? '1px' : '0'}>
         <HStack justify="space-between">
           <HStack spacing={3}>
             <IconButton
@@ -179,7 +179,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
             <Text fontWeight="medium" fontSize="sm">
               {field.label}
             </Text>
-            <Badge colorScheme="purple" fontSize="xs">
+            <Badge colorScheme="level2" fontSize="xs">
               {value.length} {value.length === 1 ? 'element' : 'elementów'}
             </Badge>
             {minItems && (
@@ -198,7 +198,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
             <Button
               leftIcon={<Plus size={14} />}
               size="xs"
-              colorScheme="purple"
+              colorScheme="level2"
               variant="ghost"
               onClick={handleAddItem}
             >
@@ -225,7 +225,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
               <Button
                 leftIcon={<Plus size={16} />}
                 size="sm"
-                colorScheme="purple"
+                colorScheme="level2"
                 variant="outline"
                 onClick={handleAddItem}
               >
@@ -242,7 +242,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
         ) : (
           <Box overflowX="auto">
             <Table size="sm" variant="simple">
-              <Thead bg="purple.50">
+              <Thead bg="level2.50">
                 <Tr>
                   {isSelectableCollection && <Th w="50px">Wybór</Th>}
                   <Th w="40px">#</Th>
@@ -276,7 +276,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
                 {value.map((item, index) => (
                   <Tr 
                     key={item.id} 
-                    _hover={{ bg: 'purple.25' }}
+                    _hover={{ bg: 'level2.25' }}
                     bg={item.isSelected ? 'green.50' : undefined}
                     borderLeftWidth={item.isSelected ? '3px' : undefined}
                     borderLeftColor={item.isSelected ? 'green.500' : undefined}
@@ -371,14 +371,14 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
 
                 {/* Summary Row */}
                 {summaries && Object.keys(summaries).length > 0 && (
-                  <Tr bg="purple.100" fontWeight="bold">
+                  <Tr bg="level2.100" fontWeight="bold">
                     <Td>
                       <Text fontSize="sm">Suma:</Text>
                     </Td>
                     {visibleCalculatedFields.map((f) => (
                       <Td key={f.name}>
                         {summaries[f.name] !== undefined ? (
-                          <Text fontSize="sm" fontWeight="bold" color="purple.700">
+                          <Text fontSize="sm" fontWeight="bold" color="level2.700">
                             {summaries[f.name].toFixed(2)}
                             {f.unit && ` ${f.unit}`}
                           </Text>
@@ -415,8 +415,8 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
         </Box>
       )}
       {maxItems && value.length >= maxItems && (
-        <Box p={2} bg="blue.50" borderTopWidth="1px">
-          <Text fontSize="xs" color="blue.700">
+        <Box p={2} bg="primary.50" borderTopWidth="1px">
+          <Text fontSize="xs" color="primary.700">
             ℹ️ Osiągnięto maksymalną liczbę elementów ({maxItems})
           </Text>
         </Box>

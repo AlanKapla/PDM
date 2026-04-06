@@ -83,7 +83,7 @@ export default function TenantDetails() {
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const labelColor = useColorModeValue("gray.700", "gray.300");
-  const inviteBg = useColorModeValue("blue.50", "blue.900");
+  const inviteBg = useColorModeValue("primary.50", "primary.900");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   useEffect(() => {
@@ -417,7 +417,7 @@ export default function TenantDetails() {
     return (
       <MainLayout>
         <VStack spacing={4} align="center" justify="center" minH="50vh">
-          <Spinner size="xl" color="blue.500" />
+          <Spinner size="xl" color="primary.500" />
           <Text>Ładowanie szczegółów organizacji...</Text>
         </VStack>
       </MainLayout>
@@ -529,7 +529,7 @@ export default function TenantDetails() {
                   <HStack spacing={2}>
                     <Button
                       size="sm"
-                      colorScheme="blue"
+                      colorScheme="primary"
                       leftIcon={<Save size={16} />}
                       onClick={handleUpdateName}
                       isLoading={updatingName}
@@ -603,7 +603,7 @@ export default function TenantDetails() {
                   <Button
                     size={{ base: "xs", md: "sm" }}
                     leftIcon={<UserPlus size={14} />}
-                    colorScheme="blue"
+                    colorScheme="primary"
                     variant="ghost"
                     onClick={() => setIsInviting(true)}
                     fontSize={{ base: "10px", md: "sm" }}
@@ -660,7 +660,7 @@ export default function TenantDetails() {
                       >
                         <Button
                           size={{ base: "sm", md: "md" }}
-                          colorScheme="blue"
+                          colorScheme="primary"
                           onClick={handleInviteMember}
                           isLoading={sendingInvite}
                           flex={{ base: "1 1 100%", md: "1" }}
@@ -1061,7 +1061,7 @@ export default function TenantDetails() {
                         <Text
                           as="span"
                           fontWeight="bold"
-                          color="blue.500"
+                          color="primary.500"
                         >
                           {tenant?.name}
                         </Text>

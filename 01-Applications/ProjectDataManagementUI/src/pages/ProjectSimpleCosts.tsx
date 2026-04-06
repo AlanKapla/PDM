@@ -110,7 +110,7 @@ const AllCostsTab = memo(function AllCostsTab({
 }: AllCostsTabProps) {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
-  const newRowBg = useColorModeValue("blue.50", "blue.900");
+  const newRowBg = useColorModeValue("primary.50", "primary.900");
   const editRowBg = useColorModeValue("yellow.50", "yellow.900");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
@@ -150,7 +150,7 @@ const AllCostsTab = memo(function AllCostsTab({
       </HStack>
 
       {/* Podsumowanie kosztów */}
-      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
+      <HStack spacing={6} p={3} bg={useColorModeValue("primary.50", "primary.900")} rounded="md" flexWrap="wrap">
         <Box>
           <Text fontSize="xs" color="gray.600">Total:</Text>
           <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
@@ -427,7 +427,7 @@ const AllCostsTab = memo(function AllCostsTab({
                             icon={<Eye size={14} />}
                             size="xs"
                             variant="ghost"
-                            colorScheme="purple"
+                            colorScheme="level2"
                             onClick={() => window.open(cost.previewSasUrl, '_blank')}
                           />
                         </Tooltip>
@@ -456,7 +456,7 @@ const AllCostsTab = memo(function AllCostsTab({
                               icon={<Edit2 size={14} />}
                               size="xs"
                               variant="ghost"
-                              colorScheme="blue"
+                              colorScheme="primary"
                               onClick={() => onEditCost(cost)}
                             />
                           </Tooltip>
@@ -560,7 +560,7 @@ const MyCostsTab = memo(function MyCostsTab({
 }: MyCostsTabProps) {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
-  const newRowBg = useColorModeValue("blue.50", "blue.900");
+  const newRowBg = useColorModeValue("primary.50", "primary.900");
   const editRowBg = useColorModeValue("yellow.50", "yellow.900");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
@@ -600,7 +600,7 @@ const MyCostsTab = memo(function MyCostsTab({
       </HStack>
 
       {/* Podsumowanie kosztów */}
-      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
+      <HStack spacing={6} p={3} bg={useColorModeValue("primary.50", "primary.900")} rounded="md" flexWrap="wrap">
         <Box>
           <Text fontSize="xs" color="gray.600">Total:</Text>
           <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
@@ -873,7 +873,7 @@ const MyCostsTab = memo(function MyCostsTab({
                             icon={<Eye size={14} />}
                             size="xs"
                             variant="ghost"
-                            colorScheme="purple"
+                            colorScheme="level2"
                             onClick={() => window.open(cost.previewSasUrl, '_blank')}
                           />
                         </Tooltip>
@@ -900,7 +900,7 @@ const MyCostsTab = memo(function MyCostsTab({
                           icon={<Edit2 size={14} />}
                           size="xs"
                           variant="ghost"
-                          colorScheme="blue"
+                          colorScheme="primary"
                           onClick={() => onEditCost(cost)}
                         />
                       </Tooltip>
@@ -972,7 +972,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
       </Text>
 
       {/* Podsumowanie kosztów */}
-      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
+      <HStack spacing={6} p={3} bg={useColorModeValue("primary.50", "primary.900")} rounded="md" flexWrap="wrap">
         <Box>
           <Text fontSize="xs" color="gray.600">Total:</Text>
           <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
@@ -1043,7 +1043,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
                             icon={<Eye size={14} />}
                             size="xs"
                             variant="ghost"
-                            colorScheme="purple"
+                            colorScheme="level2"
                             onClick={() => window.open(cost.previewSasUrl, '_blank')}
                           />
                         </Tooltip>
@@ -1516,14 +1516,14 @@ export default function ProjectSimpleCosts() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
+          <Tabs colorScheme="primary" variant="enclosed" onChange={setActiveTabIndex}>
             <TabList>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
                     <Text>Wszystkie</Text>
-                    <Badge colorScheme="purple" ml={2}>{allCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="level2" ml={2}>{allCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -1532,7 +1532,7 @@ export default function ProjectSimpleCosts() {
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
                     <Text>Moje</Text>
-                    <Badge colorScheme="blue" ml={2}>{myCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="primary" ml={2}>{myCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -1541,7 +1541,7 @@ export default function ProjectSimpleCosts() {
                   <HStack spacing={2}>
                     <Icon as={Share2} boxSize={4} />
                     <Text>Udostępnione</Text>
-                    <Badge colorScheme="teal" ml={2}>{sharedCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="action" ml={2}>{sharedCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -1633,8 +1633,8 @@ export default function ProjectSimpleCosts() {
           </Tabs>
         )}
 
-        <Box mt={6} p={4} bg="blue.50" rounded="md" borderWidth="1px" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800">
+        <Box mt={6} p={4} bg="primary.50" rounded="md" borderWidth="1px" borderColor="primary.200">
+          <Text fontSize="sm" color="primary.800">
             💡 <strong>Wskazówka:</strong> Tu rejestrujesz wydatki poniesione w projekcie (faktury, paragony, rozliczenia). Dla zaawansowanych kosztorysów według szablonów przejdź do zakładki "Kosztorysy".
           </Text>
         </Box>

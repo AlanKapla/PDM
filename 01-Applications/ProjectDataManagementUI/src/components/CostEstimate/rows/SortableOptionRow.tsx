@@ -85,7 +85,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
   };
 
   return (
-    <Tr ref={setNodeRef} style={style} bg="purple.50" _hover={{ bg: 'blue.50', cursor: 'pointer' }}>
+    <Tr ref={setNodeRef} style={style} bg="level2.50" _hover={{ bg: 'primary.50', cursor: 'pointer' }}>
       {editable && (
         <Td
           px={3}
@@ -94,7 +94,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
           position="sticky"
           left={0}
           zIndex={5}
-          bg="purple.50"
+          bg="level2.50"
           minW="120px"
           maxW="120px"
         >
@@ -132,12 +132,12 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
         position="sticky"
         left={editable ? '120px' : 0}
         zIndex={5}
-        bg="purple.50"
+        bg="level2.50"
         w={`${POSITION_COL_MIN_WIDTH}px`}
         minW={`${POSITION_COL_MIN_WIDTH}px`}
         whiteSpace="nowrap"
       >
-        <Badge colorScheme="purple" size="sm">
+        <Badge colorScheme="level2" size="sm">
           Opcja {optIndex + 1}
         </Badge>
       </Td>

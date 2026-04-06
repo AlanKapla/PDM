@@ -84,7 +84,7 @@ export default function ScheduleScaleToolbar({
           icon={<Minus size={12} />}
           size={size as any}
           variant="outline"
-          colorScheme="purple"
+          colorScheme="level2"
           isDisabled={timeRangeMonths <= 1}
           onClick={() => adjustRange(-1)}
         />
@@ -92,7 +92,7 @@ export default function ScheduleScaleToolbar({
       <Text
         fontWeight="semibold"
         fontSize="sm"
-        color="purple.600"
+        color="level2.600"
         minW="60px"
         textAlign="center"
         userSelect="none"
@@ -105,7 +105,7 @@ export default function ScheduleScaleToolbar({
           icon={<Plus size={12} />}
           size={size as any}
           variant="outline"
-          colorScheme="purple"
+          colorScheme="level2"
           isDisabled={timeRangeMonths >= 24}
           onClick={() => adjustRange(1)}
         />
@@ -121,7 +121,7 @@ export default function ScheduleScaleToolbar({
         as={Button}
         rightIcon={<ChevronDown size={12} />}
         size={size as any}
-        colorScheme="purple"
+        colorScheme="level2"
         variant="outline"
       >
         Skala: {SCALE_LABELS[timeScale]}
@@ -132,7 +132,7 @@ export default function ScheduleScaleToolbar({
             key={scale}
             onClick={() => setTimeScale(scale)}
             fontWeight={timeScale === scale ? "semibold" : "normal"}
-            color={timeScale === scale ? "purple.600" : undefined}
+            color={timeScale === scale ? "level2.600" : undefined}
           >
             {SCALE_LABELS[scale]}
           </MenuItem>
@@ -163,7 +163,7 @@ export default function ScheduleScaleToolbar({
                 key={scale}
                 size="sm"
                 variant={timeScale === scale ? "solid" : "outline"}
-                colorScheme="purple"
+                colorScheme="level2"
                 onClick={() => setTimeScale(scale)}
               >
                 {SCALE_LABELS[scale]}
@@ -187,14 +187,14 @@ export default function ScheduleScaleToolbar({
               min={1}
               max={24}
               step={1}
-              colorScheme="purple"
+              colorScheme="level2"
               flex={1}
             >
               <SliderTrack>
                 <SliderFilledTrack />
               </SliderTrack>
               <SliderThumb boxSize={6}>
-                <Box color="purple.500" fontSize="2xs" fontWeight="bold">
+                <Box color="level2.500" fontSize="2xs" fontWeight="bold">
                   {timeRangeMonths}
                 </Box>
               </SliderThumb>
@@ -224,7 +224,7 @@ export default function ScheduleScaleToolbar({
                   key={scale}
                   size="xs"
                   variant={timeScale === scale ? "solid" : "outline"}
-                  colorScheme="purple"
+                  colorScheme="level2"
                   onClick={() => setTimeScale(scale)}
                 >
                   {SCALE_LABELS[scale]}

@@ -69,7 +69,7 @@ export default function TimelineToolbar({
               key={scale}
               size={btnSize}
               variant={timeScale === scale ? "solid" : "outline"}
-              colorScheme="purple"
+              colorScheme="level2"
               onClick={() => setTimeScale(scale)}
               fontSize={fontSize}
             >
@@ -94,7 +94,7 @@ export default function TimelineToolbar({
           <Button
             size={btnSize}
             leftIcon={<CalendarDays size={14} />}
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={scrollToToday}
             fontSize={fontSize}
           >
@@ -135,7 +135,7 @@ export default function TimelineToolbar({
           min={1}
           max={24}
           step={1}
-          colorScheme="purple"
+          colorScheme="level2"
           flex={1}
           maxW={isMobile ? "200px" : "400px"}
         >
@@ -143,7 +143,7 @@ export default function TimelineToolbar({
             <SliderFilledTrack />
           </SliderTrack>
           <SliderThumb boxSize={6}>
-            <Box color="purple.500" fontSize="2xs" fontWeight="bold">
+            <Box color="level2.500" fontSize="2xs" fontWeight="bold">
               {timeRangeMonths}
             </Box>
           </SliderThumb>

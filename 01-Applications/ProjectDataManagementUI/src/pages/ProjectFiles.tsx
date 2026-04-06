@@ -91,8 +91,8 @@ const SCOPE_CONFIG: Record<FilesTabScope, {
     emptyTitle: "Brak plików",
     emptyDescription: "Nie ma jeszcze żadnych plików w tym projekcie",
     packageIcon: FileText,
-    packageIconColor: "purple.600",
-    badgeColor: "purple",
+    packageIconColor: "level2.600",
+    badgeColor: "level2",
     isShared: false,
     showOwner: true,
     showOwnerInPackage: true,
@@ -104,8 +104,8 @@ const SCOPE_CONFIG: Record<FilesTabScope, {
     emptyTitle: "Brak plików",
     emptyDescription: "Nie masz jeszcze żadnych plików w tym projekcie",
     packageIcon: FileText,
-    packageIconColor: "purple.600",
-    badgeColor: "blue",
+    packageIconColor: "level2.600",
+    badgeColor: "primary",
     isShared: false,
     showOwner: false,
     showOwnerInPackage: false,
@@ -116,8 +116,8 @@ const SCOPE_CONFIG: Record<FilesTabScope, {
     emptyTitle: "Brak udostępnionych plików",
     emptyDescription: "Nikt jeszcze nie udostępnił Ci plików w tym projekcie",
     packageIcon: Share2,
-    packageIconColor: "teal.600",
-    badgeColor: "blue",
+    packageIconColor: "action.600",
+    badgeColor: "primary",
     isShared: true,
     showOwner: true,
     showOwnerInPackage: true,
@@ -663,7 +663,7 @@ export default function ProjectFiles() {
             <HStack spacing={2}>
               <Text fontSize="sm" fontWeight="medium">{file.displayName}</Text>
               {file.currentVersion?.versionNumber && (
-                <Badge colorScheme="purple" fontSize="xs">v{file.currentVersion.versionNumber}</Badge>
+                <Badge colorScheme="level2" fontSize="xs">v{file.currentVersion.versionNumber}</Badge>
               )}
               {!isShared && file.sharedWithUserIds && file.sharedWithUserIds.length > 0 && (
                 <Badge colorScheme="orange" fontSize="xs" display="flex" alignItems="center" gap={1}>
@@ -690,7 +690,7 @@ export default function ProjectFiles() {
                     icon={<Eye size={16} />}
                     size="sm"
                     variant="ghost"
-                    colorScheme="purple"
+                    colorScheme="level2"
                     onClick={() => handlePreview(file.currentVersion.sasUrlView)}
                   />
                 </Tooltip>
@@ -702,7 +702,7 @@ export default function ProjectFiles() {
                     icon={<Download size={16} />}
                     size="sm"
                     variant="ghost"
-                    colorScheme="blue"
+                    colorScheme="primary"
                     onClick={() => handleDownloadFile(fileId, file.currentVersion.sasUrlDownload)}
                   />
                 </Tooltip>
@@ -764,16 +764,16 @@ export default function ProjectFiles() {
                           borderWidth="1px"
                           borderRadius="md"
                           p={3}
-                          bg={version.id === file.currentVersion?.id ? useColorModeValue("blue.50", "blue.900") : cardBg}
-                          borderColor={version.id === file.currentVersion?.id ? "blue.300" : borderColor}
+                          bg={version.id === file.currentVersion?.id ? useColorModeValue("primary.50", "primary.900") : cardBg}
+                          borderColor={version.id === file.currentVersion?.id ? "primary.300" : borderColor}
                         >
                           <HStack justify="space-between" mb={2}>
                             <HStack spacing={2} flexWrap="wrap">
-                              <Badge colorScheme={version.id === file.currentVersion?.id ? "blue" : "gray"}>
+                              <Badge colorScheme={version.id === file.currentVersion?.id ? "primary" : "gray"}>
                                 Wersja {version.versionNumber}
                                 {version.id === file.currentVersion?.id && " (Aktualna)"}
                               </Badge>
-                              <Badge colorScheme="purple" fontSize="xs">
+                              <Badge colorScheme="level2" fontSize="xs">
                                 {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
                               </Badge>
                               <Text fontSize="xs" color="gray.600">
@@ -787,7 +787,7 @@ export default function ProjectFiles() {
                                     aria-label="Podgląd"
                                     icon={<Eye size={14} />}
                                     size="xs"
-                                    colorScheme="purple"
+                                    colorScheme="level2"
                                     onClick={() => handlePreview(version.sasUrlView)}
                                   />
                                 </Tooltip>
@@ -844,7 +844,7 @@ export default function ProjectFiles() {
                                               >
                                                 <Box
                                                   maxW="75%"
-                                                  bg={isMyComment ? "blue.500" : useColorModeValue("gray.100", "gray.700")}
+                                                  bg={isMyComment ? "primary.500" : useColorModeValue("gray.100", "gray.700")}
                                                   color={isMyComment ? "white" : useColorModeValue("black", "white")}
                                                   p={3}
                                                   borderRadius="lg"
@@ -893,7 +893,7 @@ export default function ProjectFiles() {
                                         <IconButton
                                           aria-label="Wyślij komentarz"
                                           icon={<Send size={16} />}
-                                          colorScheme="blue"
+                                          colorScheme="primary"
                                           size="sm"
                                           onClick={() => handleAddComment(isShared ? file.projectFileId : file.id, version.id)}
                                           isLoading={submittingComment === `${fileId}-${version.id}`}
@@ -933,7 +933,7 @@ export default function ProjectFiles() {
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
-            <Icon as={FileText} boxSize={8} color="purple.600" />
+            <Icon as={FileText} boxSize={8} color="level2.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Pliki projektu</Heading>
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
@@ -950,14 +950,14 @@ export default function ProjectFiles() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="purple" variant="enclosed" onChange={setActiveTabIndex}>
+          <Tabs colorScheme="level2" variant="enclosed" onChange={setActiveTabIndex}>
             <TabList>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Wszystkie</Text>
-                    <Badge colorScheme="purple" ml={2}>{(allFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                    <Badge colorScheme="level2" ml={2}>{(allFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -966,7 +966,7 @@ export default function ProjectFiles() {
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Moje</Text>
-                    <Badge colorScheme="blue" ml={2}>{(myFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                    <Badge colorScheme="primary" ml={2}>{(myFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -975,7 +975,7 @@ export default function ProjectFiles() {
                   <HStack spacing={2}>
                     <Icon as={Share2} boxSize={4} />
                     <Text>Udostępnione</Text>
-                    <Badge colorScheme="teal" ml={2}>{(sharedFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
+                    <Badge colorScheme="action" ml={2}>{(sharedFilesCache.data || []).reduce((sum, pkg) => sum + pkg.totalFiles, 0)}</Badge>
                   </HStack>
                 </Tab>
               )}

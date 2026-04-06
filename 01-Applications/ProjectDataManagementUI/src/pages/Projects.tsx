@@ -176,7 +176,7 @@ export default function Projects() {
         >
           <HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" gap={{ base: 2, md: 3 }}>
             <HStack spacing={2} flexShrink={0}>
-              <Icon as={Building2} boxSize={{ base: 4, md: 5 }} color="purple.500" />
+              <Icon as={Building2} boxSize={{ base: 4, md: 5 }} color="level2.500" />
               <Text
                 fontWeight="semibold"
                 fontSize={{ base: "xs", md: "sm" }}
@@ -201,9 +201,9 @@ export default function Projects() {
                   maxW={{ base: "100%", md: "360px" }}
                   size={{ base: "sm", md: "md" }}
                   fontWeight="semibold"
-                  borderColor="purple.300"
-                  _hover={{ borderColor: "purple.400" }}
-                  _focus={{ borderColor: "purple.500", boxShadow: "0 0 0 1px var(--chakra-colors-purple-500)" }}
+                  borderColor="level2.300"
+                  _hover={{ borderColor: "level2.400" }}
+                  _focus={{ borderColor: "level2.500", boxShadow: "0 0 0 1px var(--chakra-colors-level2-500)" }}
                   icon={switching ? <></> : undefined}
                 >
                   {tenants.map((tenant) => (
@@ -215,7 +215,7 @@ export default function Projects() {
               </Tooltip>
             )}
             {switching && (
-              <Text fontSize="xs" color="purple.500" fontWeight="medium">
+              <Text fontSize="xs" color="level2.500" fontWeight="medium">
                 Przełączanie…
               </Text>
             )}
@@ -229,7 +229,7 @@ export default function Projects() {
           {permissions.canCreateProject && (
             <Button
               leftIcon={<Plus size={16} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={createModal.onOpen}
               size={{ base: "sm", md: "md" }}
               fontSize={{ base: "xs", md: "sm" }}
@@ -256,7 +256,7 @@ export default function Projects() {
             description={permissions.canCreateProject ? "Stwórz swój pierwszy projekt, aby zacząć pracę" : undefined}
             action={
               permissions.canCreateProject && activeTenantId && (
-                <Button leftIcon={<Icon as={Plus} />} colorScheme="blue" onClick={createModal.onOpen}>
+                <Button leftIcon={<Icon as={Plus} />} colorScheme="primary" onClick={createModal.onOpen}>
                   Utwórz projekt
                 </Button>
               )
@@ -277,14 +277,14 @@ export default function Projects() {
                 onClick={() => navigate(`/projects/${project.id}`)}
                 _hover={{
                   shadow: "lg",
-                  borderColor: "blue.500",
+                  borderColor: "primary.500",
                 }}
                 transition="all 0.2s"
               >
                 <Box p={{ base: 3, md: 4 }}>
                   <HStack justify="space-between" align="flex-start" spacing={{ base: 2, md: 3 }} flexWrap={{ base: "wrap", md: "nowrap" }}>
                     <HStack spacing={{ base: 2, md: 3 }} flex={1} minW="0">
-                      <Icon as={FolderKanban} boxSize={{ base: 5, md: 6 }} color="blue.600" flexShrink={0} />
+                      <Icon as={FolderKanban} boxSize={{ base: 5, md: 6 }} color="primary.600" flexShrink={0} />
                       <VStack align="flex-start" spacing={1} flex={1} minW="0">
                         <HStack spacing={2} flexWrap="wrap">
                           <Text fontWeight="bold" fontSize={{ base: "sm", md: "lg" }} noOfLines={1}>
@@ -347,7 +347,7 @@ export default function Projects() {
               Anuluj
             </Button>
             <Button
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={handleCreateProject}
               isLoading={creating}
               size={{ base: "sm", md: "md" }}

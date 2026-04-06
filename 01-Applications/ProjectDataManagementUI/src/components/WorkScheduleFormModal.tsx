@@ -301,7 +301,7 @@ export default function WorkScheduleFormModal({
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-  const childStageBorderColor = useColorModeValue("blue.200", "blue.700");
+  const childStageBorderColor = useColorModeValue("primary.200", "primary.700");
 
   const isCostEstimateSynced = mode === 'edit' && !!schedule?.costEstimateId;
 
@@ -1213,7 +1213,7 @@ export default function WorkScheduleFormModal({
                 size={{ base: "xs", md: "sm" }}
                 leftIcon={<Plus size={12} />}
                 onClick={() => addComment(stageTempId, work.tempId)}
-                colorScheme="purple"
+                colorScheme="level2"
                 variant="ghost"
               >
                 Dodaj komentarz
@@ -1266,7 +1266,7 @@ export default function WorkScheduleFormModal({
         borderRadius="lg"
         borderColor={
           depth === 0
-            ? (draggedStage === stage.tempId ? "blue.400" : borderColor)
+            ? (draggedStage === stage.tempId ? "primary.400" : borderColor)
             : childStageBorderColor
         }
         bg={bgColor}
@@ -1348,7 +1348,7 @@ export default function WorkScheduleFormModal({
             </Button>
             {stage.children.length > 0 && (
               <Box>
-                <Text fontWeight="semibold" fontSize="sm" mb={2} color="purple.600">
+                <Text fontWeight="semibold" fontSize="sm" mb={2} color="level2.600">
                   Podetapy
                 </Text>
                 <Accordion allowMultiple>
@@ -1362,7 +1362,7 @@ export default function WorkScheduleFormModal({
               leftIcon={<FolderPlus size={14} />}
               size={{ base: "sm", md: "md" }}
               variant="outline"
-              colorScheme="purple"
+              colorScheme="level2"
               onClick={() => addChildStage(stage.tempId)}
             >
               Dodaj podetap
@@ -1471,7 +1471,7 @@ export default function WorkScheduleFormModal({
                 {scheduleMode === 'manual' && (
                   <Button
                     leftIcon={<Plus size={16} />}
-                    colorScheme="blue"
+                    colorScheme="primary"
                     size={{ base: "sm", md: "md" }}
                     onClick={addStage}
                   >
@@ -1514,7 +1514,7 @@ export default function WorkScheduleFormModal({
                     </VStack>
                     <Button
                       leftIcon={<Plus size={14} />}
-                      colorScheme="teal"
+                      colorScheme="action"
                       size={{ base: "xs", md: "sm" }}
                       onClick={addDependency}
                       isDisabled={allWorks.length < 2}
@@ -1528,22 +1528,22 @@ export default function WorkScheduleFormModal({
                     mb={3}
                     p={3}
                     borderRadius="md"
-                    bg={useColorModeValue("blue.50", "blue.900")}
+                    bg={useColorModeValue("primary.50", "primary.900")}
                     borderWidth="1px"
-                    borderColor={useColorModeValue("blue.200", "blue.700")}
+                    borderColor={useColorModeValue("primary.200", "primary.700")}
                   >
-                    <Text fontSize="xs" fontWeight="semibold" mb={1} color={useColorModeValue("blue.700", "blue.200")}>
+                    <Text fontSize="xs" fontWeight="semibold" mb={1} color={useColorModeValue("primary.700", "primary.200")}>
                       Jak czytać zależność?
                     </Text>
-                    <Text fontSize="xs" color={useColorModeValue("blue.600", "blue.300")}>
+                    <Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>
                       Zakres <strong>A</strong> (poprzednik) musi osiągnąć dany punkt, zanim zakres <strong>B</strong> (następnik) będzie mógł zacząć lub skończyć.
                       Typ zależności opisuje <em>który koniec A warunkuje który koniec B</em>.
                     </Text>
                     <HStack spacing={4} mt={2} flexWrap="wrap">
-                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="blue.500">FS</Text><Text fontSize="xs" color={useColorModeValue("blue.600", "blue.300")}>— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>rozpocząć</strong> (najczęstsze)</Text></HStack>
-                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="blue.500">SS</Text><Text fontSize="xs" color={useColorModeValue("blue.600", "blue.300")}>— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>rozpocząć</strong></Text></HStack>
-                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="blue.500">FF</Text><Text fontSize="xs" color={useColorModeValue("blue.600", "blue.300")}>— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>zakończyć</strong></Text></HStack>
-                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="blue.500">SF</Text><Text fontSize="xs" color={useColorModeValue("blue.600", "blue.300")}>— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>zakończyć</strong> (rzadkie)</Text></HStack>
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">FS</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>rozpocząć</strong> (najczęstsze)</Text></HStack>
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">SS</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>rozpocząć</strong></Text></HStack>
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">FF</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>zakończyć</strong></Text></HStack>
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">SF</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>zakończyć</strong> (rzadkie)</Text></HStack>
                     </HStack>
                   </Box>
 
@@ -1781,7 +1781,7 @@ export default function WorkScheduleFormModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleSubmit}
             isLoading={submitting}
             loadingText={submitLoadingText}

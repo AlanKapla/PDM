@@ -505,7 +505,7 @@ const FileManagerModal: React.FC<{
                             {isImage ? 'JPG' : 'PDF'}
                           </Badge>
                           {file.isNew && (
-                            <Badge colorScheme="blue" fontSize="2xs">Nowy</Badge>
+                            <Badge colorScheme="primary" fontSize="2xs">Nowy</Badge>
                           )}
                         </HStack>
                       </VStack>
@@ -585,7 +585,7 @@ const FileManagerModal: React.FC<{
                 <Button
                   leftIcon={<Plus size={16} />}
                   variant="outline"
-                  colorScheme="blue"
+                  colorScheme="primary"
                   onClick={() => fileInputRef.current?.click()}
                   isDisabled={isSaving || displayFiles.length >= MAX_FILES_PER_REQUEST}
                   w="100%"
@@ -605,7 +605,7 @@ const FileManagerModal: React.FC<{
                 <Progress
                   value={saveProgress}
                   size="sm"
-                  colorScheme="blue"
+                  colorScheme="primary"
                   borderRadius="md"
                 />
                 <Text fontSize="xs" color="gray.500" mt={1} textAlign="center">
@@ -626,7 +626,7 @@ const FileManagerModal: React.FC<{
               </Button>
               {!readOnly && (
                 <Button
-                  colorScheme="blue"
+                  colorScheme="primary"
                   leftIcon={<Save size={16} />}
                   onClick={handleSave}
                   isLoading={isSaving}
@@ -709,8 +709,8 @@ export const FileFieldRenderer: React.FC<FileFieldRendererProps> = ({
             onClick={onOpen}
             p={1}
             borderRadius="md"
-            bg={hasFiles ? 'blue.50' : 'transparent'}
-            _hover={{ bg: hasFiles ? 'blue.100' : 'gray.100' }}
+          bg={hasFiles ? 'primary.50' : 'transparent'}
+          _hover={{ bg: hasFiles ? 'primary.100' : 'gray.100' }}
             display="flex"
             alignItems="center"
             gap={1}
@@ -744,7 +744,7 @@ export const FileFieldRenderer: React.FC<FileFieldRendererProps> = ({
                   )}
                 </Box>
                 {/* Liczba plików */}
-                <Badge colorScheme="blue" fontSize="2xs" borderRadius="full">
+                <Badge colorScheme="primary" fontSize="2xs" borderRadius="full">
                   {fileList.length}
                 </Badge>
               </>
@@ -784,7 +784,7 @@ export const FileFieldRenderer: React.FC<FileFieldRendererProps> = ({
         onClick={onOpen}
         rightIcon={
           fileList.length > 0 ? (
-            <Badge colorScheme="blue" borderRadius="full">
+            <Badge colorScheme="primary" borderRadius="full">
               {fileList.length}
             </Badge>
           ) : undefined

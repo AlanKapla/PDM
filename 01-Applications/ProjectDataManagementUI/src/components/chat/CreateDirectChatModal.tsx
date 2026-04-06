@@ -42,8 +42,8 @@ export default function CreateDirectChatModal({
   const [submitting, setSubmitting] = useState(false);
   const { showError, showSuccess } = useToastNotification();
 
-  const hoverBg = useColorModeValue("blue.50", "blue.900");
-  const selectedBg = useColorModeValue("blue.100", "blue.800");
+  const hoverBg = useColorModeValue("primary.50", "primary.900");
+  const selectedBg = useColorModeValue("primary.100", "primary.800");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -171,7 +171,7 @@ export default function CreateDirectChatModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             isDisabled={!selectedUserId}
             isLoading={submitting}
             onClick={handleSubmit}

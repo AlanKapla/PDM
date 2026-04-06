@@ -98,7 +98,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
           onClick={() => navigate("/dashboard")}
           flexShrink={0}
         >
-          <Icon as={Database} boxSize={{ base: 5, md: 5 }} color="blue.600" flexShrink={0} />
+          <Icon as={Database} boxSize={{ base: 5, md: 5 }} color="primary.600" flexShrink={0} />
 
           <Text
             fontSize={{ base: "xs", md: "md" }}
@@ -170,7 +170,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               <MenuButton cursor="pointer">
                 <Avatar
                   size={{ base: "sm", md: "sm" }}
-                  bg="blue.600"
+                  bg="primary.600"
                   color="white"
                   ignoreFallback
                   css={{ "& svg": { display: "none" } }}

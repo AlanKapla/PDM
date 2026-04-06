@@ -84,7 +84,7 @@ function ActiveDot() {
       w="7px"
       h="7px"
       borderRadius="full"
-      bg="teal.400"
+      bg="action.400"
       border="1.5px solid"
       borderColor="white"
       zIndex={1}
@@ -325,7 +325,7 @@ export default function WorkScheduleToolbar({
         icon={a.icon}
         onClick={a.onClick}
         fontWeight={a.isActive ? "semibold" : "normal"}
-        color={a.isActive ? "teal.600" : undefined}
+        color={a.isActive ? "action.600" : undefined}
       >
         {a.label}
       </MenuItem>

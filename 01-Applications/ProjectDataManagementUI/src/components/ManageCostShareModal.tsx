@@ -152,8 +152,8 @@ export const ManageCostShareModal = ({
                     p={2}
                     borderRadius="md"
                     cursor="pointer"
-                    bg={selectedUserIds.has(member.userId) ? "blue.50" : "transparent"}
-                    _hover={{ bg: selectedUserIds.has(member.userId) ? "blue.100" : "gray.50" }}
+                bg={selectedUserIds.has(member.userId) ? "primary.50" : "transparent"}
+                _hover={{ bg: selectedUserIds.has(member.userId) ? "primary.100" : "gray.50" }}
                     onClick={() => toggleUser(member.userId)}
                   >
                     <Checkbox
@@ -181,7 +181,7 @@ export const ManageCostShareModal = ({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleSave}
             isLoading={loading}
             isDisabled={loadingMembers}

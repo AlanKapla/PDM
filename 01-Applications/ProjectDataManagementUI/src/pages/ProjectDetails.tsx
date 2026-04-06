@@ -748,7 +748,7 @@ export default function ProjectDetails() {
           {/* Header */}
           {loading ? (
             <VStack spacing={4} align="center" justify="center" minH="50vh">
-              <Spinner size="xl" color="blue.500" />
+              <Spinner size="xl" color="primary.500" />
               <Text>Ładowanie szczegółów projektu...</Text>
             </VStack>
           ) : error ? (
@@ -821,7 +821,7 @@ export default function ProjectDetails() {
                       <HStack spacing={2}>
                         <Button
                           size="sm"
-                          colorScheme="blue"
+                          colorScheme="primary"
                           leftIcon={<Save size={16} />}
                           onClick={handleUpdateName}
                           isLoading={updatingName}
@@ -881,7 +881,7 @@ export default function ProjectDetails() {
                     onClick={() => navigate(`/projects/${projectId}/members`)}
                   >
                     <VStack spacing={3}>
-                      <Icon as={Users} boxSize={8} color="blue.600" />
+                      <Icon as={Users} boxSize={8} color="primary.600" />
                       <Text fontWeight="bold" fontSize="md">Członkowie</Text>
                     </VStack>
                   </Box>
@@ -901,7 +901,7 @@ export default function ProjectDetails() {
                     onClick={() => navigate(`/projects/${projectId}/schedules`)}
                   >
                     <VStack spacing={3}>
-                      <Icon as={Calendar} boxSize={8} color="purple.600" />
+                      <Icon as={Calendar} boxSize={8} color="level2.600" />
                       <Text fontWeight="bold" fontSize="md">Harmonogramy</Text>
                     </VStack>
                   </Box>
@@ -921,7 +921,7 @@ export default function ProjectDetails() {
                     onClick={() => navigate(`/projects/${projectId}/files`)}
                   >
                     <VStack spacing={3}>
-                      <Icon as={FileText} boxSize={8} color="purple.600" />
+                      <Icon as={FileText} boxSize={8} color="level2.600" />
                       <Text fontWeight="bold" fontSize="md">Pliki</Text>
                     </VStack>
                   </Box>
@@ -1147,7 +1147,7 @@ export default function ProjectDetails() {
               <AlertDialogBody>
                 <VStack align="flex-start" spacing={4}>
                   <Text>
-                    Czy na pewno chcesz {project?.isActive ? "zdezaktywować" : "aktywować"} projekt <Text as="span" fontWeight="bold" color="blue.500">{project?.name}</Text>?
+                    Czy na pewno chcesz {project?.isActive ? "zdezaktywować" : "aktywować"} projekt <Text as="span" fontWeight="bold" color="primary.500">{project?.name}</Text>?
                   </Text>
                   {project?.isActive ? (
                     <Box

@@ -140,7 +140,7 @@ export const ManageFileShareModal = ({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleSave}
             isLoading={loading}
             isDisabled={availableMembers.length === 0}

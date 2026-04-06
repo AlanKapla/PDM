@@ -200,7 +200,7 @@ export default function ProjectMembers() {
           <>
         <HStack justify="space-between" mb={{ base: 6, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
           <HStack spacing={{ base: 2, md: 3 }}>
-            <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="blue.600" />
+            <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="primary.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size={{ base: "md", md: "lg" }}>Członkowie projektu</Heading>
               {project && <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">{project.name}</Text>}
@@ -209,7 +209,7 @@ export default function ProjectMembers() {
           {permissions.canManageMembers && (
             <Button
               leftIcon={<UserPlus size={16} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={onOpen}
               size={{ base: "sm", md: "md" }}
               fontSize={{ base: "xs", md: "sm" }}
