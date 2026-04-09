@@ -1,6 +1,7 @@
 ﻿using Entities.Models;
 using Entities.Models.Base;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.CostTrackers;
 
 namespace Entities.Models.CostEstimates
 {
@@ -22,7 +23,8 @@ namespace Entities.Models.CostEstimates
         public DateTime? LastCalculatedAt { get; set; }
         public bool IsDeleted { get; set; }
         public DateTime? DeletedAt { get; set; }
-        
+        public Guid? CostTrackerId { get; set; }
+
         public virtual Tenant Tenant { get; set; } = default!;
         public virtual Project Project { get; set; } = default!;
         public virtual CostEstimateTemplate Template { get; set; } = default!;
@@ -31,6 +33,7 @@ namespace Entities.Models.CostEstimates
         public virtual ICollection<CostEstimateGroup> AllGroups { get; set; } = new List<CostEstimateGroup>();
         public virtual ICollection<CostEstimateItem> AllItems { get; set; } = new List<CostEstimateItem>();
         public virtual ICollection<WorkSchedule> WorkSchedules { get; set; } = new List<WorkSchedule>();
+        public virtual CostTracker? CostTracker { get; set; }
         
         public IEnumerable<CostEstimateGroup> RootGroups => AllGroups?.Where(g => g.ParentGroupId == null) ?? Enumerable.Empty<CostEstimateGroup>();
         

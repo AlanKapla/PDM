@@ -4,6 +4,7 @@ using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Enums;
 using Entities.Models;
+using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
@@ -16,6 +17,7 @@ namespace CQRS.Projects.CreateProject
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
+        private readonly IRepository<CostTracker> costTrackerRepo;
         private readonly PermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
@@ -24,6 +26,7 @@ namespace CQRS.Projects.CreateProject
             IRepository<ProjectMember> projectMemberRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<Role> roleRepo,
+            IRepository<CostTracker> costTrackerRepo,
             PermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
@@ -31,6 +34,7 @@ namespace CQRS.Projects.CreateProject
             this.projectMemberRepo = projectMemberRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.roleRepo = roleRepo;
+            this.costTrackerRepo = costTrackerRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
@@ -49,7 +53,16 @@ namespace CQRS.Projects.CreateProject
             };
 
             await projectRepo.Insert(project);
-            await projectRepo.SaveChangesAsync(cancellationToken);
+
+            CostTracker costTracker = new CostTracker
+            {
+                TenantId = tenantId,
+                ProjectId = project.Id
+            };
+            await costTrackerRepo.Insert(costTracker);
+
+            project.CostTrackerId = costTracker.Id;
+            await costTrackerRepo.SaveChangesAsync(cancellationToken);
 
             // Get PROJECT.ADMIN role
             var adminRole = await roleRepo.GetFirstBySearch(

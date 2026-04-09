@@ -44,19 +44,19 @@ export const msalConfig: Configuration = {
     cacheLocation: "localStorage", // Recommended for SPA
     storeAuthStateInCookie: false,
   },
-  system: {
-    loggerOptions: {
-      loggerCallback: (level, message, containsPii) => {
-        if (containsPii) return;
-        switch (level) {
-          case 0: console.error(message); return;
-          case 1: console.warn(message); return;
-          case 2: console.info(message); return;
-          case 3: console.debug(message); return;
-        }
-      },
-    },
-  },
+  // system: {
+  //   loggerOptions: {
+  //     loggerCallback: (level, message, containsPii) => {
+  //       if (containsPii) return;
+  //       switch (level) {
+  //         case 0: console.error(message); return;
+  //         case 1: console.warn(message); return;
+  //         case 2: console.info(message); return;
+  //         case 3: console.debug(message); return;
+  //       }
+  //     },
+  //   },
+  // },
 };
 
 // Login request - acquires access token for your API

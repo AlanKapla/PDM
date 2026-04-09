@@ -7,6 +7,7 @@
     {
         Documentation,
         ProjectCosts,
-        CostEstimates
+        CostEstimates,
+        CostTrackers
     }
 }

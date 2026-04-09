@@ -2,6 +2,7 @@
 using Entities.Models;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.CostTrackers;
 
 namespace Entities.Context
 {
@@ -48,6 +49,9 @@ namespace Entities.Context
         public DbSet<CostEstimateItemFieldValue> CostEstimateItemFieldValues => Set<CostEstimateItemFieldValue>();
         public DbSet<CostEstimateFieldFile> CostEstimateFieldFiles => Set<CostEstimateFieldFile>();
         public DbSet<SharedCostEstimate> SharedCostEstimates => Set<SharedCostEstimate>();
+        public DbSet<CostTracker> CostTrackers => Set<CostTracker>();
+        public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
+        public DbSet<TrackedCostAttachment> TrackedCostAttachments => Set<TrackedCostAttachment>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();

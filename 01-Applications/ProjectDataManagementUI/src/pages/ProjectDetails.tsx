@@ -34,7 +34,7 @@ import {
   Input,
   Tooltip,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { handleApiError } from "../utils/handleApiError";
@@ -963,6 +963,26 @@ export default function ProjectDetails() {
                     <VStack spacing={3}>
                       <Icon as={FileText} boxSize={8} color="orange.600" />
                       <Text fontWeight="bold" fontSize="md">Kosztorysy</Text>
+                    </VStack>
+                  </Box>
+                )}
+
+                {permissions.hasAnyResourceAccess && (
+                  <Box
+                    as="button"
+                    bg={cardBg}
+                    p={6}
+                    rounded="lg"
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                    shadow="sm"
+                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                    transition="all 0.2s"
+                    onClick={() => navigate(`/projects/${projectId}/budget`)}
+                  >
+                    <VStack spacing={3}>
+                      <Icon as={TrendingUp} boxSize={8} color="green.600" />
+                      <Text fontWeight="bold" fontSize="md">Realizacja budżetu</Text>
                     </VStack>
                   </Box>
                 )}

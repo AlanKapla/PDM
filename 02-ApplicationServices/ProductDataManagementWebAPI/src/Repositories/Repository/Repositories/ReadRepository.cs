@@ -26,6 +26,11 @@ namespace Repositories.Repository.Repositories
             return await _dbSet.Where(predicate).Select(x => x.Id).ToListAsync(cancellationToken);
         }
 
+        public async Task<Guid> GetIdBySearchAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+        {
+            return (await _dbSet.FirstAsync(predicate, cancellationToken: cancellationToken)).Id;
+        }
+
         public async Task<Dictionary<Guid, T>> GetDictionaryBySearchAsync(
             Expression<Func<T, bool>> predicate,
             CancellationToken cancellationToken = default,

@@ -1,5 +1,6 @@
 ﻿using Entities.Models;
 using Entities.Models.Base;
+using Entities.Models.CostTrackers;
 
 namespace Entities.Models.CostEstimates
 {
@@ -61,6 +62,7 @@ namespace Entities.Models.CostEstimates
         /// </summary>
         public virtual CostEstimateItem? ParentItem { get; set; }
         public virtual ICollection<WorkScheduleStageWork> WorkScheduleStageWorks { get; set; } = new List<WorkScheduleStageWork>();
+        public virtual ICollection<TrackedCost>? TrackedCosts { get; set; }
         
         /// <summary>
         /// Kolekcja child items (Options + Components razem)

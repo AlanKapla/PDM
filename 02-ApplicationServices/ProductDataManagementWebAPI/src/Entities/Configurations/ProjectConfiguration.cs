@@ -21,6 +21,11 @@ namespace Entities.Configurations
                 .HasForeignKey(x => new { x.TenantId, x.CreatedByUserId })
                 .HasPrincipalKey(t => new { t.TenantId, t.UserId })
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(p => p.CostTracker)
+                .WithOne()
+                .HasForeignKey<Project>(p => p.CostTrackerId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 

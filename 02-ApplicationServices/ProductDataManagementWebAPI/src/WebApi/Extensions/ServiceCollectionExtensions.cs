@@ -14,6 +14,7 @@ using Entities.Models;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.CostTrackers;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -300,6 +301,11 @@ namespace WebApi.Extensions
                 .AddWriteRepository<CostEstimateFieldFile>();
 
             services
+                .AddRepository<CostTracker>()
+                .AddRepository<TrackedCost>()
+                .AddRepository<TrackedCostAttachment>();
+
+            services
                 .AddRepository<Role>()
                 .AddRepository<Permission>()
                 .AddWriteRepository<RolePermission>();
@@ -341,6 +347,8 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateService, CostEstimateService>();
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
+            services.AddScoped<ICostTrackerFinancialService, CostTrackerFinancialService>();
+            services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
             services.AddScoped<IUserService, UserService>();

@@ -1,4 +1,5 @@
 ﻿using Entities.Models.CostEstimates;
+using Entities.Models.CostTrackers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -110,7 +111,15 @@ namespace Entities.Configurations
             builder.HasIndex(c => c.Status);
             builder.HasIndex(c => c.IsDeleted);
             builder.HasIndex(c => c.CreatedAt);
-            
+
+            builder.Property(c => c.CostTrackerId);
+
+            builder.HasOne(c => c.CostTracker)
+                .WithOne(t => t.CostEstimate)
+                .HasForeignKey<CostEstimate>(c => c.CostTrackerId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Global query filter for soft delete and tenant isolation
             builder.HasQueryFilter(c => !c.IsDeleted);
         }

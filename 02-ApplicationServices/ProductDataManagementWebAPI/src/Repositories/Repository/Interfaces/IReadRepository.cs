@@ -23,5 +23,6 @@ namespace Repositories.Repository.Interfaces
             Expression<Func<T, bool>> predicate,
             CancellationToken cancellationToken = default,
             params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes);
+        Task<Guid> GetIdBySearchAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
     }
 }
