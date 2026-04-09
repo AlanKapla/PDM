@@ -138,7 +138,7 @@ export default function CostFormModal({
     if (activeStep === 1) {
       setSelectedItemId("additional");
     }
-    setActiveStep((s) => s + 1);
+    setActiveStep(activeStep + 1);
   };
 
   const handleBack = () => {
@@ -146,7 +146,7 @@ export default function CostFormModal({
       setActiveStep(0);
       return;
     }
-    setActiveStep((s) => Math.max(0, s - 1));
+    setActiveStep(Math.max(0, activeStep - 1));
   };
 
   const canNext = () => {
