@@ -132,6 +132,8 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
           right={0}
           m={0}
           maxH="90dvh"
+          maxW="100vw"
+          overflowX="hidden"
           display="flex"
           flexDirection="column"
         >
@@ -155,7 +157,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
             </HStack>
           </ModalHeader>
 
-          <ModalBody pt={1} overflowY="auto" flex="1" px={4}>
+          <ModalBody pt={1} overflowY="auto" overflowX="hidden" flex="1" px={4}>
 
             {/* Sekcja: Podsumowanie */}
             <Box borderBottomWidth="1px" borderColor="gray.100">

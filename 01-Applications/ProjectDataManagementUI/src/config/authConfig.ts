@@ -27,8 +27,9 @@ const redirectUri = `${window.location.origin}/auth/callback`;
 
 // API Scopes - requesting access to your custom API
 // Format: api://{api-client-id}/scope-name
+// offline_access jest wymagany do uzyskania refresh_token – bez niego sesja wygasa po ~1h
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-configure-app-expose-web-apis
-export const loginScopes = [`api://${apiClientId}/access_as_user`];
+export const loginScopes = ["openid", "profile", "offline_access", `api://${apiClientId}/access_as_user`];
 
 // MSAL configuration for Microsoft Entra External ID
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-acquire-token
@@ -42,7 +43,7 @@ export const msalConfig: Configuration = {
   },
   cache: {
     cacheLocation: "localStorage", // Recommended for SPA
-    storeAuthStateInCookie: false,
+    storeAuthStateInCookie: true, // Wymagane dla iOS Safari i przeglądarek blokujących third-party cookies
   },
   // system: {
   //   loggerOptions: {
@@ -64,8 +65,8 @@ export const msalConfig: Configuration = {
 // MSAL pattern: request scopes for your API, not Graph
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-acquire-token
 export const loginRequest: RedirectRequest = {
-  scopes: loginScopes, // api://{api-client-id}/access_as_user
-  prompt: "login", // Force login with credentials (no auto-login after logout)
+  scopes: loginScopes,
+  // Brak prompt: "login" – pozwala MSAL na SSO/ciche logowanie gdy sesja jest aktywna
   extraQueryParameters: {
     p: userFlow, // User flow name as query param
   },

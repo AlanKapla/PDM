@@ -68,6 +68,7 @@ export const MobileFieldInput: React.FC<MobileFieldInputProps> = ({
       <Input
         type="date"
         size="lg"
+        w="100%"
         value={dateVal}
         isDisabled={disabled}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -83,8 +84,9 @@ export const MobileFieldInput: React.FC<MobileFieldInputProps> = ({
         isDisabled={disabled}
         onChange={(valStr) => onChange(valStr || undefined)}
         size="lg"
+        w="100%"
       >
-        <NumberInputField placeholder="0" />
+        <NumberInputField placeholder="0" minW={0} />
       </NumberInput>
     );
   }
@@ -99,6 +101,7 @@ export const MobileFieldInput: React.FC<MobileFieldInputProps> = ({
       <Textarea
         size="lg"
         rows={3}
+        w="100%"
         value={value ?? ''}
         isDisabled={disabled}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -111,6 +114,7 @@ export const MobileFieldInput: React.FC<MobileFieldInputProps> = ({
   return (
     <Input
       size="lg"
+      w="100%"
       value={value ?? ''}
       isDisabled={disabled}
       onChange={(e) => onChange(e.target.value || undefined)}
