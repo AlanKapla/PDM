@@ -395,9 +395,9 @@ export const projectApi = {
     if (data.place) formData.append("Place", data.place);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
-    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString().replace('.', ','));
-    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString().replace('.', ','));
-    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString().replace('.', ','));
+    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
+    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString());
+    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
     if (data.isClosed !== undefined) formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
 
@@ -432,9 +432,9 @@ export const projectApi = {
     if (data.place) formData.append("Place", data.place);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
-    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString().replace('.', ','));
-    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString().replace('.', ','));
-    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString().replace('.', ','));
+    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
+    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString());
+    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
     formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
     formData.append("RemoveDocument", data.removeDocument.toString());

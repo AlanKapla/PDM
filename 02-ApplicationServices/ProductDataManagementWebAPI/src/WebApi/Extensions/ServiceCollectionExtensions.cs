@@ -69,6 +69,13 @@ namespace WebApi.Extensions
                 options.MultipartHeadersLengthLimit = 52428800;
             });
 
+            services.Configure<RequestLocalizationOptions>(options =>
+            {
+                options.DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(System.Globalization.CultureInfo.InvariantCulture);
+                options.SupportedCultures = [System.Globalization.CultureInfo.InvariantCulture];
+                options.SupportedUICultures = [System.Globalization.CultureInfo.InvariantCulture];
+            });
+
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
             services.AddHealthChecks();
