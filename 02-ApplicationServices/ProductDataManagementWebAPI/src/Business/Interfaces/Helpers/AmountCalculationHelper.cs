@@ -44,7 +44,7 @@
             else if (grossAmount.HasValue)
             {
                 // Use provided gross amount
-                return (grossAmount.Value, null, null);
+                return (grossAmount.Value, netAmount, vatRate);
             }
             
             throw new ArgumentException("Must provide either NetAmount with VatRate or GrossAmount");

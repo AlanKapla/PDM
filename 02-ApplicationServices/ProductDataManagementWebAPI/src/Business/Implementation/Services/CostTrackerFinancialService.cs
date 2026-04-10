@@ -46,7 +46,9 @@ namespace Business.Implementation.Services
 
         public CostTrackerSummaryWeb ComputeProjectSummary(
             IReadOnlyCollection<CostEstimateSummaryWeb> costEstimateSummaries,
-            ProjectAdditionalCostsWeb projectAdditionalCosts)
+            ProjectAdditionalCostsWeb projectAdditionalCosts,
+            decimal? budgetNet,
+            decimal? budgetGross)
         {
             decimal? totalCostsNet = costEstimateSummaries.Any(s => s.TotalCostsNet.HasValue) || projectAdditionalCosts.TotalNet.HasValue
                 ? (costEstimateSummaries.Sum(s => s.TotalCostsNet ?? 0)) + (projectAdditionalCosts.TotalNet ?? 0)
@@ -56,12 +58,12 @@ namespace Business.Implementation.Services
                 ? (costEstimateSummaries.Sum(s => s.TotalCostsGross ?? 0)) + (projectAdditionalCosts.TotalGross ?? 0)
                 : null;
 
-            decimal? totalBudgetNet = costEstimateSummaries.Any(s => s.TotalBudgetNet.HasValue)
-                ? costEstimateSummaries.Sum(s => s.TotalBudgetNet ?? 0)
+            decimal? totalBudgetNet = costEstimateSummaries.Any(s => s.TotalBudgetNet.HasValue) || budgetNet.HasValue
+                ? (costEstimateSummaries.Sum(s => s.TotalBudgetNet ?? 0)) + (budgetNet ?? 0)
                 : null;
 
-            decimal? totalBudgetGross = costEstimateSummaries.Any(s => s.TotalBudgetGross.HasValue)
-                ? costEstimateSummaries.Sum(s => s.TotalBudgetGross ?? 0)
+            decimal? totalBudgetGross = costEstimateSummaries.Any(s => s.TotalBudgetGross.HasValue) || budgetGross.HasValue
+                ? (costEstimateSummaries.Sum(s => s.TotalBudgetGross ?? 0)) + (budgetGross ?? 0)
                 : null;
 
             decimal? totalDeviationNet = totalBudgetNet.HasValue && totalCostsNet.HasValue
@@ -102,6 +104,44 @@ namespace Business.Implementation.Services
                 AdditionalCostsCount = projectAdditionalCosts.CostsCount,
                 CostCount = costCount,
                 CoveredPercent = coveredPercent
+            };
+        }
+
+        public CostTrackerBudgetSummary ComputeBudgetSummary(
+            ProjectAdditionalCostsWeb projectAdditionalCosts,
+            decimal? budgetNet,
+            decimal? budgetGross)
+        {
+            decimal? costsNet = projectAdditionalCosts.TotalNet;
+            decimal? costsGross = projectAdditionalCosts.TotalGross;
+
+            decimal? deviationNet = budgetNet.HasValue && costsNet.HasValue
+                ? Math.Round(costsNet.Value - budgetNet.Value, 2)
+                : null;
+
+            decimal? deviationGross = budgetGross.HasValue && costsGross.HasValue
+                ? Math.Round(costsGross.Value - budgetGross.Value, 2)
+                : null;
+
+            decimal? deviationPercent = budgetNet.HasValue && budgetNet.Value != 0 && costsNet.HasValue
+                ? Math.Round((costsNet.Value - budgetNet.Value) / budgetNet.Value * 100, 2)
+                : null;
+
+            return new CostTrackerBudgetSummary
+            {
+                TotalCostsNet = costsNet,
+                TotalCostsGross = costsGross,
+                TotalBudgetNet = budgetNet,
+                TotalBudgetGross = budgetGross,
+                TotalDeviationNet = deviationNet,
+                TotalDeviationGross = deviationGross,
+                TotalDeviationPercent = deviationPercent,
+                IsBudgetExceeded = deviationNet.HasValue && deviationNet.Value > 0,
+                AdditionalCostsNet = costsNet,
+                AdditionalCostsGross = costsGross,
+                AdditionalCostsCount = projectAdditionalCosts.CostsCount,
+                CostCount = projectAdditionalCosts.CostsCount,
+                CoveredPercent = null
             };
         }
 

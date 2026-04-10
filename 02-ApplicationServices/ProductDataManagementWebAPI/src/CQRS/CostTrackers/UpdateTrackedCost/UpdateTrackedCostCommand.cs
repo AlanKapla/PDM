@@ -21,7 +21,7 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
         public string? Contractor { get; init; }
         public DateTime? Date { get; init; }
         public IReadOnlyList<IFormFile>? NewFiles { get; init; }
-        public required IReadOnlyList<Guid> ExistingAttachmentIds { get; init; }
+        public IReadOnlyList<Guid>? ExistingAttachmentIds { get; init; }
         public Guid TenantId { get; init; }
         public Guid ProjectId { get; init; }
 

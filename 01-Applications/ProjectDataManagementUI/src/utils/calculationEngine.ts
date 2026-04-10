@@ -16,12 +16,27 @@ import type {
 /**
  * Klucz dla wartości Quantity w mapie wartości kalkulacji.
  * Używamy wartości ujemnej, żeby nie kolidować z wartościami CalculatedFieldType.
- * Quantity to pole systemowe (SystemFieldType.Quantity = 1), ale potrzebujemy go w kalkulacjach.
+ * Quantity to pole systemowe (FieldType.ItemSystemQuantity = 101), ale potrzebujemy go w kalkulacjach.
  */
 const QUANTITY_KEY = -1;
+
+/**
+ * Kolejność obliczania pól: NET → VAT → GROSS (zawsze).
+ * Pola źródłowe (UnitPriceNet, Quantity, VatRate) nie są tu obecne – nigdy nie obliczamy ich automatycznie.
+ */
+const CALCULATION_ORDER: CalculatedFieldType[] = [
+  CalculatedFieldType.ValueNet,        // Net Price × Quantity
+  CalculatedFieldType.TotalVat,        // Net Value × VAT Rate
+  CalculatedFieldType.ValueGross,      // Net Value + VAT Value
+  CalculatedFieldType.UnitPriceGross,  // Gross Value / Quantity (lub inne metody)
+  CalculatedFieldType.UnitVat,         // Net Price × VAT Rate
+];
+
 export interface CalculationContext {
   calculatedFields: CalculatedFieldDefinition[];
   genericFields?: any[];
+  /** Pola systemowe pozycji – wymagane do odczytu wartości Quantity (FieldType 101) */
+  systemFields?: any[];
 }
 
 /**
@@ -54,10 +69,23 @@ export function calculateWorkScope(
     }
   });
 
-  // Get field definitions that should be auto-calculated
+  // Dodaj wartość Quantity z pól systemowych (FieldType.ItemSystemQuantity = 101)
+  if (context.systemFields) {
+    const quantityField = context.systemFields.find((f: any) => f.type === 101 || f.fieldType === 101);
+    const quantityName: string | undefined = quantityField?.name ?? quantityField?.fieldName;
+    if (quantityName && quantityName in allValues) {
+      valuesByType[QUANTITY_KEY] = parseFloat(allValues[quantityName]) || 0;
+    }
+  }
+
+  // Get field definitions that should be auto-calculated – w kolejności NET → VAT → GROSS
   const autoCalcFields = context.calculatedFields
     .filter(f => f.autoCalculated && !lockedFieldNames.has(f.name))
-    .sort((a, b) => a.type - b.type);
+    .sort((a, b) => {
+      const orderA = CALCULATION_ORDER.indexOf(a.type);
+      const orderB = CALCULATION_ORDER.indexOf(b.type);
+      return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+    });
 
   // Calculate each auto-calculated field in order
   for (const field of autoCalcFields) {
@@ -111,160 +139,164 @@ export function calculateCollectionItem(
   }
 
   const calculated = { ...item };
-  const values = { ...(calculated.calculatedFieldValues || {}) };
+  const allValues = { ...(calculated.calculatedFieldValues || {}) };
 
-  const autoCalcFields = nestedFieldsDef.calculatedFields.filter(f => f.autoCalculated);
+  // Budujemy mapę wartości indeksowaną po typie (enum) – tak jak w calculateWorkScope
+  const valuesByType: Record<number, number> = {};
+  nestedFieldsDef.calculatedFields.forEach(field => {
+    if (field.name in allValues) {
+      valuesByType[field.type] = parseFloat(allValues[field.name]) || 0;
+    }
+  });
+
+  const autoCalcFields = nestedFieldsDef.calculatedFields
+    .filter(f => f.autoCalculated)
+    .sort((a, b) => {
+      const orderA = CALCULATION_ORDER.indexOf(a.type);
+      const orderB = CALCULATION_ORDER.indexOf(b.type);
+      return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+    });
 
   for (const field of autoCalcFields) {
-    const calculatedValue = calculateFieldValue(field.type, values);
+    const calculatedValue = calculateFieldValue(field.type, valuesByType);
     if (calculatedValue !== null && calculatedValue !== undefined) {
-      values[field.name] = calculatedValue;
+      valuesByType[field.type] = calculatedValue;
+      allValues[field.name] = calculatedValue;
     }
   }
 
-  calculated.calculatedFieldValues = values;
+  // Zapisz obliczone wartości z powrotem do calculated field values
+  const newCalculatedFieldValues = { ...(calculated.calculatedFieldValues || {}) };
+  for (const field of nestedFieldsDef.calculatedFields) {
+    if (field.name in allValues) {
+      newCalculatedFieldValues[field.name] = allValues[field.name];
+    }
+  }
+
+  calculated.calculatedFieldValues = newCalculatedFieldValues;
   return calculated;
 }
 
 /**
- * Check if a field can be auto-calculated based on available source values
- * @param fieldType - Type of the field to check
- * @param values - Available values mapped by field type
- * @returns true if all required source values are available for calculation
+ * Sprawdza czy pole może być automatycznie obliczone na podstawie dostępnych wartości wejściowych.
+ * Pole jest blokowane do edycji tylko gdy może być obliczone automatycznie.
+ * @param fieldType - Typ pola do sprawdzenia
+ * @param values - Dostępne wartości, klucze = CalculatedFieldType (enum)
  */
 export function canAutoCalculate(
   fieldType: CalculatedFieldType,
   values: Record<number, any>
 ): boolean {
-  // Typ number zamiast CalculatedFieldType, aby obsłużyć też QUANTITY_KEY (-1)
   const hasValue = (fieldKey: number): boolean => {
     const val = values[fieldKey];
     return val !== null && val !== undefined && val !== '' && !isNaN(Number(val));
   };
 
   switch (fieldType) {
-    case CalculatedFieldType.UnitPriceGross:
-      // Wymaga UnitPriceNet i VatRate
-      return hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(CalculatedFieldType.VatRate);
-
     case CalculatedFieldType.ValueNet:
-      // Wymaga UnitPriceNet i Quantity
+      // Net Price × Quantity
       return hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(QUANTITY_KEY);
 
+    case CalculatedFieldType.TotalVat:
+      // Net Value × VAT Rate
+      return hasValue(CalculatedFieldType.ValueNet) && hasValue(CalculatedFieldType.VatRate);
+
     case CalculatedFieldType.ValueGross:
-      // Wymaga UnitPriceGross i Quantity
-      return hasValue(CalculatedFieldType.UnitPriceGross) && hasValue(QUANTITY_KEY);
+      // Net Value + VAT Value  LUB  Net Value × (1 + VAT Rate)
+      return hasValue(CalculatedFieldType.ValueNet) &&
+             (hasValue(CalculatedFieldType.TotalVat) || hasValue(CalculatedFieldType.VatRate));
+
+    case CalculatedFieldType.UnitPriceGross:
+      // Net Price × (1 + VAT Rate)  LUB  Net Price + VAT Value/Quantity  LUB  Gross Value / Quantity
+      return (hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(CalculatedFieldType.VatRate)) ||
+             (hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(CalculatedFieldType.TotalVat) && hasValue(QUANTITY_KEY)) ||
+             (hasValue(CalculatedFieldType.ValueGross) && hasValue(QUANTITY_KEY));
 
     case CalculatedFieldType.UnitVat:
-      // UnitVat = UnitPriceNet * (VatRate / 100) LUB UnitPriceGross - UnitPriceNet
-      return (hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(CalculatedFieldType.VatRate)) ||
-             (hasValue(CalculatedFieldType.UnitPriceGross) && hasValue(CalculatedFieldType.UnitPriceNet));
-
-    case CalculatedFieldType.TotalVat:
-      // TotalVat = ValueNet * (VatRate / 100) LUB UnitVat * Quantity LUB ValueGross - ValueNet
-      return (hasValue(CalculatedFieldType.ValueNet) && hasValue(CalculatedFieldType.VatRate)) ||
-             (hasValue(CalculatedFieldType.UnitVat) && hasValue(QUANTITY_KEY)) ||
-             (hasValue(CalculatedFieldType.ValueGross) && hasValue(CalculatedFieldType.ValueNet));
+      // Net Price × VAT Rate
+      return hasValue(CalculatedFieldType.UnitPriceNet) && hasValue(CalculatedFieldType.VatRate);
 
     default:
-      // UnitPriceNet, VatRate, Quantity są polami wejściowymi
+      // UnitPriceNet, Quantity, VatRate – pola źródłowe, nigdy nie obliczane
       return false;
   }
 }
 
 /**
- * Calculate a single field value based on its type and existing values
- * values - mapa gdzie klucze to field.type (wartości enum CalculatedFieldType)
+ * Oblicza wartość pojedynczego pola na podstawie jego typu i dostępnych wartości.
+ * Kierunek obliczeń zawsze: NET → VAT → GROSS.
+ * @param values - mapa gdzie klucze to field.type (wartości enum CalculatedFieldType)
  */
 export function calculateFieldValue(
   fieldType: CalculatedFieldType,
   values: Record<number, any>
 ): number | null {
-  // Helper to get numeric value by field type (enum value)
-  // Typ number zamiast CalculatedFieldType, aby obsłużyć też QUANTITY_KEY (-1)
   const getNum = (type: number): number => {
     const val = values[type];
     return typeof val === 'number' ? val : parseFloat(val) || 0;
   };
 
-  switch (fieldType) {
-    case CalculatedFieldType.UnitPriceGross: {
-      // UnitPriceGross = UnitPriceNet * (1 + VatRate/100)
-      const unitPriceNet = getNum(CalculatedFieldType.UnitPriceNet);
-      const vatRate = getNum(CalculatedFieldType.VatRate);
-      return unitPriceNet * (1 + vatRate / 100);
-    }
+  const hasVal = (type: number): boolean => {
+    const val = values[type];
+    return val !== null && val !== undefined && val !== '' && !isNaN(Number(val));
+  };
 
+  switch (fieldType) {
     case CalculatedFieldType.ValueNet: {
-      // ValueNet = UnitPriceNet * Quantity
+      // Net Price × Quantity
       const unitPriceNet = getNum(CalculatedFieldType.UnitPriceNet);
       const quantity = getNum(QUANTITY_KEY);
       return unitPriceNet * quantity;
     }
 
-    case CalculatedFieldType.ValueGross: {
-      // ValueGross = UnitPriceGross * Quantity LUB ValueNet + TotalVat
-      const unitPriceGross = getNum(CalculatedFieldType.UnitPriceGross);
-      const quantity = getNum(QUANTITY_KEY);
+    case CalculatedFieldType.TotalVat: {
+      // Net Value × (VAT Rate / 100)
       const valueNet = getNum(CalculatedFieldType.ValueNet);
-      const totalVat = getNum(CalculatedFieldType.TotalVat);
-      
-      // Metoda 1: UnitPriceGross * Quantity
-      if (unitPriceGross > 0 && quantity > 0) {
-        return unitPriceGross * quantity;
+      const vatRate = getNum(CalculatedFieldType.VatRate);
+      return valueNet * (vatRate / 100);
+    }
+
+    case CalculatedFieldType.ValueGross: {
+      const valueNet = getNum(CalculatedFieldType.ValueNet);
+      // Priorytet 1: Net Value + VAT Value (konkretna kwota podatku)
+      if (valueNet > 0 && hasVal(CalculatedFieldType.TotalVat)) {
+        return valueNet + getNum(CalculatedFieldType.TotalVat);
       }
-      // Metoda 2: ValueNet + TotalVat
-      if (valueNet > 0 && totalVat >= 0) {
-        return valueNet + totalVat;
+      // Priorytet 2: Net Value × (1 + VAT Rate / 100)
+      if (valueNet > 0 && hasVal(CalculatedFieldType.VatRate)) {
+        return valueNet * (1 + getNum(CalculatedFieldType.VatRate) / 100);
       }
-      return 0;
+      // Brak danych — nie obliczamy, pole pozostaje edytowalne
+      return null;
+    }
+
+    case CalculatedFieldType.UnitPriceGross: {
+      const unitPriceNet = getNum(CalculatedFieldType.UnitPriceNet);
+      const quantity = getNum(QUANTITY_KEY);
+      // Priorytet 1: Net Price + (VAT Value / Quantity)
+      if (unitPriceNet > 0 && hasVal(CalculatedFieldType.TotalVat) && quantity > 0) {
+        return unitPriceNet + (getNum(CalculatedFieldType.TotalVat) / quantity);
+      }
+      // Priorytet 2: Gross Value / Quantity
+      const valueGross = getNum(CalculatedFieldType.ValueGross);
+      if (valueGross > 0 && quantity > 0) {
+        return valueGross / quantity;
+      }
+      return null;
     }
 
     case CalculatedFieldType.UnitVat: {
-      // UnitVat = UnitPriceNet * (VatRate / 100)
-      // lub UnitVat = UnitPriceGross - UnitPriceNet
+      // Net Price × (VAT Rate / 100)
       const unitPriceNet = getNum(CalculatedFieldType.UnitPriceNet);
       const vatRate = getNum(CalculatedFieldType.VatRate);
-      const unitPriceGross = getNum(CalculatedFieldType.UnitPriceGross);
-      
-      // Preferuj obliczenie z UnitPriceNet i VatRate (vatRate >= 0 bo może być 0% VAT)
-      if (unitPriceNet > 0 && vatRate >= 0) {
+      if (unitPriceNet > 0 && hasVal(CalculatedFieldType.VatRate)) {
         return unitPriceNet * (vatRate / 100);
       }
-      // Alternatywnie: UnitPriceGross - UnitPriceNet
-      if (unitPriceGross > 0 && unitPriceNet > 0) {
-        return unitPriceGross - unitPriceNet;
-      }
-      return 0;
-    }
-
-    case CalculatedFieldType.TotalVat: {
-      // TotalVat = ValueNet * (VatRate / 100)
-      // lub TotalVat = UnitVat * Quantity
-      // lub TotalVat = ValueGross - ValueNet
-      const valueNet = getNum(CalculatedFieldType.ValueNet);
-      const vatRate = getNum(CalculatedFieldType.VatRate);
-      const unitVat = getNum(CalculatedFieldType.UnitVat);
-      const quantity = getNum(QUANTITY_KEY);
-      const valueGross = getNum(CalculatedFieldType.ValueGross);
-      
-      // Preferuj obliczenie z ValueNet i VatRate (vatRate >= 0 bo może być 0% VAT)
-      if (valueNet > 0 && vatRate >= 0) {
-        return valueNet * (vatRate / 100);
-      }
-      // Alternatywnie: UnitVat * Quantity
-      if (unitVat >= 0 && quantity > 0) {
-        return unitVat * quantity;
-      }
-      // Alternatywnie: ValueGross - ValueNet
-      if (valueGross > 0 && valueNet > 0) {
-        return valueGross - valueNet;
-      }
-      return 0;
+      return null;
     }
 
     default:
-      // UnitPriceNet, VatRate, Quantity are input fields, not calculated
+      // UnitPriceNet, Quantity, VatRate – pola źródłowe, nie obliczane
       return null;
   }
 }

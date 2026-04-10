@@ -92,8 +92,8 @@ export const isCalculatedFieldType = (fieldType: number, fieldScope?: number): b
 export const SOURCE_FIELD_TYPES = SOURCE_FIELD_TYPES_NEW;
 export const CALCULATED_FIELD_TYPES = CALCULATED_FIELD_TYPES_NEW;
 
-// Kolejność obliczeń: najpierw bazowe, potem pochodne (rabat wpływa na wartości łączne)
-const CALC_ORDER = [202, 205, 203, 206, 204] as const;
+// Kolejność obliczeń: ValueNet → UnitVat → TotalVat → ValueGross → UnitPriceGross
+const CALC_ORDER = [203, 205, 206, 204, 202] as const;
 
 // ---------------------------------------------------------------------------
 // Typy
@@ -259,30 +259,27 @@ const getDiscountMultiplier = (v: AllItemValues): number => {
 };
 
 const COMPUTE_PATHS: Record<number, ComputePath[]> = {
-  // UnitPriceGross = netto × (1 + VAT) — rabat NIE wpływa na cenę jednostkową
+  // UnitPriceGross: Net Price + (VAT Value / Quantity)  LUB  Gross Value / Quantity
+  // Nigdy nie liczymy z Net Price × (1 + VAT Rate) — VAT Rate jest polem źródłowym
   202: [
-    { requires: ['unitPriceNet', 'vatRate'], compute: v => round2(v.unitPriceNet! * (1 + v.vatRate!)) },
+    { requires: ['unitPriceNet', 'totalVat', 'quantity'], compute: v => round2(v.unitPriceNet! + (v.totalVat! / v.quantity!)) },
+    { requires: ['valueGross', 'quantity'], compute: v => round2(v.valueGross! / v.quantity!) },
   ],
-  // ValueNet = netto × ilość × (1 - rabat)
+  // ValueNet = Net Price × Quantity
   203: [
     { requires: ['unitPriceNet', 'quantity'], compute: v => round2(v.unitPriceNet! * v.quantity! * getDiscountMultiplier(v)) },
   ],
-  // ValueGross = ValueNet + TotalVat (rabat już uwzględniony w ValueNet i TotalVat)
+  // ValueGross: priorytet Net Value + VAT Value, fallback Net Value × (1 + VAT Rate)
   204: [
-    { requires: ['unitPriceNet', 'vatRate', 'quantity'], compute: v => round2(v.unitPriceNet! * (1 + v.vatRate!) * v.quantity! * getDiscountMultiplier(v)) },
-    { requires: ['unitPriceGross', 'quantity'], compute: v => round2(v.unitPriceGross! * v.quantity! * getDiscountMultiplier(v)) },
     { requires: ['valueNet', 'totalVat'], compute: v => round2(v.valueNet! + v.totalVat!) },
     { requires: ['valueNet', 'vatRate'], compute: v => round2(v.valueNet! * (1 + v.vatRate!)) },
-    { requires: ['valueNet'], compute: v => round2(v.valueNet!) },
   ],
-  // UnitVat = netto × VAT — rabat NIE wpływa na VAT jednostkowy
+  // UnitVat = Net Price × VAT Rate
   205: [
     { requires: ['unitPriceNet', 'vatRate'], compute: v => round2(v.unitPriceNet! * v.vatRate!) },
   ],
-  // TotalVat = VAT_jedn × ilość × (1 - rabat)
+  // TotalVat = Net Value × VAT Rate
   206: [
-    { requires: ['unitPriceNet', 'vatRate', 'quantity'], compute: v => round2(v.unitPriceNet! * v.quantity! * v.vatRate! * getDiscountMultiplier(v)) },
-    { requires: ['unitVat', 'quantity'], compute: v => round2(v.unitVat! * v.quantity! * getDiscountMultiplier(v)) },
     { requires: ['valueNet', 'vatRate'], compute: v => round2(v.valueNet! * v.vatRate!) },
   ],
 };

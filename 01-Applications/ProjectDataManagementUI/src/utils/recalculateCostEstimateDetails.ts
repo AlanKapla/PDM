@@ -183,12 +183,7 @@ export function recalculateCostEstimateDetails(
 
     let unitPriceGross: number | undefined;
     if (unitPriceGrossDef) {
-      if (has.unitPriceNet && has.vatRate) {
-        unitPriceGross = unitPriceNet! * (1 + vatRate!);
-        updated = setItemFieldValue(updated, unitPriceGrossDef.id, unitPriceGross);
-      } else {
-        unitPriceGross = getSourceFieldValue(updated, unitPriceGrossDef.id);
-      }
+      unitPriceGross = getSourceFieldValue(updated, unitPriceGrossDef.id);
     }
 
     let unitVat: number | undefined;
@@ -216,24 +211,37 @@ export function recalculateCostEstimateDetails(
       if (valueNet !== undefined && has.vatRate) {
         totalVat = valueNet * vatRate!;
         updated = setItemFieldValue(updated, totalVatDef.id, totalVat);
-      } else if (unitVat !== undefined && has.quantity) {
-        totalVat = unitVat * quantity!;
-        updated = setItemFieldValue(updated, totalVatDef.id, totalVat);
       } else {
         totalVat = getSourceFieldValue(updated, totalVatDef.id);
       }
     }
 
+    // ValueGross: priorytet Net Value + VAT Value, fallback Net Value × (1 + VAT Rate)
+    // Jeśli brak danych do obliczenia — pole pozostaje edytowalne (nie nadpisujemy)
     if (valueGrossDef) {
-      if (unitPriceGross !== undefined && has.quantity) {
-        updated = setItemFieldValue(updated, valueGrossDef.id, unitPriceGross * quantity!);
-      } else if (valueNet !== undefined && totalVat !== undefined) {
+      if (valueNet !== undefined && totalVat !== undefined) {
         updated = setItemFieldValue(updated, valueGrossDef.id, valueNet + totalVat);
       } else if (valueNet !== undefined && has.vatRate) {
         updated = setItemFieldValue(updated, valueGrossDef.id, valueNet * (1 + vatRate!));
-      } else if (valueNet !== undefined) {
-        updated = setItemFieldValue(updated, valueGrossDef.id, valueNet);
       }
+      // else: brak danych do obliczenia — nie nadpisuj wartości ręcznej
+    }
+
+    // Pobierz obliczoną wartość valueGross (obliczoną powyżej lub ręczną)
+    const computedValueGross = valueGrossDef
+      ? getSourceFieldValue(updated, valueGrossDef.id)
+      : undefined;
+
+    // UnitPriceGross: Net Price + (VAT Value / Quantity)  LUB  Gross Value / Quantity
+    if (unitPriceGrossDef) {
+      if (has.unitPriceNet && totalVat !== undefined && has.quantity) {
+        unitPriceGross = unitPriceNet! + (totalVat / quantity!);
+        updated = setItemFieldValue(updated, unitPriceGrossDef.id, unitPriceGross);
+      } else if (computedValueGross !== undefined && has.quantity) {
+        unitPriceGross = computedValueGross / quantity!;
+        updated = setItemFieldValue(updated, unitPriceGrossDef.id, unitPriceGross);
+      }
+      // else: brak danych do obliczenia — nie nadpisuj wartości ręcznej
     }
 
     return updated;

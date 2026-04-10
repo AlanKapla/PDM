@@ -7,6 +7,11 @@ import type {
   UpdateCostRequest,
 } from '../types/costTracker.types';
 
+export interface UpdateTrackerBudgetRequest {
+  budgetNet?: number | null;
+  budgetGross?: number | null;
+}
+
 const buildCostFormData = (data: CreateCostRequest | UpdateCostRequest): FormData => {
   const form = new FormData();
 
@@ -129,6 +134,19 @@ export const costTrackerApi = {
   ): Promise<void> => {
     await axiosClient.delete(
       `/tenants/${tenantId}/projects/${projectId}/cost-trackers/costs/${costId}`
+    );
+  },
+
+  /** PUT /api/.../cost-trackers/{costTrackerId}/budget */
+  updateBudget: async (
+    tenantId: string,
+    projectId: string,
+    costTrackerId: string,
+    data: UpdateTrackerBudgetRequest
+  ): Promise<void> => {
+    await axiosClient.put(
+      `/tenants/${tenantId}/projects/${projectId}/cost-trackers/${costTrackerId}/budget`,
+      data
     );
   },
 };

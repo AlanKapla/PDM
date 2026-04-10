@@ -4,6 +4,7 @@ using CQRS.CostTrackers.CreateTrackedCost;
 using CQRS.CostTrackers.DeleteTrackedCost;
 using CQRS.CostTrackers.GetCostTrackerByProject;
 using CQRS.CostTrackers.UpdateTrackedCost;
+using CQRS.CostTrackers.UpdateTrackerBudget;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -102,6 +103,36 @@ namespace WebApi.Controllers
             };
 
             return Ok(await Send(command));
+        }
+
+        /// <summary>
+        /// Update budget fields (BudgetNet, BudgetGross) on a cost tracker
+        /// </summary>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <param name="costTrackerId">Cost Tracker ID</param>
+        /// <param name="command">Budget data</param>
+        [HttpPut("{costTrackerId:guid}/budget")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateTrackerBudget(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid costTrackerId,
+            [FromBody] UpdateTrackerBudgetCommand command)
+        {
+            command = command with
+            {
+                CostTrackerId = costTrackerId,
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+
+            await Send(command);
+            return NoContent();
         }
 
         /// <summary>

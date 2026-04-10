@@ -114,6 +114,9 @@ export interface CostTrackerSummaryWeb extends CostTrackerSummaryBaseWeb {
   costEstimatesWithCostsCount: number;
 }
 
+/** Podsumowanie budżetowe wyłącznie dla kosztów dodatkowych projektu vs. budżet trackera */
+export interface CostTrackerBudgetSummary extends CostTrackerSummaryBaseWeb {}
+
 export interface CostEstimateSummaryWeb extends CostTrackerSummaryBaseWeb {
   costEstimateId: string;
   costEstimateName: string;
@@ -130,6 +133,7 @@ export interface CostTrackerDetailsWeb {
   id: string;
   projectId: string;
   summary: CostTrackerSummaryWeb;
+  budgetSummary: CostTrackerBudgetSummary;
   costEstimateSummaries: CostEstimateSummaryWeb[];
   projectAdditionalCosts: ProjectAdditionalCostsWeb;
 }

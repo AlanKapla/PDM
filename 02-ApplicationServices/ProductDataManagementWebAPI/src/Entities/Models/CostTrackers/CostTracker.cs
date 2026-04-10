@@ -7,6 +7,8 @@ namespace Entities.Models.CostTrackers
     {
         public Guid TenantId { get; set; }
         public Guid ProjectId { get; set; }
+        public decimal? BudgetNet { get; set; }
+        public decimal? BudgetGross { get; set; }
 
         public virtual CostEstimate? CostEstimate { get; set; }
         public virtual ICollection<TrackedCost> TrackedCosts { get; set; } = new List<TrackedCost>();

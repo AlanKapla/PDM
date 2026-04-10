@@ -271,7 +271,7 @@ namespace CQRS.CostTrackers.Shared
             return new TrackerGroupWeb
             {
                 GroupId = group.Id,
-                GroupName = ResolveGroupName(group.Id, groupFieldValuesByGroupId),
+                GroupName = group.Name,
                 Order = group.Order,
                 BudgetNet = groupBudgetNet,
                 BudgetGross = groupBudgetGross,
@@ -313,7 +313,7 @@ namespace CQRS.CostTrackers.Shared
             return new TrackerItemWeb
             {
                 CostEstimateItemId = item.Id,
-                Name = ResolveItemName(item.Id, itemFieldValuesByItemId),
+                Name = item.Name,
                 BudgetNet = item.NetValue,
                 BudgetGross = item.GrossValue,
                 CostsNet = itemCostsNet,
@@ -326,32 +326,6 @@ namespace CQRS.CostTrackers.Shared
                 CoveredPercent = itemCostsList.Count > 0 ? 100.0m : 0.0m,
                 Costs = costWebs
             };
-        }
-
-        private static string ResolveGroupName(
-            Guid groupId,
-            Dictionary<Guid, List<CostEstimateGroupFieldValue>> groupFieldValuesByGroupId)
-        {
-            if (!groupFieldValuesByGroupId.TryGetValue(groupId, out List<CostEstimateGroupFieldValue>? fieldValues))
-            {
-                return string.Empty;
-            }
-
-            return fieldValues.FirstOrDefault(fv => fv.FieldDefinition.FieldType == FieldType.GroupName)?.StringValue
-                ?? string.Empty;
-        }
-
-        private static string ResolveItemName(
-            Guid itemId,
-            Dictionary<Guid, List<CostEstimateItemFieldValue>> itemFieldValuesByItemId)
-        {
-            if (!itemFieldValuesByItemId.TryGetValue(itemId, out List<CostEstimateItemFieldValue>? fieldValues))
-            {
-                return string.Empty;
-            }
-
-            return fieldValues.FirstOrDefault(fv => fv.FieldDefinition.FieldType == FieldType.ItemSystemName)?.StringValue
-                ?? string.Empty;
         }
 
         private static decimal? CombineNullable(decimal? a, decimal? b)

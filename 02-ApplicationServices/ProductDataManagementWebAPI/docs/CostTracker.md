@@ -8,6 +8,7 @@
   - [GET by-project](#get-by-project)
   - [POST – CreateTrackedCost](#post--createtrackedcost)
   - [PUT – UpdateTrackedCost](#put--updatetrackedcost)
+  - [PUT – UpdateTrackerBudget](#put--updatetrackerbudget)
   - [DELETE – DeleteTrackedCost](#delete--deletetrackedcost)
 - [Queries](#queries)
   - [GetCostTrackerByProjectQuery](#getcosttrackerbyprojectquery)
@@ -18,11 +19,13 @@
 - [Commands](#commands)
   - [CreateTrackedCostCommand](#createtrackedcostcommand)
   - [UpdateTrackedCostCommand](#updatetrackedcostcommand)
+  - [UpdateTrackerBudgetCommand](#updatetrackerbudgetcommand)
   - [DeleteTrackedCostCommand](#deletetrackedcostcommand)
 - [Web Models](#web-models)
   - [CostTrackerDetailsWeb](#costtrackerdetailsweb)
   - [CostTrackerSummaryBaseWeb](#costtrackersummarybaseweb)
   - [CostTrackerSummaryWeb](#costtrackersummaryweb)
+  - [CostTrackerBudgetSummary](#costtrackerbudgetsummary)
   - [CostEstimateSummaryWeb](#costestimatesummaryweb)
   - [ProjectAdditionalCostsWeb](#projectadditionalcostsweb)
   - [TrackerAdditionalCostsWeb](#trackeradditionalcostsweb)
@@ -57,6 +60,7 @@ CostTrackerController
 ├── GetCostTrackerByProjectQuery   →  GetCostTrackerByProjectQueryHandler
 ├── CreateTrackedCostCommand       →  CreateTrackedCostCommandHandler
 ├── UpdateTrackedCostCommand       →  UpdateTrackedCostCommandHandler
+├── UpdateTrackerBudgetCommand     →  UpdateTrackerBudgetCommandHandler
 └── DeleteTrackedCostCommand       →  DeleteTrackedCostCommandHandler
 
 Handlery bez endpointu HTTP (niezarejestrowane w kontrolerze):
@@ -176,6 +180,38 @@ Pełne nadpisanie istniejącego kosztu śledzonego. Zarządza listą załącznik
 
 ---
 
+### PUT – UpdateTrackerBudget
+
+```
+PUT /api/tenants/{tenantId}/projects/{projectId}/cost-trackers/{costTrackerId}/budget
+Content-Type: application/json
+```
+
+Aktualizuje pola budżetowe (`BudgetNet`, `BudgetGross`) bezpośrednio na encji `CostTracker`. Partial update — pozostałe dane trackera nie są modyfikowane. Oba pola edytowalne niezależnie i addytywne względem budżetów z kosztorysów.
+
+**Autoryzacja:** `ProjectResourcesWrite`
+
+**Parametry ścieżki:**
+
+| Parametr | Typ | Opis |
+|---|---|---|
+| `tenantId` | `Guid` | Identyfikator tenanta |
+| `projectId` | `Guid` | Identyfikator projektu |
+| `costTrackerId` | `Guid` | Identyfikator trackera kosztów |
+
+**Body (`application/json`):** → [`UpdateTrackerBudgetCommand`](#updatetrackerbudgetcommand)
+
+**Odpowiedzi:**
+
+| Status | Opis |
+|---|---|
+| `204 No Content` | Budżet zaktualizowany |
+| `400 Bad Request` | Błąd walidacji (np. wartość ujemna) |
+| `403 Forbidden` | Brak dostępu |
+| `404 Not Found` | Tracker nie istnieje lub nie należy do podanego projektu/tenanta |
+
+---
+
 ### DELETE – DeleteTrackedCost
 
 ```
@@ -234,9 +270,10 @@ public sealed record GetCostTrackerByProjectQuery() : IRequestQuery<CostTrackerD
 4. Wydziel koszty projektu (brak `CostEstimateId`) → `ProjectAdditionalCostsWeb`
 5. Pobierz wszystkie `CostEstimate` dla projektu z repozytorium
 6. Dla każdego kosztorysu pobierz wszystkie 4 słowniki z cache (`GetGroupsDictionaryAsync`, `GetGroupFieldValuesDictionaryAsync`, `GetItemsDictionaryAsync`, `GetItemFieldValuesDictionaryAsync`), zbuduj pełną hierarchię grup (`BuildTrackerGroups`) oraz zmapuj koszty dodatkowe kosztorysu przez `MapTrackedCostToWeb`, po czym wywołaj `BuildEstimateSummary`
-7. Oblicz project-level summary (`ICostTrackerFinancialService.ComputeProjectSummary`)
-8. Pobierz `trackerId` z repozytorium
-9. Zwróć [`CostTrackerDetailsWeb`](#costtrackerdetailsweb)
+7. Załaduj pełną encję `CostTracker` (`LoadTrackerEntityAsync`) — niezbędna do odczytu `BudgetNet`/`BudgetGross`
+8. Oblicz project-level summary (`ICostTrackerFinancialService.ComputeProjectSummary`) przekazując `tracker.BudgetNet` i `tracker.BudgetGross` jako parametry addytywne do budżetu z kosztorysów
+9. Oblicz budget summary wyłącznie na podstawie kosztów dodatkowych projektu (`ICostTrackerFinancialService.ComputeBudgetSummary`)
+10. Zwróć [`CostTrackerDetailsWeb`](#costtrackerdetailsweb) z wypełnionym `BudgetSummary`
 
 ---
 
@@ -452,6 +489,39 @@ public sealed record UpdateTrackedCostCommand : IRequestCommand<TrackedCostWeb>,
 
 ---
 
+### UpdateTrackerBudgetCommand
+
+```csharp
+public sealed record UpdateTrackerBudgetCommand : IRequestCommand<Unit>, IAuthorizableRequest
+{
+    public required Guid CostTrackerId { get; init; }
+    public decimal? BudgetNet { get; init; }
+    public decimal? BudgetGross { get; init; }
+    public Guid TenantId { get; init; }
+    public Guid ProjectId { get; init; }
+}
+```
+
+**Pola:**
+
+| Pole | Typ | Wymagane | Opis |
+|---|---|---|---|
+| `CostTrackerId` | `Guid` | ✅ | Identyfikator trackera (z route) |
+| `TenantId` | `Guid` | ✅ | Identyfikator tenanta (z route) |
+| `ProjectId` | `Guid` | ✅ | Identyfikator projektu (z route) |
+| `BudgetNet` | `decimal?` | ❌ | Budżet netto trackera (`null` = wyzerowanie) |
+| `BudgetGross` | `decimal?` | ❌ | Budżet brutto trackera (`null` = wyzerowanie) |
+
+**Permission:** `ProjectResourcesWrite`
+
+**Reguły biznesowe:**
+- Partial update — aktualizowane są wyłącznie `BudgetNet` i `BudgetGross`; pozostałe pola encji `CostTracker` pozostają niezmienione
+- Oba pola niezależne od siebie — brak automatycznych obliczeń między nimi
+- Tracker musi należeć do podanego tenanta i projektu (weryfikacja przez predykat `Id + TenantId + ProjectId`)
+- Wartości `BudgetNet`/`BudgetGross` są addytywne względem budżetów z kosztorysów przy obliczaniu `TotalBudgetNet`/`TotalBudgetGross` w `ComputeProjectSummary`
+
+---
+
 ### DeleteTrackedCostCommand
 
 ```csharp
@@ -492,6 +562,7 @@ public record CostTrackerDetailsWeb
     public required Guid Id { get; init; }
     public required Guid ProjectId { get; init; }
     public required CostTrackerSummaryWeb Summary { get; init; }
+    public required CostTrackerBudgetSummary BudgetSummary { get; init; }
     public required List<CostEstimateSummaryWeb> CostEstimateSummaries { get; init; }
     public required ProjectAdditionalCostsWeb ProjectAdditionalCosts { get; init; }
 }
@@ -501,7 +572,8 @@ public record CostTrackerDetailsWeb
 |---|---|---|
 | `Id` | `Guid` | Identyfikator trackera |
 | `ProjectId` | `Guid` | Identyfikator projektu |
-| `Summary` | [`CostTrackerSummaryWeb`](#costtrackersummaryweb) | Zagregowane podsumowanie całego projektu |
+| `Summary` | [`CostTrackerSummaryWeb`](#costtrackersummaryweb) | Zagregowane podsumowanie całego projektu (kosztorysy + koszty dodatkowe + `BudgetNet`/`BudgetGross` trackera) |
+| `BudgetSummary` | [`CostTrackerBudgetSummary`](#costtrackerbudgetsummary) | Podsumowanie budżetowe wyłącznie dla kosztów dodatkowych projektu vs. budżet trackera |
 | `CostEstimateSummaries` | `List<CostEstimateSummaryWeb>` | Podsumowania per kosztorys (bez `Groups` i `AdditionalCosts.Costs`) |
 | `ProjectAdditionalCosts` | [`ProjectAdditionalCostsWeb`](#projectadditionalcostsweb) | Koszty dodatkowe projektu (bez kosztorysu) |
 
@@ -565,9 +637,36 @@ public record CostTrackerSummaryWeb : CostTrackerSummaryBaseWeb
 
 ---
 
+### CostTrackerBudgetSummary
+
+Podsumowanie budżetowe trackera zawężone **wyłącznie do kosztów dodatkowych projektu** (`TrackedCost` bez `CostEstimateId`). Dziedziczy z [`CostTrackerSummaryBaseWeb`](#costtrackersummarybaseweb) — brak dodatkowych pól.
+
+```csharp
+public record CostTrackerBudgetSummary : CostTrackerSummaryBaseWeb
+{
+}
+```
+
+**Semantyka pól odziedziczonych w tym kontekście:**
+
+| Pole | Źródło wartości |
+|---|---|
+| `TotalCostsNet` / `TotalCostsGross` | Suma kosztów dodatkowych projektu (`ProjectAdditionalCostsWeb.TotalNet/TotalGross`) |
+| `TotalBudgetNet` / `TotalBudgetGross` | `CostTracker.BudgetNet` / `CostTracker.BudgetGross` |
+| `TotalDeviationNet` / `TotalDeviationGross` | `TotalCostsNet - TotalBudgetNet` / `TotalCostsGross - TotalBudgetGross` |
+| `TotalDeviationPercent` | `(TotalCostsNet - TotalBudgetNet) / TotalBudgetNet * 100` |
+| `IsBudgetExceeded` | `TotalDeviationNet > 0` |
+| `AdditionalCostsNet` / `AdditionalCostsGross` | Identyczne z `TotalCostsNet` / `TotalCostsGross` |
+| `AdditionalCostsCount` / `CostCount` | `ProjectAdditionalCostsWeb.CostsCount` |
+| `CoveredPercent` | Zawsze `null` (brak pozycji kosztorysu) |
+
+> Obliczany przez `ICostTrackerFinancialService.ComputeBudgetSummary(projectAdditionalCosts, budgetNet, budgetGross)`.
+
+---
+
 ### CostEstimateSummaryWeb
 
-Podsumowanie finansowe dla pojedynczego kosztorysu. Dziedziczy z [`CostTrackerSummaryBaseWeb`](#costtrackersummarybaseweb). Zwracany bezpośrednio przez `GetCostTrackerByEstimateQueryHandler`; osadzany w liście `CostEstimateSummaries` przez `GetCostTrackerByProjectQueryHandler`.
+Podsumowanie finansowe dla pojedynczego kosztorysu.
 
 ```csharp
 public record CostEstimateSummaryWeb : CostTrackerSummaryBaseWeb
@@ -863,6 +962,16 @@ Walidacja odbywa się przez pipeline MediatR z FluentValidation. Błąd walidacj
 | `Description` | Max 2000 znaków |
 | `Contractor` | Max 300 znaków |
 
+### UpdateTrackerBudgetCommand
+
+| Pole | Reguła |
+|---|---|
+| `CostTrackerId` | Wymagane (`NotEmpty`) |
+| `TenantId` | Wymagane (`NotEmpty`) |
+| `ProjectId` | Wymagane (`NotEmpty`) |
+| `BudgetNet` | Gdy podane: `>= 0` |
+| `BudgetGross` | Gdy podane: `>= 0` |
+
 ### DeleteTrackedCostCommand
 
 | Pole | Reguła |
@@ -925,6 +1034,7 @@ Każdy handler weryfikuje dostęp przez `ValidateAccessAsync` w `CostTrackerHand
 | GET by-project | `ProjectResourcesReadSingle` |
 | POST costs | `ProjectResourcesWrite` |
 | PUT costs/{costId} | `ProjectResourcesWrite` |
+| PUT {costTrackerId}/budget | `ProjectResourcesWrite` |
 | DELETE costs/{costId} | `ProjectResourcesWrite` |
 
 ---
@@ -963,7 +1073,8 @@ Każdy handler weryfikuje dostęp przez `ValidateAccessAsync` w `CostTrackerHand
 |---|---|---|---|
 | `Calculate` | `decimal? net`, `decimal? gross` | `(decimal? Net, decimal? Gross)` | Uzupełnia brakujące pola finansowe |
 | `ComputeItemStatus` | `decimal? budgetNet`, `decimal? costsNet`, `int costsCount` | `TrackedCostItemStatus` | Oblicza status pozycji kosztorysu |
-| `ComputeProjectSummary` | `IReadOnlyCollection<CostEstimateSummaryWeb>`, `ProjectAdditionalCostsWeb` | `CostTrackerSummaryWeb` | Agreguje dane ze wszystkich kosztorysów w jeden widok projektu |
+| `ComputeProjectSummary` | `IReadOnlyCollection<CostEstimateSummaryWeb>`, `ProjectAdditionalCostsWeb`, `decimal? budgetNet`, `decimal? budgetGross` | `CostTrackerSummaryWeb` | Agreguje dane ze wszystkich kosztorysów; `budgetNet`/`budgetGross` trackera dodawane addytywnie do sumy budżetów z kosztorysów |
+| `ComputeBudgetSummary` | `ProjectAdditionalCostsWeb`, `decimal? budgetNet`, `decimal? budgetGross` | `CostTrackerBudgetSummary` | Oblicza summary wyłącznie na podstawie kosztów dodatkowych projektu vs. budżet trackera |
 | `ComputeEstimateSummary` | `CostEstimate`, `IReadOnlyCollection<CostEstimateItem>`, `ILookup<Guid, TrackedCost>`, `decimal? additionalNet`, `decimal? additionalGross`, `int additionalCostsCount` | `CostEstimateSummaryWeb` | Oblicza wszystkie wskaźniki dla jednego kosztorysu |
 | `ComputeGroupCosts` | `decimal? budgetNet`, `IEnumerable<TrackedCost> allGroupCosts` | `CostEstimateItemCostsWeb` | Agreguje koszty wszystkich pozycji w grupie i podgrupach |
 | `ComputeItemCosts` | `CostEstimateItem item`, `IEnumerable<TrackedCost> itemCosts` | `CostEstimateItemCostsWeb` | Oblicza koszty dla pojedynczej pozycji kosztorysu |

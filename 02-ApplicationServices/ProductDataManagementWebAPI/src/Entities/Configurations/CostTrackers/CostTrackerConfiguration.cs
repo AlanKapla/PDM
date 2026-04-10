@@ -19,6 +19,12 @@ namespace Entities.Configurations.CostTrackers
             builder.Property(t => t.ProjectId)
                 .IsRequired();
 
+            builder.Property(t => t.BudgetNet)
+                .HasPrecision(18, 2);
+
+            builder.Property(t => t.BudgetGross)
+                .HasPrecision(18, 2);
+
             builder.HasMany(t => t.TrackedCosts)
                 .WithOne(tc => tc.Tracker)
                 .HasForeignKey(tc => tc.TrackerId)

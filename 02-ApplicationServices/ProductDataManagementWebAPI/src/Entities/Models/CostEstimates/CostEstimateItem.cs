@@ -12,6 +12,7 @@ namespace Entities.Models.CostEstimates
     public class CostEstimateItem : BaseEntity
     {
         public Guid CostEstimateId { get; set; }
+        public string Name { get; set; } = default!;
         public Guid GroupId { get; set; }
         
         /// <summary>

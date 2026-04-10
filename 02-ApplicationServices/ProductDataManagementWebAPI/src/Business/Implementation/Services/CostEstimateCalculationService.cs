@@ -262,27 +262,28 @@ namespace Business.Implementation.Services
             else
             {
                 // Pozycja NIE ma komponentów - oblicz z FieldValues (jak dotychczas)
-                var calculatedFieldValues = item.FieldValues
+                Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues = item.FieldValues
                     .Where(fv => fv.FieldDefinition != null && fv.FieldDefinition.FieldScope == FieldScope.ItemCalculated)
                     .ToDictionary(
                         fv => fv.FieldDefinition.FieldType,
                         fv => fv);
 
-                var unitPriceNet = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitPriceNet)?.DecimalValue;
-                var vatRate = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedVatRate)?.DecimalValue;
-                var unitPriceGross = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitPriceGross)?.DecimalValue;
-                var valueNetField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedValueNet)?.DecimalValue;
-                var valueGrossField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedValueGross)?.DecimalValue;
-                var totalVatField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedTotalVat)?.DecimalValue;
-                var unitVatField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitVat)?.DecimalValue;
+                decimal? unitPriceNet = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitPriceNet)?.DecimalValue;
+                decimal? vatRate = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedVatRate)?.DecimalValue;
+                decimal? unitPriceGross = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitPriceGross)?.DecimalValue;
+                decimal? valueNetField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedValueNet)?.DecimalValue;
+                decimal? valueGrossField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedValueGross)?.DecimalValue;
+                decimal? totalVatField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedTotalVat)?.DecimalValue;
+                decimal? unitVatField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitVat)?.DecimalValue;
 
-                var quantity = GetQuantityFromSystemField(item);
+                decimal? quantity = GetQuantityFromSystemField(item);
 
-                var calculatedUnitPriceGross = CalculateUnitPriceGross(unitPriceNet, vatRate, unitPriceGross, calculatedFieldValues);
-                var calculatedUnitVat = CalculateUnitVat(unitPriceNet, vatRate, unitVatField, calculatedFieldValues);
-                var valueNet = CalculateValueNet(unitPriceNet, quantity, valueNetField, calculatedFieldValues);
-                var totalVat = CalculateTotalVat(valueNet, vatRate, calculatedUnitVat, quantity, totalVatField, calculatedFieldValues);
-                var valueGross = CalculateValueGross(calculatedUnitPriceGross, quantity, valueNet, totalVat, valueGrossField, calculatedFieldValues);
+                decimal? valueNet = CalculateValueNet(unitPriceNet, quantity, valueNetField, calculatedFieldValues);
+                decimal? totalVat = CalculateTotalVat(valueNet, vatRate, totalVatField, calculatedFieldValues);
+                decimal? valueGross = CalculateValueGross(valueNet, totalVat, vatRate, valueGrossField, calculatedFieldValues);
+
+                CalculateUnitPriceGross(unitPriceNet, vatRate, totalVat, quantity, valueGross, unitPriceGross, calculatedFieldValues);
+                CalculateUnitVat(unitPriceNet, vatRate, unitVatField, calculatedFieldValues);
 
                 // Zapisz obliczone wartości w pozycji
                 item.NetValue = valueNet;
@@ -304,16 +305,32 @@ namespace Business.Implementation.Services
         private static decimal? CalculateUnitPriceGross(
             decimal? unitPriceNet,
             decimal? vatRate,
+            decimal? totalVat,
+            decimal? quantity,
+            decimal? valueGross,
             decimal? unitPriceGross,
             Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
         {
+            decimal? calculated = null;
+
             if (unitPriceNet.HasValue && vatRate.HasValue)
             {
-                var calculated = unitPriceNet.Value * (1 + vatRate.Value);
+                calculated = unitPriceNet.Value * (1m + vatRate.Value);
+            }
+            else if (unitPriceNet.HasValue && totalVat.HasValue && quantity.HasValue && quantity.Value != 0m)
+            {
+                calculated = unitPriceNet.Value + (totalVat.Value / quantity.Value);
+            }
+            else if (valueGross.HasValue && quantity.HasValue && quantity.Value != 0m)
+            {
+                calculated = valueGross.Value / quantity.Value;
+            }
 
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitPriceGross, out var fieldValue))
+            if (calculated.HasValue)
+            {
+                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitPriceGross, out CostEstimateItemFieldValue fieldValue))
                 {
-                    fieldValue.DecimalValue = calculated;
+                    fieldValue.DecimalValue = calculated.Value;
                 }
 
                 return calculated;
@@ -330,9 +347,9 @@ namespace Business.Implementation.Services
         {
             if (unitPriceNet.HasValue && vatRate.HasValue)
             {
-                var calculated = unitPriceNet.Value * vatRate.Value;
+                decimal calculated = unitPriceNet.Value * vatRate.Value;
 
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitVat, out var fieldValue))
+                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitVat, out CostEstimateItemFieldValue fieldValue))
                 {
                     fieldValue.DecimalValue = calculated;
                 }
@@ -351,9 +368,9 @@ namespace Business.Implementation.Services
         {
             if (unitPriceNet.HasValue && quantity.HasValue)
             {
-                var calculated = unitPriceNet.Value * quantity.Value;
+                decimal calculated = unitPriceNet.Value * quantity.Value;
 
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueNet, out var fieldValue))
+                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueNet, out CostEstimateItemFieldValue fieldValue))
                 {
                     fieldValue.DecimalValue = calculated;
                 }
@@ -367,28 +384,14 @@ namespace Business.Implementation.Services
         private static decimal? CalculateTotalVat(
             decimal? valueNet,
             decimal? vatRate,
-            decimal? calculatedUnitVat,
-            decimal? quantity,
             decimal? totalVatField,
             Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
         {
             if (valueNet.HasValue && vatRate.HasValue)
             {
-                var calculated = valueNet.Value * vatRate.Value;
+                decimal calculated = valueNet.Value * vatRate.Value;
 
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedTotalVat, out var fieldValue))
-                {
-                    fieldValue.DecimalValue = calculated;
-                }
-
-                return calculated;
-            }
-
-            if (calculatedUnitVat.HasValue && quantity.HasValue)
-            {
-                var calculated = calculatedUnitVat.Value * quantity.Value;
-
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedTotalVat, out var fieldValue))
+                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedTotalVat, out CostEstimateItemFieldValue fieldValue))
                 {
                     fieldValue.DecimalValue = calculated;
                 }
@@ -400,18 +403,17 @@ namespace Business.Implementation.Services
         }
 
         private static decimal? CalculateValueGross(
-            decimal? calculatedUnitPriceGross,
-            decimal? quantity,
             decimal? valueNet,
             decimal? totalVat,
+            decimal? vatRate,
             decimal? valueGrossField,
             Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
         {
-            if (calculatedUnitPriceGross.HasValue && quantity.HasValue)
+            if (valueNet.HasValue && totalVat.HasValue)
             {
-                var calculated = calculatedUnitPriceGross.Value * quantity.Value;
+                decimal calculated = valueNet.Value + totalVat.Value;
 
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueGross, out var fieldValue))
+                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueGross, out CostEstimateItemFieldValue fieldValue))
                 {
                     fieldValue.DecimalValue = calculated;
                 }
@@ -419,11 +421,11 @@ namespace Business.Implementation.Services
                 return calculated;
             }
 
-            if (valueNet.HasValue && totalVat.HasValue)
+            if (valueNet.HasValue && vatRate.HasValue)
             {
-                var calculated = valueNet.Value + totalVat.Value;
+                decimal calculated = valueNet.Value * (1m + vatRate.Value);
 
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueGross, out var fieldValue))
+                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueGross, out CostEstimateItemFieldValue fieldValue))
                 {
                     fieldValue.DecimalValue = calculated;
                 }

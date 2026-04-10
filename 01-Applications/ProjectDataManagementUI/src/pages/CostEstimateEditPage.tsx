@@ -1393,14 +1393,13 @@ export const CostEstimateEditPage: React.FC = () => {
           onCollapseAll={() => tableControlsRef.current?.collapseAll()}
           onSetViewMode={() => setIsEditMode(false)}
           onSetEditMode={() => setIsEditMode(true)}
-          onSave={() => {
+          onRefresh={() => {
             if (autoRecalcTimeoutRef.current) {
               clearTimeout(autoRecalcTimeoutRef.current);
               autoRecalcTimeoutRef.current = null;
             }
             handleRefresh();
           }}
-          onCancelEdit={handleCancelEdit}
           onNavigateToSchedule={() => safeNavigate(`/projects/${projectId}/schedules/${details.workScheduleId}`)}
           onCreateSchedule={() => {
             setScheduleModalMode('create');

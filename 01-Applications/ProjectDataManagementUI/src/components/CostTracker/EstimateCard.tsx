@@ -7,9 +7,11 @@ import {
   Divider,
   useBreakpointValue,
   Progress,
+  Tooltip,
 } from "@chakra-ui/react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import CostCountBadge from "./CostCountBadge";
 import StageAccordion from "./StageAccordion";
 import EstimateAdditionalCosts from "./EstimateAdditionalCosts";
@@ -35,6 +37,7 @@ export default function EstimateCard({
 }: EstimateCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isMobile = useBreakpointValue({ base: true, md: false });
+  const navigate = useNavigate();
 
   const leftBorderColor = estimate.isBudgetExceeded
     ? "red.400"
@@ -71,9 +74,26 @@ export default function EstimateCard({
       >
         {/* Rząd 1: nazwa + badge + ikona */}
         <HStack justify="space-between" mb={1}>
-          <Text fontWeight="bold" fontSize={{ base: "sm", md: "md" }} flex={1} noOfLines={2} color="gray.800">
-            {estimate.costEstimateName}
-          </Text>
+          <HStack spacing={1} flex={1} minW={0} align="center">
+            <Text fontWeight="bold" fontSize={{ base: "sm", md: "md" }} noOfLines={2} color="gray.800">
+              {estimate.costEstimateName}
+            </Text>
+            <Tooltip label="Otwórz kosztorys" hasArrow>
+              <Box
+                as="span"
+                color="gray.400"
+                _hover={{ color: "blue.500" }}
+                cursor="pointer"
+                flexShrink={0}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  navigate(`/projects/${projectId}/cost-estimates/${estimate.costEstimateId}`);
+                }}
+              >
+                <ExternalLink size={13} />
+              </Box>
+            </Tooltip>
+          </HStack>
           <HStack spacing={2} flexShrink={0}>
             <CostCountBadge count={estimate.costCount} />
             <Box color="gray.400">

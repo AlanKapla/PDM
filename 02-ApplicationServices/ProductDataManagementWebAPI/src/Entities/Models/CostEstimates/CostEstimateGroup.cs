@@ -6,6 +6,7 @@ namespace Entities.Models.CostEstimates
     public class CostEstimateGroup : BaseEntity
     {
         public Guid CostEstimateId { get; set; }
+        public string Name { get; set; } = default!;
         public Guid? ParentGroupId { get; set; }
         public int Level { get; set; }
         public int Order { get; set; }

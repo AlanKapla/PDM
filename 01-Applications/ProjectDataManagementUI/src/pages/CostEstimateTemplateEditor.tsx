@@ -177,6 +177,11 @@ const summaryScopeLabels: Record<SummaryScope, string> = {
   [SummaryScope.Both]: "W etapie i całości",
 };
 
+// Typy pól wymaganych — zawsze obecnych w szablonie kosztorysu
+const REQUIRED_HEADER_FIELD_TYPES: GroupHeaderFieldType[] = [GroupHeaderFieldType.GroupName];
+const REQUIRED_SYSTEM_FIELD_TYPES: SystemFieldType[] = [SystemFieldType.Name];
+const REQUIRED_CALCULATED_FIELD_TYPES: CalculatedFieldType[] = [CalculatedFieldType.ValueNet, CalculatedFieldType.ValueGross];
+
 export default function CostEstimateTemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
@@ -241,8 +246,49 @@ export default function CostEstimateTemplateEditor() {
   ]);
 
   // Work Scope Fields State
-  const [systemFields, setSystemFields] = useState<SystemFieldDefinition[]>([]);
-  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>([]);
+  const [systemFields, setSystemFields] = useState<SystemFieldDefinition[]>(() => [
+    {
+      name: generateFieldGuid(),
+      label: "Nazwa pozycji",
+      type: SystemFieldType.Name,
+      order: 0,
+      required: true,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      readOnly: false,
+    },
+  ]);
+  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>(() => [
+    {
+      name: generateFieldGuid(),
+      label: calculatedFieldTypeLabels[CalculatedFieldType.ValueNet],
+      type: CalculatedFieldType.ValueNet,
+      order: 0,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      summable: true,
+      summaryScope: SummaryScope.Both,
+      autoCalculated: true,
+      readOnly: true,
+    },
+    {
+      name: generateFieldGuid(),
+      label: calculatedFieldTypeLabels[CalculatedFieldType.ValueGross],
+      type: CalculatedFieldType.ValueGross,
+      order: 1,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      summable: true,
+      summaryScope: SummaryScope.Both,
+      autoCalculated: true,
+      readOnly: true,
+    },
+  ]);
   const [genericFields, setGenericFields] = useState<GenericFieldDefinition[]>([]);
   const [validationRules, setValidationRules] = useState<CrossFieldValidationRule[]>([]);
 
@@ -428,7 +474,7 @@ export default function CostEstimateTemplateEditor() {
         setGroupNumberFormat(details.groupNumberFormat ?? "");
 
         // Pola nagłówka grupy - mapuj z GroupHeaderFieldWeb na GroupHeaderFieldDefinition
-        setHeaderFields(struct.groupHeaderFields.map(f => {
+        const mappedHeaderFields: GroupHeaderFieldDefinition[] = struct.groupHeaderFields.map(f => {
           // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
           const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 0;
           return {
@@ -452,10 +498,28 @@ export default function CostEstimateTemplateEditor() {
           color: f.color,
           fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
         };
-        }));
+        });
+        // Upewnij się, że wymagane pola nagłówka grupy są zawsze obecne
+        for (const requiredType of REQUIRED_HEADER_FIELD_TYPES) {
+          if (!mappedHeaderFields.some(f => f.type === requiredType)) {
+            mappedHeaderFields.unshift({
+              name: generateFieldGuid(),
+              type: requiredType,
+              customLabel: groupHeaderFieldTypeLabels[requiredType],
+              required: true,
+              visible: true,
+              sortable: true,
+              filterable: true,
+              order: 0,
+              readOnly: false,
+            });
+            mappedHeaderFields.forEach((f, i) => { f.order = i; });
+          }
+        }
+        setHeaderFields(mappedHeaderFields);
 
         // Pola systemowe - mapuj z SystemFieldWeb na SystemFieldDefinition
-        setSystemFields(struct.systemFields.map(f => {
+        const mappedSystemFields: SystemFieldDefinition[] = struct.systemFields.map(f => {
           // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
           const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 100;
           return {
@@ -529,10 +593,28 @@ export default function CostEstimateTemplateEditor() {
             }
           }),
         };
-        }));
+        });
+        // Upewnij się, że wymagane pola systemowe są zawsze obecne
+        for (const requiredType of REQUIRED_SYSTEM_FIELD_TYPES) {
+          if (!mappedSystemFields.some(f => f.type === requiredType)) {
+            mappedSystemFields.unshift({
+              name: generateFieldGuid(),
+              label: "Nazwa pozycji",
+              type: requiredType,
+              order: 0,
+              required: true,
+              visible: true,
+              sortable: true,
+              filterable: true,
+              readOnly: false,
+            });
+            mappedSystemFields.forEach((f, i) => { f.order = i; });
+          }
+        }
+        setSystemFields(mappedSystemFields);
 
         // Pola kalkulowane - mapuj z CalculatedFieldWeb na CalculatedFieldDefinition
-        setCalculatedFields(struct.calculatedFields.map(f => {
+        const mappedCalculatedFields: CalculatedFieldDefinition[] = struct.calculatedFields.map(f => {
           // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
           const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 200;
           const legacyType = convertFieldTypeToLegacy(fieldType); // FieldType (200-206) → CalculatedFieldType (0-6)
@@ -568,7 +650,27 @@ export default function CostEstimateTemplateEditor() {
             helpUrl: f.helpUrl,
             fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
           };
-        }));
+        });
+        // Upewnij się, że wymagane pola kalkulowane są zawsze obecne
+        for (const requiredType of REQUIRED_CALCULATED_FIELD_TYPES) {
+          if (!mappedCalculatedFields.some(f => f.type === requiredType)) {
+            mappedCalculatedFields.push({
+              name: generateFieldGuid(),
+              label: calculatedFieldTypeLabels[requiredType],
+              type: requiredType,
+              order: mappedCalculatedFields.length,
+              required: false,
+              visible: true,
+              sortable: true,
+              filterable: true,
+              summable: true,
+              summaryScope: SummaryScope.Both,
+              autoCalculated: true,
+              readOnly: true,
+            });
+          }
+        }
+        setCalculatedFields(mappedCalculatedFields);
 
         // Pola generyczne - mapuj z GenericFieldWeb na GenericFieldDefinition
         setGenericFields(struct.genericFields.map(f => {
@@ -1125,6 +1227,7 @@ export default function CostEstimateTemplateEditor() {
   };
 
   const handleRemoveHeaderField = (index: number) => {
+    if (REQUIRED_HEADER_FIELD_TYPES.includes(headerFields[index].type as any)) return;
     const updatedFields = headerFields.filter((_, i) => i !== index);
     updatedFields.forEach((field, i) => {
       field.order = i;
@@ -1147,6 +1250,7 @@ export default function CostEstimateTemplateEditor() {
   };
 
   const handleRemoveSystemField = (index: number) => {
+    if (REQUIRED_SYSTEM_FIELD_TYPES.includes(systemFields[index].type as any)) return;
     const updatedFields = systemFields.filter((_, i) => i !== index);
     updatedFields.forEach((field, i) => {
       field.order = i;
@@ -1169,6 +1273,7 @@ export default function CostEstimateTemplateEditor() {
   };
 
   const handleRemoveCalculatedField = (index: number) => {
+    if (REQUIRED_CALCULATED_FIELD_TYPES.includes(calculatedFields[index].type as any)) return;
     const updatedFields = calculatedFields.filter((_, i) => i !== index);
     const allFields = [...updatedFields, ...genericFields];
     allFields.sort((a, b) => a.order - b.order);
@@ -2694,7 +2799,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                       />
                     </Td>
                     <Td>
-                      <Tooltip label="Usuń pole" hasArrow>
+                      <Tooltip label={REQUIRED_HEADER_FIELD_TYPES.includes(field.type as any) ? "To pole jest wymagane w szablonie" : "Usuń pole"} hasArrow>
                         <IconButton
                           aria-label="Usuń"
                           icon={<Trash2 size={16} />}
@@ -2703,6 +2808,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                           variant="ghost"
                           _hover={{ color: "red.600", bg: "red.50" }}
                           onClick={() => onRemove(index)}
+                          isDisabled={REQUIRED_HEADER_FIELD_TYPES.includes(field.type as any)}
                         />
                       </Tooltip>
                     </Td>
@@ -3072,7 +3178,7 @@ function SystemFieldsEditor({
                             onClick={() => setExpandedField(expandedField === index ? null : index)}
                           />
                         )}
-                        <Tooltip label="Usuń pole" hasArrow>
+                        <Tooltip label={REQUIRED_SYSTEM_FIELD_TYPES.includes(field.type as any) ? "To pole jest wymagane w szablonie" : "Usuń pole"} hasArrow>
                           <IconButton
                             aria-label="Usuń"
                             icon={<Trash2 size={16} />}
@@ -3081,6 +3187,7 @@ function SystemFieldsEditor({
                             variant="ghost"
                             _hover={{ color: "red.600", bg: "red.50" }}
                             onClick={() => onRemove(index)}
+                            isDisabled={REQUIRED_SYSTEM_FIELD_TYPES.includes(field.type as any)}
                           />
                         </Tooltip>
                       </HStack>
@@ -3548,7 +3655,7 @@ function CalculatedFieldsEditor({
                       </Tooltip>
                     </Td>
                     <Td>
-                      <Tooltip label="Usuń pole" hasArrow>
+                      <Tooltip label={REQUIRED_CALCULATED_FIELD_TYPES.includes(field.type as any) ? "To pole jest wymagane w szablonie" : "Usuń pole"} hasArrow>
                         <IconButton
                           aria-label="Usuń"
                           icon={<Trash2 size={16} />}
@@ -3557,6 +3664,7 @@ function CalculatedFieldsEditor({
                           variant="ghost"
                           _hover={{ color: "red.600", bg: "red.50" }}
                           onClick={() => onRemove(index)}
+                          isDisabled={REQUIRED_CALCULATED_FIELD_TYPES.includes(field.type as any)}
                         />
                       </Tooltip>
                     </Td>

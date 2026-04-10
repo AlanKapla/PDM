@@ -6,6 +6,7 @@ import {
   recalculateItem,
   recalculateOption,
   isSourceFieldType,
+  isCalculatedFieldType,
   normalizeFieldType,
   type AllItemValues,
 } from '../utils/costEstimateCalculations';
@@ -84,9 +85,19 @@ export function useModalItemEdit({
       }
 
       const updated: CostEstimateItemWeb = { ...prev, fieldValues };
-      let finalItem = isSourceFieldType(fieldType, fieldScope)
-        ? recalculateItem(updated, templateStructure, normalizeFieldType(fieldType, fieldScope))
-        : updated;
+
+      // Logika obliczeniowa spójna z CostEstimateTableView.updateItemFieldValue:
+      // - pola źródłowe (101/200/201/207) → przelicz wszystkie obliczane
+      // - pola obliczane edytowane ręcznie (gdy brak danych źródłowych) → przelicz pozostałe (pomiń zmienione)
+      // - pozostałe pola (generic, name, unit...) → bez przeliczania
+      let finalItem: CostEstimateItemWeb;
+      if (isSourceFieldType(fieldType, fieldScope)) {
+        finalItem = recalculateItem(updated, templateStructure);
+      } else if (isCalculatedFieldType(fieldType, fieldScope)) {
+        finalItem = recalculateItem(updated, templateStructure, normalizeFieldType(fieldType, fieldScope));
+      } else {
+        finalItem = updated;
+      }
 
       // Gdy zmieniono ilość (101) → przelicz opcje — spójne z CostEstimateTableView
       const isQuantityField = fieldType === 101 || (fieldType === 1 && fieldScope === 1);

@@ -17,6 +17,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
     public sealed class UpsertCostEstimateItemFieldCommandHandler
         : IRequestHandler<UpsertCostEstimateItemFieldCommand, Guid>
     {
+        private readonly IRepository<CostEstimateItem> itemRepository;
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
         private readonly ICostEstimateCacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
@@ -27,6 +28,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
         private readonly ILogger<UpsertCostEstimateItemFieldCommandHandler> logger;
 
         public UpsertCostEstimateItemFieldCommandHandler(
+            IRepository<CostEstimateItem> itemRepository,
             IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
             ICostEstimateCacheService cacheService,
             ICostEstimateAccessService ceAccessService,
@@ -36,6 +38,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             ICurrentUser currentUser,
             ILogger<UpsertCostEstimateItemFieldCommandHandler> logger)
         {
+            this.itemRepository = itemRepository;
             this.itemFieldValueRepository = itemFieldValueRepository;
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
@@ -138,6 +141,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
                 await cacheService.InvalidateItemFieldValuesAsync(
                     request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
+                await UpdateItemNameAsync(fieldDef.FieldType, request, cancellationToken);
+
                 return existingFieldValue.Id;
             }
 
@@ -161,6 +166,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
 
             await cacheService.InvalidateItemFieldValuesAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            await UpdateItemNameAsync(fieldDef.FieldType, request, cancellationToken);
 
             return fieldValue.Id;
         }
@@ -197,7 +204,32 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             await cacheService.InvalidateItemFieldValuesAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
+            await UpdateItemNameAsync(fieldValue.FieldDefinition.FieldType, request, cancellationToken);
+
             return fieldValue.Id;
+        }
+
+        private async Task UpdateItemNameAsync(
+            FieldType fieldType,
+            UpsertCostEstimateItemFieldCommand request,
+            CancellationToken cancellationToken)
+        {
+            if (fieldType != FieldType.ItemSystemName)
+            {
+                return;
+            }
+
+            CostEstimateItem item = await itemRepository.GetFirstBySearch(
+                i => i.Id == request.ItemId && !i.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(CostEstimateItem), request.ItemId.ToString());
+
+            item.Name = request.StringValue ?? string.Empty;
+            item.UpdatedAt = DateTime.UtcNow;
+
+            await itemRepository.Update(item);
+            await itemRepository.SaveChangesAsync(cancellationToken);
+            await cacheService.InvalidateItemsAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
         }
     }
 }

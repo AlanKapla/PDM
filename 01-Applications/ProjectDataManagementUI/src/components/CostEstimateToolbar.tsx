@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Divider,
+  Flex,
   HStack,
   IconButton,
   Menu,
@@ -13,17 +14,15 @@ import {
   Tooltip,
 } from "@chakra-ui/react";
 import {
+  ArrowRight,
   CalendarDays,
   ChevronDown,
   ChevronsDown,
   ChevronsUp,
   Edit,
   Eye,
-  MoreHorizontal,
   RefreshCw,
-  Save,
   Share2,
-  X,
   Zap,
 } from "lucide-react";
 
@@ -46,8 +45,7 @@ export interface CostEstimateToolbarProps {
   onCollapseAll: () => void;
   onSetViewMode: () => void;
   onSetEditMode: () => void;
-  onSave: () => void;
-  onCancelEdit: () => void;
+  onRefresh: () => void;
   onNavigateToSchedule: () => void;
   onCreateSchedule: () => void;
   onSyncSchedule: () => void;
@@ -102,8 +100,7 @@ export default function CostEstimateToolbar({
   onCollapseAll,
   onSetViewMode,
   onSetEditMode,
-  onSave,
-  onCancelEdit,
+  onRefresh,
   onNavigateToSchedule,
   onCreateSchedule,
   onSyncSchedule,
@@ -131,7 +128,56 @@ export default function CostEstimateToolbar({
 
   // ─── Definicje akcji ─────────────────────────────────────────────────────
 
-  const viewActions: ActionDef[] = [
+  const modeActions: ActionDef[] = [
+    {
+      id: "view-mode",
+      icon: <Eye size={14} />,
+      label: "Podgląd",
+      tooltip: "Przełącz w tryb podglądu (tylko odczyt)",
+      onClick: onSetViewMode,
+      isActive: !isEditMode,
+      colorScheme: !isEditMode ? "blue" : "gray",
+      variant: !isEditMode ? "solid" : "outline",
+      isVisible: canEdit,
+    },
+    {
+      id: "edit-mode",
+      icon: <Edit size={14} />,
+      label: "Edycja",
+      tooltip: "Włącz tryb edycji inline",
+      onClick: onSetEditMode,
+      isActive: isEditMode,
+      colorScheme: isEditMode ? "green" : "gray",
+      variant: isEditMode ? "solid" : "outline",
+      isVisible: canEdit,
+    },
+  ];
+
+  const otherActions: ActionDef[] = [
+    {
+      id: "refresh",
+      icon: <RefreshCw size={14} />,
+      label: "Odśwież",
+      tooltip: "Przelicz i odśwież dane kosztorysu",
+      onClick: onRefresh,
+      isLoading: isRecalculating,
+      colorScheme: "gray",
+      variant: "outline",
+      isVisible: true,
+    },
+    {
+      id: "share",
+      icon: <Share2 size={14} />,
+      label: "Udostępnij",
+      tooltip: "Zarządzaj dostępem do kosztorysu",
+      onClick: onShare,
+      colorScheme: "teal",
+      variant: "outline",
+      isVisible: canShare,
+    },
+  ];
+
+  const expandActions: ActionDef[] = [
     {
       id: "expand",
       icon: <ChevronsDown size={14} />,
@@ -152,93 +198,9 @@ export default function CostEstimateToolbar({
       variant: "outline",
       isVisible: true,
     },
-    {
-      id: "view-mode",
-      icon: <Eye size={14} />,
-      label: "Podgląd",
-      tooltip: "Przełącz w tryb podglądu (tylko odczyt)",
-      onClick: onSetViewMode,
-      isActive: !isEditMode,
-      colorScheme: !isEditMode ? "blue" : "gray",
-      variant: !isEditMode ? "solid" : "outline",
-      isVisible: canEdit,
-    },
-  ];
-
-  const editActions: ActionDef[] = [
-    {
-      id: "edit-mode",
-      icon: <Edit size={14} />,
-      label: "Edycja",
-      tooltip: "Włącz tryb edycji inline",
-      onClick: onSetEditMode,
-      isActive: isEditMode,
-      colorScheme: isEditMode ? "green" : "gray",
-      variant: isEditMode ? "solid" : "outline",
-      isVisible: canEdit,
-    },
-    {
-      id: "save",
-      icon: <Save size={14} />,
-      label: "Zapisz",
-      tooltip: "Przelicz i zapisz kosztorys",
-      onClick: onSave,
-      colorScheme: "teal",
-      variant: "solid",
-      isLoading: isRecalculating,
-      isVisible: canEdit && (isEditMode || hasChanges),
-    },
-    {
-      id: "cancel",
-      icon: <X size={14} />,
-      label: "Anuluj",
-      tooltip: "Odrzuć niezapisane zmiany i wyjdź z edycji",
-      onClick: onCancelEdit,
-      colorScheme: "gray",
-      variant: "ghost",
-      isVisible: canEdit && isEditMode,
-    },
-  ];
-
-  const akcjeActions: ActionDef[] = [
-    {
-      id: "schedule",
-      icon: <CalendarDays size={14} />,
-      label: hasSchedule ? "Harmonogram" : "Utwórz harmonogram",
-      tooltip: hasSchedule
-        ? "Przejdź do powiązanego harmonogramu"
-        : "Utwórz harmonogram na podstawie kosztorysu",
-      onClick: hasSchedule ? onNavigateToSchedule : onCreateSchedule,
-      colorScheme: "orange",
-      variant: "outline",
-      isVisible: canEdit,
-    },
-    {
-      id: "sync",
-      icon: <RefreshCw size={14} />,
-      label: "Synchronizuj",
-      tooltip: "Synchronizuj harmonogram ze strukturą kosztorysu",
-      onClick: onSyncSchedule,
-      isLoading: isSyncing,
-      colorScheme: "gray",
-      variant: "ghost",
-      isVisible: hasSchedule && canEdit,
-    },
-    {
-      id: "share",
-      icon: <Share2 size={14} />,
-      label: "Udostępnij",
-      tooltip: "Zarządzaj dostępem do kosztorysu",
-      onClick: onShare,
-      colorScheme: "teal",
-      variant: "outline",
-      isVisible: canShare,
-    },
   ];
 
   const hasActiveEdit = isEditMode || hasChanges;
-  const hasActiveView = !isEditMode && canEdit;
-  const hasActiveAction = false;
 
   // ─── Helpery renderowania ─────────────────────────────────────────────────
 
@@ -295,69 +257,134 @@ export default function CostEstimateToolbar({
     );
   };
 
+  // ─── Dropdown Harmonogram ─────────────────────────────────────────────────
+
+  const scheduleDropdownFull = canEdit ? (
+    <Menu>
+      <Tooltip label="Operacje na powiązanym harmonogramie" hasArrow placement="bottom" openDelay={400}>
+        <MenuButton
+          as={Button}
+          size="sm"
+          leftIcon={<CalendarDays size={14} />}
+          rightIcon={<ChevronDown size={12} />}
+          colorScheme="orange"
+          variant="outline"
+        >
+          Harmonogram
+        </MenuButton>
+      </Tooltip>
+      <MenuList minW="200px">
+        {hasSchedule ? (
+          <>
+            <MenuItem icon={<ArrowRight size={14} />} onClick={onNavigateToSchedule}>
+              Przejdź do harmonogramu
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem icon={<RefreshCw size={14} />} onClick={onSyncSchedule}>
+              {isSyncing ? "Synchronizuję…" : "Synchronizuj"}
+            </MenuItem>
+          </>
+        ) : (
+          <MenuItem icon={<CalendarDays size={14} />} onClick={onCreateSchedule}>
+            Utwórz harmonogram
+          </MenuItem>
+        )}
+      </MenuList>
+    </Menu>
+  ) : null;
+
+  const scheduleDropdownCompact = canEdit ? (
+    <Menu>
+      <Tooltip label="Harmonogram" hasArrow placement="bottom">
+        <MenuButton
+          as={IconButton}
+          icon={<CalendarDays size={14} />}
+          size="sm"
+          colorScheme="orange"
+          variant="outline"
+          aria-label="Harmonogram"
+        />
+      </Tooltip>
+      <MenuList minW="200px">
+        {hasSchedule ? (
+          <>
+            <MenuItem icon={<ArrowRight size={14} />} onClick={onNavigateToSchedule}>
+              Przejdź do harmonogramu
+            </MenuItem>
+            <MenuDivider />
+            <MenuItem icon={<RefreshCw size={14} />} onClick={onSyncSchedule}>
+              {isSyncing ? "Synchronizuję…" : "Synchronizuj"}
+            </MenuItem>
+          </>
+        ) : (
+          <MenuItem icon={<CalendarDays size={14} />} onClick={onCreateSchedule}>
+            Utwórz harmonogram
+          </MenuItem>
+        )}
+      </MenuList>
+    </Menu>
+  ) : null;
+
   // ─── Layouty ─────────────────────────────────────────────────────────────
 
-  const visibleView = viewActions.filter((a) => a.isVisible);
-  const visibleEdit = editActions.filter((a) => a.isVisible);
-  const visibleAkcje = akcjeActions.filter((a) => a.isVisible);
+  const visibleMode = modeActions.filter((a) => a.isVisible);
+  const visibleOther = otherActions.filter((a) => a.isVisible);
+  const visibleExpand = expandActions.filter((a) => a.isVisible);
 
-  const hasViewSep = visibleView.length > 0 && visibleEdit.length > 0;
-  const hasEditSep = visibleEdit.length > 0 && visibleAkcje.length > 0;
+  const hasModeSection = visibleMode.length > 0;
 
   return (
     <Box ref={containerRef} w="100%">
-      {/* ── FULL (≥1100px): wszystkie przyciski z etykietami ── */}
+      {/* ── FULL (≥1100px): przyciski z etykietami, expand po prawej ── */}
       {bp === "full" && (
-        <HStack spacing={2} flexWrap="wrap">
-          {visibleView.map(renderFullButton)}
-          {hasViewSep && (
-            <Divider orientation="vertical" height="20px" alignSelf="center" />
-          )}
-          {visibleEdit.map(renderFullButton)}
-          {hasEditSep && (
-            <Divider orientation="vertical" height="20px" alignSelf="center" />
-          )}
-          {visibleAkcje.map(renderFullButton)}
-        </HStack>
+        <Flex justify="space-between" align="center" gap={2}>
+          {/* Lewa strona: tryb + harmonogram + odśwież + udostępnij */}
+          <HStack spacing={2} flexWrap="wrap">
+            {visibleMode.map(renderFullButton)}
+            {hasModeSection && scheduleDropdownFull && (
+              <Divider orientation="vertical" height="20px" alignSelf="center" />
+            )}
+            {scheduleDropdownFull}
+            {(hasModeSection || scheduleDropdownFull) && visibleOther.length > 0 && (
+              <Divider orientation="vertical" height="20px" alignSelf="center" />
+            )}
+            {visibleOther.map(renderFullButton)}
+          </HStack>
+
+          {/* Prawa strona: rozwiń / zwiń */}
+          <HStack spacing={2} flexShrink={0}>
+            {visibleExpand.map(renderFullButton)}
+          </HStack>
+        </Flex>
       )}
 
-      {/* ── COMPACT (600–1099px): ikony, akcje → dropdown ── */}
+      {/* ── COMPACT (600–1099px): ikony, expand po prawej ── */}
       {bp === "compact" && (
-        <HStack spacing={2} flexWrap="wrap">
-          {visibleView.map(renderCompactButton)}
-          {hasViewSep && (
-            <Divider orientation="vertical" height="20px" alignSelf="center" />
-          )}
-          {visibleEdit.map(renderCompactButton)}
-          {visibleAkcje.length > 0 && (
-            <>
-              {hasEditSep && (
-                <Divider orientation="vertical" height="20px" alignSelf="center" />
-              )}
-              <Box position="relative" display="inline-flex">
-                <Menu>
-                  <MenuButton
-                    as={IconButton}
-                    icon={<MoreHorizontal size={14} />}
-                    size="sm"
-                    variant="outline"
-                    colorScheme="gray"
-                    aria-label="Akcje"
-                  />
-                  <MenuList minW="200px">
-                    {visibleAkcje.map(renderMenuItem)}
-                  </MenuList>
-                </Menu>
-              </Box>
-            </>
-          )}
-        </HStack>
+        <Flex justify="space-between" align="center" gap={2}>
+          {/* Lewa strona */}
+          <HStack spacing={2} flexWrap="wrap">
+            {visibleMode.map(renderCompactButton)}
+            {hasModeSection && scheduleDropdownCompact && (
+              <Divider orientation="vertical" height="20px" alignSelf="center" />
+            )}
+            {scheduleDropdownCompact}
+            {(hasModeSection || scheduleDropdownCompact) && visibleOther.length > 0 && (
+              <Divider orientation="vertical" height="20px" alignSelf="center" />
+            )}
+            {visibleOther.map(renderCompactButton)}
+          </HStack>
+
+          {/* Prawa strona: rozwiń / zwiń */}
+          <HStack spacing={2} flexShrink={0}>
+            {visibleExpand.map(renderCompactButton)}
+          </HStack>
+        </Flex>
       )}
 
-      {/* ── MOBILE (<600px): 3 grupy jako dropdown ── */}
+      {/* ── MOBILE (<600px): skonsolidowane dropdown ── */}
       {bp === "mobile" && (
         <HStack spacing={2} flexWrap="wrap">
-          {visibleView.length > 0 && (
+          {visibleMode.length > 0 && (
             <Box position="relative" display="inline-flex">
               <Menu>
                 <MenuButton
@@ -365,59 +392,72 @@ export default function CostEstimateToolbar({
                   rightIcon={<ChevronDown size={12} />}
                   leftIcon={<Eye size={13} />}
                   size="xs"
-                  colorScheme={hasActiveView ? "teal" : "gray"}
-                  variant={hasActiveView ? "solid" : "outline"}
-                >
-                  Widok
-                </MenuButton>
-                <MenuList minW="200px">
-                  {visibleView.map(renderMenuItem)}
-                </MenuList>
-              </Menu>
-              {hasActiveView && <ActiveDot />}
-            </Box>
-          )}
-
-          {visibleEdit.length > 0 && (
-            <Box position="relative" display="inline-flex">
-              <Menu>
-                <MenuButton
-                  as={Button}
-                  rightIcon={<ChevronDown size={12} />}
-                  leftIcon={<Edit size={13} />}
-                  size="xs"
-                  colorScheme={hasActiveEdit ? "teal" : "gray"}
+                  colorScheme={hasActiveEdit ? "green" : "gray"}
                   variant={hasActiveEdit ? "solid" : "outline"}
                 >
-                  Edycja
+                  Tryb
                 </MenuButton>
                 <MenuList minW="200px">
-                  {visibleEdit.map(renderMenuItem)}
+                  {visibleMode.map(renderMenuItem)}
                 </MenuList>
               </Menu>
               {hasActiveEdit && <ActiveDot />}
             </Box>
           )}
 
-          {visibleAkcje.length > 0 && (
+          {canEdit && (
             <Box position="relative" display="inline-flex">
               <Menu>
                 <MenuButton
                   as={Button}
                   rightIcon={<ChevronDown size={12} />}
-                  leftIcon={<Zap size={13} />}
+                  leftIcon={<CalendarDays size={13} />}
                   size="xs"
-                  colorScheme="gray"
+                  colorScheme="orange"
                   variant="outline"
                 >
-                  Akcje
+                  Harmonogram
                 </MenuButton>
                 <MenuList minW="200px">
-                  {visibleAkcje.map(renderMenuItem)}
+                  {hasSchedule ? (
+                    <>
+                      <MenuItem icon={<ArrowRight size={14} />} onClick={onNavigateToSchedule}>
+                        Przejdź do harmonogramu
+                      </MenuItem>
+                      <MenuDivider />
+                      <MenuItem icon={<RefreshCw size={14} />} onClick={onSyncSchedule}>
+                        Synchronizuj
+                      </MenuItem>
+                    </>
+                  ) : (
+                    <MenuItem icon={<CalendarDays size={14} />} onClick={onCreateSchedule}>
+                      Utwórz harmonogram
+                    </MenuItem>
+                  )}
                 </MenuList>
               </Menu>
             </Box>
           )}
+
+          <Box position="relative" display="inline-flex">
+            <Menu>
+              <MenuButton
+                as={Button}
+                rightIcon={<ChevronDown size={12} />}
+                leftIcon={<Zap size={13} />}
+                size="xs"
+                colorScheme="gray"
+                variant="outline"
+              >
+                Więcej
+              </MenuButton>
+              <MenuList minW="200px">
+                {visibleOther.map(renderMenuItem)}
+                <MenuDivider />
+                {visibleExpand.map(renderMenuItem)}
+              </MenuList>
+            </Menu>
+          </Box>
         </HStack>
       )}
     </Box>

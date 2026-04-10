@@ -1,13 +1,16 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using Business.Interfaces.WebModels.CostEstimateTemplates;
+using CQRS.CostEstimateTemplates.Shared;
+using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
 {
-    public class UpdateCostEstimateTemplateCommandHandler : IRequestHandler<UpdateCostEstimateTemplateCommand, Unit>
+    public class UpdateCostEstimateTemplateCommandHandler : CostEstimateTemplateHandlerBase, IRequestHandler<UpdateCostEstimateTemplateCommand, Unit>
     {
         private readonly IRepository<CostEstimateTemplate> templateRepository;
         private readonly ICostEstimateTemplateService templateService;
@@ -25,12 +28,14 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
 
         public async Task<Unit> Handle(UpdateCostEstimateTemplateCommand request, CancellationToken cancellationToken)
         {
-            var template = await templateRepository.GetFirstBySearch(
-                t => t.Id == request.TemplateId && t.OwnerId == currentUser.Id && !t.IsDeleted);
+            CostEstimateTemplate template = await GetAndValidateTemplateAsync(request.TemplateId);
 
-            if (template == null)
+            if (request.UpdateStructure)
             {
-                throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
+                ValidateRequiredTemplateFields(ExtractFieldTypes(
+                    request.GroupHeaderFields,
+                    request.SystemFields,
+                    request.CalculatedFields));
             }
 
             await templateService.UpdateTemplateAsync(
@@ -55,6 +60,30 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                 cancellationToken);
 
             return Unit.Value;
+        }
+
+        private async Task<CostEstimateTemplate> GetAndValidateTemplateAsync(Guid templateId)
+        {
+            CostEstimateTemplate? template = await templateRepository.GetFirstBySearch(
+                t => t.Id == templateId && t.OwnerId == currentUser.Id && !t.IsDeleted);
+
+            if (template == null)
+            {
+                throw new NotFoundApiException(nameof(CostEstimateTemplate), templateId.ToString());
+            }
+
+            return template;
+        }
+
+        private static IEnumerable<FieldType> ExtractFieldTypes(
+            List<FieldDefinitionDto>? groupHeaderFields,
+            List<FieldDefinitionDto>? systemFields,
+            List<FieldDefinitionDto>? calculatedFields)
+        {
+            return (groupHeaderFields ?? [])
+                .Concat(systemFields ?? [])
+                .Concat(calculatedFields ?? [])
+                .Select(f => (FieldType)f.FieldType);
         }
     }
 }

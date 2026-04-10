@@ -17,6 +17,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
     public sealed class UpsertCostEstimateGroupFieldCommandHandler
         : IRequestHandler<UpsertCostEstimateGroupFieldCommand, Guid>
     {
+        private readonly IRepository<CostEstimateGroup> groupRepository;
         private readonly IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository;
         private readonly ICostEstimateCacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
@@ -27,6 +28,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
         private readonly ILogger<UpsertCostEstimateGroupFieldCommandHandler> logger;
 
         public UpsertCostEstimateGroupFieldCommandHandler(
+            IRepository<CostEstimateGroup> groupRepository,
             IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository,
             ICostEstimateCacheService cacheService,
             ICostEstimateAccessService ceAccessService,
@@ -36,6 +38,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
             ICurrentUser currentUser,
             ILogger<UpsertCostEstimateGroupFieldCommandHandler> logger)
         {
+            this.groupRepository = groupRepository;
             this.groupFieldValueRepository = groupFieldValueRepository;
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
@@ -136,6 +139,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
                 await cacheService.InvalidateGroupFieldValuesAsync(
                     request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
+                await UpdateGroupNameAsync(fieldDef.FieldType, request, cancellationToken);
+
                 return existingFieldValue.Id;
             }
 
@@ -159,6 +164,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
 
             await cacheService.InvalidateGroupFieldValuesAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            await UpdateGroupNameAsync(fieldDef.FieldType, request, cancellationToken);
 
             return fieldValue.Id;
         }
@@ -189,7 +196,32 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
             await cacheService.InvalidateGroupFieldValuesAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
+            await UpdateGroupNameAsync(fieldValue.FieldDefinition.FieldType, request, cancellationToken);
+
             return fieldValue.Id;
+        }
+
+        private async Task UpdateGroupNameAsync(
+            FieldType fieldType,
+            UpsertCostEstimateGroupFieldCommand request,
+            CancellationToken cancellationToken)
+        {
+            if (fieldType != FieldType.GroupName)
+            {
+                return;
+            }
+
+            CostEstimateGroup group = await groupRepository.GetFirstBySearch(
+                g => g.Id == request.GroupId && !g.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(CostEstimateGroup), request.GroupId.ToString());
+
+            group.Name = request.StringValue ?? string.Empty;
+            group.UpdatedAt = DateTime.UtcNow;
+
+            await groupRepository.Update(group);
+            await groupRepository.SaveChangesAsync(cancellationToken);
+            await cacheService.InvalidateGroupsAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
         }
     }
 }

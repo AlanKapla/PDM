@@ -26,6 +26,7 @@ import EstimateCard from "./EstimateCard";
 import ProjectAdditionalCostsSection from "./ProjectAdditionalCostsSection";
 import AllCostsSection from "./AllCostsSection";
 import CostFormModal from "./CostFormModal";
+import BudgetSummarySection from "./BudgetSummarySection";
 import { useProjectCostTracker } from "../../hooks/useProjectCostTracker";
 
 interface ProjectBudgetDashboardProps {
@@ -124,6 +125,15 @@ export default function ProjectBudgetDashboard({
         <ProjectSummaryHeader
           summary={data.summary}
           estimates={data.costEstimateSummaries}
+        />
+
+        {/* Budżet trackera — koszty dodatkowe projektu */}
+        <BudgetSummarySection
+          trackerId={data.id}
+          tenantId={tenantId}
+          projectId={projectId}
+          budgetSummary={data.budgetSummary}
+          onMutated={refetch}
         />
 
         <Divider />

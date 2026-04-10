@@ -17,6 +17,8 @@ import type { CalculationContext } from '../utils/calculationEngine';
 export interface UseCalculationsProps {
   calculatedFields: CalculatedFieldDefinition[];
   genericFields: GenericFieldDefinition[];
+  /** Pola systemowe pozycji – wymagane do odczytu wartości Quantity */
+  systemFields?: any[];
   summaryConfig?: CostEstimateSummaryConfiguration;
 }
 
@@ -62,6 +64,7 @@ export interface UseCalculationsReturn {
 export function useCalculations({
   calculatedFields,
   genericFields,
+  systemFields,
   summaryConfig,
 }: UseCalculationsProps): UseCalculationsReturn {
   // Memoize calculation context
@@ -69,8 +72,9 @@ export function useCalculations({
     () => ({
       calculatedFields,
       genericFields,
+      systemFields,
     }),
-    [calculatedFields, genericFields]
+    [calculatedFields, genericFields, systemFields]
   );
 
   // Recalculate a single work scope

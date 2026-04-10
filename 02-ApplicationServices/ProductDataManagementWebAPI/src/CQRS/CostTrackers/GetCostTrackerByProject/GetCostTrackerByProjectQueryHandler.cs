@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Model;
+﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
@@ -56,18 +57,29 @@ namespace CQRS.CostTrackers.GetCostTrackerByProject
             List<CostEstimateSummaryWeb> estimateSummaries = await BuildEstimateSummariesAsync(
                 allEstimates, estimateScopedCosts, attachmentsByCostId, request.TenantId, request.ProjectId, cancellationToken);
 
-            CostTrackerSummaryWeb projectSummary = financialService!.ComputeProjectSummary(estimateSummaries, projectAdditionalCosts);
+            CostTracker tracker = await LoadTrackerEntityAsync(request.TenantId, request.ProjectId, cancellationToken);
 
-            Guid trackerId = await trackerRepository.GetIdBySearchAsync(x => x.ProjectId == request.ProjectId && x.TenantId == request.TenantId, cancellationToken);
+            CostTrackerSummaryWeb projectSummary = financialService!.ComputeProjectSummary(estimateSummaries, projectAdditionalCosts, tracker.BudgetNet, tracker.BudgetGross);
+
+            CostTrackerBudgetSummary budgetSummary = financialService!.ComputeBudgetSummary(projectAdditionalCosts, tracker.BudgetNet, tracker.BudgetGross);
 
             return new CostTrackerDetailsWeb
             {
-                Id = trackerId,
+                Id = tracker.Id,
                 ProjectId = request.ProjectId,
                 Summary = projectSummary,
+                BudgetSummary = budgetSummary,
                 CostEstimateSummaries = estimateSummaries,
                 ProjectAdditionalCosts = projectAdditionalCosts
             };
+        }
+
+        private async Task<CostTracker> LoadTrackerEntityAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken)
+        {
+            return await trackerRepository.GetFirstBySearch(
+                t => t.TenantId == tenantId && t.ProjectId == projectId,
+                cancellationToken)
+                ?? throw new NotFoundApiException(nameof(CostTracker), projectId.ToString());
         }
 
         private async Task<List<TrackedCost>> LoadTrackedCostsAsync(Guid tenantId, Guid projectId)

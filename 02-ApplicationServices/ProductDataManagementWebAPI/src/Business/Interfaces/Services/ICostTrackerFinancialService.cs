@@ -21,10 +21,21 @@ namespace Business.Interfaces.Services
 
         /// <summary>
         /// Agreguje dane ze wszystkich CostEstimateSummaryWeb i kosztów projektowych w jeden widok projektu.
+        /// Pola BudgetNet i BudgetGross są addytywne względem budżetów z kosztorysów.
         /// </summary>
         CostTrackerSummaryWeb ComputeProjectSummary(
             IReadOnlyCollection<CostEstimateSummaryWeb> costEstimateSummaries,
-            ProjectAdditionalCostsWeb projectAdditionalCosts);
+            ProjectAdditionalCostsWeb projectAdditionalCosts,
+            decimal? budgetNet,
+            decimal? budgetGross);
+
+        /// <summary>
+        /// Oblicza summary budżetowe wyłącznie na podstawie kosztów dodatkowych projektu i budżetu trackera.
+        /// </summary>
+        CostTrackerBudgetSummary ComputeBudgetSummary(
+            ProjectAdditionalCostsWeb projectAdditionalCosts,
+            decimal? budgetNet,
+            decimal? budgetGross);
 
         /// <summary>
         /// Oblicza wszystkie wskaźniki dla jednego kosztorysu: sumy, odchylenia, coverage, liczniki pozycji wg statusu.
