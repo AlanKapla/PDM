@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import './CostEstimateTable.css';
 import {
   Box,
   Table,

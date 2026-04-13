@@ -70,7 +70,7 @@ button:focus-visible {
 /*
   Zapobiega auto-zoomowi na iOS Safari podczas skupiania pól formularza.
   iOS powiększa widok gdy fokusowany input ma font-size < 16px.
-  Reguła musi być globalna, bo modalne dialogi Chakra UI renderują się w portalu (poza drzewem DOM).
+  Reguła globalna — działa też w portalach Chakra UI (modalne dialogi).
 */
 @media screen and (max-width: 768px) {
   input,
