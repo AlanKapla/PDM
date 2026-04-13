@@ -51,12 +51,10 @@ namespace CQRS.WorkSchedules.Shared
                     ?? (dep.SuccessorTempId.HasValue && tempIdToWorkId.TryGetValue(dep.SuccessorTempId.Value, out Guid sId) ? sId : null);
 
                 if (!predId.HasValue)
-                    throw new ValidationApiException(
-                        $"Nie można rozwiązać poprzednika zależności: DbId={dep.PredecessorDbId}, TempId={dep.PredecessorTempId}");
+                    throw new ValidationApiException("Nie można rozwiązać poprzednika zależności — sprawdź poprawność przesłanych identyfikatorów.");
 
                 if (!succId.HasValue)
-                    throw new ValidationApiException(
-                        $"Nie można rozwiązać następnika zależności: DbId={dep.SuccessorDbId}, TempId={dep.SuccessorTempId}");
+                    throw new ValidationApiException("Nie można rozwiązać następnika zależności — sprawdź poprawność przesłanych identyfikatorów.");
 
                 WorkScheduleStageWorkDependency entity = new WorkScheduleStageWorkDependency
                 {
