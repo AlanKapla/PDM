@@ -310,7 +310,8 @@ namespace WebApi.Extensions
             services
                 .AddRepository<CostTracker>()
                 .AddRepository<TrackedCost>()
-                .AddRepository<TrackedCostAttachment>();
+                .AddRepository<TrackedCostAttachment>()
+                .AddRepository<ProjectCostTrackedCostLink>();
 
             services
                 .AddRepository<Role>()

@@ -29,11 +29,7 @@ namespace Entities.Configurations
             builder.Property(pc => pc.NetAmount)
                 .HasPrecision(18, 2);
 
-            builder.Property(pc => pc.VatRate)
-                .HasPrecision(5, 2);
-
             builder.Property(pc => pc.GrossAmount)
-                .IsRequired()
                 .HasPrecision(18, 2);
 
             builder.Property(pc => pc.IsClosed)

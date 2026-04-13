@@ -1,13 +1,17 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
+using CQRS.ProjectCosts.Shared;
 using Entities.Models;
+using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.DeleteProjectCost
 {
-    public class DeleteProjectCostCommandHandler : IRequestHandler<DeleteProjectCostCommand, Unit>
+    public class DeleteProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<DeleteProjectCostCommand, Unit>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly ICurrentUser currentUser;
@@ -15,8 +19,14 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
 
         public DeleteProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
+            IReadRepository<CostTracker> costTrackerRepository,
+            IRepository<TrackedCost> trackedCostRepository,
+            IRepository<ProjectCostTrackedCostLink> projectCostLinkRepository,
+            IRepository<TrackedCostAttachment> attachmentRepository,
+            IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<DeleteProjectCostCommandHandler> logger)
+            : base(costTrackerRepository, trackedCostRepository, projectCostLinkRepository, blobStorageService, attachmentRepository)
         {
             this.projectCostRepo = projectCostRepo;
             this.currentUser = currentUser;
@@ -25,24 +35,12 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
 
         public async Task<Unit> Handle(DeleteProjectCostCommand request, CancellationToken cancellationToken)
         {
-            // 1. Verify cost exists and belongs to the correct project/tenant
-            var projectCost = await projectCostRepo.GetFirstBySearch(
-                pc => pc.Id == request.CostId 
-                    && pc.TenantId == request.TenantId 
-                    && pc.ProjectId == request.ProjectId 
-                    && !pc.IsDeleted)
-                ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+            ProjectCost projectCost = await GetAndValidateProjectCostAsync(request, cancellationToken);
 
-            // 2. Authorization check: tenant admin OR project admin OR cost owner
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            bool isCostOwner = projectCost.UserId == currentUser.Id;
-            
-            if (!isAdmin && !isCostOwner)
-            {
-                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
-            }
+            await ValidateDeleteAccessAsync(projectCost, request, cancellationToken);
 
-            // 3. Soft delete
+            await RemoveTrackerLinkAsync(projectCost.Id, cancellationToken);
+
             projectCost.IsDeleted = true;
             projectCost.DeletedAt = DateTime.UtcNow;
 
@@ -53,6 +51,32 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
                 request.CostId, request.ProjectId, currentUser.Id);
 
             return Unit.Value;
+        }
+
+        private async Task<ProjectCost> GetAndValidateProjectCostAsync(
+            DeleteProjectCostCommand request,
+            CancellationToken cancellationToken)
+        {
+            return await projectCostRepo.GetFirstBySearch(
+                pc => pc.Id == request.CostId
+                    && pc.TenantId == request.TenantId
+                    && pc.ProjectId == request.ProjectId
+                    && !pc.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+        }
+
+        private async Task ValidateDeleteAccessAsync(
+            ProjectCost projectCost,
+            DeleteProjectCostCommand request,
+            CancellationToken cancellationToken)
+        {
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
+            bool isCostOwner = projectCost.UserId == currentUser.Id;
+
+            if (!isAdmin && !isCostOwner)
+            {
+                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+            }
         }
     }
 }

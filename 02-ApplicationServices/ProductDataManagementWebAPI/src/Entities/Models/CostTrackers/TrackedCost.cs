@@ -22,5 +22,6 @@ namespace Entities.Models.CostTrackers
         public virtual CostTracker Tracker { get; set; } = default!;
         public virtual CostEstimateItem? CostEstimateItem { get; set; }
         public virtual ICollection<TrackedCostAttachment> Attachments { get; set; } = new List<TrackedCostAttachment>();
+        public virtual ProjectCostTrackedCostLink? ProjectCostLink { get; set; }
     }
 }

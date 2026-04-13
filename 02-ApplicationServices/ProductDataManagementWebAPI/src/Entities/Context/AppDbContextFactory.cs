@@ -27,9 +27,12 @@ namespace Entities.Context
                 var appSettingsPath = Path.Combine(basePath, "appsettings.json");
                 if (File.Exists(appSettingsPath))
                 {
+                    string environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+
                     configuration = new ConfigurationBuilder()
                         .SetBasePath(basePath)
                         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+                        .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
                         .AddEnvironmentVariables()
                         .Build();
                     workingPath = basePath;

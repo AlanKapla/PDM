@@ -417,10 +417,12 @@ export const projectApi = {
       date: Date;
       description?: string;
       netAmount?: number | null;
-      vatRate?: number | null;
       grossAmount?: number | null;
       isClosed: boolean;
+      /** Nowy dokument – gdy koszt nie miał wcześniej pliku */
       document?: File;
+      /** Nowy plik zastępujący istniejący dokument */
+      updatedDocument?: File;
       removeDocument: boolean;
     }
   ) => {
@@ -433,10 +435,10 @@ export const projectApi = {
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
     if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
-    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString());
     if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
     formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
+    if (data.updatedDocument) formData.append("UpdatedDocument", data.updatedDocument);
     formData.append("RemoveDocument", data.removeDocument.toString());
 
     return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/cost/${costId}`, formData, {

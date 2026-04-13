@@ -52,6 +52,7 @@ namespace Entities.Context
         public DbSet<CostTracker> CostTrackers => Set<CostTracker>();
         public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
         public DbSet<TrackedCostAttachment> TrackedCostAttachments => Set<TrackedCostAttachment>();
+        public DbSet<ProjectCostTrackedCostLink> ProjectCostTrackedCostLinks => Set<ProjectCostTrackedCostLink>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();

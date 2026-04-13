@@ -7,8 +7,8 @@ namespace Business.Interfaces.Helpers
     /// </summary>
     public static class DocumentValidationHelper
     {
-        private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".pdf" };
-        private static readonly string[] AllowedContentTypes = { "image/jpeg", "image/jpg", "application/pdf" };
+        private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".pdf", ".png" };
+        private static readonly string[] AllowedContentTypes = { "image/jpeg", "image/jpg", "image/png", "application/pdf" };
         private const long MaxDocumentSize = 10 * 1024 * 1024; // 10MB
 
         /// <summary>
@@ -16,7 +16,10 @@ namespace Business.Interfaces.Helpers
         /// </summary>
         public static bool IsValidDocumentType(IFormFile? document)
         {
-            if (document == null) return true;
+            if (document == null)
+            {
+                return true;
+            }
 
             var extension = Path.GetExtension(document.FileName).ToLowerInvariant();
             var contentType = document.ContentType.ToLowerInvariant();
