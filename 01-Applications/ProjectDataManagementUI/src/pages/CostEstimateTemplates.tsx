@@ -293,7 +293,7 @@ export default function CostEstimateTemplates() {
         </AlertDialog>
 
         {/* Modal duplikowania szablonu */}
-        <Modal isOpen={isDuplicateOpen} onClose={handleCloseDuplicateModal}>
+        <Modal isOpen={isDuplicateOpen} onClose={handleCloseDuplicateModal} size={{ base: "full", md: "md" }}>
           <ModalOverlay />
           <ModalContent>
             <ModalHeader>Duplikuj szablon</ModalHeader>

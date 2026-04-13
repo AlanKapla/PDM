@@ -30,7 +30,6 @@ import {
   Td,
   Textarea,
   Tooltip,
-  useToast,
 } from "@chakra-ui/react";
 import { ArrowLeft, FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -205,6 +204,7 @@ const FilesTab = React.memo<FilesTabProps>(({
                 {loadingPackages.has(pkg.id) ? (
                   <LoadingSpinner />
                 ) : (
+                  <Box overflowX="auto">
                   <Table size="sm" variant="simple">
                     <Thead>
                       <Tr>
@@ -222,6 +222,7 @@ const FilesTab = React.memo<FilesTabProps>(({
                       )}
                     </Tbody>
                   </Table>
+                  </Box>
                 )}
               </AccordionPanel>
             </AccordionItem>
@@ -236,8 +237,7 @@ export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const toast = useToast();
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
@@ -486,12 +486,7 @@ export default function ProjectFiles() {
         const res = await projectApi.getPackageFiles(user.activeTenantId, projectId, packageId, scope);
         setPackageFiles((prev) => new Map(prev).set(packageId, res.data));
       } catch (error) {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się pobrać plików",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się pobrać plików");
       } finally {
         setLoadingPackages((prev) => {
           const newSet = new Set(prev);
@@ -523,12 +518,7 @@ export default function ProjectFiles() {
         const res = await projectApi.getFileVersions(user.activeTenantId, projectId, fileId, scope);
         setFileVersions((prev) => new Map(prev).set(fileId, res.data));
       } catch (error) {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się pobrać wersji",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się pobrać wersji");
       } finally {
         setLoadingFiles((prev) => {
           const newSet = new Set(prev);
@@ -561,12 +551,7 @@ export default function ProjectFiles() {
         const res = await projectApi.getVersionComments(user.activeTenantId, projectId, fileId, versionId, scope);
         setVersionComments((prev) => new Map(prev).set(commentKey, res.data));
       } catch (error) {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się pobrać komentarzy",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się pobrać komentarzy");
       } finally {
         setLoadingVersions((prev) => {
           const newSet = new Set(prev);
@@ -615,12 +600,7 @@ export default function ProjectFiles() {
     const comment = newComments.get(commentKey);
 
     if (!comment || comment.trim() === "") {
-      toast({
-        title: "Uwaga",
-        description: "Komentarz nie może być pusty",
-        status: "warning",
-        duration: 3000,
-      });
+      showWarning("Uwaga", "Komentarz nie może być pusty");
       return;
     }
 

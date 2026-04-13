@@ -8,12 +8,12 @@ import {
   Button,
   Input,
   Text,
-  useToast,
   Divider,
   Tag,
 } from "@chakra-ui/react";
 
 import MainLayout from "../layout/MainLayout";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 type SectionKey = "materials" | "labor" | "equipment";
 
@@ -55,7 +55,7 @@ const SECTION_DEFS: Record<SectionKey, { label: string; fields: SectionFieldDef[
   },
 };
 export default function TemplateCreator() {
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
 
   const [templateName, setTemplateName] = useState("");
   const [enabledSections, setEnabledSections] = useState<Record<SectionKey, boolean>>({
@@ -118,34 +118,16 @@ export default function TemplateCreator() {
 
       if (!response.ok) {
         const errors: string[] = json.errors ?? ["Nieznany błąd walidacji."];
-        toast({
-          title: "Szablon niepoprawny",
-          description: errors.join("\n"),
-          status: "error",
-          duration: 8000,
-          isClosable: true,
-        });
+        showError("Szablon niepoprawny", errors.join("\n"));
         return;
       }
 
-      toast({
-        title: "Szablon poprawny",
-        description: "Możesz przejść do uzupełniania kosztorysu.",
-        status: "success",
-        duration: 5000,
-        isClosable: true,
-      });
+      showSuccess("Szablon poprawny", "Możesz przejść do uzupełniania kosztorysu.");
 
       // jeśli backend zwraca templateId — tutaj możesz zapisać go w stanie / navigate:
       // navigate(`/cost-editor/${json.templateId}`);
     } catch (err) {
-      toast({
-        title: "Błąd połączenia",
-        description: "Nie udało się skontaktować z serwerem.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError("Błąd połączenia", "Nie udało się skontaktować z serwerem.");
     }
   };
 

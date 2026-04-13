@@ -14,7 +14,6 @@ import {
   Input,
   Textarea,
   Select,
-  useToast,
   Text,
   Box,
   Badge,
@@ -27,6 +26,7 @@ import { Plus, FileText } from "lucide-react";
 import { Link as RouterLink } from "react-router-dom";
 import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateStructureWeb, type CurrencyWeb } from "../api/costEstimateTemplateApi";
 import { costEstimateApi } from "../api/costEstimateApi";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface TemplateWithStructure extends CostEstimateTemplateListItem {
   structure?: CostEstimateTemplateStructureWeb;
@@ -48,7 +48,7 @@ export default function CreateCostEstimateModal({
   projectId,
   onCostEstimateCreated,
 }: CreateCostEstimateModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -68,12 +68,7 @@ export default function CreateCostEstimateModal({
           const templateList = await costEstimateTemplateApi.getTemplates();
           setTemplates(templateList);
         } catch (error) {
-          toast({
-            title: "Błąd",
-            description: "Nie udało się pobrać szablonów kosztorysów",
-            status: "error",
-            duration: 5000,
-          });
+          showError("Błąd", "Nie udało się pobrać szablonów kosztorysów");
           setTemplates([]);
         } finally {
           setLoadingTemplates(false);
@@ -109,12 +104,7 @@ export default function CreateCostEstimateModal({
         const defaultCurrency = currencies.find((c) => c.isDefault) ?? currencies[0];
         setSelectedCurrencyId(defaultCurrency?.id ?? "");
       } catch {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się pobrać szczegółów szablonu",
-          status: "error",
-          duration: 5000,
-        });
+        showError("Błąd", "Nie udało się pobrać szczegółów szablonu");
         setSelectedTemplateDetails(null);
         setSelectedCurrencyId("");
       } finally {
@@ -135,54 +125,29 @@ export default function CreateCostEstimateModal({
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      toast({
-        title: "Błąd",
-        description: "Nazwa kosztorysu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nazwa kosztorysu jest wymagana");
       return;
     }
 
     if (!selectedTemplateId) {
-      toast({
-        title: "Błąd",
-        description: "Wybierz szablon kosztorysu",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wybierz szablon kosztorysu");
       return;
     }
 
     if (!selectedCurrencyId) {
-      toast({
-        title: "Błąd",
-        description: "Wybierz walutę kosztorysu",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wybierz walutę kosztorysu");
       return;
     }
 
     const selectedTemplate = selectedTemplateDetails;
     if (!selectedTemplate) {
-      toast({
-        title: "Błąd",
-        description: "Nie znaleziono wybranego szablonu",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nie znaleziono wybranego szablonu");
       return;
     }
 
     const selectedCurrency = selectedTemplate.currencies?.find(c => c.id === selectedCurrencyId);
     if (!selectedCurrency) {
-      toast({
-        title: "Błąd",
-        description: "Wybrana waluta nie jest dostępna w tym szablonie",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wybrana waluta nie jest dostępna w tym szablonie");
       return;
     }
 
@@ -197,12 +162,7 @@ export default function CreateCostEstimateModal({
         description: description.trim() || undefined,
       });
 
-      toast({
-        title: "Sukces",
-        description: "Kosztorys został utworzony",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", "Kosztorys został utworzony");
 
       onCostEstimateCreated();
       handleClose();
@@ -211,12 +171,7 @@ export default function CreateCostEstimateModal({
         || error?.message 
         || "Nie udało się utworzyć kosztorysu";
       
-      toast({
-        title: "Błąd",
-        description: errorMessage,
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", errorMessage);
     } finally {
       setIsSubmitting(false);
     }

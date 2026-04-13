@@ -18,7 +18,6 @@ import {
   Checkbox,
   Spinner,
   Avatar,
-  useToast,
   Divider,
 } from "@chakra-ui/react";
 import { Share2, Users, Lock } from "lucide-react";
@@ -27,6 +26,7 @@ import { costEstimateApi } from "../api/costEstimateApi";
 import { handleApiError } from "../utils/handleApiError";
 import type { ProjectMemberWeb } from "../types/project.types";
 import type { CostEstimateShareWeb } from "../types/costEstimate.types.new";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ShareCostEstimateModalProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export default function ShareCostEstimateModal({
   currentSharedUsers,
   onShareUpdated,
 }: ShareCostEstimateModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
 
   const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -79,13 +79,7 @@ export default function ShareCostEstimateModal({
       const excludeIds = new Set([ownerId, currentUserId].filter(Boolean));
       setMembers(data.filter((m) => m.userId && !excludeIds.has(m.userId)));
     } catch {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać listy członków projektu",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-      });
+      showError("Błąd", "Nie udało się pobrać listy członków projektu");
     } finally {
       setLoadingMembers(false);
     }
@@ -113,18 +107,12 @@ export default function ShareCostEstimateModal({
         costEstimateId,
         Array.from(selectedUserIds)
       );
-      toast({
-        title: "Sukces",
-        description: "Udostępnienie kosztorysu zaktualizowane",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+      showSuccess("Sukces", "Udostępnienie kosztorysu zaktualizowane");
       onShareUpdated();
       onClose();
     } catch (err) {
       const { title, description } = handleApiError(err);
-      toast({ title, description, status: "error", duration: 5000, isClosable: true });
+      showError(title, description);
     } finally {
       setSaving(false);
     }

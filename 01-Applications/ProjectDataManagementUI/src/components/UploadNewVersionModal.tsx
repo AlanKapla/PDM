@@ -14,7 +14,6 @@ import {
   Textarea,
   FormControl,
   FormLabel,
-  useToast,
   Alert,
   AlertIcon,
   HStack,
@@ -24,6 +23,7 @@ import { Upload, FileText } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import type { ProjectFileWeb } from "../types/project.types";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface UploadNewVersionModalProps {
   isOpen: boolean;
@@ -46,7 +46,7 @@ export default function UploadNewVersionModal({
   const [comment, setComment] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -119,7 +119,7 @@ export default function UploadNewVersionModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "lg" }}>
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Upload nowej wersji pliku</ModalHeader>

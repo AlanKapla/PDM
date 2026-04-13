@@ -22,7 +22,6 @@ import {
   Text,
   useColorModeValue,
   useDisclosure,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
 import { Building2, Mail, Plus } from "lucide-react";
@@ -36,6 +35,7 @@ import {
 } from "../services/tenantService";
 import type { TenantInvitationWeb, UserTenant } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access";
 
@@ -51,7 +51,7 @@ interface PendingInvitationsScreenProps {
 function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitationsScreenProps) {
   const [accepting, setAccepting] = useState<string | null>(null);
   const [localInvitations, setLocalInvitations] = useState(invitations);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
 
   useEffect(() => {
     // Synchronizujemy lokalny stan z propsami, aby uniknąć niespójności UI
@@ -195,7 +195,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
   const [nameError, setNameError] = useState("");
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
 
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
@@ -345,7 +345,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
       </Box>
 
       {/* Create organisation modal */}
-      <Modal isOpen={isOpen} onClose={handleModalClose} isCentered>
+      <Modal isOpen={isOpen} onClose={handleModalClose} isCentered size={{ base: "full", md: "md" }}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Utwórz organizację</ModalHeader>

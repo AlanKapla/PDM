@@ -140,7 +140,7 @@ export default function ProjectBudgetDashboard({
 
         {/* Tabs: Kosztorysy / Koszty dodatkowe projektu / Wszystkie koszty */}
         <Tabs variant="enclosed" isLazy>
-          <TabList flexWrap="wrap">
+          <TabList overflowX="auto">
             <Tab fontSize={{ base: "xs", md: "sm" }} minH="44px">
               Kosztorysy
               <Badge ml={2} colorScheme="blue" borderRadius="full" fontSize="xs">

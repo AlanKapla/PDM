@@ -1556,7 +1556,7 @@ export const CostEstimateEditPage: React.FC = () => {
       />
 
       {/* Modal edycji nazwy i opisu */}
-      <Modal isOpen={isEditMetaOpen} onClose={onEditMetaClose} isCentered>
+      <Modal isOpen={isEditMetaOpen} onClose={onEditMetaClose} isCentered size={{ base: "full", md: "lg" }}>
         <ModalOverlay />
         <ModalContent sx={{ "input, textarea, select": { fontSize: "16px" } }}>
           <ModalHeader>Edytuj kosztorys</ModalHeader>

@@ -379,7 +379,7 @@ export default function CostEstimateTemplateSelector() {
         <Modal 
           isOpen={isPreviewOpen} 
           onClose={handleClosePreview} 
-          size="6xl" 
+          size={{ base: "full", md: "6xl" }}
           scrollBehavior="inside"
         >
           <ModalOverlay />
@@ -460,6 +460,7 @@ export default function CostEstimateTemplateSelector() {
                             </HStack>
                             
                             {templateStructure.groupHeaderFields && templateStructure.groupHeaderFields.length > 0 ? (
+                              <Box overflowX="auto">
                               <Table size="sm" variant="simple">
                                 <Thead>
                                   <Tr>
@@ -482,6 +483,7 @@ export default function CostEstimateTemplateSelector() {
                                   ))}
                                 </Tbody>
                               </Table>
+                              </Box>
                             ) : (
                               <Text color="gray.500" fontSize="sm">Brak zdefiniowanych pól nagłówka etapu</Text>
                             )}
@@ -504,6 +506,7 @@ export default function CostEstimateTemplateSelector() {
                             </AccordionButton>
                             <AccordionPanel bg="white" pb={4} px={4}>
                               {templateStructure.systemFields && templateStructure.systemFields.length > 0 ? (
+                                <Box overflowX="auto">
                                 <Table size="sm" variant="simple">
                                   <Thead>
                                     <Tr>
@@ -526,6 +529,7 @@ export default function CostEstimateTemplateSelector() {
                                     ))}
                                   </Tbody>
                                 </Table>
+                                </Box>
                               ) : (
                                 <Text color="gray.500" fontSize="sm">Brak pól systemowych</Text>
                               )}
@@ -544,6 +548,7 @@ export default function CostEstimateTemplateSelector() {
                             </AccordionButton>
                             <AccordionPanel bg="white" pb={4} px={4}>
                               {templateStructure.calculatedFields && templateStructure.calculatedFields.length > 0 ? (
+                                <Box overflowX="auto">
                                 <Table size="sm" variant="simple">
                                   <Thead>
                                     <Tr>
@@ -566,6 +571,7 @@ export default function CostEstimateTemplateSelector() {
                                     ))}
                                   </Tbody>
                                 </Table>
+                                </Box>
                               ) : (
                                 <Text color="gray.500" fontSize="sm">Brak pól kalkulowanych</Text>
                               )}
@@ -584,6 +590,7 @@ export default function CostEstimateTemplateSelector() {
                             </AccordionButton>
                             <AccordionPanel bg="white" pb={4} px={4}>
                               {templateStructure.genericFields && templateStructure.genericFields.length > 0 ? (
+                                <Box overflowX="auto">
                                 <Table size="sm" variant="simple">
                                   <Thead>
                                     <Tr>
@@ -606,6 +613,7 @@ export default function CostEstimateTemplateSelector() {
                                     ))}
                                   </Tbody>
                                 </Table>
+                                </Box>
                               ) : (
                                 <Text color="gray.500" fontSize="sm">Brak pól generycznych</Text>
                               )}
@@ -629,6 +637,7 @@ export default function CostEstimateTemplateSelector() {
                             </AccordionButton>
                             <AccordionPanel bg="white" pb={4} px={4}>
                               {templateStructure.currencies && templateStructure.currencies.length > 0 ? (
+                                <Box overflowX="auto">
                                 <Table size="sm" variant="simple">
                                   <Thead>
                                     <Tr>
@@ -651,6 +660,7 @@ export default function CostEstimateTemplateSelector() {
                                     ))}
                                   </Tbody>
                                 </Table>
+                                </Box>
                               ) : (
                                 <Text color="gray.500" fontSize="sm">Brak zdefiniowanych walut</Text>
                               )}
@@ -669,6 +679,7 @@ export default function CostEstimateTemplateSelector() {
                             </AccordionButton>
                             <AccordionPanel bg="white" pb={4} px={4}>
                               {templateStructure.units && templateStructure.units.length > 0 ? (
+                                <Box overflowX="auto">
                                 <Table size="sm" variant="simple">
                                   <Thead>
                                     <Tr>
@@ -693,6 +704,7 @@ export default function CostEstimateTemplateSelector() {
                                     ))}
                                   </Tbody>
                                 </Table>
+                                </Box>
                               ) : (
                                 <Text color="gray.500" fontSize="sm">Brak zdefiniowanych jednostek</Text>
                               )}
@@ -711,6 +723,7 @@ export default function CostEstimateTemplateSelector() {
                             </AccordionButton>
                             <AccordionPanel bg="white" pb={4} px={4}>
                               {templateStructure.categories && templateStructure.categories.length > 0 ? (
+                                <Box overflowX="auto">
                                 <Table size="sm" variant="simple">
                                   <Thead>
                                     <Tr>
@@ -727,6 +740,7 @@ export default function CostEstimateTemplateSelector() {
                                     ))}
                                   </Tbody>
                                 </Table>
+                                </Box>
                               ) : (
                                 <Text color="gray.500" fontSize="sm">Brak zdefiniowanych kategorii</Text>
                               )}
@@ -745,6 +759,7 @@ export default function CostEstimateTemplateSelector() {
                           </HStack>
                           
                           {templateStructure.uiConfiguration?.columns && templateStructure.uiConfiguration.columns.length > 0 ? (
+                            <Box overflowX="auto">
                             <Table size="sm" variant="simple">
                               <Thead>
                                 <Tr>
@@ -773,6 +788,7 @@ export default function CostEstimateTemplateSelector() {
                                 ))}
                               </Tbody>
                             </Table>
+                            </Box>
                           ) : (
                             <Text color="gray.500" fontSize="sm">Brak konfiguracji kolumn</Text>
                           )}
@@ -890,7 +906,7 @@ export default function CostEstimateTemplateSelector() {
         </Modal>
 
         {/* Modal: Tworzenie szablonu */}
-        <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="md">
+        <Modal isOpen={isCreateOpen} onClose={onCreateClose} size={{ base: "full", md: "md" }}>
           <ModalOverlay />
           <ModalContent>
             <ModalHeader>

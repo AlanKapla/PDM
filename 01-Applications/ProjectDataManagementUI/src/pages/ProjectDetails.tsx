@@ -14,14 +14,6 @@ import {
   Button,
   useColorModeValue,
   useDisclosure,
-  useToast,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
   SimpleGrid,
   AlertDialog,
   AlertDialogBody,
@@ -51,6 +43,8 @@ import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 import type { ProjectDetailsWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
+import { DeleteAlertDialog } from "../components/ui";
+import { useToastNotification } from "../hooks/useToastNotification";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb } from "../types/project.types";
 
@@ -64,7 +58,7 @@ export default function ProjectDetails() {
   const { isOpen: isUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
-  const toast = useToast();
+  const { showSuccess, showError, showWarning } = useToastNotification();
 
   const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -212,12 +206,7 @@ export default function ProjectDetails() {
       const response = await projectApi.getProjectUserCosts(user.activeTenantId, projectId);
       setProjectCosts(response.data);
     } catch (err) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać kosztów projektowych",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nie udało się pobrać kosztów projektowych");
     } finally {
       setLoadingCosts(false);
     }
@@ -231,12 +220,7 @@ export default function ProjectDetails() {
       const response = await projectApi.getSharedProjectCosts(user.activeTenantId, projectId);
       setSharedCosts(response.data);
     } catch (err) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać udostępnionych kosztów",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nie udało się pobrać udostępnionych kosztów");
     } finally {
       setLoadingSharedCosts(false);
     }
@@ -246,12 +230,7 @@ export default function ProjectDetails() {
     if (!user?.activeTenantId || !projectId) return;
 
     if (!newCostData.name.trim()) {
-      toast({
-        title: "Błąd",
-        description: "Nazwa kosztu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nazwa kosztu jest wymagana");
       return;
     }
 
@@ -261,12 +240,7 @@ export default function ProjectDetails() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (selectedDate.getTime() > today.getTime()) {
-      toast({
-        title: "Błąd",
-        description: "Data nie może być w przyszłości",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Data nie może być w przyszłości");
       return;
     }
 
@@ -275,12 +249,7 @@ export default function ProjectDetails() {
     const hasGross = newCostData.grossAmount;
 
     if (!hasNet && !hasGross) {
-      toast({
-        title: "Błąd",
-        description: "Podaj kwotę netto i stawkę VAT lub kwotę brutto",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Podaj kwotę netto i stawkę VAT lub kwotę brutto");
       return;
     }
 
@@ -301,12 +270,7 @@ export default function ProjectDetails() {
         }
       );
 
-      toast({
-        title: "Sukces",
-        description: "Koszt został dodany",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", "Koszt został dodany");
 
       // Reset formularza
       setNewCostData({
@@ -324,12 +288,7 @@ export default function ProjectDetails() {
       await fetchProjectCosts();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-      });
+      showError(title, description);
     } finally {
       setAddingNewCost(false);
     }
@@ -354,12 +313,7 @@ export default function ProjectDetails() {
     if (!user?.activeTenantId || !projectId || !editingCostId) return;
 
     if (!editingCostData.name.trim()) {
-      toast({
-        title: "Błąd",
-        description: "Nazwa kosztu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nazwa kosztu jest wymagana");
       return;
     }
 
@@ -369,12 +323,7 @@ export default function ProjectDetails() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (selectedDate.getTime() > today.getTime()) {
-      toast({
-        title: "Błąd",
-        description: "Data nie może być w przyszłości",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Data nie może być w przyszłości");
       return;
     }
 
@@ -383,12 +332,7 @@ export default function ProjectDetails() {
     const hasGross = editingCostData.grossAmount;
 
     if (!hasNet && !hasGross) {
-      toast({
-        title: "Błąd",
-        description: "Podaj kwotę netto i stawkę VAT lub kwotę brutto",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Podaj kwotę netto i stawkę VAT lub kwotę brutto");
       return;
     }
 
@@ -411,12 +355,7 @@ export default function ProjectDetails() {
         }
       );
 
-      toast({
-        title: "Sukces",
-        description: "Koszt został zaktualizowany",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", "Koszt został zaktualizowany");
 
       setEditingCostId(null);
       setEditingCostData(null);
@@ -424,12 +363,7 @@ export default function ProjectDetails() {
       await fetchProjectCosts();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się zaktualizować kosztu",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", "Nie udało się zaktualizować kosztu");
     } finally {
       setSavingCost(false);
     }
@@ -457,22 +391,12 @@ export default function ProjectDetails() {
 
       await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
 
-      toast({
-        title: "Sukces",
-        description: "Koszt został usunięty",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", "Koszt został usunięty");
 
       await fetchProjectCosts();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się usunąć kosztu",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", "Nie udało się usunąć kosztu");
     } finally {
       setDeletingCostId(null);
     }
@@ -502,12 +426,7 @@ export default function ProjectDetails() {
         }, 100);
       })
       .catch(error => {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się pobrać pliku",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się pobrać pliku");
       });
   };
 
@@ -574,12 +493,7 @@ export default function ProjectDetails() {
     const comment = newComments.get(commentKey);
 
     if (!comment || comment.trim() === "") {
-      toast({
-        title: "Uwaga",
-        description: "Komentarz nie może być pusty",
-        status: "warning",
-        duration: 3000,
-      });
+      showWarning("Uwaga", "Komentarz nie może być pusty");
       return;
     }
 
@@ -593,12 +507,7 @@ export default function ProjectDetails() {
         comment.trim()
       );
 
-      toast({
-        title: "Sukces",
-        description: "Komentarz został dodany",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", "Komentarz został dodany");
 
       // Wyczyść pole komentarza
       setNewComments((prev) => {
@@ -611,12 +520,7 @@ export default function ProjectDetails() {
       await fetchMyFiles();
       await fetchSharedFiles();
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się dodać komentarza",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", "Nie udało się dodać komentarza");
     } finally {
       setSubmittingComment(null);
     }
@@ -642,12 +546,7 @@ export default function ProjectDetails() {
     try {
       await projectApi.removeProjectMember(user.activeTenantId, projectId, memberToRemove.userId);
 
-      toast({
-        title: "Sukces",
-        description: `Użytkownik ${memberToRemove.name} został usunięty z projektu`,
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", `Użytkownik ${memberToRemove.name} został usunięty z projektu`);
 
       // Odśwież listę
       projectDetailsCache.clear();
@@ -672,14 +571,12 @@ export default function ProjectDetails() {
     try {
       await projectApi.toggleProjectStatus(user.activeTenantId, projectId, newStatus);
 
-      toast({
-        title: newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
-        description: newStatus
+      showSuccess(
+        newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
+        newStatus
           ? "Projekt został pomyślnie aktywowany"
-          : "Projekt został pomyślnie zdezaktywowany",
-        status: "success",
-        duration: 4000,
-      });
+          : "Projekt został pomyślnie zdezaktywowany"
+      );
 
       onToggleStatusClose();
 
@@ -688,12 +585,7 @@ export default function ProjectDetails() {
       await fetchProjectDetails();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-      });
+      showError(title, description);
     } finally {
       setTogglingStatus(false);
     }
@@ -701,12 +593,7 @@ export default function ProjectDetails() {
 
   const handleUpdateName = async () => {
     if (!editedName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa projektu nie może być pusta",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa projektu nie może być pusta");
       return;
     }
 
@@ -716,24 +603,14 @@ export default function ProjectDetails() {
     try {
       await projectApi.updateProject(user.activeTenantId, projectId, { Name: editedName });
 
-      toast({
-        title: "Zaktualizowano",
-        description: "Nazwa projektu została zmieniona",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Zaktualizowano", "Nazwa projektu została zmieniona");
 
       setIsEditingName(false);
       projectDetailsCache.clear();
       await fetchProjectDetails();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 3000,
-      });
+      showError(title, description);
     } finally {
       setUpdatingName(false);
     }
@@ -1028,42 +905,14 @@ export default function ProjectDetails() {
         )}
 
 
-        {/* Modal potwierdzenia usunięcia członka */}
-        <Modal isOpen={isRemoveModalOpen} onClose={onRemoveModalClose} isCentered>
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Potwierdź usunięcie</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <VStack align="flex-start" spacing={3}>
-                <Text>
-                  Czy na pewno chcesz usunąć <Text as="span" fontWeight="bold">{memberToRemove?.name}</Text> z projektu?
-                </Text>
-                <Text fontSize="sm" color="gray.500">
-                  Ta operacja jest nieodwracalna. Użytkownik straci dostęp do wszystkich zasobów projektu.
-                </Text>
-              </VStack>
-            </ModalBody>
-            <ModalFooter>
-              <Button
-                variant="ghost"
-                mr={3}
-                onClick={onRemoveModalClose}
-                isDisabled={removingMember !== null}
-              >
-                Anuluj
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleConfirmRemoveMember}
-                isLoading={removingMember !== null}
-                loadingText="Usuwanie..."
-              >
-                Usuń członka
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
+        {/* Dialog potwierdzenia usunięcia członka */}
+        <DeleteAlertDialog
+          isOpen={isRemoveModalOpen}
+          onClose={onRemoveModalClose}
+          onConfirm={handleConfirmRemoveMember}
+          itemName={memberToRemove?.name}
+          isLoading={removingMember !== null}
+        />
 
         {/* Modal uploadu plików */}
         {project && isUploadModalOpen && (
@@ -1076,11 +925,7 @@ export default function ProjectDetails() {
             onFilesUploaded={() => {
               fetchMyFiles();
               fetchSharedFiles();
-              toast({
-                title: "Pliki przesłane",
-                status: "success",
-                duration: 2000,
-              });
+              showSuccess("Pliki przesłane");
             }}
           />
         )}
@@ -1110,12 +955,7 @@ export default function ProjectDetails() {
             members={members}
             onSuccess={() => {
               fetchWorkSchedules();
-              toast({
-                title: "Sukces",
-                description: "Harmonogram został utworzony",
-                status: "success",
-                duration: 3000,
-              });
+              showSuccess("Sukces", "Harmonogram został utworzony");
             }}
           />
         )}

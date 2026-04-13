@@ -1,14 +1,12 @@
 import { useContext } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Box, HStack, Button, Text } from "@chakra-ui/react";
-import { ArrowLeft } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { Box, Text } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
 import ProjectBudgetDashboard from "../components/CostTracker/ProjectBudgetDashboard";
 import { AuthContext } from "../context/AuthContext";
 
 export default function ProjectBudgetPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
   const tenantId = user?.activeTenantId;
@@ -26,18 +24,6 @@ export default function ProjectBudgetPage() {
   return (
     <MainLayout>
       <Box>
-        <HStack px={{ base: 3, md: 6 }} pt={{ base: 3, md: 6 }} spacing={3}>
-          <Button
-            variant="ghost"
-            size="sm"
-            leftIcon={<ArrowLeft size={14} />}
-            onClick={() => navigate(`/projects/${projectId}`)}
-            minH="44px"
-          >
-            Projekt
-          </Button>
-        </HStack>
-
         <ProjectBudgetDashboard tenantId={tenantId} projectId={projectId} />
       </Box>
     </MainLayout>

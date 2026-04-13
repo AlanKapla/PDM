@@ -8,12 +8,12 @@ import {
   useColorModeValue,
   Button,
   HStack,
-  useToast,
   Stack,
 } from "@chakra-ui/react";
 import { Mail } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getActiveInvitations, acceptTenantInvitation } from "../services/tenantService";
+import { useToastNotification } from "../hooks/useToastNotification";
 import type { TenantInvitationWeb } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
 
@@ -22,7 +22,7 @@ export default function ActiveInvitations() {
   const [loading, setLoading] = useState(true);
   const [acceptingInvitationId, setAcceptingInvitationId] = useState<string | null>(null);
   
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
@@ -53,31 +53,13 @@ export default function ActiveInvitations() {
         // Usuń zaproszenie z listy
         setInvitations(prev => prev.filter(inv => inv.invitationId !== invitationId));
         
-        toast({
-          title: "✅ Zaproszenie zaakceptowane",
-          description: `Dołączyłeś do organizacji ${tenantName}`,
-          status: "success",
-          duration: 4000,
-          isClosable: true,
-        });
+        showSuccess("✅ Zaproszenie zaakceptowane", `Dołączyłeś do organizacji ${tenantName}`);
       } else {
-        toast({
-          title: "Nie udało się zaakceptować zaproszenia",
-          description: "Zaproszenie może być nieaktualne lub wygasłe",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
+        showError("Nie udało się zaakceptować zaproszenia", "Zaproszenie może być nieaktualne lub wygasłe");
       }
     } catch (error) {
       console.error("Błąd akceptacji zaproszenia:", error);
-      toast({
-        title: "Wystąpił błąd połączenia",
-        description: "Sprawdź połączenie internetowe i spróbuj ponownie",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError("Wystąpił błąd połączenia", "Sprawdź połączenie internetowe i spróbuj ponownie");
     } finally {
       setAcceptingInvitationId(null);
     }

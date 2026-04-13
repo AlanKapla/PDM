@@ -16,7 +16,6 @@ import {
   FormControl,
   FormLabel,
   useColorModeValue,
-  useToast,
   Box,
   IconButton,
   Divider,
@@ -58,6 +57,7 @@ import {
   type DateConstraints,
 } from "../utils/workScheduleDateConstraints";
 import { ConstrainedDateInput } from "./ConstrainedDateInput";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface WorkScheduleFormModalProps {
   mode: 'create' | 'edit';
@@ -284,7 +284,7 @@ export default function WorkScheduleFormModal({
   initialCostEstimateId,
   initialCostEstimateName,
 }: WorkScheduleFormModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const navigate = useNavigate();
   const [scheduleName, setScheduleName] = useState("");
   const [stages, setStages] = useState<StageFormData[]>([]);
@@ -450,7 +450,7 @@ export default function WorkScheduleFormModal({
       [...mine, ...shared].forEach(ce => allMap.set(ce.id, ce));
       setCostEstimates(Array.from(allMap.values()));
     } catch {
-      toast({ title: "Błąd", description: "Nie udało się pobrać listy kosztorysów", status: "error", duration: 3000 });
+      showError("Błąd", "Nie udało się pobrać listy kosztorysów");
     } finally {
       setLoadingCostEstimates(false);
     }

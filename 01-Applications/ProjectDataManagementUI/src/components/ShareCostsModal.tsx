@@ -14,7 +14,6 @@ import {
   AlertIcon,
   Box,
   HStack,
-  useToast,
   Divider,
   Checkbox,
   Spinner,
@@ -24,6 +23,7 @@ import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectCostListItemWeb } from "../types/project.types";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ShareCostsModalProps {
   isOpen: boolean;
@@ -47,7 +47,7 @@ export default function ShareCostsModal({
   const [loading, setLoading] = useState(false);
   const [loadingCosts, setLoadingCosts] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const { user } = useContext(AuthContext);
 
   useEffect(() => {

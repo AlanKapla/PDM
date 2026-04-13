@@ -10,7 +10,6 @@ import {
   FormLabel,
   NumberInput,
   NumberInputField,
-  useToast,
   Divider,
   Badge,
   Skeleton,
@@ -19,6 +18,7 @@ import { Edit2, Save, X, TrendingDown, TrendingUp } from "lucide-react";
 import { costTrackerApi } from "../../api/costTrackerApi";
 import { handleApiError } from "../../utils/handleApiError";
 import type { CostTrackerBudgetSummary } from "../../types/costTracker.types";
+import { useToastNotification } from "../../hooks/useToastNotification";
 
 interface BudgetSummarySectionProps {
   trackerId: string;
@@ -73,7 +73,7 @@ export default function BudgetSummarySection({
   budgetSummary,
   onMutated,
 }: BudgetSummarySectionProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [budgetNet, setBudgetNet] = useState<string>(
@@ -100,11 +100,7 @@ export default function BudgetSummarySection({
         budgetNet: budgetNet !== "" ? parseFloat(budgetNet) : null,
         budgetGross: budgetGross !== "" ? parseFloat(budgetGross) : null,
       });
-      toast({
-        title: "Budżet zaktualizowany",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Budżet zaktualizowany");
       setIsEditing(false);
       onMutated();
     } catch (err) {

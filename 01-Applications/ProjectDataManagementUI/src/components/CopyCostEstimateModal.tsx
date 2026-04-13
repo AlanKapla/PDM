@@ -113,7 +113,7 @@ export default function CopyCostEstimateModal({
   const projectEntries = Object.entries(projects);
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="lg" isCentered>
+    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "lg" }} isCentered scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Kopiuj kosztorys do innych projektów</ModalHeader>

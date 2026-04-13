@@ -12,7 +12,6 @@ import {
   Text,
   Button,
   useColorModeValue,
-  useToast,
   IconButton,
   Badge,
   Checkbox,
@@ -31,6 +30,7 @@ import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import type { EditableWork, WorkScheduleWorkDependencyWeb } from "../types/workSchedule.types";
 import { checkDependencyViolation, getWorkEffectiveDates } from "../utils/workScheduleDateConstraints";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 const DEP_TYPE_SHORT: Record<number, string> = { 0: 'FS', 1: 'SS', 2: 'FF', 3: 'SF' };
 
@@ -74,7 +74,7 @@ export default function WorkDetailsModal({
   workDateRanges,
   onWorkUpdated,
 }: WorkDetailsModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const [periods, setPeriods] = useState<any[]>([]);
   const [comments, setComments] = useState<CommentFormData[]>([]);
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
@@ -248,12 +248,12 @@ export default function WorkDetailsModal({
 
       await projectApi.updateWorkSchedule(tenantId, projectId, workScheduleId, command);
 
-      toast({ title: "Sukces", description: "Praca została zaktualizowana", status: "success", duration: 3000 });
+      showSuccess("Sukces", "Praca została zaktualizowana");
       onWorkUpdated?.();
       onClose();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({ title, description, status: "error", duration: 3000 });
+      showError(title, description);
     } finally {
       setSubmitting(false);
     }

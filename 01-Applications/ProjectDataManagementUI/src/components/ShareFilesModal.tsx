@@ -14,7 +14,6 @@ import {
   AlertIcon,
   Box,
   HStack,
-  useToast,
   Divider,
   Checkbox,
 } from "@chakra-ui/react";
@@ -23,6 +22,7 @@ import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectFilePackageWeb } from "../types/project.types";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ShareFilesModalProps {
   isOpen: boolean;
@@ -47,7 +47,7 @@ export default function ShareFilesModal({
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -77,13 +77,7 @@ export default function ShareFilesModal({
       );
       setMembers(filteredMembers);
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać listy członków projektu",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError("Błąd", "Nie udało się pobrać listy członków projektu");
     } finally {
       setLoadingMembers(false);
     }
@@ -116,24 +110,12 @@ export default function ShareFilesModal({
 
   const handleShare = async () => {
     if (selectedPackageIds.size === 0) {
-      toast({
-        title: "Błąd",
-        description: "Wybierz przynajmniej jedną paczkę",
-        status: "warning",
-        duration: 3000,
-        isClosable: true,
-      });
+      showWarning("Błąd", "Wybierz przynajmniej jedną paczkę");
       return;
     }
 
     if (selectedUserIds.size === 0) {
-      toast({
-        title: "Błąd",
-        description: "Wybierz przynajmniej jednego użytkownika",
-        status: "warning",
-        duration: 3000,
-        isClosable: true,
-      });
+      showWarning("Błąd", "Wybierz przynajmniej jednego użytkownika");
       return;
     }
 
@@ -145,24 +127,12 @@ export default function ShareFilesModal({
       
       await projectApi.sharePackages(tenantId, projectId, packageIds, userIds);
 
-      toast({
-        title: "Sukces",
-        description: `Udostępniono ${packageIds.length} paczek dla ${userIds.length} użytkownik(ów)`,
-        status: "success",
-        duration: 5000,
-        isClosable: true,
-      });
+      showSuccess("Sukces", `Udostępniono ${packageIds.length} paczek dla ${userIds.length} użytkownik(ów)`);
       onFilesShared();
       onClose();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError(title, description);
     } finally {
       setLoading(false);
     }

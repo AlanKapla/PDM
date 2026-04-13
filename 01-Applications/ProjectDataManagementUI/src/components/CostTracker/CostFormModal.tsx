@@ -366,7 +366,7 @@ export default function CostFormModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="xl" isCentered>
+    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "xl" }} isCentered scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Dodaj koszt</ModalHeader>

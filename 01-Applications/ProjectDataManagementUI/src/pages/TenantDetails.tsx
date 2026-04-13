@@ -12,7 +12,6 @@ import {
   FormControl,
   FormLabel,
   HStack,
-  useToast,
   Badge,
   Table,
   Thead,
@@ -43,11 +42,12 @@ import { useAuth } from "../context/AuthContext";
 import { tenantApi } from "../api/tenantApi";
 import { roleApi, type RoleWeb } from "../api/roleApi";
 import { handleApiError } from "../utils/handleApiError";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 export default function TenantDetails() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
   const { user } = useAuth();
 
   const [tenant, setTenant] = useState<TenantDetailsType | null>(null);
@@ -97,12 +97,7 @@ export default function TenantDetails() {
         const tenantData = await getTenantDetails(tenantId);
 
         if (!tenantData) {
-          toast({
-            title: "Błąd",
-            description: "Nie znaleziono organizacji",
-            status: "error",
-            duration: 3000,
-          });
+          showError("Błąd", "Nie znaleziono organizacji");
           navigate("/tenants/managed");
           return;
         }
@@ -110,12 +105,7 @@ export default function TenantDetails() {
         setTenant(tenantData);
         setEditedName(tenantData.name);
       } catch (error) {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się załadować danych organizacji",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się załadować danych organizacji");
       } finally {
         setLoading(false);
       }
@@ -131,16 +121,11 @@ export default function TenantDetails() {
 
     loadTenant();
     loadRoles();
-  }, [tenantId, navigate, toast]);
+  }, [tenantId, navigate]);
 
   const handleUpdateName = async () => {
     if (!editedName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa organizacji nie może być pusta",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa organizacji nie może być pusta");
       return;
     }
 
@@ -154,27 +139,12 @@ export default function TenantDetails() {
         // Aktualizuj tylko nazwę w istniejącym stanie (nie zastępuj całego obiektu)
         setTenant(prev => prev ? { ...prev, name: updated.name } : null);
         setIsEditingName(false);
-        toast({
-          title: "Zaktualizowano",
-          description: "Nazwa organizacji została zmieniona",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Zaktualizowano", "Nazwa organizacji została zmieniona");
       } else {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się zaktualizować nazwy",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się zaktualizować nazwy");
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setUpdatingName(false);
     }
@@ -182,23 +152,13 @@ export default function TenantDetails() {
 
   const handleInviteMember = async () => {
     if (!inviteEmail.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Adres email nie może być pusty",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Adres email nie może być pusty");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(inviteEmail)) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Podaj prawidłowy adres email",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Podaj prawidłowy adres email");
       return;
     }
 
@@ -217,27 +177,12 @@ export default function TenantDetails() {
 
         setIsInviting(false);
         setInviteEmail("");
-        toast({
-          title: "Zaproszenie wysłane",
-          description: `Zaproszenie zostało wysłane na adres ${inviteEmail}`,
-          status: "success",
-          duration: 5000,
-        });
+        showSuccess("Zaproszenie wysłane", `Zaproszenie zostało wysłane na adres ${inviteEmail}`);
       } else {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się wysłać zaproszenia",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się wysłać zaproszenia");
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setSendingInvite(false);
     }
@@ -258,27 +203,12 @@ export default function TenantDetails() {
             }
             : null
         );
-        toast({
-          title: "Usunięto członka",
-          description: "Członek został usunięty z organizacji",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Usunięto członka", "Członek został usunięty z organizacji");
       } else {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się usunąć członka",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się usunąć członka");
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setDeletingMemberId(null);
       onMemberDeleteClose();
@@ -300,27 +230,12 @@ export default function TenantDetails() {
             }
             : null
         );
-        toast({
-          title: "Usunięto zaproszenie",
-          description: "Zaproszenie zostało anulowane",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Usunięto zaproszenie", "Zaproszenie zostało anulowane");
       } else {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się usunąć zaproszenia",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się usunąć zaproszenia");
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setDeletingInvitationId(null);
       onInvitationDeleteClose();
@@ -331,12 +246,7 @@ export default function TenantDetails() {
     if (!tenantId) return;
 
     if (user?.id === userId) {
-      toast({
-        title: "Błąd",
-        description: "Nie możesz zmienić własnej roli",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Nie możesz zmienić własnej roli");
       return;
     }
 
@@ -346,30 +256,14 @@ export default function TenantDetails() {
 
       if (success) {
         setEditingRoleMemberId(null);
-        toast({
-          title: "Zaktualizowano rolę",
-          description: "Rola członka została zmieniona",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
+        showSuccess("Zaktualizowano rolę", "Rola członka została zmieniona");
         // Przeładuj dane
         window.location.reload();
       } else {
-        toast({
-          title: "Błąd",
-          description: "Nie udało się zmienić roli",
-          status: "error",
-          duration: 3000,
-        });
+        showError("Błąd", "Nie udało się zmienić roli");
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setUpdatingRole(false);
     }
@@ -384,14 +278,12 @@ export default function TenantDetails() {
     try {
       await tenantApi.toggleTenantStatus(tenantId, newStatus);
 
-      toast({
-        title: newStatus ? "Organizacja aktywowana" : "Organizacja zdezaktywowana",
-        description: newStatus
+      showSuccess(
+        newStatus ? "Organizacja aktywowana" : "Organizacja zdezaktywowana",
+        newStatus
           ? "Organizacja została pomyślnie aktywowana"
-          : "Organizacja została pomyślnie zdezaktywowana",
-        status: "success",
-        duration: 4000,
-      });
+          : "Organizacja została pomyślnie zdezaktywowana"
+      );
 
       onToggleStatusClose();
 
@@ -402,12 +294,7 @@ export default function TenantDetails() {
       }
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-      });
+      showError(title, description);
     } finally {
       setTogglingStatus(false);
     }

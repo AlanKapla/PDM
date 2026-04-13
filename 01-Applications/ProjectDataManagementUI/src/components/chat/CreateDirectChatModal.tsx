@@ -110,7 +110,7 @@ export default function CreateDirectChatModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
+    <Modal isOpen={isOpen} onClose={onClose} isCentered size={{ base: "full", md: "md" }}>
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Nowa wiadomość bezpośrednia</ModalHeader>

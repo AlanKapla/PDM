@@ -21,7 +21,6 @@ import {
   Td,
   Tooltip,
   useDisclosure,
-  useToast,
   Textarea,
   Checkbox,
   useMediaQuery,
@@ -56,6 +55,7 @@ import {
   type GenericDependency,
 } from "../utils/workScheduleDateConstraints";
 import { useTimelineData, type TimeScale } from "../hooks/useTimelineData";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 // Krótkie etykiety typów zależności do wyświetlenia na timeline
 const DEP_TYPE_SHORT: Record<number, string> = { 0: 'FS', 1: 'SS', 2: 'FF', 3: 'SF' };
@@ -196,7 +196,7 @@ export default function WorkScheduleView() {
   const { projectId, workScheduleId } = useParams<{ projectId: string; workScheduleId: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const permissions = useResourcePermissions(projectId);
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
   const { isOpen: isWorkDetailsOpen, onOpen: onWorkDetailsOpen, onClose: onWorkDetailsClose } = useDisclosure();
@@ -711,7 +711,7 @@ export default function WorkScheduleView() {
     if (!editableSchedule) return;
     const validationError = validateStagesTree(editableSchedule.stages);
     if (validationError) {
-      toast({ title: "Błąd walidacji", description: validationError, status: "error", duration: 4000 });
+      showError("Błąd walidacji", validationError);
       return;
     }
     await handleSaveChanges();

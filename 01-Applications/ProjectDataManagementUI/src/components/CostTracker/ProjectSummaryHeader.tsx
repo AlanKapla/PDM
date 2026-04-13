@@ -263,7 +263,7 @@ export default function ProjectSummaryHeader({ summary, estimates }: ProjectSumm
 
       {/* Wykresy — od md */}
       {showCharts && (
-        <SimpleGrid columns={2} spacing={3}>
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
           <Box bg="white" borderWidth="1px" borderColor="gray.100" borderRadius="lg" shadow="sm" p={4}>
             <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" mb={3}>
               Realizacja budżetu

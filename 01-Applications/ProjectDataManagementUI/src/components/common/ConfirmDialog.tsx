@@ -9,6 +9,7 @@ import {
   Button,
   Text,
   useColorModeValue,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 
 interface ConfirmDialogProps {
@@ -35,11 +36,18 @@ export default function ConfirmDialog({
   colorScheme = "red",
 }: ConfirmDialogProps) {
   const bgColor = useColorModeValue("white", "gray.800");
+  const modalSize = useBreakpointValue({ base: "full", md: "md" });
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      isCentered={!isMobile}
+      size={modalSize}
+    >
       <ModalOverlay />
-      <ModalContent bg={bgColor}>
+      <ModalContent bg={bgColor} borderRadius={{ base: 0, md: "md" }} my={{ base: 0, md: "auto" }}>
         <ModalHeader>{title}</ModalHeader>
         <ModalCloseButton />
         <ModalBody>

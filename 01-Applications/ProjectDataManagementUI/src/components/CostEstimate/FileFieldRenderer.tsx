@@ -18,7 +18,6 @@ import {
   IconButton,
   Image,
   Tooltip,
-  useToast,
   Progress,
   Badge,
   Modal,
@@ -47,6 +46,7 @@ import {
   Save,
 } from 'lucide-react';
 import type { CostEstimateFieldFileWeb } from '../../types/costEstimate.types.new';
+import { useToastNotification } from "../../hooks/useToastNotification";
 
 // Dozwolone formaty plików
 const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg'];
@@ -165,7 +165,7 @@ const FilePreviewModal: React.FC<{
   const previewUrl = file.isNew ? file.localPreviewUrl : file.sasUriPreview;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="4xl">
+    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "4xl" }}>
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
@@ -226,7 +226,7 @@ const FileManagerModal: React.FC<{
   onSave: (filesToUpload: File[]) => Promise<void>;
   readOnly?: boolean;
 }> = ({ isOpen, onClose, initialFiles, onSave, readOnly }) => {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [displayFiles, setDisplayFiles] = useState<DisplayFile[]>([]);
@@ -271,12 +271,7 @@ const FileManagerModal: React.FC<{
 
     const totalFiles = displayFiles.length + selectedFiles.length;
     if (totalFiles > MAX_FILES_PER_REQUEST) {
-      toast({
-        title: 'Za dużo plików',
-        description: `Maksymalna liczba plików: ${MAX_FILES_PER_REQUEST}. Aktualnie: ${displayFiles.length}`,
-        status: 'error',
-        duration: 5000,
-      });
+      showError('Za dużo plików', `Maksymalna liczba plików: ${MAX_FILES_PER_REQUEST}. Aktualnie: ${displayFiles.length}`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -294,13 +289,7 @@ const FileManagerModal: React.FC<{
     }
 
     if (errors.length > 0) {
-      toast({
-        title: 'Błąd walidacji',
-        description: errors.join('\n'),
-        status: 'error',
-        duration: 8000,
-        isClosable: true,
-      });
+      showError('Błąd walidacji', errors.join('\n'));
     }
 
     if (newDisplayFiles.length > 0) {
@@ -376,22 +365,11 @@ const FileManagerModal: React.FC<{
       clearInterval(progressInterval);
       setSaveProgress(100);
 
-      toast({
-        title: 'Zapisano',
-        description: 'Zmiany w plikach zostały zapisane',
-        status: 'success',
-        duration: 3000,
-      });
+      showSuccess('Zapisano', 'Zmiany w plikach zostały zapisane');
 
       onClose();
     } catch (error: any) {
-      toast({
-        title: 'Błąd zapisu',
-        description: error?.response?.data?.message || error?.message || 'Wystąpił błąd podczas zapisywania',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+      showError('Błąd zapisu', error?.response?.data?.message || error?.message || 'Wystąpił błąd podczas zapisywania');
     } finally {
       setIsSaving(false);
       setSaveProgress(0);
@@ -413,7 +391,7 @@ const FileManagerModal: React.FC<{
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={handleClose} size="2xl" closeOnOverlayClick={!isSaving}>
+      <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "2xl" }} closeOnOverlayClick={!isSaving}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>

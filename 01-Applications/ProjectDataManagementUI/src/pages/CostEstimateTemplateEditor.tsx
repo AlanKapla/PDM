@@ -23,7 +23,6 @@ import {
   Textarea,
   NumberInput,
   NumberInputField,
-  useToast,
   Badge,
   Tabs,
   TabList,
@@ -130,6 +129,7 @@ type CostEstimateGroupFieldValueWeb = CostEstimateFieldValueWeb;
 import MainLayout from "../layout/MainLayout";
 import { useTouchReorder } from "../hooks/useTouchReorder";
 import { LoadingSpinner } from "../components/common";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 // Funkcja generująca unikalne GUID dla fieldName
   const generateFieldGuid = (): string => {
@@ -185,7 +185,7 @@ const REQUIRED_CALCULATED_FIELD_TYPES: CalculatedFieldType[] = [CalculatedFieldT
 export default function CostEstimateTemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<CostEstimateTemplateDetails | null>(null);
@@ -741,12 +741,7 @@ export default function CostEstimateTemplateEditor() {
         })));
       }
     } catch (error: any) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się załadować szablonu",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", "Nie udało się załadować szablonu");
       navigate("/cost-estimate-templates");
     } finally {
       setLoading(false);
@@ -1341,22 +1336,12 @@ export default function CostEstimateTemplateEditor() {
 
   const validateTemplate = (): boolean => {
     if (!templateName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa szablonu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa szablonu jest wymagana");
       return false;
     }
 
     if (calculatedFields.length === 0 && genericFields.length === 0) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Szablon musi zawierać przynajmniej jedno pole",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Szablon musi zawierać przynajmniej jedno pole");
       return false;
     }
 
@@ -1365,12 +1350,7 @@ export default function CostEstimateTemplateEditor() {
       (name, index) => allFieldNames.indexOf(name) !== index
     );
     if (duplicateNames.length > 0) {
-      toast({
-        title: "Błąd walidacji",
-        description: `Znaleziono duplikaty nazw pól: ${duplicateNames.join(", ")}`,
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", `Znaleziono duplikaty nazw pól: ${duplicateNames.join(", ")}`);
       return false;
     }
 
@@ -1506,12 +1486,7 @@ export default function CostEstimateTemplateEditor() {
           },
         });
 
-        toast({
-          title: "Sukces",
-          description: "Szablon został zaktualizowany",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", "Szablon został zaktualizowany");
       } else {
         // Krok 1: Utwórz nowy szablon z nazwą i opisem
         const newTemplateId = await costEstimateTemplateApi.createTemplate({
@@ -1585,26 +1560,16 @@ export default function CostEstimateTemplateEditor() {
           },
         });
 
-        toast({
-          title: "Sukces",
-          description: "Szablon został utworzony",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", "Szablon został utworzony");
       }
 
       // Reset flagi zmian przed nawigacją
       setHasChanges(false);
       navigate("/cost-estimate-templates");
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: templateId
-          ? "Nie udało się zaktualizować szablonu"
-          : "Nie udało się utworzyć szablonu",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", templateId
+        ? "Nie udało się zaktualizować szablonu"
+        : "Nie udało się utworzyć szablonu");
     } finally {
       setIsSubmitting(false);
     }
@@ -3292,6 +3257,7 @@ function SystemFieldsEditor({
 
                     {/* Lista child fields - tabela */}
                     {field.childFields && field.childFields.length > 0 && (
+                      <Box overflowX="auto">
                       <Table size="sm" variant="simple" bg="white" borderRadius="md">
                         <Thead>
                           <Tr>
@@ -3423,6 +3389,7 @@ function SystemFieldsEditor({
                           })}
                         </Tbody>
                       </Table>
+                      </Box>
                     )}
                   </VStack>
                 </Box>

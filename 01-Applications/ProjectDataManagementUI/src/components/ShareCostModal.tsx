@@ -15,7 +15,6 @@ import {
   Box,
   Badge,
   HStack,
-  useToast,
   Checkbox,
   Stack,
   Spinner,
@@ -26,6 +25,7 @@ import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectCostListItemWeb } from "../types/project.types";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ShareCostModalProps {
   isOpen: boolean;
@@ -50,7 +50,7 @@ export default function ShareCostModal({
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -94,18 +94,13 @@ export default function ShareCostModal({
     try {
       await projectApi.updateCostShare(tenantId, projectId, cost.id, selectedUserIds);
 
-      toast({
-        title: "Sukces",
-        description: "Udostępnianie zaktualizowane",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", "Udostępnianie zaktualizowane");
 
       onCostShared();
       onClose();
     } catch (err) {
       const { title, description } = handleApiError(err);
-      toast({ title, description, status: "error", duration: 5000 });
+      showError(title, description);
     } finally {
       setLoading(false);
     }

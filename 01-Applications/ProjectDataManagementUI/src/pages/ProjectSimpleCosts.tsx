@@ -1,12 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
   Badge,
   Box,
   Button,
@@ -56,6 +50,7 @@ import ExpenseFormModal, {
   type ExpenseFormData,
 } from "../components/ExpenseFormModal";
 import ExpenseCard from "../components/ExpenseCard";
+import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { ProjectCostListItemWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
@@ -200,7 +195,7 @@ function AllCostsTab({
               Udostępnij grupowo
             </Button>
           )}
-          {resourcePerms.all.canCreate && viewMode === "desktop" && (
+          {resourcePerms.all.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="green"
@@ -328,22 +323,6 @@ function AllCostsTab({
           </Table>
         </Box>
       )}
-
-      {resourcePerms.all.canCreate && viewMode === "mobile" && (
-        <IconButton
-          aria-label="Dodaj koszt"
-          icon={<Plus size={22} />}
-          colorScheme="green"
-          borderRadius="full"
-          boxSize="56px"
-          position="fixed"
-          bottom="24px"
-          right="24px"
-          zIndex={10}
-          onClick={onAddCost}
-          shadow="lg"
-        />
-      )}
     </VStack>
   );
 }
@@ -402,7 +381,7 @@ function MyCostsTab({
               Udostępnij grupowo
             </Button>
           )}
-          {resourcePerms.mine.canCreate && viewMode === "desktop" && (
+          {resourcePerms.mine.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
               colorScheme="green"
@@ -522,22 +501,6 @@ function MyCostsTab({
             </Tbody>
           </Table>
         </Box>
-      )}
-
-      {resourcePerms.mine.canCreate && viewMode === "mobile" && (
-        <IconButton
-          aria-label="Dodaj koszt"
-          icon={<Plus size={22} />}
-          colorScheme="green"
-          borderRadius="full"
-          boxSize="56px"
-          position="fixed"
-          bottom="24px"
-          right="24px"
-          zIndex={10}
-          onClick={onAddCost}
-          shadow="lg"
-        />
       )}
     </VStack>
   );
@@ -677,7 +640,6 @@ export default function ProjectSimpleCosts() {
     onOpen: onDeleteAlertOpen,
     onClose: onDeleteAlertClose,
   } = useDisclosure();
-  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
 
   // Tab cache dla wszystkich kosztów
   const allCostsCache = useTabCache<ProjectCostListItemWeb[]>(
@@ -1093,30 +1055,12 @@ export default function ProjectSimpleCosts() {
         />
 
         {/* ALERT: Potwierdzenie usunięcia kosztu */}
-        <AlertDialog
+        <DeleteAlertDialog
           isOpen={isDeleteAlertOpen}
-          leastDestructiveRef={cancelDeleteRef}
           onClose={onDeleteAlertClose}
-        >
-          <AlertDialogOverlay>
-            <AlertDialogContent>
-              <AlertDialogHeader fontSize="lg" fontWeight="bold">
-                Usuń koszt
-              </AlertDialogHeader>
-              <AlertDialogBody>
-                Czy na pewno chcesz usunąć ten koszt? Tej operacji nie można cofnąć.
-              </AlertDialogBody>
-              <AlertDialogFooter>
-                <Button ref={cancelDeleteRef} onClick={onDeleteAlertClose}>
-                  Anuluj
-                </Button>
-                <Button colorScheme="red" onClick={confirmDeleteCost} ml={3}>
-                  Usuń
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialogOverlay>
-        </AlertDialog>
+          onConfirm={confirmDeleteCost}
+          isLoading={deletingCostId !== null}
+        />
 
         {/* MODAL: MANAGE COST SHARE (pojedynczy koszt) */}
         {costToManageShare && user?.activeTenantId && projectId && (
