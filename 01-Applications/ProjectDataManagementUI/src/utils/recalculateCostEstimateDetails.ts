@@ -234,10 +234,10 @@ export function recalculateCostEstimateDetails(
 
     // UnitPriceGross: Net Price + (VAT Value / Quantity)  LUB  Gross Value / Quantity
     if (unitPriceGrossDef) {
-      if (has.unitPriceNet && totalVat !== undefined && has.quantity) {
+      if (has.unitPriceNet && totalVat !== undefined && has.quantity && quantity !== 0) {
         unitPriceGross = unitPriceNet! + (totalVat / quantity!);
         updated = setItemFieldValue(updated, unitPriceGrossDef.id, unitPriceGross);
-      } else if (computedValueGross !== undefined && has.quantity) {
+      } else if (computedValueGross !== undefined && has.quantity && quantity !== 0) {
         unitPriceGross = computedValueGross / quantity!;
         updated = setItemFieldValue(updated, unitPriceGrossDef.id, unitPriceGross);
       }

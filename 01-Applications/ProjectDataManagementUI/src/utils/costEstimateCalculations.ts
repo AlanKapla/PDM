@@ -120,7 +120,7 @@ export type ValueKey = keyof AllItemValues;
 
 interface ComputePath {
   requires: ValueKey[];
-  compute: (v: AllItemValues) => number;
+  compute: (v: AllItemValues) => number | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -262,8 +262,8 @@ const COMPUTE_PATHS: Record<number, ComputePath[]> = {
   // UnitPriceGross: Net Price + (VAT Value / Quantity)  LUB  Gross Value / Quantity
   // Nigdy nie liczymy z Net Price × (1 + VAT Rate) — VAT Rate jest polem źródłowym
   202: [
-    { requires: ['unitPriceNet', 'totalVat', 'quantity'], compute: v => round2(v.unitPriceNet! + (v.totalVat! / v.quantity!)) },
-    { requires: ['valueGross', 'quantity'], compute: v => round2(v.valueGross! / v.quantity!) },
+    { requires: ['unitPriceNet', 'totalVat', 'quantity'], compute: v => v.quantity !== 0 ? round2(v.unitPriceNet! + (v.totalVat! / v.quantity!)) : undefined },
+    { requires: ['valueGross', 'quantity'], compute: v => v.quantity !== 0 ? round2(v.valueGross! / v.quantity!) : undefined },
   ],
   // ValueNet = Net Price × Quantity
   203: [
@@ -302,7 +302,8 @@ export const computeFieldFromAvailable = (fieldType: number, vals: AllItemValues
   if (!paths) return undefined;
   for (const path of paths) {
     if (path.requires.every(key => vals[key] !== undefined)) {
-      return path.compute(vals);
+      const result = path.compute(vals);
+      if (result !== undefined) return result;
     }
   }
   return undefined;

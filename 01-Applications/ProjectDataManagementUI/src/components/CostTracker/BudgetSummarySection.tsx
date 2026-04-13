@@ -17,6 +17,7 @@ import {
 } from "@chakra-ui/react";
 import { Edit2, Save, X, TrendingDown, TrendingUp } from "lucide-react";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { handleApiError } from "../../utils/handleApiError";
 import type { CostTrackerBudgetSummary } from "../../types/costTracker.types";
 
 interface BudgetSummarySectionProps {
@@ -106,10 +107,11 @@ export default function BudgetSummarySection({
       });
       setIsEditing(false);
       onMutated();
-    } catch {
+    } catch (err) {
+      const { title, description } = handleApiError(err);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zapisać budżetu",
+        title,
+        description,
         status: "error",
         duration: 5000,
       });

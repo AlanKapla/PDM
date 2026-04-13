@@ -362,14 +362,14 @@ export default function WorkDetailsModal({
                       <HStack key={dep.id} spacing={2}>
                         <Badge colorScheme="primary" variant="subtle" fontSize="xs">← {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
                         <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.predecessorWorkId)}</Text>
-                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">+{dep.lagDays}d</Text>}
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
                       </HStack>
                     ))}
                     {(dependencies ?? []).filter(d => d.predecessorWorkId === work.id).map(dep => (
                       <HStack key={dep.id} spacing={2}>
                         <Badge colorScheme="orange" variant="subtle" fontSize="xs">→ {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
                         <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.successorWorkId)}</Text>
-                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">+{dep.lagDays}d</Text>}
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
                       </HStack>
                     ))}
                   </VStack>

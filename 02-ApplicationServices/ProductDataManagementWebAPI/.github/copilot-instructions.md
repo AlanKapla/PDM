@@ -62,7 +62,7 @@ Private method naming: `GetAndValidate{Entity}Async`, `Validate{Rule}`, `Map{Ent
 - Records must use **explicit properties** with `{ get; init; }` — never mutable `{ get; set; }`
 - NEVER use `class` for data transfer objects or read-only results
 
-\```csharp
+```csharp
 // FORBIDDEN — mutable class
 public class ProjectDto
 {
@@ -83,10 +83,10 @@ public record ProjectDto
     public required Guid Id { get; init; }
     public required string Name { get; init; }
 }
-\```
+```
 
 - Command and Query objects passed to handlers should also be records:
-\```csharp
+```csharp
 // CORRECT
 public record CreateProjectCommand
 {
@@ -98,4 +98,4 @@ public record GetProjectQuery
 {
     public required Guid ProjectId { get; init; }
 }
-\```
+```

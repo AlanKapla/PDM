@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Services;
+﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
 using Entities.Models;
 
@@ -49,8 +50,13 @@ namespace CQRS.WorkSchedules.Shared
                 Guid? succId = dep.SuccessorDbId
                     ?? (dep.SuccessorTempId.HasValue && tempIdToWorkId.TryGetValue(dep.SuccessorTempId.Value, out Guid sId) ? sId : null);
 
-                if (!predId.HasValue || !succId.HasValue)
-                    continue;
+                if (!predId.HasValue)
+                    throw new ValidationApiException(
+                        $"Nie można rozwiązać poprzednika zależności: DbId={dep.PredecessorDbId}, TempId={dep.PredecessorTempId}");
+
+                if (!succId.HasValue)
+                    throw new ValidationApiException(
+                        $"Nie można rozwiązać następnika zależności: DbId={dep.SuccessorDbId}, TempId={dep.SuccessorTempId}");
 
                 WorkScheduleStageWorkDependency entity = new WorkScheduleStageWorkDependency
                 {

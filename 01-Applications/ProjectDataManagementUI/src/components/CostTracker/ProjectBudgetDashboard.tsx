@@ -109,11 +109,7 @@ export default function ProjectBudgetDashboard({
             </Button>
             {!isMobile && (
               <Button
-                colorScheme="blue"
-                size="sm"
-                leftIcon={<Plus size={14} />}
-                onClick={onModalOpen}
-                minH="44px"
+              colorScheme="primary"
               >
                 Dodaj koszt
               </Button>
@@ -212,11 +208,7 @@ export default function ProjectBudgetDashboard({
           position="fixed"
           bottom={4}
           right={4}
-          colorScheme="blue"
-          borderRadius="full"
-          shadow="lg"
-          onClick={onModalOpen}
-          zIndex={10}
+          colorScheme="primary"
           minH="44px"
           minW="44px"
         >

@@ -41,6 +41,9 @@ namespace Business.Implementation.Services
             IEnumerable<User> users = await userRepo.GetBySearch(u => userIdList.Contains(u.Id));
             string actorName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
+            HashSet<Guid> notifyUserIds = users.Select(u => u.Id).ToHashSet();
+            Dictionary<Guid, int> unreadCounts = await GetBulkUnreadCountsAsync(notifyUserIds, cancellationToken);
+
             foreach (User targetUser in users)
             {
                 NotificationDto notification = BuildNotification(
@@ -50,7 +53,9 @@ namespace Business.Implementation.Services
                     workScheduleId, workScheduleName, tenantId, projectId,
                     "createdByUserId", "createdByUserName", actorName);
 
-                await EnqueueNotificationAsync(notification, cancellationToken);
+                int unreadCount = unreadCounts.GetValueOrDefault(targetUser.Id, 0) + 1;
+                NotificationPayloadDto payload = new NotificationPayloadDto(notification, unreadCount);
+                await notificationSender.EnqueueAsync(payload, cancellationToken);
             }
         }
 
@@ -76,6 +81,9 @@ namespace Business.Implementation.Services
             Dictionary<Guid, User> notificationUserDict = notificationUsers.ToDictionary(u => u.Id);
             string actorName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
+            HashSet<Guid> notifyUserIds = allNotificationUserIds.ToHashSet();
+            Dictionary<Guid, int> unreadCounts = await GetBulkUnreadCountsAsync(notifyUserIds, cancellationToken);
+
             foreach (Guid userId in removedUserIds)
             {
                 notificationUserDict.TryGetValue(userId, out User? targetUser);
@@ -86,7 +94,9 @@ namespace Business.Implementation.Services
                     workScheduleId, workScheduleName, tenantId, projectId,
                     "updatedByUserId", "updatedByUserName", actorName);
 
-                await EnqueueNotificationAsync(notification, cancellationToken);
+                int unreadCount = unreadCounts.GetValueOrDefault(userId, 0) + 1;
+                NotificationPayloadDto payload = new NotificationPayloadDto(notification, unreadCount);
+                await notificationSender.EnqueueAsync(payload, cancellationToken);
             }
 
             foreach (Guid userId in addedUserIds)
@@ -99,18 +109,23 @@ namespace Business.Implementation.Services
                     workScheduleId, workScheduleName, tenantId, projectId,
                     "updatedByUserId", "updatedByUserName", actorName);
 
-                await EnqueueNotificationAsync(notification, cancellationToken);
+                int unreadCount = unreadCounts.GetValueOrDefault(userId, 0) + 1;
+                NotificationPayloadDto payload = new NotificationPayloadDto(notification, unreadCount);
+                await notificationSender.EnqueueAsync(payload, cancellationToken);
             }
         }
 
-        private async Task EnqueueNotificationAsync(NotificationDto notification, CancellationToken cancellationToken)
+        private async Task<Dictionary<Guid, int>> GetBulkUnreadCountsAsync(
+            HashSet<Guid> userIds,
+            CancellationToken cancellationToken)
         {
-            int unreadCount = await notificationRepo.CountAsync(
-                n => n.UserId == notification.UserId && !n.Readed,
-                cancellationToken) + 1;
+            if (userIds.Count == 0)
+                return new Dictionary<Guid, int>();
 
-            NotificationPayloadDto payload = new NotificationPayloadDto(notification, unreadCount);
-            await notificationSender.EnqueueAsync(payload, cancellationToken);
+            return await notificationRepo.CountGroupedByAsync(
+                n => userIds.Contains(n.UserId) && !n.Readed,
+                n => n.UserId,
+                cancellationToken);
         }
 
         private NotificationDto BuildNotification(

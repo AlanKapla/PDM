@@ -13,7 +13,6 @@ import {
   Text,
   Box,
   IconButton,
-  useBreakpointValue,
 } from "@chakra-ui/react";
 import { Plus, X } from "lucide-react";
 import AttachmentList from "./AttachmentList";
@@ -37,7 +36,6 @@ export default function CostForm({
   isSubmitting = false,
 }: CostFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const fullWidth = useBreakpointValue({ base: true, md: false });
 
   const set = (patch: Partial<CostFormValues>) => onChange({ ...values, ...patch });
 
@@ -211,7 +209,6 @@ export default function CostForm({
         <Text fontSize="xs" color="gray.500" mt={1}>
           Maksymalny rozmiar pliku: 52 MB
         </Text>
-        {fullWidth !== undefined && null /* just consumes the variable */}
       </Box>
     </VStack>
   );

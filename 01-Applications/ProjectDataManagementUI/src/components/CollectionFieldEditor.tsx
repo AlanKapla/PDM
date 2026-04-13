@@ -276,7 +276,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
                 {value.map((item, index) => (
                   <Tr 
                     key={item.id} 
-                    _hover={{ bg: 'level2.25' }}
+                    _hover={{ bg: 'level2.50' }}
                     bg={item.isSelected ? 'green.50' : undefined}
                     borderLeftWidth={item.isSelected ? '3px' : undefined}
                     borderLeftColor={item.isSelected ? 'green.500' : undefined}
