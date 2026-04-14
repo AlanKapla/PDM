@@ -24,7 +24,7 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react";
 import { Plus, List, TrendingDown, TrendingUp } from "lucide-react";
-import StatusBadge from "./StatusBadge";
+import CostTrackerStatusBadge from "./CostTrackerStatusBadge";
 import CostCountBadge from "./CostCountBadge";
 import CostFormDrawer from "./CostFormDrawer";
 import CostListDrawer from "./CostListDrawer";
@@ -158,7 +158,7 @@ function PositionsDesktopTable({ items, onAddCost, onListCosts }: { items: Track
                 </Td>
                 <Td>
                   <HStack spacing={1}>
-                    <StatusBadge status={item.status} size="xs" />
+                    <CostTrackerStatusBadge status={item.status} size="xs" />
                     <CostCountBadge count={item.costCount} />
                   </HStack>
                 </Td>
@@ -217,7 +217,7 @@ function PositionsCardList({ items, onAddCost, onListCosts }: { items: TrackerIt
                   {item.name}
                 </Text>
                 <HStack spacing={1}>
-                  <StatusBadge status={item.status} size="xs" />
+                  <CostTrackerStatusBadge status={item.status} size="xs" />
                   <CostCountBadge count={item.costCount} />
                 </HStack>
               </HStack>

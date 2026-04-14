@@ -12,12 +12,12 @@ const STATUS_CONFIG: Record<
   [TrackedCostItemStatus.OverBudget]: { label: "Przekroczono",   colorScheme: "red"    },
 };
 
-interface StatusBadgeProps {
+interface CostTrackerStatusBadgeProps {
   status: TrackedCostItemStatus;
   size?: string;
 }
 
-export default function StatusBadge({ status, size }: StatusBadgeProps) {
+export default function CostTrackerStatusBadge({ status, size }: CostTrackerStatusBadgeProps) {
   const config = STATUS_CONFIG[status] ?? { label: String(status), colorScheme: "gray" };
   return (
     <Badge colorScheme={config.colorScheme} fontSize={size} borderRadius="md" px={2}>

@@ -9,11 +9,12 @@ interface ToastOptions extends Omit<UseToastOptions, 'title' | 'description'> {
 
 export const useToastNotification = () => {
   const toast = useChakraToast();
-  // Na mobile toasty u góry (nie zakrywają dolnej nawigacji), na desktop – prawy górny róg
-  const position = useBreakpointValue<UseToastOptions["position"]>(
+  // Na mobile toasty u góry (nie zakrywają dolnej nawigacji), na desktop – prawy górny róg.
+  // Dodatkowy fallback gwarantuje przewidywalną pozycję także wtedy, gdy breakpoint nie jest jeszcze wyliczony.
+  const position = (useBreakpointValue<UseToastOptions["position"]>(
     { base: "top", md: "top-right" },
     { fallback: "top-right" }
-  );
+  ) ?? "top-right") as UseToastOptions["position"];
 
   const showSuccess = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({

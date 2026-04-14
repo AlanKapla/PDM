@@ -16,6 +16,7 @@ import {
 } from "@chakra-ui/react";
 import { Plus, X } from "lucide-react";
 import AttachmentList from "./AttachmentList";
+import { useToastNotification } from "../../hooks/useToastNotification";
 import type { TrackedCostAttachmentWeb, CostFormValues } from "../../types/costTracker.types";
 
 interface CostFormProps {
@@ -36,13 +37,18 @@ export default function CostForm({
   isSubmitting = false,
 }: CostFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showWarning } = useToastNotification();
 
   const set = (patch: Partial<CostFormValues>) => onChange({ ...values, ...patch });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(e.target.files ?? []).filter(
-      (f) => f.size <= MAX_FILE_SIZE
-    );
+    const all = Array.from(e.target.files ?? []);
+    const rejected = all.filter((f) => f.size > MAX_FILE_SIZE);
+    const picked = all.filter((f) => f.size <= MAX_FILE_SIZE);
+    if (rejected.length > 0) {
+      const names = rejected.map((f) => f.name).join(", ");
+      showWarning("Plik za duży", `Przekroczono limit 52 MB: ${names}`);
+    }
     set({ newFiles: [...(values.newFiles ?? []), ...picked] });
     e.target.value = "";
   };

@@ -54,6 +54,15 @@ export function useModalItemEdit({
   const virtualItemRef = useRef(virtualItem);
   virtualItemRef.current = virtualItem;
 
+  const allSaveable = useMemo(
+    () => [
+      ...(templateStructure?.systemFields ?? []),
+      ...(templateStructure?.calculatedFields ?? []),
+      ...(templateStructure?.genericFields ?? []),
+    ],
+    [templateStructure]
+  );
+
   const handleFieldChange = useCallback(
     (fieldId: string, fieldDef: any, newValue: string | undefined) => {
       const prev = virtualItemRef.current;
@@ -115,11 +124,6 @@ export function useModalItemEdit({
       setVirtualItem(finalItem);
 
       // Autozapis: każde pole które zmieniło wartość względem stanu sprzed zmiany
-      const allSaveable: any[] = [
-        ...(templateStructure?.systemFields ?? []),
-        ...(templateStructure?.calculatedFields ?? []),
-        ...(templateStructure?.genericFields ?? []),
-      ];
       for (const field of allSaveable) {
         const prevVal = readItemFieldValue(prev, field.id);
         const newVal = readItemFieldValue(finalItem, field.id);
@@ -128,7 +132,7 @@ export function useModalItemEdit({
         }
       }
     },
-    [templateStructure, onSaveField]
+    [templateStructure, onSaveField, allSaveable]
   );
 
   const allValues = useMemo(

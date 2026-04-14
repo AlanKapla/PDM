@@ -165,7 +165,7 @@ export default function CostFormDrawer({
               Anuluj
             </Button>
             <Button
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={handleSubmit}
               isLoading={isSubmitting}
               width={{ base: "full", md: "auto" }}

@@ -11,7 +11,7 @@ import {
   Progress,
   useBreakpointValue,
 } from "@chakra-ui/react";
-import StatusBadge from "./StatusBadge";
+import CostTrackerStatusBadge from "./CostTrackerStatusBadge";
 import CostCountBadge from "./CostCountBadge";
 import PositionsTable from "./PositionsTable";
 import { TrackedCostItemStatus } from "../../types/costTracker.types";
@@ -96,7 +96,7 @@ export default function StageAccordion({
                   {group.itemsWithCostsCount}/{group.totalItemsCount}
                 </Text>
                 <CostCountBadge count={group.costCount} />
-                <StatusBadge status={group.status} size="xs" />
+                <CostTrackerStatusBadge status={group.status} size="xs" />
               </HStack>
               <AccordionIcon ml={2} flexShrink={0} />
             </AccordionButton>

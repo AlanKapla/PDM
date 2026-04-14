@@ -33,6 +33,7 @@ import { checkDependencyViolation, getWorkEffectiveDates } from "../utils/workSc
 import { useToastNotification } from "../hooks/useToastNotification";
 
 const DEP_TYPE_SHORT: Record<number, string> = { 0: 'FS', 1: 'SS', 2: 'FF', 3: 'SF' };
+const getDepTypeShort = (type: number): string => DEP_TYPE_SHORT[type] ?? String(type);
 
 interface Member {
   userId: string;
@@ -170,6 +171,7 @@ export default function WorkDetailsModal({
       const newWorkDates = getWorkEffectiveDates(periods);
       const updatedRanges = new Map(workDateRanges ?? []);
       updatedRanges.set(work.id, newWorkDates);
+      const violations: string[] = [];
       for (const dep of depsForThisWork) {
         const violation = checkDependencyViolation(
           { predecessorId: dep.predecessorWorkId, successorId: dep.successorWorkId, dependencyType: dep.dependencyType, lagDays: dep.lagDays },
@@ -178,8 +180,11 @@ export default function WorkDetailsModal({
           getWorkName(dep.successorWorkId)
         );
         if (violation) {
-          toast({ title: 'Naruszenie zależności', description: violation, status: 'warning', duration: 8000, isClosable: true });
+          violations.push(violation);
         }
+      }
+      if (violations.length > 0) {
+        toast({ title: 'Naruszenie zależności', description: violations.join('\n'), status: 'warning', duration: 8000, isClosable: true });
       }
     }
 
@@ -360,14 +365,14 @@ export default function WorkDetailsModal({
                   <VStack align="stretch" spacing={1}>
                     {(dependencies ?? []).filter(d => d.successorWorkId === work.id).map(dep => (
                       <HStack key={dep.id} spacing={2}>
-                        <Badge colorScheme="primary" variant="subtle" fontSize="xs">← {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
+                        <Badge colorScheme="primary" variant="subtle" fontSize="xs">← {getDepTypeShort(dep.dependencyType)}</Badge>
                         <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.predecessorWorkId)}</Text>
                         {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
                       </HStack>
                     ))}
                     {(dependencies ?? []).filter(d => d.predecessorWorkId === work.id).map(dep => (
                       <HStack key={dep.id} spacing={2}>
-                        <Badge colorScheme="orange" variant="subtle" fontSize="xs">→ {DEP_TYPE_SHORT[dep.dependencyType]}</Badge>
+                        <Badge colorScheme="orange" variant="subtle" fontSize="xs">→ {getDepTypeShort(dep.dependencyType)}</Badge>
                         <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.successorWorkId)}</Text>
                         {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
                       </HStack>

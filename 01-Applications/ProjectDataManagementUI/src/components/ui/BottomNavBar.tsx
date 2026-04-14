@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, type KeyboardEvent } from "react";
 import {
   Box,
   HStack,
@@ -99,15 +99,24 @@ export default function BottomNavBar({
           return (
             <VStack
               key={item.to}
+              as="button"
+              type="button"
               spacing={0.5}
               flex={1}
               cursor="pointer"
               onClick={() => navigate(item.to)}
+              onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(item.to);
+                }
+              }}
               py={1}
               borderRadius="md"
               color={active ? activeColor : inactiveColor}
               _active={{ bg: useColorModeValue("gray.100", "gray.700") }}
               position="relative"
+              aria-label={item.label}
             >
               <Box position="relative">
                 <IconButton
@@ -118,6 +127,7 @@ export default function BottomNavBar({
                   color={active ? activeColor : inactiveColor}
                   _hover={{}}
                   _active={{}}
+                  tabIndex={-1}
                   pointerEvents="none"
                 />
                 {item.badge !== undefined && (
