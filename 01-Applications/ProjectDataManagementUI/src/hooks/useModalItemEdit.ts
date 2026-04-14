@@ -132,7 +132,7 @@ export function useModalItemEdit({
         }
       }
     },
-    [templateStructure, onSaveField, allSaveable]
+    [templateStructure, onSaveField]
   );
 
   const allValues = useMemo(

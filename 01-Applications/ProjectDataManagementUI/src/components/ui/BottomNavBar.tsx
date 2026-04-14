@@ -1,4 +1,4 @@
-import { useContext, type KeyboardEvent } from "react";
+import { useContext } from "react";
 import {
   Box,
   HStack,
@@ -105,7 +105,7 @@ export default function BottomNavBar({
               flex={1}
               cursor="pointer"
               onClick={() => navigate(item.to)}
-              onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+              onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   navigate(item.to);
