@@ -140,7 +140,7 @@ export default function ChatMembersDrawer({
                         {member.firstName} {member.lastName}
                       </Text>
                       {member.isAdmin && (
-                        <Badge colorScheme="blue" fontSize="10px" flexShrink={0}>
+                        <Badge colorScheme="primary" fontSize="10px" flexShrink={0}>
                           Admin
                         </Badge>
                       )}
@@ -200,7 +200,7 @@ export default function ChatMembersDrawer({
                           icon={<UserPlus size={14} />}
                           size="xs"
                           variant="ghost"
-                          colorScheme="blue"
+                          colorScheme="primary"
                           aria-label="Dodaj do grupy"
                           isLoading={actionUserId === member.userId}
                           onClick={() => handleAdd(member.userId)}

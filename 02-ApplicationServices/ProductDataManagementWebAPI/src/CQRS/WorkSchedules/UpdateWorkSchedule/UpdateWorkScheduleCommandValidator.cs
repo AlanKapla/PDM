@@ -41,5 +41,15 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         {
             return cmd => cmd.Stages;
         }
+
+        protected override Expression<Func<UpdateWorkScheduleCommand, IEnumerable<WorkScheduleWorkDependencyDto>?>> GetDependenciesSelector()
+        {
+            return cmd => cmd.Dependencies;
+        }
+
+        protected override Func<UpdateWorkScheduleCommand, IEnumerable<WorkScheduleWorkDependencyDto>?> GetDependenciesSelectorFunc()
+        {
+            return cmd => cmd.Dependencies;
+        }
     }
 }

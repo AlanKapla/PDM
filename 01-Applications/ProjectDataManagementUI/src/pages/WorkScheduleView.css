@@ -17,6 +17,7 @@
   flex-direction: column;
   gap: 0.75rem;
   align-items: stretch;
+  width: 100%;
 }
 
 @media (min-width: 768px) {
@@ -24,34 +25,19 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    gap: 2rem;
+    gap: 1.5rem;
+  }
+
+  .workschedule-header > *:last-child {
+    flex-shrink: 0;
+    max-width: 65%;
   }
 }
 
-.workschedule-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-@media (min-width: 480px) {
-  .workschedule-actions {
-    flex-direction: row;
-    width: auto;
-    gap: 0.5rem;
-    align-items: center;
-  }
-}
 
 @media (max-width: 768px) {
   .workschedule-header {
     width: 100%;
-  }
-
-  .workschedule-actions {
-    width: 100%;
-    gap: 8px;
   }
 
   .workschedule-timeline-table {
@@ -96,6 +82,32 @@
 .workschedule-timeline-table td,
 .workschedule-timeline-table th {
   padding: 6px 8px;
+}
+
+/* Przyciski akcji wiersza (dodaj/usuń) — widoczne tylko po najechaniu na wiersz */
+.ws-row-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.workschedule-timeline-table tr:hover .ws-row-actions,
+.ws-row-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Przyciski akcji wiersza kosztorysu — widoczne tylko po najechaniu */
+.ce-row-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+tr:hover .ce-row-actions,
+.ce-row-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .workschedule-timeline-table th[position="sticky"],

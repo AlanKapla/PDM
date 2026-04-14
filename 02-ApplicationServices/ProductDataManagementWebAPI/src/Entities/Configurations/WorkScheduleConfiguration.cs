@@ -1,4 +1,4 @@
-﻿using Entities.Models;
+using Entities.Models;
 using Entities.Models.CostEstimates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -80,6 +80,7 @@ namespace Entities.Configurations
             builder.HasKey(w => w.Id);
             builder.Property(w => w.Name).IsRequired().HasMaxLength(200);
             builder.Property(w => w.Order).IsRequired();
+            builder.Property(w => w.ProjectId).IsRequired();
             builder.Property(w => w.ColorRgb).IsRequired().HasMaxLength(20);
             builder.Property(w => w.IsClosed).IsRequired().HasDefaultValue(false);
             builder.Property(w => w.CostEstimateItemId).IsRequired(false);
@@ -102,6 +103,7 @@ namespace Entities.Configurations
             });
 
             builder.HasIndex(w => new { w.WorkScheduleStageId, w.Order });
+            builder.HasIndex(w => new { w.TenantId, w.ProjectId });
             builder.HasIndex(w => w.CostEstimateItemId);
         }
     }
@@ -144,6 +146,45 @@ namespace Entities.Configurations
                    .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasIndex(c => new { c.WorkScheduleStageWorkId, c.CreatedAt });
+        }
+    }
+
+    public class WorkScheduleStageWorkDependencyConfiguration : IEntityTypeConfiguration<WorkScheduleStageWorkDependency>
+    {
+        public void Configure(EntityTypeBuilder<WorkScheduleStageWorkDependency> builder)
+        {
+            builder.HasKey(d => d.Id);
+            builder.Property(d => d.TenantId).IsRequired();
+            builder.Property(d => d.ProjectId).IsRequired();
+            builder.Property(d => d.WorkScheduleId).IsRequired();
+            builder.Property(d => d.PredecessorWorkId).IsRequired();
+            builder.Property(d => d.SuccessorWorkId).IsRequired();
+            builder.Property(d => d.DependencyType).IsRequired();
+            builder.Property(d => d.LagDays).IsRequired().HasDefaultValue(0);
+
+            builder.HasOne(d => d.WorkSchedule)
+                   .WithMany(ws => ws.Dependencies)
+                   .HasForeignKey(d => d.WorkScheduleId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(d => d.PredecessorWork)
+                   .WithMany(w => w.PredecessorDependencies)
+                   .HasForeignKey(d => d.PredecessorWorkId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(d => d.SuccessorWork)
+                   .WithMany(w => w.SuccessorDependencies)
+                   .HasForeignKey(d => d.SuccessorWorkId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            // Prevent duplicate dependency between the same pair
+            builder.HasIndex(d => new { d.WorkScheduleId, d.PredecessorWorkId, d.SuccessorWorkId, d.DependencyType })
+                   .IsUnique();
+
+            builder.HasIndex(d => new { d.TenantId, d.WorkScheduleId });
+            builder.HasIndex(d => new { d.TenantId, d.ProjectId });
+            builder.HasIndex(d => d.PredecessorWorkId);
+            builder.HasIndex(d => d.SuccessorWorkId);
         }
     }
 }

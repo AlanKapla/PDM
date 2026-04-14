@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Modal,
@@ -16,7 +16,6 @@ import {
   FormControl,
   FormLabel,
   useColorModeValue,
-  useToast,
   Box,
   IconButton,
   Divider,
@@ -37,14 +36,28 @@ import {
   Alert,
   AlertIcon,
   AlertDescription,
+  Grid,
+  GridItem,
+  Tooltip,
 } from "@chakra-ui/react";
-import { Plus, Trash2, GripVertical, FolderPlus } from "lucide-react";
+import { Plus, Trash2, GripVertical, FolderPlus, ArrowRight } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { ResourceScope } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
-import type { WorkScheduleDetailsWeb, WorkScheduleStageWeb } from "../types/workSchedule.types";
+import type { WorkScheduleDetailsWeb, WorkScheduleStageWeb, WorkScheduleWorkDependencyWeb, WorkScheduleWorkDependencyDto } from "../types/workSchedule.types";
 import type { CostEstimateListItemWeb } from "../types/costEstimate.types.new";
+import {
+  getWorkEffectiveDates,
+  computeDateConstraints,
+  autoAdjustSuccessorPeriods,
+  checkDependencyViolation,
+  cascadeAutoAdjust,
+  type GenericDependency,
+  type DateConstraints,
+} from "../utils/workScheduleDateConstraints";
+import { ConstrainedDateInput } from "./ConstrainedDateInput";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface WorkScheduleFormModalProps {
   mode: 'create' | 'edit';
@@ -102,6 +115,32 @@ const PRESET_COLORS = [
   "#3182CE", "#38A169", "#DD6B20", "#E53E3E", "#805AD5",
   "#D69E2E", "#00B5D8", "#D53F8C", "#319795", "#718096",
 ];
+
+interface DependencyFormData {
+  tempId: string;
+  predecessorWorkTempId: string;
+  successorWorkTempId: string;
+  dependencyType: number;
+  lagDays: number;
+}
+
+// Spłaszcza drzewo etapów do listy prac z nazwą etapu (dla selectora zależności)
+function collectAllWorks(stages: StageFormData[]): Array<{ tempId: string; id?: string; name: string; stageName: string }> {
+  const works: Array<{ tempId: string; id?: string; name: string; stageName: string }> = [];
+  const traverse = (stageList: StageFormData[], parentLabel: string = '') => {
+    for (let i = 0; i < stageList.length; i++) {
+      const stage = stageList[i];
+      const label = parentLabel ? `${parentLabel}.${i + 1}` : `${i + 1}`;
+      const displayName = stage.name || `Etap ${label}`;
+      for (const work of stage.works) {
+        works.push({ tempId: work.tempId, id: work.id, name: work.name, stageName: displayName });
+      }
+      traverse(stage.children, label);
+    }
+  };
+  traverse(stages);
+  return works;
+}
 
 // ——— Rekurencyjne pomocniki drzewa etapów ———
 
@@ -206,6 +245,8 @@ function mapStageToDto(stage: StageFormData, isEdit: boolean): any {
     order: stage.order,
     works: stage.works.map(work => ({
       ...(isEdit && work.id ? { id: work.id } : {}),
+      // Dla nowych zakresów (bez id z bazy) przekaż tempId — wymagany do referencji w dependencies
+      ...(!work.id ? { tempId: work.tempId } : {}),
       name: work.name,
       order: work.order,
       colorRgb: work.colorRgb,
@@ -243,10 +284,11 @@ export default function WorkScheduleFormModal({
   initialCostEstimateId,
   initialCostEstimateName,
 }: WorkScheduleFormModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const navigate = useNavigate();
   const [scheduleName, setScheduleName] = useState("");
   const [stages, setStages] = useState<StageFormData[]>([]);
+  const [dependencies, setDependencies] = useState<DependencyFormData[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [draggedStage, setDraggedStage] = useState<string | null>(null);
   const [draggedWork, setDraggedWork] = useState<{ stageId: string; workId: string } | null>(null);
@@ -259,9 +301,63 @@ export default function WorkScheduleFormModal({
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-  const childStageBorderColor = useColorModeValue("blue.200", "blue.700");
+  const childStageBorderColor = useColorModeValue("primary.200", "primary.700");
 
   const isCostEstimateSynced = mode === 'edit' && !!schedule?.costEstimateId;
+
+  // Spłaszczona lista wszystkich prac do selectora zależności
+  const allWorks = useMemo(() => collectAllWorks(stages), [stages]);
+
+  // Mapa tempId → czytelna nazwa "EtapX / NazwaZakresu" dla constraint tooltipów (Tryb B)
+  const workNamesByTempId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const w of allWorks) map.set(w.tempId, `${w.stageName} / ${w.name || '(bez nazwy)'}`);
+    return map;
+  }, [allWorks]);
+
+  // Mapa: tempId → efektywne daty (min start, max end) dla każdego zakresu robót
+  const workDateRanges = useMemo(() => {
+    const map = new Map<string, { startDate?: string; endDate?: string }>();
+    const traverse = (stageList: StageFormData[]) => {
+      for (const stage of stageList) {
+        for (const work of stage.works) {
+          map.set(work.tempId, getWorkEffectiveDates(work.periods));
+        }
+        traverse(stage.children);
+      }
+    };
+    traverse(stages);
+    return map;
+  }, [stages]);
+
+  // Zależności w formacie generycznym (tempId jako identyfikator)
+  const genericDependencies = useMemo<GenericDependency[]>(
+    () =>
+      dependencies
+        .filter(d => d.predecessorWorkTempId && d.successorWorkTempId)
+        .map(d => ({
+          predecessorId: d.predecessorWorkTempId,
+          successorId: d.successorWorkTempId,
+          dependencyType: d.dependencyType,
+          lagDays: d.lagDays,
+        })),
+    [dependencies]
+  );
+
+  // Mapa ograniczeń dat per zakres robót (tempId → DateConstraints) z czytelnym opisem przyczyny
+  const workConstraintsMap = useMemo(() => {
+    const map = new Map<string, DateConstraints>();
+    const traverse = (stageList: StageFormData[]) => {
+      for (const stage of stageList) {
+        for (const work of stage.works) {
+          map.set(work.tempId, computeDateConstraints(work.tempId, genericDependencies, workDateRanges, workNamesByTempId));
+        }
+        traverse(stage.children);
+      }
+    };
+    traverse(stages);
+    return map;
+  }, [genericDependencies, workDateRanges, stages, workNamesByTempId]);
 
   useEffect(() => {
     if (isOpen) {
@@ -291,6 +387,7 @@ export default function WorkScheduleFormModal({
   const resetForm = () => {
     setScheduleName("");
     setStages([]);
+    setDependencies([]);
     // Jeśli podano initialCostEstimateId, otwórz od razu w trybie linked
     if (initialCostEstimateId) {
       setScheduleMode('linked');
@@ -314,6 +411,32 @@ export default function WorkScheduleFormModal({
       .sort((a, b) => a.order - b.order)
       .map(stage => loadStageFromApi(stage));
     setStages(loadedStages);
+
+    // Wczytaj istniejące zależności — mapując dbId prac na tempId z załadowanych etapów
+    if (schedule.dependencies && schedule.dependencies.length > 0) {
+      const workDbIdToTempId = new Map<string, string>();
+      const traverseLoaded = (stageList: StageFormData[]) => {
+        for (const stage of stageList) {
+          for (const work of stage.works) {
+            if (work.id) workDbIdToTempId.set(work.id, work.tempId);
+          }
+          traverseLoaded(stage.children);
+        }
+      };
+      traverseLoaded(loadedStages);
+
+      setDependencies(
+        (schedule.dependencies as WorkScheduleWorkDependencyWeb[]).map(dep => ({
+          tempId: `dep-${dep.id}`,
+          predecessorWorkTempId: workDbIdToTempId.get(dep.predecessorWorkId) ?? dep.predecessorWorkId,
+          successorWorkTempId: workDbIdToTempId.get(dep.successorWorkId) ?? dep.successorWorkId,
+          dependencyType: dep.dependencyType,
+          lagDays: dep.lagDays,
+        }))
+      );
+    } else {
+      setDependencies([]);
+    }
   };
 
   const fetchCostEstimates = async () => {
@@ -327,7 +450,7 @@ export default function WorkScheduleFormModal({
       [...mine, ...shared].forEach(ce => allMap.set(ce.id, ce));
       setCostEstimates(Array.from(allMap.values()));
     } catch {
-      toast({ title: "Błąd", description: "Nie udało się pobrać listy kosztorysów", status: "error", duration: 3000 });
+      showError("Błąd", "Nie udało się pobrać listy kosztorysów");
     } finally {
       setLoadingCostEstimates(false);
     }
@@ -376,7 +499,8 @@ export default function WorkScheduleFormModal({
     setStages(prev =>
       updateStageInTree(prev, stageTempId, stage => {
         const newWork: WorkFormData = {
-          tempId: `work-${Date.now()}`,
+          // Użyj UUID — wymagane przez API do referencji w dependencies (pole tempId)
+          tempId: crypto.randomUUID(),
           name: "",
           order: stage.works.length,
           colorRgb: PRESET_COLORS[stage.works.length % PRESET_COLORS.length],
@@ -556,6 +680,116 @@ export default function WorkScheduleFormModal({
     );
   };
 
+  // ——— Operacje na zależnościach ———
+
+  const addDependency = () => {
+    const newDep: DependencyFormData = {
+      tempId: `dep-${Date.now()}`,
+      predecessorWorkTempId: "",
+      successorWorkTempId: "",
+      dependencyType: 0, // FinishToStart domyślnie
+      lagDays: 0,
+    };
+    setDependencies(prev => [...prev, newDep]);
+  };
+
+  const updateDependency = (depTempId: string, updates: Partial<DependencyFormData>) => {
+    const newDeps = dependencies.map(d => d.tempId === depTempId ? { ...d, ...updates } : d);
+    setDependencies(newDeps);
+
+    // Auto-Shift (Tryb A): kaskadowe przesunięcie następników po zmianie lagDays lub zakresów
+    const dep = newDeps.find(d => d.tempId === depTempId);
+    if (!dep || !dep.predecessorWorkTempId || !dep.successorWorkTempId) return;
+
+    const periodsMap = new Map<string, WorkPeriodFormData[]>();
+    const traversePeriods = (stageList: StageFormData[]) => {
+      for (const s of stageList) {
+        for (const w of s.works) periodsMap.set(w.tempId, w.periods);
+        traversePeriods(s.children);
+      }
+    };
+    traversePeriods(stages);
+
+    const allGenericDeps: GenericDependency[] = newDeps
+      .filter(d => d.predecessorWorkTempId && d.successorWorkTempId)
+      .map(d => ({
+        predecessorId: d.predecessorWorkTempId,
+        successorId: d.successorWorkTempId,
+        dependencyType: d.dependencyType,
+        lagDays: d.lagDays,
+      }));
+
+    const shifts = cascadeAutoAdjust(
+      [dep.predecessorWorkTempId],
+      allGenericDeps,
+      periodsMap,
+      workNamesByTempId
+    );
+
+    if (shifts.size === 0) return;
+
+    const applyShifts = (stageList: StageFormData[]): StageFormData[] =>
+      stageList.map(stage => ({
+        ...stage,
+        works: stage.works.map(work => {
+          const shift = shifts.get(work.tempId);
+          return shift ? { ...work, periods: shift.periods } : work;
+        }),
+        children: applyShifts(stage.children),
+      }));
+
+    setStages(applyShifts(stages));
+
+    const shiftLines = Array.from(shifts.entries())
+      .map(([id, { shiftedBy }]) => `„${allWorks.find(w => w.tempId === id)?.name ?? id}" o ${shiftedBy} dni`)
+      .join(', ');
+
+    toast({
+      title: 'Daty przesunięte kaskadowo',
+      description: `Przesunięto: ${shiftLines}`,
+      status: 'info',
+      duration: 6000,
+      isClosable: true,
+    });
+  };
+
+  const removeDependency = (tempId: string) => {
+    setDependencies(prev => prev.filter(d => d.tempId !== tempId));
+  };
+
+  // Buduje DTO zależności do wysłania — rozróżnia dbId (istniejące) i tempId (nowe)
+  const buildDependenciesForSubmit = (): WorkScheduleWorkDependencyDto[] => {
+    const workInfoMap = new Map<string, { id?: string; tempId: string }>();
+    const traverse = (stageList: StageFormData[]) => {
+      for (const stage of stageList) {
+        for (const work of stage.works) {
+          workInfoMap.set(work.tempId, { id: work.id, tempId: work.tempId });
+        }
+        traverse(stage.children);
+      }
+    };
+    traverse(stages);
+
+    return dependencies
+      .filter(dep =>
+        dep.predecessorWorkTempId &&
+        dep.successorWorkTempId &&
+        dep.predecessorWorkTempId !== dep.successorWorkTempId
+      )
+      .map(dep => {
+        const pred = workInfoMap.get(dep.predecessorWorkTempId);
+        const succ = workInfoMap.get(dep.successorWorkTempId);
+        if (!pred || !succ) return null;
+        return {
+          ...(pred.id ? { predecessorDbId: pred.id } : { predecessorTempId: pred.tempId }),
+          ...(succ.id ? { successorDbId: succ.id } : { successorTempId: succ.tempId }),
+          dependencyType: dep.dependencyType,
+          lagDays: dep.lagDays,
+        } as WorkScheduleWorkDependencyDto;
+      })
+      .filter((d): d is WorkScheduleWorkDependencyDto => d !== null);
+  };
+
   // D&D etapów (tylko na poziomie głównym)
   const handleStageDragStart = (e: React.DragEvent, tempId: string) => {
     setDraggedStage(tempId);
@@ -685,10 +919,12 @@ export default function WorkScheduleFormModal({
     setSubmitting(true);
     try {
       const mappedStages = stages.map((stage) => mapStageToDto(stage, mode === 'edit'));
+      const builtDependencies = buildDependenciesForSubmit();
       const command = {
         name: scheduleName,
         ...(scheduleMode === 'linked' && mode === 'create' ? { costEstimateId: selectedCostEstimateId } : {}),
         stages: mappedStages,
+        ...(builtDependencies.length > 0 ? { dependencies: builtDependencies } : {}),
       };
 
       if (mode === 'create') {
@@ -805,20 +1041,23 @@ export default function WorkScheduleFormModal({
                 <VStack key={period.tempId} spacing={1} align="stretch">
                   <HStack spacing={1} flexWrap={{ base: "wrap", md: "nowrap" }}>
                     <Text fontSize={{ base: "xs", md: "sm" }} minW="20px" flexShrink={0}>{periodIdx + 1}.</Text>
-                    <Input
-                      type="date"
-                      size={{ base: "sm", md: "md" }}
+                    {/* ConstrainedDateInput: Tryb B – blokuje daty naruszające zależności + tooltip z przyczyną */}
+                    <ConstrainedDateInput
                       value={period.startDate}
-                      onChange={(e) => updatePeriod(stageTempId, work.tempId, period.tempId, { startDate: e.target.value })}
-                      placeholder="Od"
+                      onChange={(v) => updatePeriod(stageTempId, work.tempId, period.tempId, { startDate: v })}
+                      fieldRole="start"
+                      constraints={workConstraintsMap.get(work.tempId)}
+                      otherBound={period.endDate}
+                      size={{ base: "sm", md: "md" }}
                       flex={1}
                     />
-                    <Input
-                      type="date"
-                      size={{ base: "sm", md: "md" }}
+                    <ConstrainedDateInput
                       value={period.endDate}
-                      onChange={(e) => updatePeriod(stageTempId, work.tempId, period.tempId, { endDate: e.target.value })}
-                      placeholder="Do"
+                      onChange={(v) => updatePeriod(stageTempId, work.tempId, period.tempId, { endDate: v })}
+                      fieldRole="end"
+                      constraints={workConstraintsMap.get(work.tempId)}
+                      otherBound={period.startDate}
+                      size={{ base: "sm", md: "md" }}
                       flex={1}
                     />
                     <IconButton
@@ -974,7 +1213,7 @@ export default function WorkScheduleFormModal({
                 size={{ base: "xs", md: "sm" }}
                 leftIcon={<Plus size={12} />}
                 onClick={() => addComment(stageTempId, work.tempId)}
-                colorScheme="purple"
+                colorScheme="level2"
                 variant="ghost"
               >
                 Dodaj komentarz
@@ -1027,7 +1266,7 @@ export default function WorkScheduleFormModal({
         borderRadius="lg"
         borderColor={
           depth === 0
-            ? (draggedStage === stage.tempId ? "blue.400" : borderColor)
+            ? (draggedStage === stage.tempId ? "primary.400" : borderColor)
             : childStageBorderColor
         }
         bg={bgColor}
@@ -1109,7 +1348,7 @@ export default function WorkScheduleFormModal({
             </Button>
             {stage.children.length > 0 && (
               <Box>
-                <Text fontWeight="semibold" fontSize="sm" mb={2} color="purple.600">
+                <Text fontWeight="semibold" fontSize="sm" mb={2} color="level2.600">
                   Podetapy
                 </Text>
                 <Accordion allowMultiple>
@@ -1123,7 +1362,7 @@ export default function WorkScheduleFormModal({
               leftIcon={<FolderPlus size={14} />}
               size={{ base: "sm", md: "md" }}
               variant="outline"
-              colorScheme="purple"
+              colorScheme="level2"
               onClick={() => addChildStage(stage.tempId)}
             >
               Dodaj podetap
@@ -1232,7 +1471,7 @@ export default function WorkScheduleFormModal({
                 {scheduleMode === 'manual' && (
                   <Button
                     leftIcon={<Plus size={16} />}
-                    colorScheme="blue"
+                    colorScheme="primary"
                     size={{ base: "sm", md: "md" }}
                     onClick={addStage}
                   >
@@ -1258,6 +1497,270 @@ export default function WorkScheduleFormModal({
             </Box>
             </>
             )}
+
+            {/* Sekcja zależności — dostępna w trybie ręcznym lub edycji */}
+            {!isFromCostEstimate && (scheduleMode === 'manual' || mode === 'edit') && (
+              <>
+                <Divider />
+                <Box>
+                  <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
+                    <VStack align="flex-start" spacing={0}>
+                      <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>
+                        Zależności między zakresami
+                      </Text>
+                      <Text fontSize="xs" color="gray.500">
+                        Określ, który zakres musi się zakończyć (lub rozpocząć), zanim inny może ruszyć
+                      </Text>
+                    </VStack>
+                    <Button
+                      leftIcon={<Plus size={14} />}
+                      colorScheme="action"
+                      size={{ base: "xs", md: "sm" }}
+                      onClick={addDependency}
+                      isDisabled={allWorks.length < 2}
+                    >
+                      Dodaj zależność
+                    </Button>
+                  </HStack>
+
+                  {/* Legenda typów */}
+                  <Box
+                    mb={3}
+                    p={3}
+                    borderRadius="md"
+                    bg={useColorModeValue("primary.50", "primary.900")}
+                    borderWidth="1px"
+                    borderColor={useColorModeValue("primary.200", "primary.700")}
+                  >
+                    <Text fontSize="xs" fontWeight="semibold" mb={1} color={useColorModeValue("primary.700", "primary.200")}>
+                      Jak czytać zależność?
+                    </Text>
+                    <Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>
+                      Zakres <strong>A</strong> (poprzednik) musi osiągnąć dany punkt, zanim zakres <strong>B</strong> (następnik) będzie mógł zacząć lub skończyć.
+                      Typ zależności opisuje <em>który koniec A warunkuje który koniec B</em>.
+                    </Text>
+                    <HStack spacing={4} mt={2} flexWrap="wrap">
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">FS</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>rozpocząć</strong> (najczęstsze)</Text></HStack>
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">SS</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>rozpocząć</strong></Text></HStack>
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">FF</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>zakończyć</strong>, żeby B mogło się <strong>zakończyć</strong></Text></HStack>
+                      <HStack spacing={1}><Text fontSize="xs" fontWeight="bold" color="primary.500">SF</Text><Text fontSize="xs" color={useColorModeValue("primary.600", "primary.300")}>— A musi się <strong>rozpocząć</strong>, żeby B mogło się <strong>zakończyć</strong> (rzadkie)</Text></HStack>
+                    </HStack>
+                  </Box>
+
+                  {allWorks.length < 2 ? (
+                    <Text fontSize="sm" color="gray.400" textAlign="center" py={2}>
+                      Dodaj co najmniej dwa zakresy robót, aby zdefiniować zależności.
+                    </Text>
+                  ) : dependencies.length === 0 ? (
+                    <Text fontSize="sm" color="gray.400" textAlign="center" py={2}>
+                      Brak zależności. Kliknij „Dodaj zależność", aby połączyć zakresy robót.
+                    </Text>
+                  ) : (
+                    <VStack spacing={3} align="stretch">
+                      {/* Nagłówek kolumn — tylko desktop */}
+                      <Grid
+                        templateColumns="2fr 3fr 90px 20px 2fr 36px"
+                        gap={2}
+                        px={3}
+                        display={{ base: "none", md: "grid" }}
+                      >
+                        <Text fontSize="xs" color="gray.500" textAlign="center">Poprzednik (A — zakres wcześniejszy)</Text>
+                        <Text fontSize="xs" color="gray.500" textAlign="center">Typ zależności</Text>
+                        <Text fontSize="xs" color="gray.500" textAlign="center">Opóźnienie</Text>
+                        <Box />
+                        <Text fontSize="xs" color="gray.500" textAlign="center">Następnik (B — zakres zależny)</Text>
+                        <Box />
+                      </Grid>
+
+                      {dependencies.map((dep) => {
+                        const depTypeLabel = { 0: 'FS', 1: 'SS', 2: 'FF', 3: 'SF' }[dep.dependencyType] ?? 'FS';
+                        const isValid = dep.predecessorWorkTempId && dep.successorWorkTempId && dep.predecessorWorkTempId !== dep.successorWorkTempId;
+                        return (
+                          <Box
+                            key={dep.tempId}
+                            p={{ base: 2, md: 3 }}
+                            borderWidth="1px"
+                            borderRadius="md"
+                            borderColor={isValid ? borderColor : "orange.300"}
+                            bg={isValid ? undefined : useColorModeValue("orange.50", "orange.900")}
+                          >
+                            {/* Mobile: etykiety nad polami */}
+                            <Box display={{ base: "block", md: "none" }}>
+                              <VStack spacing={2} align="stretch">
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500" mb={1}>Poprzednik (A — zakres wcześniejszy)</Text>
+                                  <Select
+                                    size="sm"
+                                    placeholder="— wybierz zakres A —"
+                                    value={dep.predecessorWorkTempId}
+                                    onChange={(e) => updateDependency(dep.tempId, { predecessorWorkTempId: e.target.value })}
+                                    isInvalid={!dep.predecessorWorkTempId}
+                                  >
+                                    {allWorks.filter(w => w.tempId !== dep.successorWorkTempId).map(w => (
+                                      <option key={w.tempId} value={w.tempId}>{w.stageName} / {w.name || '(bez nazwy)'}</option>
+                                    ))}
+                                  </Select>
+                                </Box>
+                                <HStack spacing={2}>
+                                  <Box flex={1}>
+                                    <Text fontSize="xs" color="gray.500" mb={1}>Typ ({depTypeLabel})</Text>
+                                    <Select
+                                      size="sm"
+                                      value={String(dep.dependencyType)}
+                                      onChange={(e) => updateDependency(dep.tempId, { dependencyType: parseInt(e.target.value, 10) })}
+                                    >
+                                      <option value="0">FS – A kończy → B startuje</option>
+                                      <option value="1">SS – A startuje → B startuje</option>
+                                      <option value="2">FF – A kończy → B kończy</option>
+                                      <option value="3">SF – A startuje → B kończy</option>
+                                    </Select>
+                                  </Box>
+                                  <Box>
+                                    <Text fontSize="xs" color="gray.500" mb={1}>Opóźnienie</Text>
+                                    <HStack spacing={1}>
+                                      <Input
+                                        type="number"
+                                        size="sm"
+                                        defaultValue={dep.lagDays}
+                                        key={`lag-m-${dep.tempId}`}
+                                        onBlur={(e) => {
+                                          const v = parseInt(e.target.value, 10);
+                                          const next = isNaN(v) ? 0 : v;
+                                          if (next !== dep.lagDays) updateDependency(dep.tempId, { lagDays: next });
+                                          else e.target.value = String(dep.lagDays);
+                                        }}
+                                        w="60px"
+                                      />
+                                      <Text fontSize="xs" color="gray.500">dni</Text>
+                                    </HStack>
+                                  </Box>
+                                </HStack>
+                                <Box>
+                                  <Text fontSize="xs" color="gray.500" mb={1}>Następnik (B — zakres zależny)</Text>
+                                  <Select
+                                    size="sm"
+                                    placeholder="— wybierz zakres B —"
+                                    value={dep.successorWorkTempId}
+                                    onChange={(e) => updateDependency(dep.tempId, { successorWorkTempId: e.target.value })}
+                                    isInvalid={!dep.successorWorkTempId}
+                                  >
+                                    {allWorks.filter(w => w.tempId !== dep.predecessorWorkTempId).map(w => (
+                                      <option key={w.tempId} value={w.tempId}>{w.stageName} / {w.name || '(bez nazwy)'}</option>
+                                    ))}
+                                  </Select>
+                                </Box>
+                                <HStack justify="space-between">
+                                  {!isValid && <Text fontSize="xs" color="orange.500">Uzupełnij oba zakresy</Text>}
+                                  <Tooltip label="Usuń zależność">
+                                    <IconButton
+                                      aria-label="Usuń zależność"
+                                      icon={<Trash2 size={14} />}
+                                      size="sm"
+                                      colorScheme="red"
+                                      variant="ghost"
+                                      ml="auto"
+                                      onClick={() => removeDependency(dep.tempId)}
+                                    />
+                                  </Tooltip>
+                                </HStack>
+                              </VStack>
+                            </Box>
+
+                            {/* Desktop: grid z ustalonymi kolumnami */}
+                            <Box display={{ base: "none", md: "block" }}>
+                              <Grid templateColumns="2fr 3fr 90px 20px 2fr 36px" gap={2} alignItems="center">
+                                <GridItem overflow="hidden">
+                                  <Select
+                                    size="sm"
+                                    placeholder="— wybierz zakres A —"
+                                    value={dep.predecessorWorkTempId}
+                                    onChange={(e) => updateDependency(dep.tempId, { predecessorWorkTempId: e.target.value })}
+                                    isInvalid={!dep.predecessorWorkTempId}
+                                  >
+                                    {allWorks.filter(w => w.tempId !== dep.successorWorkTempId).map(w => (
+                                      <option key={w.tempId} value={w.tempId}>{w.stageName} / {w.name || '(bez nazwy)'}</option>
+                                    ))}
+                                  </Select>
+                                </GridItem>
+                                <GridItem>
+                                  <Tooltip
+                                    label={
+                                      dep.dependencyType === 0 ? "FS: A musi się zakończyć, żeby B mogło się rozpocząć" :
+                                      dep.dependencyType === 1 ? "SS: A musi się rozpocząć, żeby B mogło się rozpocząć" :
+                                      dep.dependencyType === 2 ? "FF: A musi się zakończyć, żeby B mogło się zakończyć" :
+                                      "SF: A musi się rozpocząć, żeby B mogło się zakończyć"
+                                    }
+                                    hasArrow
+                                  >
+                                    <Select
+                                      size="sm"
+                                      value={String(dep.dependencyType)}
+                                      onChange={(e) => updateDependency(dep.tempId, { dependencyType: parseInt(e.target.value, 10) })}
+                                    >
+                                      <option value="0">FS – kończy → startuje</option>
+                                      <option value="1">SS – startuje → startuje</option>
+                                      <option value="2">FF – kończy → kończy</option>
+                                      <option value="3">SF – startuje → kończy</option>
+                                    </Select>
+                                  </Tooltip>
+                                </GridItem>
+                                <GridItem>
+                                  <HStack spacing={1}>
+                                    <Input
+                                      type="number"
+                                      size="sm"
+                                      defaultValue={dep.lagDays}
+                                      key={`lag-d-${dep.tempId}`}
+                                      onBlur={(e) => {
+                                        const v = parseInt(e.target.value, 10);
+                                        const next = isNaN(v) ? 0 : v;
+                                        if (next !== dep.lagDays) updateDependency(dep.tempId, { lagDays: next });
+                                        else e.target.value = String(dep.lagDays);
+                                      }}
+                                      w="54px"
+                                      flexShrink={0}
+                                    />
+                                    <Text fontSize="xs" color="gray.500" flexShrink={0}>dni</Text>
+                                  </HStack>
+                                </GridItem>
+                                <GridItem display="flex" alignItems="center" justifyContent="center">
+                                  <ArrowRight size={16} color="gray" />
+                                </GridItem>
+                                <GridItem overflow="hidden">
+                                  <Select
+                                    size="sm"
+                                    placeholder="— wybierz zakres B —"
+                                    value={dep.successorWorkTempId}
+                                    onChange={(e) => updateDependency(dep.tempId, { successorWorkTempId: e.target.value })}
+                                    isInvalid={!dep.successorWorkTempId}
+                                  >
+                                    {allWorks.filter(w => w.tempId !== dep.predecessorWorkTempId).map(w => (
+                                      <option key={w.tempId} value={w.tempId}>{w.stageName} / {w.name || '(bez nazwy)'}</option>
+                                    ))}
+                                  </Select>
+                                </GridItem>
+                                <GridItem display="flex" alignItems="center" justifyContent="center">
+                                  <Tooltip label="Usuń zależność">
+                                    <IconButton
+                                      aria-label="Usuń zależność"
+                                      icon={<Trash2 size={14} />}
+                                      size="sm"
+                                      colorScheme="red"
+                                      variant="ghost"
+                                      onClick={() => removeDependency(dep.tempId)}
+                                    />
+                                  </Tooltip>
+                                </GridItem>
+                              </Grid>
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                    </VStack>
+                  )}
+                </Box>
+              </>
+            )}
           </VStack>
         </ModalBody>
 
@@ -1278,7 +1781,7 @@ export default function WorkScheduleFormModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleSubmit}
             isLoading={submitting}
             loadingText={submitLoadingText}

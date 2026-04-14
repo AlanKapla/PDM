@@ -10,6 +10,7 @@ import {
   Icon,
   Button,
   useColorModeValue,
+  useBreakpointValue,
   Tabs,
   TabList,
   TabPanels,
@@ -24,12 +25,6 @@ import {
   IconButton,
   useDisclosure,
   Tooltip,
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
 } from "@chakra-ui/react";
 import { Eye, Trash2, Plus, FileText, Copy, Share2, Users } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -43,6 +38,7 @@ import { formatDate } from "../utils/formatters";
 import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
 import CopyCostEstimateModal from "../components/CopyCostEstimateModal";
 import ShareCostEstimateModal from "../components/ShareCostEstimateModal";
+import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { CostEstimateListItemWeb, CostEstimateShareWeb } from "../types/costEstimate.types.new";
 import type { CostEstimateStatus } from "../types/costEstimate.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
@@ -125,11 +121,115 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
   canCopy = false,
   canDelete = false,
 }) => {
+  const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
+
   if (cache.loading) {
     return <LoadingSpinner message="Ładowanie kosztorysów..." />;
   }
 
   const costEstimates = cache.data || [];
+
+  if (viewMode === "mobile") {
+    return (
+      <VStack spacing={4} align="stretch">
+        {costEstimates.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Brak kosztorysów"
+            description="Brak kosztorysów do wyświetlenia"
+          />
+        ) : (
+          costEstimates.map((costEstimate) => (
+            <Box
+              key={costEstimate.id}
+              bg={cardBg}
+              border="1px"
+              borderColor={borderColor}
+              borderRadius="lg"
+              p={3}
+              shadow="sm"
+            >
+              <VStack align="stretch" spacing={2}>
+                <HStack justify="space-between" align="flex-start">
+                  <VStack align="flex-start" spacing={0} flex={1} minW={0}>
+                    <Text fontWeight="semibold" fontSize="sm" noOfLines={2}>{costEstimate.name}</Text>
+                    {costEstimate.description && (
+                      <Text fontSize="xs" color="gray.500" noOfLines={1}>{costEstimate.description}</Text>
+                    )}
+                    {showOwnerColumn && costEstimate.ownerName && (
+                      <Text fontSize="xs" color="gray.500">{costEstimate.ownerName}</Text>
+                    )}
+                  </VStack>
+                  <Badge
+                    colorScheme={costEstimateStatusColors[costEstimate.status]}
+                    flexShrink={0}
+                    ml={2}
+                  >
+                    {costEstimateStatusLabels[costEstimate.status]}
+                  </Badge>
+                </HStack>
+
+                <HStack justify="space-between">
+                  <VStack align="flex-start" spacing={0}>
+                    <Text fontSize="xs" color="gray.500">Netto</Text>
+                    <Text fontSize="sm" fontWeight="medium">{formatCurrency(costEstimate.totalNet)}</Text>
+                  </VStack>
+                  <VStack align="flex-end" spacing={0}>
+                    <Text fontSize="xs" color="gray.500">Brutto</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="green.600">{formatCurrency(costEstimate.totalGross)}</Text>
+                  </VStack>
+                </HStack>
+
+                <HStack justify="space-between">
+                  <Text fontSize="xs" color="gray.500">{formatDate(costEstimate.createdAt)}</Text>
+                  <HStack spacing={1}>
+                    <IconButton
+                      aria-label="Otwórz kosztorys"
+                      icon={<Eye size={14} />}
+                      size="xs"
+                      colorScheme="primary"
+                      variant="ghost"
+                      onClick={() => handleViewCostEstimate(costEstimate.id)}
+                    />
+                    {canShare && (
+                      <IconButton
+                        aria-label="Udostępnij kosztorys"
+                        icon={<Share2 size={14} />}
+                        size="xs"
+                        colorScheme="action"
+                        variant="ghost"
+                        onClick={() => handleShareCostEstimate(costEstimate)}
+                      />
+                    )}
+                    {canCopy && (
+                      <IconButton
+                        aria-label="Kopiuj kosztorys"
+                        icon={<Copy size={14} />}
+                        size="xs"
+                        colorScheme="level2"
+                        variant="ghost"
+                        onClick={() => handleCopyCostEstimate(costEstimate)}
+                      />
+                    )}
+                    {canDelete && (
+                      <IconButton
+                        aria-label="Usuń kosztorys"
+                        icon={<Trash2 size={14} />}
+                        size="xs"
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={() => handleDeleteCostEstimate(costEstimate)}
+                      />
+                    )}
+                  </HStack>
+                </HStack>
+              </VStack>
+            </Box>
+          ))
+        )}
+      </VStack>
+    );
+  }
 
   return (
     <VStack spacing={4} align="stretch">
@@ -164,14 +264,14 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                         <Text>{costEstimate.name}</Text>
                         {costEstimate.isSharedByMe && (
                           <Tooltip label={`Udostępniono ${costEstimate.sharedWithUsers?.length ?? 0} osobom`}>
-                            <Badge colorScheme="purple" fontSize="2xs" display="flex" alignItems="center" gap={1}>
+                            <Badge colorScheme="level2" fontSize="2xs" display="flex" alignItems="center" gap={1}>
                               <Users size={10} />
                               {costEstimate.sharedWithUsers?.length ?? 0}
                             </Badge>
                           </Tooltip>
                         )}
                         {costEstimate.isSharedWithMe && (
-                          <Badge colorScheme="teal" fontSize="2xs">Udostępniony</Badge>
+                          <Badge colorScheme="action" fontSize="2xs">Udostępniony</Badge>
                         )}
                       </HStack>
                       {costEstimate.description && (
@@ -215,7 +315,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                           aria-label="Otwórz"
                           icon={<Eye size={14} />}
                           size="xs"
-                          colorScheme="blue"
+                          colorScheme="primary"
                           variant="ghost"
                           onClick={() => handleViewCostEstimate(costEstimate.id)}
                         />
@@ -226,7 +326,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                             aria-label="Udostępnij"
                             icon={<Share2 size={14} />}
                             size="xs"
-                            colorScheme="teal"
+                            colorScheme="action"
                             variant="ghost"
                             onClick={() => handleShareCostEstimate(costEstimate)}
                           />
@@ -238,7 +338,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                             aria-label="Kopiuj"
                             icon={<Copy size={14} />}
                             size="xs"
-                            colorScheme="purple"
+                            colorScheme="level2"
                             variant="ghost"
                             onClick={() => handleCopyCostEstimate(costEstimate)}
                           />
@@ -281,7 +381,6 @@ export default function ProjectCosts() {
   const [costEstimateToDelete, setCostEstimateToDelete] = useState<CostEstimateListItemWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const hasFetchedProjectData = useRef(false);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
@@ -471,7 +570,7 @@ export default function ProjectCosts() {
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
-            <Icon as={FileText} boxSize={8} color="blue.600" />
+            <Icon as={FileText} boxSize={8} color="primary.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Kosztorysy projektowe</Heading>
               {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
@@ -480,7 +579,7 @@ export default function ProjectCosts() {
           {(resourcePerms.mine.canCreate || resourcePerms.all.canCreate) && (
             <Button
               leftIcon={<Plus size={18} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={onCreateModalOpen}
             >
               Nowy kosztorys
@@ -497,14 +596,14 @@ export default function ProjectCosts() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
+          <Tabs colorScheme="primary" variant="enclosed" onChange={setActiveTabIndex}>
             <TabList>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Wszystkie</Text>
-                    <Badge colorScheme="purple" ml={1}>{allCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="level2" ml={1}>{allCostEstimatesCache.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -513,7 +612,7 @@ export default function ProjectCosts() {
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Moje</Text>
-                    <Badge colorScheme="blue" ml={1}>{myCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="primary" ml={1}>{myCostEstimatesCache.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -522,7 +621,7 @@ export default function ProjectCosts() {
                   <HStack spacing={2}>
                     <Icon as={Users} boxSize={4} />
                     <Text>Udostępnione</Text>
-                    <Badge colorScheme="teal" ml={1}>{sharedCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="action" ml={1}>{sharedCostEstimatesCache.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -607,37 +706,13 @@ export default function ProjectCosts() {
           />
         )}
         {/* MODAL: DELETE COST ESTIMATE */}
-        <AlertDialog
+        <DeleteAlertDialog
           isOpen={isDeleteModalOpen}
-          leastDestructiveRef={cancelDeleteRef}
           onClose={onDeleteModalClose}
-          isCentered
-        >
-          <AlertDialogOverlay>
-            <AlertDialogContent>
-              <AlertDialogHeader fontSize="lg" fontWeight="bold">
-                Usuń kosztorys
-              </AlertDialogHeader>
-              <AlertDialogBody>
-                Czy na pewno chcesz usunąć kosztorys{" "}
-                <strong>{costEstimateToDelete?.name}</strong>? Tej operacji nie można cofnąć.
-              </AlertDialogBody>
-              <AlertDialogFooter gap={2}>
-                <Button ref={cancelDeleteRef} onClick={onDeleteModalClose} isDisabled={isDeleting}>
-                  Anuluj
-                </Button>
-                <Button
-                  colorScheme="red"
-                  onClick={handleDeleteConfirm}
-                  isLoading={isDeleting}
-                  loadingText="Usuwanie..."
-                >
-                  Usuń
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialogOverlay>
-        </AlertDialog>
+          onConfirm={handleDeleteConfirm}
+          itemName={costEstimateToDelete?.name}
+          isLoading={isDeleting}
+        />
       </Box>
     </MainLayout>
   );

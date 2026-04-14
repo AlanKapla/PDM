@@ -232,6 +232,7 @@ export const projectApi = {
         name: string;
         order: number;
         works: Array<{
+          tempId?: string;
           name: string;
           order: number;
           colorRgb: string;
@@ -248,6 +249,14 @@ export const projectApi = {
         }>;
         children?: any[];
       }>;
+      dependencies?: Array<{
+        predecessorDbId?: string;
+        predecessorTempId?: string;
+        successorDbId?: string;
+        successorTempId?: string;
+        dependencyType: number;
+        lagDays: number;
+      }>;
     }
   ) => {
     return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/work-schedule`, {
@@ -256,6 +265,7 @@ export const projectApi = {
       name: command.name,
       costEstimateId: command.costEstimateId ?? null,
       stages: command.stages,
+      dependencies: command.dependencies,
     });
   },
 
@@ -290,6 +300,7 @@ export const projectApi = {
         order: number;
         works: Array<{
           id?: string;
+          tempId?: string;
           name: string;
           order: number;
           colorRgb: string;
@@ -308,6 +319,14 @@ export const projectApi = {
         }>;
         children?: any[];
       }>;
+      dependencies?: Array<{
+        predecessorDbId?: string;
+        predecessorTempId?: string;
+        successorDbId?: string;
+        successorTempId?: string;
+        dependencyType: number;
+        lagDays: number;
+      }>;
     }
   ) => {
     return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}`, {
@@ -316,12 +335,18 @@ export const projectApi = {
       workScheduleId,
       name: command.name,
       stages: command.stages,
+      dependencies: command.dependencies,
     });
   },
 
   // Usuń harmonogram prac
   deleteWorkSchedule: async (tenantId: string, projectId: string, workScheduleId: string) => {
     return axiosClient.delete(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}`);
+  },
+
+  // Synchronizuj harmonogram z powiązanym kosztorysem
+  syncWorkScheduleWithEstimate: async (tenantId: string, projectId: string, workScheduleId: string) => {
+    return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/work-schedule/${workScheduleId}/sync-with-estimate`);
   },
 
   // Pobierz prace przypisane do użytkownika (cross-tenant)
@@ -370,9 +395,9 @@ export const projectApi = {
     if (data.place) formData.append("Place", data.place);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
-    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString().replace('.', ','));
-    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString().replace('.', ','));
-    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString().replace('.', ','));
+    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
+    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString());
+    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
     if (data.isClosed !== undefined) formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
 
@@ -392,10 +417,12 @@ export const projectApi = {
       date: Date;
       description?: string;
       netAmount?: number | null;
-      vatRate?: number | null;
       grossAmount?: number | null;
       isClosed: boolean;
+      /** Nowy dokument – gdy koszt nie miał wcześniej pliku */
       document?: File;
+      /** Nowy plik zastępujący istniejący dokument */
+      updatedDocument?: File;
       removeDocument: boolean;
     }
   ) => {
@@ -407,11 +434,11 @@ export const projectApi = {
     if (data.place) formData.append("Place", data.place);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
-    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString().replace('.', ','));
-    if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString().replace('.', ','));
-    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString().replace('.', ','));
+    if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
+    if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
     formData.append("IsClosed", data.isClosed.toString());
     if (data.document) formData.append("Document", data.document);
+    if (data.updatedDocument) formData.append("UpdatedDocument", data.updatedDocument);
     formData.append("RemoveDocument", data.removeDocument.toString());
 
     return axiosClient.put(`/tenants/${tenantId}/project/${projectId}/cost/${costId}`, formData, {

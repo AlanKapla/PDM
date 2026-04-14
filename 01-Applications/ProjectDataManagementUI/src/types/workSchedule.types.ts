@@ -1,3 +1,28 @@
+// Typ zależności między zakresami prac
+export enum WorkDependencyType {
+  FinishToStart = 0,
+  StartToStart = 1,
+  FinishToFinish = 2,
+  StartToFinish = 3,
+}
+
+export const WorkDependencyTypeLabels: Record<WorkDependencyType, string> = {
+  [WorkDependencyType.FinishToStart]: 'FS – Koniec → Start',
+  [WorkDependencyType.StartToStart]: 'SS – Start → Start',
+  [WorkDependencyType.FinishToFinish]: 'FF – Koniec → Koniec',
+  [WorkDependencyType.StartToFinish]: 'SF – Start → Koniec',
+};
+
+// Zależność — DTO wejściowe (żądanie)
+export interface WorkScheduleWorkDependencyDto {
+  predecessorDbId?: string;
+  predecessorTempId?: string;
+  successorDbId?: string;
+  successorTempId?: string;
+  dependencyType: WorkDependencyType;
+  lagDays: number;
+}
+
 // Request DTOs
 export interface CreateWorkPeriodDto {
   startDate: string;
@@ -10,9 +35,11 @@ export interface CreateWorkCommentDto {
 }
 
 export interface CreateWorkDto {
+  tempId?: string;
   name: string;
   order: number;
   colorRgb: string;
+  isClosed: boolean;
   periods: CreateWorkPeriodDto[];
   assignedUserIds: string[];
   comments: CreateWorkCommentDto[];
@@ -31,6 +58,7 @@ export interface CreateWorkScheduleCommand {
   name: string;
   costEstimateId?: string | null;
   stages: CreateStageDto[];
+  dependencies?: WorkScheduleWorkDependencyDto[];
 }
 
 export interface UpdateWorkPeriodDto {
@@ -47,6 +75,7 @@ export interface UpdateWorkCommentDto {
 
 export interface UpdateWorkDto {
   id?: string;
+  tempId?: string;
   name: string;
   order: number;
   colorRgb: string;
@@ -70,6 +99,7 @@ export interface UpdateWorkScheduleCommand {
   workScheduleId: string;
   name: string;
   stages: UpdateStageDto[];
+  dependencies?: WorkScheduleWorkDependencyDto[];
 }
 
 // Response Web Models
@@ -82,6 +112,14 @@ export interface WorkScheduleSummaryWeb {
   createdByUserName: string;
 }
 
+export interface WorkScheduleWorkDependencyWeb {
+  id: string;
+  predecessorWorkId: string;
+  successorWorkId: string;
+  dependencyType: WorkDependencyType;
+  lagDays: number;
+}
+
 export interface WorkScheduleDetailsWeb {
   id: string;
   tenantId: string;
@@ -92,6 +130,7 @@ export interface WorkScheduleDetailsWeb {
   createdByUserId: string;
   createdByUserName: string;
   stages: WorkScheduleStageWeb[];
+  dependencies: WorkScheduleWorkDependencyWeb[];
 }
 
 export interface WorkScheduleStageWeb {

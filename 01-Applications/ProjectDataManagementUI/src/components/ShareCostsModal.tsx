@@ -14,7 +14,6 @@ import {
   AlertIcon,
   Box,
   HStack,
-  useToast,
   Divider,
   Checkbox,
   Spinner,
@@ -24,6 +23,7 @@ import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectCostListItemWeb } from "../types/project.types";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ShareCostsModalProps {
   isOpen: boolean;
@@ -47,7 +47,7 @@ export default function ShareCostsModal({
   const [loading, setLoading] = useState(false);
   const [loadingCosts, setLoadingCosts] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -231,9 +231,9 @@ export default function ShareCostsModal({
                       borderRadius="md"
                       borderWidth="1px"
                       cursor="pointer"
-                      bg={selectedCostIds.has(cost.id) ? "blue.50" : "transparent"}
-                      borderColor={selectedCostIds.has(cost.id) ? "blue.300" : "gray.200"}
-                      _hover={{ bg: selectedCostIds.has(cost.id) ? "blue.100" : "gray.50" }}
+                      bg={selectedCostIds.has(cost.id) ? "primary.50" : "transparent"}
+                      borderColor={selectedCostIds.has(cost.id) ? "primary.300" : "gray.200"}
+                      _hover={{ bg: selectedCostIds.has(cost.id) ? "primary.100" : "gray.50" }}
                       onClick={() => toggleCostSelection(cost.id)}
                     >
                       <Checkbox
@@ -288,8 +288,8 @@ export default function ShareCostsModal({
                       p={2}
                       borderRadius="md"
                       cursor="pointer"
-                      bg={selectedUserIds.has(member.userId) ? "blue.50" : "transparent"}
-                      _hover={{ bg: selectedUserIds.has(member.userId) ? "blue.100" : "gray.50" }}
+                      bg={selectedUserIds.has(member.userId) ? "primary.50" : "transparent"}
+                      _hover={{ bg: selectedUserIds.has(member.userId) ? "primary.100" : "gray.50" }}
                       onClick={() => toggleUserSelection(member.userId)}
                     >
                       <Checkbox
@@ -330,7 +330,7 @@ export default function ShareCostsModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleShare}
             isLoading={loading}
             loadingText="Udostępnianie..."

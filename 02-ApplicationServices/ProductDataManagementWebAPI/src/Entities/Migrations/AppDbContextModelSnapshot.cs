@@ -373,6 +373,9 @@ namespace Entities.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("CostTrackerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -431,6 +434,10 @@ namespace Entities.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CostTrackerId")
+                        .IsUnique()
+                        .HasFilter("[CostTrackerId] IS NOT NULL");
 
                     b.HasIndex("CreatedAt");
 
@@ -541,6 +548,10 @@ namespace Entities.Migrations
                     b.Property<int>("Level")
                         .HasColumnType("int");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
@@ -649,6 +660,10 @@ namespace Entities.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("NetValue")
                         .HasPrecision(18, 2)
@@ -777,6 +792,175 @@ namespace Entities.Migrations
                     b.HasIndex("TenantId", "ProjectId", "SharedWithUserId");
 
                     b.ToTable("SharedCostEstimates");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.CostTracker", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<decimal?>("BudgetGross")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("BudgetNet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("CostTrackers");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.ProjectCostTrackedCostLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<DateTime>("LinkedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ProjectCostId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TrackedCostId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectCostId")
+                        .IsUnique();
+
+                    b.HasIndex("TrackedCostId")
+                        .IsUnique();
+
+                    b.ToTable("ProjectCostTrackedCostLinks");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.TrackedCost", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<string>("Contractor")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid?>("CostEstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CostEstimateItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal?>("Gross")
+                        .HasColumnType("decimal(15,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal?>("Net")
+                        .HasColumnType("decimal(15,2)");
+
+                    b.Property<Guid>("TrackerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CostEstimateItemId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("TrackerId");
+
+                    b.ToTable("TrackedCosts");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.TrackedCostAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<string>("BlobName")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("TrackedCostId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("TrackedCostId");
+
+                    b.ToTable("TrackedCostAttachments");
                 });
 
             modelBuilder.Entity("Entities.Models.MessageHistory", b =>
@@ -925,6 +1109,9 @@ namespace Entities.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("CostTrackerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -943,6 +1130,9 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CostTrackerId")
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "CreatedByUserId");
 
@@ -983,7 +1173,7 @@ namespace Entities.Migrations
                     b.Property<long?>("DocumentSizeBytes")
                         .HasColumnType("bigint");
 
-                    b.Property<decimal>("GrossAmount")
+                    b.Property<decimal?>("GrossAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -1022,10 +1212,6 @@ namespace Entities.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal?>("VatRate")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
@@ -1821,6 +2007,9 @@ namespace Entities.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1830,6 +2019,8 @@ namespace Entities.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CostEstimateItemId");
+
+                    b.HasIndex("TenantId", "ProjectId");
 
                     b.HasIndex("WorkScheduleStageId", "Order");
 
@@ -1887,6 +2078,51 @@ namespace Entities.Migrations
                     b.HasIndex("WorkScheduleStageWorkId", "CreatedAt");
 
                     b.ToTable("WorkScheduleStageWorkComments");
+                });
+
+            modelBuilder.Entity("Entities.Models.WorkScheduleStageWorkDependency", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DependencyType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LagDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid>("PredecessorWorkId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SuccessorWorkId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkScheduleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PredecessorWorkId");
+
+                    b.HasIndex("SuccessorWorkId");
+
+                    b.HasIndex("TenantId", "ProjectId");
+
+                    b.HasIndex("TenantId", "WorkScheduleId");
+
+                    b.HasIndex("WorkScheduleId", "PredecessorWorkId", "SuccessorWorkId", "DependencyType")
+                        .IsUnique();
+
+                    b.ToTable("WorkScheduleStageWorkDependencies");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateGroupFieldDefinition", b =>
@@ -2035,6 +2271,11 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>
                 {
+                    b.HasOne("Entities.Models.CostTrackers.CostTracker", "CostTracker")
+                        .WithOne("CostEstimate")
+                        .HasForeignKey("Entities.Models.CostEstimates.CostEstimate", "CostTrackerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Entities.Models.User", "Owner")
                         .WithMany()
                         .HasForeignKey("OwnerId")
@@ -2064,6 +2305,8 @@ namespace Entities.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CostTracker");
 
                     b.Navigation("Owner");
 
@@ -2244,6 +2487,54 @@ namespace Entities.Migrations
                     b.Navigation("SharedWithUser");
                 });
 
+            modelBuilder.Entity("Entities.Models.CostTrackers.ProjectCostTrackedCostLink", b =>
+                {
+                    b.HasOne("Entities.Models.ProjectCost", "ProjectCost")
+                        .WithOne("TrackerLink")
+                        .HasForeignKey("Entities.Models.CostTrackers.ProjectCostTrackedCostLink", "ProjectCostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.CostTrackers.TrackedCost", "TrackedCost")
+                        .WithOne("ProjectCostLink")
+                        .HasForeignKey("Entities.Models.CostTrackers.ProjectCostTrackedCostLink", "TrackedCostId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ProjectCost");
+
+                    b.Navigation("TrackedCost");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.TrackedCost", b =>
+                {
+                    b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "CostEstimateItem")
+                        .WithMany("TrackedCosts")
+                        .HasForeignKey("CostEstimateItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Entities.Models.CostTrackers.CostTracker", "Tracker")
+                        .WithMany("TrackedCosts")
+                        .HasForeignKey("TrackerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CostEstimateItem");
+
+                    b.Navigation("Tracker");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.TrackedCostAttachment", b =>
+                {
+                    b.HasOne("Entities.Models.CostTrackers.TrackedCost", "TrackedCost")
+                        .WithMany("Attachments")
+                        .HasForeignKey("TrackedCostId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TrackedCost");
+                });
+
             modelBuilder.Entity("Entities.Models.MessageHistory", b =>
                 {
                     b.HasOne("Entities.Models.Chat", "Chat")
@@ -2281,6 +2572,12 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.Project", b =>
                 {
+                    b.HasOne("Entities.Models.CostTrackers.CostTracker", "CostTracker")
+                        .WithOne()
+                        .HasForeignKey("Entities.Models.Project", "CostTrackerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Entities.Models.Tenant", "Tenant")
                         .WithMany("Projects")
                         .HasForeignKey("TenantId")
@@ -2292,6 +2589,8 @@ namespace Entities.Migrations
                         .HasForeignKey("TenantId", "CreatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CostTracker");
 
                     b.Navigation("CreatedBy");
 
@@ -2667,7 +2966,7 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.WorkSchedule", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimates.CostEstimate", "CostEstimate")
-                        .WithMany()
+                        .WithMany("WorkSchedules")
                         .HasForeignKey("CostEstimateId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -2693,7 +2992,7 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.WorkScheduleStage", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimates.CostEstimateGroup", "CostEstimateGroup")
-                        .WithMany()
+                        .WithMany("WorkScheduleStages")
                         .HasForeignKey("CostEstimateGroupId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -2718,7 +3017,7 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.WorkScheduleStageWork", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "CostEstimateItem")
-                        .WithMany()
+                        .WithMany("WorkScheduleStageWorks")
                         .HasForeignKey("CostEstimateItemId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -2801,6 +3100,33 @@ namespace Entities.Migrations
                     b.Navigation("Work");
                 });
 
+            modelBuilder.Entity("Entities.Models.WorkScheduleStageWorkDependency", b =>
+                {
+                    b.HasOne("Entities.Models.WorkScheduleStageWork", "PredecessorWork")
+                        .WithMany("PredecessorDependencies")
+                        .HasForeignKey("PredecessorWorkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.WorkScheduleStageWork", "SuccessorWork")
+                        .WithMany("SuccessorDependencies")
+                        .HasForeignKey("SuccessorWorkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.WorkSchedule", "WorkSchedule")
+                        .WithMany("Dependencies")
+                        .HasForeignKey("WorkScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PredecessorWork");
+
+                    b.Navigation("SuccessorWork");
+
+                    b.Navigation("WorkSchedule");
+                });
+
             modelBuilder.Entity("Entities.Models.CostEstimateTemplates.CostEstimateTemplateGroupFieldDefinition", b =>
                 {
                     b.HasOne("Entities.Models.CostEstimateTemplates.CostEstimateTemplate", "Template")
@@ -2879,6 +3205,8 @@ namespace Entities.Migrations
                     b.Navigation("AllGroups");
 
                     b.Navigation("AllItems");
+
+                    b.Navigation("WorkSchedules");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateGroup", b =>
@@ -2888,16 +3216,36 @@ namespace Entities.Migrations
                     b.Navigation("FieldValues");
 
                     b.Navigation("Items");
+
+                    b.Navigation("WorkScheduleStages");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItem", b =>
                 {
                     b.Navigation("FieldValues");
+
+                    b.Navigation("TrackedCosts");
+
+                    b.Navigation("WorkScheduleStageWorks");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimateItemFieldValue", b =>
                 {
                     b.Navigation("Files");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.CostTracker", b =>
+                {
+                    b.Navigation("CostEstimate");
+
+                    b.Navigation("TrackedCosts");
+                });
+
+            modelBuilder.Entity("Entities.Models.CostTrackers.TrackedCost", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("ProjectCostLink");
                 });
 
             modelBuilder.Entity("Entities.Models.Permission", b =>
@@ -2915,6 +3263,8 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.ProjectCost", b =>
                 {
                     b.Navigation("SharedWith");
+
+                    b.Navigation("TrackerLink");
                 });
 
             modelBuilder.Entity("Entities.Models.ProjectFile", b =>
@@ -2972,6 +3322,8 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.WorkSchedule", b =>
                 {
+                    b.Navigation("Dependencies");
+
                     b.Navigation("Stages");
                 });
 
@@ -2987,6 +3339,10 @@ namespace Entities.Migrations
                     b.Navigation("Assignments");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("PredecessorDependencies");
+
+                    b.Navigation("SuccessorDependencies");
                 });
 #pragma warning restore 612, 618
         }

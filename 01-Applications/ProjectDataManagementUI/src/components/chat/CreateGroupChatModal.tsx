@@ -122,7 +122,7 @@ export default function CreateGroupChatModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
+    <Modal isOpen={isOpen} onClose={onClose} isCentered size={{ base: "full", md: "md" }}>
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Nowa grupa</ModalHeader>
@@ -166,7 +166,7 @@ export default function CreateGroupChatModal({
               <Wrap spacing={2}>
                 {selectedMembers.map((m) => (
                   <WrapItem key={m.userId}>
-                    <Tag size="sm" colorScheme="blue" borderRadius="full">
+                    <Tag size="sm" colorScheme="primary" borderRadius="full">
                       <TagLabel>
                         {m.firstName} {m.lastName}
                       </TagLabel>
@@ -220,7 +220,7 @@ export default function CreateGroupChatModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             isDisabled={!groupName.trim() || selectedUserIds.length === 0}
             isLoading={submitting}
             onClick={handleSubmit}

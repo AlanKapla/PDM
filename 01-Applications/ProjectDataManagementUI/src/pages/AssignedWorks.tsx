@@ -92,16 +92,16 @@ export default function AssignedWorks() {
   const warningBg = useColorModeValue("yellow.50", "yellow.900");
   const completedBg = useColorModeValue("green.50", "green.900");
   const sidebarBg = useColorModeValue("gray.50", "gray.900");
-  const selectedBg = useColorModeValue("purple.100", "purple.700");
-  const selectedHoverBg = useColorModeValue("purple.200", "purple.600");
+  const selectedBg = useColorModeValue("level2.100", "level2.700");
+  const selectedHoverBg = useColorModeValue("level2.200", "level2.600");
   const navHoverBg = useColorModeValue("gray.100", "gray.700");
   const theadBg = useColorModeValue("gray.50", "gray.700");
-  const todayBg = useColorModeValue("blue.100", "blue.800");
-  const projectRowBg = useColorModeValue("purple.100", "purple.800");
-  const projectRowHoverBg = useColorModeValue("purple.200", "purple.700");
-  const scheduleRowBg = useColorModeValue("cyan.50", "cyan.900");
-  const scheduleRowHoverBg = useColorModeValue("cyan.100", "cyan.800");
-  const stageRowBg = useColorModeValue("blue.50", "blue.900");
+  const todayBg = useColorModeValue("primary.100", "primary.800");
+  const projectRowBg = useColorModeValue("level2.100", "level2.800");
+  const projectRowHoverBg = useColorModeValue("level2.200", "level2.700");
+  const scheduleRowBg = useColorModeValue("action.50", "action.900");
+  const scheduleRowHoverBg = useColorModeValue("action.100", "action.800");
+  const stageRowBg = useColorModeValue("primary.50", "primary.900");
 
   useEffect(() => {
     const fetchAssignedWorks = async () => {
@@ -446,7 +446,7 @@ export default function AssignedWorks() {
                           {tenant.activeWorksCount > 0 && (
                             <Tooltip label={`Aktywne prace: ${tenant.activeWorksCount}`}>
                               <Badge
-                                colorScheme="purple"
+                                colorScheme="level2"
                                 fontSize="2xs"
                                 borderRadius="full"
                                 px={1.5}
@@ -672,8 +672,8 @@ export default function AssignedWorks() {
                                 bg={isTodayCol ? todayBg : undefined}
                                 borderLeftWidth={isTodayCol ? "2px" : undefined}
                                 borderRightWidth={isTodayCol ? "2px" : undefined}
-                                borderColor={isTodayCol ? "blue.500" : undefined}
-                                color={isTodayCol ? "blue.700" : undefined}
+                                borderColor={isTodayCol ? "primary.500" : undefined}
+                                color={isTodayCol ? "primary.700" : undefined}
                               >
                                 <Text fontSize="2xs" whiteSpace="pre-line">
                                   {formatTimelineDate(date)}
@@ -935,7 +935,7 @@ export default function AssignedWorks() {
                                                     position="relative"
                                                     borderLeftWidth={isTodayCol ? "2px" : undefined}
                                                     borderRightWidth={isTodayCol ? "2px" : undefined}
-                                                    borderColor={isTodayCol ? "blue.500" : undefined}
+                                                    borderColor={isTodayCol ? "primary.500" : undefined}
                                                   >
                                                     {isActive && (
                                                       <Tooltip

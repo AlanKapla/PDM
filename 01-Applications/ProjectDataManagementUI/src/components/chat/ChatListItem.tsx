@@ -22,7 +22,7 @@ export default function ChatListItem({
   currentUserId,
   onClick,
 }: ChatListItemProps) {
-  const activeBg = useColorModeValue("blue.50", "blue.900");
+  const activeBg = useColorModeValue("primary.50", "primary.900");
   const hoverBg = useColorModeValue("gray.100", "gray.700");
   const mutedColor = useColorModeValue("gray.500", "gray.400");
 
@@ -64,7 +64,7 @@ export default function ChatListItem({
             {displayName}
           </Text>
           {chat.unreadCount > 0 && (
-            <Badge colorScheme="blue" borderRadius="full" fontSize="xs" flexShrink={0}>
+            <Badge colorScheme="primary" borderRadius="full" fontSize="xs" flexShrink={0}>
               {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
             </Badge>
           )}

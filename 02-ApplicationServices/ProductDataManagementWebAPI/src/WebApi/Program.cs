@@ -41,6 +41,8 @@ internal class Program
 
         app.UseWebSockets();
 
+        app.UseRequestLocalization();
+
         app.UseRouting();
 
         if(!builder.Environment.IsDevelopment())

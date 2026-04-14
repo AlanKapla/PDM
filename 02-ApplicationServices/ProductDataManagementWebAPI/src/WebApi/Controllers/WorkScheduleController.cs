@@ -3,6 +3,7 @@ using CQRS.WorkSchedules.CreateWorkSchedule;
 using CQRS.WorkSchedules.DeleteWorkSchedule;
 using CQRS.WorkSchedules.GetWorkSchedules;
 using CQRS.WorkSchedules.GetWorkSchedule;
+using CQRS.WorkSchedules.SyncWorkScheduleWithEstimate;
 using CQRS.WorkSchedules.UpdateWorkSchedule;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -93,6 +94,25 @@ namespace WebApi.Controllers
             var query = new GetWorkScheduleQuery(tenantId, projectId, workScheduleId);
             var result = await Send(query);
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Synchronizes a work schedule with its linked cost estimate.
+        /// Requires the work schedule to be linked to a cost estimate and full access to it.
+        /// </summary>
+        /// <param name="tenantId">The tenant ID</param>
+        /// <param name="projectId">The project ID</param>
+        /// <param name="workScheduleId">The work schedule ID</param>
+        [HttpPost("{workScheduleId}/sync-with-estimate")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> SyncWorkScheduleWithEstimate(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId)
+        {
+            var command = new SyncWorkScheduleWithEstimateCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
+            await Send(command);
+            return NoContent();
         }
 
         /// <summary>

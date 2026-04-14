@@ -165,7 +165,6 @@ export interface ProjectCostListItemWeb {
   date: string;
   description?: string;
   netAmount?: number;
-  vatRate?: number;
   grossAmount: number;
   isClosed: boolean;
   hasDocument: boolean;
@@ -184,7 +183,6 @@ export interface CreateProjectCostCommand {
   date: string;
   description?: string;
   netAmount?: number;
-  vatRate?: number;
   grossAmount?: number;
   isClosed?: boolean;
   document?: File;
@@ -199,10 +197,12 @@ export interface UpdateProjectCostCommand {
   date: string;
   description?: string;
   netAmount?: number;
-  vatRate?: number;
   grossAmount?: number;
   isClosed: boolean;
+  /** Nowy dokument dołączany do kosztu który nie miał wcześniej pliku */
   document?: File;
+  /** Nowy plik zastępujący istniejący dokument */
+  updatedDocument?: File;
   removeDocument: boolean;
 }
 

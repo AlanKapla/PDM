@@ -91,7 +91,7 @@ export const WorkScopeEditor: React.FC<WorkScopeEditorProps> = ({
           <HStack spacing={2}>
             <Text>{field.label}</Text>
             {isAutoCalculated(field.name) && (
-              <Badge colorScheme="blue" fontSize="xs">
+              <Badge colorScheme="primary" fontSize="xs">
                 Auto
               </Badge>
             )}
@@ -134,7 +134,7 @@ export const WorkScopeEditor: React.FC<WorkScopeEditorProps> = ({
 
         {/* Display formatted value for auto-calculated fields */}
         {isAutoCalculated(field.name) && value !== null && value !== undefined && (
-          <Text fontSize="sm" color="blue.600" mt={1}>
+          <Text fontSize="sm" color="primary.600" mt={1}>
             = {formatCalculatedValue(value, field.displayFormat, field.unit)}
           </Text>
         )}
@@ -212,7 +212,7 @@ export const WorkScopeEditor: React.FC<WorkScopeEditorProps> = ({
         {calculatedFields.some(f => f.summable) && (
           <>
             <Divider />
-            <Box bg="blue.50" p={3} borderRadius="md">
+            <Box bg="primary.50" p={3} borderRadius="md">
               <Text fontWeight="bold" fontSize="sm" mb={2}>
                 Podsumowanie
               </Text>

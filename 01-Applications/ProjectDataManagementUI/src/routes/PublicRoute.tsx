@@ -11,7 +11,7 @@ export default function PublicRoute({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <Flex justify="center" align="center" minH="100vh">
-        <Spinner size="xl" color="blue.500" thickness="4px" />
+        <Spinner size="xl" color="primary.500" thickness="4px" />
       </Flex>
     );
   }

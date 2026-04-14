@@ -22,7 +22,6 @@ import {
   Text,
   useColorModeValue,
   useDisclosure,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
 import { Building2, Mail, Plus } from "lucide-react";
@@ -36,6 +35,7 @@ import {
 } from "../services/tenantService";
 import type { TenantInvitationWeb, UserTenant } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access";
 
@@ -51,7 +51,7 @@ interface PendingInvitationsScreenProps {
 function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitationsScreenProps) {
   const [accepting, setAccepting] = useState<string | null>(null);
   const [localInvitations, setLocalInvitations] = useState(invitations);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
 
   useEffect(() => {
     // Synchronizujemy lokalny stan z propsami, aby uniknąć niespójności UI
@@ -62,7 +62,7 @@ function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitation
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const mutedText = useColorModeValue("gray.600", "gray.400");
-  const iconBg = useColorModeValue("blue.50", "blue.900");
+  const iconBg = useColorModeValue("primary.50", "primary.900");
 
   const handleAccept = async (inv: TenantInvitationWeb) => {
     setAccepting(inv.invitationId);
@@ -155,7 +155,7 @@ function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitation
                       )}
                     </VStack>
                     <Button
-                      colorScheme="blue"
+                      colorScheme="primary"
                       size="sm"
                       flexShrink={0}
                       isLoading={accepting === inv.invitationId}
@@ -195,16 +195,16 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
   const [nameError, setNameError] = useState("");
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
 
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const mutedText = useColorModeValue("gray.600", "gray.400");
-  const hintBg = useColorModeValue("blue.50", "blue.900");
-  const hintBorder = useColorModeValue("blue.100", "blue.700");
-  const hintTextHeading = useColorModeValue("blue.700", "blue.200");
-  const hintTextBody = useColorModeValue("blue.600", "blue.300");
+  const hintBg = useColorModeValue("primary.50", "primary.900");
+  const hintBorder = useColorModeValue("primary.100", "primary.700");
+  const hintTextHeading = useColorModeValue("primary.700", "primary.200");
+  const hintTextBody = useColorModeValue("primary.600", "primary.300");
   const iconBg = useColorModeValue("gray.100", "gray.700");
 
   const handleCreate = async () => {
@@ -308,7 +308,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
           <VStack spacing={4} w="full">
             <Button
               leftIcon={<Plus size={18} />}
-              colorScheme="blue"
+              colorScheme="primary"
               size="lg"
               w="full"
               onClick={onOpen}
@@ -345,7 +345,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
       </Box>
 
       {/* Create organisation modal */}
-      <Modal isOpen={isOpen} onClose={handleModalClose} isCentered>
+      <Modal isOpen={isOpen} onClose={handleModalClose} isCentered size={{ base: "full", md: "md" }}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Utwórz organizację</ModalHeader>
@@ -372,7 +372,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
             <Button variant="ghost" onClick={handleModalClose} isDisabled={creating}>
               Anuluj
             </Button>
-            <Button colorScheme="blue" onClick={handleCreate} isLoading={creating}>
+            <Button colorScheme="primary" onClick={handleCreate} isLoading={creating}>
               Utwórz
             </Button>
           </ModalFooter>
@@ -465,7 +465,7 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
     return (
       <Flex justify="center" align="center" minH="100vh">
         <VStack spacing={4}>
-          <Spinner size="xl" color="blue.500" thickness="4px" />
+          <Spinner size="xl" color="primary.500" thickness="4px" />
           <Text color="gray.500">Sprawdzanie dostępu...</Text>
         </VStack>
       </Flex>

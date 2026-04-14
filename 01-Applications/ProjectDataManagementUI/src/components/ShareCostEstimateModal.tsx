@@ -18,7 +18,6 @@ import {
   Checkbox,
   Spinner,
   Avatar,
-  useToast,
   Divider,
 } from "@chakra-ui/react";
 import { Share2, Users, Lock } from "lucide-react";
@@ -27,6 +26,7 @@ import { costEstimateApi } from "../api/costEstimateApi";
 import { handleApiError } from "../utils/handleApiError";
 import type { ProjectMemberWeb } from "../types/project.types";
 import type { CostEstimateShareWeb } from "../types/costEstimate.types.new";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ShareCostEstimateModalProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export default function ShareCostEstimateModal({
   currentSharedUsers,
   onShareUpdated,
 }: ShareCostEstimateModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
 
   const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -79,13 +79,7 @@ export default function ShareCostEstimateModal({
       const excludeIds = new Set([ownerId, currentUserId].filter(Boolean));
       setMembers(data.filter((m) => m.userId && !excludeIds.has(m.userId)));
     } catch {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać listy członków projektu",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-      });
+      showError("Błąd", "Nie udało się pobrać listy członków projektu");
     } finally {
       setLoadingMembers(false);
     }
@@ -113,18 +107,12 @@ export default function ShareCostEstimateModal({
         costEstimateId,
         Array.from(selectedUserIds)
       );
-      toast({
-        title: "Sukces",
-        description: "Udostępnienie kosztorysu zaktualizowane",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+      showSuccess("Sukces", "Udostępnienie kosztorysu zaktualizowane");
       onShareUpdated();
       onClose();
     } catch (err) {
       const { title, description } = handleApiError(err);
-      toast({ title, description, status: "error", duration: 5000, isClosable: true });
+      showError(title, description);
     } finally {
       setSaving(false);
     }
@@ -161,7 +149,7 @@ export default function ShareCostEstimateModal({
               <Text fontSize="sm" color="gray.500" mb={1}>
                 Kosztorys:
               </Text>
-              <Badge colorScheme="blue" fontSize="sm" px={3} py={1} borderRadius="md">
+              <Badge colorScheme="primary" fontSize="sm" px={3} py={1} borderRadius="md">
                 {costEstimateName}
               </Badge>
             </Box>
@@ -191,7 +179,7 @@ export default function ShareCostEstimateModal({
                     </HStack>
                   </Text>
                   {selectedUserIds.size > 0 && (
-                    <Badge colorScheme="blue" fontSize="xs">
+                    <Badge colorScheme="primary" fontSize="xs">
                       Wybrano: {selectedUserIds.size}
                     </Badge>
                   )}
@@ -215,15 +203,15 @@ export default function ShareCostEstimateModal({
                         p={2}
                         borderRadius="md"
                         cursor="pointer"
-                        bg={isSelected ? "blue.50" : "transparent"}
-                        _hover={{ bg: isSelected ? "blue.100" : "gray.50" }}
+                        bg={isSelected ? "primary.50" : "transparent"}
+                        _hover={{ bg: isSelected ? "primary.100" : "gray.50" }}
                         onClick={() => toggleUser(member.userId)}
                         spacing={3}
                       >
                         <Checkbox
                           isChecked={isSelected}
                           onChange={() => toggleUser(member.userId)}
-                          colorScheme="blue"
+                          colorScheme="primary"
                           onClick={(e) => e.stopPropagation()}
                         />
                         <Avatar
@@ -284,7 +272,7 @@ export default function ShareCostEstimateModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             leftIcon={<Share2 size={16} />}
             onClick={handleSave}
             isLoading={saving}

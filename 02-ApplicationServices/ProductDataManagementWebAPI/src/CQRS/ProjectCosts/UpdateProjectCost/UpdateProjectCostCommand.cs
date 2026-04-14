@@ -18,10 +18,10 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
         public DateTime Date { get; init; }
         public string? Description { get; init; }
         public decimal? NetAmount { get; init; }
-        public decimal? VatRate { get; init; }
         public decimal? GrossAmount { get; init; }
         public bool IsClosed { get; init; }
         public IFormFile? Document { get; init; }
+        public IFormFile? UpdatedDocument { get; init; }
         public bool RemoveDocument { get; init; }
 
         public string PermissionCode => PermissionCodes.ProjectResourcesWrite;

@@ -134,7 +134,6 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                     Date = pc.Date,
                     Description = pc.Description,
                     NetAmount = pc.NetAmount,
-                    VatRate = pc.VatRate,
                     GrossAmount = pc.GrossAmount,
                     IsClosed = pc.IsClosed,
                     HasDocument = pc.HasDocument,

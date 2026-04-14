@@ -1,123 +1,182 @@
-import { useEffect, useState, useRef, memo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useContext, useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
-  Box,
-  Heading,
-  VStack,
-  HStack,
-  Text,
-  Button,
-  useColorModeValue,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  IconButton,
-  Input,
-  Textarea,
-  useDisclosure,
   Badge,
-  Icon,
+  Box,
+  Button,
   Checkbox,
-  Select,
-  InputGroup,
-  InputLeftElement,
+  Heading,
+  HStack,
+  Icon,
+  IconButton,
+  SimpleGrid,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Table,
+  Tabs,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
   Tooltip,
-  FormControl,
-  FormErrorMessage,
+  Tr,
+  useBreakpointValue,
+  useColorModeValue,
+  useDisclosure,
+  VStack,
 } from "@chakra-ui/react";
-import { ArrowLeft, Plus, Share2, Edit2, Trash2, DollarSign, FileUp, X, Eye, Download, Search, SortAsc, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  DollarSign,
+  Download,
+  Edit2,
+  Eye,
+  Plus,
+  Share2,
+  Trash2,
+} from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { AuthContext } from "../context/AuthContext";
-import { useContext } from "react";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { formatDate, formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatDate } from "../utils/formatters";
 import ShareCostModal from "../components/ShareCostModal";
 import { ManageCostShareModal } from "../components/ManageCostShareModal";
 import ShareCostsModal from "../components/ShareCostsModal";
+import ExpenseFormModal, {
+  type ExpenseFormData,
+} from "../components/ExpenseFormModal";
+import ExpenseCard from "../components/ExpenseCard";
+import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { ProjectCostListItemWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 
-// === TAB COMPONENTS (poza głównym komponentem aby uniknąć re-tworzenia) ===
+// === TAB COMPONENTS ===
+
+function CostSummaryBar({ costs }: { costs: ProjectCostListItemWeb[] }) {
+  const summaryBg = useColorModeValue("primary.50", "primary.900");
+  const total = costs.reduce((s, c) => s + c.grossAmount, 0);
+  const open = costs.filter(c => !c.isClosed).reduce((s, c) => s + c.grossAmount, 0);
+  const closed = costs.filter(c => c.isClosed).reduce((s, c) => s + c.grossAmount, 0);
+
+  return (
+    <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3} p={3} bg={summaryBg} rounded="md">
+      <Box>
+        <Text fontSize="xs" color="gray.600">Total:</Text>
+        <Text fontSize="md" fontWeight="bold">{formatCurrency(total)}</Text>
+      </Box>
+      <Box>
+        <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
+        <Text fontSize="md" fontWeight="bold" color="orange.500">{formatCurrency(open)}</Text>
+      </Box>
+      <Box>
+        <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
+        <Text fontSize="md" fontWeight="bold" color="green.500">{formatCurrency(closed)}</Text>
+      </Box>
+    </SimpleGrid>
+  );
+}
+
+interface ClosedBadgeProps {
+  isClosed: boolean;
+  canToggle: boolean;
+  isDisabled: boolean;
+  onClick: () => void;
+}
+
+function ClosedBadge({ isClosed, canToggle, isDisabled, onClick }: ClosedBadgeProps) {
+  if (!canToggle) {
+    return (
+      <Badge colorScheme={isClosed ? "green" : "orange"} fontSize="xs">
+        {isClosed ? "Rozliczone" : "Aktywne"}
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      colorScheme={isClosed ? "green" : "orange"}
+      fontSize="xs"
+      cursor={isDisabled ? "not-allowed" : "pointer"}
+      onClick={isDisabled ? undefined : onClick}
+      _hover={isDisabled ? undefined : { opacity: 0.75 }}
+      aria-label={isClosed ? "Oznacz jako nierozliczone" : "Oznacz jako rozliczone"}
+    >
+      {isClosed ? "Rozliczone" : "Aktywne"}
+    </Badge>
+  );
+}
+
+function DocumentCell({ cost }: { cost: ProjectCostListItemWeb }) {
+  if (!cost.hasDocument || !cost.previewSasUrl || !cost.downloadSasUrl) {
+    return <Badge colorScheme="gray" fontSize="xs">Brak</Badge>;
+  }
+  return (
+    <HStack spacing={1} justify="center">
+      <Tooltip label={`Podgląd: ${cost.documentFileName}`}>
+        <IconButton
+          aria-label={`Podgląd dokumentu: ${cost.documentFileName}`}
+          icon={<Eye size={14} />}
+          size="xs"
+          variant="ghost"
+          colorScheme="level2"
+          onClick={() => window.open(cost.previewSasUrl!, '_blank')}
+        />
+      </Tooltip>
+      <Tooltip label={`Pobierz: ${cost.documentFileName}`}>
+        <IconButton
+          aria-label={`Pobierz dokument: ${cost.documentFileName}`}
+          icon={<Download size={14} />}
+          size="xs"
+          variant="ghost"
+          colorScheme="green"
+          onClick={() => window.open(cost.downloadSasUrl!, '_blank')}
+        />
+      </Tooltip>
+    </HStack>
+  );
+}
 
 interface AllCostsTabProps {
   costs: ProjectCostListItemWeb[];
   loading: boolean;
-  showNewCostRow: boolean;
-  newCostData: any;
-  documentFile: File | null;
-  addingNewCost: boolean;
   resourcePerms: any;
-  editingCostId: string | null;
-  editingCostData: any;
-  editDocumentFile: File | null;
   deletingCostId: string | null;
   editingClosedCostId: string | null;
   savingClosedCost: boolean;
   onShareCostsModalOpen: () => void;
-  onShowNewCostRow: (show: boolean) => void;
-  onNewCostDataChange: (data: any) => void;
-  onDocumentFileChange: (file: File | null) => void;
   onAddCost: () => void;
   onManageShare: (cost: ProjectCostListItemWeb) => void;
   onEditCost: (cost: ProjectCostListItemWeb) => void;
-  onEditingCostDataChange: (data: any) => void;
-  onEditDocumentFileChange: (file: File | null) => void;
-  onSaveEdit: () => void;
-  onCancelEdit: () => void;
   onDeleteCost: (id: string) => void;
   onToggleCostClosed: (costId: string, currentIsClosed: boolean) => void;
 }
 
-const AllCostsTab = memo(function AllCostsTab({
+function AllCostsTab({
   costs,
   loading,
-  showNewCostRow,
-  newCostData,
-  documentFile,
-  addingNewCost,
   resourcePerms,
-  editingCostId,
-  editingCostData,
-  editDocumentFile,
   deletingCostId,
   editingClosedCostId,
   savingClosedCost,
   onShareCostsModalOpen,
-  onShowNewCostRow,
-  onNewCostDataChange,
-  onDocumentFileChange,
   onAddCost,
   onManageShare,
   onEditCost,
-  onEditingCostDataChange,
-  onEditDocumentFileChange,
-  onSaveEdit,
-  onCancelEdit,
   onDeleteCost,
   onToggleCostClosed,
 }: AllCostsTabProps) {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
-  const newRowBg = useColorModeValue("blue.50", "blue.900");
-  const editRowBg = useColorModeValue("yellow.50", "yellow.900");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-  const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
+  const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
+  const canToggleClosed = resourcePerms.all.canEdit;
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
     <VStack spacing={4} align="stretch">
@@ -141,7 +200,7 @@ const AllCostsTab = memo(function AllCostsTab({
               leftIcon={<Plus size={18} />}
               colorScheme="green"
               size="sm"
-              onClick={() => onShowNewCostRow(true)}
+              onClick={onAddCost}
             >
               Dodaj koszt
             </Button>
@@ -149,28 +208,34 @@ const AllCostsTab = memo(function AllCostsTab({
         </HStack>
       </HStack>
 
-      {/* Podsumowanie kosztów */}
-      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
-        <Box>
-          <Text fontSize="xs" color="gray.600">Total:</Text>
-          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-      </HStack>
+      <CostSummaryBar costs={costs} />
 
-      {costs.length === 0 && !showNewCostRow ? (
+      {costs.length === 0 ? (
         <EmptyState
           icon={DollarSign}
           title="Brak kosztów"
           description="Nie ma jeszcze żadnych kosztów w tym projekcie"
         />
+      ) : viewMode === "mobile" ? (
+        <VStack spacing={3} align="stretch">
+          {costs.map((cost) => (
+            <ExpenseCard
+              key={cost.id}
+              cost={cost}
+              showOwner
+              canEdit={resourcePerms.all.canEdit}
+              canDelete={resourcePerms.all.canDelete}
+              canManageShare={resourcePerms.all.canManageShare}
+              canToggleClosed={canToggleClosed}
+              isTogglingClosed={editingClosedCostId === cost.id && savingClosedCost}
+              isDeleting={deletingCostId === cost.id}
+              onEdit={() => onEditCost(cost)}
+              onDelete={() => onDeleteCost(cost.id)}
+              onManageShare={() => onManageShare(cost)}
+              onToggleClosed={() => onToggleCostClosed(cost.id, cost.isClosed)}
+            />
+          ))}
+        </VStack>
       ) : (
         <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
           <Table size="sm" variant="simple">
@@ -180,271 +245,34 @@ const AllCostsTab = memo(function AllCostsTab({
                 <Th>Właściciel</Th>
                 <Th>Miejsce</Th>
                 <Th>Data</Th>
-                <Th>Opis</Th>
                 <Th isNumeric>Netto</Th>
-                <Th isNumeric>VAT %</Th>
                 <Th isNumeric>Brutto</Th>
                 <Th textAlign="center">Rozliczone</Th>
                 <Th textAlign="center">Dokument</Th>
-                {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && <Th textAlign="center">Akcje</Th>}
+                {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
+                  <Th textAlign="center">Akcje</Th>
+                )}
               </Tr>
             </Thead>
             <Tbody>
-              {showNewCostRow && (
-                <Tr bg={newRowBg}>
-                  <Td><Input size="sm" value={newCostData.name} onChange={(e) => onNewCostDataChange({ ...newCostData, name: e.target.value })} placeholder="Nazwa" /></Td>
-                  <Td>
-                    <Text fontSize="xs" color="gray.500">Ty</Text>
-                  </Td>
-                  <Td><Input size="sm" value={newCostData.place} onChange={(e) => onNewCostDataChange({ ...newCostData, place: e.target.value })} placeholder="Miejsce" /></Td>
-                  <Td><Input size="sm" type="date" value={newCostData.date} onChange={(e) => onNewCostDataChange({ ...newCostData, date: e.target.value })} /></Td>
-                  <Td><Textarea size="sm" value={newCostData.description} onChange={(e) => onNewCostDataChange({ ...newCostData, description: e.target.value })} placeholder="Opis" rows={2} /></Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={newCostData.netAmount}
-                      onChange={(e) => {
-                        const updates: any = { netAmount: e.target.value };
-                        if (!newCostData.vatRate) updates.vatRate = '0';
-                        onNewCostDataChange({ ...newCostData, ...updates });
-                      }}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td>
-                    <FormControl isInvalid={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>
-                      <Input
-                        size="sm"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={newCostData.vatRate}
-                        onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
-                        placeholder="0"
-                      />
-                      <FormErrorMessage fontSize="xs">
-                        {parseFloat(newCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
-                      </FormErrorMessage>
-                    </FormControl>
-                  </Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={newCostData.grossAmount}
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td textAlign="center">
-                    {canEditClosedCost ? (
-                      <Checkbox
-                        isChecked={newCostData.isClosed}
-                        onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
-                        colorScheme="green"
-                      />
-                    ) : (
-                      <Badge colorScheme={newCostData.isClosed ? "green" : "gray"} fontSize="xs">
-                        {newCostData.isClosed ? "Tak" : "Nie"}
-                      </Badge>
-                    )}
-                  </Td>
-                  <Td textAlign="center">
-                    <VStack spacing={1}>
-                      <Input
-                        size="sm"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => onDocumentFileChange(e.target.files?.[0] || null)}
-                        display="none"
-                        id="new-cost-file-all"
-                      />
-                      <Button
-                        as="label"
-                        htmlFor="new-cost-file-all"
-                        size="xs"
-                        leftIcon={<FileUp size={14} />}
-                        variant="outline"
-                        cursor="pointer"
-                      >
-                        {documentFile ? documentFile.name.substring(0, 15) : "Dodaj plik"}
-                      </Button>
-                      {documentFile && (
-                        <IconButton
-                          aria-label="Usuń plik"
-                          icon={<X size={12} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={() => onDocumentFileChange(null)}
-                        />
-                      )}
-                    </VStack>
-                  </Td>
-                  {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
-                    <Td textAlign="center">
-                      <HStack spacing={1} justify="center">
-                        <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost} isDisabled={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>Zapisz</Button>
-                        <Button size="sm" variant="ghost" onClick={() => { onShowNewCostRow(false); onDocumentFileChange(null); }}>Anuluj</Button>
-                      </HStack>
-                    </Td>
-                  )}
-                </Tr>
-              )}
-              {costs.map((cost) => editingCostId === cost.id ? (
-                <Tr key={cost.id} bg={editRowBg}>
-                  <Td><Input size="sm" value={editingCostData.name} onChange={(e) => onEditingCostDataChange({ ...editingCostData, name: e.target.value })} /></Td>
-                  <Td colSpan={1}><Text fontSize="sm" color="gray.600">{cost.userName || "-"}</Text></Td>
-                  <Td><Input size="sm" value={editingCostData.place} onChange={(e) => onEditingCostDataChange({ ...editingCostData, place: e.target.value })} /></Td>
-                  <Td><Input size="sm" type="date" value={editingCostData.date} onChange={(e) => onEditingCostDataChange({ ...editingCostData, date: e.target.value })} /></Td>
-                  <Td><Textarea size="sm" value={editingCostData.description} onChange={(e) => onEditingCostDataChange({ ...editingCostData, description: e.target.value })} rows={2} /></Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={editingCostData.netAmount}
-                      onChange={(e) => {
-                        const updates: any = { netAmount: e.target.value };
-                        if (!editingCostData.vatRate) updates.vatRate = '0';
-                        onEditingCostDataChange({ ...editingCostData, ...updates });
-                      }}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td>
-                    <FormControl isInvalid={!!editingCostData.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>
-                      <Input
-                        size="sm"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={editingCostData.vatRate}
-                        onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
-                        placeholder="0"
-                      />
-                      <FormErrorMessage fontSize="xs">
-                        {parseFloat(editingCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
-                      </FormErrorMessage>
-                    </FormControl>
-                  </Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={editingCostData.grossAmount}
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td textAlign="center">
-                    <Checkbox
-                      isChecked={editingCostData.isClosed}
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, isClosed: e.target.checked })}
-                      colorScheme="green"
-                    />
-                  </Td>
-                  <Td textAlign="center">
-                    <VStack spacing={1}>
-                      <Input
-                        size="sm"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => onEditDocumentFileChange(e.target.files?.[0] || null)}
-                        display="none"
-                        id={`edit-cost-file-${cost.id}`}
-                      />
-                      <Button
-                        as="label"
-                        htmlFor={`edit-cost-file-${cost.id}`}
-                        size="xs"
-                        leftIcon={<FileUp size={14} />}
-                        variant="outline"
-                        cursor="pointer"
-                      >
-                        {editDocumentFile ? editDocumentFile.name.substring(0, 15) : (cost.hasDocument ? `${cost.documentFileName?.substring(0, 15)}` : "Dodaj plik")}
-                      </Button>
-                      {(editDocumentFile || cost.hasDocument) && (
-                        <IconButton
-                          aria-label="Usuń plik"
-                          icon={<X size={12} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={() => {
-                            onEditDocumentFileChange(null);
-                            onEditingCostDataChange({ ...editingCostData, removeDocument: true });
-                          }}
-                        />
-                      )}
-                    </VStack>
-                  </Td>
-                  {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
-                    <Td textAlign="center">
-                      <HStack spacing={1} justify="center">
-                        <Button size="sm" colorScheme="green" onClick={onSaveEdit} isDisabled={!!editingCostData?.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>Zapisz</Button>
-                        <Button size="sm" variant="ghost" onClick={onCancelEdit}>Anuluj</Button>
-                      </HStack>
-                    </Td>
-                  )}
-                </Tr>
-              ) : (
+              {costs.map((cost) => (
                 <Tr key={cost.id} _hover={{ bg: hoverBg }}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td fontSize="sm" color="gray.600">{cost.userName || "-"}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
-                  <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric>{cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
-                    {canEditClosedCost ? (
-                      <Checkbox
-                        isChecked={cost.isClosed}
-                        onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
-                        colorScheme="green"
-                        isDisabled={editingClosedCostId === cost.id && savingClosedCost}
-                      />
-                    ) : (
-                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
-                        {cost.isClosed ? "Tak" : "Nie"}
-                      </Badge>
-                    )}
+                    <Checkbox
+                      isChecked={cost.isClosed}
+                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                      colorScheme="green"
+                      isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
+                    />
                   </Td>
                   <Td textAlign="center">
-                    {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
-                      <HStack spacing={1} justify="center">
-                        <Tooltip label={`Podgląd: ${cost.documentFileName}`}>
-                          <IconButton
-                            aria-label="Podgląd"
-                            icon={<Eye size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="purple"
-                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                          />
-                        </Tooltip>
-                        <Tooltip label={`Pobierz: ${cost.documentFileName}`}>
-                          <IconButton
-                            aria-label="Pobierz"
-                            icon={<Download size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="green"
-                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                          />
-                        </Tooltip>
-                      </HStack>
-                    ) : (
-                      <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
-                    )}
+                    <DocumentCell cost={cost} />
                   </Td>
                   {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
                     <Td textAlign="center">
@@ -452,37 +280,37 @@ const AllCostsTab = memo(function AllCostsTab({
                         {resourcePerms.all.canEdit && (
                           <Tooltip label="Edytuj">
                             <IconButton
-                              aria-label="Edytuj"
+                              aria-label="Edytuj koszt"
                               icon={<Edit2 size={14} />}
                               size="xs"
                               variant="ghost"
-                              colorScheme="blue"
+                              colorScheme="primary"
                               onClick={() => onEditCost(cost)}
-                            />
-                          </Tooltip>
-                        )}
-                        {resourcePerms.all.canDelete && (
-                          <Tooltip label="Usuń">
-                            <IconButton
-                              aria-label="Usuń"
-                              icon={<Trash2 size={14} />}
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="red"
-                              onClick={() => onDeleteCost(cost.id)}
-                              isLoading={deletingCostId === cost.id}
                             />
                           </Tooltip>
                         )}
                         {resourcePerms.all.canManageShare && (
                           <Tooltip label="Udostępnij">
                             <IconButton
-                              aria-label="Udostępnij"
+                              aria-label="Zarządzaj udostępnieniem kosztu"
                               icon={<Share2 size={14} />}
                               size="xs"
                               variant="ghost"
                               colorScheme="orange"
                               onClick={() => onManageShare(cost)}
+                            />
+                          </Tooltip>
+                        )}
+                        {resourcePerms.all.canDelete && (
+                          <Tooltip label="Usuń">
+                            <IconButton
+                              aria-label="Usuń koszt"
+                              icon={<Trash2 size={14} />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={() => onDeleteCost(cost.id)}
+                              isLoading={deletingCostId === cost.id}
                             />
                           </Tooltip>
                         )}
@@ -497,77 +325,44 @@ const AllCostsTab = memo(function AllCostsTab({
       )}
     </VStack>
   );
-});
+}
 
 interface MyCostsTabProps {
   costs: ProjectCostListItemWeb[];
   loading: boolean;
-  showNewCostRow: boolean;
-  newCostData: any;
-  documentFile: File | null;
-  addingNewCost: boolean;
-  editingCostId: string | null;
-  editingCostData: any;
-  editDocumentFile: File | null;
-  savingCost: boolean;
+  resourcePerms: any;
   deletingCostId: string | null;
   editingClosedCostId: string | null;
   savingClosedCost: boolean;
-  resourcePerms: any;
   onShareCostsModalOpen: () => void;
-  onShowNewCostRow: (show: boolean) => void;
-  onNewCostDataChange: (data: any) => void;
-  onDocumentFileChange: (file: File | null) => void;
   onAddCost: () => void;
   onEditCost: (cost: ProjectCostListItemWeb) => void;
-  onEditingCostDataChange: (data: any) => void;
-  onEditDocumentFileChange: (file: File | null) => void;
-  onSaveEdit: () => void;
-  onCancelEdit: () => void;
   onShareCost: (cost: ProjectCostListItemWeb) => void;
   onDeleteCost: (costId: string) => void;
   onToggleCostClosed: (costId: string, currentIsClosed: boolean) => void;
 }
 
-const MyCostsTab = memo(function MyCostsTab({
+function MyCostsTab({
   costs,
   loading,
-  showNewCostRow,
-  newCostData,
-  documentFile,
-  addingNewCost,
-  editingCostId,
-  editingCostData,
-  editDocumentFile,
-  savingCost,
+  resourcePerms,
   deletingCostId,
   editingClosedCostId,
   savingClosedCost,
-  resourcePerms,
   onShareCostsModalOpen,
-  onShowNewCostRow,
-  onNewCostDataChange,
-  onDocumentFileChange,
   onAddCost,
   onEditCost,
-  onEditingCostDataChange,
-  onEditDocumentFileChange,
-  onSaveEdit,
-  onCancelEdit,
   onShareCost,
   onDeleteCost,
   onToggleCostClosed,
 }: MyCostsTabProps) {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
-  const newRowBg = useColorModeValue("blue.50", "blue.900");
-  const editRowBg = useColorModeValue("yellow.50", "yellow.900");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-  const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
+  const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
+  const canToggleClosed = resourcePerms.mine.canEdit;
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
     <VStack spacing={4} align="stretch">
@@ -591,7 +386,7 @@ const MyCostsTab = memo(function MyCostsTab({
               leftIcon={<Plus size={18} />}
               colorScheme="green"
               size="sm"
-              onClick={() => onShowNewCostRow(true)}
+              onClick={onAddCost}
             >
               Dodaj koszt
             </Button>
@@ -599,28 +394,33 @@ const MyCostsTab = memo(function MyCostsTab({
         </HStack>
       </HStack>
 
-      {/* Podsumowanie kosztów */}
-      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
-        <Box>
-          <Text fontSize="xs" color="gray.600">Total:</Text>
-          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-      </HStack>
+      <CostSummaryBar costs={costs} />
 
-      {costs.length === 0 && !showNewCostRow ? (
+      {costs.length === 0 ? (
         <EmptyState
           icon={DollarSign}
           title="Brak kosztów"
           description="Dodaj pierwszy koszt do projektu"
         />
+      ) : viewMode === "mobile" ? (
+        <VStack spacing={3} align="stretch">
+          {costs.map((cost) => (
+            <ExpenseCard
+              key={cost.id}
+              cost={cost}
+              canEdit={resourcePerms.mine.canEdit}
+              canDelete={resourcePerms.mine.canDelete}
+              canManageShare={resourcePerms.mine.canManageShare}
+              canToggleClosed={canToggleClosed}
+              isTogglingClosed={editingClosedCostId === cost.id && savingClosedCost}
+              isDeleting={deletingCostId === cost.id}
+              onEdit={() => onEditCost(cost)}
+              onDelete={() => onDeleteCost(cost.id)}
+              onManageShare={() => onShareCost(cost)}
+              onToggleClosed={() => onToggleCostClosed(cost.id, cost.isClosed)}
+            />
+          ))}
+        </VStack>
       ) : (
         <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
           <Table size="sm" variant="simple">
@@ -629,9 +429,7 @@ const MyCostsTab = memo(function MyCostsTab({
                 <Th>Nazwa</Th>
                 <Th>Miejsce</Th>
                 <Th>Data</Th>
-                <Th>Opis</Th>
                 <Th isNumeric>Netto</Th>
-                <Th isNumeric>VAT %</Th>
                 <Th isNumeric>Brutto</Th>
                 <Th textAlign="center">Rozliczone</Th>
                 <Th textAlign="center">Dokument</Th>
@@ -639,275 +437,42 @@ const MyCostsTab = memo(function MyCostsTab({
               </Tr>
             </Thead>
             <Tbody>
-              {showNewCostRow && (
-                <Tr bg={newRowBg}>
-                  <Td><Input size="sm" value={newCostData.name} onChange={(e) => onNewCostDataChange({ ...newCostData, name: e.target.value })} placeholder="Nazwa" /></Td>
-                  <Td><Input size="sm" value={newCostData.place} onChange={(e) => onNewCostDataChange({ ...newCostData, place: e.target.value })} placeholder="Miejsce" /></Td>
-                  <Td><Input size="sm" type="date" value={newCostData.date} onChange={(e) => onNewCostDataChange({ ...newCostData, date: e.target.value })} /></Td>
-                  <Td><Textarea size="sm" value={newCostData.description} onChange={(e) => onNewCostDataChange({ ...newCostData, description: e.target.value })} placeholder="Opis" rows={2} /></Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={newCostData.netAmount}
-                      onChange={(e) => {
-                        const updates: any = { netAmount: e.target.value };
-                        if (!newCostData.vatRate) updates.vatRate = '0';
-                        onNewCostDataChange({ ...newCostData, ...updates });
-                      }}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td>
-                    <FormControl isInvalid={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>
-                      <Input
-                        size="sm"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={newCostData.vatRate}
-                        onChange={(e) => onNewCostDataChange({ ...newCostData, vatRate: e.target.value })}
-                        placeholder="0"
-                      />
-                      <FormErrorMessage fontSize="xs">
-                        {parseFloat(newCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
-                      </FormErrorMessage>
-                    </FormControl>
-                  </Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={newCostData.grossAmount}
-                      onChange={(e) => onNewCostDataChange({ ...newCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td textAlign="center">
-                    {canEditClosedCost ? (
-                      <Checkbox
-                        isChecked={newCostData.isClosed}
-                        onChange={(e) => onNewCostDataChange({ ...newCostData, isClosed: e.target.checked })}
-                        colorScheme="green"
-                      />
-                    ) : (
-                      <Badge colorScheme={newCostData.isClosed ? "green" : "gray"} fontSize="xs">
-                        {newCostData.isClosed ? "Tak" : "Nie"}
-                      </Badge>
-                    )}
-                  </Td>
-                  <Td textAlign="center">
-                    <VStack spacing={1}>
-                      <Input
-                        size="sm"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => onDocumentFileChange(e.target.files?.[0] || null)}
-                        display="none"
-                        id="new-cost-file"
-                      />
-                      <Button
-                        as="label"
-                        htmlFor="new-cost-file"
-                        size="xs"
-                        leftIcon={<FileUp size={14} />}
-                        variant="outline"
-                        cursor="pointer"
-                      >
-                        {documentFile ? documentFile.name.substring(0, 15) : "Dodaj plik"}
-                      </Button>
-                      {documentFile && (
-                        <IconButton
-                          aria-label="Usuń plik"
-                          icon={<X size={12} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={() => onDocumentFileChange(null)}
-                        />
-                      )}
-                    </VStack>
-                  </Td>
-                  <Td textAlign="center">
-                    <HStack spacing={1} justify="center">
-                      <Button size="sm" colorScheme="green" onClick={onAddCost} isLoading={addingNewCost} isDisabled={!!newCostData.vatRate && (parseFloat(newCostData.vatRate) < 0 || parseFloat(newCostData.vatRate) > 100)}>Zapisz</Button>
-                      <Button size="sm" variant="ghost" onClick={() => { onShowNewCostRow(false); onDocumentFileChange(null); }}>Anuluj</Button>
-                    </HStack>
-                  </Td>
-                </Tr>
-              )}
-              {costs.map((cost) => editingCostId === cost.id ? (
-                <Tr key={cost.id} bg={editRowBg}>
-                  <Td><Input size="sm" value={editingCostData.name} onChange={(e) => onEditingCostDataChange({ ...editingCostData, name: e.target.value })} /></Td>
-                  <Td><Input size="sm" value={editingCostData.place} onChange={(e) => onEditingCostDataChange({ ...editingCostData, place: e.target.value })} /></Td>
-                  <Td><Input size="sm" type="date" value={editingCostData.date} onChange={(e) => onEditingCostDataChange({ ...editingCostData, date: e.target.value })} /></Td>
-                  <Td><Textarea size="sm" value={editingCostData.description} onChange={(e) => onEditingCostDataChange({ ...editingCostData, description: e.target.value })} rows={2} /></Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={editingCostData.netAmount}
-                      onChange={(e) => {
-                        const updates: any = { netAmount: e.target.value };
-                        if (!editingCostData.vatRate) updates.vatRate = '0';
-                        onEditingCostDataChange({ ...editingCostData, ...updates });
-                      }}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td>
-                    <FormControl isInvalid={!!editingCostData.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>
-                      <Input
-                        size="sm"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={editingCostData.vatRate}
-                        onChange={(e) => onEditingCostDataChange({ ...editingCostData, vatRate: e.target.value })}
-                        placeholder="0"
-                      />
-                      <FormErrorMessage fontSize="xs">
-                        {parseFloat(editingCostData.vatRate) < 0 ? 'VAT nie może być ujemny' : 'VAT max 100%'}
-                      </FormErrorMessage>
-                    </FormControl>
-                  </Td>
-                  <Td>
-                    <Input
-                      size="sm"
-                      type="number"
-                      step="0.01"
-                      value={editingCostData.grossAmount}
-                      onChange={(e) => onEditingCostDataChange({ ...editingCostData, grossAmount: e.target.value, netAmount: '', vatRate: '' })}
-                      placeholder="0.00"
-                    />
-                  </Td>
-                  <Td textAlign="center">
-                    {canEditClosedCost ? (
-                      <Checkbox
-                        isChecked={editingCostData.isClosed}
-                        onChange={(e) => onEditingCostDataChange({ ...editingCostData, isClosed: e.target.checked })}
-                        colorScheme="green"
-                      />
-                    ) : (
-                      <Badge colorScheme={editingCostData.isClosed ? "green" : "gray"} fontSize="xs">
-                        {editingCostData.isClosed ? "Tak" : "Nie"}
-                      </Badge>
-                    )}
-                  </Td>
-                  <Td textAlign="center">
-                    <VStack spacing={1}>
-                      <Input
-                        size="sm"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => onEditDocumentFileChange(e.target.files?.[0] || null)}
-                        display="none"
-                        id={`edit-cost-file-${cost.id}`}
-                      />
-                      <Button
-                        as="label"
-                        htmlFor={`edit-cost-file-${cost.id}`}
-                        size="xs"
-                        leftIcon={<FileUp size={14} />}
-                        variant="outline"
-                        cursor="pointer"
-                      >
-                        {editDocumentFile ? editDocumentFile.name.substring(0, 15) : cost.documentFileName ? cost.documentFileName.substring(0, 15) : "Dodaj plik"}
-                      </Button>
-                      {(editDocumentFile || cost.hasDocument) && (
-                        <IconButton
-                          aria-label="Usuń plik"
-                          icon={<X size={12} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={() => {
-                            onEditDocumentFileChange(null);
-                            onEditingCostDataChange({ ...editingCostData, removeDocument: true });
-                          }}
-                        />
-                      )}
-                    </VStack>
-                  </Td>
-                  <Td textAlign="center">
-                    <HStack spacing={1} justify="center">
-                      <Button size="sm" colorScheme="green" onClick={onSaveEdit} isLoading={savingCost} isDisabled={!!editingCostData?.vatRate && (parseFloat(editingCostData.vatRate) < 0 || parseFloat(editingCostData.vatRate) > 100)}>Zapisz</Button>
-                      <Button size="sm" variant="ghost" onClick={onCancelEdit}>Anuluj</Button>
-                    </HStack>
-                  </Td>
-                </Tr>
-              ) : (
+              {costs.map((cost) => (
                 <Tr key={cost.id} _hover={{ bg: hoverBg }}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
-                  <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric>{cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
-                    {canEditClosedCost ? (
-                      <Checkbox
-                        isChecked={cost.isClosed}
-                        onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
-                        colorScheme="green"
-                        isDisabled={editingClosedCostId === cost.id && savingClosedCost}
-                      />
-                    ) : (
-                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
-                        {cost.isClosed ? "Tak" : "Nie"}
-                      </Badge>
-                    )}
+                    <Checkbox
+                      isChecked={cost.isClosed}
+                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                      colorScheme="green"
+                      isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
+                    />
                   </Td>
                   <Td textAlign="center">
-                    {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
-                      <HStack spacing={1} justify="center">
-                        <Tooltip label={`Podgląd: ${cost.documentFileName}`}>
-                          <IconButton
-                            aria-label="Podgląd"
-                            icon={<Eye size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="purple"
-                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                          />
-                        </Tooltip>
-                        <Tooltip label={`Pobierz: ${cost.documentFileName}`}>
-                          <IconButton
-                            aria-label="Pobierz"
-                            icon={<Download size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="green"
-                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                          />
-                        </Tooltip>
-                      </HStack>
-                    ) : (
-                      <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
-                    )}
+                    <DocumentCell cost={cost} />
                   </Td>
                   <Td textAlign="center">
                     <HStack spacing={1} justify="center">
-                      <Tooltip label="Edytuj">
-                        <IconButton
-                          aria-label="Edytuj"
-                          icon={<Edit2 size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="blue"
-                          onClick={() => onEditCost(cost)}
-                        />
-                      </Tooltip>
+                      {resourcePerms.mine.canEdit && (
+                        <Tooltip label="Edytuj">
+                          <IconButton
+                            aria-label="Edytuj koszt"
+                            icon={<Edit2 size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="primary"
+                            onClick={() => onEditCost(cost)}
+                          />
+                        </Tooltip>
+                      )}
                       {resourcePerms.mine.canManageShare && (
                         <Tooltip label="Udostępnij">
                           <IconButton
-                            aria-label="Udostępnij"
+                            aria-label="Udostępnij koszt"
                             icon={<Share2 size={14} />}
                             size="xs"
                             variant="ghost"
@@ -916,17 +481,19 @@ const MyCostsTab = memo(function MyCostsTab({
                           />
                         </Tooltip>
                       )}
-                      <Tooltip label="Usuń">
-                        <IconButton
-                          aria-label="Usuń"
-                          icon={<Trash2 size={14} />}
-                          size="xs"
-                          variant="ghost"
-                          colorScheme="red"
-                          onClick={() => onDeleteCost(cost.id)}
-                          isLoading={deletingCostId === cost.id}
-                        />
-                      </Tooltip>
+                      {resourcePerms.mine.canDelete && (
+                        <Tooltip label="Usuń">
+                          <IconButton
+                            aria-label="Usuń koszt"
+                            icon={<Trash2 size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={() => onDeleteCost(cost.id)}
+                            isLoading={deletingCostId === cost.id}
+                          />
+                        </Tooltip>
+                      )}
                     </HStack>
                   </Td>
                 </Tr>
@@ -937,7 +504,7 @@ const MyCostsTab = memo(function MyCostsTab({
       )}
     </VStack>
   );
-});
+}
 
 interface SharedCostsTabProps {
   costs: ProjectCostListItemWeb[];
@@ -948,7 +515,7 @@ interface SharedCostsTabProps {
   onToggleSharedCostClosed: (costId: string, currentIsClosed: boolean) => void;
 }
 
-const SharedCostsTab = memo(function SharedCostsTab({
+function SharedCostsTab({
   costs,
   loading,
   editingSharedCostId,
@@ -959,11 +526,10 @@ const SharedCostsTab = memo(function SharedCostsTab({
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
-  const canEditClosedCost = resourcePerms.mine.canEdit || resourcePerms.all.canEdit || resourcePerms.shared.canEdit;
+  const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
+  const canToggleClosed = resourcePerms.shared.canEdit;
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
     <VStack spacing={4} align="stretch">
@@ -971,21 +537,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
         Wydatki udostępnione przez innych członków projektu
       </Text>
 
-      {/* Podsumowanie kosztów */}
-      <HStack spacing={6} p={3} bg={useColorModeValue("blue.50", "blue.900")} rounded="md" flexWrap="wrap">
-        <Box>
-          <Text fontSize="xs" color="gray.600">Total:</Text>
-          <Text fontSize="md" fontWeight="bold">{costs.reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="orange.500">{costs.filter(c => !c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
-          <Text fontSize="md" fontWeight="bold" color="green.500">{costs.filter(c => c.isClosed).reduce((sum, cost) => sum + cost.grossAmount, 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł</Text>
-        </Box>
-      </HStack>
+      <CostSummaryBar costs={costs} />
 
       {costs.length === 0 ? (
         <EmptyState
@@ -993,6 +545,19 @@ const SharedCostsTab = memo(function SharedCostsTab({
           title="Brak udostępnionych kosztów"
           description="Nikt jeszcze nie udostępnił Ci kosztów w tym projekcie"
         />
+      ) : viewMode === "mobile" ? (
+        <VStack spacing={3} align="stretch">
+          {costs.map((cost) => (
+            <ExpenseCard
+              key={cost.id}
+              cost={cost}
+              showOwner
+              canToggleClosed={canToggleClosed}
+              isTogglingClosed={editingSharedCostId === cost.id && savingSharedCost}
+              onToggleClosed={() => onToggleSharedCostClosed(cost.id, cost.isClosed)}
+            />
+          ))}
+        </VStack>
       ) : (
         <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
           <Table size="sm" variant="simple">
@@ -1001,9 +566,7 @@ const SharedCostsTab = memo(function SharedCostsTab({
                 <Th>Nazwa</Th>
                 <Th>Miejsce</Th>
                 <Th>Data</Th>
-                <Th>Opis</Th>
                 <Th isNumeric>Netto</Th>
-                <Th isNumeric>VAT %</Th>
                 <Th isNumeric>Brutto</Th>
                 <Th textAlign="center">Rozliczone</Th>
                 <Th textAlign="center">Dokument</Th>
@@ -1016,51 +579,18 @@ const SharedCostsTab = memo(function SharedCostsTab({
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
-                  <Td>{cost.description || "-"}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric>{cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0}%</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
-                    {canEditClosedCost ? (
-                      <Checkbox
-                        isChecked={cost.isClosed}
-                        onChange={() => onToggleSharedCostClosed(cost.id, cost.isClosed)}
-                        colorScheme="green"
-                        isDisabled={editingSharedCostId === cost.id && savingSharedCost}
-                      />
-                    ) : (
-                      <Badge colorScheme={cost.isClosed ? "green" : "gray"} fontSize="xs">
-                        {cost.isClosed ? "Tak" : "Nie"}
-                      </Badge>
-                    )}
+                    <Checkbox
+                      isChecked={cost.isClosed}
+                      onChange={() => onToggleSharedCostClosed(cost.id, cost.isClosed)}
+                      colorScheme="green"
+                      isDisabled={!canToggleClosed || (editingSharedCostId === cost.id && savingSharedCost)}
+                    />
                   </Td>
                   <Td textAlign="center">
-                    {cost.hasDocument && cost.previewSasUrl && cost.downloadSasUrl ? (
-                      <HStack spacing={1} justify="center">
-                        <Tooltip label={`Podgląd: ${cost.documentFileName}`}>
-                          <IconButton
-                            aria-label="Podgląd"
-                            icon={<Eye size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="purple"
-                            onClick={() => window.open(cost.previewSasUrl, '_blank')}
-                          />
-                        </Tooltip>
-                        <Tooltip label={`Pobierz: ${cost.documentFileName}`}>
-                          <IconButton
-                            aria-label="Pobierz"
-                            icon={<Download size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="green"
-                            onClick={() => window.open(cost.downloadSasUrl, '_blank')}
-                          />
-                        </Tooltip>
-                      </HStack>
-                    ) : (
-                      <Badge colorScheme="gray" fontSize="xs">Brak</Badge>
-                    )}
+                    <DocumentCell cost={cost} />
                   </Td>
                   <Td>{cost.userName}</Td>
                 </Tr>
@@ -1071,35 +601,45 @@ const SharedCostsTab = memo(function SharedCostsTab({
       )}
     </VStack>
   );
-});
+}
 
 // === MAIN COMPONENT ===
 
 export default function ProjectSimpleCosts() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const { showSuccess, showError } = useToastNotification();
 
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any | null>(null);
   const [projectName, setProjectName] = useState("");
   const hasFetchedProjectData = useRef(false);
-  const [showNewCostRow, setShowNewCostRow] = useState(false);
-  const [addingNewCost, setAddingNewCost] = useState(false);
-  const [editingCostId, setEditingCostId] = useState<string | null>(null);
-  const [editingCostData, setEditingCostData] = useState<any>(null);
+
   const [savingCost, setSavingCost] = useState(false);
   const [deletingCostId, setDeletingCostId] = useState<string | null>(null);
   const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
   const [costToManageShare, setCostToManageShare] = useState<ProjectCostListItemWeb | null>(null);
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [editDocumentFile, setEditDocumentFile] = useState<File | null>(null);
   const [editingSharedCostId, setEditingSharedCostId] = useState<string | null>(null);
   const [savingSharedCost, setSavingSharedCost] = useState(false);
   const [editingClosedCostId, setEditingClosedCostId] = useState<string | null>(null);
   const [savingClosedCost, setSavingClosedCost] = useState(false);
+
+  // Modal state for add/edit expense
+  const [editingCost, setEditingCost] = useState<ProjectCostListItemWeb | null>(null);
+  const [modalDocumentFile, setModalDocumentFile] = useState<File | null>(null);
+  const {
+    isOpen: isExpenseModalOpen,
+    onOpen: onExpenseModalOpen,
+    onClose: onExpenseModalClose,
+  } = useDisclosure();
+
+  // Delete confirmation dialog
+  const [costToDelete, setCostToDelete] = useState<string | null>(null);
+  const {
+    isOpen: isDeleteAlertOpen,
+    onOpen: onDeleteAlertOpen,
+    onClose: onDeleteAlertClose,
+  } = useDisclosure();
 
   // Tab cache dla wszystkich kosztów
   const allCostsCache = useTabCache<ProjectCostListItemWeb[]>(
@@ -1135,17 +675,6 @@ export default function ProjectSimpleCosts() {
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
   const { isOpen: isShareCostsModalOpen, onOpen: onShareCostsModalOpen, onClose: onShareCostsModalClose } = useDisclosure();
 
-  const [newCostData, setNewCostData] = useState({
-    name: '',
-    place: '',
-    date: new Date().toISOString().split('T')[0],
-    description: '',
-    netAmount: '',
-    vatRate: '',
-    grossAmount: '',
-    isClosed: false,
-  });
-
   const resourcePerms = useResourcePermissions(projectId);
 
   // Globalny cache dla project details (współdzielony między stronami projektu)
@@ -1176,41 +705,6 @@ export default function ProjectSimpleCosts() {
     fetchProjectData();
   }, [projectId, resourcePerms.raw.loading]);
 
-  // Automatyczne wyliczanie kwoty brutto dla nowego kosztu
-  // vatRate przechowywany jako % (np. 23), przeliczany na ułamek przy kalkulacji i przy zapisie
-  useEffect(() => {
-    const netAmount = parseFloat(newCostData.netAmount);
-    const vatRate = parseFloat(newCostData.vatRate);
-
-    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0 && vatRate <= 100) {
-      const calculatedGross = netAmount * (1 + vatRate / 100);
-      const roundedGross = Math.round(calculatedGross * 100) / 100;
-
-      setNewCostData(prev => ({
-        ...prev,
-        grossAmount: roundedGross.toFixed(2)
-      }));
-    }
-  }, [newCostData.netAmount, newCostData.vatRate]);
-
-  // Automatyczne wyliczanie kwoty brutto dla edytowanego kosztu
-  useEffect(() => {
-    if (!editingCostData) return;
-
-    const netAmount = parseFloat(editingCostData.netAmount);
-    const vatRate = parseFloat(editingCostData.vatRate);
-
-    if (!isNaN(netAmount) && netAmount > 0 && !isNaN(vatRate) && vatRate >= 0 && vatRate <= 100) {
-      const calculatedGross = netAmount * (1 + vatRate / 100);
-      const roundedGross = Math.round(calculatedGross * 100) / 100;
-
-      setEditingCostData((prev: any) => ({
-        ...prev,
-        grossAmount: roundedGross.toFixed(2)
-      }));
-    }
-  }, [editingCostData?.netAmount, editingCostData?.vatRate]);
-
   const fetchProjectData = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
@@ -1221,20 +715,14 @@ export default function ProjectSimpleCosts() {
       setProject(projectData);
       setProjectName(projectData.name);
 
-      // Pobierz wszystkie zakładki równolegle według uprawnień
       const fetchPromises = [];
-      if (resourcePerms.tabs.showAll) {
-        fetchPromises.push(allCostsCache.fetch());
-      }
-      if (resourcePerms.tabs.showMine) {
-        fetchPromises.push(myCostsCache.fetch());
-      }
-      if (resourcePerms.tabs.showShared) {
-        fetchPromises.push(sharedCostsCache.fetch());
-      }
+      if (resourcePerms.tabs.showAll) fetchPromises.push(allCostsCache.fetch());
+      if (resourcePerms.tabs.showMine) fetchPromises.push(myCostsCache.fetch());
+      if (resourcePerms.tabs.showShared) fetchPromises.push(sharedCostsCache.fetch());
 
       await Promise.all(fetchPromises);
-    } catch (error) {
+    } catch {
+      // błąd obsługiwany przez cache
     } finally {
       setLoading(false);
     }
@@ -1249,140 +737,93 @@ export default function ProjectSimpleCosts() {
     fetchProjectData();
   };
 
-  // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
-  const allCostsTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
-  const myCostsTabIndex =
-    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 :
-      !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
-  const sharedCostsTabIndex =
-    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 2 :
-      (resourcePerms.tabs.showAll || resourcePerms.tabs.showMine) && resourcePerms.tabs.showShared ? 1 :
-        !resourcePerms.tabs.showAll && !resourcePerms.tabs.showMine && resourcePerms.tabs.showShared ? 0 : -1;
+  // ── Modal handlers ────────────────────────────────────────
 
-  const handleAddCost = async () => {
+  const handleOpenAddModal = () => {
+    setEditingCost(null);
+    setModalDocumentFile(null);
+    onExpenseModalOpen();
+  };
+
+  const handleOpenEditModal = (cost: ProjectCostListItemWeb) => {
+    setEditingCost(cost);
+    setModalDocumentFile(null);
+    onExpenseModalOpen();
+  };
+
+  const handleCloseModal = () => {
+    onExpenseModalClose();
+    setEditingCost(null);
+    setModalDocumentFile(null);
+  };
+
+  const handleSaveCost = async (formData: ExpenseFormData) => {
     if (!user?.activeTenantId || !projectId) return;
-    if (!newCostData.name.trim() || !newCostData.grossAmount) {
-      showError("Nazwa i kwota brutto są wymagane");
-      return;
-    }
-    const newVatNum = parseFloat(newCostData.vatRate);
-    if (newCostData.vatRate !== '' && (isNaN(newVatNum) || newVatNum < 0 || newVatNum > 100)) {
-      showError("Stawka VAT musi być z zakresu 0–100%");
-      return;
-    }
 
-    setAddingNewCost(true);
-    try {
-      await projectApi.createProjectCost(
-        user.activeTenantId,
-        projectId,
-        {
-          name: newCostData.name,
-          place: newCostData.place || undefined,
-          date: new Date(newCostData.date),
-          description: newCostData.description || undefined,
-          netAmount: newCostData.netAmount && parseFloat(newCostData.netAmount) !== 0 ? parseFloat(newCostData.netAmount) : null,
-          vatRate: newCostData.vatRate && parseFloat(newCostData.vatRate) !== 0 ? parseFloat(newCostData.vatRate) / 100 : null,
-          grossAmount: parseFloat(newCostData.grossAmount),
-          isClosed: newCostData.isClosed,
-          document: documentFile || undefined,
-        }
-      );
-
-      showSuccess("Koszt został dodany");
-      setNewCostData({
-        name: '',
-        place: '',
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-        netAmount: '',
-        vatRate: '',
-        grossAmount: '',
-        isClosed: false,
-      });
-      setDocumentFile(null);
-      setShowNewCostRow(false);
-      refreshData();
-    } catch (error) {
-      showError("Wystąpił błąd podczas dodawania kosztu");
-    } finally {
-      setAddingNewCost(false);
-    }
-  };
-
-  const handleEditCost = (cost: ProjectCostListItemWeb) => {
-    setEditingCostId(cost.id);
-    setEditingCostData({
-      name: cost.name,
-      place: cost.place || '',
-      date: cost.date.split('T')[0],
-      description: cost.description || '',
-      netAmount: (cost.netAmount ?? 0).toString(),
-      vatRate: (cost.vatRate != null ? Math.round(cost.vatRate * 100) : 0).toString(),
-      grossAmount: cost.grossAmount.toString(),
-      isClosed: cost.isClosed,
-    });
-  };
-
-  const handleSaveEdit = async () => {
-    if (!user?.activeTenantId || !projectId || !editingCostId) return;
-    const editVatNum = parseFloat(editingCostData.vatRate);
-    if (editingCostData.vatRate !== '' && (isNaN(editVatNum) || editVatNum < 0 || editVatNum > 100)) {
-      showError("Stawka VAT musi być z zakresu 0–100%");
-      return;
-    }
     setSavingCost(true);
     try {
-      await projectApi.updateProjectCost(
-        user.activeTenantId,
-        projectId,
-        editingCostId,
-        {
-          name: editingCostData.name,
-          place: editingCostData.place || undefined,
-          date: new Date(editingCostData.date),
-          description: editingCostData.description || undefined,
-          netAmount: editingCostData.netAmount && parseFloat(editingCostData.netAmount) !== 0 ? parseFloat(editingCostData.netAmount) : null,
-          vatRate: editingCostData.vatRate && parseFloat(editingCostData.vatRate) !== 0 ? parseFloat(editingCostData.vatRate) / 100 : null,
-          grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : null,
-          isClosed: editingCostData.isClosed,
-          document: editDocumentFile || undefined,
-          removeDocument: editingCostData?.removeDocument || false,
-        }
-      );
+      if (editingCost) {
+        await projectApi.updateProjectCost(user.activeTenantId, projectId, editingCost.id, {
+          name: formData.name,
+          place: formData.place || undefined,
+          date: new Date(formData.date),
+          description: formData.description || undefined,
+          netAmount: formData.netAmount ? parseFloat(formData.netAmount) : null,
+          grossAmount: formData.grossAmount ? parseFloat(formData.grossAmount) : null,
+          isClosed: formData.isClosed,
+          // Jeśli koszt miał już dokument i dodajemy nowy plik → UpdatedDocument (zastąpienie)
+          // Jeśli koszt nie miał dokumentu i dodajemy plik → Document (nowy)
+          document: modalDocumentFile && !editingCost.hasDocument ? modalDocumentFile : undefined,
+          updatedDocument: modalDocumentFile && editingCost.hasDocument ? modalDocumentFile : undefined,
+          removeDocument: formData.removeDocument,
+        });
+        showSuccess("Koszt został zaktualizowany");
+      } else {
+        await projectApi.createProjectCost(user.activeTenantId, projectId, {
+          name: formData.name,
+          place: formData.place || undefined,
+          date: new Date(formData.date),
+          description: formData.description || undefined,
+          netAmount: formData.netAmount ? parseFloat(formData.netAmount) : null,
+          grossAmount: formData.grossAmount ? parseFloat(formData.grossAmount) : null,
+          isClosed: formData.isClosed,
+          document: modalDocumentFile || undefined,
+        });
+        showSuccess("Koszt został dodany");
+      }
 
-      showSuccess("Koszt został zaktualizowany");
-      setEditingCostId(null);
-      setEditingCostData(null);
-      setEditDocumentFile(null);
+      handleCloseModal();
       refreshData();
-    } catch (error) {
-      showError("Wystąpił błąd podczas aktualizacji kosztu");
+    } catch {
+      showError(
+        editingCost
+          ? "Wystąpił błąd podczas aktualizacji kosztu"
+          : "Wystąpił błąd podczas dodawania kosztu",
+      );
     } finally {
       setSavingCost(false);
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingCostId(null);
-    setEditingCostData(null);
-    setEditDocumentFile(null);
+  const handleDeleteCost = (costId: string) => {
+    setCostToDelete(costId);
+    onDeleteAlertOpen();
   };
 
-  const handleDeleteCost = async (costId: string) => {
-    if (!user?.activeTenantId || !projectId) return;
-    if (!confirm("Czy na pewno chcesz usunąć ten koszt?")) return;
+  const confirmDeleteCost = async () => {
+    if (!user?.activeTenantId || !projectId || !costToDelete) return;
 
-    setDeletingCostId(costId);
+    setDeletingCostId(costToDelete);
+    onDeleteAlertClose();
     try {
-      await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
-
+      await projectApi.deleteProjectCost(user.activeTenantId, projectId, costToDelete);
       showSuccess("Koszt został usunięty");
       refreshData();
-    } catch (error) {
+    } catch {
       showError("Wystąpił błąd podczas usuwania kosztu");
     } finally {
       setDeletingCostId(null);
+      setCostToDelete(null);
     }
   };
 
@@ -1424,17 +865,15 @@ export default function ProjectSimpleCosts() {
           date: new Date(cost.date),
           description: cost.description || undefined,
           netAmount: cost.netAmount ?? null,
-          vatRate: cost.vatRate ?? null,
           grossAmount: cost.grossAmount ?? null,
           isClosed: !currentIsClosed,
-          document: undefined,
           removeDocument: false,
         }
       );
 
       showSuccess("Status rozliczenia został zaktualizowany");
       refreshData();
-    } catch (error) {
+    } catch {
       showError("Wystąpił błąd podczas aktualizacji statusu");
     } finally {
       setEditingClosedCostId(null);
@@ -1466,17 +905,15 @@ export default function ProjectSimpleCosts() {
           date: new Date(cost.date),
           description: cost.description || undefined,
           netAmount: cost.netAmount ?? null,
-          vatRate: cost.vatRate ?? null,
           grossAmount: cost.grossAmount ?? null,
           isClosed: !currentIsClosed,
-          document: undefined,
           removeDocument: false,
         }
       );
 
       showSuccess("Status rozliczenia został zaktualizowany");
       refreshData();
-    } catch (error) {
+    } catch {
       showError("Wystąpił błąd podczas aktualizacji statusu");
     } finally {
       setEditingSharedCostId(null);
@@ -1516,14 +953,14 @@ export default function ProjectSimpleCosts() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="blue" variant="enclosed" onChange={setActiveTabIndex}>
+          <Tabs colorScheme="primary" variant="enclosed">
             <TabList>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
                     <Text>Wszystkie</Text>
-                    <Badge colorScheme="purple" ml={2}>{allCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="level2" ml={2}>{allCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -1532,7 +969,7 @@ export default function ProjectSimpleCosts() {
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
                     <Text>Moje</Text>
-                    <Badge colorScheme="blue" ml={2}>{myCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="primary" ml={2}>{myCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -1541,7 +978,7 @@ export default function ProjectSimpleCosts() {
                   <HStack spacing={2}>
                     <Icon as={Share2} boxSize={4} />
                     <Text>Udostępnione</Text>
-                    <Badge colorScheme="teal" ml={2}>{sharedCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="action" ml={2}>{sharedCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -1553,28 +990,14 @@ export default function ProjectSimpleCosts() {
                   <AllCostsTab
                     costs={allCostsCache.data || []}
                     loading={allCostsCache.loading}
-                    showNewCostRow={showNewCostRow}
-                    newCostData={newCostData}
-                    documentFile={documentFile}
-                    addingNewCost={addingNewCost}
                     resourcePerms={resourcePerms}
-                    editingCostId={editingCostId}
-                    editingCostData={editingCostData}
-                    editDocumentFile={editDocumentFile}
                     deletingCostId={deletingCostId}
                     editingClosedCostId={editingClosedCostId}
                     savingClosedCost={savingClosedCost}
                     onShareCostsModalOpen={onShareCostsModalOpen}
-                    onShowNewCostRow={setShowNewCostRow}
-                    onNewCostDataChange={setNewCostData}
-                    onDocumentFileChange={setDocumentFile}
-                    onAddCost={handleAddCost}
+                    onAddCost={handleOpenAddModal}
                     onManageShare={handleManageShare}
-                    onEditCost={handleEditCost}
-                    onEditingCostDataChange={setEditingCostData}
-                    onEditDocumentFileChange={setEditDocumentFile}
-                    onSaveEdit={handleSaveEdit}
-                    onCancelEdit={handleCancelEdit}
+                    onEditCost={handleOpenEditModal}
                     onDeleteCost={handleDeleteCost}
                     onToggleCostClosed={handleToggleCostClosed}
                   />
@@ -1585,32 +1008,13 @@ export default function ProjectSimpleCosts() {
                   <MyCostsTab
                     costs={myCostsCache.data || []}
                     loading={myCostsCache.loading}
-                    showNewCostRow={showNewCostRow}
-                    newCostData={newCostData}
-                    documentFile={documentFile}
-                    addingNewCost={addingNewCost}
-                    editingCostId={editingCostId}
-                    editingCostData={editingCostData}
-                    editDocumentFile={editDocumentFile}
-                    savingCost={savingCost}
                     deletingCostId={deletingCostId}
                     editingClosedCostId={editingClosedCostId}
                     savingClosedCost={savingClosedCost}
                     resourcePerms={resourcePerms}
                     onShareCostsModalOpen={onShareCostsModalOpen}
-                    onShowNewCostRow={setShowNewCostRow}
-                    onNewCostDataChange={setNewCostData}
-                    onDocumentFileChange={setDocumentFile}
-                    onAddCost={handleAddCost}
-                    onEditCost={handleEditCost}
-                    onEditingCostDataChange={setEditingCostData}
-                    onEditDocumentFileChange={setEditDocumentFile}
-                    onSaveEdit={handleSaveEdit}
-                    onCancelEdit={() => {
-                      setEditingCostId(null);
-                      setEditingCostData(null);
-                      setEditDocumentFile(null);
-                    }}
+                    onAddCost={handleOpenAddModal}
+                    onEditCost={handleOpenEditModal}
                     onShareCost={handleShareCost}
                     onDeleteCost={handleDeleteCost}
                     onToggleCostClosed={handleToggleCostClosed}
@@ -1633,11 +1037,30 @@ export default function ProjectSimpleCosts() {
           </Tabs>
         )}
 
-        <Box mt={6} p={4} bg="blue.50" rounded="md" borderWidth="1px" borderColor="blue.200">
-          <Text fontSize="sm" color="blue.800">
+        <Box mt={6} p={4} bg="primary.50" rounded="md" borderWidth="1px" borderColor="primary.200">
+          <Text fontSize="sm" color="primary.800">
             💡 <strong>Wskazówka:</strong> Tu rejestrujesz wydatki poniesione w projekcie (faktury, paragony, rozliczenia). Dla zaawansowanych kosztorysów według szablonów przejdź do zakładki "Kosztorysy".
           </Text>
         </Box>
+
+        {/* MODAL: Dodaj / Edytuj koszt */}
+        <ExpenseFormModal
+          isOpen={isExpenseModalOpen}
+          onClose={handleCloseModal}
+          editingCost={editingCost}
+          documentFile={modalDocumentFile}
+          onDocumentFileChange={setModalDocumentFile}
+          onSave={handleSaveCost}
+          isSaving={savingCost}
+        />
+
+        {/* ALERT: Potwierdzenie usunięcia kosztu */}
+        <DeleteAlertDialog
+          isOpen={isDeleteAlertOpen}
+          onClose={onDeleteAlertClose}
+          onConfirm={confirmDeleteCost}
+          isLoading={deletingCostId !== null}
+        />
 
         {/* MODAL: MANAGE COST SHARE (pojedynczy koszt) */}
         {costToManageShare && user?.activeTenantId && projectId && (
@@ -1669,7 +1092,7 @@ export default function ProjectSimpleCosts() {
           />
         )}
 
-        {/* MODAL: SHARE COST (stary komponent dla pojedynczego kosztu - backward compatibility) */}
+        {/* MODAL: SHARE COST (backward compatibility) */}
         {isShareModalOpen && costToShare && user?.activeTenantId && projectId && (
           <ShareCostModal
             isOpen={isShareModalOpen}
@@ -1680,9 +1103,7 @@ export default function ProjectSimpleCosts() {
             tenantId={user.activeTenantId}
             projectId={projectId}
             cost={costToShare}
-            onCostShared={() => {
-              refreshData();
-            }}
+            onCostShared={refreshData}
           />
         )}
 

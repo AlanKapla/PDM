@@ -6,6 +6,7 @@ namespace Entities.Models
     public class WorkScheduleStageWork : BaseEntity
     {
         public Guid TenantId { get; set; }
+        public Guid ProjectId { get; set; }
         public Guid WorkScheduleStageId { get; set; }
 
         /// <summary>
@@ -24,5 +25,11 @@ namespace Entities.Models
         public ICollection<WorkScheduleStageWorkPeriod> Periods { get; set; } = new List<WorkScheduleStageWorkPeriod>();
         public ICollection<WorkScheduleStageWorkAssignment> Assignments { get; set; } = new List<WorkScheduleStageWorkAssignment>();
         public ICollection<WorkScheduleStageWorkComment> Comments { get; set; } = new List<WorkScheduleStageWorkComment>();
+
+        /// <summary>Dependencies where this work is the predecessor (this work → others)</summary>
+        public ICollection<WorkScheduleStageWorkDependency> PredecessorDependencies { get; set; } = new List<WorkScheduleStageWorkDependency>();
+
+        /// <summary>Dependencies where this work is the successor (others → this work)</summary>
+        public ICollection<WorkScheduleStageWorkDependency> SuccessorDependencies { get; set; } = new List<WorkScheduleStageWorkDependency>();
     }
 }

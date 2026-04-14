@@ -10,7 +10,8 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         Guid ProjectId,
         Guid WorkScheduleId,
         string Name,
-        List<WorkScheduleStageDto>? Stages
+        List<WorkScheduleStageDto>? Stages,
+        List<WorkScheduleWorkDependencyDto>? Dependencies
     ) : IRequestCommand<WorkScheduleDetailsWeb>, IAuthorizableRequest
     {
         public string PermissionCode => PermissionCodes.ProjectResourcesWrite;

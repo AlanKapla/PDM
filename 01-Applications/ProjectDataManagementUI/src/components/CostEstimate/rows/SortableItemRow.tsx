@@ -8,6 +8,7 @@ import {
   Badge,
   HStack,
   Checkbox,
+  Box,
 } from '@chakra-ui/react';
 import {
   GripVertical,
@@ -154,7 +155,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   return (
     <React.Fragment>
       {/* Główny wiersz pozycji */}
-      <Tr ref={setNodeRef} style={style} bg="gray.50" _hover={{ bg: 'gray.100' }}>
+      <Tr ref={setNodeRef} style={style} bg="white" _hover={{ bg: 'primary.50', cursor: 'pointer' }}>
         {/* Akcje pozycji - zamrożona kolumna */}
         {editable && (
           <Td
@@ -164,7 +165,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             position="sticky"
             left={0}
             zIndex={5}
-            bg="gray.50"
+            bg="white"
             minW="120px"
             maxW="120px"
             _groupHover={{ bg: 'gray.100' }}
@@ -181,6 +182,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                   {...listeners}
                 />
               </Tooltip>
+              <Box display="inline-flex" alignItems="center" gap={1}>
               {onDeleteItem && (
                 <Tooltip label="Usuń pozycję">
                   <IconButton
@@ -204,7 +206,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     aria-label="Dodaj opcję"
                     icon={<GitBranch size={14} />}
                     size="xs"
-                    colorScheme="purple"
+                    colorScheme="level2"
                     variant="ghost"
                     onClick={() => handleAddOption(groupId, item.id)}
                     isDisabled={hasComponents}
@@ -231,7 +233,8 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                   />
                 </Tooltip>
               )}
-            </HStack>
+            </Box>
+          </HStack>
           </Td>
         )}
 
@@ -242,7 +245,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           position="sticky"
           left={editable ? '120px' : 0}
           zIndex={5}
-          bg="gray.50"
+          bg="white"
           w={`${POSITION_COL_MIN_WIDTH}px`}
           minW={`${POSITION_COL_MIN_WIDTH}px`}
           whiteSpace="nowrap"
@@ -290,7 +293,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           );
           if (groupHeaderField) {
             return (
-              <Td key={col.fieldId} p={2} bg="gray.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+              <Td key={col.fieldId} p={2} bg="white" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
                 <Text fontSize="xs" color="gray.400" fontStyle="italic" textAlign="center">—</Text>
               </Td>
             );
@@ -298,8 +301,8 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
 
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="purple.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                <Text fontSize="xs" color="purple.400" fontStyle="italic" textAlign="center">
+              <Td key={col.fieldId} p={2} bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                <Text fontSize="xs" color="level2.400" fontStyle="italic" textAlign="center">
                   {itemOptions.length > 0 ? `${itemOptions.length} opcji` : '—'}
                 </Text>
               </Td>

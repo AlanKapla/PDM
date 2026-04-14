@@ -1,16 +1,17 @@
 ﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
-using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.ProjectCosts.Shared;
 using Entities.Models;
+using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.CreateProjectCost
 {
-    public class CreateProjectCostCommandHandler : IRequestHandler<CreateProjectCostCommand, Guid>
+    public class CreateProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<CreateProjectCostCommand, Guid>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IBlobStorageService blobStorageService;
@@ -21,7 +22,12 @@ namespace CQRS.ProjectCosts.CreateProjectCost
             IRepository<ProjectCost> projectCostRepo,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
-            ILogger<CreateProjectCostCommandHandler> logger)
+            ILogger<CreateProjectCostCommandHandler> logger,
+            IReadRepository<CostTracker> costTrackerRepository,
+            IRepository<TrackedCost> trackedCostRepository,
+            IRepository<ProjectCostTrackedCostLink> projectCostLinkRepository,
+            IRepository<TrackedCostAttachment> attachmentRepository)
+            : base(costTrackerRepository, trackedCostRepository, projectCostLinkRepository, blobStorageService, attachmentRepository)
         {
             this.projectCostRepo = projectCostRepo;
             this.blobStorageService = blobStorageService;
@@ -31,16 +37,32 @@ namespace CQRS.ProjectCosts.CreateProjectCost
 
         public async Task<Guid> Handle(CreateProjectCostCommand request, CancellationToken cancellationToken)
         {
-            // ProjectMemberHandler already validated tenant isolation and project membership
+            ProjectCost projectCost = BuildProjectCostEntity(request);
 
-            // Calculate amounts using helper
-            var (grossAmount, netAmount, vatRate) = AmountCalculationHelper.CalculateAmounts(
-                request.NetAmount, 
-                request.VatRate, 
-                request.GrossAmount);
+            await projectCostRepo.Insert(projectCost);
+            await projectCostRepo.SaveChangesAsync(cancellationToken);
 
-            // Create ProjectCost entity
-            var projectCost = new ProjectCost
+            if (request.Document != null)
+            {
+                await UploadCostDocumentAsync(request, projectCost, cancellationToken);
+            }
+
+            if (request.IsClosed)
+            {
+                await CreateTrackerLinkAsync(projectCost, request.TenantId, request.ProjectId, cancellationToken);
+                await projectCostRepo.SaveChangesAsync(cancellationToken);
+            }
+
+            logger.LogInformation(
+                "Cost {CostId} created in project {ProjectId} by user {UserId}",
+                projectCost.Id, request.ProjectId, currentUser.Id);
+
+            return projectCost.Id;
+        }
+
+        private ProjectCost BuildProjectCostEntity(CreateProjectCostCommand request)
+        {
+            return new ProjectCost
             {
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
@@ -49,74 +71,36 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 Place = request.Place,
                 Date = request.Date.Date,
                 Description = request.Description,
-                NetAmount = netAmount,
-                VatRate = vatRate,
-                GrossAmount = grossAmount,
+                NetAmount = request.NetAmount,
+                GrossAmount = request.GrossAmount ?? request.NetAmount!.Value,
                 IsClosed = request.IsClosed,
-                HasDocument = request.Document != null,
+                HasDocument = false,
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
             };
+        }
 
-            await projectCostRepo.Insert(projectCost);
-            await projectCostRepo.SaveChangesAsync(cancellationToken);
-
-            Guid costId = projectCost.Id;
-
-            // Upload document if provided
-            if (request.Document != null)
+        private async Task UploadCostDocumentAsync(CreateProjectCostCommand request, ProjectCost projectCost, CancellationToken cancellationToken)
+        {
+            try
             {
-                try
-                {
-                    string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.ProjectCosts);
-                    string fileExtension = Path.GetExtension(request.Document.FileName).ToLowerInvariant();
-                    string blobFileName = $"{costId}{fileExtension}";
-                    string blobPath = $"{request.TenantId}/{request.ProjectId}/{currentUser.Id}/{costId}/{blobFileName}";
+                await UploadDocumentToCostAsync(projectCost, request.Document!, request.TenantId, projectCost.Id, cancellationToken);
 
-                    using (Stream stream = request.Document.OpenReadStream())
-                    {
-                        await blobStorageService.UploadAsync(
-                            containerName,
-                            blobPath,
-                            stream,
-                            request.Document.ContentType,
-                            cancellationToken);
-                    }
+                await projectCostRepo.Update(projectCost);
+                await projectCostRepo.SaveChangesAsync(cancellationToken);
 
-                    // Update entity with document info
-                    projectCost.DocumentFileName = request.Document.FileName;
-                    projectCost.DocumentBlobPath = blobPath;
-                    projectCost.DocumentContentType = request.Document.ContentType;
-                    projectCost.DocumentSizeBytes = request.Document.Length;
-
-                    await projectCostRepo.Update(projectCost);
-                    await projectCostRepo.SaveChangesAsync(cancellationToken);
-
-                    logger.LogInformation(
-                        "Document uploaded for cost {CostId} in project {ProjectId}",
-                        costId, request.ProjectId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex,
-                        "Failed to upload document for cost {CostId} in project {ProjectId}",
-                        costId, request.ProjectId);
-                    
-                    // Document upload failed, but cost is created
-                    // Mark HasDocument as false
-                    projectCost.HasDocument = false;
-                    await projectCostRepo.Update(projectCost);
-                    await projectCostRepo.SaveChangesAsync(cancellationToken);
-                    
-                    throw new ValidationApiException("Cost created but document upload failed");
-                }
+                logger.LogInformation(
+                    "Document uploaded for cost {CostId} in project {ProjectId}",
+                    projectCost.Id, request.ProjectId);
             }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to upload document for cost {CostId} in project {ProjectId}",
+                    projectCost.Id, request.ProjectId);
 
-            logger.LogInformation(
-                "Cost {CostId} created in project {ProjectId} by user {UserId}",
-                costId, request.ProjectId, currentUser.Id);
-
-            return costId;
+                throw new ValidationApiException("Cost created but document upload failed");
+            }
         }
     }
 }

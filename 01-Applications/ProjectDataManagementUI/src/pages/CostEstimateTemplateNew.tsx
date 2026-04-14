@@ -12,17 +12,17 @@ import {
   FormControl,
   FormLabel,
   Divider,
-  useToast,
   Alert,
   AlertIcon,
 } from "@chakra-ui/react";
 import { FileText, Save, ArrowLeft } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 export default function CostEstimateTemplateNew() {
   const navigate = useNavigate();
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -30,12 +30,7 @@ export default function CostEstimateTemplateNew() {
 
   const handleSubmit = async () => {
     if (!templateName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa szablonu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa szablonu jest wymagana");
       return;
     }
 
@@ -47,22 +42,12 @@ export default function CostEstimateTemplateNew() {
         description: templateDescription || undefined,
       });
 
-      toast({
-        title: "Sukces",
-        description: "Szablon został utworzony. Teraz możesz dodać pola, waluty i jednostki.",
-        status: "success",
-        duration: 3000,
-      });
+      showSuccess("Sukces", "Szablon został utworzony. Teraz możesz dodać pola, waluty i jednostki.");
 
       // Przekieruj do edycji nowo utworzonego szablonu (result to ID szablonu)
       navigate(`/cost-estimate-templates/${result}/edit`);
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się utworzyć szablonu",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", "Nie udało się utworzyć szablonu");
     } finally {
       setIsSubmitting(false);
     }
@@ -125,7 +110,7 @@ export default function CostEstimateTemplateNew() {
             </Button>
             <Button
               leftIcon={<Save size={18} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={handleSubmit}
               isLoading={isSubmitting}
               loadingText="Tworzenie..."

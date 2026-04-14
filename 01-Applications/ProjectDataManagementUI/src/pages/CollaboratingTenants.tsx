@@ -7,7 +7,6 @@ import {
   VStack,
   useColorModeValue,
   HStack,
-  useToast,
   Badge,
   Radio,
   RadioGroup,
@@ -17,12 +16,13 @@ import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import { getUserTenants, changeActiveTenant } from "../services/tenantService";
+import { useToastNotification } from "../hooks/useToastNotification";
 import type { UserTenant } from "../types/auth.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function CollaboratingTenants() {
   const { user, refreshUser } = useAuth();
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
   const [tenants, setTenants] = useState<UserTenant[]>([]);
   const [activeTenantId, setActiveTenantId] = useState<string>("");
   const [changingTenant, setChangingTenant] = useState(false);
@@ -30,7 +30,7 @@ export default function CollaboratingTenants() {
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
-  const activeBg = useColorModeValue("blue.50", "blue.900");
+  const activeBg = useColorModeValue("primary.50", "primary.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
   useEffect(() => {
@@ -57,25 +57,13 @@ export default function CollaboratingTenants() {
     try {
       await changeActiveTenant(newTenantId);
       setActiveTenantId(newTenantId);
-      toast({
-        title: "Organizacja przełączona",
-        description: "Organizacja została pomyślnie przełączona",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+      showSuccess("Organizacja przełączona", "Organizacja została pomyślnie przełączona");
       
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setChangingTenant(false);
     }
@@ -85,7 +73,7 @@ export default function CollaboratingTenants() {
     return (
       <MainLayout>
         <VStack spacing={4} align="center" justify="center" minH="50vh">
-          <Spinner size="xl" color="blue.500" />
+          <Spinner size="xl" color="primary.500" />
           <Text>Ładowanie organizacji...</Text>
         </VStack>
       </MainLayout>
@@ -120,7 +108,7 @@ export default function CollaboratingTenants() {
                         p={4}
                         rounded="lg"
                         border="1px solid"
-                        borderColor={tenant.id === activeTenantId ? "blue.500" : borderColor}
+                        borderColor={tenant.id === activeTenantId ? "primary.500" : borderColor}
                         bg={tenant.id === activeTenantId ? activeBg : "transparent"}
                         transition="all 0.2s"
                       >
@@ -143,7 +131,7 @@ export default function CollaboratingTenants() {
                             </Radio>
                           </HStack>
                           {tenant.id === activeTenantId && (
-                            <Badge colorScheme="blue" display="flex" alignItems="center" gap={1} alignSelf={{ base: "flex-start", md: "center" }} ml={{ base: 6, md: 0 }}>
+                            <Badge colorScheme="primary" display="flex" alignItems="center" gap={1} alignSelf={{ base: "flex-start", md: "center" }} ml={{ base: 6, md: 0 }}>
                               <CheckCircle2 size={14} />
                               Włączona
                             </Badge>

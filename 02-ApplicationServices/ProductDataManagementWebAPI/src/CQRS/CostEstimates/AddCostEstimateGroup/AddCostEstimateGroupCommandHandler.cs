@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -33,24 +33,29 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
             AddCostEstimateGroupCommand request,
             CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
             if (accessLevel == CostEstimateAccessLevel.None)
+            {
                 throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+            }
 
             if (accessLevel == CostEstimateAccessLevel.Restricted)
+            {
                 throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
+            }
 
             if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+            {
                 throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
+            }
 
-            var template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
+            CostEstimateTemplate template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
             if (!template.CanAddGroups)
@@ -61,10 +66,10 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
             int level = 0;
             if (request.ParentGroupId.HasValue)
             {
-                var groupsDict = await cacheService.GetGroupsDictionaryAsync(
+                Dictionary<Guid, CostEstimateGroup> groupsDict = await cacheService.GetGroupsDictionaryAsync(
                     request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
-                if (!groupsDict.TryGetValue(request.ParentGroupId.Value, out var parentGroup))
+                if (!groupsDict.TryGetValue(request.ParentGroupId.Value, out CostEstimateGroup? parentGroup))
                 {
                     throw new NotFoundApiException("ParentGroup", request.ParentGroupId.Value.ToString());
                 }
@@ -83,9 +88,10 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
                 }
             }
 
-            var group = new CostEstimateGroup
+            CostEstimateGroup group = new CostEstimateGroup
             {
                 CostEstimateId = costEstimate.Id,
+                Name = string.Empty,
                 ParentGroupId = request.ParentGroupId,
                 Level = level,
                 Order = request.Order,

@@ -121,7 +121,7 @@ export default function Profile() {
                   </Text>
                 </Box>
 
-                <Button colorScheme="blue" onClick={handleEdit} mt={4}>
+                <Button colorScheme="primary" onClick={handleEdit} mt={4}>
                   Edytuj profil
                 </Button>
               </>
@@ -159,7 +159,7 @@ export default function Profile() {
 
                 <HStack spacing={3} mt={4}>
                   <Button
-                    colorScheme="blue"
+                    colorScheme="primary"
                     onClick={handleSave}
                     isLoading={saving}
                     flex={1}

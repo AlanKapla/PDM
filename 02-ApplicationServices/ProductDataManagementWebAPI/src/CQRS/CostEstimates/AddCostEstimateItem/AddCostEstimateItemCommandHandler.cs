@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -33,24 +33,29 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
             AddCostEstimateItemCommand request,
             CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
             if (accessLevel == CostEstimateAccessLevel.None)
+            {
                 throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+            }
 
             if (accessLevel == CostEstimateAccessLevel.Restricted)
+            {
                 throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
+            }
 
             if (accessLevel == CostEstimateAccessLevel.ReadOnly)
+            {
                 throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
+            }
 
-            var groupsDict = await cacheService.GetGroupsDictionaryAsync(
+            Dictionary<Guid, CostEstimateGroup> groupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             if (!groupsDict.ContainsKey(request.GroupId))
@@ -60,10 +65,10 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
 
             if (request.ParentItemId.HasValue)
             {
-                var itemsDict = await cacheService.GetItemsDictionaryAsync(
+                Dictionary<Guid, CostEstimateItem> itemsDict = await cacheService.GetItemsDictionaryAsync(
                     request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
-                if (!itemsDict.TryGetValue(request.ParentItemId.Value, out var parentItem))
+                if (!itemsDict.TryGetValue(request.ParentItemId.Value, out CostEstimateItem? parentItem))
                 {
                     throw new NotFoundApiException("ParentItem", request.ParentItemId.Value.ToString());
                 }
@@ -88,9 +93,10 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
             _ = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
-            var item = new CostEstimateItem
+            CostEstimateItem item = new CostEstimateItem
             {
                 CostEstimateId = costEstimate.Id,
+                Name = string.Empty,
                 GroupId = request.GroupId,
                 ParentItemId = request.ParentItemId,
                 RelationType = request.RelationType,

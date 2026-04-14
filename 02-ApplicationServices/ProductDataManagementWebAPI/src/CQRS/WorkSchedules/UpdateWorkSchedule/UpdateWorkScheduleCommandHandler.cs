@@ -1,16 +1,13 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.WorkSchedules;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
-using CQRS.Helpers;
 using Entities.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 using CQRS.WorkSchedules.Shared;
-using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.WorkSchedules.UpdateWorkSchedule
 {
@@ -21,11 +18,9 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
         private readonly IRepository<WorkScheduleStageWork> workRepo;
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepo;
-        private readonly IReadRepository<User> userRepo;
-        private readonly IReadRepository<Notification> notificationRepo;
-        private readonly INotificationSender notificationSender;
-        private readonly IWorkScheduleSyncService workScheduleSyncService;
-        private readonly ICostEstimateAccessService costEstimateAccessService;
+        private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
+        private readonly IUserService userService;
+        private readonly IWorkScheduleNotificationService workScheduleNotificationService;
         private readonly ICurrentUser currentUser;
 
         public UpdateWorkScheduleCommandHandler(
@@ -34,11 +29,9 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             IRepository<WorkScheduleStageWork> workRepo,
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepo,
             IRepository<WorkScheduleStageWorkComment> commentRepo,
-            IReadRepository<User> userRepo,
-            IReadRepository<Notification> notificationRepo,
-            INotificationSender notificationSender,
-            IWorkScheduleSyncService workScheduleSyncService,
-            ICostEstimateAccessService costEstimateAccessService,
+            IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
+            IUserService userService,
+            IWorkScheduleNotificationService workScheduleNotificationService,
             ICurrentUser currentUser)
         {
             this.workScheduleRepo = workScheduleRepo;
@@ -46,11 +39,9 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             this.workRepo = workRepo;
             this.assignmentRepo = assignmentRepo;
             this.commentRepo = commentRepo;
-            this.userRepo = userRepo;
-            this.notificationRepo = notificationRepo;
-            this.notificationSender = notificationSender;
-            this.workScheduleSyncService = workScheduleSyncService;
-            this.costEstimateAccessService = costEstimateAccessService;
+            this.dependencyRepo = dependencyRepo;
+            this.userService = userService;
+            this.workScheduleNotificationService = workScheduleNotificationService;
             this.currentUser = currentUser;
         }
 
@@ -63,19 +54,6 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
 
             workSchedule.Name = request.Name;
             await workScheduleRepo.Update(workSchedule);
-
-            if (workSchedule.CostEstimateId.HasValue)
-            {
-                CostEstimateAccessLevel accessLevel = await costEstimateAccessService.GetAccessLevelAsync(
-                    currentUser, tenantId, projectId, workSchedule.CostEstimateId.Value, cancellationToken);
-
-                if (accessLevel < CostEstimateAccessLevel.Full)
-                {
-                    throw new ForbiddenApiException("You do not have full access to the linked cost estimate.");
-                }
-
-                return await HandleSyncedUpdateAsync(workSchedule, request, tenantId, projectId, cancellationToken);
-            }
 
             return await ExecuteManualUpdateAsync(workSchedule, request, tenantId, projectId, cancellationToken);
         }
@@ -121,40 +99,18 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             HashSet<Guid> addedUserIds = new HashSet<Guid>();
             List<WorkScheduleStageWeb> stageWebs = new List<WorkScheduleStageWeb>();
             Dictionary<Guid, string> userNameDict = new Dictionary<Guid, string>();
+            Dictionary<Guid, Guid> tempIdToWorkId = new Dictionary<Guid, Guid>();
 
             if (request.Stages != null && request.Stages.Count > 0)
             {
-                Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork = workSchedule.Stages
-                    .SelectMany(s => s.Works)
-                    .SelectMany(w => w.Assignments)
-                    .GroupBy(a => a.WorkScheduleStageWorkId)
-                    .ToDictionary(g => g.Key, g => g.Select(a => a.UserId).ToHashSet());
-
+                Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork = BuildExistingUserIdsByWork(workSchedule.Stages);
                 Dictionary<Guid, WorkScheduleStage> existingStagesById = workSchedule.Stages.ToDictionary(s => s.Id);
                 HashSet<Guid> incomingStageIds = CollectStageIds(request.Stages);
                 HashSet<Guid> incomingWorkIds = CollectWorkIds(request.Stages);
 
-                List<WorkScheduleStage> stagesToDelete = workSchedule.Stages.Where(s => !incomingStageIds.Contains(s.Id)).ToList();
-                List<WorkScheduleStage> remainingStages = workSchedule.Stages.Except(stagesToDelete).ToList();
-                List<WorkScheduleStageWork> worksToDelete = remainingStages
-                    .SelectMany(s => s.Works)
-                    .Where(w => !incomingWorkIds.Contains(w.Id))
-                    .ToList();
+                await DeleteObsoleteStagesAndWorksAsync(workSchedule.Stages, incomingStageIds, incomingWorkIds, workSchedule.Id, removedUserIds, cancellationToken);
 
-                CollectRemovedUserIdsFromStages(stagesToDelete, removedUserIds);
-                CollectRemovedUserIdsFromWorks(worksToDelete, removedUserIds);
-
-                if (stagesToDelete.Count != 0)
-                {
-                    await stageRepo.DeleteRange(stagesToDelete);
-                }
-
-                if (worksToDelete.Count != 0)
-                {
-                    await workRepo.DeleteRange(worksToDelete);
-                }
-
-                userNameDict = await BuildUserNameDictAsync(request.Stages, cancellationToken);
+                userNameDict = await WorkScheduleQueryHelper.BuildUserNameDictAsync(userService, tenantId, projectId, request.Stages, cancellationToken);
 
                 List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete = new List<WorkScheduleStageWorkAssignment>();
                 List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert = new List<WorkScheduleStageWorkAssignment>();
@@ -167,7 +123,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                     tenantId, projectId,
                     allAssignmentsToDelete, allAssignmentsToInsert,
                     allCommentsToDelete, allCommentsToInsert,
-                    removedUserIds, addedUserIds, cancellationToken);
+                    removedUserIds, addedUserIds, tempIdToWorkId, cancellationToken);
 
                 await PersistBulkChangesAsync(allAssignmentsToDelete, allAssignmentsToInsert, allCommentsToDelete, allCommentsToInsert);
             }
@@ -177,163 +133,86 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
 
                 if (workSchedule.Stages.Count != 0)
                 {
+                    HashSet<Guid> allWorkIds = workSchedule.Stages
+                        .SelectMany(s => s.Works)
+                        .Select(w => w.Id)
+                        .ToHashSet();
+
+                    await DeleteDependenciesForWorksAsync(allWorkIds, workSchedule.Id, cancellationToken);
                     await stageRepo.DeleteRange(workSchedule.Stages.ToList());
                 }
             }
 
+            List<WorkScheduleWorkDependencyWeb> depWebs = await ReplaceDependenciesAsync(
+                workSchedule, request.Dependencies, tempIdToWorkId, cancellationToken);
+
             await workScheduleRepo.SaveChangesAsync(cancellationToken);
 
-            await SendAssignmentNotificationsAsync(
+            await workScheduleNotificationService.SendAssignmentChangedNotificationsAsync(
                 removedUserIds, addedUserIds,
                 workSchedule.Id, request.Name,
                 tenantId, projectId, cancellationToken);
 
-            string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+            string createdByUserName = WorkScheduleQueryHelper.FormatFullName(currentUser.FirstName, currentUser.LastName);
             return new WorkScheduleDetailsWeb(
                 workSchedule.Id, workSchedule.TenantId, workSchedule.ProjectId,
                 workSchedule.CostEstimateId, workSchedule.Name, workSchedule.CreatedAt,
-                workSchedule.CreatedByUserId, createdByUserName, stageWebs);
+                workSchedule.CreatedByUserId, createdByUserName, stageWebs,
+                depWebs);
         }
 
-        private async Task<Dictionary<Guid, string>> BuildUserNameDictAsync(
-            IEnumerable<WorkScheduleStageDto> stages,
-            CancellationToken cancellationToken)
-        {
-            List<Guid> allUserIds = WorkScheduleValidationHelper.FlattenStages(stages)
+        private static HashSet<Guid> CollectStageIds(IEnumerable<WorkScheduleStageDto> stages) =>
+            WorkScheduleValidationHelper.FlattenStages(stages)
+                .Where(s => s.Id.HasValue)
+                .Select(s => s.Id!.Value)
+                .ToHashSet();
+
+        private static HashSet<Guid> CollectWorkIds(IEnumerable<WorkScheduleStageDto> stages) =>
+            WorkScheduleValidationHelper.FlattenStages(stages)
                 .Where(s => s.Works != null)
                 .SelectMany(s => s.Works!)
-                .Where(w => w.AssignedUserIds != null)
-                .SelectMany(w => w.AssignedUserIds!)
-                .Distinct()
-                .ToList();
+                .Where(w => w.Id.HasValue)
+                .Select(w => w.Id!.Value)
+                .ToHashSet();
 
-            if (allUserIds.Count == 0)
-            {
-                return new Dictionary<Guid, string>();
-            }
+        private static Dictionary<Guid, HashSet<Guid>> BuildExistingUserIdsByWork(IEnumerable<WorkScheduleStage> stages) =>
+            stages
+                .SelectMany(s => s.Works)
+                .SelectMany(w => w.Assignments)
+                .GroupBy(a => a.WorkScheduleStageWorkId)
+                .ToDictionary(g => g.Key, g => g.Select(a => a.UserId).ToHashSet());
 
-            IEnumerable<User> users = await userRepo.GetBySearch(u => allUserIds.Contains(u.Id));
-            return users.ToDictionary(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim());
-        }
-
-        private async Task SendAssignmentNotificationsAsync(
-            HashSet<Guid> removedUserIds,
-            HashSet<Guid> addedUserIds,
+        private async Task DeleteObsoleteStagesAndWorksAsync(
+            IEnumerable<WorkScheduleStage> existingStages,
+            HashSet<Guid> incomingStageIds,
+            HashSet<Guid> incomingWorkIds,
             Guid workScheduleId,
-            string workScheduleName,
-            Guid tenantId,
-            Guid projectId,
+            HashSet<Guid> removedUserIds,
             CancellationToken cancellationToken)
         {
-            if (removedUserIds.Count == 0 && addedUserIds.Count == 0)
-            {
-                return;
-            }
+            List<WorkScheduleStage> stagesToDelete = existingStages.Where(s => !incomingStageIds.Contains(s.Id)).ToList();
+            List<WorkScheduleStage> remainingStages = existingStages.Except(stagesToDelete).ToList();
+            List<WorkScheduleStageWork> worksToDelete = remainingStages
+                .SelectMany(s => s.Works)
+                .Where(w => !incomingWorkIds.Contains(w.Id))
+                .ToList();
 
-            removedUserIds.ExceptWith(addedUserIds);
+            CollectRemovedUserIdsFromStages(stagesToDelete, removedUserIds);
+            CollectRemovedUserIdsFromWorks(worksToDelete, removedUserIds);
 
-            List<Guid> allNotificationUserIds = removedUserIds.Union(addedUserIds).ToList();
-            if (!allNotificationUserIds.Any())
-            {
-                return;
-            }
+            HashSet<Guid> deletedWorkIds = stagesToDelete
+                .SelectMany(s => s.Works)
+                .Select(w => w.Id)
+                .Concat(worksToDelete.Select(w => w.Id))
+                .ToHashSet();
 
-            IEnumerable<User> notificationUsers = await userRepo.GetBySearch(u => allNotificationUserIds.Contains(u.Id));
-            Dictionary<Guid, User> notificationUserDict = notificationUsers.ToDictionary(u => u.Id);
-            string updatedByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+            await DeleteDependenciesForWorksAsync(deletedWorkIds, workScheduleId, cancellationToken);
 
-            foreach (Guid userId in removedUserIds)
-            {
-                notificationUserDict.TryGetValue(userId, out User? targetUser);
-                NotificationDto notification = new NotificationDto
-                {
-                    Id = Guid.NewGuid(), TenantId = tenantId, ProjectId = projectId, UserId = userId,
-                    AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
-                    Type = NotificationType.Info,
-                    Title = "Usunięto z harmonogramu prac",
-                    Message = $"Zostałeś usunięty z prac w harmonogramie: {workScheduleName}",
-                    CreatedAt = DateTimeOffset.UtcNow, Readed = false,
-                    Metadata = new Dictionary<string, object?>
-                    {
-                        { "workScheduleId", workScheduleId },
-                        { "workScheduleName", workScheduleName },
-                        { "projectId", projectId },
-                        { "updatedByUserId", currentUser.Id },
-                        { "updatedByUserName", updatedByUserName }
-                    }
-                };
-                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
-                await notificationSender.EnqueueAsync(payload, cancellationToken);
-            }
+            if (stagesToDelete.Count != 0)
+                await stageRepo.DeleteRange(stagesToDelete);
 
-            foreach (Guid userId in addedUserIds)
-            {
-                notificationUserDict.TryGetValue(userId, out User? targetUser);
-                NotificationDto notification = new NotificationDto
-                {
-                    Id = Guid.NewGuid(), TenantId = tenantId, ProjectId = projectId, UserId = userId,
-                    AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
-                    Type = NotificationType.Info,
-                    Title = "Przypisano do harmonogramu prac",
-                    Message = $"Zostałeś przypisany do prac w harmonogramie: {workScheduleName}",
-                    CreatedAt = DateTimeOffset.UtcNow, Readed = false,
-                    Metadata = new Dictionary<string, object?>
-                    {
-                        { "workScheduleId", workScheduleId },
-                        { "workScheduleName", workScheduleName },
-                        { "projectId", projectId },
-                        { "updatedByUserId", currentUser.Id },
-                        { "updatedByUserName", updatedByUserName }
-                    }
-                };
-                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
-                await notificationSender.EnqueueAsync(payload, cancellationToken);
-            }
-        }
-
-        private static HashSet<Guid> CollectStageIds(IEnumerable<WorkScheduleStageDto> stages)
-        {
-            HashSet<Guid> ids = new HashSet<Guid>();
-            foreach (WorkScheduleStageDto s in stages)
-            {
-                if (s.Id.HasValue)
-                {
-                    ids.Add(s.Id.Value);
-                }
-
-                if (s.Children != null)
-                {
-                    foreach (Guid id in CollectStageIds(s.Children))
-                    {
-                        ids.Add(id);
-                    }
-                }
-            }
-            return ids;
-        }
-
-        private static HashSet<Guid> CollectWorkIds(IEnumerable<WorkScheduleStageDto> stages)
-        {
-            HashSet<Guid> ids = [];
-            foreach (WorkScheduleStageDto s in stages)
-            {
-                if (s.Works != null)
-                {
-                    foreach (WorkScheduleWorkDto w in s.Works.Where(w => w.Id.HasValue))
-                    {
-                        ids.Add(w.Id!.Value);
-                    }
-                }
-
-                if (s.Children != null)
-                {
-                    foreach (Guid id in CollectWorkIds(s.Children))
-                    {
-                        ids.Add(id);
-                    }
-                }
-            }
-            return ids;
+            if (worksToDelete.Count != 0)
+                await workRepo.DeleteRange(worksToDelete);
         }
 
         private async Task<List<WorkScheduleStageWeb>> UpdateStagesAsync(
@@ -351,6 +230,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             List<WorkScheduleStageWorkComment> allCommentsToInsert,
             HashSet<Guid> removedUserIds,
             HashSet<Guid> addedUserIds,
+            Dictionary<Guid, Guid> tempIdToWorkId,
             CancellationToken cancellationToken)
         {
             List<WorkScheduleStageWeb> result = new List<WorkScheduleStageWeb>();
@@ -367,24 +247,11 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                 {
                     foreach (WorkScheduleWorkDto workDto in stageDto.Works)
                     {
-                        (WorkScheduleStageWork work, HashSet<Guid> previousAssignedUsers) = await UpsertWorkAsync(
-                            workDto, stage, existingUserIdsByWork, tenantId,
-                            allAssignmentsToDelete, allCommentsToDelete, cancellationToken);
-
-                        List<WorkScheduleStageWorkAssigneeWeb> assigneeWebs = ProcessWorkAssignments(
-                            workDto, work, previousAssignedUsers, tenantId, projectId,
-                            userNameDict, allAssignmentsToInsert, removedUserIds, addedUserIds);
-
-                        List<WorkScheduleStageWorkCommentWeb> commentWebs = ProcessWorkComments(
-                            workDto, work, tenantId, allCommentsToInsert);
-
-                        List<WorkScheduleStageWorkPeriodWeb> periodWebs = work.Periods
-                            .Select(p => new WorkScheduleStageWorkPeriodWeb(p.StartDate, p.EndDate, p.IsClosed))
-                            .ToList();
-
-                        workWebs.Add(new WorkScheduleStageWorkWeb(
-                            work.Id, work.Name, work.Order, work.ColorRgb,
-                            work.IsClosed, periodWebs, assigneeWebs, commentWebs));
+                        workWebs.Add(await ProcessWorkInUpdateAsync(
+                            workDto, stage, existingUserIdsByWork, tenantId, projectId, userNameDict,
+                            allAssignmentsToDelete, allAssignmentsToInsert,
+                            allCommentsToDelete, allCommentsToInsert,
+                            removedUserIds, addedUserIds, tempIdToWorkId, cancellationToken));
                     }
                 }
 
@@ -395,7 +262,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
                         tenantId, projectId,
                         allAssignmentsToDelete, allAssignmentsToInsert,
                         allCommentsToDelete, allCommentsToInsert,
-                        removedUserIds, addedUserIds, cancellationToken)
+                        removedUserIds, addedUserIds, tempIdToWorkId, cancellationToken)
                     : new List<WorkScheduleStageWeb>();
 
                 result.Add(new WorkScheduleStageWeb(
@@ -404,6 +271,45 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             }
 
             return result;
+        }
+
+        private async Task<WorkScheduleStageWorkWeb> ProcessWorkInUpdateAsync(
+            WorkScheduleWorkDto workDto,
+            WorkScheduleStage stage,
+            Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork,
+            Guid tenantId,
+            Guid projectId,
+            Dictionary<Guid, string> userNameDict,
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete,
+            List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert,
+            List<WorkScheduleStageWorkComment> allCommentsToDelete,
+            List<WorkScheduleStageWorkComment> allCommentsToInsert,
+            HashSet<Guid> removedUserIds,
+            HashSet<Guid> addedUserIds,
+            Dictionary<Guid, Guid> tempIdToWorkId,
+            CancellationToken cancellationToken)
+        {
+            (WorkScheduleStageWork work, HashSet<Guid> previousAssignedUsers) = await UpsertWorkAsync(
+                workDto, stage, existingUserIdsByWork, tenantId, projectId,
+                allAssignmentsToDelete, allCommentsToDelete, cancellationToken);
+
+            if (!workDto.Id.HasValue && workDto.TempId.HasValue)
+                tempIdToWorkId[workDto.TempId.Value] = work.Id;
+
+            List<WorkScheduleStageWorkAssigneeWeb> assigneeWebs = ProcessWorkAssignments(
+                workDto, work, previousAssignedUsers, tenantId, projectId,
+                userNameDict, allAssignmentsToInsert, removedUserIds, addedUserIds);
+
+            List<WorkScheduleStageWorkCommentWeb> commentWebs = ProcessWorkComments(
+                workDto, work, tenantId, allCommentsToInsert);
+
+            List<WorkScheduleStageWorkPeriodWeb> periodWebs = work.Periods
+                .Select(p => new WorkScheduleStageWorkPeriodWeb(p.StartDate, p.EndDate, p.IsClosed))
+                .ToList();
+
+            return new WorkScheduleStageWorkWeb(
+                work.Id, work.Name, work.Order, work.ColorRgb,
+                work.IsClosed, periodWebs, assigneeWebs, commentWebs);
         }
 
         private async Task<WorkScheduleStage> UpsertStageAsync(
@@ -441,37 +347,18 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             return stage;
         }
 
-        private static List<WorkScheduleStageWorkPeriod> BuildPeriods(WorkScheduleWorkDto workDto)
-        {
-            List<WorkScheduleStageWorkPeriod> periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
-            {
-                StartDate = p.StartDate,
-                EndDate = p.EndDate,
-                IsClosed = workDto.IsClosed || p.IsClosed
-            }).ToList() ?? new List<WorkScheduleStageWorkPeriod>();
-
-            if (workDto.IsClosed)
-            {
-                foreach (WorkScheduleStageWorkPeriod period in periods)
-                {
-                    period.IsClosed = true;
-                }
-            }
-
-            return periods;
-        }
-
         private async Task<(WorkScheduleStageWork work, HashSet<Guid> previousAssignedUsers)> UpsertWorkAsync(
             WorkScheduleWorkDto workDto,
             WorkScheduleStage stage,
             Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork,
             Guid tenantId,
+            Guid projectId,
             List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete,
             List<WorkScheduleStageWorkComment> allCommentsToDelete,
             CancellationToken cancellationToken)
         {
-            List<WorkScheduleStageWorkPeriod> periods = BuildPeriods(workDto);
-            bool isWorkClosed = workDto.IsClosed || (periods.Any() && periods.All(p => p.IsClosed));
+            (List<WorkScheduleStageWorkPeriod> periods, bool isWorkClosed) = WorkScheduleValidationHelper.BuildPeriods(workDto);
+
             HashSet<Guid> previousAssignedUsers = new HashSet<Guid>();
 
             WorkScheduleStageWork? existingWork = workDto.Id.HasValue
@@ -502,6 +389,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             WorkScheduleStageWork newWork = new WorkScheduleStageWork
             {
                 TenantId = tenantId,
+                ProjectId = projectId,
                 WorkScheduleStageId = stage.Id,
                 Name = workDto.Name,
                 Order = workDto.Order,
@@ -579,7 +467,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             }
 
             DateTime now = DateTime.UtcNow;
-            string commenterName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
+            string commenterName = WorkScheduleQueryHelper.FormatFullName(currentUser.FirstName, currentUser.LastName);
 
             foreach (WorkScheduleWorkCommentDto commentDto in workDto.Comments)
             {
@@ -598,48 +486,6 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             }
 
             return commentWebs;
-        }
-
-        private async Task<List<WorkScheduleStage>> ReloadStagesWithWorksAsync(
-            Guid workScheduleId, CancellationToken cancellationToken)
-        {
-            return (await stageRepo.GetBySearch(
-                s => s.WorkScheduleId == workScheduleId && !s.IsDeleted,
-                include => include
-                    .Include(s => s.Works)
-                    .ThenInclude(w => w.Periods),
-                include => include
-                    .Include(s => s.Works)
-                    .ThenInclude(w => w.Assignments),
-                include => include
-                    .Include(s => s.Works)
-                    .ThenInclude(w => w.Comments)))
-                .ToList();
-        }
-
-        private async Task EnrichUserNameDictAsync(
-            List<WorkScheduleStage> stages,
-            Dictionary<Guid, string> userNameDict,
-            CancellationToken cancellationToken)
-        {
-            List<Guid> missingUserIds = stages
-                .SelectMany(s => s.Works)
-                .SelectMany(w => w.Assignments)
-                .Select(a => a.UserId)
-                .Distinct()
-                .Where(id => !userNameDict.ContainsKey(id))
-                .ToList();
-
-            if (!missingUserIds.Any())
-            {
-                return;
-            }
-
-            IEnumerable<User> additionalUsers = await userRepo.GetBySearch(u => missingUserIds.Contains(u.Id));
-            foreach (User u in additionalUsers)
-            {
-                userNameDict[u.Id] = $"{u.FirstName} {u.LastName}".Trim();
-            }
         }
 
         private async Task PersistBulkChangesAsync(
@@ -690,125 +536,47 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             }
         }
 
-        private async Task<WorkScheduleDetailsWeb> HandleSyncedUpdateAsync(
+        private async Task<List<WorkScheduleWorkDependencyWeb>> ReplaceDependenciesAsync(
             WorkSchedule workSchedule,
-            UpdateWorkScheduleCommand request,
-            Guid tenantId,
-            Guid projectId,
+            List<WorkScheduleWorkDependencyDto>? dependencies,
+            Dictionary<Guid, Guid> tempIdToWorkId,
             CancellationToken cancellationToken)
         {
-            await workScheduleSyncService.SyncFromCostEstimateAsync(workSchedule, cancellationToken);
+            IEnumerable<WorkScheduleStageWorkDependency> existing = await dependencyRepo.GetBySearch(
+                d => d.WorkScheduleId == workSchedule.Id && d.TenantId == workSchedule.TenantId);
 
-            List<WorkScheduleStage> currentStages = await ReloadStagesWithWorksAsync(workSchedule.Id, cancellationToken);
-            Dictionary<Guid, WorkScheduleStage> stagesById = currentStages.ToDictionary(s => s.Id);
+            List<WorkScheduleStageWorkDependency> existingList = existing.ToList();
+            if (existingList.Count > 0)
+                await dependencyRepo.DeleteRange(existingList);
 
-            HashSet<Guid> removedUserIds = new HashSet<Guid>();
-            HashSet<Guid> addedUserIds = new HashSet<Guid>();
-            Dictionary<Guid, string> userNameDict = new Dictionary<Guid, string>();
+            if (dependencies == null || dependencies.Count == 0)
+                return new List<WorkScheduleWorkDependencyWeb>();
 
-            List<WorkScheduleStageWorkAssignment> allAssignmentsToDelete = new List<WorkScheduleStageWorkAssignment>();
-            List<WorkScheduleStageWorkAssignment> allAssignmentsToInsert = new List<WorkScheduleStageWorkAssignment>();
-            List<WorkScheduleStageWorkComment> allCommentsToDelete = new List<WorkScheduleStageWorkComment>();
-            List<WorkScheduleStageWorkComment> allCommentsToInsert = new List<WorkScheduleStageWorkComment>();
+            var (entities, webs) = WorkScheduleQueryHelper.BuildDependencies(
+                dependencies, workSchedule.Id, workSchedule.TenantId, workSchedule.ProjectId, tempIdToWorkId);
 
-            if (request.Stages != null && request.Stages.Count > 0)
-            {
-                userNameDict = await BuildUserNameDictAsync(request.Stages, cancellationToken);
+            if (entities.Count > 0)
+                await dependencyRepo.InsertRange(entities);
 
-                HashSet<Guid> incomingStageIds = CollectStageIds(request.Stages);
-                HashSet<Guid> incomingWorkIds = CollectWorkIds(request.Stages);
-
-                // Stages without CostEstimateGroupId are fully user-managed even in synced mode.
-                List<WorkScheduleStage> existingManualStages = currentStages.Where(s => s.CostEstimateGroupId == null).ToList();
-                List<WorkScheduleStage> manualStagesToDelete = existingManualStages.Where(s => !incomingStageIds.Contains(s.Id)).ToList();
-                CollectRemovedUserIdsFromStages(manualStagesToDelete, removedUserIds);
-
-                if (manualStagesToDelete.Count != 0)
-                {
-                    await stageRepo.DeleteRange(manualStagesToDelete);
-                }
-
-                List<WorkScheduleStage> remainingStages = currentStages.Except(manualStagesToDelete).ToList();
-                List<WorkScheduleStageWork> worksToDelete = remainingStages
-                    .SelectMany(s => s.Works)
-                    .Where(w => w.CostEstimateItemId == null && !incomingWorkIds.Contains(w.Id))
-                    .ToList();
-                CollectRemovedUserIdsFromWorks(worksToDelete, removedUserIds);
-
-                if (worksToDelete.Count != 0)
-                {
-                    await workRepo.DeleteRange(worksToDelete);
-                }
-
-                Dictionary<Guid, HashSet<Guid>> existingUserIdsByWork = remainingStages
-                    .SelectMany(s => s.Works)
-                    .Where(w => !worksToDelete.Contains(w))
-                    .ToDictionary(w => w.Id, w => w.Assignments.Select(a => a.UserId).ToHashSet());
-
-                Dictionary<Guid, WorkScheduleStage> remainingStagesById = remainingStages.ToDictionary(s => s.Id);
-
-                await UpdateStagesAsync(
-                    request.Stages, null, workSchedule,
-                    remainingStagesById, existingUserIdsByWork, userNameDict,
-                    tenantId, projectId,
-                    allAssignmentsToDelete, allAssignmentsToInsert,
-                    allCommentsToDelete, allCommentsToInsert,
-                    removedUserIds, addedUserIds, cancellationToken);
-
-                await PersistBulkChangesAsync(allAssignmentsToDelete, allAssignmentsToInsert, allCommentsToDelete, allCommentsToInsert);
-            }
-
-            await workScheduleRepo.SaveChangesAsync(cancellationToken);
-
-            List<WorkScheduleStage> finalStages = await ReloadStagesWithWorksAsync(workSchedule.Id, cancellationToken);
-            await EnrichUserNameDictAsync(finalStages, userNameDict, cancellationToken);
-
-            await SendAssignmentNotificationsAsync(
-                removedUserIds, addedUserIds,
-                workSchedule.Id, request.Name,
-                tenantId, projectId, cancellationToken);
-
-            string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
-            return new WorkScheduleDetailsWeb(
-                workSchedule.Id, workSchedule.TenantId, workSchedule.ProjectId,
-                workSchedule.CostEstimateId, workSchedule.Name, workSchedule.CreatedAt,
-                workSchedule.CreatedByUserId, createdByUserName,
-                BuildStageTreeWithWorks(finalStages, null, userNameDict));
+            return webs;
         }
 
-        private static List<WorkScheduleStageWeb> BuildStageTreeWithWorks(
-            List<WorkScheduleStage> stages,
-            Guid? parentStageId,
-            Dictionary<Guid, string> userNameDict)
+        private async Task DeleteDependenciesForWorksAsync(
+            HashSet<Guid> deletedWorkIds,
+            Guid workScheduleId,
+            CancellationToken cancellationToken)
         {
-            return stages
-                .Where(s => s.ParentStageId == parentStageId)
-                .OrderBy(s => s.Order)
-                .Select(s => new WorkScheduleStageWeb(
-                    s.Id,
-                    s.Name,
-                    s.Order,
-                    s.ParentStageId,
-                    s.CostEstimateGroupId,
-                    s.Works.OrderBy(w => w.Order).Select(w => new WorkScheduleStageWorkWeb(
-                        w.Id, w.Name, w.Order, w.ColorRgb, w.IsClosed,
-                        w.Periods.OrderBy(p => p.StartDate)
-                            .Select(p => new WorkScheduleStageWorkPeriodWeb(p.StartDate, p.EndDate, p.IsClosed))
-                            .ToList(),
-                        w.Assignments
-                            .Select(a => new WorkScheduleStageWorkAssigneeWeb(
-                                a.UserId,
-                                userNameDict.GetValueOrDefault(a.UserId, "Unknown User")))
-                            .ToList(),
-                        w.Comments.OrderBy(c => c.CreatedAt)
-                            .Select(c => new WorkScheduleStageWorkCommentWeb(
-                                c.Id, c.Content, c.CreatedByUserId,
-                                userNameDict.GetValueOrDefault(c.CreatedByUserId, "Unknown"),
-                                c.CreatedAt))
-                            .ToList()
-                    )).ToList(),
-                    BuildStageTreeWithWorks(stages, s.Id, userNameDict)))
-                .ToList();
+            if (deletedWorkIds.Count == 0)
+                return;
+
+            IEnumerable<WorkScheduleStageWorkDependency> affected = await dependencyRepo.GetBySearch(
+                d => d.WorkScheduleId == workScheduleId
+                     && (deletedWorkIds.Contains(d.PredecessorWorkId) || deletedWorkIds.Contains(d.SuccessorWorkId)));
+
+            List<WorkScheduleStageWorkDependency> affectedList = affected.ToList();
+            if (affectedList.Count > 0)
+                await dependencyRepo.DeleteRange(affectedList);
         }
-    }
-}
+
+            }
+        }

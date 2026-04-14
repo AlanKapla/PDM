@@ -474,12 +474,12 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
           px={3}
           py={2}
           borderLeft="3px solid"
-          borderColor="blue.400"
-          bg={useColorModeValue("blue.50", "blue.900")}
+            borderColor="primary.400"
+            bg={useColorModeValue("primary.50", "primary.900")}
           borderRadius="md"
           position="relative"
         >
-          <Text fontSize="xs" fontWeight="semibold" color="blue.500">
+            <Text fontSize="xs" fontWeight="semibold" color="primary.500">
             {editingMessage ? "Edytujesz wiadomość" : `Odpowiadasz: ${replyTo!.senderFirstName}`}
           </Text>
           {replyTo && (
@@ -531,7 +531,7 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
         <Tooltip label={editingMessage ? "Zapisz" : "Wyślij (Enter)"}>
           <IconButton
             icon={<Send size={18} />}
-            colorScheme="blue"
+            colorScheme="primary"
             borderRadius="full"
             aria-label="Wyślij"
             isLoading={sending}

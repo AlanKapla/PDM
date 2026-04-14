@@ -41,11 +41,6 @@ namespace Entities.Models
         public decimal? NetAmount { get; set; }
         
         /// <summary>
-        /// Stawka VAT w procentach (opcjonalne jeśli dostarczone brutto)
-        /// </summary>
-        public decimal? VatRate { get; set; }
-        
-        /// <summary>
         /// Kwota brutto - wyliczana z netto + VAT lub wprowadzana ręcznie
         /// </summary>
         public decimal GrossAmount { get; set; }

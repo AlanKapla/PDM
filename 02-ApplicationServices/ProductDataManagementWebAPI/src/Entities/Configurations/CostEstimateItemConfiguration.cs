@@ -1,4 +1,5 @@
 ﻿using Entities.Models.CostEstimates;
+using Entities.Models.CostTrackers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -75,7 +76,12 @@ namespace Entities.Configurations
             builder.HasIndex(w => new { w.ParentItemId, w.RelationType });  // Index dla filtrowania Options vs Components
             builder.HasIndex(w => new { w.GroupId, w.Order });
             builder.HasIndex(w => w.IsDeleted);
-            
+
+            builder.HasMany(w => w.TrackedCosts)
+                .WithOne(tc => tc.CostEstimateItem)
+                .HasForeignKey(tc => tc.CostEstimateItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             builder.HasQueryFilter(w => !w.IsDeleted);
         }
     }

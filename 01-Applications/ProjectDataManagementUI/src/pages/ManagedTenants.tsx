@@ -12,27 +12,14 @@ import {
   FormControl,
   FormLabel,
   HStack,
-  useToast,
   Badge,
   Stack,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  IconButton,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
   useDisclosure,
   Tooltip,
   Icon,
 } from "@chakra-ui/react";
+import { DeleteAlertDialog } from "../components/ui";
+import { useToastNotification } from "../hooks/useToastNotification";
 import { Building2, Plus, Trash2, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getAdminTenants, createTenant, removeTenantMember } from "../services/tenantService";
@@ -56,7 +43,7 @@ export default function ManagedTenants() {
   
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   
-  const toast = useToast();
+  const { showSuccess, showError } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
@@ -79,48 +66,24 @@ export default function ManagedTenants() {
 
   const handleCreateTenant = async () => {
     if (!newTenantName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa organizacji nie może być pusta",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      showError("Błąd walidacji", "Nazwa organizacji nie może być pusta");
       return;
     }
 
     setCreatingTenant(true);
     try {
       const newTenant = await createTenant(newTenantName);
-      
+
       if (newTenant) {
         setTenants([...tenants, newTenant]);
         setNewTenantName("");
         setIsCreatingTenant(false);
-        toast({
-          title: "Organizacja utworzona",
-          description: `Organizacja "${newTenant.name}" została pomyślnie utworzona`,
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
+        showSuccess("Organizacja utworzona", `Organizacja "${newTenant.name}" została pomyślnie utworzona`);
       } else {
-        toast({
-          title: "Błąd tworzenia organizacji",
-          description: "Nie udało się utworzyć nowej organizacji",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
+        showError("Błąd tworzenia organizacji", "Nie udało się utworzyć nowej organizacji");
       }
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Wystąpił problem z połączeniem",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      showError("Błąd", "Wystąpił problem z połączeniem");
     } finally {
       setCreatingTenant(false);
     }
@@ -143,30 +106,12 @@ export default function ManagedTenants() {
       const success = await removeTenantMember(tenantId, userId);
       
       if (success) {
-        toast({
-          title: "✅ Członek usunięty pomyślnie",
-          description: `${name} nie ma już dostępu do tej organizacji`,
-          status: "success",
-          duration: 4000,
-          isClosable: true,
-        });
+        showSuccess("Członek usunięty pomyślnie", `${name} nie ma już dostępu do tej organizacji`);
       } else {
-        toast({
-          title: "Nie udało się usunąć członka",
-          description: "Spróbuj ponownie lub skontaktuj się z administratorem",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
+        showError("Nie udało się usunąć członka", "Spróbuj ponownie lub skontaktuj się z administratorem");
       }
     } catch (error) {
-      toast({
-        title: "Wystąpił błąd połączenia",
-        description: "Sprawdź połączenie internetowe i spróbuj ponownie",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError("Błąd połączenia", "Sprawdź połączenie internetowe i spróbuj ponownie");
     } finally {
       setRemovingMemberId(null);
       setMemberToRemove(null);
@@ -179,7 +124,7 @@ export default function ManagedTenants() {
     return (
       <MainLayout>
         <VStack spacing={4} align="center" justify="center" minH="50vh">
-          <Spinner size="xl" color="blue.500" />
+          <Spinner size="xl" color="primary.500" />
           <Text>Ładowanie organizacji...</Text>
         </VStack>
       </MainLayout>
@@ -198,7 +143,7 @@ export default function ManagedTenants() {
             </HStack>
             <Button
               leftIcon={<Plus size={20} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={() => setIsCreatingTenant(true)}
               isDisabled={isCreatingTenant}
               width={{ base: "100%", md: "auto" }}
@@ -227,7 +172,7 @@ export default function ManagedTenants() {
                 </FormControl>
                 <HStack spacing={3}>
                   <Button
-                    colorScheme="blue"
+                    colorScheme="primary"
                     onClick={handleCreateTenant}
                     isLoading={creatingTenant}
                     flex={1}
@@ -275,7 +220,7 @@ export default function ManagedTenants() {
                     transition="all 0.2s"
                     _hover={{
                       shadow: "lg",
-                      borderColor: "blue.400",
+                      borderColor: "primary.400",
                       transform: "translateY(-2px)",
                     }}
                   >
@@ -304,32 +249,13 @@ export default function ManagedTenants() {
         </VStack>
       </Box>
 
-      {/* Modal potwierdzenia usunięcia członka */}
-      <Modal isOpen={isRemoveModalOpen} onClose={onRemoveModalClose} isCentered>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Usuń członka z organizacji</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack align="flex-start" spacing={3}>
-              <Text>
-                Czy na pewno chcesz usunąć <Text as="span" fontWeight="bold">{memberToRemove?.name}</Text> z organizacji?
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Ta osoba straci dostęp do wszystkich zasobów i danych organizacji.
-              </Text>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onRemoveModalClose}>
-              Anuluj
-            </Button>
-            <Button colorScheme="red" onClick={handleRemoveMember}>
-              Usuń członka
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <DeleteAlertDialog
+        isOpen={isRemoveModalOpen}
+        onClose={onRemoveModalClose}
+        onConfirm={handleRemoveMember}
+        itemName={memberToRemove?.name}
+        isLoading={!!removingMemberId}
+      />
     </MainLayout>
   );
 }

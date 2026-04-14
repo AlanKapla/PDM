@@ -2,6 +2,7 @@
 using Entities.Models;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.CostTrackers;
 
 namespace Entities.Context
 {
@@ -30,6 +31,7 @@ namespace Entities.Context
         public DbSet<WorkScheduleStageWork> WorkScheduleStageWorks => Set<WorkScheduleStageWork>();
         public DbSet<WorkScheduleStageWorkAssignment> WorkScheduleStageWorkAssignments => Set<WorkScheduleStageWorkAssignment>();
         public DbSet<WorkScheduleStageWorkComment> WorkScheduleStageWorkComments => Set<WorkScheduleStageWorkComment>();
+        public DbSet<WorkScheduleStageWorkDependency> WorkScheduleStageWorkDependencies => Set<WorkScheduleStageWorkDependency>();
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
@@ -47,6 +49,10 @@ namespace Entities.Context
         public DbSet<CostEstimateItemFieldValue> CostEstimateItemFieldValues => Set<CostEstimateItemFieldValue>();
         public DbSet<CostEstimateFieldFile> CostEstimateFieldFiles => Set<CostEstimateFieldFile>();
         public DbSet<SharedCostEstimate> SharedCostEstimates => Set<SharedCostEstimate>();
+        public DbSet<CostTracker> CostTrackers => Set<CostTracker>();
+        public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
+        public DbSet<TrackedCostAttachment> TrackedCostAttachments => Set<TrackedCostAttachment>();
+        public DbSet<ProjectCostTrackedCostLink> ProjectCostTrackedCostLinks => Set<ProjectCostTrackedCostLink>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();

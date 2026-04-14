@@ -291,7 +291,7 @@ export interface CostEstimateListItemWeb {
  * Sprawdza czy ID jest tymczasowe (nowy element)
  */
 export function isTemporaryId(id?: string): boolean {
-  return !id || id.startsWith('temp_');
+  return !id || id.startsWith('temp_') || id.startsWith('calc_') || id.startsWith('calc_opt_');
 }
 
 // ========== OPERATION RESULT DTOs ==========

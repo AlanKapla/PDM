@@ -9,7 +9,6 @@ import {
   Button,
   VStack,
   Checkbox,
-  useToast,
   Text,
   Box,
 } from "@chakra-ui/react";
@@ -17,6 +16,7 @@ import { useState, useEffect } from "react";
 import type { ProjectMemberWeb } from "../types/project.types";
 import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ManageFileShareModalProps {
   isOpen: boolean;
@@ -45,7 +45,7 @@ export const ManageFileShareModal = ({
   ownerUserId,
   onShareUpdated,
 }: ManageFileShareModalProps) => {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const [loading, setLoading] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
@@ -71,24 +71,12 @@ export const ManageFileShareModal = ({
       const userIds = Array.from(selectedUserIds);
       await projectApi.updateFileShare(tenantId, projectId, fileId, userIds);
 
-      toast({
-        title: "Sukces",
-        description: "Zaktualizowano udostępnienie pliku",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+      showSuccess("Sukces", "Zaktualizowano udostępnienie pliku");
       onShareUpdated();
       onClose();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError(title, description);
     } finally {
       setLoading(false);
     }
@@ -140,7 +128,7 @@ export const ManageFileShareModal = ({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleSave}
             isLoading={loading}
             isDisabled={availableMembers.length === 0}

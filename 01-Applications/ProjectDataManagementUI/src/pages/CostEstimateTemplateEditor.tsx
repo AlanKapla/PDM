@@ -23,7 +23,6 @@ import {
   Textarea,
   NumberInput,
   NumberInputField,
-  useToast,
   Badge,
   Tabs,
   TabList,
@@ -57,6 +56,10 @@ import {
   AccordionButton,
   AccordionPanel,
   AccordionIcon,
+  Switch,
+  useBreakpointValue,
+  Skeleton,
+  SkeletonText,
 } from "@chakra-ui/react";
 import {
   Plus,
@@ -126,6 +129,7 @@ type CostEstimateGroupFieldValueWeb = CostEstimateFieldValueWeb;
 import MainLayout from "../layout/MainLayout";
 import { useTouchReorder } from "../hooks/useTouchReorder";
 import { LoadingSpinner } from "../components/common";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 // Funkcja generująca unikalne GUID dla fieldName
   const generateFieldGuid = (): string => {
@@ -173,10 +177,15 @@ const summaryScopeLabels: Record<SummaryScope, string> = {
   [SummaryScope.Both]: "W etapie i całości",
 };
 
+// Typy pól wymaganych — zawsze obecnych w szablonie kosztorysu
+const REQUIRED_HEADER_FIELD_TYPES: GroupHeaderFieldType[] = [GroupHeaderFieldType.GroupName];
+const REQUIRED_SYSTEM_FIELD_TYPES: SystemFieldType[] = [SystemFieldType.Name];
+const REQUIRED_CALCULATED_FIELD_TYPES: CalculatedFieldType[] = [CalculatedFieldType.ValueNet, CalculatedFieldType.ValueGross];
+
 export default function CostEstimateTemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<CostEstimateTemplateDetails | null>(null);
@@ -237,8 +246,49 @@ export default function CostEstimateTemplateEditor() {
   ]);
 
   // Work Scope Fields State
-  const [systemFields, setSystemFields] = useState<SystemFieldDefinition[]>([]);
-  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>([]);
+  const [systemFields, setSystemFields] = useState<SystemFieldDefinition[]>(() => [
+    {
+      name: generateFieldGuid(),
+      label: "Nazwa pozycji",
+      type: SystemFieldType.Name,
+      order: 0,
+      required: true,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      readOnly: false,
+    },
+  ]);
+  const [calculatedFields, setCalculatedFields] = useState<CalculatedFieldDefinition[]>(() => [
+    {
+      name: generateFieldGuid(),
+      label: calculatedFieldTypeLabels[CalculatedFieldType.ValueNet],
+      type: CalculatedFieldType.ValueNet,
+      order: 0,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      summable: true,
+      summaryScope: SummaryScope.Both,
+      autoCalculated: true,
+      readOnly: true,
+    },
+    {
+      name: generateFieldGuid(),
+      label: calculatedFieldTypeLabels[CalculatedFieldType.ValueGross],
+      type: CalculatedFieldType.ValueGross,
+      order: 1,
+      required: false,
+      visible: true,
+      sortable: true,
+      filterable: true,
+      summable: true,
+      summaryScope: SummaryScope.Both,
+      autoCalculated: true,
+      readOnly: true,
+    },
+  ]);
   const [genericFields, setGenericFields] = useState<GenericFieldDefinition[]>([]);
   const [validationRules, setValidationRules] = useState<CrossFieldValidationRule[]>([]);
 
@@ -251,6 +301,10 @@ export default function CostEstimateTemplateEditor() {
   // UI Configuration State
   const [columns, setColumns] = useState<ColumnConfigurationWeb[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Mobile tab navigation
+  const [activeTab, setActiveTab] = useState(0);
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   // Obsługa przeciągania na urządzeniach dotykowych (smartfony, tablety)
   const { createTouchHandlers } = useTouchReorder();
@@ -420,7 +474,7 @@ export default function CostEstimateTemplateEditor() {
         setGroupNumberFormat(details.groupNumberFormat ?? "");
 
         // Pola nagłówka grupy - mapuj z GroupHeaderFieldWeb na GroupHeaderFieldDefinition
-        setHeaderFields(struct.groupHeaderFields.map(f => {
+        const mappedHeaderFields: GroupHeaderFieldDefinition[] = struct.groupHeaderFields.map(f => {
           // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
           const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 0;
           return {
@@ -444,10 +498,28 @@ export default function CostEstimateTemplateEditor() {
           color: f.color,
           fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
         };
-        }));
+        });
+        // Upewnij się, że wymagane pola nagłówka grupy są zawsze obecne
+        for (const requiredType of REQUIRED_HEADER_FIELD_TYPES) {
+          if (!mappedHeaderFields.some(f => f.type === requiredType)) {
+            mappedHeaderFields.unshift({
+              name: generateFieldGuid(),
+              type: requiredType,
+              customLabel: groupHeaderFieldTypeLabels[requiredType],
+              required: true,
+              visible: true,
+              sortable: true,
+              filterable: true,
+              order: 0,
+              readOnly: false,
+            });
+            mappedHeaderFields.forEach((f, i) => { f.order = i; });
+          }
+        }
+        setHeaderFields(mappedHeaderFields);
 
         // Pola systemowe - mapuj z SystemFieldWeb na SystemFieldDefinition
-        setSystemFields(struct.systemFields.map(f => {
+        const mappedSystemFields: SystemFieldDefinition[] = struct.systemFields.map(f => {
           // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
           const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 100;
           return {
@@ -521,10 +593,28 @@ export default function CostEstimateTemplateEditor() {
             }
           }),
         };
-        }));
+        });
+        // Upewnij się, że wymagane pola systemowe są zawsze obecne
+        for (const requiredType of REQUIRED_SYSTEM_FIELD_TYPES) {
+          if (!mappedSystemFields.some(f => f.type === requiredType)) {
+            mappedSystemFields.unshift({
+              name: generateFieldGuid(),
+              label: "Nazwa pozycji",
+              type: requiredType,
+              order: 0,
+              required: true,
+              visible: true,
+              sortable: true,
+              filterable: true,
+              readOnly: false,
+            });
+            mappedSystemFields.forEach((f, i) => { f.order = i; });
+          }
+        }
+        setSystemFields(mappedSystemFields);
 
         // Pola kalkulowane - mapuj z CalculatedFieldWeb na CalculatedFieldDefinition
-        setCalculatedFields(struct.calculatedFields.map(f => {
+        const mappedCalculatedFields: CalculatedFieldDefinition[] = struct.calculatedFields.map(f => {
           // Pobierz fieldType z fieldTypeConfig jeśli f.fieldType nie istnieje
           const fieldType = f.fieldType ?? f.fieldTypeConfig?.fieldType ?? 200;
           const legacyType = convertFieldTypeToLegacy(fieldType); // FieldType (200-206) → CalculatedFieldType (0-6)
@@ -560,7 +650,27 @@ export default function CostEstimateTemplateEditor() {
             helpUrl: f.helpUrl,
             fieldTypeConfig: f.fieldTypeConfig, // Zachowaj config z API
           };
-        }));
+        });
+        // Upewnij się, że wymagane pola kalkulowane są zawsze obecne
+        for (const requiredType of REQUIRED_CALCULATED_FIELD_TYPES) {
+          if (!mappedCalculatedFields.some(f => f.type === requiredType)) {
+            mappedCalculatedFields.push({
+              name: generateFieldGuid(),
+              label: calculatedFieldTypeLabels[requiredType],
+              type: requiredType,
+              order: mappedCalculatedFields.length,
+              required: false,
+              visible: true,
+              sortable: true,
+              filterable: true,
+              summable: true,
+              summaryScope: SummaryScope.Both,
+              autoCalculated: true,
+              readOnly: true,
+            });
+          }
+        }
+        setCalculatedFields(mappedCalculatedFields);
 
         // Pola generyczne - mapuj z GenericFieldWeb na GenericFieldDefinition
         setGenericFields(struct.genericFields.map(f => {
@@ -631,12 +741,7 @@ export default function CostEstimateTemplateEditor() {
         })));
       }
     } catch (error: any) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się załadować szablonu",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", "Nie udało się załadować szablonu");
       navigate("/cost-estimate-templates");
     } finally {
       setLoading(false);
@@ -1117,6 +1222,7 @@ export default function CostEstimateTemplateEditor() {
   };
 
   const handleRemoveHeaderField = (index: number) => {
+    if (REQUIRED_HEADER_FIELD_TYPES.includes(headerFields[index].type as any)) return;
     const updatedFields = headerFields.filter((_, i) => i !== index);
     updatedFields.forEach((field, i) => {
       field.order = i;
@@ -1139,6 +1245,7 @@ export default function CostEstimateTemplateEditor() {
   };
 
   const handleRemoveSystemField = (index: number) => {
+    if (REQUIRED_SYSTEM_FIELD_TYPES.includes(systemFields[index].type as any)) return;
     const updatedFields = systemFields.filter((_, i) => i !== index);
     updatedFields.forEach((field, i) => {
       field.order = i;
@@ -1161,6 +1268,7 @@ export default function CostEstimateTemplateEditor() {
   };
 
   const handleRemoveCalculatedField = (index: number) => {
+    if (REQUIRED_CALCULATED_FIELD_TYPES.includes(calculatedFields[index].type as any)) return;
     const updatedFields = calculatedFields.filter((_, i) => i !== index);
     const allFields = [...updatedFields, ...genericFields];
     allFields.sort((a, b) => a.order - b.order);
@@ -1228,22 +1336,12 @@ export default function CostEstimateTemplateEditor() {
 
   const validateTemplate = (): boolean => {
     if (!templateName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa szablonu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa szablonu jest wymagana");
       return false;
     }
 
     if (calculatedFields.length === 0 && genericFields.length === 0) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Szablon musi zawierać przynajmniej jedno pole",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Szablon musi zawierać przynajmniej jedno pole");
       return false;
     }
 
@@ -1252,12 +1350,7 @@ export default function CostEstimateTemplateEditor() {
       (name, index) => allFieldNames.indexOf(name) !== index
     );
     if (duplicateNames.length > 0) {
-      toast({
-        title: "Błąd walidacji",
-        description: `Znaleziono duplikaty nazw pól: ${duplicateNames.join(", ")}`,
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", `Znaleziono duplikaty nazw pól: ${duplicateNames.join(", ")}`);
       return false;
     }
 
@@ -1393,12 +1486,7 @@ export default function CostEstimateTemplateEditor() {
           },
         });
 
-        toast({
-          title: "Sukces",
-          description: "Szablon został zaktualizowany",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", "Szablon został zaktualizowany");
       } else {
         // Krok 1: Utwórz nowy szablon z nazwą i opisem
         const newTemplateId = await costEstimateTemplateApi.createTemplate({
@@ -1472,26 +1560,16 @@ export default function CostEstimateTemplateEditor() {
           },
         });
 
-        toast({
-          title: "Sukces",
-          description: "Szablon został utworzony",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", "Szablon został utworzony");
       }
 
       // Reset flagi zmian przed nawigacją
       setHasChanges(false);
       navigate("/cost-estimate-templates");
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: templateId
-          ? "Nie udało się zaktualizować szablonu"
-          : "Nie udało się utworzyć szablonu",
-        status: "error",
-        duration: 5000,
-      });
+      showError("Błąd", templateId
+        ? "Nie udało się zaktualizować szablonu"
+        : "Nie udało się utworzyć szablonu");
     } finally {
       setIsSubmitting(false);
     }
@@ -1623,10 +1701,10 @@ export default function CostEstimateTemplateEditor() {
 
     return (
       <VStack spacing={4} align="stretch">
-        <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
+        <Box bg="primary.50" p={4} borderRadius="md" borderWidth="1px" borderColor="primary.200">
           <HStack spacing={2} mb={2}>
-            <Icon as={Layout} color="blue.600" />
-            <Text fontSize="md" fontWeight="bold" color="blue.800">
+            <Icon as={Layout} color="primary.600" />
+            <Text fontSize="md" fontWeight="bold" color="primary.800">
               Układ kolumn w tabeli
             </Text>
           </HStack>
@@ -1651,13 +1729,13 @@ export default function CostEstimateTemplateEditor() {
                 <HStack
                   key={field.name}
                   p={3}
-                  bg={draggedIndex === index ? 'blue.100' : 'gray.50'}
+                  bg={draggedIndex === index ? 'primary.100' : 'gray.50'}
                   borderRadius="md"
                   borderWidth="2px"
-                  borderColor={draggedIndex === index ? 'blue.400' : 'gray.200'}
+                  borderColor={draggedIndex === index ? 'primary.400' : 'gray.200'}
                   spacing={3}
                   cursor="grab"
-                  _hover={{ bg: draggedIndex === index ? 'blue.100' : 'gray.100', borderColor: 'blue.300' }}
+                  _hover={{ bg: draggedIndex === index ? 'primary.100' : 'gray.100', borderColor: 'primary.300' }}
                   _active={{ cursor: 'grabbing' }}
                   draggable
                   onDragStart={() => handleDragStart(index)}
@@ -1697,103 +1775,179 @@ export default function CostEstimateTemplateEditor() {
 
   return (
     <MainLayout>
-      <Box maxW="1400px" mx="auto" p={6}>
+      <Box maxW="1400px" mx="auto" p={{ base: 3, sm: 4, md: 6 }} pb={{ base: 24, md: 28 }}>
         {/* Header */}
-        <HStack justify="space-between" mb={6}>
-          <HStack spacing={3}>
-            <FileText size={32} />
-            <Heading size="lg">
+        <HStack justify="space-between" mb={4} flexWrap="wrap" gap={2}>
+          <HStack spacing={2} flexWrap="wrap">
+            <FileText size={24} />
+            <Heading size={{ base: "md", md: "lg" }}>
               {templateId ? "Edytuj szablon kosztorysu" : "Nowy szablon kosztorysu"}
             </Heading>
+            {hasChanges && (
+              <Badge colorScheme="orange" fontSize="xs" px={2} py={1} borderRadius="md">
+                Niezapisane zmiany
+              </Badge>
+            )}
           </HStack>
           <HStack spacing={2}>
-            <Button
-              leftIcon={<Eye size={18} />}
-              colorScheme="blue"
-              variant="outline"
-              onClick={handlePreview}
-            >
-              Podgląd
-            </Button>
+            <Tooltip label="Podgląd szablonu" hasArrow>
+              <IconButton
+                aria-label="Podgląd szablonu"
+                icon={<Eye size={18} />}
+                colorScheme="primary"
+                variant="outline"
+                size={{ base: "sm", md: "md" }}
+                onClick={handlePreview}
+              />
+            </Tooltip>
           </HStack>
         </HStack>
 
         {/* Main Content */}
-        <VStack spacing={6} align="stretch">
-          <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-            <Text fontSize="lg" fontWeight="bold" mb={4}>
-              Informacje podstawowe
-            </Text>
-            <VStack spacing={4} align="stretch">
-
-                <FormControl isRequired>
-                  <FormLabel>Nazwa szablonu</FormLabel>
-                  <Input
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="np. Kosztorys robót budowlanych"
-                    size="lg"
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>Opis szablonu</FormLabel>
-                  <Textarea
-                    value={templateDescription}
-                    onChange={(e) => setTemplateDescription(e.target.value)}
-                    placeholder="Opcjonalny opis przeznaczenia i zastosowania szablonu"
-                    rows={3}
-                  />
-                </FormControl>
-
-              </VStack>
-            </Box>
+        <VStack spacing={4} align="stretch">
+          {/* Informacje podstawowe – zwinięty accordion */}
+          <Accordion allowToggle defaultIndex={templateId ? undefined : [0]}>
+            <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
+              <AccordionButton
+                bg={templateName ? "white" : "primary.50"}
+                _expanded={{ bg: "white" }}
+                px={4}
+                py={3}
+              >
+                <HStack flex={1} spacing={2} minW={0}>
+                  <Icon as={FileText} color="primary.600" boxSize={4} flexShrink={0} />
+                  <Text fontSize="md" fontWeight="bold" color="primary.800">
+                    Informacje podstawowe
+                  </Text>
+                  {templateName && (
+                    <Text
+                      fontSize="sm"
+                      color="gray.500"
+                      fontWeight="normal"
+                      isTruncated
+                      maxW={{ base: "120px", md: "300px" }}
+                    >
+                      — {templateName}
+                    </Text>
+                  )}
+                </HStack>
+                <AccordionIcon color="primary.600" />
+              </AccordionButton>
+              <AccordionPanel bg="white" pb={4} px={{ base: 4, md: 6 }}>
+                <VStack spacing={4} align="stretch">
+                  <FormControl isRequired>
+                    <HStack mb={1} spacing={1}>
+                      <FormLabel mb={0} fontSize="sm" fontWeight="semibold">
+                        Nazwa szablonu
+                      </FormLabel>
+                      <Tooltip label="To pole jest wymagane" hasArrow>
+                        <Box as="span" cursor="help" color="gray.400">
+                          <HelpCircle size={14} />
+                        </Box>
+                      </Tooltip>
+                    </HStack>
+                    <Input
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="np. Kosztorys robót budowlanych"
+                      size="lg"
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel fontSize="sm" fontWeight="semibold">
+                      Opis szablonu
+                    </FormLabel>
+                    <Textarea
+                      value={templateDescription}
+                      onChange={(e) => setTemplateDescription(e.target.value)}
+                      placeholder="Opcjonalny opis przeznaczenia i zastosowania szablonu"
+                      rows={3}
+                      maxLength={500}
+                    />
+                    <FormHelperText textAlign="right" fontSize="xs">
+                      {templateDescription.length}/500 znaków
+                    </FormHelperText>
+                  </FormControl>
+                </VStack>
+              </AccordionPanel>
+            </AccordionItem>
+          </Accordion>
 
             <Divider />
 
-            <Tabs colorScheme="blue" variant="enclosed">
-              <TabList>
-                <Tooltip label="Zasady tworzenia etapów: czy można je dodawać, zagnieżdżać i numerować" placement="bottom" hasArrow>
-                  <Tab>
-                    <HStack spacing={2}>
-                      <Settings size={18} />
-                      <Text>Konfiguracja etapów</Text>
-                    </HStack>
-                  </Tab>
-                </Tooltip>
-                <Tooltip label="Pola nagłówka etapu: nazwa, opis, daty, status, odpowiedzialny i inne" placement="bottom" hasArrow>
-                  <Tab>
-                    <HStack spacing={2}>
-                      <Tag size={18} />
-                      <Text>Pola etapów ({headerFields.length})</Text>
-                    </HStack>
-                  </Tab>
-                </Tooltip>
-                <Tooltip label="Kolumny tabeli kosztorysu: pola systemowe (nazwa, ilość, jednostka), obliczeniowe (ceny, wartości) i własne" placement="bottom" hasArrow>
-                  <Tab>
-                    <HStack spacing={2}>
-                      <List size={18} />
-                      <Text>Pola pozycji ({systemFields.length + calculatedFields.length + genericFields.length})</Text>
-                    </HStack>
-                  </Tab>
-                </Tooltip>
-                <Tooltip label="Dostępne waluty, jednostki miary i kategorie robót do wyboru w kosztorysie" placement="bottom" hasArrow>
-                  <Tab>
-                    <HStack spacing={2}>
-                      <BookOpen size={18} />
-                      <Text>Parametry</Text>
-                    </HStack>
-                  </Tab>
-                </Tooltip>
-                <Tooltip label="Kolejność i widoczność kolumn w widoku tabeli kosztorysu" placement="bottom" hasArrow>
-                  <Tab>
-                    <HStack spacing={2}>
-                      <Layout size={18} />
-                      <Text>Kolejność pól</Text>
-                    </HStack>
-                  </Tab>
-                </Tooltip>
-              </TabList>
+            {/* Tab navigation */}
+          {/* Mobile: dropdown Select */}
+          <Box display={{ base: "block", md: "none" }}>
+            <Select
+              value={activeTab}
+              onChange={(e) => setActiveTab(parseInt(e.target.value))}
+              size="md"
+              fontWeight="semibold"
+            >
+              <option value={0}>Konfiguracja etapów</option>
+              <option value={1}>Pola etapów ({headerFields.length})</option>
+              <option value={2}>
+                Pola pozycji ({systemFields.length + calculatedFields.length + genericFields.length})
+              </option>
+              <option value={3}>Parametry</option>
+              <option value={4}>⠿ Kolejność pól</option>
+            </Select>
+          </Box>
+
+          <Tabs
+            colorScheme="primary"
+            variant="enclosed"
+            index={activeTab}
+            onChange={setActiveTab}
+          >
+            {/* Desktop: standard tab list */}
+            <TabList display={{ base: "none", md: "flex" }}>
+              <Tooltip label="Zasady tworzenia etapów: czy można je dodawać, zagnieżdżać i numerować" placement="bottom" hasArrow>
+                <Tab _selected={{ color: "primary.700", borderBottomColor: "primary.500", borderBottomWidth: "2px" }}>
+                  <HStack spacing={2}>
+                    <Settings size={16} />
+                    <Text>Konfiguracja etapów</Text>
+                  </HStack>
+                </Tab>
+              </Tooltip>
+              <Tooltip label="Pola dostępne na poziomie etapu" placement="bottom" hasArrow>
+                <Tab _selected={{ color: "primary.700", borderBottomColor: "primary.500", borderBottomWidth: "2px" }}>
+                  <HStack spacing={2}>
+                    <Tag size={16} />
+                    <Text>Pola etapów</Text>
+                    <Badge colorScheme="blue" ml={1}>{headerFields.length}</Badge>
+                  </HStack>
+                </Tab>
+              </Tooltip>
+              <Tooltip label="Pola dostępne na poziomie pozycji" placement="bottom" hasArrow>
+                <Tab _selected={{ color: "primary.700", borderBottomColor: "primary.500", borderBottomWidth: "2px" }}>
+                  <HStack spacing={2}>
+                    <List size={16} />
+                    <Text>Pola pozycji</Text>
+                    <Badge colorScheme="blue" ml={1}>
+                      {systemFields.length + calculatedFields.length + genericFields.length}
+                    </Badge>
+                  </HStack>
+                </Tab>
+              </Tooltip>
+              <Tooltip label="Globalne parametry szablonu" placement="bottom" hasArrow>
+                <Tab _selected={{ color: "primary.700", borderBottomColor: "primary.500", borderBottomWidth: "2px" }}>
+                  <HStack spacing={2}>
+                    <BookOpen size={16} />
+                    <Text>Parametry</Text>
+                  </HStack>
+                </Tab>
+              </Tooltip>
+              <Tooltip label="Przeciągnij pola aby zmienić kolejność" placement="bottom" hasArrow>
+                <Tab _selected={{ color: "primary.700", borderBottomColor: "primary.500", borderBottomWidth: "2px" }}>
+                  <HStack spacing={2}>
+                    <GripVertical size={16} />
+                    <Layout size={16} />
+                    <Text>Kolejność pól</Text>
+                  </HStack>
+                </Tab>
+              </Tooltip>
+            </TabList>
 
               <TabPanels>
                 <TabPanel>
@@ -1868,14 +2022,23 @@ export default function CostEstimateTemplateEditor() {
                 <TabPanel>
                   <Accordion allowMultiple defaultIndex={[]}>
                     {/* Pola systemowe */}
-                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
-                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                    <AccordionItem border="1px" borderColor="primary.200" borderRadius="lg" mb={3} overflow="hidden">
+                      <AccordionButton
+                        bg="primary.50"
+                        borderLeft="3px solid"
+                        borderLeftColor="primary.400"
+                        _expanded={{ bg: "primary.50" }}
+                        px={4}
+                        py={3}
+                      >
                         <HStack flex={1} spacing={2}>
-                          <FileText size={18} />
-                          <Text fontSize="md" fontWeight="bold">Pola systemowe</Text>
-                          <Badge colorScheme="blue">{systemFields.length}</Badge>
+                          <Icon as={FileText} color="primary.700" boxSize={5} />
+                          <Text fontSize="md" fontWeight="bold" color="primary.700">
+                            Pola systemowe
+                          </Text>
+                          <Badge colorScheme="blue" ml={1}>{systemFields.length}</Badge>
                         </HStack>
-                        <AccordionIcon />
+                        <AccordionIcon color="primary.700" />
                       </AccordionButton>
                       <AccordionPanel bg="white" pb={4} px={6}>
                         <SystemFieldsEditor
@@ -1889,14 +2052,23 @@ export default function CostEstimateTemplateEditor() {
                     </AccordionItem>
 
                     {/* Pola obliczeniowe */}
-                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
-                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                    <AccordionItem border="1px" borderColor="level1.200" borderRadius="lg" mb={3} overflow="hidden">
+                      <AccordionButton
+                        bg="level1.50"
+                        borderLeft="3px solid"
+                        borderLeftColor="level1.500"
+                        _expanded={{ bg: "level1.50" }}
+                        px={4}
+                        py={3}
+                      >
                         <HStack flex={1} spacing={2}>
-                          <Calculator size={18} />
-                          <Text fontSize="md" fontWeight="bold">Pola obliczeniowe</Text>
-                          <Badge colorScheme="green">{calculatedFields.length}</Badge>
+                          <Icon as={Calculator} color="level1.700" boxSize={5} />
+                          <Text fontSize="md" fontWeight="bold" color="level1.700">
+                            Pola obliczeniowe
+                          </Text>
+                          <Badge colorScheme="green" ml={1}>{calculatedFields.length}</Badge>
                         </HStack>
-                        <AccordionIcon />
+                        <AccordionIcon color="level1.700" />
                       </AccordionButton>
                       <AccordionPanel bg="white" pb={4} px={6}>
                         <CalculatedFieldsEditor
@@ -1911,14 +2083,23 @@ export default function CostEstimateTemplateEditor() {
                     </AccordionItem>
 
                     {/* Pola generyczne */}
-                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
-                      <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
+                    <AccordionItem border="1px" borderColor="level2.200" borderRadius="lg" overflow="hidden">
+                      <AccordionButton
+                        bg="level2.50"
+                        borderLeft="3px solid"
+                        borderLeftColor="level2.500"
+                        _expanded={{ bg: "level2.50" }}
+                        px={4}
+                        py={3}
+                      >
                         <HStack flex={1} spacing={2}>
-                          <Tag size={18} />
-                          <Text fontSize="md" fontWeight="bold">Pola generyczne</Text>
-                          <Badge colorScheme="purple">{genericFields.length}</Badge>
+                          <Icon as={Tag} color="level2.700" boxSize={5} />
+                          <Text fontSize="md" fontWeight="bold" color="level2.700">
+                            Pola generyczne
+                          </Text>
+                          <Badge colorScheme="purple" ml={1}>{genericFields.length}</Badge>
                         </HStack>
-                        <AccordionIcon />
+                        <AccordionIcon color="level2.700" />
                       </AccordionButton>
                       <AccordionPanel bg="white" pb={4} px={6}>
                         <GenericFieldsEditor
@@ -1941,7 +2122,7 @@ export default function CostEstimateTemplateEditor() {
                         <HStack flex={1} spacing={2}>
                           <Text fontSize="lg" lineHeight={1}>💰</Text>
                           <Text fontSize="md" fontWeight="bold">Waluty</Text>
-                          <Badge colorScheme="blue">{currencies.length}</Badge>
+                          <Badge colorScheme="primary">{currencies.length}</Badge>
                         </HStack>
                         <AccordionIcon />
                       </AccordionButton>
@@ -2188,7 +2369,7 @@ export default function CostEstimateTemplateEditor() {
                         <HStack flex={1} spacing={2}>
                           <Text fontSize="lg" lineHeight={1}>🏷️</Text>
                           <Text fontSize="md" fontWeight="bold">Kategorie</Text>
-                          <Badge colorScheme="purple">{categories.length}</Badge>
+                          <Badge colorScheme="level2">{categories.length}</Badge>
                         </HStack>
                         <AccordionIcon />
                       </AccordionButton>
@@ -2274,8 +2455,8 @@ export default function CostEstimateTemplateEditor() {
             </TabPanels>
           </Tabs>
 
-        {/* Footer Actions */}
-        <HStack justify="space-between" pt={4}>
+        {/* Back button – desktop inline, mobile hidden (sticky bar has it) */}
+        <Box display={{ base: "none", md: "block" }} pt={2}>
           <Button
             leftIcon={<ArrowLeft size={18} />}
             variant="ghost"
@@ -2283,18 +2464,44 @@ export default function CostEstimateTemplateEditor() {
           >
             Powrót
           </Button>
-          <HStack spacing={3}>
-            <Button
-              leftIcon={<Save size={18} />}
-              colorScheme="blue"
-              onClick={handleSubmitClick}
-              isLoading={isSubmitting}
-            >
-              {templateId ? "Zapisz zmiany" : "Utwórz szablon"}
-            </Button>
-          </HStack>
-        </HStack>
+        </Box>
         </VStack>
+      </Box>
+
+      {/* Sticky save bar */}
+      <Box
+        position="sticky"
+        bottom={0}
+        bg="white"
+        borderTop="1px solid"
+        borderColor="gray.200"
+        px={{ base: 4, md: 8 }}
+        py={3}
+        zIndex={10}
+        shadow="0 -2px 8px rgba(0,0,0,0.06)"
+      >
+        <HStack justify="space-between" maxW="1400px" mx="auto" spacing={3}>
+          <Button
+            leftIcon={<ArrowLeft size={18} />}
+            variant="ghost"
+            onClick={() => safeNavigate("/cost-estimate-templates")}
+            display={{ base: "flex", md: "flex" }}
+            size={{ base: "sm", md: "md" }}
+          >
+            Powrót
+          </Button>
+          <Button
+            leftIcon={<Save size={18} />}
+            colorScheme="primary"
+            onClick={handleSubmitClick}
+            isLoading={isSubmitting}
+            loadingText="Zapisywanie..."
+            w={{ base: "full", md: "auto" }}
+            size={{ base: "md", md: "md" }}
+          >
+            {templateId ? "Zapisz zmiany" : "Utwórz szablon"}
+          </Button>
+        </HStack>
       </Box>
 
       {/* Preview Modal */}
@@ -2317,10 +2524,10 @@ export default function CostEstimateTemplateEditor() {
             {previewData && (
               <Box maxW="1600px" mx="auto">
                 <VStack spacing={4} align="stretch" mb={4}>
-                  <Box bg="blue.50" p={4} borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                  <Box bg="primary.50" p={4} borderRadius="md" borderWidth="1px" borderColor="primary.200">
                     <HStack spacing={2}>
-                      <AlertCircle size={20} color="blue" />
-                      <Text fontSize="sm" color="blue.700">
+                      <AlertCircle size={20} color="primary" />
+                      <Text fontSize="sm" color="primary.700">
                         To jest podgląd szablonu z przykładowymi danymi. Dane są generowane automatycznie aby pokazać jak będzie wyglądał kosztorys stworzony na podstawie tego szablonu.
                       </Text>
                     </HStack>
@@ -2408,51 +2615,67 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
   
   return (
     <VStack spacing={4} align="stretch">
-      <Box bg="blue.50" p={4} borderRadius="md">
-        <Text fontSize="sm" fontWeight="bold" mb={3}>
-          Dodaj pole nagłówka:
-        </Text>
-        <HStack spacing={2} flexWrap="wrap">
-          {availableHeaderFields.length > 0 ? (
-            availableHeaderFields.map((config) => {
-              // FieldType z BE odpowiada GroupHeaderFieldType bezpośrednio (0-9)
-              const typeNum = config.fieldType as GroupHeaderFieldType;
-              const isAdded = headerFields.some((f) => f.type === typeNum);
-              return (
-                <Button
-                  key={config.fieldType}
-                  size="sm"
-                  leftIcon={<Plus size={14} />}
-                  colorScheme="purple"
-                  variant={isAdded ? "solid" : "outline"}
-                  onClick={() => onAdd(typeNum)}
-                  isDisabled={isAdded}
-                >
-                  {config.namePl}
-                </Button>
-              );
-            })
-          ) : (
-            // Fallback jeśli nie załadowano konfiguracji
-            Object.entries(groupHeaderFieldTypeLabels).map(([type, label]) => {
-              const typeNum = parseInt(type) as GroupHeaderFieldType;
-              const isAdded = headerFields.some((f) => f.type === typeNum);
-              return (
-                <Button
-                  key={type}
-                  size="sm"
-                  leftIcon={<Plus size={14} />}
-                  colorScheme="purple"
-                  variant={isAdded ? "solid" : "outline"}
-                  onClick={() => onAdd(typeNum)}
-                  isDisabled={isAdded}
-                >
-                  {label}
-                </Button>
-              );
-            })
-          )}
+      <Box
+        bg="primary.50"
+        p={4}
+        borderRadius="md"
+        borderLeft="3px solid"
+        borderLeftColor="primary.400"
+      >
+        <HStack spacing={2} mb={3}>
+          <Text fontSize="sm" fontWeight="bold" color="primary.700">
+            Dodaj pole nagłówka etapu:
+          </Text>
         </HStack>
+        {availableHeaderFields.length > 0 && availableHeaderFields.every(config => headerFields.some(f => f.type === (config.fieldType as GroupHeaderFieldType))) ? (
+          <Text fontSize="sm" color="primary.600" fontStyle="italic">
+            Wszystkie pola nagłówka zostały dodane
+          </Text>
+        ) : (
+          <HStack spacing={2} flexWrap="wrap">
+            {availableHeaderFields.length > 0 ? (
+              availableHeaderFields.map((config) => {
+                // FieldType z BE odpowiada GroupHeaderFieldType bezpośrednio (0-9)
+                const typeNum = config.fieldType as GroupHeaderFieldType;
+                const isAdded = headerFields.some((f) => f.type === typeNum);
+                return (
+                  <Button
+                    key={config.fieldType}
+                    size="sm"
+                    leftIcon={<Plus size={14} />}
+                    colorScheme="blue"
+                    variant="outline"
+                    onClick={() => onAdd(typeNum)}
+                    isDisabled={isAdded}
+                    opacity={isAdded ? 0.4 : 1}
+                  >
+                    {config.namePl}
+                  </Button>
+                );
+              })
+            ) : (
+              // Fallback jeśli nie załadowano konfiguracji
+              Object.entries(groupHeaderFieldTypeLabels).map(([type, label]) => {
+                const typeNum = parseInt(type) as GroupHeaderFieldType;
+                const isAdded = headerFields.some((f) => f.type === typeNum);
+                return (
+                  <Button
+                    key={type}
+                    size="sm"
+                    leftIcon={<Plus size={14} />}
+                    colorScheme="blue"
+                    variant="outline"
+                    onClick={() => onAdd(typeNum)}
+                    isDisabled={isAdded}
+                    opacity={isAdded ? 0.4 : 1}
+                  >
+                    {label}
+                  </Button>
+                );
+              })
+            )}
+          </HStack>
+        )}
       </Box>
 
       {headerFields.length === 0 ? (
@@ -2464,12 +2687,32 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
-                <Th>Typ pola</Th>
+                <Th>
+                  <Tooltip label="Typ pola nagłówka etapu" hasArrow>
+                    <span>Typ pola</span>
+                  </Tooltip>
+                </Th>
                 <Th>Etykieta</Th>
-                <Th w="80px">Widoczne</Th>
-                <Th w="80px">Sortowalne</Th>
-                <Th w="80px">Filtrowalne</Th>
-                <Th w="100px">Tylko do odczytu</Th>
+                <Th w="80px">
+                  <Tooltip label="Czy kolumna jest widoczna w widoku kosztorysu" hasArrow>
+                    <span>Widoczne</span>
+                  </Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może sortować po tej kolumnie" hasArrow>
+                    <span>Sortowalne</span>
+                  </Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może filtrować po tej kolumnie" hasArrow>
+                    <span>Filtrowalne</span>
+                  </Tooltip>
+                </Th>
+                <Th w="100px">
+                  <Tooltip label="Kolumna nie może być edytowana przez użytkownika" hasArrow>
+                    <span>Tylko do odczytu</span>
+                  </Tooltip>
+                </Th>
                 <Th w="80px">Akcje</Th>
               </Tr>
             </Thead>
@@ -2480,7 +2723,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                 return (
                   <Tr key={index}>
                     <Td>
-                      <Badge colorScheme="purple">
+                      <Badge colorScheme="blue">
                         {field.fieldTypeConfig?.namePl || groupHeaderFieldTypeLabels[field.type]}
                       </Badge>
                     </Td>
@@ -2494,37 +2737,45 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.sortable || false}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.filterable || false}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
                     </Td>
                     <Td>
-                      <IconButton
-                        aria-label="Usuń"
-                        icon={<Trash2 size={16} />}
-                        size="sm"
-                        colorScheme="red"
-                        variant="ghost"
-                        onClick={() => onRemove(index)}
-                      />
+                      <Tooltip label={REQUIRED_HEADER_FIELD_TYPES.includes(field.type as any) ? "To pole jest wymagane w szablonie" : "Usuń pole"} hasArrow>
+                        <IconButton
+                          aria-label="Usuń"
+                          icon={<Trash2 size={16} />}
+                          size="sm"
+                          color="red.400"
+                          variant="ghost"
+                          _hover={{ color: "red.600", bg: "red.50" }}
+                          onClick={() => onRemove(index)}
+                          isDisabled={REQUIRED_HEADER_FIELD_TYPES.includes(field.type as any)}
+                        />
+                      </Tooltip>
                     </Td>
                   </Tr>
                 );
@@ -2738,54 +2989,75 @@ function SystemFieldsEditor({
 
   return (
     <VStack spacing={4} align="stretch">
-      <Box bg="blue.50" p={4} borderRadius="md">
-        <Text fontSize="sm" fontWeight="bold" mb={3}>
-          Dodaj pole systemowe:
-        </Text>
-        <HStack spacing={2} flexWrap="wrap">
-          {availableSystemFields.length > 0 ? (
-            availableSystemFields.map((config) => {
-              // FieldType 100-199 to pola systemowe, konwertuj na SystemFieldType (0-99)
-              const systemFieldType = (config.fieldType - 100) as SystemFieldType;
-              const isAdded = fields.some((f) => f.type === systemFieldType);
-              // Każde pole systemowe można dodać tylko raz
-              const shouldDisable = isAdded;
-              return (
-                <Button
-                  key={config.fieldType}
-                  size="sm"
-                  leftIcon={<Plus size={14} />}
-                  colorScheme="blue"
-                  variant={shouldDisable ? "solid" : "outline"}
-                  onClick={() => onAdd(systemFieldType)}
-                  isDisabled={shouldDisable}
-                >
-                  {config.namePl}
-                </Button>
-              );
-            })
-          ) : (
-            // Fallback jeśli nie załadowano konfiguracji z BE
-            Object.entries(systemFieldTypeLabels).map(([type, label]) => {
-              const typeNum = parseInt(type) as SystemFieldType;
-              const isAdded = fields.some((f) => f.type === typeNum);
-              const shouldDisable = isAdded;
-              return (
-                <Button
-                  key={type}
-                  size="sm"
-                  leftIcon={<Plus size={14} />}
-                  colorScheme="blue"
-                  variant={shouldDisable ? "solid" : "outline"}
-                  onClick={() => onAdd(typeNum)}
-                  isDisabled={shouldDisable}
-                >
-                  {label}
-                </Button>
-              );
-            })
-          )}
-        </HStack>
+      <Box
+        bg="primary.50"
+        p={4}
+        borderRadius="md"
+        borderLeft="3px solid"
+        borderLeftColor="primary.400"
+      >
+        {availableSystemFields.length > 0 && availableSystemFields.every(config => {
+          const t = (config.fieldType - 100) as SystemFieldType;
+          return fields.some(f => f.type === t);
+        }) ? (
+          <Text fontSize="sm" color="primary.600" fontStyle="italic">
+            Wszystkie pola systemowe zostały dodane
+          </Text>
+        ) : (
+          <>
+            <HStack spacing={2} mb={3}>
+              <Text fontSize="sm" fontWeight="bold" color="primary.700">
+                Dodaj pole systemowe:
+              </Text>
+            </HStack>
+            <HStack spacing={2} flexWrap="wrap">
+              {availableSystemFields.length > 0 ? (
+                availableSystemFields.map((config) => {
+                  // FieldType 100-199 to pola systemowe, konwertuj na SystemFieldType (0-99)
+                  const systemFieldType = (config.fieldType - 100) as SystemFieldType;
+                  const isAdded = fields.some((f) => f.type === systemFieldType);
+                  // Każde pole systemowe można dodać tylko raz
+                  const shouldDisable = isAdded;
+                  return (
+                    <Button
+                      key={config.fieldType}
+                      size="sm"
+                      leftIcon={<Plus size={14} />}
+                      colorScheme="blue"
+                      variant="outline"
+                      onClick={() => onAdd(systemFieldType)}
+                      isDisabled={shouldDisable}
+                      opacity={shouldDisable ? 0.4 : 1}
+                    >
+                      {config.namePl}
+                    </Button>
+                  );
+                })
+              ) : (
+                // Fallback jeśli nie załadowano konfiguracji z BE
+                Object.entries(systemFieldTypeLabels).map(([type, label]) => {
+                  const typeNum = parseInt(type) as SystemFieldType;
+                  const isAdded = fields.some((f) => f.type === typeNum);
+                  const shouldDisable = isAdded;
+                  return (
+                    <Button
+                      key={type}
+                      size="sm"
+                      leftIcon={<Plus size={14} />}
+                      colorScheme="blue"
+                      variant="outline"
+                      onClick={() => onAdd(typeNum)}
+                      isDisabled={shouldDisable}
+                      opacity={shouldDisable ? 0.4 : 1}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })
+              )}
+            </HStack>
+          </>
+        )}
       </Box>
 
       {fields.length === 0 ? (
@@ -2797,12 +3069,22 @@ function SystemFieldsEditor({
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
-                <Th>Typ pola</Th>
+                <Th>
+                  <Tooltip label="Typ pola systemowego" hasArrow><span>Typ pola</span></Tooltip>
+                </Th>
                 <Th>Etykieta</Th>
-                <Th w="80px">Widoczne</Th>
-                <Th w="80px">Sortowalne</Th>
-                <Th w="80px">Filtrowalne</Th>
-                <Th w="100px">Tylko do odczytu</Th>
+                <Th w="80px">
+                  <Tooltip label="Czy kolumna jest widoczna w widoku kosztorysu" hasArrow><span>Widoczne</span></Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może sortować po tej kolumnie" hasArrow><span>Sortowalne</span></Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może filtrować po tej kolumnie" hasArrow><span>Filtrowalne</span></Tooltip>
+                </Th>
+                <Th w="100px">
+                  <Tooltip label="Kolumna nie może być edytowana przez użytkownika" hasArrow><span>Tylko do odczytu</span></Tooltip>
+                </Th>
                 <Th w="120px">Akcje</Th>
               </Tr>
             </Thead>
@@ -2811,7 +3093,7 @@ function SystemFieldsEditor({
                 <React.Fragment key={index}>
                   <Tr>
                     <Td>
-                      <Badge colorScheme="cyan">
+                      <Badge colorScheme="blue">
                         {field.fieldTypeConfig?.namePl || systemFieldTypeLabels[field.type]}
                       </Badge>
                     </Td>
@@ -2824,24 +3106,28 @@ function SystemFieldsEditor({
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.sortable}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
@@ -2857,14 +3143,18 @@ function SystemFieldsEditor({
                             onClick={() => setExpandedField(expandedField === index ? null : index)}
                           />
                         )}
-                        <IconButton
-                          aria-label="Usuń"
-                          icon={<Trash2 size={16} />}
-                          size="sm"
-                          colorScheme="red"
-                          variant="ghost"
-                          onClick={() => onRemove(index)}
-                        />
+                        <Tooltip label={REQUIRED_SYSTEM_FIELD_TYPES.includes(field.type as any) ? "To pole jest wymagane w szablonie" : "Usuń pole"} hasArrow>
+                          <IconButton
+                            aria-label="Usuń"
+                            icon={<Trash2 size={16} />}
+                            size="sm"
+                            color="red.400"
+                            variant="ghost"
+                            _hover={{ color: "red.600", bg: "red.50" }}
+                            onClick={() => onRemove(index)}
+                            isDisabled={REQUIRED_SYSTEM_FIELD_TYPES.includes(field.type as any)}
+                          />
+                        </Tooltip>
                       </HStack>
                     </Td>
                   </Tr>
@@ -2880,7 +3170,7 @@ function SystemFieldsEditor({
                         </Text>
 
                     {/* Dodawanie pól systemowych bez Options */}
-                    <Box bg="blue.50" p={3} borderRadius="md">
+                    <Box bg="primary.50" p={3} borderRadius="md">
                       <Text fontSize="xs" fontWeight="bold" mb={2}>
                         Pola systemowe:
                       </Text>
@@ -2901,7 +3191,7 @@ function SystemFieldsEditor({
                                 key={config.fieldType}
                                 size="xs"
                                 leftIcon={<Plus size={12} />}
-                                colorScheme="cyan"
+                                colorScheme="primary"
                                 variant={isAdded ? "solid" : "outline"}
                                 onClick={() => handleAddChildSystemField(index, systemFieldType)}
                                 isDisabled={isAdded && systemFieldType !== SystemFieldType.Selected}
@@ -2914,7 +3204,7 @@ function SystemFieldsEditor({
                     </Box>
 
                     {/* Dodawanie pól kalkulowanych */}
-                    <Box bg="purple.50" p={3} borderRadius="md">
+                    <Box bg="level2.50" p={3} borderRadius="md">
                       <Text fontSize="xs" fontWeight="bold" mb={2}>
                         Pola kalkulowane:
                       </Text>
@@ -2929,7 +3219,7 @@ function SystemFieldsEditor({
                               key={config.fieldType}
                               size="xs"
                               leftIcon={<Plus size={12} />}
-                              colorScheme="purple"
+                              colorScheme="level2"
                               variant={isAdded ? "solid" : "outline"}
                               onClick={() => handleAddChildCalculatedField(index, calcFieldType)}
                               isDisabled={isAdded}
@@ -2967,6 +3257,7 @@ function SystemFieldsEditor({
 
                     {/* Lista child fields - tabela */}
                     {field.childFields && field.childFields.length > 0 && (
+                      <Box overflowX="auto">
                       <Table size="sm" variant="simple" bg="white" borderRadius="md">
                         <Thead>
                           <Tr>
@@ -3014,8 +3305,8 @@ function SystemFieldsEditor({
                                 onDragOver={(e) => handleChildDragOver(e, index, sortedIdx)}
                                 onDragEnd={handleChildDragEnd}
                                 cursor="grab"
-                                bg={draggedChildIndex === sortedIdx ? 'blue.50' : undefined}
-                                _hover={{ bg: draggedChildIndex === sortedIdx ? 'blue.50' : 'gray.50' }}
+                                bg={draggedChildIndex === sortedIdx ? 'primary.50' : undefined}
+                                _hover={{ bg: draggedChildIndex === sortedIdx ? 'primary.50' : 'gray.50' }}
                                 _active={{ cursor: 'grabbing' }}
                                 transition="all 0.15s"
                                 {...createChildTouchHandlers(sortedIdx, draggedChildIndex, setDraggedChildIndex, (from, to) => {
@@ -3098,6 +3389,7 @@ function SystemFieldsEditor({
                           })}
                         </Tbody>
                       </Table>
+                      </Box>
                     )}
                   </VStack>
                 </Box>
@@ -3139,51 +3431,72 @@ function CalculatedFieldsEditor({
 
   return (
     <VStack spacing={4} align="stretch">
-      <Box bg="purple.50" p={4} borderRadius="md">
-        <Text fontSize="sm" fontWeight="bold" mb={3}>
-          Dodaj pole obliczeniowe (każde tylko raz):
-        </Text>
-        <HStack spacing={2} flexWrap="wrap">
-          {availableCalculatedFields.length > 0 ? (
-            availableCalculatedFields.map((config) => {
-              // FieldType 200-299 to pola kalkulowane, konwertuj na CalculatedFieldType (0-99)
-              const calcFieldType = (config.fieldType - 200) as CalculatedFieldType;
-              const isAdded = fields.some((f) => f.type === calcFieldType);
-              return (
-                <Button
-                  key={config.fieldType}
-                  size="sm"
-                  leftIcon={<Plus size={14} />}
-                  colorScheme="purple"
-                  variant={isAdded ? "solid" : "outline"}
-                  onClick={() => onAdd(calcFieldType)}
-                  isDisabled={isAdded}
-                >
-                  {config.namePl}
-                </Button>
-              );
-            })
-          ) : (
-            // Fallback jeśli nie załadowano konfiguracji
-            Object.entries(calculatedFieldTypeLabels).map(([type, label]) => {
-              const typeNum = parseInt(type) as CalculatedFieldType;
-              const isAdded = fields.some((f) => f.type === typeNum);
-              return (
-                <Button
-                  key={type}
-                  size="sm"
-                  leftIcon={<Plus size={14} />}
-                  colorScheme="purple"
-                  variant={isAdded ? "solid" : "outline"}
-                  onClick={() => onAdd(typeNum)}
-                  isDisabled={isAdded}
-                >
-                  {label}
-                </Button>
-              );
-            })
-          )}
-        </HStack>
+      <Box
+        bg="level1.50"
+        p={4}
+        borderRadius="md"
+        borderLeft="3px solid"
+        borderLeftColor="level1.500"
+      >
+        {availableCalculatedFields.length > 0 && availableCalculatedFields.every(config => {
+          const t = (config.fieldType - 200) as CalculatedFieldType;
+          return fields.some(f => f.type === t);
+        }) ? (
+          <Text fontSize="sm" color="level1.700" fontStyle="italic">
+            Wszystkie pola obliczeniowe zostały dodane
+          </Text>
+        ) : (
+          <>
+            <HStack spacing={2} mb={3}>
+              <Text fontSize="sm" fontWeight="bold" color="level1.700">
+                Dodaj pole obliczeniowe (każde tylko raz):
+              </Text>
+            </HStack>
+            <HStack spacing={2} flexWrap="wrap">
+              {availableCalculatedFields.length > 0 ? (
+                availableCalculatedFields.map((config) => {
+                  // FieldType 200-299 to pola kalkulowane, konwertuj na CalculatedFieldType (0-99)
+                  const calcFieldType = (config.fieldType - 200) as CalculatedFieldType;
+                  const isAdded = fields.some((f) => f.type === calcFieldType);
+                  return (
+                    <Button
+                      key={config.fieldType}
+                      size="sm"
+                      leftIcon={<Plus size={14} />}
+                      colorScheme="green"
+                      variant="outline"
+                      onClick={() => onAdd(calcFieldType)}
+                      isDisabled={isAdded}
+                      opacity={isAdded ? 0.4 : 1}
+                    >
+                      {config.namePl}
+                    </Button>
+                  );
+                })
+              ) : (
+                // Fallback jeśli nie załadowano konfiguracji
+                Object.entries(calculatedFieldTypeLabels).map(([type, label]) => {
+                  const typeNum = parseInt(type) as CalculatedFieldType;
+                  const isAdded = fields.some((f) => f.type === typeNum);
+                  return (
+                    <Button
+                      key={type}
+                      size="sm"
+                      leftIcon={<Plus size={14} />}
+                      colorScheme="green"
+                      variant="outline"
+                      onClick={() => onAdd(typeNum)}
+                      isDisabled={isAdded}
+                      opacity={isAdded ? 0.4 : 1}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })
+              )}
+            </HStack>
+          </>
+        )}
       </Box>
 
       {fields.length === 0 ? (
@@ -3195,15 +3508,29 @@ function CalculatedFieldsEditor({
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
-                <Th>Typ pola</Th>
+                <Th>
+                  <Tooltip label="Typ pola obliczeniowego" hasArrow><span>Typ pola</span></Tooltip>
+                </Th>
                 <Th>Etykieta</Th>
                 <Th w="120px">Jednostka</Th>
-                <Th w="80px">Widoczne</Th>
-                <Th w="80px">Sortowalne</Th>
-                <Th w="80px">Filtrowalne</Th>
-                <Th w="100px">Tylko do odczytu</Th>
-                <Th w="100px">Suma w etapie</Th>
-                <Th w="100px">Suma total</Th>
+                <Th w="80px">
+                  <Tooltip label="Czy kolumna jest widoczna w widoku kosztorysu" hasArrow><span>Widoczne</span></Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może sortować po tej kolumnie" hasArrow><span>Sortowalne</span></Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może filtrować po tej kolumnie" hasArrow><span>Filtrowalne</span></Tooltip>
+                </Th>
+                <Th w="100px">
+                  <Tooltip label="Kolumna nie może być edytowana przez użytkownika" hasArrow><span>Tylko do odczytu</span></Tooltip>
+                </Th>
+                <Th w="100px">
+                  <Tooltip label="Czy wartości są sumowane na poziomie etapu" hasArrow><span>Suma w etapie</span></Tooltip>
+                </Th>
+                <Th w="100px">
+                  <Tooltip label="Czy wartości są sumowane w podsumowaniu kosztorysu" hasArrow><span>Suma total</span></Tooltip>
+                </Th>
                 <Th w="80px">Akcje</Th>
               </Tr>
             </Thead>
@@ -3213,7 +3540,7 @@ function CalculatedFieldsEditor({
                 return (
                   <Tr key={index}>
                     <Td>
-                      <Badge colorScheme="blue">
+                      <Badge colorScheme="green">
                         {field.fieldTypeConfig?.namePl || calculatedFieldTypeLabels[field.type]}
                       </Badge>
                     </Td>
@@ -3242,59 +3569,71 @@ function CalculatedFieldsEditor({
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.sortable}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
                     </Td>
                     <Td>
-                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu etapu" : "Tylko pola ValueNet, ValueGross i TotalVat mogą być sumowane"}>
+                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu etapu" : "Ta opcja nie jest dostępna dla tego typu pola"} hasArrow>
                         <Box>
                           <Checkbox
+                            colorScheme="blue"
                             isChecked={field.sumInGroup || false}
                             onChange={(e) => onUpdate(index, { sumInGroup: e.target.checked })}
                             isDisabled={!isSummable}
+                            opacity={!isSummable ? 0.4 : 1}
                           />
                         </Box>
                       </Tooltip>
                     </Td>
                     <Td>
-                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu całkowitym" : "Tylko pola ValueNet, ValueGross i TotalVat mogą być sumowane"}>
+                      <Tooltip label={isSummable ? "Sumuj w podsumowaniu całkowitym" : "Ta opcja nie jest dostępna dla tego typu pola"} hasArrow>
                         <Box>
                           <Checkbox
+                            colorScheme="blue"
                             isChecked={field.sumInTotal || false}
                             onChange={(e) => onUpdate(index, { sumInTotal: e.target.checked })}
                             isDisabled={!isSummable}
+                            opacity={!isSummable ? 0.4 : 1}
                           />
                         </Box>
                       </Tooltip>
                     </Td>
                     <Td>
-                      <IconButton
-                        aria-label="Usuń"
-                        icon={<Trash2 size={16} />}
-                        size="sm"
-                        colorScheme="red"
-                        variant="ghost"
-                        onClick={() => onRemove(index)}
-                      />
+                      <Tooltip label={REQUIRED_CALCULATED_FIELD_TYPES.includes(field.type as any) ? "To pole jest wymagane w szablonie" : "Usuń pole"} hasArrow>
+                        <IconButton
+                          aria-label="Usuń"
+                          icon={<Trash2 size={16} />}
+                          size="sm"
+                          color="red.400"
+                          variant="ghost"
+                          _hover={{ color: "red.600", bg: "red.50" }}
+                          onClick={() => onRemove(index)}
+                          isDisabled={REQUIRED_CALCULATED_FIELD_TYPES.includes(field.type as any)}
+                        />
+                      </Tooltip>
                     </Td>
                   </Tr>
                 );
@@ -3328,10 +3667,18 @@ function GenericFieldsEditor({
 
   return (
     <VStack spacing={4} align="stretch">
-      <Box bg="green.50" p={4} borderRadius="md">
-        <Text fontSize="sm" fontWeight="bold" mb={3}>
-          Dodaj pole generyczne:
-        </Text>
+      <Box
+        bg="level2.50"
+        p={4}
+        borderRadius="md"
+        borderLeft="3px solid"
+        borderLeftColor="level2.500"
+      >
+        <HStack spacing={2} mb={3}>
+          <Text fontSize="sm" fontWeight="bold" color="level2.700">
+            Dodaj pole generyczne:
+          </Text>
+        </HStack>
         <HStack spacing={2} flexWrap="wrap">
           {availableGenericFields.length > 0 ? (
             availableGenericFields.map((config) => {
@@ -3342,7 +3689,7 @@ function GenericFieldsEditor({
                   key={config.fieldType}
                   size="sm"
                   leftIcon={<Plus size={14} />}
-                  colorScheme="green"
+                  colorScheme="purple"
                   variant="outline"
                   onClick={() => onAdd(genFieldType)}
                 >
@@ -3357,7 +3704,7 @@ function GenericFieldsEditor({
                 key={type}
                 size="sm"
                 leftIcon={<Plus size={14} />}
-                colorScheme="green"
+                colorScheme="purple"
                 variant="outline"
                 onClick={() => onAdd(parseInt(type) as GenericFieldType)}
               >
@@ -3377,12 +3724,22 @@ function GenericFieldsEditor({
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
-                <Th>Typ pola</Th>
+                <Th>
+                  <Tooltip label="Typ pola generycznego" hasArrow><span>Typ pola</span></Tooltip>
+                </Th>
                 <Th>Etykieta</Th>
-                <Th w="80px">Widoczne</Th>
-                <Th w="80px">Sortowalne</Th>
-                <Th w="80px">Filtrowalne</Th>
-                <Th w="100px">Tylko do odczytu</Th>
+                <Th w="80px">
+                  <Tooltip label="Czy kolumna jest widoczna w widoku kosztorysu" hasArrow><span>Widoczne</span></Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może sortować po tej kolumnie" hasArrow><span>Sortowalne</span></Tooltip>
+                </Th>
+                <Th w="80px">
+                  <Tooltip label="Czy użytkownik może filtrować po tej kolumnie" hasArrow><span>Filtrowalne</span></Tooltip>
+                </Th>
+                <Th w="100px">
+                  <Tooltip label="Kolumna nie może być edytowana przez użytkownika" hasArrow><span>Tylko do odczytu</span></Tooltip>
+                </Th>
                 <Th w="80px">Akcje</Th>
               </Tr>
             </Thead>
@@ -3391,7 +3748,7 @@ function GenericFieldsEditor({
                 return (
                   <Tr key={index}>
                     <Td>
-                      <Badge colorScheme="green">
+                      <Badge colorScheme="purple">
                         {field.fieldTypeConfig?.namePl || genericFieldTypeLabels[field.type]}
                       </Badge>
                     </Td>
@@ -3404,37 +3761,44 @@ function GenericFieldsEditor({
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.sortable}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
+                        colorScheme="blue"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
                     </Td>
                     <Td>
-                      <IconButton
-                        aria-label="Usuń"
-                        icon={<Trash2 size={16} />}
-                        size="sm"
-                        colorScheme="red"
-                        variant="ghost"
-                        onClick={() => onRemove(index)}
-                      />
+                      <Tooltip label="Usuń pole" hasArrow>
+                        <IconButton
+                          aria-label="Usuń"
+                          icon={<Trash2 size={16} />}
+                          size="sm"
+                          color="red.400"
+                          variant="ghost"
+                          _hover={{ color: "red.600", bg: "red.50" }}
+                          onClick={() => onRemove(index)}
+                        />
+                      </Tooltip>
                     </Td>
                   </Tr>
                 );
@@ -3536,7 +3900,7 @@ function SummaryConfigurationEditor({
           </VStack>
         )}
         {groupSummaryFields.length > 0 && (
-          <Text fontSize="xs" color="blue.600" mt={3}>
+          <Text fontSize="xs" color="primary.600" mt={3}>
             ✓ Wybrano {groupSummaryFields.length} {groupSummaryFields.length === 1 ? 'pole' : 'pól'} do sumowania
           </Text>
         )}
@@ -3567,7 +3931,7 @@ function SummaryConfigurationEditor({
           </VStack>
         )}
         {totalSummaryFields.length > 0 && (
-          <Text fontSize="xs" color="blue.600" mt={3}>
+          <Text fontSize="xs" color="primary.600" mt={3}>
             ✓ Wybrano {totalSummaryFields.length} {totalSummaryFields.length === 1 ? 'pole' : 'pól'} do sumowania
           </Text>
         )}

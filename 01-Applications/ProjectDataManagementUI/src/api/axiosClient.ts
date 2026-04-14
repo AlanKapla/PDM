@@ -1,4 +1,5 @@
 import axios from "axios";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
 
@@ -40,13 +41,14 @@ axiosClient.interceptors.request.use(
         // Add token to Authorization header
         config.headers.Authorization = `Bearer ${response.accessToken}`;
       } catch (error: any) {
-        
-        // If silent acquisition fails, redirect to login
-        // User will be redirected back after authentication
-        await msalInstance.loginRedirect(silentRequest);
-        
-        // Reject the request - it will be retried after redirect
-        return Promise.reject(new Error("Token acquisition required - redirecting to login"));
+        // Tylko InteractionRequiredAuthError oznacza, że użytkownik musi się zalogować interaktywnie.
+        // Inne błędy (np. sieciowe) nie powinny wymuszać przekierowania do logowania.
+        if (error instanceof InteractionRequiredAuthError) {
+          await msalInstance.loginRedirect(silentRequest);
+          return Promise.reject(new Error("Token acquisition required - redirecting to login"));
+        }
+        // Dla innych błędów odrzuć żądanie bez przekierowania
+        return Promise.reject(error);
       }
     } else {
       // Don't add Authorization header - let the request proceed

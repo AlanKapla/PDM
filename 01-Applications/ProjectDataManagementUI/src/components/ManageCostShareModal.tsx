@@ -9,7 +9,6 @@ import {
   Button,
   VStack,
   Checkbox,
-  useToast,
   Text,
   Box,
   HStack,
@@ -20,6 +19,7 @@ import type { ProjectMemberWeb } from "../types/project.types";
 import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
 import { User } from "lucide-react";
+import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ManageCostShareModalProps {
   isOpen: boolean;
@@ -46,7 +46,7 @@ export const ManageCostShareModal = ({
   ownerUserId,
   onShareUpdated,
 }: ManageCostShareModalProps) => {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
@@ -69,13 +69,7 @@ export const ManageCostShareModal = ({
       const filteredMembers = data.filter((member: ProjectMemberWeb) => !excludeIds.has(member.userId));
       setMembers(filteredMembers);
     } catch (error) {
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać listy członków projektu",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError("Błąd", "Nie udało się pobrać listy członków projektu");
     } finally {
       setLoadingMembers(false);
     }
@@ -97,31 +91,19 @@ export const ManageCostShareModal = ({
       const sharedWithUserIds = Array.from(selectedUserIds);
       await projectApi.updateCostShare(tenantId, projectId, costId, sharedWithUserIds);
 
-      toast({
-        title: "Sukces",
-        description: "Zaktualizowano udostępnienie kosztu",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+      showSuccess("Sukces", "Zaktualizowano udostępnienie kosztu");
       onShareUpdated();
       onClose();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showError(title, description);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="md">
+    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "md" }}>
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Udostępnij koszt</ModalHeader>
@@ -152,8 +134,8 @@ export const ManageCostShareModal = ({
                     p={2}
                     borderRadius="md"
                     cursor="pointer"
-                    bg={selectedUserIds.has(member.userId) ? "blue.50" : "transparent"}
-                    _hover={{ bg: selectedUserIds.has(member.userId) ? "blue.100" : "gray.50" }}
+                bg={selectedUserIds.has(member.userId) ? "primary.50" : "transparent"}
+                _hover={{ bg: selectedUserIds.has(member.userId) ? "primary.100" : "gray.50" }}
                     onClick={() => toggleUser(member.userId)}
                   >
                     <Checkbox
@@ -181,7 +163,7 @@ export const ManageCostShareModal = ({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleSave}
             isLoading={loading}
             isDisabled={loadingMembers}

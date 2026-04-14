@@ -1,4 +1,4 @@
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, Box, useColorModeValue } from "@chakra-ui/react";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, Box, useColorModeValue, useBreakpointValue } from "@chakra-ui/react";
 import { ChevronRight } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -25,6 +25,8 @@ export default function Breadcrumbs() {
 
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const bgColor = useColorModeValue("white", "gray.800");
+  // Na mobile pokazuj maksymalnie 2 ostatnie pozycje (rodzic + bieżąca)
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   // Globalny cache dla project details (współdzielony z innymi komponentami)
   const projectDetailsCache = useGlobalCache(
@@ -225,10 +227,10 @@ export default function Breadcrumbs() {
       bg={bgColor}
     >
       <Breadcrumb spacing={1} separator={<ChevronRight size={14} />} fontSize={{ base: "xs", md: "sm" }}>
-        {breadcrumbs.map((crumb, index) => (
+        {(isMobile ? breadcrumbs.slice(-2) : breadcrumbs).map((crumb, index) => (
           <BreadcrumbItem key={index} isCurrentPage={crumb.isCurrentPage}>
             {crumb.isCurrentPage ? (
-              <BreadcrumbLink fontWeight="semibold" color="blue.600" noOfLines={1}>
+              <BreadcrumbLink fontWeight="semibold" color="primary.600" noOfLines={1}>
                 {crumb.label}
               </BreadcrumbLink>
             ) : (

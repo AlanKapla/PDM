@@ -94,7 +94,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
                 .Select(i => i.Id)
                 .ToHashSet();
 
-            // Soft-delete files + delete blobs (before DB changes)
+            // Delete files + blobs (before DB changes)
             if (allItemIds.Count > 0)
             {
                 List<CostEstimateFieldFile> filesToDelete = (await fieldFileRepository.GetBySearch(
@@ -108,16 +108,18 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
                     foreach (var file in filesToDelete)
                     {
-                        file.IsDeleted = true;
-                        file.DeletedAt = now;
-
                         await blobStorageService.DeleteAsync(containerName, file.BlobName, cancellationToken);
                     }
 
-                    await fieldFileRepository.UpdateRange(filesToDelete);
+                    // Hard-delete file records before deleting field values to prevent
+                    // SQL Server CASCADE DELETE from removing them first, which would cause
+                    // DbUpdateConcurrencyException if they were tracked as Modified.
+                    HashSet<Guid> fileIds = filesToDelete.Select(f => f.Id).ToHashSet();
+                    await fieldFileRepository.ExecuteDeleteAsync(
+                        f => fileIds.Contains(f.Id), cancellationToken);
 
                     logger.LogInformation(
-                        "Soft-deleted {FileCount} files and removed blobs for deleted groups in cost estimate {CostEstimateId}",
+                        "Deleted {FileCount} files and removed blobs for deleted groups in cost estimate {CostEstimateId}",
                         filesToDelete.Count, request.CostEstimateId);
                 }
 

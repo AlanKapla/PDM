@@ -14,6 +14,7 @@ using Entities.Models;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.CostTrackers;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -66,6 +67,13 @@ namespace WebApi.Extensions
                 options.MultipartBodyLengthLimit = 52428800;
                 options.ValueLengthLimit = 52428800;
                 options.MultipartHeadersLengthLimit = 52428800;
+            });
+
+            services.Configure<RequestLocalizationOptions>(options =>
+            {
+                options.DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(System.Globalization.CultureInfo.InvariantCulture);
+                options.SupportedCultures = [System.Globalization.CultureInfo.InvariantCulture];
+                options.SupportedUICultures = [System.Globalization.CultureInfo.InvariantCulture];
             });
 
             services.AddEndpointsApiExplorer();
@@ -273,7 +281,8 @@ namespace WebApi.Extensions
                 .AddWriteRepository<WorkScheduleStage>()
                 .AddWriteRepository<WorkScheduleStageWork>()
                 .AddWriteRepository<WorkScheduleStageWorkAssignment>()
-                .AddWriteRepository<WorkScheduleStageWorkComment>();
+                .AddWriteRepository<WorkScheduleStageWorkComment>()
+                .AddWriteRepository<WorkScheduleStageWorkDependency>();
 
             services
                 .AddRepository<ProjectCost>()
@@ -297,6 +306,12 @@ namespace WebApi.Extensions
                 .AddRepository<CostEstimateItem>()
                 .AddRepository<CostEstimateItemFieldValue>()
                 .AddWriteRepository<CostEstimateFieldFile>();
+
+            services
+                .AddRepository<CostTracker>()
+                .AddRepository<TrackedCost>()
+                .AddRepository<TrackedCostAttachment>()
+                .AddRepository<ProjectCostTrackedCostLink>();
 
             services
                 .AddRepository<Role>()
@@ -340,7 +355,10 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateService, CostEstimateService>();
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
+            services.AddScoped<ICostTrackerFinancialService, CostTrackerFinancialService>();
+            services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
+            services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<CostEstimateGroupValidator>();

@@ -12,13 +12,6 @@ import {
   useColorModeValue,
   useDisclosure,
   IconButton,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
   Select,
   Tooltip,
   Table,
@@ -34,6 +27,7 @@ import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { LoadingSpinner, EmptyState } from "../components/common";
+import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 import { formatDate } from "../utils/formatters";
@@ -200,7 +194,7 @@ export default function ProjectMembers() {
           <>
         <HStack justify="space-between" mb={{ base: 6, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
           <HStack spacing={{ base: 2, md: 3 }}>
-            <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="blue.600" />
+            <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="primary.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size={{ base: "md", md: "lg" }}>Członkowie projektu</Heading>
               {project && <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">{project.name}</Text>}
@@ -209,7 +203,7 @@ export default function ProjectMembers() {
           {permissions.canManageMembers && (
             <Button
               leftIcon={<UserPlus size={16} />}
-              colorScheme="blue"
+              colorScheme="primary"
               onClick={onOpen}
               size={{ base: "sm", md: "md" }}
               fontSize={{ base: "xs", md: "sm" }}
@@ -351,29 +345,13 @@ export default function ProjectMembers() {
           onMemberAdded={fetchData}
         />
 
-        <Modal isOpen={isRemoveModalOpen} onClose={onRemoveModalClose}>
-          <ModalOverlay />
-          <ModalContent mx={{ base: 4, md: 0 }}>
-            <ModalHeader fontSize={{ base: "md", md: "lg" }}>Usuń członka</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody fontSize={{ base: "sm", md: "md" }}>
-              Czy na pewno chcesz usunąć <strong>{memberToRemove?.name}</strong> z projektu?
-            </ModalBody>
-            <ModalFooter gap={2}>
-              <Button variant="ghost" onClick={onRemoveModalClose} size={{ base: "sm", md: "md" }}>
-                Anuluj
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleRemoveMember}
-                isLoading={removingMember !== null}
-                size={{ base: "sm", md: "md" }}
-              >
-                Usuń
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
+        <DeleteAlertDialog
+          isOpen={isRemoveModalOpen}
+          onClose={onRemoveModalClose}
+          onConfirm={handleRemoveMember}
+          itemName={memberToRemove?.name}
+          isLoading={removingMember !== null}
+        />
       </Box>
     </MainLayout>
   );

@@ -12,7 +12,6 @@ import {
   Text,
   Button,
   useColorModeValue,
-  useToast,
   IconButton,
   Badge,
   Checkbox,
@@ -29,11 +28,18 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import { handleApiError } from "../utils/handleApiError";
-import type { EditableWork } from "../types/workSchedule.types";
+import type { EditableWork, WorkScheduleWorkDependencyWeb } from "../types/workSchedule.types";
+import { checkDependencyViolation, getWorkEffectiveDates } from "../utils/workScheduleDateConstraints";
+import { useToastNotification } from "../hooks/useToastNotification";
+
+const DEP_TYPE_SHORT: Record<number, string> = { 0: 'FS', 1: 'SS', 2: 'FF', 3: 'SF' };
+const getDepTypeShort = (type: number): string => DEP_TYPE_SHORT[type] ?? String(type);
 
 interface Member {
   userId: string;
-  userName: string;
+  email: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface WorkDetailsModalProps {
@@ -44,6 +50,9 @@ interface WorkDetailsModalProps {
   workScheduleId: string;
   work: EditableWork | null;
   members?: Member[];
+  dependencies?: WorkScheduleWorkDependencyWeb[];
+  allWorks?: Array<{ workId: string; label: string }>;
+  workDateRanges?: Map<string, { startDate?: string; endDate?: string }>;
   onWorkUpdated?: () => void;
 }
 
@@ -61,15 +70,24 @@ export default function WorkDetailsModal({
   workScheduleId,
   work,
   members = [],
+  dependencies,
+  allWorks,
+  workDateRanges,
   onWorkUpdated,
 }: WorkDetailsModalProps) {
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
   const [periods, setPeriods] = useState<any[]>([]);
   const [comments, setComments] = useState<CommentFormData[]>([]);
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const borderColor = useColorModeValue("gray.200", "gray.700");
+
+  const getDisplayName = (m: Member) =>
+    [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email;
+
+  const getWorkName = (workId: string) =>
+    allWorks?.find(w => w.workId === workId)?.label ?? workId;
 
   useEffect(() => {
     if (isOpen && work) {
@@ -145,6 +163,31 @@ export default function WorkDetailsModal({
   const handleSubmit = async () => {
     if (!work) return;
 
+    // Walidacja zgodności nowych okresów z zależnościami (ostrzeżenia, nie blokuje zapisu)
+    const depsForThisWork = (dependencies ?? []).filter(
+      d => d.predecessorWorkId === work.id || d.successorWorkId === work.id
+    );
+    if (depsForThisWork.length > 0 && periods.length > 0) {
+      const newWorkDates = getWorkEffectiveDates(periods);
+      const updatedRanges = new Map(workDateRanges ?? []);
+      updatedRanges.set(work.id, newWorkDates);
+      const violations: string[] = [];
+      for (const dep of depsForThisWork) {
+        const violation = checkDependencyViolation(
+          { predecessorId: dep.predecessorWorkId, successorId: dep.successorWorkId, dependencyType: dep.dependencyType, lagDays: dep.lagDays },
+          updatedRanges,
+          getWorkName(dep.predecessorWorkId),
+          getWorkName(dep.successorWorkId)
+        );
+        if (violation) {
+          violations.push(violation);
+        }
+      }
+      if (violations.length > 0) {
+        toast({ title: 'Naruszenie zależności', description: violations.join('\n'), status: 'warning', duration: 8000, isClosable: true });
+      }
+    }
+
     setSubmitting(true);
     try {
       const scheduleResponse = await projectApi.getWorkSchedule(tenantId, projectId, workScheduleId);
@@ -194,16 +237,28 @@ export default function WorkDetailsModal({
       const command = {
         name: schedule.name,
         stages: schedule.stages.map(mapStage),
+        dependencies: (schedule.dependencies ?? [])
+          .filter((dep: any) => dep.predecessorWorkId && dep.successorWorkId && dep.predecessorWorkId !== dep.successorWorkId)
+          .map((dep: any) => {
+            const isNewPred = String(dep.predecessorWorkId).startsWith('temp-');
+            const isNewSucc = String(dep.successorWorkId).startsWith('temp-');
+            return {
+              ...(isNewPred ? { predecessorTempId: dep.predecessorWorkId.slice(5) } : { predecessorDbId: dep.predecessorWorkId }),
+              ...(isNewSucc ? { successorTempId: dep.successorWorkId.slice(5) } : { successorDbId: dep.successorWorkId }),
+              dependencyType: dep.dependencyType,
+              lagDays: dep.lagDays,
+            };
+          }),
       };
 
       await projectApi.updateWorkSchedule(tenantId, projectId, workScheduleId, command);
 
-      toast({ title: "Sukces", description: "Praca została zaktualizowana", status: "success", duration: 3000 });
+      showSuccess("Sukces", "Praca została zaktualizowana");
       onWorkUpdated?.();
       onClose();
     } catch (error) {
       const { title, description } = handleApiError(error);
-      toast({ title, description, status: "error", duration: 3000 });
+      showError(title, description);
     } finally {
       setSubmitting(false);
     }
@@ -218,7 +273,7 @@ export default function WorkDetailsModal({
         <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
           <VStack align="flex-start" spacing={2}>
             <Text>Szczegóły zakresu prac</Text>
-            <Badge colorScheme="purple" fontSize={{ base: "xs", md: "md" }}>
+            <Badge colorScheme="level2" fontSize={{ base: "xs", md: "md" }}>
               {work.name}
             </Badge>
           </VStack>
@@ -233,7 +288,7 @@ export default function WorkDetailsModal({
                 <FormLabel fontSize="sm" fontWeight="bold" mb={0}>
                   Okresy wykonania
                 </FormLabel>
-                <Button size="sm" leftIcon={<Plus size={14} />} onClick={addPeriod} colorScheme="blue" variant="ghost">
+                <Button size="sm" leftIcon={<Plus size={14} />} onClick={addPeriod} colorScheme="primary" variant="ghost">
                   Dodaj okres
                 </Button>
               </HStack>
@@ -250,6 +305,7 @@ export default function WorkDetailsModal({
                     borderRadius="md"
                     borderColor={borderColor}
                     flexWrap="wrap"
+                    _dark={{ borderColor: "gray.600" }}
                   >
                     <Text fontSize="xs" fontWeight="bold" minW="18px" color="gray.500">{idx + 1}.</Text>
                     <VStack align="flex-start" spacing={1} flex={1}>
@@ -301,6 +357,32 @@ export default function WorkDetailsModal({
 
             <Divider />
 
+            {/* Zależności — podgląd poprzedników i następników */}
+            {(dependencies ?? []).some(d => d.predecessorWorkId === work.id || d.successorWorkId === work.id) && (
+              <>
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="bold">Zależności</FormLabel>
+                  <VStack align="stretch" spacing={1}>
+                    {(dependencies ?? []).filter(d => d.successorWorkId === work.id).map(dep => (
+                      <HStack key={dep.id} spacing={2}>
+                        <Badge colorScheme="primary" variant="subtle" fontSize="xs">← {getDepTypeShort(dep.dependencyType)}</Badge>
+                        <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.predecessorWorkId)}</Text>
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
+                      </HStack>
+                    ))}
+                    {(dependencies ?? []).filter(d => d.predecessorWorkId === work.id).map(dep => (
+                      <HStack key={dep.id} spacing={2}>
+                        <Badge colorScheme="orange" variant="subtle" fontSize="xs">→ {getDepTypeShort(dep.dependencyType)}</Badge>
+                        <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.successorWorkId)}</Text>
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
+                      </HStack>
+                    ))}
+                  </VStack>
+                </FormControl>
+                <Divider />
+              </>
+            )}
+
             {/* Osoby przypisane */}
             {members.length > 0 && (
               <>
@@ -311,25 +393,25 @@ export default function WorkDetailsModal({
                       const isAssigned = assignedUserIds.includes(member.userId);
                       return (
                         <WrapItem key={member.userId}>
-                          <Tooltip label={isAssigned ? `Odznacz ${member.userName}` : `Przypisz ${member.userName}`}>
+                          <Tooltip label={isAssigned ? `Odznacz ${getDisplayName(member)}` : `Przypisz ${getDisplayName(member)}`}>
                             <HStack
                               spacing={2}
                               px={3}
                               py={1.5}
                               borderRadius="full"
                               borderWidth="1px"
-                              borderColor={isAssigned ? "blue.400" : borderColor}
-                              bg={isAssigned ? "blue.50" : undefined}
+                              borderColor={isAssigned ? "primary.400" : borderColor}
+                              bg={isAssigned ? "primary.50" : undefined}
                               cursor="pointer"
                               onClick={() => toggleAssignee(member.userId)}
-                              _hover={{ bg: isAssigned ? "blue.100" : "gray.50" }}
+                              _hover={{ bg: isAssigned ? "primary.100" : "gray.50" }}
                               transition="all 0.15s"
                             >
-                              <Avatar size="2xs" name={member.userName} />
-                              <Text fontSize="xs" fontWeight={isAssigned ? "semibold" : "normal"} color={isAssigned ? "blue.700" : undefined}>
-                                {member.userName}
+                              <Avatar size="2xs" name={getDisplayName(member)} />
+                              <Text fontSize="xs" fontWeight={isAssigned ? "semibold" : "normal"} color={isAssigned ? "primary.700" : undefined}>
+                                {getDisplayName(member)}
                               </Text>
-                              {isAssigned && <Badge colorScheme="blue" fontSize="2xs" variant="solid">✓</Badge>}
+                              {isAssigned && <Badge colorScheme="primary" fontSize="2xs" variant="solid">✓</Badge>}
                             </HStack>
                           </Tooltip>
                         </WrapItem>
@@ -351,7 +433,7 @@ export default function WorkDetailsModal({
                   size="sm"
                   leftIcon={<Plus size={14} />}
                   onClick={addComment}
-                  colorScheme="purple"
+                  colorScheme="level2"
                   variant="ghost"
                 >
                   Dodaj
@@ -397,7 +479,7 @@ export default function WorkDetailsModal({
           <Button variant="ghost" mr={3} onClick={onClose}>
             Anuluj
           </Button>
-          <Button colorScheme="blue" onClick={handleSubmit} isLoading={submitting}>
+          <Button colorScheme="primary" onClick={handleSubmit} isLoading={submitting}>
             Zapisz zmiany
           </Button>
         </ModalFooter>

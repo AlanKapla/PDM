@@ -14,7 +14,7 @@ const LoadingSpinner = memo(function LoadingSpinner({
 }: LoadingSpinnerProps) {
   const content = (
     <VStack spacing={4}>
-      <Spinner size={size} color="blue.500" thickness="4px" />
+      <Spinner size={size} color="primary.500" thickness="4px" />
       {message && <Text color="gray.600">{message}</Text>}
     </VStack>
   );

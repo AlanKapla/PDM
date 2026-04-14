@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useToast as useChakraToast } from "@chakra-ui/react";
+import { useToast as useChakraToast, useBreakpointValue } from "@chakra-ui/react";
 import type { UseToastOptions } from "@chakra-ui/react";
 
 interface ToastOptions extends Omit<UseToastOptions, 'title' | 'description'> {
@@ -9,6 +9,12 @@ interface ToastOptions extends Omit<UseToastOptions, 'title' | 'description'> {
 
 export const useToastNotification = () => {
   const toast = useChakraToast();
+  // Na mobile toasty u góry (nie zakrywają dolnej nawigacji), na desktop – prawy górny róg.
+  // Dodatkowy fallback gwarantuje przewidywalną pozycję także wtedy, gdy breakpoint nie jest jeszcze wyliczony.
+  const position = (useBreakpointValue<UseToastOptions["position"]>(
+    { base: "top", md: "top-right" },
+    { fallback: "top-right" }
+  ) ?? "top-right") as UseToastOptions["position"];
 
   const showSuccess = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -17,9 +23,10 @@ export const useToastNotification = () => {
       status: "success",
       duration: 3000,
       isClosable: true,
+      position,
       ...options,
     });
-  }, [toast]);
+  }, [toast, position]);
 
   const showError = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -28,9 +35,10 @@ export const useToastNotification = () => {
       status: "error",
       duration: 5000,
       isClosable: true,
+      position,
       ...options,
     });
-  }, [toast]);
+  }, [toast, position]);
 
   const showWarning = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -39,9 +47,10 @@ export const useToastNotification = () => {
       status: "warning",
       duration: 4000,
       isClosable: true,
+      position,
       ...options,
     });
-  }, [toast]);
+  }, [toast, position]);
 
   const showInfo = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -50,9 +59,10 @@ export const useToastNotification = () => {
       status: "info",
       duration: 3000,
       isClosable: true,
+      position,
       ...options,
     });
-  }, [toast]);
+  }, [toast, position]);
 
   return {
     showSuccess,
@@ -62,3 +72,4 @@ export const useToastNotification = () => {
     toast, // dla bardziej zaawansowanych przypadków
   };
 };
+

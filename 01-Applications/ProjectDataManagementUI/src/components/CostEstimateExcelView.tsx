@@ -685,12 +685,12 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
   // Budowanie nagłówka tabeli
   const renderTableHeader = () => {
     return (
-      <Thead bgGradient="linear(to-r, blue.600, blue.700)" position="sticky" top={0} zIndex={10} shadow="md">
+      <Thead bgGradient="linear(to-r, primary.600, primary.700)" position="sticky" top={0} zIndex={10} shadow="md">
         <Tr>
           {/* Kolumna pozycji */}
           <Th
             borderRightWidth="2px"
-            borderColor="blue.500"
+            borderColor="primary.500"
             color="white"
             fontSize="xs"
             py={4}
@@ -710,7 +710,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                 <Th
                   key={`header-${field.type}`}
                   borderRightWidth="1px"
-                  borderColor="blue.500"
+                  borderColor="primary.500"
                   color="white"
                   fontSize="sm"
                   py={3}
@@ -727,7 +727,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                   key={`calc-${field.name}`}
                   isNumeric
                   borderRightWidth="1px"
-                  borderColor="blue.500"
+                  borderColor="primary.500"
                   color="white"
                   fontSize="sm"
                   py={3}
@@ -748,7 +748,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                 <Th
                   key={`gen-${field.name}`}
                   borderRightWidth="1px"
-                  borderColor="blue.500"
+                  borderColor="primary.500"
                   color="white"
                   fontSize="sm"
                   py={3}
@@ -776,7 +776,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                   <Th
                     key={`coll-action-${item.collectionField.name}`}
                     borderRightWidth="1px"
-                    borderColor="blue.500"
+                    borderColor="primary.500"
                     color="white"
                     fontSize="xs"
                     py={3}
@@ -793,7 +793,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                   key={fullName}
                   isNumeric
                   borderRightWidth="1px"
-                  borderColor="blue.500"
+                  borderColor="primary.500"
                   color="white"
                   fontSize="sm"
                   py={3}
@@ -828,7 +828,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                   <Th
                     key={`coll-action-${item.collectionField.name}`}
                     borderRightWidth="1px"
-                    borderColor="blue.500"
+                    borderColor="primary.500"
                     color="white"
                     fontSize="xs"
                     py={3}
@@ -844,7 +844,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                 <Th
                   key={fullName}
                   borderRightWidth="1px"
-                  borderColor="blue.500"
+                  borderColor="primary.500"
                   color="white"
                   fontSize="sm"
                   py={3}
@@ -865,7 +865,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
           {editable && (
             <Th
               borderLeftWidth="2px"
-              borderColor="blue.500"
+              borderColor="primary.500"
               color="white"
               fontSize="sm"
               py={3}
@@ -993,8 +993,8 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                 if (row.type === "group" || row.type === "subgroup") {
                   const isGroup = row.type === "group";
                   const bgGradient = isGroup 
-                    ? "linear(to-r, blue.50, blue.100)" 
-                    : "linear(to-r, teal.50, teal.100)";
+                    ? "linear(to-r, primary.50, primary.100)"
+                    : "linear(to-r, action.50, action.100)";
                   const badgeColor = isGroup ? "blue" : "teal";
 
                   return (
@@ -1002,7 +1002,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                       key={`${row.type}-${row.groupId}-${idx}`}
                       bgGradient={bgGradient}
                       borderTopWidth={isGroup ? "3px" : "2px"}
-                      borderTopColor={isGroup ? "blue.400" : "teal.300"}
+                      borderTopColor={isGroup ? "primary.400" : "action.300"}
                       _hover={{
                         transform: "scale(1.001)",
                         shadow: "md",
@@ -1016,7 +1016,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                         p={3}
                         pl={`${indent + 12}px`}
                         borderBottomWidth="2px"
-                        borderBottomColor={isGroup ? "blue.200" : "teal.200"}
+                        borderBottomColor={isGroup ? "primary.200" : "action.200"}
                       >
                         <HStack spacing={2}>
                           <IconButton
@@ -1025,7 +1025,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                             size="xs"
                             variant="ghost"
                             onClick={() => toggleGroupCollapse(row.groupId!)}
-                            _hover={{ bg: isGroup ? "blue.200" : "teal.200" }}
+                            _hover={{ bg: isGroup ? "primary.200" : "action.200" }}
                           />
                           <Badge
                             colorScheme={badgeColor}
@@ -1057,7 +1057,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               py={2}
                               px={2}
                               borderBottomWidth="2px"
-                              borderBottomColor={isGroup ? "blue.200" : "teal.200"}
+                              borderBottomColor={isGroup ? "primary.200" : "action.200"}
                             >
                               {editable && onDataChange ? (
                                 <GroupHeaderFieldRenderer
@@ -1106,7 +1106,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                 borderRightWidth="1px"
                                 borderRightColor="gray.200"
                                 borderBottomWidth="2px"
-                                borderBottomColor={isGroup ? "blue.200" : "teal.200"}
+                                borderBottomColor={isGroup ? "primary.200" : "action.200"}
                               />
                             );
                           }
@@ -1116,7 +1116,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               borderRightWidth="1px"
                               borderRightColor="gray.200"
                               borderBottomWidth="2px"
-                              borderBottomColor={isGroup ? "blue.200" : "teal.200"}
+                              borderBottomColor={isGroup ? "primary.200" : "action.200"}
                             />
                           );
                           return cells;
@@ -1131,9 +1131,9 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               borderRightWidth="1px"
                               borderRightColor="gray.200"
                               borderBottomWidth="2px"
-                              borderBottomColor={isGroup ? "blue.200" : "teal.200"}
+                              borderBottomColor={isGroup ? "primary.200" : "action.200"}
                               fontWeight="bold"
-                              color={isGroup ? "blue.700" : "teal.700"}
+                              color={isGroup ? "primary.700" : "action.700"}
                             >
                               {totalValue !== undefined && totalValue !== null ? (
                                 <Text fontSize="sm">
@@ -1151,7 +1151,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                       {editable && (
                         <Td
                           borderBottomWidth="2px"
-                          borderBottomColor={isGroup ? "blue.200" : "teal.200"}
+                          borderBottomColor={isGroup ? "primary.200" : "action.200"}
                         >
                           <HStack spacing={1} justify="flex-start">
                             {onAddWorkScope && row.groupId && (
@@ -1160,7 +1160,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                   aria-label="Dodaj pozycję"
                                   icon={<Plus size={12} />}
                                   size="xs"
-                                  colorScheme="blue"
+                                  colorScheme="primary"
                                   variant="solid"
                                   borderRadius="md"
                                   onClick={() => onAddWorkScope(row.groupId!)}
@@ -1182,7 +1182,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                     aria-label="Dodaj podetap"
                                     icon={<Plus size={12} />}
                                     size="xs"
-                                    colorScheme="teal"
+                                    colorScheme="action"
                                     variant="solid"
                                     borderRadius="md"
                                     onClick={() => onAddSubGroup(row.groupId!)}
@@ -1223,7 +1223,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                     <Tr
                       key={`ws-${row.workScope.id}-${idx}`}
                       _hover={{
-                        bg: editable ? "blue.50" : "gray.50",
+                        bg: editable ? "primary.50" : "gray.50",
                         transform: "translateX(2px)",
                         shadow: "sm",
                         transition: "all 0.2s ease",
@@ -1297,7 +1297,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                 borderRightColor="gray.200"
                                 py={2}
                                 px={2}
-                                bg="purple.50"
+                                bg="level2.50"
                               >
                                 <VStack spacing={0} align="center" width="100%">
                                   {collectionItems.map((cItem) => (
@@ -1317,10 +1317,10 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                           }}
                                           p={1}
                                           borderRadius="md"
-                                          bg="purple.500"
+                                          bg="level2.500"
                                           color="white"
                                           cursor="pointer"
-                                          _hover={{ bg: "purple.600" }}
+                                          _hover={{ bg: "level2.600" }}
                                           display="flex"
                                           alignItems="center"
                                           justifyContent="center"
@@ -1330,7 +1330,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                       ) : (
                                         <Checkbox
                                           size="sm"
-                                          colorScheme="purple"
+                                          colorScheme="level2"
                                           isChecked={false}
                                           onChange={(e) => {
                                             handleCollectionItemSelect(
@@ -1368,7 +1368,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                           aria-label={`Dodaj ${collectionField.label}`}
                                           icon={<Plus size={12} />}
                                           size="xs"
-                                          colorScheme="purple"
+                                          colorScheme="level2"
                                           variant="solid"
                                           borderRadius="md"
                                           _hover={{ transform: "scale(1.1)", shadow: "md" }}
@@ -1400,7 +1400,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               py={2}
                               px={2}
                               fontSize="sm"
-                              bg="purple.50"
+                              bg="level2.50"
                             >
                               {collectionItems.length > 0 ? (
                                 <VStack spacing={0} align={isCalc ? "end" : "start"} width="100%">

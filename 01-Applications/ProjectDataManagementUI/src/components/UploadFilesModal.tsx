@@ -412,7 +412,7 @@ export default function UploadFilesModal({
             Anuluj
           </Button>
           <Button
-            colorScheme="blue"
+            colorScheme="primary"
             onClick={handleUpload}
             isLoading={uploading}
             loadingText="Przesyłanie..."
