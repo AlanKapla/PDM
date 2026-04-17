@@ -87,7 +87,8 @@ public sealed class AccessService
     {
         return permissionCode == PermissionCodes.TenantEdit
             || permissionCode == PermissionCodes.TenantMembersManage
-            || permissionCode == PermissionCodes.TenantStatusManage;
+            || permissionCode == PermissionCodes.TenantStatusManage
+            || permissionCode == PermissionCodes.ProjectResourcesWriteOwn;
     }
 
     private async Task<bool> AuthorizeTenantPermissionAsync(
@@ -221,6 +222,61 @@ public sealed class AccessService
             permissionCode,
             resourceScope,
             resource.ProjectId.Value);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Authorizes access to a resource for the logged-in user without requiring ActiveTenantId.
+    /// Used for cross-tenant operations (e.g. "My work") where the user may operate across
+    /// multiple tenants simultaneously.
+    /// </summary>
+    public async Task<bool> AuthorizeAssignedAsync(
+        ICurrentUser user,
+        string permissionCode,
+        Guid projectId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!user.IsAuthenticated)
+        {
+            logger.LogWarning("AuthorizeAssignedAsync failed: User not authenticated");
+            return false;
+        }
+
+        var projectSnapshot = await user.GetProjectSnapshotWithoutActiveTenantAsync(projectId, cancellationToken);
+
+        if (projectSnapshot == null)
+        {
+            logger.LogWarning(
+                "AuthorizeAssignedAsync failed: User {UserId} has no access to project {ProjectId}",
+                user.Id,
+                projectId);
+            return false;
+        }
+
+        if (!projectSnapshot.ProjectPermissionCodes.Contains(permissionCode))
+        {
+            logger.LogWarning(
+                "AuthorizeAssignedAsync failed: User {UserId} lacks permission {Permission} in project {ProjectId}",
+                user.Id,
+                permissionCode,
+                projectId);
+            return false;
+        }
+
+        if (!projectSnapshot.IsProjectAdmin && !projectSnapshot.IsActive && !user.IsSuperAdmin)
+        {
+            logger.LogWarning(
+                "AuthorizeAssignedAsync failed: Project {ProjectId} is inactive",
+                projectId);
+            return false;
+        }
+
+        logger.LogDebug(
+            "AuthorizeAssignedAsync granted: User {UserId} has permission {Permission} in project {ProjectId}",
+            user.Id,
+            permissionCode,
+            projectId);
 
         return true;
     }

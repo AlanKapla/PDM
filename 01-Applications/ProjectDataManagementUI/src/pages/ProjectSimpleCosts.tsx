@@ -31,7 +31,6 @@ import {
 import {
   DollarSign,
   Download,
-  Edit2,
   Eye,
   Plus,
   Share2,
@@ -256,14 +255,14 @@ function AllCostsTab({
             </Thead>
             <Tbody>
               {costs.map((cost) => (
-                <Tr key={cost.id} _hover={{ bg: hoverBg }}>
+                <Tr key={cost.id} _hover={{ bg: hoverBg }} cursor="pointer" onClick={() => onEditCost(cost)}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td fontSize="sm" color="gray.600">{cost.userName || "-"}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
-                  <Td textAlign="center">
+                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       isChecked={cost.isClosed}
                       onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
@@ -271,24 +270,12 @@ function AllCostsTab({
                       isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
                     />
                   </Td>
-                  <Td textAlign="center">
+                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <DocumentCell cost={cost} />
                   </Td>
                   {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
-                    <Td textAlign="center">
+                    <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                       <HStack spacing={1} justify="center">
-                        {resourcePerms.all.canEdit && (
-                          <Tooltip label="Edytuj">
-                            <IconButton
-                              aria-label="Edytuj koszt"
-                              icon={<Edit2 size={14} />}
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="primary"
-                              onClick={() => onEditCost(cost)}
-                            />
-                          </Tooltip>
-                        )}
                         {resourcePerms.all.canManageShare && (
                           <Tooltip label="Udostępnij">
                             <IconButton
@@ -438,13 +425,13 @@ function MyCostsTab({
             </Thead>
             <Tbody>
               {costs.map((cost) => (
-                <Tr key={cost.id} _hover={{ bg: hoverBg }}>
+                <Tr key={cost.id} _hover={{ bg: hoverBg }} cursor="pointer" onClick={() => onEditCost(cost)}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
-                  <Td textAlign="center">
+                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       isChecked={cost.isClosed}
                       onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
@@ -452,23 +439,11 @@ function MyCostsTab({
                       isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
                     />
                   </Td>
-                  <Td textAlign="center">
+                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <DocumentCell cost={cost} />
                   </Td>
-                  <Td textAlign="center">
+                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <HStack spacing={1} justify="center">
-                      {resourcePerms.mine.canEdit && (
-                        <Tooltip label="Edytuj">
-                          <IconButton
-                            aria-label="Edytuj koszt"
-                            icon={<Edit2 size={14} />}
-                            size="xs"
-                            variant="ghost"
-                            colorScheme="primary"
-                            onClick={() => onEditCost(cost)}
-                          />
-                        </Tooltip>
-                      )}
                       {resourcePerms.mine.canManageShare && (
                         <Tooltip label="Udostępnij">
                           <IconButton

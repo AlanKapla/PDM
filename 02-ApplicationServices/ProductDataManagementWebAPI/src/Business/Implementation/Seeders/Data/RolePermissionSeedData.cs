@@ -59,6 +59,9 @@ public static class RolePermissionSeedData
         
         // PROJECT – ZASOBY (pojedynczy obiekt)
         new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesReadSingle, "Read single resource details", "Odczyt szczegółów pojedynczego zasobu"),
+
+        // PROJECT – ZASOBY (własne - dla przypisanych)
+        new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesWriteOwn, "Write own assigned resources", "Zapis zasobów do których użytkownik jest bezpośrednio przypisany (cross-tenant)"),
     };
 
     public static RolePermissionSeed[] GetRolePermissions()
@@ -100,6 +103,7 @@ public static class RolePermissionSeedData
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesReadAll),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesWriteAll),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesReadSingle),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesWriteOwn),
 
             // TENANT.MEMBER
             RP(RoleCodes.TenantMember, PermissionCodes.TenantListAvailable),
@@ -120,6 +124,7 @@ public static class RolePermissionSeedData
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesReadAll),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesWriteAll),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesReadSingle),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesWriteOwn),
 
             // PROJECT.EDITOR - read/write własnych i shared oraz SHARE i READ_SINGLE
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectView),
@@ -130,6 +135,7 @@ public static class RolePermissionSeedData
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesReadShared),
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesWriteShared),
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesReadSingle),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesWriteOwn),
 
             // PROJECT.VIEWER - tylko read shared i READ_SINGLE
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectView),
@@ -137,6 +143,7 @@ public static class RolePermissionSeedData
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesReadShared),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesWriteShared),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesReadSingle),
+            RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesWriteOwn),
         };
     }
 }

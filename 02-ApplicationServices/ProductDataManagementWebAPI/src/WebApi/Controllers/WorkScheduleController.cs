@@ -1,30 +1,41 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.WorkSchedules;
+using CQRS.WorkSchedules.AddWorkScheduleStage;
+using CQRS.WorkSchedules.AddWorkScheduleStageWork;
+using CQRS.WorkSchedules.MoveWorkScheduleStage;
+using CQRS.WorkSchedules.MoveWorkScheduleStageWork;
+using CQRS.WorkSchedules.RenameWorkScheduleStage;
+using CQRS.WorkSchedules.RenameWorkScheduleStageWork;
+using CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb;
+using CQRS.WorkSchedules.ReorderWorkScheduleStageWorks;
+using CQRS.WorkSchedules.ReorderWorkScheduleStages;
+using CQRS.WorkSchedules.AddWorkScheduleStageWorkComment;
 using CQRS.WorkSchedules.CreateWorkSchedule;
 using CQRS.WorkSchedules.DeleteWorkSchedule;
-using CQRS.WorkSchedules.GetWorkSchedules;
+using CQRS.WorkSchedules.DeleteWorkScheduleStage;
+using CQRS.WorkSchedules.DeleteWorkScheduleStageWork;
+using CQRS.WorkSchedules.DeleteWorkScheduleStageWorkComment;
+using CQRS.WorkSchedules.GetMyWorkSchedules;
 using CQRS.WorkSchedules.GetWorkSchedule;
+using CQRS.WorkSchedules.GetWorkSchedules;
+using CQRS.WorkSchedules.SetWorkScheduleDependencies;
+using CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments;
+using CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed;
+using CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriodIsClosed;
+using CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods;
 using CQRS.WorkSchedules.SyncWorkScheduleWithEstimate;
 using CQRS.WorkSchedules.UpdateWorkSchedule;
+using CQRS.WorkSchedules.UpdateWorkScheduleStageWorkComment;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers
 {
-    /// <summary>
-    /// Controller for managing work schedules within projects
-    /// </summary>
     [Route("api/tenants/{tenantId}/project/{projectId}/work-schedule")]
     [ApiController]
     public class WorkScheduleController(IMediator mediator) : BaseApiController(mediator)
     {
-        /// <summary>
-        /// Creates a new work schedule for a project with stages and work assignments
-        /// </summary>
-        /// <param name="tenantId">The tenant ID</param>
-        /// <param name="projectId">The project ID</param>
-        /// <param name="command">The work schedule creation details</param>
-        /// <returns>The created work schedule with all stages and works</returns>
         [HttpPost]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         public async Task<IActionResult> CreateWorkSchedule(
@@ -33,18 +44,10 @@ namespace WebApi.Controllers
             [FromBody] CreateWorkScheduleCommand command)
         {
             command = command with { TenantId = tenantId, ProjectId = projectId };
-            var result = await Send(command);
-            return CreatedAtAction(nameof(CreateWorkSchedule), new { tenantId, projectId }, result);
+            Guid id = await Send(command);
+            return CreatedAtAction(nameof(GetWorkSchedule), new { tenantId, projectId, workScheduleId = id }, id);
         }
 
-        /// <summary>
-        /// Updates an existing work schedule with stages and work assignments
-        /// </summary>
-        /// <param name="tenantId">The tenant ID</param>
-        /// <param name="projectId">The project ID</param>
-        /// <param name="workScheduleId">The work schedule ID</param>
-        /// <param name="command">The work schedule update details</param>
-        /// <returns>The updated work schedule with all stages and works</returns>
         [HttpPut("{workScheduleId}")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         public async Task<IActionResult> UpdateWorkSchedule(
@@ -54,17 +57,10 @@ namespace WebApi.Controllers
             [FromBody] UpdateWorkScheduleCommand command)
         {
             command = command with { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
-            var result = await Send(command);
-            return Ok(result);
+            await Send(command);
+            return NoContent();
         }
 
-        /// <summary>
-        /// Get work schedules based on scope (All, Mine, Shared)
-        /// </summary>
-        /// <param name="tenantId">Tenant ID</param>
-        /// <param name="projectId">Project ID</param>
-        /// <param name="scope">Resource scope (All, Mine, Shared)</param>
-        /// <returns>List of work schedules</returns>
         [HttpGet("{scope}")]
         [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> GetWorkSchedules(
@@ -72,18 +68,11 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] ResourceScope scope)
         {
-            var query = new GetWorkSchedulesQuery(tenantId, projectId, scope);
-            var result = await Send(query);
+            GetWorkSchedulesQuery query = new GetWorkSchedulesQuery(tenantId, projectId, scope);
+            object result = await Send(query);
             return Ok(result);
         }
 
-        /// <summary>
-        /// Gets a work schedule by ID with full details including stages, works and assignments
-        /// </summary>
-        /// <param name="tenantId">The tenant ID</param>
-        /// <param name="projectId">The project ID</param>
-        /// <param name="workScheduleId">The work schedule ID</param>
-        /// <returns>The work schedule with all details</returns>
         [HttpGet("details/{workScheduleId}")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesReadSingle)]
         public async Task<IActionResult> GetWorkSchedule(
@@ -91,18 +80,22 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid workScheduleId)
         {
-            var query = new GetWorkScheduleQuery(tenantId, projectId, workScheduleId);
-            var result = await Send(query);
+            GetWorkScheduleQuery query = new GetWorkScheduleQuery(tenantId, projectId, workScheduleId);
+            WorkScheduleDetailsWeb result = await Send(query);
             return Ok(result);
         }
 
-        /// <summary>
-        /// Synchronizes a work schedule with its linked cost estimate.
-        /// Requires the work schedule to be linked to a cost estimate and full access to it.
-        /// </summary>
-        /// <param name="tenantId">The tenant ID</param>
-        /// <param name="projectId">The project ID</param>
-        /// <param name="workScheduleId">The work schedule ID</param>
+        [HttpGet("my")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
+        public async Task<IActionResult> GetMyWorkSchedules(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            GetMyWorkSchedulesQuery query = new GetMyWorkSchedulesQuery(tenantId, projectId);
+            List<MyWorkSchedulesTenantDto> result = await Send(query);
+            return Ok(result);
+        }
+
         [HttpPost("{workScheduleId}/sync-with-estimate")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         public async Task<IActionResult> SyncWorkScheduleWithEstimate(
@@ -110,17 +103,11 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid workScheduleId)
         {
-            var command = new SyncWorkScheduleWithEstimateCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
+            SyncWorkScheduleWithEstimateCommand command = new SyncWorkScheduleWithEstimateCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
             await Send(command);
             return NoContent();
         }
 
-        /// <summary>
-        /// Deletes a work schedule. Only the owner or a tenant/project admin can delete it.
-        /// </summary>
-        /// <param name="tenantId">The tenant ID</param>
-        /// <param name="projectId">The project ID</param>
-        /// <param name="workScheduleId">The work schedule ID</param>
         [HttpDelete("{workScheduleId}")]
         [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
         public async Task<IActionResult> DeleteWorkSchedule(
@@ -128,9 +115,386 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid workScheduleId)
         {
-            var command = new DeleteWorkScheduleCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
+            DeleteWorkScheduleCommand command = new DeleteWorkScheduleCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
             await Send(command);
             return NoContent();
         }
-    }
-}
+
+        // ─── Stages ──────────────────────────────────────────────────────────────
+
+        [HttpPost("{workScheduleId}/stages")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> AddStage(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromBody] AddWorkScheduleStageCommand command)
+        {
+            command = command with { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
+            Guid stageId = await Send(command);
+            return CreatedAtAction(nameof(GetWorkSchedule), new { tenantId, projectId, workScheduleId }, stageId);
+        }
+
+        [HttpDelete("{workScheduleId}/stages/{stageId}")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> DeleteStage(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId)
+        {
+            DeleteWorkScheduleStageCommand command = new DeleteWorkScheduleStageCommand(stageId) with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{workScheduleId}/stages/{stageId}/name")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> RenameStage(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId,
+            [FromBody] RenameWorkScheduleStageCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                StageId = stageId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPut("{workScheduleId}/stages/order")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> ReorderStages(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromBody] ReorderWorkScheduleStagesCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{workScheduleId}/stages/{stageId}/parent")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> MoveStage(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId,
+            [FromBody] MoveWorkScheduleStageCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                StageId = stageId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        // ─── Works ───────────────────────────────────────────────────────────────
+
+        [HttpPost("{workScheduleId}/stages/{stageId}/works")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> AddWork(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId,
+            [FromBody] AddWorkScheduleStageWorkCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageId = stageId
+            };
+            Guid workId = await Send(command);
+            return CreatedAtAction(nameof(GetWorkSchedule), new { tenantId, projectId, workScheduleId }, workId);
+        }
+
+        [HttpDelete("{workScheduleId}/stages/{stageId}/works/{workId}")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> DeleteWork(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId,
+            [FromRoute] Guid workId)
+        {
+            DeleteWorkScheduleStageWorkCommand command = new DeleteWorkScheduleStageWorkCommand(workId) with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageId = stageId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/name")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> RenameWork(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId,
+            [FromRoute] Guid workId,
+            [FromBody] RenameWorkScheduleStageWorkCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageId = stageId,
+                WorkScheduleStageWorkId = workId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/color-rgb")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> SetWorkColorRgb(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId,
+            [FromRoute] Guid workId,
+            [FromBody] SetWorkScheduleStageWorkColorRgbCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageId = stageId,
+                WorkScheduleStageWorkId = workId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPut("{workScheduleId}/stages/{stageId}/works/order")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> ReorderWorks(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid stageId,
+            [FromBody] ReorderWorkScheduleStageWorksCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageId = stageId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/stage")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> MoveWork(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid workId,
+            [FromBody] MoveWorkScheduleStageWorkCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageWorkId = workId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        // ─── Periods ─────────────────────────────────────────────────────────────
+
+        [HttpPut("{workScheduleId}/stages/{stageId}/works/{workId}/periods")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> SetPeriods(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid workId,
+            [FromBody] SetWorkScheduleStageWorkPeriodsCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageWorkId = workId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPut("{workScheduleId}/stages/{stageId}/works/{workId}/assignments")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> SetAssignments(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid workId,
+            [FromBody] SetWorkScheduleStageWorkAssignmentsCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageWorkId = workId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/is-closed")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteOwn)]
+        public async Task<IActionResult> SetWorkIsClosed(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid workId,
+            [FromBody] SetWorkScheduleStageWorkIsClosedCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageWorkId = workId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/periods/{periodId}/is-closed")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteOwn)]
+        public async Task<IActionResult> SetPeriodIsClosed(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid workId,
+            [FromRoute] Guid periodId,
+            [FromBody] SetWorkScheduleStageWorkPeriodIsClosedCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageWorkId = workId,
+                PeriodId = periodId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        // ─── Comments ────────────────────────────────────────────────────────────
+
+        [HttpPost("{workScheduleId}/stages/{stageId}/works/{workId}/comments")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteOwn)]
+        public async Task<IActionResult> AddComment(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid workId,
+            [FromBody] AddWorkScheduleStageWorkCommentCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageWorkId = workId
+            };
+            Guid commentId = await Send(command);
+            return CreatedAtAction(nameof(GetWorkSchedule), new { tenantId, projectId, workScheduleId }, commentId);
+        }
+
+        [HttpPut("{workScheduleId}/stages/{stageId}/works/{workId}/comments/{commentId}")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> UpdateComment(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid commentId,
+            [FromBody] UpdateWorkScheduleStageWorkCommentCommand command)
+        {
+            command = command with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                CommentId = commentId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpDelete("{workScheduleId}/stages/{stageId}/works/{workId}/comments/{commentId}")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> DeleteComment(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromRoute] Guid commentId)
+        {
+            DeleteWorkScheduleStageWorkCommentCommand command = new DeleteWorkScheduleStageWorkCommentCommand(commentId) with
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        // ─── Dependencies ─────────────────────────────────────────────────────────
+
+        [HttpPut("{workScheduleId}/dependencies")]
+        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        public async Task<IActionResult> SetDependencies(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromBody] SetWorkScheduleDependenciesCommand command)
+        {
+            command = command with { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
+            WorkScheduleDetailsWeb result = await Send(command);
+            return Ok(result);
+        }
+
+            }
+        }

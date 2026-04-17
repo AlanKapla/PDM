@@ -2,5 +2,5 @@
 
 namespace CQRS.WorkSchedules.GetUserAssignedWorks
 {
-    public sealed record GetUserAssignedWorksQuery : IRequestQuery<List<UserAssignedWorksGroupedWeb>>;
+    public sealed record GetUserAssignedWorksQuery : IRequestQuery<List<UserAssignedWorksByTenantWeb>>;
 }

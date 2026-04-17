@@ -183,6 +183,12 @@ export type EditableStage = Omit<WorkScheduleStageWeb, 'works' | 'childStages'> 
 };
 
 // User Assigned Works Types
+export interface UserAssignedWorksByTenantWeb {
+  tenantId: string;
+  tenantName: string;
+  projects: UserAssignedWorksGroupedWeb[];
+}
+
 export interface UserAssignedWorksGroupedWeb {
   tenantId: string;
   tenantName: string;
@@ -212,4 +218,5 @@ export interface UserAssignedWorkWeb {
   colorRgb: string;
   isClosed: boolean;
   periods: WorkScheduleStageWorkPeriodWeb[];
+  comments: WorkScheduleStageWorkCommentWeb[];
 }

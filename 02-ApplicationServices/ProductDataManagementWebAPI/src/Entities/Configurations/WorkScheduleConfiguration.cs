@@ -1,4 +1,4 @@
-using Entities.Models;
+﻿using Entities.Models;
 using Entities.Models.CostEstimates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -82,7 +82,6 @@ namespace Entities.Configurations
             builder.Property(w => w.Order).IsRequired();
             builder.Property(w => w.ProjectId).IsRequired();
             builder.Property(w => w.ColorRgb).IsRequired().HasMaxLength(20);
-            builder.Property(w => w.IsClosed).IsRequired().HasDefaultValue(false);
             builder.Property(w => w.CostEstimateItemId).IsRequired(false);
 
             builder.HasOne(w => w.Stage)
@@ -96,11 +95,10 @@ namespace Entities.Configurations
                    .OnDelete(DeleteBehavior.SetNull)
                    .IsRequired(false);
 
-            builder.OwnsMany(w => w.Periods, p =>
-            {
-                p.Property(period => period.StartDate).IsRequired();
-                p.Property(period => period.EndDate).IsRequired();
-            });
+            builder.HasMany(w => w.Periods)
+                   .WithOne(p => p.Work)
+                   .HasForeignKey(p => p.WorkScheduleStageWorkId)
+                   .OnDelete(DeleteBehavior.Cascade);
 
             builder.HasIndex(w => new { w.WorkScheduleStageId, w.Order });
             builder.HasIndex(w => new { w.TenantId, w.ProjectId });
@@ -123,6 +121,22 @@ namespace Entities.Configurations
                    .WithMany()
                    .HasForeignKey(a => new { a.TenantId, a.ProjectId, a.UserId })
                    .HasPrincipalKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId })
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(a => a.Tenant)
+                   .WithMany()
+                   .HasForeignKey(a => a.TenantId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(a => a.Project)
+                   .WithMany()
+                   .HasForeignKey(a => a.ProjectId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(a => a.TenantMember)
+                   .WithMany()
+                   .HasForeignKey(a => new { a.TenantId, a.UserId })
+                   .HasPrincipalKey(tm => new { tm.TenantId, tm.UserId })
                    .OnDelete(DeleteBehavior.Restrict);
         }
     }
@@ -185,6 +199,23 @@ namespace Entities.Configurations
             builder.HasIndex(d => new { d.TenantId, d.ProjectId });
             builder.HasIndex(d => d.PredecessorWorkId);
             builder.HasIndex(d => d.SuccessorWorkId);
+        }
+    }
+
+    public class WorkScheduleStageWorkPeriodConfiguration : IEntityTypeConfiguration<WorkScheduleStageWorkPeriod>
+    {
+        public void Configure(EntityTypeBuilder<WorkScheduleStageWorkPeriod> builder)
+        {
+            builder.HasKey(p => p.Id);
+            builder.Property(p => p.TenantId).IsRequired();
+            builder.Property(p => p.ProjectId).IsRequired();
+            builder.Property(p => p.WorkScheduleStageWorkId).IsRequired();
+            builder.Property(p => p.StartDate).IsRequired();
+            builder.Property(p => p.EndDate).IsRequired();
+            builder.Property(p => p.IsClosed).IsRequired().HasDefaultValue(false);
+
+            builder.HasIndex(p => new { p.WorkScheduleStageWorkId, p.StartDate });
+            builder.HasIndex(p => new { p.TenantId, p.ProjectId });
         }
     }
 }

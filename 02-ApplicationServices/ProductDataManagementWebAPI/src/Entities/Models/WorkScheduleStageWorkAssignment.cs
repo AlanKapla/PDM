@@ -1,5 +1,8 @@
 ﻿namespace Entities.Models
 {
+    /// <summary>
+    /// Composite PK: (WorkScheduleStageWorkId, UserId) — wymaga konfiguracji w OnModelCreating.
+    /// </summary>
     public class WorkScheduleStageWorkAssignment
     {
         public Guid WorkScheduleStageWorkId { get; set; }
@@ -9,5 +12,8 @@
 
         public WorkScheduleStageWork Work { get; set; } = default!;
         public ProjectMember ProjectMember { get; set; } = default!;
+        public Tenant Tenant { get; set; } = default!;
+        public Project Project { get; set; } = default!;
+        public TenantMember TenantMember { get; set; } = default!;
     }
 }

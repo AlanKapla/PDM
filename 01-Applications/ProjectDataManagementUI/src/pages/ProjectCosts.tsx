@@ -26,7 +26,7 @@ import {
   useDisclosure,
   Tooltip,
 } from "@chakra-ui/react";
-import { Eye, Trash2, Plus, FileText, Copy, Share2, Users } from "lucide-react";
+import { Trash2, Plus, FileText, Copy, Share2, Users } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
@@ -148,6 +148,8 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
               borderRadius="lg"
               p={3}
               shadow="sm"
+              cursor="pointer"
+              onClick={() => handleViewCostEstimate(costEstimate.id)}
             >
               <VStack align="stretch" spacing={2}>
                 <HStack justify="space-between" align="flex-start">
@@ -182,15 +184,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
 
                 <HStack justify="space-between">
                   <Text fontSize="xs" color="gray.500">{formatDate(costEstimate.createdAt)}</Text>
-                  <HStack spacing={1}>
-                    <IconButton
-                      aria-label="Otwórz kosztorys"
-                      icon={<Eye size={14} />}
-                      size="xs"
-                      colorScheme="primary"
-                      variant="ghost"
-                      onClick={() => handleViewCostEstimate(costEstimate.id)}
-                    />
+                  <HStack spacing={1} onClick={(e) => e.stopPropagation()}>
                     {canShare && (
                       <IconButton
                         aria-label="Udostępnij kosztorys"
@@ -247,7 +241,6 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                 <Th>Nazwa</Th>
                 {showOwnerColumn && <Th>Właściciel</Th>}
                 <Th>Szablon</Th>
-                <Th>Status</Th>
                 <Th isNumeric>Wartość netto</Th>
                 <Th isNumeric>Wartość brutto</Th>
                 <Th>Utworzony</Th>
@@ -257,7 +250,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
             </Thead>
             <Tbody>
               {costEstimates.map((costEstimate) => (
-                <Tr key={costEstimate.id} _hover={{ bg: hoverBg }}>
+                <Tr key={costEstimate.id} _hover={{ bg: hoverBg }} cursor="pointer" onClick={() => handleViewCostEstimate(costEstimate.id)}>
                   <Td fontWeight="medium">
                     <VStack align="flex-start" spacing={0}>
                       <HStack spacing={2}>
@@ -289,11 +282,6 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                   <Td>
                     <Text fontSize="sm">{costEstimate.templateName}</Text>
                   </Td>
-                  <Td>
-                    <Badge colorScheme={costEstimateStatusColors[costEstimate.status]}>
-                      {costEstimateStatusLabels[costEstimate.status]}
-                    </Badge>
-                  </Td>
                   <Td isNumeric>
                     {formatCurrency(costEstimate.totalNet)}
                   </Td>
@@ -309,17 +297,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                     </Text>
                   </Td>
                   <Td textAlign="center">
-                    <HStack spacing={1} justify="center">
-                      <Tooltip label="Otwórz">
-                        <IconButton
-                          aria-label="Otwórz"
-                          icon={<Eye size={14} />}
-                          size="xs"
-                          colorScheme="primary"
-                          variant="ghost"
-                          onClick={() => handleViewCostEstimate(costEstimate.id)}
-                        />
-                      </Tooltip>
+                    <HStack spacing={1} justify="center" onClick={(e) => e.stopPropagation()}>
                       {canShare && (
                         <Tooltip label="Udostępnij">
                           <IconButton

@@ -78,16 +78,6 @@ import {
 // Helpery
 // ---------------------------------------------------------------------------
 
-/** Mapa statusów kosztorysu → etykieta PL + kolor Chakra */
-const STATUS_MAP: Record<CostEstimateStatus, { label: string; color: string }> = {
-  [CostEstimateStatus.Draft]: { label: 'Roboczy', color: 'gray' },
-  [CostEstimateStatus.InProgress]: { label: 'W trakcie', color: 'blue' },
-  [CostEstimateStatus.ReadyForReview]: { label: 'Do przeglądu', color: 'orange' },
-  [CostEstimateStatus.Approved]: { label: 'Zatwierdzony', color: 'green' },
-  [CostEstimateStatus.Rejected]: { label: 'Odrzucony', color: 'red' },
-  [CostEstimateStatus.Archived]: { label: 'Zarchiwizowany', color: 'purple' },
-};
-
 /** Formatuj kwotę z polskim separatorem tysięcy i walutą */
 const formatCurrency = (value: number | undefined, symbol: string): string => {
   if (value === undefined || value === null) return `0,00 ${symbol}`;
@@ -1271,8 +1261,6 @@ export const CostEstimateEditPage: React.FC = () => {
     );
   }
 
-  const statusInfo = STATUS_MAP[details.status] || STATUS_MAP[CostEstimateStatus.Draft];
-
   // Uprawnienia do edycji wynikające z access level kosztorysu i uprawnień w projekcie
   // Full (3) — właściciel lub admin: może edytować wszystko
   const canFullEdit =
@@ -1338,9 +1326,6 @@ export const CostEstimateEditPage: React.FC = () => {
                 </Tooltip>
               )}
             </HStack>
-            <Badge colorScheme={statusInfo.color} fontSize="xs" flexShrink={0}>
-              {statusInfo.label}
-            </Badge>
           </HStack>
         </HStack>
 

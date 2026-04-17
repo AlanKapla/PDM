@@ -7,7 +7,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.GetUserAssignedWorks
 {
-    public class GetUserAssignedWorksQueryHandler : IRequestHandler<GetUserAssignedWorksQuery, List<UserAssignedWorksGroupedWeb>>
+    public class GetUserAssignedWorksQueryHandler : IRequestHandler<GetUserAssignedWorksQuery, List<UserAssignedWorksByTenantWeb>>
     {
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
         private readonly ICurrentUser currentUser;
@@ -20,12 +20,19 @@ namespace CQRS.WorkSchedules.GetUserAssignedWorks
             this.currentUser = currentUser;
         }
 
-        public async Task<List<UserAssignedWorksGroupedWeb>> Handle(GetUserAssignedWorksQuery request, CancellationToken cancellationToken)
+        public async Task<List<UserAssignedWorksByTenantWeb>> Handle(GetUserAssignedWorksQuery request, CancellationToken cancellationToken)
         {
-            // Get all assignments for the current user across all tenants
+            // Get all assignments for the current user — active tenants, active projects, non-deleted work schedules
             var assignments = await assignmentRepo.GetBySearch(
-                a => a.UserId == currentUser.Id,
+                a => a.UserId == currentUser.Id
+                     && a.Tenant.IsActive
+                     && a.Project.IsActive
+                     && !a.Work.Stage.WorkSchedule.IsDeleted
+                     && a.TenantMember.UserId == currentUser.Id
+                     && a.ProjectMember.UserId == currentUser.Id,
                 include => include
+                    .Include(a => a.Tenant)
+                    .Include(a => a.Project)
                     .Include(a => a.Work)
                         .ThenInclude(w => w.Periods)
                     .Include(a => a.Work)
@@ -33,85 +40,92 @@ namespace CQRS.WorkSchedules.GetUserAssignedWorks
                             .ThenInclude(c => c.CreatedBy)
                     .Include(a => a.Work)
                         .ThenInclude(w => w.Stage)
-                            .ThenInclude(s => s.WorkSchedule)
-                                .ThenInclude(ws => ws.Project)
-                                    .ThenInclude(p => p.Tenant));
+                            .ThenInclude(s => s.WorkSchedule));
 
-            // Group by Project > WorkSchedule > Stage > Work
-            var groupedByProject = assignments
+            // Group by Tenant > Project > WorkSchedule > Stage > Work
+            var groupedByTenant = assignments
                 .GroupBy(a => new
                 {
-                    TenantId = a.Work.Stage.WorkSchedule.Project.TenantId,
-                    TenantName = a.Work.Stage.WorkSchedule.Project.Tenant.Name,
-                    ProjectId = a.Work.Stage.WorkSchedule.ProjectId,
-                    ProjectName = a.Work.Stage.WorkSchedule.Project.Name
+                    TenantId = a.TenantId,
+                    TenantName = a.Tenant.Name
                 })
-                .Select(projectGroup => new UserAssignedWorksGroupedWeb(
-                    TenantId: projectGroup.Key.TenantId,
-                    TenantName: projectGroup.Key.TenantName,
-                    ProjectId: projectGroup.Key.ProjectId,
-                    ProjectName: projectGroup.Key.ProjectName,
-                    WorkSchedules: projectGroup
+                .Select(tenantGroup => new UserAssignedWorksByTenantWeb(
+                    TenantId: tenantGroup.Key.TenantId,
+                    TenantName: tenantGroup.Key.TenantName,
+                    Projects: tenantGroup
                         .GroupBy(a => new
                         {
-                            WorkScheduleId = a.Work.Stage.WorkScheduleId,
-                            WorkScheduleName = a.Work.Stage.WorkSchedule.Name,
-                            WorkScheduleCreatedAt = a.Work.Stage.WorkSchedule.CreatedAt
+                            ProjectId = a.ProjectId,
+                            ProjectName = a.Project.Name
                         })
-                        .Select(wsGroup => new UserAssignedWorkScheduleWeb(
-                            WorkScheduleId: wsGroup.Key.WorkScheduleId,
-                            WorkScheduleName: wsGroup.Key.WorkScheduleName,
-                            WorkScheduleCreatedAt: wsGroup.Key.WorkScheduleCreatedAt,
-                            Stages: wsGroup
+                        .Select(projectGroup => new UserAssignedWorksGroupedWeb(
+                            ProjectId: projectGroup.Key.ProjectId,
+                            ProjectName: projectGroup.Key.ProjectName,
+                            WorkSchedules: projectGroup
                                 .GroupBy(a => new
                                 {
-                                    StageId = a.Work.WorkScheduleStageId,
-                                    StageName = a.Work.Stage.Name,
-                                    StageOrder = a.Work.Stage.Order
+                                    WorkScheduleId = a.Work.Stage.WorkScheduleId,
+                                    WorkScheduleName = a.Work.Stage.WorkSchedule.Name,
+                                    WorkScheduleCreatedAt = a.Work.Stage.WorkSchedule.CreatedAt
                                 })
-                                .Select(stageGroup => new UserAssignedStageWeb(
-                                    StageId: stageGroup.Key.StageId,
-                                    StageName: stageGroup.Key.StageName,
-                                    StageOrder: stageGroup.Key.StageOrder,
-                                    Works: stageGroup
-                                        .Select(a => new UserAssignedWorkWeb(
-                                            WorkId: a.WorkScheduleStageWorkId,
-                                            WorkName: a.Work.Name,
-                                            WorkOrder: a.Work.Order,
-                                            ColorRgb: a.Work.ColorRgb,
-                                            IsClosed: a.Work.IsClosed,
-                                            Periods: a.Work.Periods
-                                                .OrderBy(p => p.StartDate)
-                                                .Select(p => new WorkScheduleStageWorkPeriodWeb(
-                                                    StartDate: p.StartDate,
-                                                    EndDate: p.EndDate,
-                                                    IsClosed: p.IsClosed
+                                .Select(wsGroup => new UserAssignedWorkScheduleWeb(
+                                    WorkScheduleId: wsGroup.Key.WorkScheduleId,
+                                    WorkScheduleName: wsGroup.Key.WorkScheduleName,
+                                    WorkScheduleCreatedAt: wsGroup.Key.WorkScheduleCreatedAt,
+                                    Stages: wsGroup
+                                        .GroupBy(a => new
+                                        {
+                                            StageId = a.Work.WorkScheduleStageId,
+                                            StageName = a.Work.Stage.Name,
+                                            StageOrder = a.Work.Stage.Order
+                                        })
+                                        .Select(stageGroup => new UserAssignedStageWeb(
+                                            StageId: stageGroup.Key.StageId,
+                                            StageName: stageGroup.Key.StageName,
+                                            StageOrder: stageGroup.Key.StageOrder,
+                                            Works: stageGroup
+                                                .Select(a => new UserAssignedWorkWeb(
+                                                    WorkId: a.WorkScheduleStageWorkId,
+                                                    WorkName: a.Work.Name,
+                                                    WorkOrder: a.Work.Order,
+                                                    ColorRgb: a.Work.ColorRgb,
+                                                    IsClosed: a.Work.Periods.Any() && a.Work.Periods.All(p => p.IsClosed),
+                                                    Periods: a.Work.Periods
+                                                        .OrderBy(p => p.StartDate)
+                                                        .Select(p => new WorkScheduleStageWorkPeriodWeb(
+                                                            Id: p.Id,
+                                                            StartDate: p.StartDate,
+                                                            EndDate: p.EndDate,
+                                                            IsClosed: p.IsClosed
+                                                        ))
+                                                        .ToList(),
+                                                    Comments: a.Work.Comments
+                                                        .OrderBy(c => c.CreatedAt)
+                                                        .Select(c => new WorkScheduleStageWorkCommentWeb(
+                                                            Id: c.Id,
+                                                            Content: c.Content,
+                                                            CreatedByUserId: c.CreatedByUserId,
+                                                            CreatedByUserName: $"{c.CreatedBy.FirstName} {c.CreatedBy.LastName}".Trim(),
+                                                            CreatedAt: c.CreatedAt
+                                                        ))
+                                                        .ToList()
                                                 ))
-                                                .ToList(),
-                                            Comments: a.Work.Comments
-                                                .OrderBy(c => c.CreatedAt)
-                                                .Select(c => new WorkScheduleStageWorkCommentWeb(
-                                                    Id: c.Id,
-                                                    Content: c.Content,
-                                                    CreatedByUserId: c.CreatedByUserId,
-                                                    CreatedByUserName: $"{c.CreatedBy.FirstName} {c.CreatedBy.LastName}".Trim(),
-                                                    CreatedAt: c.CreatedAt
-                                                ))
+                                                .OrderBy(w => w.WorkOrder)
                                                 .ToList()
                                         ))
-                                        .OrderBy(w => w.WorkOrder)
+                                        .OrderBy(s => s.StageOrder)
                                         .ToList()
                                 ))
-                                .OrderBy(s => s.StageOrder)
+                                .OrderByDescending(ws => ws.WorkScheduleCreatedAt)
                                 .ToList()
                         ))
-                        .OrderByDescending(ws => ws.WorkScheduleCreatedAt)
+                        .OrderBy(p => p.ProjectName)
                         .ToList()
                 ))
-                .OrderBy(p => p.ProjectName)
+                .OrderBy(t => t.TenantName)
                 .ToList();
 
-            return groupedByProject;
+            return groupedByTenant;
         }
     }
 }

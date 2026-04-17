@@ -2967,26 +2967,6 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       {(flatRows.length > 0 || hasActiveFilters) && (
         <Box px={4} py={2} borderBottomWidth="1px" borderBottomColor="gray.200">
           <HStack justify="space-between" align="center">
-            {/* Lewa strona: Rozwiń / Zwiń */}
-            <HStack spacing={1}>
-              <Button
-                size="xs"
-                variant="ghost"
-                leftIcon={<ChevronsDown size={14} />}
-                onClick={expandAll}
-              >
-                Rozwiń
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                leftIcon={<ChevronsUp size={14} />}
-                onClick={collapseAll}
-              >
-                Zwiń
-              </Button>
-            </HStack>
-
             {/* Prawa strona: info o filtrach */}
             {hasActiveFilters && (
               <HStack spacing={2}>

@@ -101,10 +101,13 @@ namespace CQRS.WorkSchedules.GetWorkSchedule
                                 Name: w.Name,
                                 Order: w.Order,
                                 ColorRgb: w.ColorRgb,
-                                IsClosed: w.IsClosed,
+                                IsClosed: w.Periods.Any() && w.Periods.All(p => p.IsClosed),
+                                PlannedStartDate: w.PlannedStartDate,
+                                PlannedEndDate: w.PlannedEndDate,
                                 Periods: w.Periods
                                     .OrderBy(p => p.StartDate)
                                     .Select(p => new WorkScheduleStageWorkPeriodWeb(
+                                        Id: p.Id,
                                         StartDate: p.StartDate,
                                         EndDate: p.EndDate,
                                         IsClosed: p.IsClosed))

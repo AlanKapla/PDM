@@ -185,6 +185,26 @@ namespace Business.Implementation.Model
                 cancellationToken);
         }
 
+        public async Task<ProjectCtxSnapshot?> GetProjectSnapshotWithoutActiveTenantAsync(Guid projectId, CancellationToken cancellationToken = default)
+        {
+            if (!IsAuthenticated)
+                return null;
+
+            EnsureLoaded();
+
+            var version = await GetPermissionsVersionAsync(cancellationToken);
+
+            // Use Guid.Empty as the tenantId sentinel — cache key does not overlap with GetProjectSnapshotAsync
+            return await cache.GetOrCreateProjectCtxAsync(
+                _id,
+                Guid.Empty,
+                projectId,
+                version,
+                async () => await BuildProjectSnapshotAsync(projectId, cancellationToken),
+                TimeSpan.FromMinutes(3),
+                cancellationToken);
+        }
+
         private async Task<TenantCtxSnapshot> BuildTenantSnapshotAsync(Guid tenantId, CancellationToken cancellationToken)
         {
             // Load tenant to get IsActive

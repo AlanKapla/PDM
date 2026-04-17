@@ -31,12 +31,15 @@ namespace Business.Interfaces.WebModels.WorkSchedules
         int Order,
         string ColorRgb,
         bool IsClosed,
+        DateTime? PlannedStartDate,
+        DateTime? PlannedEndDate,
         List<WorkScheduleStageWorkPeriodWeb> Periods,
         List<WorkScheduleStageWorkAssigneeWeb> Assignees,
         List<WorkScheduleStageWorkCommentWeb> Comments
     );
 
     public record WorkScheduleStageWorkPeriodWeb(
+        Guid Id,
         DateTime StartDate,
         DateTime EndDate,
         bool IsClosed
@@ -61,6 +64,23 @@ namespace Business.Interfaces.WebModels.WorkSchedules
         Guid SuccessorWorkId,
         WorkDependencyType DependencyType,
         int LagDays
+    );
+
+    public record MyWorkSchedulesItemDto(
+        Guid WorkScheduleId,
+        string WorkScheduleName
+    );
+
+    public record MyWorkSchedulesProjectDto(
+        Guid ProjectId,
+        string ProjectName,
+        List<MyWorkSchedulesItemDto> WorkSchedules
+    );
+
+    public record MyWorkSchedulesTenantDto(
+        Guid TenantId,
+        string TenantName,
+        List<MyWorkSchedulesProjectDto> Projects
     );
 }
 

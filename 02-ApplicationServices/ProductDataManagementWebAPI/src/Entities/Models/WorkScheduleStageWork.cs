@@ -18,7 +18,18 @@ namespace Entities.Models
         public string Name { get; set; } = default!;
         public int Order { get; set; }
         public string ColorRgb { get; set; } = default!;
-        public bool IsClosed { get; set; } = false;
+
+        /// <summary>
+        /// Denormalizacja z kolekcji <see cref="Periods"/> — aktualizowane przez handlery CQRS przy każdej zmianie periodów.
+        /// </summary>
+        public DateTime? PlannedStartDate { get; set; }
+
+        /// <summary>
+        /// Denormalizacja z kolekcji <see cref="Periods"/> — aktualizowane przez handlery CQRS przy każdej zmianie periodów.
+        /// </summary>
+        public DateTime? PlannedEndDate { get; set; }
+
+        public DateTime? UpdatedAt { get; set; }
 
         public WorkScheduleStage Stage { get; set; } = default!;
         public CostEstimateItem? CostEstimateItem { get; set; }

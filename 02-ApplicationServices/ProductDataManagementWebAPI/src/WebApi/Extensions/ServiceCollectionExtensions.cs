@@ -180,6 +180,7 @@ namespace WebApi.Extensions
             services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AssignedAuthorizationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(AppDomain.CurrentDomain.GetAssemblies()));
             return services;
@@ -280,6 +281,7 @@ namespace WebApi.Extensions
                 .AddRepository<WorkSchedule>()
                 .AddWriteRepository<WorkScheduleStage>()
                 .AddWriteRepository<WorkScheduleStageWork>()
+                .AddWriteRepository<WorkScheduleStageWorkPeriod>()
                 .AddWriteRepository<WorkScheduleStageWorkAssignment>()
                 .AddWriteRepository<WorkScheduleStageWorkComment>()
                 .AddWriteRepository<WorkScheduleStageWorkDependency>();
@@ -352,7 +354,6 @@ namespace WebApi.Extensions
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
             services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
-            services.AddScoped<ICostEstimateService, CostEstimateService>();
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<ICostTrackerFinancialService, CostTrackerFinancialService>();
