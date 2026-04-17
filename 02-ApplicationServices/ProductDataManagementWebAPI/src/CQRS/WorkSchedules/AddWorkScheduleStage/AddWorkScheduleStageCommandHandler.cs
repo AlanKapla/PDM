@@ -11,15 +11,18 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStage
         private readonly IRepository<WorkSchedule> workScheduleRepo;
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public AddWorkScheduleStageCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
             IRepository<WorkScheduleStage> stageRepo,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.stageRepo = stageRepo;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Guid> Handle(AddWorkScheduleStageCommand request, CancellationToken cancellationToken)
@@ -35,6 +38,8 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStage
             {
                 throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
             }
+
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
             WorkScheduleStage stage = new WorkScheduleStage
             {

@@ -917,7 +917,7 @@ const noPeriods = (work.periods ?? []).length === 0;
             </div>
             <div style={{ padding: "14px 18px", flex: 1, overflowY: "auto" }}>
               <GanttCommentPopover
-                work={commentsFor.work}
+                workId={commentsFor.work.id}
                 stageId={commentsFor.stageId}
                 isReadOnly={!ganttPermissions.canAddComments}
               />

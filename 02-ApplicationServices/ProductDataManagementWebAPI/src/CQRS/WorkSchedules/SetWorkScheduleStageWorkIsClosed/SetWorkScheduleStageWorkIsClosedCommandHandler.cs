@@ -1,5 +1,4 @@
 ﻿using Business.Interfaces.Exceptions;
-using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
@@ -11,22 +10,19 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed
     {
         private readonly IRepository<WorkScheduleStageWork> workRepository;
         private readonly IRepository<WorkScheduleStageWorkPeriod> periodRepository;
-        private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepository;
-        private readonly ICurrentUser currentUser;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public SetWorkScheduleStageWorkIsClosedCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkPeriod> periodRepository,
-            IRepository<WorkScheduleStageWorkAssignment> assignmentRepository,
-            ICurrentUser currentUser,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.workRepository = workRepository;
             this.periodRepository = periodRepository;
-            this.assignmentRepository = assignmentRepository;
-            this.currentUser = currentUser;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkIsClosedCommand request, CancellationToken cancellationToken)
@@ -42,15 +38,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed
                 throw new NotFoundApiException(nameof(WorkScheduleStageWork), request.WorkScheduleStageWorkId.ToString());
             }
 
-            bool isAssigned = await assignmentRepository.AnyAsync(
-                a => a.WorkScheduleStageWorkId == request.WorkScheduleStageWorkId
-                  && a.UserId == currentUser.Id,
-                cancellationToken);
-
-            if (!isAssigned)
-            {
-                throw new ForbiddenApiException("You are not assigned to this work item.");
-            }
+            await accessService.RequireAdminOwnerOrAssignedAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, request.WorkScheduleStageWorkId, cancellationToken);
 
             IEnumerable<WorkScheduleStageWorkPeriod> periods = await periodRepository.GetBySearch(
                 p => p.WorkScheduleStageWorkId == request.WorkScheduleStageWorkId);

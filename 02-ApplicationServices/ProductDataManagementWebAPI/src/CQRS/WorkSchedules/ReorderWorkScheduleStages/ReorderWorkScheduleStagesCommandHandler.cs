@@ -10,17 +10,22 @@ namespace CQRS.WorkSchedules.ReorderWorkScheduleStages
     {
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public ReorderWorkScheduleStagesCommandHandler(
             IRepository<WorkScheduleStage> stageRepo,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.stageRepo = stageRepo;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(ReorderWorkScheduleStagesCommand request, CancellationToken cancellationToken)
         {
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
+
             IEnumerable<WorkScheduleStage> stagesRaw = await stageRepo.GetBySearch(
                 s => s.WorkScheduleId == request.WorkScheduleId
                   && s.TenantId == request.TenantId

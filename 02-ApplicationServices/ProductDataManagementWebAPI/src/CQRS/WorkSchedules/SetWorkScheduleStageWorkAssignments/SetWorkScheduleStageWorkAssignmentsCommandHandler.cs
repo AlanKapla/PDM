@@ -14,6 +14,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
         private readonly IProjectMemberService projectMemberService;
         private readonly IWorkScheduleNotificationService notificationService;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public SetWorkScheduleStageWorkAssignmentsCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
@@ -21,7 +22,8 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
             IRepository<WorkSchedule> workScheduleRepo,
             IProjectMemberService projectMemberService,
             IWorkScheduleNotificationService notificationService,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.workRepository = workRepository;
             this.assignmentRepository = assignmentRepository;
@@ -29,6 +31,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
             this.projectMemberService = projectMemberService;
             this.notificationService = notificationService;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkAssignmentsCommand request, CancellationToken cancellationToken)
@@ -41,6 +44,8 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
 
             if (!workExists)
                 throw new NotFoundApiException(nameof(WorkScheduleStageWork), request.WorkScheduleStageWorkId.ToString());
+
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
             if (request.UserIds.Count > 0)
             {

@@ -18,6 +18,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
         private readonly IUserService userService;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly WorkScheduleBuilder scheduleBuilder;
+        private readonly IWorkScheduleAccessService accessService;
 
         public SetWorkScheduleDependenciesCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
@@ -26,7 +27,8 @@ namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
             IRepository<WorkScheduleStageWorkPeriod> periodRepository,
             IUserService userService,
             IWorkScheduleCacheService scheduleCache,
-            WorkScheduleBuilder scheduleBuilder)
+            WorkScheduleBuilder scheduleBuilder,
+            IWorkScheduleAccessService accessService)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.workRepository = workRepository;
@@ -35,10 +37,13 @@ namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
             this.userService = userService;
             this.scheduleCache = scheduleCache;
             this.scheduleBuilder = scheduleBuilder;
+            this.accessService = accessService;
         }
 
         public async Task<WorkScheduleDetailsWeb> Handle(SetWorkScheduleDependenciesCommand request, CancellationToken cancellationToken)
         {
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
+
             HashSet<Guid> workIds = await workRepository.SelectToHashSetAsync(
                 w => w.TenantId == request.TenantId
                   && w.ProjectId == request.ProjectId

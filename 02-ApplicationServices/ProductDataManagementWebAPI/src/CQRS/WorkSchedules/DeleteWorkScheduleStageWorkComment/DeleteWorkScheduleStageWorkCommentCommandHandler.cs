@@ -12,15 +12,18 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWorkComment
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepository;
         private readonly ICurrentUser currentUser;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public DeleteWorkScheduleStageWorkCommentCommandHandler(
             IRepository<WorkScheduleStageWorkComment> commentRepository,
             ICurrentUser currentUser,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.commentRepository = commentRepository;
             this.currentUser = currentUser;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleStageWorkCommentCommand request, CancellationToken cancellationToken)
@@ -30,9 +33,10 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWorkComment
                   && c.TenantId == request.TenantId)
                 ?? throw new NotFoundApiException(nameof(WorkScheduleStageWorkComment), request.CommentId.ToString());
 
-            if (comment.CreatedByUserId != currentUser.Id)
+            bool isAuthor = comment.CreatedByUserId == currentUser.Id;
+            if (!isAuthor)
             {
-                throw new ForbiddenApiException("Access denied.");
+                await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
             }
 
             await commentRepository.Delete(comment);

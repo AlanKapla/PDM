@@ -15,25 +15,38 @@ import {
 } from "@chakra-ui/react";
 import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
 import { useGantt } from "./GanttContext";
-import type { WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
+import type { WorkScheduleStageWeb, WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
 import { AuthContext } from "../../context/AuthContext";
 import { useContext } from "react";
 
+function findWorkInSchedule(stages: WorkScheduleStageWeb[], workId: string): WorkScheduleStageWorkWeb | null {
+  for (const stage of stages) {
+    const found = stage.works.find(w => w.id === workId);
+    if (found) return found;
+    const deep = findWorkInSchedule(stage.childStages ?? [], workId);
+    if (deep) return deep;
+  }
+  return null;
+}
+
 interface GanttCommentPopoverProps {
-  work: WorkScheduleStageWorkWeb;
+  workId: string;
   stageId: string;
   /** Jeśli true — ukrywa formularz dodawania nowego komentarza (tryb Podgląd) */
   isReadOnly?: boolean;
 }
 
-export default function GanttCommentPopover({ work, stageId, isReadOnly = false }: GanttCommentPopoverProps) {
-  const { addComment, updateComment, deleteComment, isMutating } = useGantt();
+export default function GanttCommentPopover({ workId, stageId, isReadOnly = false }: GanttCommentPopoverProps) {
+  const { addComment, updateComment, deleteComment, isMutating, schedule } = useGantt();
   const { user } = useContext(AuthContext);
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
 
-  const isAdding = isMutating.has(`addComment-${work.id}`);
+  // Zawsze pobieramy świeży work z aktualnego harmonogramu
+  const work = findWorkInSchedule(schedule?.stages ?? [], workId);
+
+  const isAdding = isMutating.has(`addComment-${workId}`);
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
   const fmtDate = (d: string) =>
@@ -42,7 +55,7 @@ export default function GanttCommentPopover({ work, stageId, isReadOnly = false 
   const handleAdd = async () => {
     const trimmed = newContent.trim();
     if (!trimmed) return;
-    await addComment(stageId, work.id, trimmed);
+    await addComment(stageId, workId, trimmed);
     setNewContent("");
   };
 
@@ -54,13 +67,15 @@ export default function GanttCommentPopover({ work, stageId, isReadOnly = false 
   const handleEditSave = async (commentId: string) => {
     const trimmed = editContent.trim();
     if (!trimmed) return;
-    await updateComment(stageId, work.id, commentId, trimmed);
+    await updateComment(stageId, workId, commentId, trimmed);
     setEditingId(null);
   };
 
   const handleDelete = async (commentId: string) => {
-    await deleteComment(stageId, work.id, commentId);
+    await deleteComment(stageId, workId, commentId);
   };
+
+  if (!work) return null;
 
   return (
     <VStack align="stretch" spacing={2} w="100%">

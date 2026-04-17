@@ -9,13 +9,24 @@ import PeriodsModal from "./modals/PeriodsModal";
 import AssignmentsModal from "./modals/AssignmentsModal";
 import CommentsModal from "./modals/CommentsModal";
 import DependenciesModal from "./modals/DependenciesModal";
+import type { WorkScheduleStageWeb, WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
+
+function findWorkInSchedule(stages: WorkScheduleStageWeb[], workId: string): WorkScheduleStageWorkWeb | null {
+  for (const stage of stages) {
+    const found = stage.works.find(w => w.id === workId);
+    if (found) return found;
+    const deep = findWorkInSchedule(stage.childStages ?? [], workId);
+    if (deep) return deep;
+  }
+  return null;
+}
 
 /**
  * Ten komponent renderuje właściwy modal na podstawie stanu mobileModal z GanttContext.
  * Montujemy go zawsze – renderuje modały tylko wtedy, gdy są aktywne.
  */
 export default function MobileModalsConnector() {
-  const { mobileModal, closeMobileModal } = useGantt();
+  const { mobileModal, closeMobileModal, schedule } = useGantt();
 
   if (!mobileModal) return null;
 
@@ -108,15 +119,18 @@ export default function MobileModalsConnector() {
         />
       );
 
-    case "comments":
+    case "comments": {
+      // Szukamy świeżego work z aktualnego harmonogramu — mobileModal.work to snapshot sprzed otwarcia
+      const freshWork = findWorkInSchedule(schedule?.stages ?? [], mobileModal.work.id) ?? mobileModal.work;
       return (
         <CommentsModal
           isOpen
           onClose={closeMobileModal}
           stageId={mobileModal.stageId}
-          work={mobileModal.work}
+          work={freshWork}
         />
       );
+    }
 
     case "dependencies":
       return <DependenciesModal isOpen onClose={closeMobileModal} />;

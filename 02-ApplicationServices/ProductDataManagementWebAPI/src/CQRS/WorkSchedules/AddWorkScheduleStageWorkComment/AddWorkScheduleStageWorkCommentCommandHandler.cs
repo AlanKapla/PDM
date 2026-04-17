@@ -11,22 +11,22 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWorkComment
     {
         private readonly IRepository<WorkScheduleStageWork> workRepository;
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepository;
-        private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepository;
         private readonly ICurrentUser currentUser;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public AddWorkScheduleStageWorkCommentCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkComment> commentRepository,
-            IRepository<WorkScheduleStageWorkAssignment> assignmentRepository,
             ICurrentUser currentUser,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.workRepository = workRepository;
             this.commentRepository = commentRepository;
-            this.assignmentRepository = assignmentRepository;
             this.currentUser = currentUser;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Guid> Handle(AddWorkScheduleStageWorkCommentCommand request, CancellationToken cancellationToken)
@@ -42,15 +42,7 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWorkComment
                 throw new NotFoundApiException(nameof(WorkScheduleStageWork), request.WorkScheduleStageWorkId.ToString());
             }
 
-            bool isAssigned = await assignmentRepository.AnyAsync(
-                a => a.WorkScheduleStageWorkId == request.WorkScheduleStageWorkId
-                  && a.UserId == currentUser.Id,
-                cancellationToken);
-
-            if (!isAssigned)
-            {
-                throw new ForbiddenApiException("You are not assigned to this work item.");
-            }
+            await accessService.RequireAdminOwnerOrAssignedAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, request.WorkScheduleStageWorkId, cancellationToken);
 
             WorkScheduleStageWorkComment comment = new WorkScheduleStageWorkComment
             {

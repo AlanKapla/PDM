@@ -579,54 +579,44 @@ export function GanttProvider({
   }, [tenantId, projectId, workScheduleId, members, runDebounced]);
 
   const addComment = useCallback(async (stageId: string, workId: string, content: string) => {
-    if (isPreloaded) {
-      // W trybie preloaded — optimistic insert z tempId, po API zastąp realnym ID
-      const tempId = `temp-${Date.now()}`;
-      const optimisticComment = {
-        id: tempId,
-        content,
-        createdAt: new Date().toISOString(),
-        createdByUserId: user?.id ?? "",
-        createdByUserName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") || (user as any)?.email || "",
-      };
+    const tempId = `temp-${Date.now()}`;
+    const optimisticComment = {
+      id: tempId,
+      content,
+      createdAt: new Date().toISOString(),
+      createdByUserId: user?.id ?? "",
+      createdByUserName: [user?.firstName, user?.lastName].filter(Boolean).join(" ") || (user as any)?.email || "",
+    };
+    set(s => ({
+      ...s,
+      stages: updateWorkInTree(s.stages, workId, w => ({
+        ...w,
+        comments: [...(w.comments ?? []), optimisticComment],
+      })),
+    }));
+    try {
+      const res = await workScheduleApi.addComment(tenantId, projectId, workScheduleId, stageId, workId, content);
+      const realId = res.data;
       set(s => ({
         ...s,
         stages: updateWorkInTree(s.stages, workId, w => ({
           ...w,
-          comments: [...(w.comments ?? []), optimisticComment],
+          comments: w.comments.map(c => c.id === tempId ? { ...c, id: realId } : c),
         })),
       }));
-      try {
-        const res = await workScheduleApi.addComment(tenantId, projectId, workScheduleId, stageId, workId, content);
-        const realId = res.data;
-        set(s => ({
-          ...s,
-          stages: updateWorkInTree(s.stages, workId, w => ({
-            ...w,
-            comments: w.comments.map(c => c.id === tempId ? { ...c, id: realId } : c),
-          })),
-        }));
-      } catch (err) {
-        // Rollback temp comment
-        set(s => ({
-          ...s,
-          stages: updateWorkInTree(s.stages, workId, w => ({
-            ...w,
-            comments: w.comments.filter(c => c.id !== tempId),
-          })),
-        }));
-        const { title, description } = handleApiError(err);
-        showError(title, description);
-      }
-      return;
+    } catch (err) {
+      // Rollback temp comment
+      set(s => ({
+        ...s,
+        stages: updateWorkInTree(s.stages, workId, w => ({
+          ...w,
+          comments: w.comments.filter(c => c.id !== tempId),
+        })),
+      }));
+      const { title, description } = handleApiError(err);
+      showError(title, description);
     }
-    const prev = scheduleRef.current!;
-    // Unikalne ID klucza — komentarze nie są batchowane (każdy to odrębna treść)
-    runDebounced(`addComment-${workId}-${Date.now()}`, 200,
-      () => workScheduleApi.addComment(tenantId, projectId, workScheduleId, stageId, workId, content),
-      prev,
-      { onSuccess: silentRefresh });
-  }, [isPreloaded, user, tenantId, projectId, workScheduleId, silentRefresh, runDebounced, showError]);
+  }, [user, tenantId, projectId, workScheduleId, showError]);
 
   const updateComment = useCallback(async (stageId: string, workId: string, commentId: string, content: string) => {
     set(s => ({

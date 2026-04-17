@@ -510,7 +510,7 @@ export default function GanttWorkRow({
             borderBottomWidth="1px"
             borderBottomColor={borderColor}
           >
-            <GanttCommentPopover work={work} stageId={stageId} />
+            <GanttCommentPopover workId={work.id} stageId={stageId} />
           </Td>
         </Tr>
       )}

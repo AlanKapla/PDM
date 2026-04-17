@@ -12,17 +12,20 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
         private readonly IRepository<WorkScheduleStageWork> workRepo;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public DeleteWorkScheduleStageCommandHandler(
             IRepository<WorkScheduleStage> stageRepo,
             IRepository<WorkScheduleStageWork> workRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
             this.dependencyRepo = dependencyRepo;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleStageCommand request, CancellationToken cancellationToken)
@@ -40,6 +43,8 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
             {
                 throw new NotFoundApiException(nameof(WorkScheduleStage), request.StageId.ToString());
             }
+
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
             List<Guid> stageIdsInSubtree = CollectSubtreeIds(allStagesList, request.StageId);
 

@@ -361,6 +361,7 @@ namespace WebApi.Extensions
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
             services.AddScoped<IWorkScheduleCacheService, WorkScheduleCacheService>();
+            services.AddScoped<IWorkScheduleAccessService, WorkScheduleAccessService>();
             services.AddScoped<CQRS.WorkSchedules.Shared.WorkScheduleBuilder>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();

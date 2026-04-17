@@ -11,19 +11,24 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStageWork
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IRepository<WorkScheduleStageWork> workRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public MoveWorkScheduleStageWorkCommandHandler(
             IRepository<WorkScheduleStage> stageRepo,
             IRepository<WorkScheduleStageWork> workRepo,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(MoveWorkScheduleStageWorkCommand request, CancellationToken cancellationToken)
         {
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
+
             bool targetStageExists = await stageRepo.AnyAsync(
                 s => s.Id == request.TargetStageId
                   && s.WorkScheduleId == request.WorkScheduleId

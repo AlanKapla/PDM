@@ -10,13 +10,16 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
     {
         private readonly IRepository<WorkScheduleStageWork> workRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public SetWorkScheduleStageWorkColorRgbCommandHandler(
             IRepository<WorkScheduleStageWork> workRepo,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.workRepo = workRepo;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkColorRgbCommand request, CancellationToken cancellationToken)
@@ -27,6 +30,8 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
                   && w.TenantId == request.TenantId
                   && w.ProjectId == request.ProjectId)
                 ?? throw new NotFoundApiException(nameof(WorkScheduleStageWork), request.WorkScheduleStageWorkId.ToString());
+
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
             work.ColorRgb = request.ColorRgb;
 

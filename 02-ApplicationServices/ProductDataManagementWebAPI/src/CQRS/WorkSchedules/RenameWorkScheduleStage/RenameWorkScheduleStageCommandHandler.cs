@@ -10,13 +10,16 @@ namespace CQRS.WorkSchedules.RenameWorkScheduleStage
     {
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public RenameWorkScheduleStageCommandHandler(
             IRepository<WorkScheduleStage> stageRepo,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.stageRepo = stageRepo;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(RenameWorkScheduleStageCommand request, CancellationToken cancellationToken)
@@ -27,6 +30,8 @@ namespace CQRS.WorkSchedules.RenameWorkScheduleStage
                   && s.TenantId == request.TenantId
                   && !s.IsDeleted)
                 ?? throw new NotFoundApiException(nameof(WorkScheduleStage), request.StageId.ToString());
+
+            await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
             stage.Name = request.Name;
 
