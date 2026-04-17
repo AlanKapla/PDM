@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -8,10 +9,14 @@ namespace CQRS.WorkSchedules.ReorderWorkScheduleStages
     public sealed class ReorderWorkScheduleStagesCommandHandler : IRequestHandler<ReorderWorkScheduleStagesCommand, Unit>
     {
         private readonly IRepository<WorkScheduleStage> stageRepo;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
-        public ReorderWorkScheduleStagesCommandHandler(IRepository<WorkScheduleStage> stageRepo)
+        public ReorderWorkScheduleStagesCommandHandler(
+            IRepository<WorkScheduleStage> stageRepo,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.stageRepo = stageRepo;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(ReorderWorkScheduleStagesCommand request, CancellationToken cancellationToken)
@@ -40,6 +45,7 @@ namespace CQRS.WorkSchedules.ReorderWorkScheduleStages
 
             await stageRepo.UpdateRange(stagesToUpdate);
             await stageRepo.SaveChangesAsync(cancellationToken);
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;
         }
     }

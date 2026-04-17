@@ -360,6 +360,8 @@ namespace WebApi.Extensions
             services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
+            services.AddScoped<IWorkScheduleCacheService, WorkScheduleCacheService>();
+            services.AddScoped<CQRS.WorkSchedules.Shared.WorkScheduleBuilder>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<CostEstimateGroupValidator>();

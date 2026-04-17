@@ -16,19 +16,25 @@ namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepository;
         private readonly IRepository<WorkScheduleStageWorkPeriod> periodRepository;
         private readonly IUserService userService;
+        private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly WorkScheduleBuilder scheduleBuilder;
 
         public SetWorkScheduleDependenciesCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepository,
             IRepository<WorkScheduleStageWorkPeriod> periodRepository,
-            IUserService userService)
+            IUserService userService,
+            IWorkScheduleCacheService scheduleCache,
+            WorkScheduleBuilder scheduleBuilder)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.workRepository = workRepository;
             this.dependencyRepository = dependencyRepository;
             this.periodRepository = periodRepository;
             this.userService = userService;
+            this.scheduleCache = scheduleCache;
+            this.scheduleBuilder = scheduleBuilder;
         }
 
         public async Task<WorkScheduleDetailsWeb> Handle(SetWorkScheduleDependenciesCommand request, CancellationToken cancellationToken)
@@ -101,105 +107,9 @@ namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
 
             await dependencyRepository.SaveChangesAsync(cancellationToken);
 
-            WorkSchedule workSchedule = await workScheduleRepo.GetFirstBySearch(
-                ws => ws.Id == request.WorkScheduleId
-                   && ws.TenantId == request.TenantId
-                   && ws.ProjectId == request.ProjectId
-                   && !ws.IsDeleted,
-                include => include
-                    .Include(ws => ws.Stages)
-                        .ThenInclude(s => s.Works)
-                            .ThenInclude(w => w.Periods),
-                include => include
-                    .Include(ws => ws.Stages)
-                        .ThenInclude(s => s.Works)
-                            .ThenInclude(w => w.Assignments),
-                include => include
-                    .Include(ws => ws.Stages)
-                        .ThenInclude(s => s.Works)
-                            .ThenInclude(w => w.Comments),
-                include => include
-                    .Include(ws => ws.Dependencies))
-                ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
 
-            var membersDict = (await userService.GetProjectMembersAsync(
-                request.TenantId, request.ProjectId, cancellationToken))
-                .ToDictionary(m => m.UserId);
-
-            List<WorkScheduleStage> activeStages = workSchedule.Stages.Where(s => !s.IsDeleted).ToList();
-
-            List<WorkScheduleStageWeb> BuildStageTree(Guid? parentId)
-            {
-                return activeStages
-                    .Where(s => s.ParentStageId == parentId)
-                    .OrderBy(s => s.Order)
-                    .Select(s => new WorkScheduleStageWeb(
-                        Id: s.Id,
-                        Name: s.Name,
-                        Order: s.Order,
-                        ParentStageId: s.ParentStageId,
-                        CostEstimateGroupId: s.CostEstimateGroupId,
-                        Works: s.Works
-                            .OrderBy(w => w.Order)
-                            .Select(w => new WorkScheduleStageWorkWeb(
-                                Id: w.Id,
-                                Name: w.Name,
-                                Order: w.Order,
-                                ColorRgb: w.ColorRgb,
-                                IsClosed: w.Periods.Any() && w.Periods.All(p => p.IsClosed),
-                                PlannedStartDate: w.PlannedStartDate,
-                                PlannedEndDate: w.PlannedEndDate,
-                                Periods: w.Periods
-                                    .OrderBy(p => p.StartDate)
-                                    .Select(p => new WorkScheduleStageWorkPeriodWeb(
-                                        Id: p.Id,
-                                        StartDate: p.StartDate,
-                                        EndDate: p.EndDate,
-                                        IsClosed: p.IsClosed))
-                                    .ToList(),
-                                Assignees: w.Assignments
-                                    .Select(a => new WorkScheduleStageWorkAssigneeWeb(
-                                        UserId: a.UserId,
-                                        UserName: membersDict.TryGetValue(a.UserId, out var assignee)
-                                            ? assignee.FullName
-                                            : "Unknown"))
-                                    .ToList(),
-                                Comments: w.Comments
-                                    .OrderBy(c => c.CreatedAt)
-                                    .Select(c => new WorkScheduleStageWorkCommentWeb(
-                                        Id: c.Id,
-                                        Content: c.Content,
-                                        CreatedByUserId: c.CreatedByUserId,
-                                        CreatedByUserName: membersDict.TryGetValue(c.CreatedByUserId, out var commenter)
-                                            ? commenter.FullName
-                                            : "Unknown",
-                                        CreatedAt: c.CreatedAt))
-                                    .ToList()))
-                            .ToList(),
-                        ChildStages: BuildStageTree(s.Id)))
-                    .ToList();
-            }
-
-            return new WorkScheduleDetailsWeb(
-                Id: workSchedule.Id,
-                TenantId: workSchedule.TenantId,
-                ProjectId: workSchedule.ProjectId,
-                CostEstimateId: workSchedule.CostEstimateId,
-                Name: workSchedule.Name,
-                CreatedAt: workSchedule.CreatedAt,
-                CreatedByUserId: workSchedule.CreatedByUserId,
-                CreatedByUserName: membersDict.TryGetValue(workSchedule.CreatedByUserId, out var creator)
-                    ? creator.FullName
-                    : "Unknown",
-                Stages: BuildStageTree(null),
-                Dependencies: workSchedule.Dependencies
-                    .Select(d => new WorkScheduleWorkDependencyWeb(
-                        Id: d.Id,
-                        PredecessorWorkId: d.PredecessorWorkId,
-                        SuccessorWorkId: d.SuccessorWorkId,
-                        DependencyType: d.DependencyType,
-                        LagDays: d.LagDays))
-                    .ToList());
+            return await scheduleBuilder.BuildAsync(request.WorkScheduleId, request.TenantId, request.ProjectId, cancellationToken);
         }
 
         private async Task AdjustSuccessorPeriodsAsync(

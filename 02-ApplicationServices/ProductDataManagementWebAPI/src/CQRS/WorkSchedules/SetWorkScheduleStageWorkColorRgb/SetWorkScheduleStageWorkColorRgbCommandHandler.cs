@@ -1,4 +1,5 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -8,10 +9,14 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
     public sealed class SetWorkScheduleStageWorkColorRgbCommandHandler : IRequestHandler<SetWorkScheduleStageWorkColorRgbCommand, Unit>
     {
         private readonly IRepository<WorkScheduleStageWork> workRepo;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
-        public SetWorkScheduleStageWorkColorRgbCommandHandler(IRepository<WorkScheduleStageWork> workRepo)
+        public SetWorkScheduleStageWorkColorRgbCommandHandler(
+            IRepository<WorkScheduleStageWork> workRepo,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.workRepo = workRepo;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkColorRgbCommand request, CancellationToken cancellationToken)
@@ -27,6 +32,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
 
             await workRepo.Update(work);
             await workRepo.SaveChangesAsync(cancellationToken);
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;
         }
     }

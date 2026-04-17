@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -10,13 +11,16 @@ namespace CQRS.WorkSchedules.DeleteWorkSchedule
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
         private readonly ICurrentUser currentUser;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
         public DeleteWorkScheduleCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.currentUser = currentUser;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleCommand request, CancellationToken cancellationToken)
@@ -45,6 +49,7 @@ namespace CQRS.WorkSchedules.DeleteWorkSchedule
             workSchedule.IsDeleted = true;
             workSchedule.DeletedAt = DateTime.UtcNow;
             await workScheduleRepo.Update(workSchedule);
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
 
             return Unit.Value;
         }

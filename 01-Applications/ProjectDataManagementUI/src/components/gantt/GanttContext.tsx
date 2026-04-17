@@ -212,7 +212,16 @@ export function GanttProvider({
   const [isMutating, setIsMutating] = useState<Set<string>>(new Set());
   const canEditPermission = permissions?.mine.canEdit || permissions?.all.canEdit || permissions?.shared.canEdit;
   // W trybie "my-works" (preloaded) wymuszamy tryb view — edycja jest kontrolowana przez ganttPermissions
-  const [mode, setModeState] = useState<GanttMode>((!isPreloaded && canEditPermission) ? "edit" : "view");
+  const [mode, setModeState] = useState<GanttMode>("view");
+  // Flaga zapobiega ponownemu auto-przełączeniu trybu po tym, jak użytkownik ręcznie go zmienił
+  const autoSwitchedToEdit = useRef(false);
+  // Gdy permissions się załadują i użytkownik ma prawo edycji, jednorazowo przełącz na tryb edit
+  useEffect(() => {
+    if (!isPreloaded && canEditPermission && !autoSwitchedToEdit.current) {
+      autoSwitchedToEdit.current = true;
+      setModeState("edit");
+    }
+  }, [isPreloaded, canEditPermission]);
   const [expandedStages, setExpandedStages] = useState<Set<string>>(
     isPreloaded ? new Set(collectStageIds(preloadedSchedule?.stages ?? [])) : new Set()
   );

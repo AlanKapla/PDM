@@ -1,5 +1,6 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -11,15 +12,18 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriodIsClosed
         private readonly IRepository<WorkScheduleStageWorkPeriod> periodRepository;
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepository;
         private readonly ICurrentUser currentUser;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
         public SetWorkScheduleStageWorkPeriodIsClosedCommandHandler(
             IRepository<WorkScheduleStageWorkPeriod> periodRepository,
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepository,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.periodRepository = periodRepository;
             this.assignmentRepository = assignmentRepository;
             this.currentUser = currentUser;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkPeriodIsClosedCommand request, CancellationToken cancellationToken)
@@ -45,6 +49,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriodIsClosed
 
             await periodRepository.Update(period);
             await periodRepository.SaveChangesAsync(cancellationToken);
+            await scheduleCache.InvalidateWorkAsync(request.WorkScheduleId, request.WorkScheduleStageWorkId, cancellationToken);
             return Unit.Value;
         }
     }

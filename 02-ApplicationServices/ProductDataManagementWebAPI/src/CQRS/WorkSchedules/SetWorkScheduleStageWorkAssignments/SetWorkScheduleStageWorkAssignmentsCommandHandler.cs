@@ -13,19 +13,22 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
         private readonly IRepository<WorkSchedule> workScheduleRepo;
         private readonly IProjectMemberService projectMemberService;
         private readonly IWorkScheduleNotificationService notificationService;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
         public SetWorkScheduleStageWorkAssignmentsCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepository,
             IRepository<WorkSchedule> workScheduleRepo,
             IProjectMemberService projectMemberService,
-            IWorkScheduleNotificationService notificationService)
+            IWorkScheduleNotificationService notificationService,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.workRepository = workRepository;
             this.assignmentRepository = assignmentRepository;
             this.workScheduleRepo = workScheduleRepo;
             this.projectMemberService = projectMemberService;
             this.notificationService = notificationService;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkAssignmentsCommand request, CancellationToken cancellationToken)
@@ -101,6 +104,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
                 }
             }
 
+            await scheduleCache.InvalidateWorkAsync(request.WorkScheduleId, request.WorkScheduleStageWorkId, cancellationToken);
             return Unit.Value;
         }
     }

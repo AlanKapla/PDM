@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -9,13 +10,16 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWork
     {
         private readonly IRepository<WorkScheduleStageWork> workRepository;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepository;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
         public DeleteWorkScheduleStageWorkCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
-            IRepository<WorkScheduleStageWorkDependency> dependencyRepository)
+            IRepository<WorkScheduleStageWorkDependency> dependencyRepository,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.workRepository = workRepository;
             this.dependencyRepository = dependencyRepository;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleStageWorkCommand request, CancellationToken cancellationToken)
@@ -41,6 +45,7 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWork
                 w => w.Id == request.WorkScheduleStageWorkId,
                 cancellationToken);
 
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;
         }
     }

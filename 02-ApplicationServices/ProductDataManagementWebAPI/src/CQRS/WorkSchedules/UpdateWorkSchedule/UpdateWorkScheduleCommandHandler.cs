@@ -1,5 +1,6 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -10,13 +11,16 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
         private readonly ICurrentUser currentUser;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
         public UpdateWorkScheduleCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.currentUser = currentUser;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(UpdateWorkScheduleCommand request, CancellationToken cancellationToken)
@@ -39,6 +43,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
 
             await workScheduleRepo.Update(workSchedule);
             await workScheduleRepo.SaveChangesAsync(cancellationToken);
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
 
             return Unit.Value;
         }

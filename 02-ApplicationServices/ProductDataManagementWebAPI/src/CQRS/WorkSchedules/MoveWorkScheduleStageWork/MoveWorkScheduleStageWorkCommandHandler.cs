@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Services;
 using Entities.Models;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -9,13 +10,16 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStageWork
     {
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IRepository<WorkScheduleStageWork> workRepo;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
         public MoveWorkScheduleStageWorkCommandHandler(
             IRepository<WorkScheduleStage> stageRepo,
-            IRepository<WorkScheduleStageWork> workRepo)
+            IRepository<WorkScheduleStageWork> workRepo,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(MoveWorkScheduleStageWorkCommand request, CancellationToken cancellationToken)
@@ -57,6 +61,7 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStageWork
 
             await workRepo.Update(work);
             await workRepo.SaveChangesAsync(cancellationToken);
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;
         }
     }

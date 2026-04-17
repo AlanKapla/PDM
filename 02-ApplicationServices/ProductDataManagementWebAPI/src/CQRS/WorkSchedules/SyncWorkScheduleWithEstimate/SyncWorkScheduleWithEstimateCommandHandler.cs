@@ -14,17 +14,20 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
         private readonly IWorkScheduleSyncService workScheduleSyncService;
         private readonly ICostEstimateAccessService costEstimateAccessService;
         private readonly ICurrentUser currentUser;
+        private readonly IWorkScheduleCacheService scheduleCache;
 
         public SyncWorkScheduleWithEstimateCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
             IWorkScheduleSyncService workScheduleSyncService,
             ICostEstimateAccessService costEstimateAccessService,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IWorkScheduleCacheService scheduleCache)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.workScheduleSyncService = workScheduleSyncService;
             this.costEstimateAccessService = costEstimateAccessService;
             this.currentUser = currentUser;
+            this.scheduleCache = scheduleCache;
         }
 
         public async Task<Unit> Handle(SyncWorkScheduleWithEstimateCommand request, CancellationToken cancellationToken)
@@ -48,6 +51,7 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
             }
 
             await workScheduleSyncService.SyncFromCostEstimateAsync(workSchedule, cancellationToken);
+            await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
 
             return Unit.Value;
         }
