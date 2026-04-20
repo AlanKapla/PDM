@@ -1,4 +1,4 @@
-import { Mail, Globe, Phone, MapPin, User } from 'lucide-react'
+import { Mail, Globe, Phone, MapPin, User, Building, Hash, Receipt } from 'lucide-react'
 import './Footer.css'
 
 const FOOTER_LINKS = {
@@ -64,13 +64,16 @@ export default function Footer() {
 
       <div className="footer__info-strip">
         <div className="container footer__info-strip-inner">
+
           <div className="footer__info-block">
             <h4 className="footer__info-title">Dane firmy</h4>
-            <div className="footer__info-row"><User size={13} /> BRICKLY</div>
-            <div className="footer__info-row"><User size={13} /> Alan Kapla</div>
+            <div className="footer__info-row"><Building size={13} /> Alan Kapla Usługi Informatyczne</div>
+            <div className="footer__info-row"><Receipt size={13} /> NIP: 762-201-08-39</div>
             <div className="footer__info-row"><MapPin size={13} /> ul. Klonowa 27, 07-200 Rybienko Nowe</div>
           </div>
+
           <div className="footer__info-divider" />
+
           <div className="footer__info-block">
             <h4 className="footer__info-title">Kontakt</h4>
             <a href="tel:+48798517893" className="footer__info-row footer__info-link">
@@ -80,6 +83,7 @@ export default function Footer() {
               <Mail size={13} /> kontakt@brickly.pro
             </a>
           </div>
+
         </div>
       </div>
 
