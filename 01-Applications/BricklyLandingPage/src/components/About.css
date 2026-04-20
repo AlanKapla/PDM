@@ -89,6 +89,11 @@
   background-color: var(--cobalt-50);
 }
 
+.about__highlight-icon {
+  color: var(--cobalt-600);
+  margin-bottom: 12px;
+}
+
 .about__highlight-text {
   font-size: 15px;
   font-style: italic;
@@ -102,4 +107,18 @@
     grid-template-columns: 1fr;
     gap: 48px;
   }
+}
+
+.about__title {
+  margin-bottom: 16px;
+}
+
+.about__subtitle--lead {
+  margin-bottom: 16px;
+  color: var(--cobalt-600);
+  font-weight: 600;
+}
+
+.about__subtitle--body {
+  margin-bottom: 32px;
 }

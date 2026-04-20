@@ -1,4 +1,4 @@
-import { CheckCircle2, Zap, Shield, Users } from 'lucide-react'
+import { CheckCircle2, Zap, Shield, Users, Lightbulb } from 'lucide-react'
 import './About.css'
 
 const PILLARS = [
@@ -35,15 +35,15 @@ export default function About() {
         <div className="about__layout">
           <div className="about__left">
             <span className="section-label">O aplikacji</span>
-            <h2 className="section-title" style={{ marginBottom: '16px' }}>
+            <h2 className="section-title about__title">
               Budujesz na Excelu<br />i WhatsAppie?
             </h2>
-            <p className="section-subtitle" style={{ marginBottom: '16px', color: 'var(--cobalt-600)', fontWeight: 600 }}>
+            <p className="section-subtitle about__subtitle--lead">
               Większość nadzorców i wykonawców traci godziny tygodniowo na szukanie
               pliku, odświeżanie arkusza i odpowiadanie na tę samą wiadomość
               w trzech miejscach naraz.
             </p>
-            <p className="section-subtitle" style={{ marginBottom: '32px' }}>
+            <p className="section-subtitle about__subtitle--body">
               Brickly rozwiązuje ten problem. Jedna platforma dla nadzorców
               inwestycyjnych, inwestorów zastępczych, architektów i generalnych
               wykonawców – wszystko, czego potrzebujesz do prowadzenia inwestycji.
@@ -74,10 +74,13 @@ export default function About() {
 
             <div className="about__highlight">
               <div className="about__highlight-inner">
+                <div className="about__highlight-icon">
+                  <Lightbulb size={20} />
+                </div>
                 <p className="about__highlight-text">
-                  „Ile razy szukałeś kosztorysu, który ktoś wysłał mailem
-                  trzy tygodnie temu? W Brickly wszystko jest na swoim miejscu –
-                  zawsze i dla właściwych osób."
+                  W Brickly każdy dokument, kosztorys i wiadomość jest
+                  dokładnie tam gdzie powinien być – zawsze aktualny
+                  i widoczny wyłącznie dla właściwych osób.
                 </p>
               </div>
             </div>

@@ -7,20 +7,21 @@ export default function BrowserMockup() {
   const [active, setActive] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
 
-  const next = () => setActive(i => (i + 1) % SCREENSHOTS.length)
-  const prev = () => setActive(i => (i - 1 + SCREENSHOTS.length) % SCREENSHOTS.length)
+  const total = SCREENSHOTS.length
+  const next = () => setActive(i => (i + 1) % total)
+  const prev = () => setActive(i => (i - 1 + total) % total)
 
   // Zamknij modal na Escape
   useEffect(() => {
     if (!modalOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setModalOpen(false)
-      if (e.key === 'ArrowRight') next()
-      if (e.key === 'ArrowLeft') prev()
+      if (e.key === 'ArrowRight') setActive(i => (i + 1) % total)
+      if (e.key === 'ArrowLeft') setActive(i => (i - 1 + total) % total)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modalOpen])
+  }, [modalOpen, total])
 
   if (SCREENSHOTS.length === 0) return null
 
@@ -49,6 +50,7 @@ export default function BrowserMockup() {
             src={current.src}
             alt={current.label}
             className="browser__screen"
+            loading="lazy"
           />
           <div className="browser__zoom-hint">
             <ZoomIn size={16} /> Kliknij, aby powiększyć
@@ -58,11 +60,11 @@ export default function BrowserMockup() {
         {/* Nawigacja i etykieta – tylko gdy >1 screena */}
         {SCREENSHOTS.length > 1 && (
           <div className="browser__footer">
-            <button className="browser__nav-btn" onClick={prev} aria-label="Poprzedni">
+            <button type="button" className="browser__nav-btn" onClick={prev} aria-label="Poprzedni">
               <ChevronLeft size={16} />
             </button>
             <span className="browser__label">{current.label}</span>
-            <button className="browser__nav-btn" onClick={next} aria-label="Następny">
+            <button type="button" className="browser__nav-btn" onClick={next} aria-label="Następny">
               <ChevronRight size={16} />
             </button>
           </div>

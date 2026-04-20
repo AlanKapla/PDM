@@ -1,4 +1,4 @@
-import { ExternalLink, Mail, CheckCircle2 } from 'lucide-react'
+import { ExternalLink, Mail, CheckCircle2, ShieldCheck, Cloud, MapPin } from 'lucide-react'
 import './CallToAction.css'
 
 const MICRO_BENEFITS = [
@@ -9,7 +9,7 @@ const MICRO_BENEFITS = [
 
 export default function CallToAction() {
   return (
-    <section id="contact" className="cta-section">
+    <section id="cta" className="cta-section">
       <div className="cta-section__bg">
         <div className="cta-section__blob cta-section__blob--1" />
         <div className="cta-section__blob cta-section__blob--2" />
@@ -57,11 +57,11 @@ export default function CallToAction() {
         </div>
 
         <div className="cta-section__trust">
-          <span>🔒 Bezpieczna platforma</span>
+          <span><ShieldCheck size={15} /> Bezpieczna platforma</span>
           <span className="cta-section__trust-divider" />
-          <span>☁️ Dostęp z każdego urządzenia</span>
+          <span><Cloud size={15} /> Dostęp z każdego urządzenia</span>
           <span className="cta-section__trust-divider" />
-          <span>🇵🇱 Produkt polski</span>
+          <span><MapPin size={15} /> Produkt polski</span>
         </div>
       </div>
     </section>

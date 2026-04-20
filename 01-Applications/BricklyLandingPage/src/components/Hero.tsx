@@ -1,11 +1,10 @@
 import { ArrowRight } from 'lucide-react'
 import BrowserMockup from './BrowserMockup'
+import { useScrollTo } from '../hooks/useScrollTo'
 import './Hero.css'
 
 export default function Hero() {
-  const scrollTo = (href: string) => {
-    document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const scrollTo = useScrollTo()
 
   return (
     <section className="hero">
@@ -21,7 +20,7 @@ export default function Hero() {
         <div className="hero__content">
           <div className="hero__badge">
             <span className="hero__badge-dot" />
-            Platforma dla branży budowlanej
+            Excel, WhatsApp, e-mail — koniec z tym.
           </div>
 
           <h1 className="hero__title">
@@ -31,9 +30,9 @@ export default function Hero() {
           </h1>
 
           <p className="hero__subtitle">
-            Kosztorysy, harmonogramy, dokumenty i komunikacja
-            z wykonawcami – wszystko w jednym miejscu,
-            dostępnym z każdego urządzenia.
+            Koniec z Excelem do kosztorysów, WhatsAppem do komunikacji
+            i mailem do dokumentów. Brickly spina cały proces inwestycyjny
+            w jednym miejscu.
           </p>
 
           <div className="hero__pain-strip">
@@ -46,24 +45,24 @@ export default function Hero() {
 
           <div className="hero__stats">
             <div className="hero__stat">
-              <span className="hero__stat-value">10+</span>
-              <span className="hero__stat-label">modułów</span>
+              <span className="hero__stat-value">5 min</span>
+              <span className="hero__stat-label">konfiguracja</span>
+            </div>
+            <div className="hero__stat-divider" />
+            <div className="hero__stat">
+              <span className="hero__stat-value">1 miejsce</span>
+              <span className="hero__stat-label">zamiast 5 narzędzi</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
               <span className="hero__stat-value">100%</span>
               <span className="hero__stat-label">online</span>
             </div>
-            <div className="hero__stat-divider" />
-            <div className="hero__stat">
-              <span className="hero__stat-value">0</span>
-              <span className="hero__stat-label">papierów</span>
-            </div>
           </div>
 
           <div className="hero__actions">
             <a
-              href="https://app.brickly.com.pl"
+              href="https://app.brickly.pro"
               target="_blank"
               rel="noopener noreferrer"
               className="btn hero__cta"
@@ -71,9 +70,9 @@ export default function Hero() {
               Wypróbuj za darmo
               <ArrowRight size={18} />
             </a>
-            <button className="btn hero__cta-secondary" onClick={() => scrollTo('#about')}>
+            <a href="#about" className="btn hero__cta-secondary" onClick={e => { e.preventDefault(); scrollTo('#about') }}>
               Zobacz jak działa
-            </button>
+            </a>
           </div>
         </div>
 

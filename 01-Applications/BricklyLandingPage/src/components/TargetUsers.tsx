@@ -1,4 +1,4 @@
-import { HardHat, ClipboardCheck, PenLine, Users, UserCheck, Handshake } from 'lucide-react'
+import { HardHat, ClipboardCheck, PenLine, UserCheck } from 'lucide-react'
 import './TargetUsers.css'
 
 const USERS = [
@@ -26,18 +26,7 @@ const USERS = [
     description: 'Zarządzaj podwykonawcami, kosztorysami i harmonogramem z jednego miejsca. Deleguj zadania do ekip i śledź realizację każdego etapu prac.',
     perks: ['Zarządzanie podwykonawcami', 'Kosztorysy i rozliczenia', 'Harmonogram etapów'],
   },
-  {
-    icon: Users,
-    title: 'Ekipy i podwykonawcy',
-    description: 'Otrzymuj zlecenia, przeglądaj przydzielone zadania i dokumentację. Raportuj postępy bez papierowej biurokracji – bezpośrednio z telefonu.',
-    perks: ['Lista przydzielonych zadań', 'Dostęp do dokumentów i planów', 'Komunikacja z zarządcą projektu'],
-  },
-  {
-    icon: Handshake,
-    title: 'Inwestorzy i zleceniodawcy',
-    description: 'Miej realny podgląd na to, co dzieje się na inwestycji. Zatwierdzaj kosztorysy, przeglądaj harmonogramy i rozliczaj etapy bez pośredników.',
-    perks: ['Przejrzysty wgląd w inwestycję', 'Zatwierdzanie kosztorysów', 'Bieżące raporty i statusy'],
-  },
+
 ]
 
 export default function TargetUsers() {
@@ -49,7 +38,7 @@ export default function TargetUsers() {
           <h2 className="section-title">
             Dla tych, którzy spinają<br />wiele ekip naraz
           </h2>
-          <p className="section-subtitle" style={{ marginTop: '16px' }}>
+          <p className="section-subtitle">
             Brickly jest przede wszystkim dla nadzorców inwestycyjnych, inwestorów
             zastępczych, architektów i generalnych wykonawców – osób, które stoją
             w centrum procesu budowlanego i koordynują wielu uczestników jednocześnie.

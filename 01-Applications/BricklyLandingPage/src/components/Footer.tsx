@@ -1,4 +1,5 @@
-import { Mail, Globe, Phone, MapPin, User, Building, Hash, Receipt } from 'lucide-react'
+import { Mail, Globe, Phone, MapPin, Building, Receipt } from 'lucide-react'
+import { useScrollTo } from '../hooks/useScrollTo'
 import './Footer.css'
 
 const FOOTER_LINKS = {
@@ -6,7 +7,7 @@ const FOOTER_LINKS = {
     { label: 'O aplikacji', href: '#about' },
     { label: 'Moduły', href: '#modules' },
     { label: 'Dla kogo', href: '#target' },
-    { label: 'Kontakt', href: '#contact' },
+    { label: 'Wypróbuj za darmo', href: '#cta' },
   ],
   'Moduły': [
     { label: 'Projekty', href: '#modules' },
@@ -18,27 +19,28 @@ const FOOTER_LINKS = {
 }
 
 export default function Footer() {
-  const scrollTo = (href: string) => {
-    if (href.startsWith('#')) {
-      document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }
+  const scrollTo = useScrollTo()
 
   return (
-    <footer id="contact" className="footer">
+    <footer className="footer">
       <div className="container footer__inner">
         <div className="footer__brand">
-          <a href="#" className="footer__logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <a href="#" className="footer__logo" onClick={() => scrollTo('#')}>
             <span className="footer__logo-text">Brickly</span>
           </a>
           <p className="footer__tagline">
             Nowoczesna platforma do zarządzania projektami budowlanymi i remontowymi.
           </p>
           <div className="footer__contacts">
-            <span className="footer__contact-link">
+            <a
+              href="https://brickly.pro"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footer__contact-link"
+            >
               <Globe size={15} />
               brickly.pro
-            </span>
+            </a>
           </div>
         </div>
 
@@ -62,7 +64,7 @@ export default function Footer() {
         ))}
       </div>
 
-      <div className="footer__info-strip">
+      <div id="footer-contact" className="footer__info-strip">
         <div className="container footer__info-strip-inner">
 
           <div className="footer__info-block">

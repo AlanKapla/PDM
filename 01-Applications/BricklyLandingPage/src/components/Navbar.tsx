@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'
+import { useScrollTo } from '../hooks/useScrollTo'
 import './Navbar.css'
 
 const NAV_LINKS = [
   { label: 'O aplikacji', href: '#about' },
   { label: 'Moduły', href: '#modules' },
   { label: 'Dla kogo', href: '#target' },
+  { label: 'Kontakt', href: '#footer-contact' },
 ]
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const scrollTo = useScrollTo()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 24)
@@ -20,14 +23,13 @@ export default function Navbar() {
 
   const handleNavClick = (href: string) => {
     setMenuOpen(false)
-    const target = document.querySelector(href)
-    target?.scrollIntoView({ behavior: 'smooth' })
+    scrollTo(href)
   }
 
   return (
     <header className={`navbar${scrolled ? ' navbar--scrolled' : ''}`}>
       <div className="container navbar__inner">
-        <a className="navbar__logo" href="#" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+        <a className="navbar__logo" href="#" onClick={() => scrollTo('#')}>
           <span className="navbar__logo-text">Brickly</span>
         </a>
 
@@ -56,9 +58,11 @@ export default function Navbar() {
         </div>
 
         <button
+          type="button"
           className="navbar__hamburger"
           onClick={() => setMenuOpen(o => !o)}
-          aria-label="Otwórz menu"
+          aria-label={menuOpen ? 'Zamknij menu' : 'Otwórz menu'}
+          aria-expanded={menuOpen}
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
@@ -77,12 +81,12 @@ export default function Navbar() {
             </a>
           ))}
           <a
-            href="#contact"
+            href="#cta"
             className="btn btn-primary"
             style={{ marginTop: '8px', justifyContent: 'center' }}
-            onClick={e => { e.preventDefault(); handleNavClick('#contact') }}
+            onClick={e => { e.preventDefault(); handleNavClick('#cta') }}
           >
-            Skontaktuj się
+            Wypróbuj za darmo
           </a>
         </div>
       )}

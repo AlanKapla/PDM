@@ -88,7 +88,7 @@ export default function Modules() {
           <h2 className="section-title">
             Wszystko czego potrzebujesz<br />w jednej platformie
           </h2>
-          <p className="section-subtitle" style={{ marginTop: '16px' }}>
+          <p className="section-subtitle">
             Kompletny zestaw narzędzi dla nadzorców, inwestorów zastępczych
             i architektów – wszystko, czego potrzebujesz, żeby spinać wiele ekip
             bez chaosu.
