@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Business.Interfaces.Constants;
@@ -69,6 +69,7 @@ namespace Business.Implementation.Services
                     catch (Exception ex)
                     {
                         logger.LogError(ex, "Failed to send email. Message will be re-queued. Queue={Queue}, DequeueCount={DequeueCount}", QueueNames.EmailSend, msg.DequeueCount);
+                        throw;
                     }
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
