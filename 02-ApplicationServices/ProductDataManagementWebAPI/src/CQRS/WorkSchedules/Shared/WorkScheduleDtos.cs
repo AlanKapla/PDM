@@ -62,4 +62,24 @@ namespace CQRS.WorkSchedules.Shared
         WorkDependencyType DependencyType,
         int LagDays
     );
+
+    /// <summary>
+    /// DTO for a single work period used in SetWorkScheduleStageWorkPeriods (replace-all operation).
+    /// </summary>
+    public record WorkPeriodDto(
+        DateTime StartDate,
+        DateTime EndDate,
+        bool IsClosed
+    );
+
+    /// <summary>
+    /// DTO for a dependency used in SetWorkScheduleDependencies (replace-all operation).
+    /// Uses direct work IDs (no TempId) since all works already exist in the database.
+    /// </summary>
+    public record WorkDependencyDto(
+        Guid PredecessorWorkId,
+        Guid SuccessorWorkId,
+        WorkDependencyType DependencyType,
+        int LagDays
+    );
 }

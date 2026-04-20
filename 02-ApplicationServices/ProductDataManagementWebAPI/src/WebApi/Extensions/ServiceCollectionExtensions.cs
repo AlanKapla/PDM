@@ -180,6 +180,7 @@ namespace WebApi.Extensions
             services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AssignedAuthorizationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(AppDomain.CurrentDomain.GetAssemblies()));
             return services;
@@ -280,6 +281,7 @@ namespace WebApi.Extensions
                 .AddRepository<WorkSchedule>()
                 .AddWriteRepository<WorkScheduleStage>()
                 .AddWriteRepository<WorkScheduleStageWork>()
+                .AddWriteRepository<WorkScheduleStageWorkPeriod>()
                 .AddWriteRepository<WorkScheduleStageWorkAssignment>()
                 .AddWriteRepository<WorkScheduleStageWorkComment>()
                 .AddWriteRepository<WorkScheduleStageWorkDependency>();
@@ -326,11 +328,12 @@ namespace WebApi.Extensions
             services.AddScoped<ICurrentUser, CurrentUser>();
             services.AddSingleton<IUserContextCache, InMemoryUserContextCache>();
             services.AddScoped<AccessService>();
+            services.AddScoped<IAccessService>(sp => sp.GetRequiredService<AccessService>());
             services.AddScoped<PermissionsVersionService>();
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
             services.AddScoped<IEmailSender, QueuedEmailSender>();
-            services.AddSingleton<IEmailTransport, SendGridEmailSender>();
+            services.AddSingleton<IEmailTransport, SmtpEmailSender>();
             services.AddScoped<ITokenGenerator, TokenGenerator>();
             services.AddScoped<IBlobStorageService, BlobStorageService>();
             services.AddSingleton<IQueueStorageService, QueueStorageService>();
@@ -352,13 +355,15 @@ namespace WebApi.Extensions
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
             services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
-            services.AddScoped<ICostEstimateService, CostEstimateService>();
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<ICostTrackerFinancialService, CostTrackerFinancialService>();
             services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
+            services.AddScoped<IWorkScheduleCacheService, WorkScheduleCacheService>();
+            services.AddScoped<IWorkScheduleAccessService, WorkScheduleAccessService>();
+            services.AddScoped<CQRS.WorkSchedules.Shared.WorkScheduleBuilder>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<CostEstimateGroupValidator>();
@@ -398,7 +403,7 @@ namespace WebApi.Extensions
         public static IServiceCollection AddConfigurations(this IServiceCollection services, IConfiguration config)
         {
             services.Configure<JwtSettings>(config.GetSection(JwtSettings.SectionName));
-            services.Configure<EmailSettings>(config.GetSection(EmailSettings.SectionName));
+            services.Configure<SmtpSettings>(config.GetSection(SmtpSettings.SectionName));
             services.Configure<FrontendSettings>(config.GetSection(FrontendSettings.SectionName));
             services.Configure<CorsSettings>(config.GetSection(CorsSettings.SectionName));
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));

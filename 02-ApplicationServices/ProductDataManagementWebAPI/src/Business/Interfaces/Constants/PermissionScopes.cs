@@ -56,6 +56,9 @@ public static class PermissionScopes
         
         // PROJECT - ZASOBY (pojedynczy obiekt - dla SuperAdmin i wszyscy)
         [PermissionCodes.ProjectResourcesReadSingle] = PermissionScope.Project,
+
+        // PROJECT - ZASOBY (własne - dla przypisanych memberów)
+        [PermissionCodes.ProjectResourcesWriteOwn] = PermissionScope.Project,
         
         
         // ==================== RESOURCE SCOPE ====================

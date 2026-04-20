@@ -15,7 +15,7 @@ interface UseTimelineDataOptions {
 
 /**
  * Wspólna logika timeline'u dla widoków harmonogramów.
- * Zarządza skalą czasu, zakresem, ukrywaniem weekendów,
+ * Zarządza skalą czasu, ukrywaniem weekendów,
  * generowaniem dat/grup oraz automatycznym scrollem do "dzisiaj".
  */
 export function useTimelineData(options?: UseTimelineDataOptions) {
@@ -23,7 +23,6 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
 
   // ─── Stan ────────────────────────────────────────────
   const [timeScale, setTimeScale] = useState<TimeScale>("weeks");
-  const [timeRangeMonths, setTimeRangeMonths] = useState(1);
   const [hideWeekends, setHideWeekends] = useState(false);
 
   // ─── Refy do scrollowania ────────────────────────────
@@ -98,14 +97,12 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const minDate = new Date(today);
-    minDate.setMonth(minDate.getMonth() - timeRangeMonths);
-    minDate.setDate(1);
+    let minDate: Date;
+    let maxDate: Date;
 
-    const maxDate = new Date(today);
-    maxDate.setMonth(maxDate.getMonth() + timeRangeMonths);
-    maxDate.setMonth(maxDate.getMonth() + 1);
-    maxDate.setDate(0);
+    // Stały zakres: 5 lat wstecz i 5 lat wprzód — w praktyce nieskończony
+    minDate = new Date(today.getFullYear() - 5, 0, 1);
+    maxDate = new Date(today.getFullYear() + 5, 11, 31);
 
     const current = new Date(minDate);
 
@@ -167,7 +164,7 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     }
 
     return { allDates: dates, allDateGroups: dateGroups };
-  }, [timeScale, timeRangeMonths]);
+  }, [timeScale]);
 
   // ─── Filtrowanie weekendów ───────────────────────────
 
@@ -194,8 +191,6 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     // Stan
     timeScale,
     setTimeScale,
-    timeRangeMonths,
-    setTimeRangeMonths,
     hideWeekends,
     setHideWeekends,
     toggleWeekends: useCallback(() => setHideWeekends((h) => !h), []),

@@ -250,19 +250,23 @@ namespace CQRS.WorkSchedules.Shared
         }
 
         /// <summary>
-        /// Builds the entity period list for a work item, propagating work-level closure to all periods.
-        /// Returns the computed periods and the resolved IsWorkClosed flag.
+        /// Builds the entity period list for a work item.
+        /// Work-level IsClosed propagates to all periods.
+        /// TenantId and ProjectId must be provided explicitly; WorkScheduleStageWorkId is set by EF via the relationship.
         /// </summary>
-        public static (List<WorkScheduleStageWorkPeriod> Periods, bool IsWorkClosed) BuildPeriods(WorkScheduleWorkDto workDto)
+        public static (List<WorkScheduleStageWorkPeriod> Periods, bool IsWorkClosed) BuildPeriods(
+            WorkScheduleWorkDto workDto, Guid tenantId, Guid projectId)
         {
             List<WorkScheduleStageWorkPeriod> periods = workDto.Periods?.Select(p => new WorkScheduleStageWorkPeriod
             {
+                TenantId = tenantId,
+                ProjectId = projectId,
                 StartDate = p.StartDate,
                 EndDate = p.EndDate,
                 IsClosed = workDto.IsClosed || p.IsClosed
             }).ToList() ?? new List<WorkScheduleStageWorkPeriod>();
 
-            bool isWorkClosed = workDto.IsClosed || (periods.Count > 0 && periods.All(p => p.IsClosed));
+            bool isWorkClosed = periods.Count > 0 && periods.All(p => p.IsClosed);
             return (periods, isWorkClosed);
         }
     }

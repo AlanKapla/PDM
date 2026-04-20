@@ -33,6 +33,13 @@
         /// Gets project context snapshot for a specific project.
         /// </summary>
         Task<ProjectCtxSnapshot?> GetProjectSnapshotAsync(Guid projectId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets project context snapshot without requiring ActiveTenantId.
+        /// Used for cross-tenant operations (e.g. "My work") where the user may operate
+        /// across multiple tenants simultaneously. The project's TenantId is resolved from the database.
+        /// </summary>
+        Task<ProjectCtxSnapshot?> GetProjectSnapshotWithoutActiveTenantAsync(Guid projectId, CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Checks if the current user is a Tenant Admin for the specified tenant.

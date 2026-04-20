@@ -4,7 +4,6 @@ import {
   HStack,
   VStack,
   Text,
-  IconButton,
   Badge,
   useColorModeValue,
 } from "@chakra-ui/react";
@@ -119,17 +118,17 @@ export default function BottomNavBar({
               aria-label={item.label}
             >
               <Box position="relative">
-                <IconButton
-                  aria-label={item.label}
-                  icon={<item.icon size={22} />}
-                  variant="ghost"
-                  size="sm"
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  w="32px"
+                  h="32px"
                   color={active ? activeColor : inactiveColor}
-                  _hover={{}}
-                  _active={{}}
-                  tabIndex={-1}
                   pointerEvents="none"
-                />
+                >
+                  <item.icon size={22} />
+                </Box>
                 {item.badge !== undefined && (
                   <Badge
                     colorScheme={item.to === "/chat" ? "primary" : "red"}

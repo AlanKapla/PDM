@@ -2,6 +2,9 @@
 
 namespace Entities.Models
 {
+    /// <summary>
+    /// Wymagany unikalny indeks: (WorkScheduleId, PredecessorWorkId, SuccessorWorkId) — do skonfigurowania w OnModelCreating.
+    /// </summary>
     public class WorkScheduleStageWorkDependency : BaseEntity
     {
         public Guid TenantId { get; set; }

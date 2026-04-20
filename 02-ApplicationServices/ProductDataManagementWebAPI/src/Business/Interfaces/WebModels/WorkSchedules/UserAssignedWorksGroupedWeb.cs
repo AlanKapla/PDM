@@ -1,11 +1,18 @@
 ﻿namespace Business.Interfaces.WebModels.WorkSchedules
 {
     /// <summary>
+    /// User's assigned works grouped by Tenant
+    /// </summary>
+    public record UserAssignedWorksByTenantWeb(
+        Guid TenantId,
+        string TenantName,
+        List<UserAssignedWorksGroupedWeb> Projects
+    );
+
+    /// <summary>
     /// User's assigned works grouped by Project
     /// </summary>
     public record UserAssignedWorksGroupedWeb(
-        Guid TenantId,
-        string TenantName,
         Guid ProjectId,
         string ProjectName,
         List<UserAssignedWorkScheduleWeb> WorkSchedules

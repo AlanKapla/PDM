@@ -14,6 +14,7 @@ namespace Entities.Models
         public int Order { get; set; }
         public bool IsDeleted { get; set; }
         public DateTime? DeletedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
 
         public WorkSchedule WorkSchedule { get; set; } = default!;
         public WorkScheduleStage? ParentStage { get; set; }
