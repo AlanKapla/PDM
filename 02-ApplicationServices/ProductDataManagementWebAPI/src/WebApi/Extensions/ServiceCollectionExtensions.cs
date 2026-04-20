@@ -333,7 +333,7 @@ namespace WebApi.Extensions
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
             services.AddScoped<IEmailSender, QueuedEmailSender>();
-            services.AddSingleton<IEmailTransport, SendGridEmailSender>();
+            services.AddSingleton<IEmailTransport, SmtpEmailSender>();
             services.AddScoped<ITokenGenerator, TokenGenerator>();
             services.AddScoped<IBlobStorageService, BlobStorageService>();
             services.AddSingleton<IQueueStorageService, QueueStorageService>();
@@ -403,7 +403,7 @@ namespace WebApi.Extensions
         public static IServiceCollection AddConfigurations(this IServiceCollection services, IConfiguration config)
         {
             services.Configure<JwtSettings>(config.GetSection(JwtSettings.SectionName));
-            services.Configure<EmailSettings>(config.GetSection(EmailSettings.SectionName));
+            services.Configure<SmtpSettings>(config.GetSection(SmtpSettings.SectionName));
             services.Configure<FrontendSettings>(config.GetSection(FrontendSettings.SectionName));
             services.Configure<CorsSettings>(config.GetSection(CorsSettings.SectionName));
             services.Configure<BlobStorageSettings>(config.GetSection(BlobStorageSettings.SectionName));

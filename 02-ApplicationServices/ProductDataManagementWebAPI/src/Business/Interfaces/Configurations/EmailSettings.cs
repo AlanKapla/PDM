@@ -1,16 +1,12 @@
 ﻿namespace Business.Interfaces.Configurations
 {
-    public sealed class EmailSettings
+    public sealed class SmtpSettings
     {
-        public const string SectionName = "EmailSettings";
-        public string Provider { get; set; } = "SendGrid";
-        public SendGridSettings SendGrid { get; set; } = new();
-    }
-
-    public sealed class SendGridSettings
-    {
-        public string ApiKey { get; set; } = string.Empty;
-        public string DefaultFromEmail { get; set; } = string.Empty;
-        public string DefaultFromName { get; set; } = "System";
+        public const string SectionName = "Email";
+        public string SmtpHost { get; set; } = string.Empty;
+        public int SmtpPort { get; set; } = 587;
+        public string SenderAddress { get; set; } = string.Empty;
+        public string SenderName { get; set; } = "System";
+        public string AppPassword { get; set; } = string.Empty;
     }
 }

@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Implementation.Helpers;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
 using Entities.Models;
@@ -79,16 +80,18 @@ namespace CQRS.Tenants.InviteTenantMember
                 string path = frontendSettings.Value.HomePath.TrimStart('/');
                 string acceptUrl = $"{baseUrl}/{path}";
 
+                string htmlBody = EmailTemplateLoader.Load("tenant-invitation.html", new Dictionary<string, string>
+                {
+                    { "tenantName", tenantName },
+                    { "acceptUrl", acceptUrl }
+                });
+
                 await emailSender.SendEmailAsync(new EmailMessageDto
                 {
                     To = normalizedEmail,
                     Subject = $"Zaproszenie do {tenantName}",
                     TextBody = $"Zostałeś zaproszony do {tenantName}. Aby zaakceptować zaproszenie, utwórz konto klikając w link: {acceptUrl}",
-                    HtmlBody = $@"
-                        <p>Zostałeś zaproszony do <strong>{tenantName}</strong>.</p>
-                        <p>Aby zaakceptować zaproszenie, utwórz konto klikając w poniższy link:</p>
-                        <p><a href=""{acceptUrl}"">Utwórz konto i dołącz</a></p>
-                        <p>To zaproszenie wygaśnie za 7 dni.</p>"
+                    HtmlBody = htmlBody
                 }, cancellationToken);
             }
             else

@@ -1,7 +1,9 @@
-﻿namespace Business.Interfaces.Services
+﻿using Business.Interfaces.DTO;
+
+namespace Business.Interfaces.Services
 {
     public interface IEmailSender
     {
-        Task SendEmailAsync(Business.Interfaces.DTO.EmailMessageDto message, CancellationToken cancellationToken = default);
+        Task SendEmailAsync(EmailMessageDto message, CancellationToken cancellationToken = default);
     }
 }
