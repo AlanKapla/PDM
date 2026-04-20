@@ -66,10 +66,15 @@ export const useMyWorks = () => {
     periodId: string,
     isClosed: boolean
   ) => {
-    setData(prev => updateWorkInTree(prev, workId, work => ({
-      ...work,
-      periods: work.periods.map(p => p.id === periodId ? { ...p, isClosed } : p),
-    })));
+    setData(prev => updateWorkInTree(prev, workId, work => {
+      const updatedPeriods = work.periods.map(p => p.id === periodId ? { ...p, isClosed } : p);
+      const allPeriodsClosed = updatedPeriods.length > 0 && updatedPeriods.every(p => p.isClosed);
+      return {
+        ...work,
+        periods: updatedPeriods,
+        isClosed: allPeriodsClosed,
+      };
+    }));
 
     try {
       setMutating(true);
