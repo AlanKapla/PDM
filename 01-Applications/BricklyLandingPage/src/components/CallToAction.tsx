@@ -42,7 +42,7 @@ export default function CallToAction() {
 
         <div className="cta-section__actions">
           <a
-            href="https://app.brickly.com.pl"
+            href="https://app.brickly.pro"
             target="_blank"
             rel="noopener noreferrer"
             className="btn cta-section__btn-main"

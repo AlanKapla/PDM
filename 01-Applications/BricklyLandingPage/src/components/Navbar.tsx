@@ -46,7 +46,7 @@ export default function Navbar() {
 
         <div className="navbar__actions">
           <a
-            href="https://app.brickly.com.pl"
+            href="https://app.brickly.pro"
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-primary navbar__cta"

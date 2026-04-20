@@ -10,5 +10,4 @@ export interface Screenshot {
 
 export const SCREENSHOTS: Screenshot[] = [
   { src: '/screenshots/1.png',       label: 'Panel główny' },
-  { src: '/screenshots/2.png',       label: 'Panel główny 2' },
 ]
