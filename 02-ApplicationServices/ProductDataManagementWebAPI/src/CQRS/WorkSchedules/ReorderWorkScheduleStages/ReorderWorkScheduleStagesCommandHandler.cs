@@ -32,11 +32,13 @@ namespace CQRS.WorkSchedules.ReorderWorkScheduleStages
                   && !s.IsDeleted);
 
             Dictionary<Guid, WorkScheduleStage> stageMap = stagesRaw.ToDictionary(s => s.Id);
+            HashSet<Guid> orderedStageIds = request.OrderedStageIds.ToHashSet();
 
-            foreach (Guid id in request.OrderedStageIds)
+            if (request.OrderedStageIds.Count != stageMap.Count
+                || orderedStageIds.Count != stageMap.Count
+                || !orderedStageIds.SetEquals(stageMap.Keys))
             {
-                if (!stageMap.ContainsKey(id))
-                    throw new ValidationApiException($"Stage {id} does not belong to work schedule {request.WorkScheduleId}.");
+                throw new ValidationApiException("OrderedStageIds must contain exactly all stages from the work schedule.");
             }
 
             for (int i = 0; i < request.OrderedStageIds.Count; i++)

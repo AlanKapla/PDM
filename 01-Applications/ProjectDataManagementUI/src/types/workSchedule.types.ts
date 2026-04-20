@@ -190,8 +190,6 @@ export interface UserAssignedWorksByTenantWeb {
 }
 
 export interface UserAssignedWorksGroupedWeb {
-  tenantId: string;
-  tenantName: string;
   projectId: string;
   projectName: string;
   workSchedules: UserAssignedWorkScheduleWeb[];

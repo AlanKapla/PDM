@@ -1,10 +1,11 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Business.Implementation.Services;
 
-public sealed class AccessService
+public sealed class AccessService : IAccessService
 {
     private readonly ILogger<AccessService> logger;
 

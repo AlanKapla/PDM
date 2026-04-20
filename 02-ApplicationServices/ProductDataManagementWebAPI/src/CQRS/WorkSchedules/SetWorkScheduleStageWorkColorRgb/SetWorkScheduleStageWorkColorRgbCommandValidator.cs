@@ -12,9 +12,9 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
             RuleFor(x => x.WorkScheduleStageId).NotEmpty();
             RuleFor(x => x.WorkScheduleStageWorkId).NotEmpty();
             RuleFor(x => x.ColorRgb)
-                .NotEmpty().WithMessage("ColorRgb is required")
-                .MaximumLength(20).WithMessage("ColorRgb cannot exceed 20 characters")
-                .Matches(@"^#[0-9A-Fa-f]{6}$").WithMessage("ColorRgb must be a valid hex color in format #RRGGBB");
+                .NotEmpty().WithMessage("Pole ColorRgb jest wymagane")
+                .MaximumLength(20).WithMessage("Pole ColorRgb nie może mieć więcej niż 20 znaków")
+                .Matches(@"^#[0-9A-Fa-f]{6}$").WithMessage("Pole ColorRgb musi być poprawnym kolorem HEX w formacie #RRGGBB");
         }
     }
 }

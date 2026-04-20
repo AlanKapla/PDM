@@ -41,10 +41,20 @@ export default function GanttDependencyLayer({
         if (expandedStages.has(stage.id)) {
           const works = [...(stage.works ?? [])].sort((a, b) => a.order - b.order);
           for (const work of works) {
-            const firstPeriod = work.periods?.[0];
-            if (firstPeriod) {
-              const startStr = firstPeriod.startDate.slice(0, 10);
-              const endStr = work.periods[work.periods.length - 1]?.endDate.slice(0, 10) ?? startStr;
+            const workPeriods = work.periods ?? [];
+            if (workPeriods.length > 0) {
+              const startStr = workPeriods.reduce(
+                (minDate, period) => {
+                  const periodStart = period.startDate.slice(0, 10);
+                  return periodStart < minDate ? periodStart : minDate;
+                },
+                workPeriods[0].startDate.slice(0, 10));
+              const endStr = workPeriods.reduce(
+                (maxDate, period) => {
+                  const periodEnd = period.endDate.slice(0, 10);
+                  return periodEnd > maxDate ? periodEnd : maxDate;
+                },
+                workPeriods[0].endDate.slice(0, 10));
               const startIdx = dates.findIndex(d => toLocalStr(d) === startStr);
               const endIdx = dates.findIndex(d => toLocalStr(d) === endStr);
               positions.set(work.id, {

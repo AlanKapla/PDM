@@ -8,7 +8,7 @@
 public interface IAssignedAuthorizableRequest
 {
     /// <summary>
-    /// Permission required to execute the operation (e.g. PROJECT.RESOURCES.WRITE.OWN).
+    /// Permission required to execute the operation (e.g. PROJECT.RESOURCES.WRITE_OWN).
     /// </summary>
     string PermissionCode { get; }
 

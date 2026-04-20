@@ -32,11 +32,13 @@ namespace CQRS.WorkSchedules.ReorderWorkScheduleStageWorks
                   && w.ProjectId == request.ProjectId);
 
             Dictionary<Guid, WorkScheduleStageWork> workMap = worksRaw.ToDictionary(w => w.Id);
+            HashSet<Guid> orderedWorkIds = request.OrderedWorkIds.ToHashSet();
 
-            foreach (Guid id in request.OrderedWorkIds)
+            if (request.OrderedWorkIds.Count != workMap.Count
+                || orderedWorkIds.Count != workMap.Count
+                || !orderedWorkIds.SetEquals(workMap.Keys))
             {
-                if (!workMap.ContainsKey(id))
-                    throw new ValidationApiException($"Work {id} does not belong to stage {request.WorkScheduleStageId}.");
+                throw new ValidationApiException("OrderedWorkIds must contain exactly all works from the stage.");
             }
 
             for (int i = 0; i < request.OrderedWorkIds.Count; i++)

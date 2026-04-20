@@ -1,6 +1,6 @@
-﻿using Business.Implementation.Services;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -10,12 +10,12 @@ public sealed class AssignedAuthorizationBehavior<TRequest, TResponse> : IPipeli
     where TRequest : notnull
 {
     private readonly ICurrentUser currentUser;
-    private readonly AccessService accessService;
+    private readonly IAccessService accessService;
     private readonly ILogger<AssignedAuthorizationBehavior<TRequest, TResponse>> logger;
 
     public AssignedAuthorizationBehavior(
         ICurrentUser currentUser,
-        AccessService accessService,
+        IAccessService accessService,
         ILogger<AssignedAuthorizationBehavior<TRequest, TResponse>> logger)
     {
         this.currentUser = currentUser;

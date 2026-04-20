@@ -68,7 +68,8 @@ namespace CQRS.WorkSchedules.Shared
     /// </summary>
     public record WorkPeriodDto(
         DateTime StartDate,
-        DateTime EndDate
+        DateTime EndDate,
+        bool IsClosed
     );
 
     /// <summary>

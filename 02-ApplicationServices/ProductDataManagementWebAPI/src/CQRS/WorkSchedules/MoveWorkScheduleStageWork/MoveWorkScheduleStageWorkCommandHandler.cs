@@ -47,15 +47,37 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStageWork
 
             IEnumerable<WorkScheduleStageWork> targetWorksRaw = await workRepo.GetBySearch(
                 w => w.WorkScheduleStageId == request.TargetStageId
-                  && w.Id != request.WorkScheduleStageWorkId);
+                  && w.Id != request.WorkScheduleStageWorkId
+                  && w.TenantId == request.TenantId
+                  && w.ProjectId == request.ProjectId);
 
-            List<WorkScheduleStageWork> worksToShift = targetWorksRaw
-                .Where(w => w.Order >= request.TargetOrder)
-                .ToList();
-
-            foreach (WorkScheduleStageWork w in worksToShift)
+            List<WorkScheduleStageWork> worksToShift;
+            bool isSameStageMove = work.WorkScheduleStageId == request.TargetStageId;
+            if (isSameStageMove && request.TargetOrder == work.Order)
             {
-                w.Order++;
+                worksToShift = new List<WorkScheduleStageWork>();
+            }
+            else if (isSameStageMove && request.TargetOrder > work.Order)
+            {
+                worksToShift = targetWorksRaw
+                    .Where(w => w.Order > work.Order && w.Order <= request.TargetOrder)
+                    .ToList();
+
+                foreach (WorkScheduleStageWork w in worksToShift)
+                {
+                    w.Order--;
+                }
+            }
+            else
+            {
+                worksToShift = targetWorksRaw
+                    .Where(w => w.Order >= request.TargetOrder)
+                    .ToList();
+
+                foreach (WorkScheduleStageWork w in worksToShift)
+                {
+                    w.Order++;
+                }
             }
 
             work.WorkScheduleStageId = request.TargetStageId;

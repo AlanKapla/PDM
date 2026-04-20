@@ -328,6 +328,7 @@ namespace WebApi.Extensions
             services.AddScoped<ICurrentUser, CurrentUser>();
             services.AddSingleton<IUserContextCache, InMemoryUserContextCache>();
             services.AddScoped<AccessService>();
+            services.AddScoped<IAccessService>(sp => sp.GetRequiredService<AccessService>());
             services.AddScoped<PermissionsVersionService>();
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();

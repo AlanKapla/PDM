@@ -30,7 +30,9 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWorkComment
         {
             WorkScheduleStageWorkComment comment = await commentRepository.GetFirstBySearch(
                 c => c.Id == request.CommentId
-                  && c.TenantId == request.TenantId)
+                  && c.TenantId == request.TenantId
+                  && c.Work.ProjectId == request.ProjectId
+                  && c.Work.Stage.WorkScheduleId == request.WorkScheduleId)
                 ?? throw new NotFoundApiException(nameof(WorkScheduleStageWorkComment), request.CommentId.ToString());
 
             bool isAuthor = comment.CreatedByUserId == currentUser.Id;

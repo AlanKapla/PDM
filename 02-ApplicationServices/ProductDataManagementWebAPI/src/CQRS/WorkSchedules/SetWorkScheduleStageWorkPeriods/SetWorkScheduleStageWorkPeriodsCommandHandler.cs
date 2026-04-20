@@ -47,7 +47,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
                     WorkScheduleStageWorkId = request.WorkScheduleStageWorkId,
                     StartDate = dto.StartDate,
                     EndDate = dto.EndDate,
-                    IsClosed = false
+                    IsClosed = dto.IsClosed
                 })
                 .ToList();
 
