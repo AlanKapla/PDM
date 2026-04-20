@@ -1,0 +1,171 @@
+/* ============================================
+   BRICKLY LANDING PAGE – Global Styles
+   Kolorystyka: Cobalt Blue
+   ============================================ */
+
+:root {
+  /* Cobalt palette */
+  --cobalt-50:  #EEF3FF;
+  --cobalt-100: #D8E4FF;
+  --cobalt-200: #B0C8FF;
+  --cobalt-300: #7AA4F7;
+  --cobalt-400: #4A7FEF;
+  --cobalt-500: #1A5CD8;   /* primary */
+  --cobalt-600: #0047AB;   /* cobalt core */
+  --cobalt-700: #003A8C;
+  --cobalt-800: #002D6E;
+  --cobalt-900: #001D47;
+
+  /* Accent */
+  --accent:     #00B8D9;
+  --accent-light: #E0F7FA;
+
+  /* Neutrals */
+  --white:      #FFFFFF;
+  --gray-50:    #F8FAFF;
+  --gray-100:   #F0F4FF;
+  --gray-200:   #E2E8F4;
+  --gray-600:   #4B5680;
+  --gray-800:   #1E2340;
+  --gray-900:   #0F1229;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(0, 71, 171, 0.08);
+  --shadow-md:  0 4px 16px rgba(0, 71, 171, 0.12);
+  --shadow-lg:  0 8px 32px rgba(0, 71, 171, 0.18);
+  --shadow-xl:  0 16px 64px rgba(0, 71, 171, 0.22);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--gray-800);
+  background-color: var(--white);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+/* ============================================
+   Utility classes
+   ============================================ */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.section {
+  padding: 96px 0;
+}
+
+.section--alt {
+  background-color: var(--gray-50);
+}
+
+.section-label {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cobalt-500);
+  background: var(--cobalt-50);
+  border-radius: 100px;
+  padding: 6px 16px;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 800;
+  color: var(--gray-900);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.section-subtitle {
+  font-size: 18px;
+  color: var(--gray-600);
+  line-height: 1.7;
+  max-width: 640px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--cobalt-600);
+  color: var(--white);
+  box-shadow: 0 4px 16px rgba(0, 71, 171, 0.35);
+}
+
+.btn-primary:hover {
+  background: var(--cobalt-700);
+  box-shadow: 0 6px 24px rgba(0, 71, 171, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--cobalt-600);
+  border: 2px solid var(--cobalt-300);
+}
+
+.btn-outline:hover {
+  border-color: var(--cobalt-600);
+  background: var(--cobalt-50);
+}
+
+.btn-ghost-white {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.btn-ghost-white:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.5);
+}

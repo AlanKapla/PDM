@@ -1,0 +1,219 @@
+/* ---- Browser wrapper ---- */
+.browser {
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+  background: #1a2340;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: none;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 -8px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* ---- Chrome bar ---- */
+.browser__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #242e4a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  user-select: none;
+}
+
+.browser__dots {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.browser__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.browser__dot--red    { background: #FF5F56; }
+.browser__dot--yellow { background: #FFBD2E; }
+.browser__dot--green  { background: #27C93F; }
+
+.browser__url {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: monospace;
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+.browser__bar-right {
+  width: 52px;
+  flex-shrink: 0;
+}
+
+/* ---- Viewport ---- */
+.browser__viewport {
+  position: relative;
+  cursor: zoom-in;
+  background: #0f1829;
+  display: block;
+  line-height: 0;
+}
+
+.browser__screen {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Hint "powiekszyk" pojawia sie na hover */
+.browser__zoom-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 100px;
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.browser__viewport:hover .browser__zoom-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- Footer (nawigacja < label >) ---- */
+.browser__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #1e2840;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.browser__nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.browser__nav-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--white);
+}
+
+.browser__label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* ---- Lightbox modal ---- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: zoom-out;
+  backdrop-filter: blur(6px);
+  animation: lbFadeIn 0.18s ease;
+}
+
+@keyframes lbFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.lightbox__img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.7);
+  cursor: default;
+  display: block;
+}
+
+.lightbox__close {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.15s;
+}
+.lightbox__close:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.lightbox__nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.15s;
+}
+.lightbox__nav:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+.lightbox__nav--prev { left: 16px; }
+.lightbox__nav--next { right: 16px; }
+
+.lightbox__label {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 18px;
+  border-radius: 100px;
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
