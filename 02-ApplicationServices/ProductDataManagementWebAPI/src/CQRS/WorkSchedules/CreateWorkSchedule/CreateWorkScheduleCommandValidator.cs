@@ -1,4 +1,4 @@
-using Entities.Models;
+﻿using Entities.Models;
 using Entities.Models.CostEstimates;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
@@ -30,10 +30,10 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                 RuleFor(x => x.CostEstimateId)
                     .MustAsync(async (command, id, cancellationToken) =>
                         !await workScheduleRepo.AnyAsync(
-                            ws => ws.CostEstimateId == id!.Value
-                                  && ws.TenantId == command.TenantId
+                            ws => ws.TenantId == command.TenantId
                                   && ws.ProjectId == command.ProjectId
-                                  && !ws.IsDeleted,
+                                  && !ws.IsDeleted
+                                  && ws.CostEstimateLinks.Any(l => l.CostEstimateId == id!.Value),
                             cancellationToken))
                     .WithMessage("A work schedule for this cost estimate already exists");
             });

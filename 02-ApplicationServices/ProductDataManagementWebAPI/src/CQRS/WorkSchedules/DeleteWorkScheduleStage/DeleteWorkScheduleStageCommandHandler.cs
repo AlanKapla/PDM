@@ -13,19 +13,22 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
+        private readonly IWorkItemLinkService workItemLinkService;
 
         public DeleteWorkScheduleStageCommandHandler(
             IRepository<WorkScheduleStage> stageRepo,
             IRepository<WorkScheduleStageWork> workRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
             IWorkScheduleCacheService scheduleCache,
-            IWorkScheduleAccessService accessService)
+            IWorkScheduleAccessService accessService,
+            IWorkItemLinkService workItemLinkService)
         {
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
             this.dependencyRepo = dependencyRepo;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
+            this.workItemLinkService = workItemLinkService;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleStageCommand request, CancellationToken cancellationToken)
@@ -55,6 +58,8 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
 
             if (workIds.Count > 0)
             {
+                await workItemLinkService.DeleteWorkItemLinksForWorksAsync(workIds, cancellationToken);
+
                 await dependencyRepo.ExecuteDeleteAsync(
                     d => workIds.Contains(d.PredecessorWorkId) || workIds.Contains(d.SuccessorWorkId),
                     cancellationToken);
@@ -63,6 +68,9 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
                     w => stageIdsInSubtree.Contains(w.WorkScheduleStageId),
                     cancellationToken);
             }
+
+            await workItemLinkService.DeleteGroupStageLinksForStagesAsync(
+                stageIdsInSubtree, cancellationToken);
 
             DateTime now = DateTime.UtcNow;
 

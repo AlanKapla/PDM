@@ -4,7 +4,6 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
 using Entities.Models;
-using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -22,14 +21,10 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
         public UpdateProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
             IReadRepository<SharedProjectCost> sharedProjectCostRepo,
-            IReadRepository<CostTracker> costTrackerRepository,
-            IRepository<TrackedCost> trackedCostRepository,
-            IRepository<ProjectCostTrackedCostLink> projectCostLinkRepository,
-            IRepository<TrackedCostAttachment> attachmentRepository,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<UpdateProjectCostCommandHandler> logger)
-            : base(costTrackerRepository, trackedCostRepository, projectCostLinkRepository, blobStorageService, attachmentRepository)
+            : base(blobStorageService)
         {
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
@@ -55,8 +50,6 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
 
             await projectCostRepo.Update(projectCost);
             await projectCostRepo.SaveChangesAsync(cancellationToken);
-
-            await HandleTrackerOperationsAsync(request, projectCost, wasAccepted, cancellationToken);
 
             logger.LogInformation(
                 "Cost {CostId} fully updated in project {ProjectId} by user {UserId}",
@@ -106,16 +99,6 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             projectCost.UpdatedAt = DateTime.UtcNow;
 
             await projectCostRepo.Update(projectCost);
-
-            if (!wasAccepted && request.IsClosed)
-            {
-                await CreateTrackerLinkAsync(projectCost, request.TenantId, request.ProjectId, cancellationToken);
-            }
-            else if (wasAccepted && !request.IsClosed)
-            {
-                await RemoveTrackerLinkAsync(projectCost.Id, cancellationToken);
-            }
-
             await projectCostRepo.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
@@ -214,25 +197,6 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
 
                     throw new ValidationApiException("Cost updated but document upload failed");
                 }
-            }
-        }
-
-        private async Task HandleTrackerOperationsAsync(UpdateProjectCostCommand request, ProjectCost projectCost, bool wasAccepted, CancellationToken cancellationToken)
-        {
-            if (!wasAccepted && request.IsClosed)
-            {
-                await CreateTrackerLinkAsync(projectCost, request.TenantId, request.ProjectId, cancellationToken);
-                await projectCostRepo.SaveChangesAsync(cancellationToken);
-            }
-            else if (wasAccepted && !request.IsClosed)
-            {
-                await RemoveTrackerLinkAsync(projectCost.Id, cancellationToken);
-                await projectCostRepo.SaveChangesAsync(cancellationToken);
-            }
-            else if (wasAccepted && request.IsClosed)
-            {
-                await SyncTrackerCostAsync(projectCost, cancellationToken);
-                await projectCostRepo.SaveChangesAsync(cancellationToken);
             }
         }
     }

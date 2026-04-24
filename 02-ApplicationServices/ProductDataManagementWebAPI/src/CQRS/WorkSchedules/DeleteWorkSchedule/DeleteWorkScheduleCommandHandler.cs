@@ -11,15 +11,18 @@ namespace CQRS.WorkSchedules.DeleteWorkSchedule
         private readonly IRepository<WorkSchedule> workScheduleRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
+        private readonly IWorkItemLinkService workItemLinkService;
 
         public DeleteWorkScheduleCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
             IWorkScheduleCacheService scheduleCache,
-            IWorkScheduleAccessService accessService)
+            IWorkScheduleAccessService accessService,
+            IWorkItemLinkService workItemLinkService)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
+            this.workItemLinkService = workItemLinkService;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleCommand request, CancellationToken cancellationToken)
@@ -35,6 +38,9 @@ namespace CQRS.WorkSchedules.DeleteWorkSchedule
             workSchedule.IsDeleted = true;
             workSchedule.DeletedAt = DateTime.UtcNow;
             await workScheduleRepo.Update(workSchedule);
+
+            await workItemLinkService.DeleteAllLinksForScheduleAsync(request.WorkScheduleId, cancellationToken);
+
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
 
             return Unit.Value;

@@ -4,7 +4,6 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
 using Entities.Models;
-using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -22,12 +21,8 @@ namespace CQRS.ProjectCosts.CreateProjectCost
             IRepository<ProjectCost> projectCostRepo,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
-            ILogger<CreateProjectCostCommandHandler> logger,
-            IReadRepository<CostTracker> costTrackerRepository,
-            IRepository<TrackedCost> trackedCostRepository,
-            IRepository<ProjectCostTrackedCostLink> projectCostLinkRepository,
-            IRepository<TrackedCostAttachment> attachmentRepository)
-            : base(costTrackerRepository, trackedCostRepository, projectCostLinkRepository, blobStorageService, attachmentRepository)
+            ILogger<CreateProjectCostCommandHandler> logger)
+            : base(blobStorageService)
         {
             this.projectCostRepo = projectCostRepo;
             this.blobStorageService = blobStorageService;
@@ -45,12 +40,6 @@ namespace CQRS.ProjectCosts.CreateProjectCost
             if (request.Document != null)
             {
                 await UploadCostDocumentAsync(request, projectCost, cancellationToken);
-            }
-
-            if (request.IsClosed)
-            {
-                await CreateTrackerLinkAsync(projectCost, request.TenantId, request.ProjectId, cancellationToken);
-                await projectCostRepo.SaveChangesAsync(cancellationToken);
             }
 
             logger.LogInformation(

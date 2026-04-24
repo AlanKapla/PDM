@@ -180,7 +180,7 @@ function CostsTable({ costs, onEdit, onDelete }: CostActionsProps) {
           <Tr>
             <Th>Nazwa</Th>
             <Th isNumeric>Netto</Th>
-            <Th isNumeric>Brutto</Th>
+            <Th>Nr faktury</Th>
             <Th>Data</Th>
             <Th>Wykonawca</Th>
             <Th>Załączniki</Th>
@@ -194,7 +194,7 @@ function CostsTable({ costs, onEdit, onDelete }: CostActionsProps) {
                 <Text noOfLines={1} fontSize="sm">{cost.name}</Text>
               </Td>
               <Td isNumeric fontSize="sm">{fmt(cost.net)}</Td>
-              <Td isNumeric fontSize="sm">{fmt(cost.gross)}</Td>
+              <Td fontSize="sm">{cost.number ?? "—"}</Td>
               <Td fontSize="sm">{cost.date ? formatDate(cost.date, false) : "—"}</Td>
               <Td fontSize="sm" maxW="120px">
                 <Text noOfLines={1}>{cost.contractor ?? "—"}</Text>

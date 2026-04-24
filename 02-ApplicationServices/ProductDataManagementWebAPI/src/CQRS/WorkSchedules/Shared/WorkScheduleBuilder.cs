@@ -2,6 +2,7 @@
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
 using Entities.Models;
+using Entities.Models.WorkItemLinks;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.Shared
@@ -15,6 +16,8 @@ namespace CQRS.WorkSchedules.Shared
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepo;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
+        private readonly IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepo;
+        private readonly IReadRepository<CostEstimateGroupWorkScheduleStageLink> groupStageLinkRepo;
         private readonly IUserService userService;
 
         public WorkScheduleBuilder(
@@ -25,6 +28,8 @@ namespace CQRS.WorkSchedules.Shared
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepo,
             IRepository<WorkScheduleStageWorkComment> commentRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
+            IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepo,
+            IReadRepository<CostEstimateGroupWorkScheduleStageLink> groupStageLinkRepo,
             IUserService userService)
         {
             this.workScheduleRepo = workScheduleRepo;
@@ -34,6 +39,8 @@ namespace CQRS.WorkSchedules.Shared
             this.assignmentRepo = assignmentRepo;
             this.commentRepo = commentRepo;
             this.dependencyRepo = dependencyRepo;
+            this.workScheduleLinkRepo = workScheduleLinkRepo;
+            this.groupStageLinkRepo = groupStageLinkRepo;
             this.userService = userService;
         }
 
@@ -49,19 +56,31 @@ namespace CQRS.WorkSchedules.Shared
                    && ws.TenantId == tenantId
                    && ws.ProjectId == projectId
                    && !ws.IsDeleted,
-                ws => new ScheduleRow(ws.Id, ws.TenantId, ws.ProjectId, ws.CostEstimateId, ws.Name, ws.CreatedAt, ws.CreatedByUserId),
+                ws => new ScheduleRow(ws.Id, ws.TenantId, ws.ProjectId,
+                    ws.Name, ws.CreatedAt, ws.CreatedByUserId),
                 ct)).FirstOrDefault()
                 ?? throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
+
+            CostEstimateWorkScheduleLink? workScheduleLink = await workScheduleLinkRepo.GetFirstBySearch(
+                l => l.WorkScheduleId == workScheduleId && l.CostEstimateId != null, ct);
+            Guid? costEstimateId = workScheduleLink?.CostEstimateId;
 
             // Step 2: load stages
             List<StageRow> stages = await stageRepo.SelectAsync(
                 s => s.WorkScheduleId == workScheduleId
                   && s.TenantId == tenantId
                   && !s.IsDeleted,
-                s => new StageRow(s.Id, s.Name, s.Order, s.ParentStageId, s.CostEstimateGroupId),
+                s => new StageRow(s.Id, s.Name, s.Order, s.ParentStageId),
                 ct);
 
             List<Guid> stageIds = stages.Select(s => s.Id).ToList();
+
+            Dictionary<Guid, Guid?> costEstimateGroupIdByStageId = stageIds.Count > 0
+                ? (await groupStageLinkRepo.GetBySearch(
+                    l => l.WorkScheduleStageId != null && stageIds.Contains(l.WorkScheduleStageId!.Value)))
+                    .Where(l => l.WorkScheduleStageId.HasValue)
+                    .ToDictionary(l => l.WorkScheduleStageId!.Value, l => l.CostEstimateGroupId)
+                : new Dictionary<Guid, Guid?>();
 
             // Step 3: load works for all stages
             List<WorkRow> works = stageIds.Count > 0
@@ -130,7 +149,7 @@ namespace CQRS.WorkSchedules.Shared
                     Name: s.Name,
                     Order: s.Order,
                     ParentStageId: s.ParentStageId,
-                    CostEstimateGroupId: s.CostEstimateGroupId,
+                    CostEstimateGroupId: costEstimateGroupIdByStageId.TryGetValue(s.Id, out Guid? groupId) ? groupId : null,
                     Works: worksByStage.TryGetValue(s.Id, out List<WorkRow>? stageWorks)
                         ? stageWorks.Select(w => MapWork(w, periodsByWork, assigneesByWork, commentsByWork, membersDict)).ToList()
                         : new List<WorkScheduleStageWorkWeb>(),
@@ -151,7 +170,7 @@ namespace CQRS.WorkSchedules.Shared
                 Id: schedule.Id,
                 TenantId: schedule.TenantId,
                 ProjectId: schedule.ProjectId,
-                CostEstimateId: schedule.CostEstimateId,
+                CostEstimateId: costEstimateId,
                 Name: schedule.Name,
                 CreatedAt: schedule.CreatedAt,
                 CreatedByUserId: schedule.CreatedByUserId,
@@ -202,8 +221,8 @@ namespace CQRS.WorkSchedules.Shared
                     CreatedAt: cm.CreatedAt)).ToList());
         }
 
-        private sealed record ScheduleRow(Guid Id, Guid TenantId, Guid ProjectId, Guid? CostEstimateId, string Name, DateTime CreatedAt, Guid CreatedByUserId);
-        private sealed record StageRow(Guid Id, string Name, int Order, Guid? ParentStageId, Guid? CostEstimateGroupId);
+        private sealed record ScheduleRow(Guid Id, Guid TenantId, Guid ProjectId, string Name, DateTime CreatedAt, Guid CreatedByUserId);
+        private sealed record StageRow(Guid Id, string Name, int Order, Guid? ParentStageId);
         private sealed record WorkRow(Guid Id, Guid WorkScheduleStageId, string Name, int Order, string ColorRgb, DateTime? PlannedStartDate, DateTime? PlannedEndDate);
         private sealed record PeriodRow(Guid Id, Guid WorkScheduleStageWorkId, DateTime StartDate, DateTime EndDate, bool IsClosed);
         private sealed record AssigneeRow(Guid WorkScheduleStageWorkId, Guid UserId);

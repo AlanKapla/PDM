@@ -12,17 +12,20 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed
         private readonly IRepository<WorkScheduleStageWorkPeriod> periodRepository;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
+        private readonly IWorkItemLinkService workItemLinkService;
 
         public SetWorkScheduleStageWorkIsClosedCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkPeriod> periodRepository,
             IWorkScheduleCacheService scheduleCache,
-            IWorkScheduleAccessService accessService)
+            IWorkScheduleAccessService accessService,
+            IWorkItemLinkService workItemLinkService)
         {
             this.workRepository = workRepository;
             this.periodRepository = periodRepository;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
+            this.workItemLinkService = workItemLinkService;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkIsClosedCommand request, CancellationToken cancellationToken)
@@ -40,6 +43,12 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed
 
             await accessService.RequireAdminOwnerOrAssignedAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, request.WorkScheduleStageWorkId, cancellationToken);
 
+            WorkScheduleStageWork work = await workRepository.GetFirstBySearch(
+                w => w.Id == request.WorkScheduleStageWorkId
+                  && w.TenantId == request.TenantId
+                  && w.ProjectId == request.ProjectId)
+                ?? throw new NotFoundApiException(nameof(WorkScheduleStageWork), request.WorkScheduleStageWorkId.ToString());
+
             IEnumerable<WorkScheduleStageWorkPeriod> periods = await periodRepository.GetBySearch(
                 p => p.WorkScheduleStageWorkId == request.WorkScheduleStageWorkId);
 
@@ -55,6 +64,10 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed
                 await periodRepository.UpdateRange(periodList);
                 await periodRepository.SaveChangesAsync(cancellationToken);
             }
+
+            bool allClosed = periodList.Count > 0 && periodList.All(p => p.IsClosed);
+            await workItemLinkService.SyncPlannedDatesForStageWorkAsync(
+                request.WorkScheduleStageWorkId, work.PlannedStartDate, work.PlannedEndDate, allClosed, cancellationToken);
 
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;

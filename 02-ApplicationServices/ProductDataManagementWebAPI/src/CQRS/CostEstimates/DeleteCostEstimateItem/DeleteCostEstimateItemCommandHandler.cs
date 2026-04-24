@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
@@ -18,6 +18,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
         private readonly IBlobStorageService blobStorageService;
         private readonly ICostEstimateCacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
+        private readonly IWorkItemLinkService workItemLinkService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteCostEstimateItemCommandHandler> logger;
 
@@ -28,6 +29,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             IBlobStorageService blobStorageService,
             ICostEstimateCacheService cacheService,
             ICostEstimateAccessService ceAccessService,
+            IWorkItemLinkService workItemLinkService,
             ICurrentUser currentUser,
             ILogger<DeleteCostEstimateItemCommandHandler> logger)
         {
@@ -37,6 +39,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             this.blobStorageService = blobStorageService;
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
+            this.workItemLinkService = workItemLinkService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -115,6 +118,9 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
 
             await itemRepository.UpdateRange(itemsToDelete);
             await itemRepository.SaveChangesAsync(cancellationToken);
+
+            await workItemLinkService.DeleteWorkItemLinksForItemsAsync(
+                allItemIds, cancellationToken);
 
             // Invalidate cache
             await cacheService.InvalidateCostEstimateAsync(

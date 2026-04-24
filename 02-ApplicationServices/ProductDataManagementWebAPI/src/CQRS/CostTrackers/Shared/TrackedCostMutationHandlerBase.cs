@@ -2,72 +2,45 @@
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
-using Entities.Models;
-using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
+using Entities.Models.WorkItemLinks;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostTrackers.Shared
 {
     public abstract class TrackedCostMutationHandlerBase : CostTrackerHandlerBase
     {
-        private readonly IReadRepository<CostEstimate> costEstimateRepository;
-        private readonly IReadRepository<CostEstimateItem> itemRepository;
+        private readonly IReadRepository<CostEstimateItemWorkScheduleStageWorkLink> workItemLinkRepository;
         protected readonly ICostTrackerAttachmentService attachmentService;
 
         protected TrackedCostMutationHandlerBase(
-            IReadRepository<CostTracker> trackerRepository,
-            IReadRepository<Project> projectRepository,
-            IReadRepository<CostEstimate> costEstimateRepository,
-            IReadRepository<CostEstimateItem> itemRepository,
-            ICostTrackerAttachmentService attachmentService,
+            ICurrentUser currentUser,
             IReadRepository<TrackedCost> trackedCostRepository,
-            ICurrentUser currentUser)
-            : base(trackerRepository, currentUser, trackedCostRepository, attachmentService)
+            IReadRepository<CostEstimateItemWorkScheduleStageWorkLink> workItemLinkRepository,
+            ICostTrackerAttachmentService attachmentService)
+            : base(currentUser, trackedCostRepository, attachmentService)
         {
-            this.costEstimateRepository = costEstimateRepository;
-            this.itemRepository = itemRepository;
+            this.workItemLinkRepository = workItemLinkRepository;
             this.attachmentService = attachmentService;
         }
 
-        protected async Task ValidateCostEstimateAndItemAsync(
-            Guid? costEstimateId, Guid trackerProjectId, Guid? itemId, CancellationToken cancellationToken)
+        protected async Task ValidateWorkItemLinkAsync(
+            Guid? workItemLinkId, Guid projectId, CancellationToken cancellationToken)
         {
-            if (costEstimateId.HasValue)
-            {
-                await ValidateCostEstimateAsync(costEstimateId.Value, trackerProjectId, cancellationToken);
-            }
+            if (!workItemLinkId.HasValue)
+                return;
 
-            if (itemId.HasValue)
-            {
-                await ValidateCostEstimateItemAsync(itemId.Value, costEstimateId, cancellationToken);
-            }
-        }
+            bool exists = await workItemLinkRepository.AnyAsync(
+                l => l.Id == workItemLinkId.Value && l.ProjectId == projectId,
+                cancellationToken);
 
-        private async Task ValidateCostEstimateAsync(
-            Guid costEstimateId, Guid trackerProjectId, CancellationToken cancellationToken)
-        {
-            CostEstimate costEstimate = await costEstimateRepository.GetFirstBySearch(
-                ce => ce.Id == costEstimateId && ce.ProjectId == trackerProjectId && !ce.IsDeleted)
-                ?? throw new NotFoundApiException(nameof(CostEstimate), costEstimateId.ToString());
-        }
-
-        private async Task ValidateCostEstimateItemAsync(
-            Guid itemId, Guid? estimateId, CancellationToken cancellationToken)
-        {
-            if (!estimateId.HasValue)
-            {
-                throw new ValidationApiException("CostEstimateId is required when CostEstimateItemId is provided.");
-            }
-
-            CostEstimateItem item = await itemRepository.GetFirstBySearch(
-                i => i.Id == itemId && i.CostEstimateId == estimateId.Value && i.RelationType == ItemRelationType.None && !i.IsDeleted)
-                ?? throw new NotFoundApiException(nameof(CostEstimateItem), itemId.ToString());
+            if (!exists)
+                throw new NotFoundApiException(nameof(CostEstimateItemWorkScheduleStageWorkLink), workItemLinkId.Value.ToString());
         }
 
         protected TrackedCostWeb BuildCostWeb(TrackedCost cost, IEnumerable<TrackedCostAttachment> attachments)
         {
-            var attachmentWebs = attachments
+            List<TrackedCostAttachmentWeb> attachmentWebs = attachments
                 .Select(a => new TrackedCostAttachmentWeb
                 {
                     Id = a.Id,
@@ -82,10 +55,11 @@ namespace CQRS.CostTrackers.Shared
             return new TrackedCostWeb
             {
                 Id = cost.Id,
-                TrackerId = cost.TrackerId,
-                CostEstimateId = cost.CostEstimateId,
-                CostEstimateItemId = cost.CostEstimateItemId,
-                IsAdditional = !cost.CostEstimateItemId.HasValue,
+                WorkItemLinkId = cost.WorkItemLinkId,
+                CostEstimateItemId = cost.CostEstimateItemId ?? cost.CostEstimateItemWorkScheduleStageWorkLink?.CostEstimateItemId,
+                WorkScheduleStageWorkId = cost.WorkScheduleStageWorkId ?? cost.CostEstimateItemWorkScheduleStageWorkLink?.WorkScheduleStageWorkId,
+                IsAdditional = !cost.WorkItemLinkId.HasValue,
+                SourceType = ResolveSourceType(cost),
                 Name = cost.Name,
                 Description = cost.Description,
                 Net = cost.Net,
@@ -99,3 +73,4 @@ namespace CQRS.CostTrackers.Shared
         }
     }
 }
+

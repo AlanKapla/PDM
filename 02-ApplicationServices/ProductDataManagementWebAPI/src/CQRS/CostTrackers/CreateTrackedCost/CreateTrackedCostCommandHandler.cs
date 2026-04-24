@@ -2,9 +2,8 @@
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
-using Entities.Models;
-using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
+using Entities.Models.WorkItemLinks;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -19,16 +18,13 @@ namespace CQRS.CostTrackers.CreateTrackedCost
         private readonly ILogger<CreateTrackedCostCommandHandler> logger;
 
         public CreateTrackedCostCommandHandler(
-            IReadRepository<CostTracker> trackerRepository,
-            IReadRepository<Project> projectRepository,
-            IReadRepository<CostEstimate> costEstimateRepository,
-            IReadRepository<CostEstimateItem> itemRepository,
             IReadRepository<TrackedCost> trackedCostRepository,
+            IReadRepository<CostEstimateItemWorkScheduleStageWorkLink> workItemLinkRepository,
             ICostTrackerFinancialService financialService,
             ICostTrackerAttachmentService attachmentService,
             ICurrentUser currentUser,
             ILogger<CreateTrackedCostCommandHandler> logger)
-            : base(trackerRepository, projectRepository, costEstimateRepository, itemRepository, attachmentService, trackedCostRepository, currentUser)
+            : base(currentUser, trackedCostRepository, workItemLinkRepository, attachmentService)
         {
             this.trackedCostRepository = trackedCostRepository;
             this.financialService = financialService;
@@ -39,18 +35,19 @@ namespace CQRS.CostTrackers.CreateTrackedCost
             CreateTrackedCostCommand request,
             CancellationToken cancellationToken)
         {
-            CostTracker tracker = await LoadTracker(request.TenantId, request.ProjectId, cancellationToken);
-
-            await ValidateCostEstimateAndItemAsync(request.CostEstimateId, request.ProjectId, request.CostEstimateItemId, cancellationToken);
+            await ValidateWorkItemLinkAsync(request.WorkItemLinkId, request.ProjectId, cancellationToken);
 
             (decimal? net, decimal? gross) = financialService.Calculate(request.Net, request.Gross);
 
             TrackedCost cost = new TrackedCost
             {
-                TrackerId = tracker.Id,
-                CostEstimateId = request.CostEstimateId,
+                TenantId = request.TenantId,
+                ProjectId = request.ProjectId,
+                WorkItemLinkId = request.WorkItemLinkId,
                 CostEstimateItemId = request.CostEstimateItemId,
+                WorkScheduleStageWorkId = request.WorkScheduleStageWorkId,
                 Name = request.Name,
+                Number = request.Number,
                 Description = request.Description,
                 Net = net,
                 Gross = gross,
@@ -59,12 +56,14 @@ namespace CQRS.CostTrackers.CreateTrackedCost
                 CreatedAt = DateTime.UtcNow
             };
 
+            cost.ValidateLinkExclusivity();
+
             await trackedCostRepository.Insert(cost);
             await trackedCostRepository.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
-                "Created TrackedCost {CostId} for tracker {TrackerId} by user {UserId}",
-                cost.Id, tracker.Id, currentUser.Id);
+                "Created TrackedCost {CostId} for project {ProjectId} by user {UserId}",
+                cost.Id, cost.ProjectId, currentUser.Id);
 
             List<TrackedCostAttachment> attachments = await attachmentService.SyncAttachmentsAsync(
                 cost, request.NewFiles, [], request.TenantId, request.ProjectId, cancellationToken);

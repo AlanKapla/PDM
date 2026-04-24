@@ -3,6 +3,7 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models;
+using Entities.Models.WorkItemLinks;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -11,6 +12,7 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
     public class SyncWorkScheduleWithEstimateCommandHandler : IRequestHandler<SyncWorkScheduleWithEstimateCommand, Unit>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
+        private readonly IRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepo;
         private readonly IWorkScheduleSyncService workScheduleSyncService;
         private readonly ICostEstimateAccessService costEstimateAccessService;
         private readonly ICurrentUser currentUser;
@@ -18,12 +20,14 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
 
         public SyncWorkScheduleWithEstimateCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
+            IRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepo,
             IWorkScheduleSyncService workScheduleSyncService,
             ICostEstimateAccessService costEstimateAccessService,
             ICurrentUser currentUser,
             IWorkScheduleCacheService scheduleCache)
         {
             this.workScheduleRepo = workScheduleRepo;
+            this.workScheduleLinkRepo = workScheduleLinkRepo;
             this.workScheduleSyncService = workScheduleSyncService;
             this.costEstimateAccessService = costEstimateAccessService;
             this.currentUser = currentUser;
@@ -37,13 +41,16 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
 
             WorkSchedule workSchedule = await LoadAndAuthorizeAsync(tenantId, projectId, request.WorkScheduleId, cancellationToken);
 
-            if (!workSchedule.CostEstimateId.HasValue)
+            CostEstimateWorkScheduleLink? link = await workScheduleLinkRepo.GetFirstBySearch(
+                l => l.WorkScheduleId == workSchedule.Id);
+
+            if (link?.CostEstimateId == null)
             {
                 throw new ValidationApiException("Work schedule is not linked to a cost estimate.");
             }
 
             CostEstimateAccessLevel accessLevel = await costEstimateAccessService.GetAccessLevelAsync(
-                currentUser, tenantId, projectId, workSchedule.CostEstimateId.Value, cancellationToken);
+                currentUser, tenantId, projectId, link.CostEstimateId.Value, cancellationToken);
 
             if (accessLevel < CostEstimateAccessLevel.Full)
             {

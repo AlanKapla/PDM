@@ -12,17 +12,20 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWork
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepository;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
+        private readonly IWorkItemLinkService workItemLinkService;
 
         public DeleteWorkScheduleStageWorkCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepository,
             IWorkScheduleCacheService scheduleCache,
-            IWorkScheduleAccessService accessService)
+            IWorkScheduleAccessService accessService,
+            IWorkItemLinkService workItemLinkService)
         {
             this.workRepository = workRepository;
             this.dependencyRepository = dependencyRepository;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
+            this.workItemLinkService = workItemLinkService;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleStageWorkCommand request, CancellationToken cancellationToken)
@@ -40,6 +43,9 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWork
             }
 
             await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
+
+            await workItemLinkService.DeleteWorkItemLinkForWorkAsync(
+                request.WorkScheduleStageWorkId, cancellationToken);
 
             await dependencyRepository.ExecuteDeleteAsync(
                 d => d.PredecessorWorkId == request.WorkScheduleStageWorkId

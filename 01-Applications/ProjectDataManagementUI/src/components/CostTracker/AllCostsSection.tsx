@@ -252,7 +252,7 @@ function AllCostsDesktopTable({ costs, onEdit, onDelete }: TableListProps) {
             <Th>Kosztorys</Th>
             <Th>Nazwa</Th>
             <Th isNumeric>Netto</Th>
-            <Th isNumeric>Brutto</Th>
+            <Th>Nr faktury</Th>
             <Th>Data</Th>
             <Th>Załączniki</Th>
             <Th>Akcje</Th>
@@ -273,7 +273,7 @@ function AllCostsDesktopTable({ costs, onEdit, onDelete }: TableListProps) {
                 <Text noOfLines={1}>{cost.name}</Text>
               </Td>
               <Td isNumeric fontSize="sm">{fmt(cost.net)}</Td>
-              <Td isNumeric fontSize="sm">{fmt(cost.gross)}</Td>
+              <Td fontSize="sm">{cost.number ?? "—"}</Td>
               <Td fontSize="sm">{cost.date ? formatDate(cost.date, false) : "—"}</Td>
               <Td fontSize="sm">{cost.attachments.length > 0 ? cost.attachments.length : "—"}</Td>
               <Td>
@@ -338,7 +338,9 @@ function AllCostsMobileList({ costs, onEdit, onDelete }: TableListProps) {
               <Text fontWeight="semibold" fontSize="sm">{fc.cost.name}</Text>
               <HStack spacing={3} flexWrap="wrap">
                 <Text fontSize="xs" color="gray.600">N: {fmt(fc.cost.net)} PLN</Text>
-                <Text fontSize="xs" color="gray.600">B: {fmt(fc.cost.gross)} PLN</Text>
+                {fc.cost.number && (
+                  <Text fontSize="xs" color="gray.600">Nr: {fc.cost.number}</Text>
+                )}
                 {fc.cost.date && (
                   <Text fontSize="xs" color="gray.600">{formatDate(fc.cost.date, false)}</Text>
                 )}

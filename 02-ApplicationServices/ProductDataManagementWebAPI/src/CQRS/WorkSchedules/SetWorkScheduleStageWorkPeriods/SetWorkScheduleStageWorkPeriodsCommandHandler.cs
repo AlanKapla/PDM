@@ -14,19 +14,22 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepository;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
+        private readonly IWorkItemLinkService workItemLinkService;
 
         public SetWorkScheduleStageWorkPeriodsCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkPeriod> periodRepository,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepository,
             IWorkScheduleCacheService scheduleCache,
-            IWorkScheduleAccessService accessService)
+            IWorkScheduleAccessService accessService,
+            IWorkItemLinkService workItemLinkService)
         {
             this.workRepository = workRepository;
             this.periodRepository = periodRepository;
             this.dependencyRepository = dependencyRepository;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
+            this.workItemLinkService = workItemLinkService;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkPeriodsCommand request, CancellationToken cancellationToken)
@@ -74,6 +77,10 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
 
             await workRepository.Update(work);
             await workRepository.SaveChangesAsync(cancellationToken);
+
+            bool isWorkClosed = newPeriods.Count > 0 && newPeriods.All(p => p.IsClosed);
+            await workItemLinkService.SyncPlannedDatesForStageWorkAsync(
+                request.WorkScheduleStageWorkId, work.PlannedStartDate, work.PlannedEndDate, isWorkClosed, cancellationToken);
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;
         }

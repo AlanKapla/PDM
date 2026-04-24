@@ -7,6 +7,7 @@ using Business.Interfaces.WebModels.CostEstimates;
 using Entities.Models;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.WorkItemLinks;
 using MediatR;
 using Business.Implementation.Helpers;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
         private readonly ICacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
         private readonly IReadRepository<SharedCostEstimate> sharedCeRepository;
-        private readonly IReadRepository<WorkSchedule> workScheduleRepository;
+        private readonly IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepository;
         private readonly ICurrentUser currentUser;
 
         private const int SasExpirationMinutes = 60;
@@ -39,7 +40,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             ICacheService cacheService,
             ICostEstimateAccessService ceAccessService,
             IReadRepository<SharedCostEstimate> sharedCeRepository,
-            IReadRepository<WorkSchedule> workScheduleRepository,
+            IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepository,
             ICurrentUser currentUser)
         {
             this.ceCacheService = ceCacheService;
@@ -48,7 +49,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
             this.sharedCeRepository = sharedCeRepository;
-            this.workScheduleRepository = workScheduleRepository;
+            this.workScheduleLinkRepository = workScheduleLinkRepository;
             this.currentUser = currentUser;
         }
 
@@ -163,13 +164,11 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                     .ToList();
             }
 
-            // 11. Resolve active work schedule linked to this cost estimate (most recently created)
-            IEnumerable<WorkSchedule> linkedSchedules = await workScheduleRepository.GetBySearch(
-                ws => ws.CostEstimateId == request.CostEstimateId &&
-                      ws.TenantId == request.TenantId &&
-                      ws.ProjectId == request.ProjectId &&
-                      !ws.IsDeleted);
-            WorkSchedule? workSchedule = linkedSchedules.OrderByDescending(ws => ws.CreatedAt).FirstOrDefault();
+            // 11. Resolve WorkScheduleId linked to this cost estimate
+            CostEstimateWorkScheduleLink? workScheduleLink = await workScheduleLinkRepository.GetFirstBySearch(
+                l => l.CostEstimateId == request.CostEstimateId && l.WorkScheduleId != null,
+                cancellationToken);
+            Guid? workScheduleId = workScheduleLink?.WorkScheduleId;
 
             return new CostEstimateDetailsWeb(
                 Id: costEstimate.Id,
@@ -183,7 +182,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 Name: costEstimate.Name,
                 Description: costEstimate.Description,
                 Status: costEstimate.Status,
-                WorkScheduleId: workSchedule?.Id,
+                WorkScheduleId: workScheduleId,
                 RootGroups: rootGroups,
                 TotalNet: costEstimate.TotalNet,
                 TotalGross: costEstimate.TotalGross,

@@ -3,11 +3,9 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.CostTrackers.Shared;
-using Entities.Models;
 using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Pipelines.Sockets.Unofficial.Arenas;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostTrackers.DeleteTrackedCost
@@ -26,11 +24,10 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
         public DeleteTrackedCostCommandHandler(
             IReadRepository<TrackedCost> trackedCostRepository,
             IRepository<TrackedCostAttachment> attachmentRepository,
-            IReadRepository<CostTracker> trackerRepository,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<DeleteTrackedCostCommandHandler> logger)
-            : base(trackerRepository, currentUser, trackedCostRepository)
+            : base(currentUser, trackedCostRepository)
         {
             this.trackedCostRepository = trackedCostRepository;
             this.attachmentRepository = attachmentRepository;
@@ -52,8 +49,8 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
             await trackedCostRepository.Update(cost);
 
             logger.LogInformation(
-                "Deleted TrackedCost {CostId} for tracker {TrackerId} by user {UserId}",
-                cost.Id, cost.TrackerId, currentUser.Id);
+                "Deleted TrackedCost {CostId} for project {ProjectId} by user {UserId}",
+                cost.Id, cost.ProjectId, currentUser.Id);
 
             return Unit.Value;
         }

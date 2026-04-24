@@ -18,7 +18,7 @@ const buildCostFormData = (data: CreateCostRequest | UpdateCostRequest): FormDat
   form.append('name', data.name);
   if (data.description) form.append('description', data.description);
   if (data.net !== undefined && data.net !== null) form.append('net', String(data.net));
-  if (data.gross !== undefined && data.gross !== null) form.append('gross', String(data.gross));
+  if (data.number) form.append('number', data.number);
   if (data.contractor) form.append('contractor', data.contractor);
   if (data.date) form.append('date', data.date);
   if (data.costEstimateId) form.append('costEstimateId', data.costEstimateId);

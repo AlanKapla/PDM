@@ -853,11 +853,11 @@ export default function ProjectDetails() {
                     shadow="sm"
                     _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
                     transition="all 0.2s"
-                    onClick={() => navigate(`/projects/${projectId}/budget`)}
+                    onClick={() => navigate(`/projects/${projectId}/dashboard`)}
                   >
                     <VStack spacing={3}>
                       <Icon as={TrendingUp} boxSize={8} color="green.600" />
-                      <Text fontWeight="bold" fontSize="md">Realizacja budżetu</Text>
+                      <Text fontWeight="bold" fontSize="md">Dashboard</Text>
                     </VStack>
                   </Box>
                 )}

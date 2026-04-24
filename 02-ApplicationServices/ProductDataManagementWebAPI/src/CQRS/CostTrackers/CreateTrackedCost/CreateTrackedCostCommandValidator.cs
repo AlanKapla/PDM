@@ -29,6 +29,11 @@ namespace CQRS.CostTrackers.CreateTrackedCost
                 .Must(x => x.Net.HasValue || x.Gross.HasValue)
                 .WithMessage("At least net or gross value must be provided.")
                 .When(x => x.Net.HasValue || x.Gross.HasValue);
+
+            RuleFor(x => x)
+                .Must(x => new[] { x.WorkItemLinkId, x.CostEstimateItemId, x.WorkScheduleStageWorkId }.Count(id => id.HasValue) <= 1)
+                .WithMessage("Tylko jedno z pól WorkItemLinkId, CostEstimateItemId, WorkScheduleStageWorkId może być podane jednocześnie.")
+                .WithName("WorkItemLinkId");
         }
     }
 }

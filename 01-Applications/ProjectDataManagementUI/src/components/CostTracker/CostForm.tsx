@@ -82,7 +82,7 @@ export default function CostForm({
         <FormErrorMessage>{errors.name}</FormErrorMessage>
       </FormControl>
 
-      {/* Kwoty */}
+      {/* Kwoty + numer faktury */}
       <HStack spacing={4} align="flex-start" flexDir={{ base: "column", sm: "row" }}>
         <FormControl isInvalid={!!errors.net} flex={1}>
           <FormLabel>Kwota netto (PLN)</FormLabel>
@@ -98,18 +98,15 @@ export default function CostForm({
           <FormErrorMessage>{errors.net}</FormErrorMessage>
         </FormControl>
 
-        <FormControl isInvalid={!!errors.gross} flex={1}>
-          <FormLabel>Kwota brutto (PLN)</FormLabel>
-          <NumberInput
-            value={values.gross ?? ""}
-            onChange={(_, num) => set({ gross: isNaN(num) ? undefined : num })}
-            min={0}
-            precision={2}
+        <FormControl flex={1}>
+          <FormLabel>Numer faktury</FormLabel>
+          <Input
+            value={values.number ?? ""}
+            onChange={(e) => set({ number: e.target.value })}
+            placeholder="np. FV/2024/001"
+            maxLength={100}
             isDisabled={isSubmitting}
-          >
-            <NumberInputField placeholder="0,00" />
-          </NumberInput>
-          <FormErrorMessage>{errors.gross}</FormErrorMessage>
+          />
         </FormControl>
       </HStack>
 
@@ -229,10 +226,9 @@ export function validateCostForm(values: CostFormValues): Partial<Record<keyof C
   }
 
   const hasNet = values.net !== undefined && values.net !== "" && !isNaN(Number(values.net));
-  const hasGross = values.gross !== undefined && values.gross !== "" && !isNaN(Number(values.gross));
 
-  if (!hasNet && !hasGross) {
-    errors.net = "Podaj kwotę netto lub brutto";
+  if (!hasNet) {
+    errors.net = "Podaj kwotę netto";
   }
 
   return errors;

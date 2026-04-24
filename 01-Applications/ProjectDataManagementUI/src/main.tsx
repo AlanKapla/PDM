@@ -61,13 +61,11 @@ async function initializeApp() {
 
     if (root) {
       ReactDOM.createRoot(root).render(
-        <React.StrictMode>
-          <MsalProvider instance={msalInstance}>
-            <ChakraProvider theme={theme}>
-              <App />
-            </ChakraProvider>
-          </MsalProvider>
-        </React.StrictMode>
+        <MsalProvider instance={msalInstance}>
+          <ChakraProvider theme={theme}>
+            <App />
+          </ChakraProvider>
+        </MsalProvider>
       );
     } else {
     }

@@ -2,6 +2,7 @@
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.CostTrackers.Shared;
+using Entities.Models;
 using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -12,15 +13,17 @@ namespace CQRS.CostTrackers.UpdateTrackerBudget
     public sealed class UpdateTrackerBudgetCommandHandler
         : CostTrackerHandlerBase, IRequestHandler<UpdateTrackerBudgetCommand, Unit>
     {
+        private readonly IReadRepository<Project> projectRepository;
         private readonly ILogger<UpdateTrackerBudgetCommandHandler> logger;
 
         public UpdateTrackerBudgetCommandHandler(
-            IReadRepository<CostTracker> trackerRepository,
             IReadRepository<TrackedCost> trackedCostRepository,
+            IReadRepository<Project> projectRepository,
             ICurrentUser currentUser,
             ILogger<UpdateTrackerBudgetCommandHandler> logger)
-            : base(trackerRepository, currentUser, trackedCostRepository)
+            : base(currentUser, trackedCostRepository)
         {
+            this.projectRepository = projectRepository;
             this.logger = logger;
         }
 
@@ -28,30 +31,22 @@ namespace CQRS.CostTrackers.UpdateTrackerBudget
             UpdateTrackerBudgetCommand request,
             CancellationToken cancellationToken)
         {
-            CostTracker tracker = await GetAndValidateTrackerAsync(
-                request.CostTrackerId, request.TenantId, request.ProjectId, cancellationToken);
+            await ValidateAccessAsync(request.TenantId, request.ProjectId, cancellationToken);
 
-            tracker.BudgetNet = request.BudgetNet;
-            tracker.BudgetGross = request.BudgetGross;
+            Project project = await projectRepository.GetFirstBySearch(
+                p => p.Id == request.ProjectId && p.TenantId == request.TenantId)
+                ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            await trackerRepository.Update(tracker);
+            project.BudgetNet = request.BudgetNet;
+            project.BudgetGross = request.BudgetGross;
+
+            await projectRepository.Update(project);
 
             logger.LogInformation(
-                "Updated budget for CostTracker {TrackerId} by user {UserId}",
-                tracker.Id, currentUser.Id);
+                "Updated budget for project {ProjectId} by user {UserId}",
+                project.Id, currentUser.Id);
 
             return Unit.Value;
-        }
-
-        private async Task<CostTracker> GetAndValidateTrackerAsync(
-            Guid costTrackerId, Guid tenantId, Guid projectId, CancellationToken cancellationToken)
-        {
-            await ValidateAccessAsync(tenantId, projectId, cancellationToken);
-
-            return await trackerRepository.GetFirstBySearch(
-                t => t.Id == costTrackerId && t.TenantId == tenantId && t.ProjectId == projectId,
-                cancellationToken)
-                ?? throw new NotFoundApiException(nameof(CostTracker), costTrackerId.ToString());
         }
     }
 }

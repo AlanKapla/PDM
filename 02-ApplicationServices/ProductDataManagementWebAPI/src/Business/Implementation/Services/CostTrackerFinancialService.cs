@@ -24,24 +24,41 @@ namespace Business.Implementation.Services
             return (null, null);
         }
 
-        public TrackedCostItemStatus ComputeItemStatus(decimal? budgetNet, decimal? costsNet, int costsCount)
+        public FinancialStatus ComputeItemStatus(decimal? budgetNet, decimal? costsNet, int costsCount)
         {
             if (costsCount == 0)
-                return TrackedCostItemStatus.NoCosts;
+                return FinancialStatus.NoCosts;
 
             if (!budgetNet.HasValue || budgetNet.Value == 0)
-                return TrackedCostItemStatus.NoBudget;
+                return FinancialStatus.NoBudget;
 
             if (!costsNet.HasValue)
-                return TrackedCostItemStatus.InProgress;
+                return FinancialStatus.InProgress;
 
             if (costsNet.Value > budgetNet.Value)
-                return TrackedCostItemStatus.OverBudget;
+                return FinancialStatus.OverBudget;
 
             if (costsNet.Value / budgetNet.Value >= NearLimitThreshold)
-                return TrackedCostItemStatus.NearLimit;
+                return FinancialStatus.NearLimit;
 
-            return TrackedCostItemStatus.InProgress;
+            return FinancialStatus.InProgress;
+        }
+
+        public FinancialStatus ComputeFinancialStatus(decimal? budgetNet, decimal? costsNet)
+        {
+            if (!budgetNet.HasValue || budgetNet.Value == 0)
+                return FinancialStatus.NoBudget;
+
+            if (!costsNet.HasValue)
+                return FinancialStatus.NoCosts;
+
+            if (costsNet.Value > budgetNet.Value)
+                return FinancialStatus.OverBudget;
+
+            if (costsNet.Value / budgetNet.Value >= NearLimitThreshold)
+                return FinancialStatus.NearLimit;
+
+            return FinancialStatus.InProgress;
         }
 
         public CostTrackerSummaryWeb ComputeProjectSummary(
@@ -50,20 +67,20 @@ namespace Business.Implementation.Services
             decimal? budgetNet,
             decimal? budgetGross)
         {
-            decimal? totalCostsNet = costEstimateSummaries.Any(s => s.TotalCostsNet.HasValue) || projectAdditionalCosts.TotalNet.HasValue
-                ? (costEstimateSummaries.Sum(s => s.TotalCostsNet ?? 0)) + (projectAdditionalCosts.TotalNet ?? 0)
+            decimal? totalCostsNet = costEstimateSummaries.Any(s => s.CostsNet.HasValue) || projectAdditionalCosts.TotalNet.HasValue
+                ? (costEstimateSummaries.Sum(s => s.CostsNet ?? 0)) + (projectAdditionalCosts.TotalNet ?? 0)
                 : null;
 
-            decimal? totalCostsGross = costEstimateSummaries.Any(s => s.TotalCostsGross.HasValue) || projectAdditionalCosts.TotalGross.HasValue
-                ? (costEstimateSummaries.Sum(s => s.TotalCostsGross ?? 0)) + (projectAdditionalCosts.TotalGross ?? 0)
+            decimal? totalCostsGross = costEstimateSummaries.Any(s => s.CostsGross.HasValue) || projectAdditionalCosts.TotalGross.HasValue
+                ? (costEstimateSummaries.Sum(s => s.CostsGross ?? 0)) + (projectAdditionalCosts.TotalGross ?? 0)
                 : null;
 
-            decimal? totalBudgetNet = costEstimateSummaries.Any(s => s.TotalBudgetNet.HasValue) || budgetNet.HasValue
-                ? (costEstimateSummaries.Sum(s => s.TotalBudgetNet ?? 0)) + (budgetNet ?? 0)
+            decimal? totalBudgetNet = costEstimateSummaries.Any(s => s.BudgetNet.HasValue) || budgetNet.HasValue
+                ? (costEstimateSummaries.Sum(s => s.BudgetNet ?? 0)) + (budgetNet ?? 0)
                 : null;
 
-            decimal? totalBudgetGross = costEstimateSummaries.Any(s => s.TotalBudgetGross.HasValue) || budgetGross.HasValue
-                ? (costEstimateSummaries.Sum(s => s.TotalBudgetGross ?? 0)) + (budgetGross ?? 0)
+            decimal? totalBudgetGross = costEstimateSummaries.Any(s => s.BudgetGross.HasValue) || budgetGross.HasValue
+                ? (costEstimateSummaries.Sum(s => s.BudgetGross ?? 0)) + (budgetGross ?? 0)
                 : null;
 
             decimal? totalDeviationNet = totalBudgetNet.HasValue && totalCostsNet.HasValue
@@ -78,7 +95,7 @@ namespace Business.Implementation.Services
                 ? Math.Round((totalCostsNet.Value - totalBudgetNet.Value) / totalBudgetNet.Value * 100, 2)
                 : null;
 
-            int estimatesWithCosts = costEstimateSummaries.Count(s => s.TotalCostsNet.HasValue && s.TotalCostsNet.Value > 0);
+            int estimatesWithCosts = costEstimateSummaries.Count(s => s.CostsNet.HasValue && s.CostsNet.Value > 0);
 
             int costCount = costEstimateSummaries.Sum(s => s.CostCount) + projectAdditionalCosts.CostsCount;
             int totalItemsAcrossEstimates = costEstimateSummaries.Sum(s => s.TotalItemsCount);
@@ -194,14 +211,14 @@ namespace Business.Implementation.Services
             {
                 List<TrackedCost> perItemCostsList = costsByItemId[i.Id].ToList();
                 decimal? perItemCostsNet = perItemCostsList.Any(c => c.Net.HasValue) ? perItemCostsList.Sum(c => c.Net ?? 0) : null;
-                return ComputeItemStatus(i.NetValue, perItemCostsNet, perItemCostsList.Count) == TrackedCostItemStatus.OverBudget;
+                return ComputeItemStatus(i.NetValue, perItemCostsNet, perItemCostsList.Count) == FinancialStatus.OverBudget;
             });
 
             int itemsNearLimit = budgetItems.Count(i =>
             {
                 List<TrackedCost> perItemCostsList = costsByItemId[i.Id].ToList();
                 decimal? perItemCostsNet = perItemCostsList.Any(c => c.Net.HasValue) ? perItemCostsList.Sum(c => c.Net ?? 0) : null;
-                return ComputeItemStatus(i.NetValue, perItemCostsNet, perItemCostsList.Count) == TrackedCostItemStatus.NearLimit;
+                return ComputeItemStatus(i.NetValue, perItemCostsNet, perItemCostsList.Count) == FinancialStatus.NearLimit;
             });
 
             decimal? coveragePercent = totalItems > 0
@@ -215,32 +232,26 @@ namespace Business.Implementation.Services
             {
                 CostEstimateId = costEstimate.Id,
                 CostEstimateName = costEstimate.Name,
-                TotalBudgetNet = budgetNet,
-                TotalBudgetGross = budgetGross,
-                TotalCostsNet = totalCostsNet.HasValue ? Math.Round(totalCostsNet.Value, 2) : null,
-                TotalCostsGross = totalCostsGross.HasValue ? Math.Round(totalCostsGross.Value, 2) : null,
-                TotalDeviationNet = deviationNet,
-                TotalDeviationGross = deviationGross,
-                TotalDeviationPercent = deviationPercent,
+                BudgetNet = budgetNet,
+                BudgetGross = budgetGross,
+                CostsNet = totalCostsNet.HasValue ? Math.Round(totalCostsNet.Value, 2) : null,
+                CostsGross = totalCostsGross.HasValue ? Math.Round(totalCostsGross.Value, 2) : null,
+                DeviationNet = deviationNet,
+                DeviationGross = deviationGross,
+                DeviationPercent = deviationPercent,
                 IsBudgetExceeded = deviationNet.HasValue && deviationNet.Value > 0,
+                FinancialStatus = ComputeFinancialStatus(budgetNet, totalCostsNet),
+                TimelineStatus = TimelineStatus.NoSchedule,
                 TotalItemsCount = totalItems,
                 ItemsWithCostsCount = itemsWithCosts,
                 ItemsWithoutCostsCount = itemsWithoutCosts,
                 ItemsOverBudgetCount = itemsOverBudget,
                 ItemsNearLimitCount = itemsNearLimit,
-                AdditionalCostsNet = additionalCostsNet,
-                AdditionalCostsGross = additionalCostsGross,
-                AdditionalCostsCount = additionalCostsCount,
                 CostCount = costCount,
                 CoveredPercent = coveragePercent,
-                Groups = [],
-                AdditionalCosts = new TrackerAdditionalCostsWeb
-                {
-                    TotalNet = additionalCostsNet,
-                    TotalGross = additionalCostsGross,
-                    CostsCount = additionalCostsCount,
-                    Costs = []
-                }
+                HasLinkedSchedule = false,
+                Timeline = null,
+                Groups = []
             };
         }
     }

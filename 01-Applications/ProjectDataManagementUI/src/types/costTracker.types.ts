@@ -37,6 +37,7 @@ export interface TrackedCostWeb {
   costEstimateItemId: string | null;
   isAdditional: boolean;
   name: string;
+  number: string | null;
   description: string | null;
   net: number | null;
   gross: number | null;
@@ -155,7 +156,7 @@ export interface CostFormValues {
   name: string;
   description?: string;
   net?: number | string;
-  gross?: number | string;
+  number?: string;
   contractor?: string;
   date?: string;
   newFiles?: File[];
@@ -166,7 +167,7 @@ export interface CreateCostRequest {
   name: string;
   description?: string;
   net?: number;
-  gross?: number;
+  number?: string;
   contractor?: string;
   date?: string;
   costEstimateId?: string | null;

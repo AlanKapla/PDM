@@ -15,6 +15,7 @@ using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
+using Entities.Models.WorkItemLinks;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -279,12 +280,14 @@ namespace WebApi.Extensions
 
             services
                 .AddRepository<WorkSchedule>()
-                .AddWriteRepository<WorkScheduleStage>()
-                .AddWriteRepository<WorkScheduleStageWork>()
-                .AddWriteRepository<WorkScheduleStageWorkPeriod>()
+                .AddRepository<WorkScheduleStage>()
+                .AddRepository<WorkScheduleStageWork>()
+                .AddRepository<WorkScheduleStageWorkPeriod>()
                 .AddWriteRepository<WorkScheduleStageWorkAssignment>()
                 .AddWriteRepository<WorkScheduleStageWorkComment>()
-                .AddWriteRepository<WorkScheduleStageWorkDependency>();
+                .AddWriteRepository<WorkScheduleStageWorkDependency>()
+                .AddRepository<CostEstimateWorkScheduleLink>()
+                .AddRepository<CostEstimateGroupWorkScheduleStageLink>();
 
             services
                 .AddRepository<ProjectCost>()
@@ -310,10 +313,10 @@ namespace WebApi.Extensions
                 .AddWriteRepository<CostEstimateFieldFile>();
 
             services
-                .AddRepository<CostTracker>()
                 .AddRepository<TrackedCost>()
                 .AddRepository<TrackedCostAttachment>()
-                .AddRepository<ProjectCostTrackedCostLink>();
+                .AddRepository<ProjectCostTrackedCostLink>()
+                .AddRepository<CostEstimateItemWorkScheduleStageWorkLink>();
 
             services
                 .AddRepository<Role>()
@@ -359,6 +362,8 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<ICostTrackerFinancialService, CostTrackerFinancialService>();
             services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
+            services.AddScoped<IWorkItemLinkService, WorkItemLinkService>();
+            services.AddScoped<ICostTrackerTimelineService, CostTrackerTimelineService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
             services.AddScoped<IWorkScheduleCacheService, WorkScheduleCacheService>();

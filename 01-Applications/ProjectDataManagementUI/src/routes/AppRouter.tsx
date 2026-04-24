@@ -236,7 +236,7 @@ export default function AppRouter() {
       />
 
       <Route
-        path="/projects/:projectId/budget"
+        path="/projects/:projectId/dashboard"
         element={
           <ProtectedRoute>
             <ProjectBudgetPage />

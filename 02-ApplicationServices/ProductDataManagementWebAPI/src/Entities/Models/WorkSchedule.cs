@@ -1,5 +1,5 @@
 ﻿using Entities.Models.Base;
-using Entities.Models.CostEstimates;
+using Entities.Models.WorkItemLinks;
 
 namespace Entities.Models
 {
@@ -7,7 +7,6 @@ namespace Entities.Models
     {
         public Guid TenantId { get; set; }
         public Guid ProjectId { get; set; }
-        public Guid? CostEstimateId { get; set; }
         public string Name { get; set; } = default!;
         public bool IsDeleted { get; set; }
         public DateTime? DeletedAt { get; set; }
@@ -16,8 +15,8 @@ namespace Entities.Models
 
         public Project Project { get; set; } = default!;
         public TenantMember CreatedBy { get; set; } = default!;
-        public CostEstimate? CostEstimate { get; set; }
         public ICollection<WorkScheduleStage> Stages { get; set; } = new List<WorkScheduleStage>();
         public ICollection<WorkScheduleStageWorkDependency> Dependencies { get; set; } = new List<WorkScheduleStageWorkDependency>();
+        public virtual ICollection<CostEstimateWorkScheduleLink> CostEstimateLinks { get; set; } = new List<CostEstimateWorkScheduleLink>();
     }
 }

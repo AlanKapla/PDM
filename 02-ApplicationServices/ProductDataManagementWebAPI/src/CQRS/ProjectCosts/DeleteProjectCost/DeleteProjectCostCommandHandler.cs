@@ -4,7 +4,6 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
 using Entities.Models;
-using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -19,14 +18,10 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
 
         public DeleteProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
-            IReadRepository<CostTracker> costTrackerRepository,
-            IRepository<TrackedCost> trackedCostRepository,
-            IRepository<ProjectCostTrackedCostLink> projectCostLinkRepository,
-            IRepository<TrackedCostAttachment> attachmentRepository,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<DeleteProjectCostCommandHandler> logger)
-            : base(costTrackerRepository, trackedCostRepository, projectCostLinkRepository, blobStorageService, attachmentRepository)
+            : base(blobStorageService)
         {
             this.projectCostRepo = projectCostRepo;
             this.currentUser = currentUser;
@@ -38,8 +33,6 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
             ProjectCost projectCost = await GetAndValidateProjectCostAsync(request, cancellationToken);
 
             await ValidateDeleteAccessAsync(projectCost, request, cancellationToken);
-
-            await RemoveTrackerLinkAsync(projectCost.Id, cancellationToken);
 
             projectCost.IsDeleted = true;
             projectCost.DeletedAt = DateTime.UtcNow;

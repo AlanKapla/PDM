@@ -1,4 +1,5 @@
-﻿using Entities.Models.CostTrackers;
+﻿using Entities.Models.CostEstimates;
+using Entities.Models.CostTrackers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -13,12 +14,11 @@ namespace Entities.Configurations.CostTrackers
             builder.Property(tc => tc.Id)
                 .HasDefaultValueSql("NEWSEQUENTIALID()");
 
-            builder.Property(tc => tc.TrackerId)
-                .IsRequired();
-
-            builder.Property(tc => tc.CostEstimateId);
-
-            builder.Property(tc => tc.CostEstimateItemId);
+            builder.Property(tc => tc.TenantId).IsRequired();
+            builder.Property(tc => tc.ProjectId).IsRequired();
+            builder.Property(tc => tc.WorkItemLinkId);
+            builder.Property(tc => tc.CostEstimateItemId).IsRequired(false);
+            builder.Property(tc => tc.WorkScheduleStageWorkId).IsRequired(false);
 
             builder.Property(tc => tc.Name)
                 .IsRequired()
@@ -38,9 +38,7 @@ namespace Entities.Configurations.CostTrackers
 
             builder.Property(tc => tc.Date);
 
-            builder.Property(tc => tc.CreatedAt)
-                .IsRequired();
-
+            builder.Property(tc => tc.CreatedAt).IsRequired();
             builder.Property(tc => tc.UpdatedAt);
 
             builder.Property(tc => tc.IsDeleted)
@@ -49,23 +47,25 @@ namespace Entities.Configurations.CostTrackers
 
             builder.Property(tc => tc.DeletedAt);
 
-            builder.HasOne(tc => tc.Tracker)
-                .WithMany(t => t.TrackedCosts)
-                .HasForeignKey(tc => tc.TrackerId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.HasOne(tc => tc.CostEstimateItem)
-                .WithMany(i => i.TrackedCosts)
-                .HasForeignKey(tc => tc.CostEstimateItemId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             builder.HasMany(tc => tc.Attachments)
                 .WithOne(a => a.TrackedCost)
                 .HasForeignKey(a => a.TrackedCostId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasIndex(tc => tc.TrackerId);
+            builder.HasOne(tc => tc.CostEstimateItem)
+                .WithMany()
+                .HasForeignKey(tc => tc.CostEstimateItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasOne(tc => tc.WorkScheduleStageWork)
+                .WithMany()
+                .HasForeignKey(tc => tc.WorkScheduleStageWorkId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.HasIndex(tc => new { tc.TenantId, tc.ProjectId });
+            builder.HasIndex(tc => tc.WorkItemLinkId);
             builder.HasIndex(tc => tc.CostEstimateItemId);
+            builder.HasIndex(tc => tc.WorkScheduleStageWorkId);
             builder.HasIndex(tc => tc.IsDeleted);
 
             builder.HasQueryFilter(tc => !tc.IsDeleted);

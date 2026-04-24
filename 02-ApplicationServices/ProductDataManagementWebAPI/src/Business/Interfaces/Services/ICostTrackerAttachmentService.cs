@@ -8,13 +8,14 @@ namespace Business.Interfaces.Services
         /// <summary>
         /// Synchronizuje załączniki kosztu.
         /// Usuwa (soft-delete + blob) załączniki których Id nie ma w existingAttachmentIds.
+        /// Gdy existingAttachmentIds jest null, istniejące załączniki nie są usuwane.
         /// Uploaduje nowe pliki i tworzy rekordy TrackedCostAttachment.
         /// Zwraca aktualną listę aktywnych załączników.
         /// </summary>
         Task<List<TrackedCostAttachment>> SyncAttachmentsAsync(
             TrackedCost cost,
             IReadOnlyList<IFormFile>? newFiles,
-            IReadOnlyList<Guid> existingAttachmentIds,
+            IReadOnlyList<Guid>? existingAttachmentIds,
             Guid tenantId,
             Guid projectId,
             CancellationToken cancellationToken = default);

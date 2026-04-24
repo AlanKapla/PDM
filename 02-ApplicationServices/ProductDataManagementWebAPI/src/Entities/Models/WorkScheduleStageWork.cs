@@ -1,5 +1,6 @@
-﻿using Entities.Models.Base;
+using Entities.Models.Base;
 using Entities.Models.CostEstimates;
+using Entities.Models.WorkItemLinks;
 
 namespace Entities.Models
 {
@@ -33,6 +34,7 @@ namespace Entities.Models
 
         public WorkScheduleStage Stage { get; set; } = default!;
         public CostEstimateItem? CostEstimateItem { get; set; }
+        public virtual ICollection<CostEstimateItemWorkScheduleStageWorkLink> WorkItemLinks { get; set; } = new List<CostEstimateItemWorkScheduleStageWorkLink>();
         public ICollection<WorkScheduleStageWorkPeriod> Periods { get; set; } = new List<WorkScheduleStageWorkPeriod>();
         public ICollection<WorkScheduleStageWorkAssignment> Assignments { get; set; } = new List<WorkScheduleStageWorkAssignment>();
         public ICollection<WorkScheduleStageWorkComment> Comments { get; set; } = new List<WorkScheduleStageWorkComment>();

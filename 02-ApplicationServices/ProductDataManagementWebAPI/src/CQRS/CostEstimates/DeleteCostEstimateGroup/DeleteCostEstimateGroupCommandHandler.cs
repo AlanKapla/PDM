@@ -20,6 +20,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
         private readonly IBlobStorageService blobStorageService;
         private readonly ICostEstimateCacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
+        private readonly IWorkItemLinkService workItemLinkService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteCostEstimateGroupCommandHandler> logger;
 
@@ -32,6 +33,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             IBlobStorageService blobStorageService,
             ICostEstimateCacheService cacheService,
             ICostEstimateAccessService ceAccessService,
+            IWorkItemLinkService workItemLinkService,
             ICurrentUser currentUser,
             ILogger<DeleteCostEstimateGroupCommandHandler> logger)
         {
@@ -43,6 +45,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             this.blobStorageService = blobStorageService;
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
+            this.workItemLinkService = workItemLinkService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -159,6 +162,15 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
             await groupRepository.UpdateRange(groupsToDelete);
             await groupRepository.SaveChangesAsync(cancellationToken);
+
+            await workItemLinkService.DeleteGroupStageLinksForGroupsAsync(
+                allGroupIds, cancellationToken);
+
+            if (allItemIds.Count > 0)
+            {
+                await workItemLinkService.DeleteWorkItemLinksForItemsAsync(
+                    allItemIds, cancellationToken);
+            }
 
             // Invalidate cache
             await cacheService.InvalidateCostEstimateAsync(

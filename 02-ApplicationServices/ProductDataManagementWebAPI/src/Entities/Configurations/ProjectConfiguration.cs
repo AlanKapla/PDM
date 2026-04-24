@@ -22,10 +22,8 @@ namespace Entities.Configurations
                 .HasPrincipalKey(t => new { t.TenantId, t.UserId })
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasOne(p => p.CostTracker)
-                .WithOne()
-                .HasForeignKey<Project>(p => p.CostTrackerId)
-                .OnDelete(DeleteBehavior.Restrict);
+            builder.Property(p => p.BudgetNet).HasPrecision(18, 4);
+            builder.Property(p => p.BudgetGross).HasPrecision(18, 4);
         }
     }
 

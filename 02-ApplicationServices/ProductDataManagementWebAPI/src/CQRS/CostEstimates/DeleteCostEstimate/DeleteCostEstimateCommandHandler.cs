@@ -17,17 +17,20 @@ namespace CQRS.CostEstimates.DeleteCostEstimate
         private readonly IRepository<CostEstimate> costEstimateRepository;
         private readonly IRepository<SharedCostEstimate> sharedCeRepository;
         private readonly ICostEstimateAccessService ceAccessService;
+        private readonly IWorkItemLinkService workItemLinkService;
         private readonly ICurrentUser currentUser;
 
         public DeleteCostEstimateCommandHandler(
             IRepository<CostEstimate> costEstimateRepository,
             IRepository<SharedCostEstimate> sharedCeRepository,
             ICostEstimateAccessService ceAccessService,
+            IWorkItemLinkService workItemLinkService,
             ICurrentUser currentUser)
         {
             this.costEstimateRepository = costEstimateRepository;
             this.sharedCeRepository = sharedCeRepository;
             this.ceAccessService = ceAccessService;
+            this.workItemLinkService = workItemLinkService;
             this.currentUser = currentUser;
         }
 
@@ -57,6 +60,9 @@ namespace CQRS.CostEstimates.DeleteCostEstimate
             await sharedCeRepository.ExecuteDeleteAsync(
                 s => s.CostEstimateId == request.CostEstimateId,
                 cancellationToken);
+
+            await workItemLinkService.DeleteAllLinksForEstimateAsync(
+                request.CostEstimateId, cancellationToken);
 
             await ceAccessService.InvalidateCostEstimateAccessCacheAsync(
                 request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);

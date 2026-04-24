@@ -54,6 +54,7 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWork
 
             await workRepository.Insert(work);
             await workRepository.SaveChangesAsync(cancellationToken);
+
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return work.Id;
         }

@@ -47,13 +47,13 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStage
                 ProjectId = request.ProjectId,
                 WorkScheduleId = request.WorkScheduleId,
                 ParentStageId = request.ParentStageId,
-                CostEstimateGroupId = request.CostEstimateGroupId,
                 Name = request.Name,
                 Order = request.Order
             };
 
             await stageRepo.Insert(stage);
             await stageRepo.SaveChangesAsync(cancellationToken);
+
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return stage.Id;
         }

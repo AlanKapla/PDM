@@ -77,11 +77,6 @@ namespace Entities.Configurations
             builder.HasIndex(w => new { w.GroupId, w.Order });
             builder.HasIndex(w => w.IsDeleted);
 
-            builder.HasMany(w => w.TrackedCosts)
-                .WithOne(tc => tc.CostEstimateItem)
-                .HasForeignKey(tc => tc.CostEstimateItemId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             builder.HasQueryFilter(w => !w.IsDeleted);
         }
     }

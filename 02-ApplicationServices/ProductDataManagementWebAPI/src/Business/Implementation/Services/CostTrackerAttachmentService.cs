@@ -29,7 +29,7 @@ namespace Business.Implementation.Services
         public async Task<List<TrackedCostAttachment>> SyncAttachmentsAsync(
             TrackedCost cost,
             IReadOnlyList<IFormFile>? newFiles,
-            IReadOnlyList<Guid> existingAttachmentIds,
+            IReadOnlyList<Guid>? existingAttachmentIds,
             Guid tenantId,
             Guid projectId,
             CancellationToken cancellationToken = default)
@@ -37,25 +37,28 @@ namespace Business.Implementation.Services
             var currentAttachments = (await attachmentRepository.GetBySearch(
                 a => a.TrackedCostId == cost.Id)).ToList();
 
-            var toDelete = currentAttachments
-                .Where(a => !existingAttachmentIds.Contains(a.Id))
-                .ToList();
-
-            foreach (var attachment in toDelete)
+            if (existingAttachmentIds is not null)
             {
-                attachment.IsDeleted = true;
-                attachment.DeletedAt = DateTime.UtcNow;
-                await attachmentRepository.Update(attachment);
+                var toDelete = currentAttachments
+                    .Where(a => !existingAttachmentIds.Contains(a.Id))
+                    .ToList();
 
-                try
+                foreach (var attachment in toDelete)
                 {
-                    await blobStorageService.DeleteAsync(ContainerName, attachment.BlobName, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex,
-                        "Failed to delete blob {BlobName} for attachment {AttachmentId}. Record soft-deleted, blob may remain.",
-                        attachment.BlobName, attachment.Id);
+                    attachment.IsDeleted = true;
+                    attachment.DeletedAt = DateTime.UtcNow;
+                    await attachmentRepository.Update(attachment);
+
+                    try
+                    {
+                        await blobStorageService.DeleteAsync(ContainerName, attachment.BlobName, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex,
+                            "Failed to delete blob {BlobName} for attachment {AttachmentId}. Record soft-deleted, blob may remain.",
+                            attachment.BlobName, attachment.Id);
+                    }
                 }
             }
 
@@ -83,9 +86,9 @@ namespace Business.Implementation.Services
                 created.Add(attachment);
             }
 
-            var retained = currentAttachments
-                .Where(a => existingAttachmentIds.Contains(a.Id))
-                .ToList();
+            var retained = existingAttachmentIds is not null
+                ? currentAttachments.Where(a => existingAttachmentIds.Contains(a.Id)).ToList()
+                : currentAttachments.ToList();
 
             retained.AddRange(created);
             return retained;
@@ -101,7 +104,7 @@ namespace Business.Implementation.Services
         private static string BuildBlobName(TrackedCost cost, Guid tenantId, Guid projectId, string fileName)
         {
             var safeFileName = Path.GetFileName(fileName);
-            return $"{tenantId}/{projectId}/{cost.TrackerId}/{cost.Id}/{safeFileName}";
+            return $"{tenantId}/{projectId}/{cost.Id}/{safeFileName}";
         }
     }
 }

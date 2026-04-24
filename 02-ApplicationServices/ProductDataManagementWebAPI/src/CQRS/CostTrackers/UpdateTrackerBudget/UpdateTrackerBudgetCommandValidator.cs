@@ -6,9 +6,6 @@ namespace CQRS.CostTrackers.UpdateTrackerBudget
     {
         public UpdateTrackerBudgetCommandValidator()
         {
-            RuleFor(x => x.CostTrackerId)
-                .NotEmpty().WithMessage("Cost Tracker ID is required.");
-
             RuleFor(x => x.TenantId)
                 .NotEmpty().WithMessage("Tenant ID is required.");
 

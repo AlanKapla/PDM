@@ -101,9 +101,11 @@ export default function CostListDrawer({
                           <Text fontSize="xs" color="gray.600">
                             Netto: {formatNet(cost.net)}
                           </Text>
-                          <Text fontSize="xs" color="gray.600">
-                            Brutto: {formatNet(cost.gross)}
-                          </Text>
+                          {cost.number && (
+                            <Text fontSize="xs" color="gray.600">
+                              Nr faktury: {cost.number}
+                            </Text>
+                          )}
                           {cost.date && (
                             <Text fontSize="xs" color="gray.600">
                               Data: {formatDate(cost.date, false)}

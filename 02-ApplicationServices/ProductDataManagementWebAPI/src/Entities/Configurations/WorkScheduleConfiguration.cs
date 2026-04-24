@@ -25,15 +25,8 @@ namespace Entities.Configurations
                    .HasPrincipalKey(tm => new { tm.TenantId, tm.UserId })
                    .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasOne(w => w.CostEstimate)
-                   .WithMany(c => c.WorkSchedules)
-                   .HasForeignKey(w => w.CostEstimateId)
-                   .OnDelete(DeleteBehavior.SetNull)
-                   .IsRequired(false);
-
             builder.HasIndex(w => new { w.TenantId, w.ProjectId });
             builder.HasIndex(w => new { w.TenantId, w.ProjectId, w.IsDeleted });
-            builder.HasIndex(w => w.CostEstimateId);
         }
     }
 
@@ -59,17 +52,10 @@ namespace Entities.Configurations
                    .OnDelete(DeleteBehavior.Restrict)
                    .IsRequired(false);
 
-            builder.HasOne(s => s.CostEstimateGroup)
-                   .WithMany(g => g.WorkScheduleStages)
-                   .HasForeignKey(s => s.CostEstimateGroupId)
-                   .OnDelete(DeleteBehavior.SetNull)
-                   .IsRequired(false);
-
             builder.HasIndex(s => new { s.WorkScheduleId, s.Order });
             builder.HasIndex(s => new { s.WorkScheduleId, s.IsDeleted });
             builder.HasIndex(s => new { s.TenantId, s.ProjectId });
             builder.HasIndex(s => s.ParentStageId);
-            builder.HasIndex(s => s.CostEstimateGroupId);
         }
     }
 
@@ -90,7 +76,7 @@ namespace Entities.Configurations
                    .OnDelete(DeleteBehavior.Cascade);
 
             builder.HasOne(w => w.CostEstimateItem)
-                   .WithMany(i => i.WorkScheduleStageWorks)
+                   .WithMany()
                    .HasForeignKey(w => w.CostEstimateItemId)
                    .OnDelete(DeleteBehavior.SetNull)
                    .IsRequired(false);
