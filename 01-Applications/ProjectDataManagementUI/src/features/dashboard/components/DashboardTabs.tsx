@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLOR_PALETTE } from '../utils/colors';
+import { useToken } from '@chakra-ui/react';
 
 export type DashboardTab = 'estimates' | 'schedules' | 'additional' | 'all';
 
@@ -28,6 +28,10 @@ export function DashboardTabs({
   additionalCount,
   allCostsCount,
 }: DashboardTabsProps): React.ReactElement {
+  const [neutral200, level2600, neutral600, neutral100] = useToken('colors', [
+    'neutral.200', 'level2.600', 'neutral.600', 'neutral.100',
+  ]);
+
   const counts: Record<DashboardTab, number> = {
     estimates: estimatesCount,
     schedules: schedulesCount,
@@ -41,7 +45,7 @@ export function DashboardTabs({
       style={{
         display: 'flex',
         gap: 0,
-        borderBottom: `1px solid ${COLOR_PALETTE.border}`,
+        borderBottom: `1px solid ${neutral200}`,
         marginBottom: 16,
       }}
     >
@@ -54,12 +58,12 @@ export function DashboardTabs({
             className="dashboard-tab-btn"
             style={{
               padding: '10px 16px',
-              fontSize: 13,
+              fontSize: "sm",
               fontWeight: isActive ? 500 : 400,
-              color: isActive ? COLOR_PALETTE.purple600 : COLOR_PALETTE.gray600,
+              color: isActive ? level2600 : neutral600,
               background: 'none',
               border: 'none',
-              borderBottom: isActive ? `2px solid ${COLOR_PALETTE.purple600}` : '2px solid transparent',
+              borderBottom: isActive ? `2px solid ${level2600}` : '2px solid transparent',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -70,12 +74,12 @@ export function DashboardTabs({
             {label}
             <span
               style={{
-                background: isActive ? COLOR_PALETTE.purple600 : COLOR_PALETTE.gray100,
-                color: isActive ? '#fff' : COLOR_PALETTE.gray600,
+                background: isActive ? level2600 : neutral100,
+                color: isActive ? '#fff' : neutral600,
                 borderRadius: 20,
                 padding: '1px 7px',
-                fontSize: 12,
-                fontWeight: 600,
+                fontSize: "xs",
+                fontWeight: "semibold",
               }}
             >
               {counts[key]}

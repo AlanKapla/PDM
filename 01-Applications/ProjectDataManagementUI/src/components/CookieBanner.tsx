@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -60,7 +60,7 @@ export default function CookieBanner() {
               <Text fontWeight="semibold" fontSize="md">
                 Ta strona używa plików cookies
               </Text>
-              <Text fontSize="sm" color="gray.600">
+              <Text fontSize="sm" color="neutral.600">
                 Używamy plików cookies do zapewnienia prawidłowego działania aplikacji,
                 uwierzytelniania użytkowników oraz analizy ruchu. Kontynuując korzystanie
                 ze strony, wyrażasz zgodę na ich użycie.

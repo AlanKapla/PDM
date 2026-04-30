@@ -1,4 +1,4 @@
-import {
+﻿import {
   Badge,
   Box,
   Checkbox,
@@ -100,7 +100,7 @@ export default function ExpenseCard({
           {/* Chip dokumentu */}
           {cost.hasDocument && cost.previewSasUrl && (
             <Badge
-              colorScheme="blue"
+              colorScheme="primary"
               fontSize="xs"
               cursor="pointer"
               onClick={() => window.open(cost.previewSasUrl, "_blank")}
@@ -147,7 +147,7 @@ export default function ExpenseCard({
                 icon={<Edit2 size={14} />}
                 size="xs"
                 variant="ghost"
-                colorScheme="blue"
+                colorScheme="primary"
                 onClick={onEdit}
               />
             </Tooltip>

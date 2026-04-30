@@ -82,6 +82,7 @@ export interface SortableItemRowProps {
   renderFieldInput: RenderFieldInputFn;
   formatDisplayValue: FormatDisplayValueFn;
   onDeleteItem?: (groupId: string, itemId: string) => void;
+  onRequestDeleteItem?: (groupId: string, itemId: string) => void;
   onAddOption?: (groupId: string, itemId: string) => void;
   onAddComponent?: (groupId: string, itemId: string) => void;
 }
@@ -112,6 +113,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   renderFieldInput,
   formatDisplayValue,
   onDeleteItem,
+  onRequestDeleteItem,
   onAddOption,
   onAddComponent,
 }) => {
@@ -155,7 +157,14 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   return (
     <React.Fragment>
       {/* Główny wiersz pozycji */}
-      <Tr ref={setNodeRef} style={style} bg="white" _hover={{ bg: 'primary.50', cursor: 'pointer' }}>
+      <Tr
+        ref={setNodeRef}
+        style={style}
+        bg="white"
+        borderBottomWidth="0.5px"
+        borderBottomColor="neutral.100"
+        _hover={{ bg: 'neutral.50', cursor: 'pointer' }}
+      >
         {/* Akcje pozycji - zamrożona kolumna */}
         {editable && (
           <Td
@@ -166,9 +175,11 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             left={0}
             zIndex={5}
             bg="white"
+            borderLeftWidth="2px"
+            borderLeftColor="neutral.200"
             minW="120px"
             maxW="120px"
-            _groupHover={{ bg: 'gray.100' }}
+            _groupHover={{ bg: 'neutral.50' }}
           >
             <HStack spacing={1} justify="center">
               <Tooltip label="Przeciągnij aby zmienić kolejność">
@@ -191,7 +202,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                     size="xs"
                     colorScheme="red"
                     variant="ghost"
-                    onClick={() => onDeleteItem(groupId, item.id)}
+                    onClick={() => onRequestDeleteItem?.(groupId, item.id)}
                   />
                 </Tooltip>
               )}
@@ -246,10 +257,12 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           left={editable ? '120px' : 0}
           zIndex={5}
           bg="white"
+          borderLeftWidth={!editable ? '2px' : undefined}
+          borderLeftColor={!editable ? 'neutral.200' : undefined}
           w={`${POSITION_COL_MIN_WIDTH}px`}
           minW={`${POSITION_COL_MIN_WIDTH}px`}
           whiteSpace="nowrap"
-          _groupHover={{ bg: 'gray.100' }}
+          _groupHover={{ bg: 'neutral.50' }}
         >
           <HStack spacing={1}>
             {hasChildren && (
@@ -278,7 +291,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                 />
               </Tooltip>
             )}
-            <Text fontSize="sm" color="gray.600" fontWeight="medium">
+            <Text fontSize="sm" color="neutral.600" fontWeight="medium">
               POZYCJA {itemNumber}
             </Text>
           </HStack>
@@ -294,15 +307,15 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           if (groupHeaderField) {
             return (
               <Td key={col.fieldId} p={2} bg="white" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                <Text fontSize="xs" color="gray.400" fontStyle="italic" textAlign="center">—</Text>
+                <Text fontSize="xs" color="neutral.300" fontStyle="italic" textAlign="center">—</Text>
               </Td>
             );
           }
 
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                <Text fontSize="xs" color="level2.400" fontStyle="italic" textAlign="center">
+              <Td key={col.fieldId} p={2} bg="neutral.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">
                   {itemOptions.length > 0 ? `${itemOptions.length} opcji` : '—'}
                 </Text>
               </Td>
@@ -353,7 +366,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                 minW={`${colWidth}px`}
                 maxW={`${colWidth}px`}
                 overflow="hidden"
-                bg={hasComponents && isCalcFieldForDisable ? 'green.50' : undefined}
+                bg={hasComponents && isCalcFieldForDisable ? 'neutral.50' : undefined}
               >
                 {canEditFields ? (
                   renderFieldInput(

@@ -113,7 +113,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
       py={2}
       pl={`${indent + 12}px`}
       bg="white"
-      _active={{ bg: 'primary.50' }}
+      _active={{ bg: 'neutral.50' }}
       cursor="pointer"
       onClick={onTap}
       role="button"
@@ -130,23 +130,23 @@ const ItemRow: React.FC<ItemRowProps> = ({
           {name}
         </Text>
         {hasComponents && (
-          <Text fontSize="xs" color="green.600">
+          <Text fontSize="xs" color="level1.600">
             {(item.components ?? []).length} komponentów
           </Text>
         )}
       </VStack>
       {fallbackValue !== null ? (
-        <Text fontSize="sm" fontWeight="medium" color="primary.700" whiteSpace="nowrap">
+        <Text fontSize="sm" fontWeight="medium" color="neutral.700" whiteSpace="nowrap">
           {fallbackValue}
         </Text>
       ) : (
         <VStack spacing={0} align="end">
           {summaryValues.map((sv) => (
             <HStack key={sv.label} spacing={1} align="baseline">
-              <Text fontSize="9px" color="gray.400" fontWeight="normal" whiteSpace="nowrap">
+              <Text fontSize="2xs" color="neutral.400" fontWeight="normal" whiteSpace="nowrap">
                 {sv.label}
               </Text>
-              <Text fontSize="sm" fontWeight="medium" color="primary.700" whiteSpace="nowrap">
+              <Text fontSize="sm" fontWeight="medium" color="neutral.700" whiteSpace="nowrap">
                 {formatCurrencyValue(sv.value, currencySymbol)}
               </Text>
             </HStack>
@@ -214,9 +214,9 @@ const GroupCard: React.FC<GroupCardProps> = ({
   const items = group.items ?? [];
   const childGroups = group.childGroups ?? [];
 
-  const headerBg = level === 0 ? 'primary.100' : 'action.50';
-  const headerBorderColor = level === 0 ? 'primary.300' : 'action.200';
-  const badgeColorScheme = level === 0 ? 'primary' : 'action';
+  const headerBg = level === 0 ? 'neutral.100' : 'neutral.50';
+  const headerBorderColor = level === 0 ? 'neutral.200' : 'neutral.100';
+  const badgeColorScheme = 'neutral';
 
   // Domyślnie zwinięty
   const [isExpanded, setIsExpanded] = useState(false);
@@ -226,6 +226,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
       borderRadius="lg"
       borderWidth="1px"
       borderColor={headerBorderColor}
+      borderLeftWidth={level === 0 ? '3px' : '2px'}
+      borderLeftColor={level === 0 ? 'neutral.600' : 'neutral.400'}
       overflow="hidden"
       mb={level === 0 ? 3 : 2}
       ml={level > 0 ? `${level * 12}px` : 0}
@@ -265,17 +267,17 @@ const GroupCard: React.FC<GroupCardProps> = ({
             {name}
           </Text>
           {fallbackValue !== null ? (
-            <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'primary.800' : 'action.800'} whiteSpace="nowrap">
+            <Text fontSize="sm" fontWeight="bold" color="neutral.700" whiteSpace="nowrap">
               {fallbackValue}
             </Text>
           ) : (
             <VStack spacing={0} align="end">
               {summaryValues.map((sv) => (
                 <HStack key={sv.label} spacing={1} align="baseline">
-                  <Text fontSize="9px" color={level === 0 ? 'primary.400' : 'action.400'} fontWeight="normal" whiteSpace="nowrap">
+                  <Text fontSize="2xs" color="neutral.400" fontWeight="normal" whiteSpace="nowrap">
                     {sv.label}
                   </Text>
-                  <Text fontSize="xs" fontWeight="bold" color={level === 0 ? 'primary.800' : 'action.800'} whiteSpace="nowrap">
+                  <Text fontSize="xs" fontWeight="bold" color="neutral.700" whiteSpace="nowrap">
                     {formatCurrencyValue(sv.value, currencySymbol)}
                   </Text>
                 </HStack>
@@ -356,7 +358,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
                   leftIcon={<FolderPlus size={14} />}
                   size="xs"
                   variant="ghost"
-                  colorScheme="action"
+                  colorScheme="gray"
                   onClick={() => onAddSubGroup(group.id)}
                 >
                   Dodaj pod-etap

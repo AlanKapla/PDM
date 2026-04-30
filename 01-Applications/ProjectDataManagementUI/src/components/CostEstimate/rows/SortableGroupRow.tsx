@@ -125,10 +125,10 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
     <Tr
       ref={setNodeRef}
       style={style}
-      bg={level === 0 ? 'primary.100' : 'action.50'}
-      borderTopWidth={level === 0 ? '3px' : '2px'}
-      borderTopColor={level === 0 ? 'primary.300' : 'action.200'}
-      _hover={{ bg: 'primary.50', cursor: 'pointer' }}
+      bg={level === 0 ? 'neutral.100' : 'neutral.50'}
+      borderTopWidth="1px"
+      borderTopColor="neutral.200"
+      _hover={{ bg: 'neutral.200', cursor: 'pointer' }}
     >
       {/* Akcje grupy - zamrożona kolumna */}
       {editable && (
@@ -139,7 +139,10 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
           position="sticky"
           left={0}
           zIndex={5}
-          bg={level === 0 ? 'primary.100' : 'action.50'}
+          bg={level === 0 ? 'neutral.100' : 'neutral.50'}
+          boxShadow={level === 0
+            ? 'inset 3px 0 0 var(--chakra-colors-neutral-600)'
+            : 'inset 2px 0 0 var(--chakra-colors-neutral-400)'}
           minW="120px"
           maxW="120px"
         >
@@ -219,7 +222,12 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
         position="sticky"
         left={editable ? '120px' : 0}
         zIndex={5}
-          bg={level === 0 ? 'primary.100' : 'action.50'}
+        bg={level === 0 ? 'neutral.100' : 'neutral.50'}
+        boxShadow={!editable
+          ? (level === 0
+            ? 'inset 3px 0 0 var(--chakra-colors-neutral-600)'
+            : 'inset 2px 0 0 var(--chakra-colors-neutral-400)')
+          : undefined}
         w={`${POSITION_COL_MIN_WIDTH}px`}
         minW={`${POSITION_COL_MIN_WIDTH}px`}
         whiteSpace="nowrap"
@@ -235,13 +243,16 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
             />
           </Tooltip>
           <Badge
-            bg={level === 0 ? 'primary.600' : 'action.500'}
+            bg="neutral.600"
             color="white"
             px={3}
             py={1}
             borderRadius="md"
+            fontSize="xs"
+            fontWeight="semibold"
+            letterSpacing="wide"
           >
-            Etap {groupNumber}
+            ETAP {groupNumber}
           </Badge>
         </HStack>
       </Td>
@@ -252,8 +263,8 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
 
         if (col.type === 'childField') {
           return (
-              <Td key={col.fieldId} p={2} bg={level === 0 ? 'primary.100' : 'action.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-              <Text fontSize="xs" color={level === 0 ? 'primary.400' : 'action.300'} fontStyle="italic" textAlign="center">—</Text>
+              <Td key={col.fieldId} p={2} bg={level === 0 ? 'neutral.100' : 'neutral.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+              <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
             </Td>
           );
         }
@@ -340,12 +351,12 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
                 key={col.fieldId}
                 p={2}
                 textAlign="center"
-                bg={level === 0 ? 'primary.100' : 'action.50'}
+                bg={level === 0 ? 'neutral.100' : 'neutral.50'}
                 w={`${colWidth}px`}
                 minW={`${colWidth}px`}
                 maxW={`${colWidth}px`}
               >
-                <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'primary.900' : 'action.800'}>
+                <Text fontSize="sm" fontWeight="bold" color="neutral.700">
                   {sumValue !== undefined
                     ? `Σ ${sumValue.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currencySymbol}`
                     : '—'}
@@ -356,8 +367,8 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
         }
 
         return (
-          <Td key={col.fieldId} p={2} bg={level === 0 ? 'primary.100' : 'action.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-            <Text fontSize="xs" color={level === 0 ? 'primary.400' : 'action.300'} fontStyle="italic" textAlign="center">—</Text>
+          <Td key={col.fieldId} p={2} bg={level === 0 ? 'neutral.100' : 'neutral.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+            <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
           </Td>
         );
       })}

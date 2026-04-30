@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { TrackedCostAttachmentWeb } from '../../types/projectDashboard.types';
 import AppModal from '../../../../components/ui/AppModal';
-import { COLOR_PALETTE } from '../../utils/colors';
 
 interface AttachmentsCellProps {
   attachments: TrackedCostAttachmentWeb[];
@@ -10,6 +10,9 @@ interface AttachmentsCellProps {
 
 /** Ikonka spinacza z liczbą załączników. Kliknięcie otwiera listę z linkami. */
 export function AttachmentsCell({ attachments, costName }: AttachmentsCellProps): React.ReactElement | null {
+  const [primary50, primary600, primary500, neutral50, neutral200, neutral400] = useToken('colors', [
+    'primary.50', 'primary.600', 'primary.500', 'neutral.50', 'neutral.200', 'neutral.400',
+  ]);
   const [isOpen, setIsOpen] = useState(false);
 
   if (attachments.length === 0) {
@@ -25,11 +28,11 @@ export function AttachmentsCell({ attachments, costName }: AttachmentsCellProps)
           display: 'inline-flex',
           alignItems: 'center',
           gap: 3,
-          fontSize: 12,
+          fontSize: "xs",
           padding: '2px 6px',
-          background: COLOR_PALETTE.blue50,
-          color: COLOR_PALETTE.blue600,
-          border: `0.5px solid ${COLOR_PALETTE.blue400}`,
+          background: primary50,
+          color: primary600,
+          border: `0.5px solid ${primary500}`,
           borderRadius: 4,
           cursor: 'pointer',
         }}
@@ -68,11 +71,11 @@ export function AttachmentsCell({ attachments, costName }: AttachmentsCellProps)
                 alignItems: 'center',
                 gap: 8,
                 padding: '8px 12px',
-                background: COLOR_PALETTE.gray50,
-                border: `0.5px solid ${COLOR_PALETTE.border}`,
+                background: neutral50,
+                border: `0.5px solid ${neutral200}`,
                 borderRadius: 6,
-                fontSize: 12,
-                color: COLOR_PALETTE.blue600,
+                fontSize: "xs",
+                color: primary600,
                 textDecoration: 'none',
               }}
             >
@@ -103,7 +106,7 @@ export function AttachmentsCell({ attachments, costName }: AttachmentsCellProps)
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ flexShrink: 0, color: COLOR_PALETTE.gray400 }}
+                style={{ flexShrink: 0, color: neutral400 }}
               >
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                 <polyline points="15 3 21 3 21 9" />

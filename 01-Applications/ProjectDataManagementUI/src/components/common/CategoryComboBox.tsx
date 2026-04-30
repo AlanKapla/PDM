@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import ReactDOM from 'react-dom';
 import { Box, Input, Text } from '@chakra-ui/react';
 
@@ -131,7 +131,7 @@ export const CategoryComboBox: React.FC<CategoryComboBoxProps> = ({
             style={dropdownStyle}
             bg="white"
             border="1px solid"
-            borderColor="gray.200"
+            borderColor="neutral.200"
             borderRadius="md"
             boxShadow="lg"
             maxH="180px"
@@ -154,7 +154,7 @@ export const CategoryComboBox: React.FC<CategoryComboBoxProps> = ({
               >
                 <Text fontWeight="medium">{cat.symbol ?? cat.name}</Text>
                 {cat.symbol && cat.symbol !== cat.name && (
-                  <Text fontSize="xs" color="gray.500">
+                  <Text fontSize="xs" color="neutral.500">
                     {cat.name}
                   </Text>
                 )}
@@ -222,7 +222,7 @@ export const CategoryComboBox: React.FC<CategoryComboBoxProps> = ({
         variant="outline"
         placeholder="Kategoria..."
         bg="white"
-        borderColor="gray.300"
+        borderColor="neutral.300"
         _hover={{ borderColor: 'primary.400' }}
         _focus={{
           borderColor: 'primary.500',

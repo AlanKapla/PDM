@@ -1,4 +1,4 @@
-import { memo } from "react";
+﻿import { memo } from "react";
 import { Box, useColorModeValue } from "@chakra-ui/react";
 import type { BoxProps } from "@chakra-ui/react";
 

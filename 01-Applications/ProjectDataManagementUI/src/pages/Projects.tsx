@@ -7,7 +7,6 @@ import {
   VStack,
   HStack,
   Icon,
-  useColorModeValue,
   Button,
   Modal,
   ModalOverlay,
@@ -55,11 +54,8 @@ export default function Projects() {
   const [switching, setSwitching] = useState(false);
   
   const createModal = useModal();
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
   const permissions = useTenantPermissions();
-
-  const cardBg = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
 
   // Pobierz aktywnego tenanta i projekty
   useEffect(() => {
@@ -115,7 +111,7 @@ export default function Projects() {
     try {
       await changeActiveTenant(newTenantId);
       await refreshUser();
-      showSuccess("Organizacja przełączona");
+      showApiSuccess('tenantSwitched');
     } catch (err) {
       const { title, description } = handleApiError(err);
       showError(title, description);
@@ -134,12 +130,12 @@ export default function Projects() {
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) {
-      showError("Nazwa projektu wymagana");
+      showError("Sprawdź formularz", "Nazwa projektu jest wymagana");
       return;
     }
 
     if (!activeTenantId) {
-      showError("Brak aktywnego tenanta");
+      showError("Sprawdź formularz", "Brak aktywnej organizacji");
       return;
     }
 
@@ -147,7 +143,7 @@ export default function Projects() {
     try {
       await projectApi.createProject(activeTenantId, newProjectName.trim());
 
-      showSuccess("Projekt utworzony");
+      showApiSuccess('projectCreated');
       setNewProjectName("");
       createModal.onClose();
       
@@ -169,9 +165,9 @@ export default function Projects() {
         <Box
           mb={{ base: 4, md: 6 }}
           p={{ base: 3, md: 4 }}
-          bg={cardBg}
+          bg="white"
           borderWidth="1px"
-          borderColor={borderColor}
+          borderColor="neutral.200"
           borderRadius="lg"
         >
           <HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" gap={{ base: 2, md: 3 }}>
@@ -201,9 +197,9 @@ export default function Projects() {
                   maxW={{ base: "100%", md: "360px" }}
                   size={{ base: "sm", md: "md" }}
                   fontWeight="semibold"
-                  borderColor="level2.300"
-                  _hover={{ borderColor: "level2.400" }}
-                  _focus={{ borderColor: "level2.500", boxShadow: "0 0 0 1px var(--chakra-colors-level2-500)" }}
+                  borderColor="neutral.200"
+                  _hover={{ borderColor: "primary.300" }}
+                  _focus={{ borderColor: "primary.400", boxShadow: "0 0 0 1px var(--chakra-colors-primary-400)" }}
                   icon={switching ? <></> : undefined}
                 >
                   {tenants.map((tenant) => (
@@ -267,17 +263,16 @@ export default function Projects() {
             {projects.map((project) => (
               <Box
                 key={project.id}
-                bg={cardBg}
+                bg="white"
                 rounded="lg"
-                shadow="md"
                 borderWidth="1px"
-                borderColor={borderColor}
+                borderColor="neutral.200"
                 overflow="hidden"
                 cursor="pointer"
                 onClick={() => navigate(`/projects/${project.id}`)}
                 _hover={{
-                  shadow: "lg",
-                  borderColor: "primary.500",
+                  borderColor: "primary.300",
+                  bg: "neutral.25",
                 }}
                 transition="all 0.2s"
               >
@@ -290,14 +285,14 @@ export default function Projects() {
                           <Text fontWeight="bold" fontSize={{ base: "sm", md: "lg" }} noOfLines={1}>
                             {project.name}
                           </Text>
-                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "10px", md: "xs" }}>
+                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "xs", md: "xs" }}>
                             {project.isActive ? "Aktywny" : "Nieaktywny"}
                           </Badge>
-                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize={{ base: "10px", md: "xs" }}>
+                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize={{ base: "xs", md: "xs" }}>
                             {getRoleName(project.userRoleCode)}
                           </Badge>
                         </HStack>
-                        <HStack spacing={{ base: 2, md: 4 }} fontSize={{ base: "10px", md: "sm" }} color="gray.600" flexWrap="wrap">
+                          <HStack spacing={{ base: 2, md: 4 }} fontSize={{ base: "xs", md: "sm" }} color="neutral.600" flexWrap="wrap">
                           <HStack spacing={1}>
                             <Icon as={User} boxSize={3} />
                             <Text noOfLines={1}>{project.createdByUserName}</Text>

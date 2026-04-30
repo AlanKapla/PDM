@@ -104,7 +104,7 @@ export default function PeriodsModal({ isOpen, onClose, stageId, work }: Periods
               <Switch
                 isChecked={isWorkClosed}
                 onChange={e => setIsWorkClosed(e.target.checked)}
-                colorScheme="green"
+                colorScheme="primary"
               />
             </HStack>
             <Divider />
@@ -121,7 +121,7 @@ export default function PeriodsModal({ isOpen, onClose, stageId, work }: Periods
                 spacing={2}
               >
                 <HStack justify="space-between">
-                  <Text fontSize="xs" fontWeight="semibold" color="gray.500">Okres {idx + 1}</Text>
+                  <Text fontSize="xs" fontWeight="semibold" color="neutral.400">Okres {idx + 1}</Text>
                   <IconButton
                     aria-label="Usuń okres"
                     icon={<X size={12} />}
@@ -155,7 +155,7 @@ export default function PeriodsModal({ isOpen, onClose, stageId, work }: Periods
                 <Checkbox
                   isChecked={period.isClosed}
                   onChange={e => updatePeriod(period.tempKey, "isClosed", e.target.checked)}
-                  colorScheme="green"
+                  colorScheme="primary"
                   size="sm"
                 >
                   Okres zamknięty
@@ -163,13 +163,13 @@ export default function PeriodsModal({ isOpen, onClose, stageId, work }: Periods
               </VStack>
             ))}
 
-            <Button leftIcon={<Plus size={14} />} size="sm" variant="outline" onClick={addPeriod}>
+            <Button leftIcon={<Plus size={14} />} size="sm" variant="ghost" colorScheme="gray" onClick={addPeriod}>
               Dodaj okres
             </Button>
           </VStack>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
           <Button colorScheme="primary" onClick={handleSave} isLoading={isSubmitting}>Zapisz</Button>
         </DrawerFooter>
       </DrawerContent>

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+﻿import { useContext, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Badge,
@@ -66,15 +66,15 @@ function CostSummaryBar({ costs }: { costs: ProjectCostListItemWeb[] }) {
   return (
     <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3} p={3} bg={summaryBg} rounded="md">
       <Box>
-        <Text fontSize="xs" color="gray.600">Total:</Text>
+        <Text fontSize="xs" color="neutral.600">Total:</Text>
         <Text fontSize="md" fontWeight="bold">{formatCurrency(total)}</Text>
       </Box>
       <Box>
-        <Text fontSize="xs" color="gray.600">Nierozliczone:</Text>
+        <Text fontSize="xs" color="neutral.600">Nierozliczone:</Text>
         <Text fontSize="md" fontWeight="bold" color="orange.500">{formatCurrency(open)}</Text>
       </Box>
       <Box>
-        <Text fontSize="xs" color="gray.600">Rozliczone:</Text>
+        <Text fontSize="xs" color="neutral.600">Rozliczone:</Text>
         <Text fontSize="md" fontWeight="bold" color="green.500">{formatCurrency(closed)}</Text>
       </Box>
     </SimpleGrid>
@@ -132,7 +132,7 @@ function DocumentCell({ cost }: { cost: ProjectCostListItemWeb }) {
           icon={<Download size={14} />}
           size="xs"
           variant="ghost"
-          colorScheme="green"
+          colorScheme="gray"
           onClick={() => window.open(cost.downloadSasUrl!, '_blank')}
         />
       </Tooltip>
@@ -180,14 +180,15 @@ function AllCostsTab({
   return (
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between" flexWrap="wrap" gap={4}>
-        <Text fontSize="sm" color="gray.600">
+        <Text fontSize="sm" color="neutral.600">
           Wszystkie wydatki w projekcie (admin)
         </Text>
         <HStack spacing={2}>
           {resourcePerms.all.canShare && (
             <Button
               leftIcon={<Share2 size={18} />}
-              colorScheme="orange"
+              colorScheme="gray"
+              variant="outline"
               size="sm"
               onClick={onShareCostsModalOpen}
             >
@@ -197,7 +198,7 @@ function AllCostsTab({
           {resourcePerms.all.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
-              colorScheme="green"
+              colorScheme="primary"
               size="sm"
               onClick={onAddCost}
             >
@@ -236,7 +237,7 @@ function AllCostsTab({
           ))}
         </VStack>
       ) : (
-        <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+        <Box overflowX="auto" bg="white" p={4} rounded="lg" borderWidth="1px" borderColor="neutral.200">
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
@@ -255,9 +256,9 @@ function AllCostsTab({
             </Thead>
             <Tbody>
               {costs.map((cost) => (
-                <Tr key={cost.id} _hover={{ bg: hoverBg }} cursor="pointer" onClick={() => onEditCost(cost)}>
+                <Tr key={cost.id} _hover={{ bg: 'neutral.50' }} cursor="pointer" onClick={() => onEditCost(cost)}>
                   <Td fontWeight="medium">{cost.name}</Td>
-                  <Td fontSize="sm" color="gray.600">{cost.userName || "-"}</Td>
+                  <Td fontSize="sm" color="neutral.600">{cost.userName || "-"}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
@@ -283,7 +284,7 @@ function AllCostsTab({
                               icon={<Share2 size={14} />}
                               size="xs"
                               variant="ghost"
-                              colorScheme="orange"
+                              colorScheme="gray"
                               onClick={() => onManageShare(cost)}
                             />
                           </Tooltip>
@@ -354,14 +355,15 @@ function MyCostsTab({
   return (
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between" flexWrap="wrap" gap={4}>
-        <Text fontSize="sm" color="gray.600">
+        <Text fontSize="sm" color="neutral.600">
           Twoje wydatki w projekcie
         </Text>
         <HStack spacing={2}>
           {resourcePerms.mine.canShare && (
             <Button
               leftIcon={<Share2 size={18} />}
-              colorScheme="orange"
+              colorScheme="gray"
+              variant="outline"
               size="sm"
               onClick={onShareCostsModalOpen}
             >
@@ -371,7 +373,7 @@ function MyCostsTab({
           {resourcePerms.mine.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
-              colorScheme="green"
+              colorScheme="primary"
               size="sm"
               onClick={onAddCost}
             >
@@ -409,7 +411,7 @@ function MyCostsTab({
           ))}
         </VStack>
       ) : (
-        <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+        <Box overflowX="auto" bg="white" p={4} rounded="lg" borderWidth="1px" borderColor="neutral.200">
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
@@ -425,7 +427,7 @@ function MyCostsTab({
             </Thead>
             <Tbody>
               {costs.map((cost) => (
-                <Tr key={cost.id} _hover={{ bg: hoverBg }} cursor="pointer" onClick={() => onEditCost(cost)}>
+                <Tr key={cost.id} _hover={{ bg: 'neutral.50' }} cursor="pointer" onClick={() => onEditCost(cost)}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
@@ -451,7 +453,7 @@ function MyCostsTab({
                             icon={<Share2 size={14} />}
                             size="xs"
                             variant="ghost"
-                            colorScheme="orange"
+                            colorScheme="gray"
                             onClick={() => onShareCost(cost)}
                           />
                         </Tooltip>
@@ -508,7 +510,7 @@ function SharedCostsTab({
 
   return (
     <VStack spacing={4} align="stretch">
-      <Text fontSize="sm" color="gray.600">
+      <Text fontSize="sm" color="neutral.600">
         Wydatki udostępnione przez innych członków projektu
       </Text>
 
@@ -534,7 +536,7 @@ function SharedCostsTab({
           ))}
         </VStack>
       ) : (
-        <Box overflowX="auto" bg={bgColor} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+        <Box overflowX="auto" bg="white" p={4} rounded="lg" borderWidth="1px" borderColor="neutral.200">
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
@@ -550,7 +552,7 @@ function SharedCostsTab({
             </Thead>
             <Tbody>
               {costs.map((cost) => (
-                <Tr key={cost.id} _hover={{ bg: hoverBg }}>
+                <Tr key={cost.id} _hover={{ bg: 'neutral.50' }}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td>{cost.place || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
@@ -583,7 +585,7 @@ function SharedCostsTab({
 export default function ProjectSimpleCosts() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useContext(AuthContext);
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any | null>(null);
@@ -752,7 +754,7 @@ export default function ProjectSimpleCosts() {
           updatedDocument: modalDocumentFile && editingCost.hasDocument ? modalDocumentFile : undefined,
           removeDocument: formData.removeDocument,
         });
-        showSuccess("Koszt został zaktualizowany");
+        showApiSuccess('costUpdated');
       } else {
         await projectApi.createProjectCost(user.activeTenantId, projectId, {
           name: formData.name,
@@ -764,7 +766,7 @@ export default function ProjectSimpleCosts() {
           isClosed: formData.isClosed,
           document: modalDocumentFile || undefined,
         });
-        showSuccess("Koszt został dodany");
+        showApiSuccess('costAdded');
       }
 
       handleCloseModal();
@@ -792,7 +794,7 @@ export default function ProjectSimpleCosts() {
     onDeleteAlertClose();
     try {
       await projectApi.deleteProjectCost(user.activeTenantId, projectId, costToDelete);
-      showSuccess("Koszt został usunięty");
+      showApiSuccess('costDeleted');
       refreshData();
     } catch {
       showError("Wystąpił błąd podczas usuwania kosztu");
@@ -846,7 +848,7 @@ export default function ProjectSimpleCosts() {
         }
       );
 
-      showSuccess("Status rozliczenia został zaktualizowany");
+      showApiSuccess('statusUpdated');
       refreshData();
     } catch {
       showError("Wystąpił błąd podczas aktualizacji statusu");
@@ -886,7 +888,7 @@ export default function ProjectSimpleCosts() {
         }
       );
 
-      showSuccess("Status rozliczenia został zaktualizowany");
+      showApiSuccess('statusUpdated');
       refreshData();
     } catch {
       showError("Wystąpił błąd podczas aktualizacji statusu");
@@ -914,7 +916,7 @@ export default function ProjectSimpleCosts() {
             <Icon as={DollarSign} boxSize={8} color="red.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Wydatki</Heading>
-              {projectName && <Text fontSize="sm" color="gray.600">{projectName}</Text>}
+              {projectName && <Text fontSize="sm" color="neutral.600">{projectName}</Text>}
             </VStack>
           </HStack>
         </HStack>

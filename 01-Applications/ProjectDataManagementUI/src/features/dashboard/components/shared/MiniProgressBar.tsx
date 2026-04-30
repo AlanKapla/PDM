@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLOR_PALETTE } from '../../utils/colors';
+import { useToken } from '@chakra-ui/react';
 
 export interface MiniProgressBarProps {
   percent: number | null;
@@ -15,15 +15,16 @@ export function MiniProgressBar({
   exceeded = false,
   height = 4,
 }: MiniProgressBarProps): React.ReactElement {
+  const [red400, neutral100] = useToken('colors', ['red.400', 'neutral.100']);
   const clampedPercent = Math.min(100, Math.max(0, percent ?? 0));
-  const barColor = exceeded ? COLOR_PALETTE.red400 : color;
+  const barColor = exceeded ? red400 : color;
 
   return (
     <div
       style={{
         width: '100%',
         height,
-        background: COLOR_PALETTE.gray100,
+        background: neutral100,
         borderRadius: height,
         overflow: 'hidden',
       }}

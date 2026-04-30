@@ -1,4 +1,4 @@
-import {
+﻿import {
   VStack,
   HStack,
   Text,
@@ -36,7 +36,7 @@ export default function AttachmentList({
           px={2}
           py={1}
           borderRadius="md"
-          bg="gray.50"
+          bg="neutral.25"
           _dark={{ bg: "gray.700" }}
           spacing={2}
         >
@@ -46,7 +46,7 @@ export default function AttachmentList({
               {att.originalFileName}
             </Link>
           </Text>
-          <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">
+          <Text fontSize="xs" color="neutral.500" whiteSpace="nowrap">
             {formatFileSize(att.fileSize)}
           </Text>
           <Tooltip label="Pobierz">

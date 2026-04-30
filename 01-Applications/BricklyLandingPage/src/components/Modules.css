@@ -39,7 +39,7 @@
 .module-card:hover {
   box-shadow: var(--shadow-lg);
   border-color: var(--cobalt-200);
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
 .module-card:hover::before {

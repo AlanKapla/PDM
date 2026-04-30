@@ -96,8 +96,8 @@ export default function StageFormModal({ isOpen, onClose, parentStageId, renameS
           </VStack>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
-          <Button colorScheme="green" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!name.trim()}>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
+          <Button colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!name.trim()}>
             {isEditMode ? "Zapisz" : "Dodaj"}
           </Button>
         </DrawerFooter>

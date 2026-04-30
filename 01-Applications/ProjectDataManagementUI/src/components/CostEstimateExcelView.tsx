@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+﻿import React, { useMemo, useState, useEffect } from "react";
 import {
   Box,
   Table,
@@ -947,12 +947,12 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
         <Box
           p={12}
           textAlign="center"
-          bg="gray.50"
+          bg="neutral.25"
           borderRadius="md"
           borderWidth="1px"
         >
           <VStack spacing={4}>
-            <Text color="gray.500" fontSize="lg">
+            <Text color="neutral.500" fontSize="lg">
               Brak etapów w kosztorysie.
             </Text>
             {(() => {
@@ -982,7 +982,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
           borderRadius="xl"
           shadow="lg"
           borderWidth="1px"
-          borderColor="gray.200"
+          borderColor="neutral.200"
         >
           <Table size="sm" variant="simple">
             {renderTableHeader()}
@@ -1012,7 +1012,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                       {/* Kolumna pozycji - Ikona zwijania + Badge + numer grupy + akcje */}
                       <Td
                         borderRightWidth="1px"
-                        borderRightColor="gray.200"
+                        borderRightColor="neutral.200"
                         p={3}
                         pl={`${indent + 12}px`}
                         borderBottomWidth="2px"
@@ -1053,7 +1053,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                             <Td
                               key={`group-header-${field.type}`}
                               borderRightWidth="1px"
-                              borderRightColor="gray.200"
+                              borderRightColor="neutral.200"
                               py={2}
                               px={2}
                               borderBottomWidth="2px"
@@ -1104,7 +1104,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               <Td
                                 key={`empty-coll-action-${collectionField.name}`}
                                 borderRightWidth="1px"
-                                borderRightColor="gray.200"
+                                borderRightColor="neutral.200"
                                 borderBottomWidth="2px"
                                 borderBottomColor={isGroup ? "primary.200" : "action.200"}
                               />
@@ -1114,7 +1114,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                             <Td
                               key={`empty-coll-${item.fullName}`}
                               borderRightWidth="1px"
-                              borderRightColor="gray.200"
+                              borderRightColor="neutral.200"
                               borderBottomWidth="2px"
                               borderBottomColor={isGroup ? "primary.200" : "action.200"}
                             />
@@ -1129,7 +1129,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               key={`group-${item.fieldType}-${field.name}`}
                               isNumeric={item.fieldType === 'calculated'}
                               borderRightWidth="1px"
-                              borderRightColor="gray.200"
+                              borderRightColor="neutral.200"
                               borderBottomWidth="2px"
                               borderBottomColor={isGroup ? "primary.200" : "action.200"}
                               fontWeight="bold"
@@ -1223,22 +1223,22 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                     <Tr
                       key={`ws-${row.workScope.id}-${idx}`}
                       _hover={{
-                        bg: editable ? "primary.50" : "gray.50",
+                        bg: editable ? "primary.50" : "neutral.25",
                         transform: "translateX(2px)",
                         shadow: "sm",
                         transition: "all 0.2s ease",
                       }}
                       borderBottomWidth="1px"
-                      borderBottomColor="gray.100"
+                      borderBottomColor="neutral.100"
                       transition="all 0.2s"
                     >
                       {/* Kolumna pozycji z numerem */}
                       <Td
                         borderRightWidth="2px"
-                        borderRightColor="gray.300"
+                        borderRightColor="neutral.300"
                         pl={`${indent + 8}px`}
                         py={3}
-                        color="gray.700"
+                        color="neutral.700"
                         fontWeight="medium"
                         fontSize="sm"
                       >
@@ -1257,12 +1257,12 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                             <Td
                               key={`ws-header-${field.type}`}
                               borderRightWidth="1px"
-                              borderRightColor="gray.200"
+                              borderRightColor="neutral.200"
                               py={2}
                               px={2}
                               bgGradient="linear(to-b, gray.50, gray.100)"
                             >
-                              <Text fontSize="sm" color="gray.600">
+                              <Text fontSize="sm" color="neutral.600">
                                 {value !== undefined && value !== null
                                   ? typeof value === "boolean"
                                     ? value
@@ -1294,7 +1294,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               <Td
                                 key={`coll-action-${collectionField.name}`}
                                 borderRightWidth="1px"
-                                borderRightColor="gray.200"
+                                borderRightColor="neutral.200"
                                 py={2}
                                 px={2}
                                 bg="level2.50"
@@ -1396,7 +1396,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                               key={`ws-coll-${item.fullName}`}
                               isNumeric={isCalc}
                               borderRightWidth="1px"
-                              borderRightColor="gray.200"
+                              borderRightColor="neutral.200"
                               py={2}
                               px={2}
                               fontSize="sm"
@@ -1471,7 +1471,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                   {/* Quasi-wiersz pusty - aby wyrównać z przyciskiem Dodaj */}
                                   {onAddCollectionItem && (
                                     <Box height="40px" display="flex" alignItems="center" width="100%" py={0.5}>
-                                      <Text fontSize="xs" color="gray.400">-</Text>
+                                      <Text fontSize="xs" color="neutral.400">-</Text>
                                     </Box>
                                   )}
                                 </VStack>
@@ -1480,7 +1480,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                                   {/* Pusty wiersz z przyciskiem dodaj */}
                                   {onAddCollectionItem && (
                                     <Box height="40px" display="flex" alignItems="center" width="100%" py={0.5}>
-                                      <Text fontSize="xs" color="gray.400">-</Text>
+                                      <Text fontSize="xs" color="neutral.400">-</Text>
                                     </Box>
                                   )}
                                 </VStack>
@@ -1515,7 +1515,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                             key={`ws-${item.fieldType}-${field.name}`}
                             isNumeric={isCalculated}
                             borderRightWidth="1px"
-                            borderRightColor="gray.200"
+                            borderRightColor="neutral.200"
                             py={2}
                             px={2}
                             fontSize="sm"
@@ -1590,7 +1590,7 @@ export const CostEstimateExcelView: React.FC<CostEstimateViewerProps> = ({
                       {editable && (
                         <Td
                           borderLeftWidth="2px"
-                          borderLeftColor="gray.300"
+                          borderLeftColor="neutral.300"
                           py={2}
                           px={2}
                         >

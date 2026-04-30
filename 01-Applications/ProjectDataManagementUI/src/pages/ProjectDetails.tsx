@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -58,7 +58,7 @@ export default function ProjectDetails() {
   const { isOpen: isUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
-  const { showSuccess, showError, showWarning } = useToastNotification();
+  const { showSuccess, showError, showWarning, showApiSuccess } = useToastNotification();
 
   const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -270,7 +270,7 @@ export default function ProjectDetails() {
         }
       );
 
-      showSuccess("Sukces", "Koszt został dodany");
+      showApiSuccess('costAdded');
 
       // Reset formularza
       setNewCostData({
@@ -355,7 +355,7 @@ export default function ProjectDetails() {
         }
       );
 
-      showSuccess("Sukces", "Koszt został zaktualizowany");
+      showApiSuccess('costUpdated');
 
       setEditingCostId(null);
       setEditingCostData(null);
@@ -391,7 +391,7 @@ export default function ProjectDetails() {
 
       await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
 
-      showSuccess("Sukces", "Koszt został usunięty");
+      showApiSuccess('costDeleted');
 
       await fetchProjectCosts();
     } catch (error) {
@@ -507,7 +507,7 @@ export default function ProjectDetails() {
         comment.trim()
       );
 
-      showSuccess("Sukces", "Komentarz został dodany");
+      showApiSuccess('commentAdded');
 
       // Wyczyść pole komentarza
       setNewComments((prev) => {
@@ -546,7 +546,7 @@ export default function ProjectDetails() {
     try {
       await projectApi.removeProjectMember(user.activeTenantId, projectId, memberToRemove.userId);
 
-      showSuccess("Sukces", `Użytkownik ${memberToRemove.name} został usunięty z projektu`);
+      showApiSuccess('memberRemoved');
 
       // Odśwież listę
       projectDetailsCache.clear();
@@ -571,12 +571,7 @@ export default function ProjectDetails() {
     try {
       await projectApi.toggleProjectStatus(user.activeTenantId, projectId, newStatus);
 
-      showSuccess(
-        newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
-        newStatus
-          ? "Projekt został pomyślnie aktywowany"
-          : "Projekt został pomyślnie zdezaktywowany"
-      );
+      showApiSuccess(newStatus ? 'activated' : 'deactivated');
 
       onToggleStatusClose();
 
@@ -603,7 +598,7 @@ export default function ProjectDetails() {
     try {
       await projectApi.updateProject(user.activeTenantId, projectId, { Name: editedName });
 
-      showSuccess("Zaktualizowano", "Nazwa projektu została zmieniona");
+      showApiSuccess('nameUpdated');
 
       setIsEditingName(false);
       projectDetailsCache.clear();
@@ -657,7 +652,7 @@ export default function ProjectDetails() {
                                 leftIcon={<Power size={16} />}
                                 colorScheme={project.isActive ? "red" : "green"}
                                 onClick={onToggleStatusOpen}
-                                fontSize={{ base: "10px", md: "sm" }}
+                                fontSize={{ base: "xs", md: "sm" }}
                               >
                                 {project.isActive ? "Dezaktywuj" : "Aktywuj"}
                               </Button>
@@ -669,7 +664,7 @@ export default function ProjectDetails() {
                               variant="ghost"
                               leftIcon={<Edit2 size={16} />}
                               onClick={() => setIsEditingName(true)}
-                              fontSize={{ base: "10px", md: "sm" }}
+                              fontSize={{ base: "xs", md: "sm" }}
                             >
                               Edytuj
                             </Button>
@@ -729,7 +724,7 @@ export default function ProjectDetails() {
                           {project.isActive ? "Aktywny" : "Nieaktywny"}
                         </Badge>
                       </HStack>
-                      <Text fontSize="sm" color="gray.500">
+                      <Text fontSize="sm" color="neutral.500">
                         Utworzono: {formatDate(project.createdAt)}
                       </Text>
                       <Badge colorScheme={getRoleColor(project.userRoleCode)}>

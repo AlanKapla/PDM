@@ -11,6 +11,7 @@ import {
   MenuDivider,
   MenuItem,
   MenuList,
+  Spinner,
   Tooltip,
 } from "@chakra-ui/react";
 import {
@@ -136,7 +137,7 @@ export default function CostEstimateToolbar({
       tooltip: "Przełącz w tryb podglądu (tylko odczyt)",
       onClick: onSetViewMode,
       isActive: !isEditMode,
-      colorScheme: !isEditMode ? "blue" : "gray",
+      colorScheme: !isEditMode ? "primary" : "gray",
       variant: !isEditMode ? "solid" : "outline",
       isVisible: canEdit,
     },
@@ -147,7 +148,7 @@ export default function CostEstimateToolbar({
       tooltip: "Włącz tryb edycji inline",
       onClick: onSetEditMode,
       isActive: isEditMode,
-      colorScheme: isEditMode ? "green" : "gray",
+      colorScheme: isEditMode ? "primary" : "gray",
       variant: isEditMode ? "solid" : "outline",
       isVisible: canEdit,
     },
@@ -171,7 +172,7 @@ export default function CostEstimateToolbar({
       label: "Udostępnij",
       tooltip: "Zarządzaj dostępem do kosztorysu",
       onClick: onShare,
-      colorScheme: "teal",
+      colorScheme: "gray",
       variant: "outline",
       isVisible: canShare,
     },
@@ -280,7 +281,11 @@ export default function CostEstimateToolbar({
               Przejdź do harmonogramu
             </MenuItem>
             <MenuDivider />
-            <MenuItem icon={<RefreshCw size={14} />} onClick={onSyncSchedule}>
+            <MenuItem
+              icon={isSyncing ? <Spinner size="xs" /> : <RefreshCw size={14} />}
+              onClick={onSyncSchedule}
+              isDisabled={isSyncing}
+            >
               {isSyncing ? "Synchronizuję…" : "Synchronizuj"}
             </MenuItem>
           </>
@@ -312,7 +317,11 @@ export default function CostEstimateToolbar({
               Przejdź do harmonogramu
             </MenuItem>
             <MenuDivider />
-            <MenuItem icon={<RefreshCw size={14} />} onClick={onSyncSchedule}>
+            <MenuItem
+              icon={isSyncing ? <Spinner size="xs" /> : <RefreshCw size={14} />}
+              onClick={onSyncSchedule}
+              isDisabled={isSyncing}
+            >
               {isSyncing ? "Synchronizuję…" : "Synchronizuj"}
             </MenuItem>
           </>
@@ -384,26 +393,7 @@ export default function CostEstimateToolbar({
       {/* ── MOBILE (<600px): skonsolidowane dropdown ── */}
       {bp === "mobile" && (
         <HStack spacing={2} flexWrap="wrap">
-          {visibleMode.length > 0 && (
-            <Box position="relative" display="inline-flex">
-              <Menu>
-                <MenuButton
-                  as={Button}
-                  rightIcon={<ChevronDown size={12} />}
-                  leftIcon={<Eye size={13} />}
-                  size="xs"
-                  colorScheme={hasActiveEdit ? "green" : "gray"}
-                  variant={hasActiveEdit ? "solid" : "outline"}
-                >
-                  Tryb
-                </MenuButton>
-                <MenuList minW="200px">
-                  {visibleMode.map(renderMenuItem)}
-                </MenuList>
-              </Menu>
-              {hasActiveEdit && <ActiveDot />}
-            </Box>
-          )}
+          {/* Na mobile zawsze tryb edycji — brak przełącznika */}
 
           {canEdit && (
             <Box position="relative" display="inline-flex">

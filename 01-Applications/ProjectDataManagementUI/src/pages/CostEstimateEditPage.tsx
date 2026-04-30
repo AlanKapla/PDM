@@ -25,6 +25,7 @@ import {
   ModalCloseButton,
   FormControl,
   FormLabel,
+  FormErrorMessage,
   Input,
   Textarea,
   useDisclosure,
@@ -133,7 +134,7 @@ export const CostEstimateEditPage: React.FC = () => {
 
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
 
   // ---- Uprawnienia do zasobu ----
   const resourcePerms = useResourcePermissions(projectId);
@@ -162,10 +163,17 @@ export const CostEstimateEditPage: React.FC = () => {
 
   // ---- Dialog usuwania grupy ----
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] =
+    useState<{ groupId: string; itemId: string } | null>(null);
+  const [optionToDelete, setOptionToDelete] =
+    useState<{ groupId: string; itemId: string; optionId: string } | null>(null);
+  const [componentToDelete, setComponentToDelete] =
+    useState<{ groupId: string; itemId: string; componentId: string } | null>(null);
 
   // ---- Modal edycji nazwy/opisu ----
   const { isOpen: isEditMetaOpen, onOpen: onEditMetaOpen, onClose: onEditMetaClose } = useDisclosure();
   const [editName, setEditName] = useState('');
+  const [editNameError, setEditNameError] = useState<string>('');
 
   // ---- Modal ostrzeżenia o niezapisanych zmianach ----
   const { isOpen: isUnsavedOpen, onOpen: onUnsavedOpen, onClose: onUnsavedClose } = useDisclosure();
@@ -228,6 +236,7 @@ export const CostEstimateEditPage: React.FC = () => {
     if (details) {
       setEditName(details.name);
       setEditDescription(details.description || '');
+      setEditNameError('');
       onEditMetaOpen();
     }
   }, [details, onEditMetaOpen]);
@@ -237,17 +246,19 @@ export const CostEstimateEditPage: React.FC = () => {
     if (!details) return;
     const trimmedName = editName.trim();
     if (!trimmedName) {
-      showError('Błąd', 'Nazwa kosztorysu nie może być pusta');
+      setEditNameError('Nazwa kosztorysu nie może być pusta');
       return;
     }
+    setEditNameError('');
     setDetails({
       ...details,
       name: trimmedName,
       description: editDescription.trim() || undefined,
     });
     setHasChanges(true);
+    showApiSuccess('nameUpdated');
     onEditMetaClose();
-  }, [details, editName, editDescription, onEditMetaClose, showError]);
+  }, [details, editName, editDescription, onEditMetaClose, showSuccess]);
 
   // ========== BEFOREUNLOAD (zamykanie karty / odświeżanie) ==========
   useEffect(() => {
@@ -480,7 +491,7 @@ export const CostEstimateEditPage: React.FC = () => {
     try {
       setIsSyncing(true);
       await projectApi.syncWorkScheduleWithEstimate(user.activeTenantId, projectId, details.workScheduleId);
-      showSuccess('Synchronizacja zakończona', 'Harmonogram został zaktualizowany wg kosztorysu');
+      showApiSuccess('syncDone');
     } catch {
       showError('Błąd synchronizacji', 'Nie udało się zsynchronizować harmonogramu');
     } finally {
@@ -513,6 +524,10 @@ export const CostEstimateEditPage: React.FC = () => {
       setHasChanges(false);
       setLastSavedAt(new Date());
     } catch (err) {
+      showError(
+        'Błąd przeliczania',
+        'Nie udało się przeliczyć kosztorysu. Spróbuj ponownie.'
+      );
     } finally {
       setIsRecalculating(false);
     }
@@ -905,6 +920,24 @@ export const CostEstimateEditPage: React.FC = () => {
     },
     [user?.activeTenantId, projectId, estimateId, details, showError],
   );
+
+  const confirmDeleteItem = useCallback(async () => {
+    if (!itemToDelete) return;
+    await handleDeleteItem(itemToDelete.groupId, itemToDelete.itemId);
+    setItemToDelete(null);
+  }, [itemToDelete, handleDeleteItem]);
+
+  const confirmDeleteOption = useCallback(async () => {
+    if (!optionToDelete) return;
+    await handleDeleteItem(optionToDelete.groupId, optionToDelete.optionId);
+    setOptionToDelete(null);
+  }, [optionToDelete, handleDeleteItem]);
+
+  const confirmDeleteComponent = useCallback(async () => {
+    if (!componentToDelete) return;
+    await handleDeleteItem(componentToDelete.groupId, componentToDelete.componentId);
+    setComponentToDelete(null);
+  }, [componentToDelete, handleDeleteItem]);
 
   /**
    * Dodaje opcję (relationType=1) lub komponent (relationType=2) do pozycji
@@ -1314,6 +1347,17 @@ export const CostEstimateEditPage: React.FC = () => {
               >
                 {details.name}
               </Text>
+              {hasChanges && (
+                <Badge
+                  colorScheme="orange"
+                  variant="subtle"
+                  fontSize="xs"
+                  verticalAlign="middle"
+                  flexShrink={0}
+                >
+                  Niezapisane zmiany
+                </Badge>
+              )}
               {isEditMode && canFullEdit && (
                 <Tooltip label="Edytuj nazwę i opis">
                   <IconButton
@@ -1352,15 +1396,17 @@ export const CostEstimateEditPage: React.FC = () => {
               <Text>Przeliczono {formatTime(lastSavedAt)}</Text>
             </HStack>
           )}
-          <Tooltip label={isFullscreen ? 'Zamknij pełny ekran (Esc)' : 'Pełny ekran'}>
-            <IconButton
-              aria-label="Pełny ekran"
-              icon={isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              size="sm"
-              variant="outline"
-              onClick={() => setIsFullscreen((v) => !v)}
-            />
-          </Tooltip>
+          <Box display={{ base: 'none', md: 'block' }}>
+            <Tooltip label={isFullscreen ? 'Zamknij pełny ekran (Esc)' : 'Pełny ekran'}>
+              <IconButton
+                aria-label="Pełny ekran"
+                icon={isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                size="sm"
+                variant="outline"
+                onClick={() => setIsFullscreen((v) => !v)}
+              />
+            </Tooltip>
+          </Box>
         </HStack>
       </Flex>
 
@@ -1435,6 +1481,9 @@ export const CostEstimateEditPage: React.FC = () => {
     onAddSubGroup: handleAddSubGroup,
     onAddItem: handleAddItem,
     onDeleteItem: handleDeleteItem,
+    onRequestDeleteItem: (groupId: string, itemId: string) => setItemToDelete({ groupId, itemId }),
+    onRequestDeleteOption: (groupId: string, itemId: string, optionId: string) => setOptionToDelete({ groupId, itemId, optionId }),
+    onRequestDeleteComponent: (groupId: string, itemId: string, componentId: string) => setComponentToDelete({ groupId, itemId, componentId }),
     onAddChildItem: handleAddChildItem,
     onUploadFiles: handleUploadFiles,
     onUploadSuccess: handleUploadSuccess,
@@ -1539,6 +1588,33 @@ export const CostEstimateEditPage: React.FC = () => {
         confirmText="Usuń etap"
         colorScheme="red"
       />
+      <ConfirmDialog
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteItem}
+        title="Usuń pozycję"
+        message="Czy na pewno chcesz usunąć tę pozycję? Operacja jest nieodwracalna."
+        confirmText="Usuń pozycję"
+        colorScheme="red"
+      />
+      <ConfirmDialog
+        isOpen={!!optionToDelete}
+        onClose={() => setOptionToDelete(null)}
+        onConfirm={confirmDeleteOption}
+        title="Usuń opcję"
+        message="Czy na pewno chcesz usunąć tę opcję?"
+        confirmText="Usuń opcję"
+        colorScheme="red"
+      />
+      <ConfirmDialog
+        isOpen={!!componentToDelete}
+        onClose={() => setComponentToDelete(null)}
+        onConfirm={confirmDeleteComponent}
+        title="Usuń komponent"
+        message="Czy na pewno chcesz usunąć ten komponent?"
+        confirmText="Usuń komponent"
+        colorScheme="red"
+      />
 
       {/* Modal edycji nazwy i opisu */}
       <Modal isOpen={isEditMetaOpen} onClose={onEditMetaClose} isCentered size={{ base: "full", md: "lg" }}>
@@ -1548,14 +1624,18 @@ export const CostEstimateEditPage: React.FC = () => {
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4}>
-              <FormControl isRequired>
+              <FormControl isRequired isInvalid={!!editNameError}>
                 <FormLabel>Nazwa</FormLabel>
                 <Input
                   value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
+                  onChange={(e) => {
+                    setEditName(e.target.value);
+                    if (editNameError) setEditNameError('');
+                  }}
                   placeholder="Nazwa kosztorysu"
                   autoFocus
                 />
+                <FormErrorMessage>{editNameError}</FormErrorMessage>
               </FormControl>
               <FormControl>
                 <FormLabel>Opis</FormLabel>

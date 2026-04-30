@@ -154,3 +154,8 @@
     display: flex;
   }
 }
+
+.navbar__mobile-cta {
+  margin-top: 8px;
+  justify-content: center;
+}

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+﻿import { useRef } from "react";
 import {
   VStack,
   HStack,
@@ -209,7 +209,7 @@ export default function CostForm({
             ))}
           </VStack>
         )}
-        <Text fontSize="xs" color="gray.500" mt={1}>
+        <Text fontSize="xs" color="neutral.500" mt={1}>
           Maksymalny rozmiar pliku: 52 MB
         </Text>
       </Box>

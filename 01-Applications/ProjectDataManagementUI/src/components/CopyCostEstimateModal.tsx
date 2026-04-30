@@ -22,6 +22,7 @@ import { AuthContext } from "../context/AuthContext";
 import { projectApi } from "../api/projectApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { handleApiError } from "../utils/handleApiError";
 
 interface CopyCostEstimateModalProps {
   isOpen: boolean;
@@ -41,7 +42,7 @@ export default function CopyCostEstimateModal({
   onSuccess,
 }: CopyCostEstimateModalProps) {
   const { user } = useContext(AuthContext);
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
 
   const [projects, setProjects] = useState<Record<string, string>>({});
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -71,7 +72,8 @@ export default function CopyCostEstimateModal({
       
       setProjects(filteredProjects);
     } catch (error) {
-      showError("Nie udało się pobrać listy projektów");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setLoading(false);
     }
@@ -89,17 +91,13 @@ export default function CopyCostEstimateModal({
         selectedProjectIds
       );
 
-      showSuccess(
-        `Kosztorys skopiowany`,
-        `Utworzono ${newCostEstimateIds.length} ${
-          newCostEstimateIds.length === 1 ? "kopię" : "kopii"
-        } kosztorysu`
-      );
+      showApiSuccess('estimateCopied');
 
       onSuccess?.();
       handleClose();
     } catch (error) {
-      showError("Nie udało się skopiować kosztorysu");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setCopying(false);
     }

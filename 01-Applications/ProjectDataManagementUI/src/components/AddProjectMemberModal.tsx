@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -21,6 +21,7 @@ import { projectApi } from "../api/projectApi";
 import { useProjectCache } from "../hooks/useProjectCache";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { handleApiError } from '../utils/handleApiError';
 import { LoadingSpinner, EmptyState, UserAvatar, DataCard } from "./common";
 import type { TenantMemberWeb, ProjectMemberWeb } from "../types/project.types";
 
@@ -42,7 +43,7 @@ export default function AddProjectMemberModal({
   projectName,
   onMemberAdded
 }: AddProjectMemberModalProps) {
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
   const { invalidateProject } = useProjectCache();
   const [tenantMembers, setTenantMembers] = useState<TenantMemberWeb[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberWeb[]>([]);
@@ -71,7 +72,8 @@ export default function AddProjectMemberModal({
       const projectMembers: ProjectMemberWeb[] = projectMembersRes.data;
       setProjectMembers(projectMembers);
     } catch (error) {
-      showError("Błąd", "Nie udało się pobrać listy członków");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setLoading(false);
     }
@@ -82,7 +84,7 @@ export default function AddProjectMemberModal({
     try {
       await projectApi.addProjectMember(tenantId, projectId, userId);
       
-      showSuccess("Sukces", "Członek został dodany do projektu");
+      showApiSuccess('memberAdded');
       
       // Invalidate project cache - permissions might have changed
       invalidateProject(projectId);
@@ -91,8 +93,7 @@ export default function AddProjectMemberModal({
       await fetchData();
       onMemberAdded?.();
     } catch (error) {
-      const errorModule = await import("../utils/handleApiError");
-      const { title, description } = errorModule.handleApiError(error);
+      const { title, description } = handleApiError(error);
       showError(title, description);
     } finally {
       setAdding(null);
@@ -115,7 +116,7 @@ export default function AddProjectMemberModal({
               <Icon as={UserPlus} boxSize={{ base: 4, md: 5 }} />
               <Text fontSize={{ base: "sm", md: "md" }}>Dodaj członka do projektu</Text>
             </HStack>
-            <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="normal" color="gray.500">
+            <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="normal" color="neutral.500">
               {projectName}
             </Text>
           </VStack>
@@ -170,7 +171,7 @@ export default function AddProjectMemberModal({
                             <Text fontWeight="medium" fontSize="sm">
                               {member.firstName} {member.lastName}
                             </Text>
-                            <Text fontSize="xs" color="gray.500">
+                            <Text fontSize="xs" color="neutral.500">
                               {member.email}
                             </Text>
                           </VStack>
@@ -196,7 +197,7 @@ export default function AddProjectMemberModal({
 
           {projectMembers.length > 0 && (
             <Box mt={6}>
-              <Text fontWeight="semibold" mb={3} fontSize="sm" color="gray.600">
+              <Text fontWeight="semibold" mb={3} fontSize="sm" color="neutral.600">
                 Już w projekcie ({projectMembers.length})
               </Text>
               <Box
@@ -243,7 +244,7 @@ export default function AddProjectMemberModal({
                                   {getRoleName(member.roleCode)}
                                 </Badge>
                               </HStack>
-                              <Text fontSize="xs" color="gray.500">
+                              <Text fontSize="xs" color="neutral.500">
                                 {member.email}
                               </Text>
                             </VStack>

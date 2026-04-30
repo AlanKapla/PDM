@@ -1,4 +1,4 @@
-import {
+﻿import {
   Box,
   VStack,
   HStack,
@@ -143,7 +143,7 @@ export default function ProjectBudgetDashboard({
           <TabList overflowX="auto">
             <Tab fontSize={{ base: "xs", md: "sm" }} minH="44px">
               Kosztorysy
-              <Badge ml={2} colorScheme="blue" borderRadius="full" fontSize="xs">
+              <Badge ml={2} colorScheme="primary" borderRadius="full" fontSize="xs">
                 {data.costEstimateSummaries.length}
               </Badge>
             </Tab>
@@ -166,7 +166,7 @@ export default function ProjectBudgetDashboard({
             <TabPanel px={0}>
               <VStack spacing={4} align="stretch">
                 {data.costEstimateSummaries.length === 0 ? (
-                  <Text color="gray.500" fontSize="sm" textAlign="center" py={8}>
+                  <Text color="neutral.500" fontSize="sm" textAlign="center" py={8}>
                     Brak kosztorysów powiązanych z tym projektem.
                   </Text>
                 ) : (

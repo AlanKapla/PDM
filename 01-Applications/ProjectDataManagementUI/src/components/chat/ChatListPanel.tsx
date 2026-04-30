@@ -185,7 +185,7 @@ export default function ChatListPanel({
                     {result.matchingMessageIds.length > 0 && (
                       <Box px={3} pb={1} mt={-1}>
                         <Badge
-                          fontSize="10px"
+                          fontSize="xs"
                           colorScheme="gray"
                           variant="subtle"
                           borderRadius="sm"

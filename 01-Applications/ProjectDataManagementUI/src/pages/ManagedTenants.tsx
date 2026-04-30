@@ -6,7 +6,6 @@ import {
   Text,
   Spinner,
   VStack,
-  useColorModeValue,
   Button,
   Input,
   FormControl,
@@ -43,12 +42,7 @@ export default function ManagedTenants() {
   
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   
-  const { showSuccess, showError } = useToastNotification();
-
-  const cardBg = useColorModeValue("white", "gray.800");
-  const pageBg = useColorModeValue("gray.50", "gray.900");
-  const labelColor = useColorModeValue("gray.700", "gray.300");
-  const borderColor = useColorModeValue("gray.200", "gray.600");
+  const { showApiSuccess, showError } = useToastNotification();
 
   // Pobierz tylko tenanty gdzie user jest adminem
   useEffect(() => {
@@ -78,12 +72,13 @@ export default function ManagedTenants() {
         setTenants([...tenants, newTenant]);
         setNewTenantName("");
         setIsCreatingTenant(false);
-        showSuccess("Organizacja utworzona", `Organizacja "${newTenant.name}" została pomyślnie utworzona`);
+        showApiSuccess('created');
       } else {
-        showError("Błąd tworzenia organizacji", "Nie udało się utworzyć nowej organizacji");
+        showError("Błąd", "Nie udało się utworzyć organizacji");
       }
     } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setCreatingTenant(false);
     }
@@ -106,12 +101,13 @@ export default function ManagedTenants() {
       const success = await removeTenantMember(tenantId, userId);
       
       if (success) {
-        showSuccess("Członek usunięty pomyślnie", `${name} nie ma już dostępu do tej organizacji`);
+        showApiSuccess('memberRemoved');
       } else {
         showError("Nie udało się usunąć członka", "Spróbuj ponownie lub skontaktuj się z administratorem");
       }
     } catch (error) {
-      showError("Błąd połączenia", "Sprawdź połączenie internetowe i spróbuj ponownie");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setRemovingMemberId(null);
       setMemberToRemove(null);
@@ -133,7 +129,7 @@ export default function ManagedTenants() {
 
   return (
     <MainLayout>
-      <Box bg={pageBg} minH="100vh" p={{ base: 4, md: 6 }}>
+      <Box bg="white" minH="100vh" p={{ base: 4, md: 6 }}>
         <VStack spacing={8} maxW="1200px" mx="auto" align="stretch">
           {/* Header */}
           <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "stretch", md: "center" }} spacing={4}>
@@ -154,11 +150,11 @@ export default function ManagedTenants() {
 
           {/* Formularz tworzenia nowej organizacji */}
           {isCreatingTenant && (
-            <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
+            <Box bg="white" p={6} rounded="lg" borderWidth="1px" borderColor="neutral.200">
               <VStack spacing={4} align="stretch">
                 <Heading size="md">Utwórz nową organizację</Heading>
                 <FormControl>
-                  <FormLabel color={labelColor}>Nazwa organizacji</FormLabel>
+                  <FormLabel>Nazwa organizacji</FormLabel>
                   <Input
                     value={newTenantName}
                     onChange={(e) => setNewTenantName(e.target.value)}
@@ -180,7 +176,8 @@ export default function ManagedTenants() {
                     Utwórz
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
+                    colorScheme="gray"
                     onClick={() => {
                       setIsCreatingTenant(false);
                       setNewTenantName("");
@@ -199,8 +196,8 @@ export default function ManagedTenants() {
           <Box>
             <Heading size="md" mb={4}>Twoje organizacje</Heading>
             {tenants.length === 0 ? (
-              <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
-                <Text color="gray.500" textAlign="center">
+              <Box bg="white" p={6} rounded="lg" borderWidth="1px" borderColor="neutral.200">
+                <Text color="neutral.500" textAlign="center">
                   Nie zarządzasz jeszcze żadną organizacją. Utwórz nową!
                 </Text>
               </Box>
@@ -209,19 +206,17 @@ export default function ManagedTenants() {
                 {tenants.map((tenant) => (
                   <Box
                     key={tenant.id}
-                    bg={cardBg}
+                    bg="white"
                     rounded="lg"
-                    shadow="md"
                     borderWidth="1px"
-                    borderColor={borderColor}
+                    borderColor="neutral.200"
                     overflow="hidden"
                     cursor="pointer"
                     onClick={() => navigate(`/tenants/${tenant.id}`)}
                     transition="all 0.2s"
                     _hover={{
-                      shadow: "lg",
-                      borderColor: "primary.400",
-                      transform: "translateY(-2px)",
+                      borderColor: "primary.300",
+                      bg: "neutral.25",
                     }}
                   >
                     {/* Header organizacji */}

@@ -1,7 +1,7 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { ScheduleStageWeb } from '../../types/projectDashboard.types';
 import { PLN, DATE, DAYS } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { Accordion } from '../shared/Accordion';
 import { TimelineStatusBadge } from '../shared/TimelineStatusBadge';
 import { KpiCard } from '../shared/KpiCard';
@@ -24,17 +24,21 @@ export function StageAccordion({
   projectId,
   onRefetch,
 }: StageAccordionProps): React.ReactElement {
+  const [neutral400, orange600, orange800, neutral100, neutral200, neutral600] = useToken('colors', [
+    'neutral.400', 'orange.600', 'orange.800', 'neutral.100', 'neutral.200', 'neutral.600',
+  ]);
+
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{stage.stageName}</span>
+      <span style={{ fontSize: "xs", fontWeight: "medium", flex: 1 }}>{stage.stageName}</span>
       <TimelineStatusBadge status={stage.timelineStatus} small />
       {stage.timeline && (
-        <span style={{ fontSize: 11, color: COLOR_PALETTE.gray400, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: "xs", color: neutral400, whiteSpace: 'nowrap' }}>
           {DATE(stage.timeline.plannedStart)} – {DATE(stage.timeline.plannedEnd)}
         </span>
       )}
       {stage.totalCostsNet != null && (
-        <span style={{ fontSize: 12, fontWeight: 500, color: COLOR_PALETTE.coral400, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: "xs", fontWeight: "medium", color: orange600, whiteSpace: 'nowrap' }}>
           {PLN(stage.totalCostsNet)}
         </span>
       )}
@@ -50,7 +54,7 @@ export function StageAccordion({
           <KpiCard
             label="Opóźnionych zakresów"
             value={String(stage.delayedWorkItemsCount)}
-            accent={stage.delayedWorkItemsCount > 0 ? COLOR_PALETTE.coral600 : undefined}
+            accent={stage.delayedWorkItemsCount > 0 ? orange800 : undefined}
             small
           />
           <KpiCard label="Start etapu" value={DATE(stage.timeline?.plannedStart ?? null)} small />
@@ -73,7 +77,7 @@ export function StageAccordion({
         </div>
 
         {(stage.childStages ?? []).length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, paddingLeft: 16, borderLeft: `2px solid ${COLOR_PALETTE.gray100}` }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, paddingLeft: 16, borderLeft: `2px solid ${neutral100}` }}>
             {(stage.childStages ?? []).map((child) => (
               <StageAccordion
                 key={child.stageId}
@@ -90,16 +94,16 @@ export function StageAccordion({
         {stage.totalCostsNet != null && (
           <div
             style={{
-              borderTop: `0.5px solid ${COLOR_PALETTE.border}`,
+              borderTop: `0.5px solid ${neutral200}`,
               paddingTop: 8,
               display: 'flex',
               justifyContent: 'space-between',
-              fontSize: 11,
-              color: COLOR_PALETTE.gray600,
+              fontSize: "xs",
+              color: neutral600,
             }}
           >
             <span>Suma kosztów etapu:</span>
-            <span style={{ fontWeight: 500, color: COLOR_PALETTE.coral400 }}>
+            <span style={{ fontWeight: "medium", color: orange600 }}>
               {PLN(stage.totalCostsNet)}
             </span>
           </div>

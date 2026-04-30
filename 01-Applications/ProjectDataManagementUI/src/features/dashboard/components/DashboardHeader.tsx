@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Box, HStack, Text, Badge } from '@chakra-ui/react';
 import type { ProjectDashboardWeb } from '../types/projectDashboard.types';
 import { PLN, DATE } from '../utils/formatters';
@@ -20,13 +20,13 @@ export function DashboardHeader({ data, projectName }: DashboardHeaderProps): Re
 
   return (
     <Box mb={5}>
-      <Text fontSize="lg" fontWeight="semibold" color="gray.800" mb={1}>
+      <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="semibold" color="neutral.800" mb={1}>
         {projectName}
       </Text>
-      <Text fontSize="xs" color="gray.400" mb={3}>
+      <Text fontSize="xs" color="neutral.400" mb={3}>
         Dashboard · data ref: {DATE(data.referenceDate)} · wygenerowano: {DATE(data.generatedAt)}
       </Text>
-      <HStack wrap="wrap" spacing={2} align="center">
+      <HStack wrap="wrap" spacing={2} gap={1} align="center">
         <Badge colorScheme="gray" px={2} py={1} borderRadius="full" fontSize="xs" fontWeight="normal">
           Budżet: <strong>{PLN(financialSummary.totalBudgetNet)}</strong>
         </Badge>

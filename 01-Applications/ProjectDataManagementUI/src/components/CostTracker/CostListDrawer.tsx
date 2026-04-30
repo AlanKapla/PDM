@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Drawer,
   DrawerOverlay,
@@ -85,7 +85,7 @@ export default function CostListDrawer({
           <DrawerHeader>{title}</DrawerHeader>
           <DrawerBody>
             {costs.length === 0 ? (
-              <Text color="gray.500" fontSize="sm">
+              <Text color="neutral.500" fontSize="sm">
                 Brak kosztów.
               </Text>
             ) : (
@@ -98,27 +98,27 @@ export default function CostListDrawer({
                           {cost.name}
                         </Text>
                         <HStack spacing={4} flexWrap="wrap">
-                          <Text fontSize="xs" color="gray.600">
+                          <Text fontSize="xs" color="neutral.600">
                             Netto: {formatNet(cost.net)}
                           </Text>
                           {cost.number && (
-                            <Text fontSize="xs" color="gray.600">
+                            <Text fontSize="xs" color="neutral.600">
                               Nr faktury: {cost.number}
                             </Text>
                           )}
                           {cost.date && (
-                            <Text fontSize="xs" color="gray.600">
+                            <Text fontSize="xs" color="neutral.600">
                               Data: {formatDate(cost.date, false)}
                             </Text>
                           )}
                           {cost.contractor && (
-                            <Text fontSize="xs" color="gray.600">
+                            <Text fontSize="xs" color="neutral.600">
                               Wykonawca: {cost.contractor}
                             </Text>
                           )}
                         </HStack>
                         {cost.description && (
-                          <Text fontSize="xs" color="gray.500" noOfLines={2}>
+                          <Text fontSize="xs" color="neutral.500" noOfLines={2}>
                             {cost.description}
                           </Text>
                         )}

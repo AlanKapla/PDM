@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, Plus, Trash2, MoreHorizontal, ArrowRight, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, MoreHorizontal, ArrowRight, GripVertical, X, MessageCircle, Users, Link2 } from "lucide-react";
+import { Button, IconButton } from "@chakra-ui/react";
 import { useGantt } from "./GanttContext";
 import GanttInlineName from "./GanttInlineName";
 import GanttAssigneesPopover from "./GanttAssigneesPopover";
@@ -300,12 +301,14 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
             <GripVertical size={14} />
           </div>
         )}
-        <button
+        <IconButton
+          size="xs"
+          variant="ghost"
+          colorScheme="gray"
+          aria-label={isExpanded ? "Zwiń etap" : "Rozwiń etap"}
+          icon={isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           onClick={() => toggleStage(stage.id)}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: G.text2, width: 20, height: 20, borderRadius: 4, flexShrink: 0, padding: 0 }}
-        >
-          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
+        />
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
           <GanttInlineName
@@ -352,20 +355,24 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
 
         {isEditing && (
           <>
-            <button
-              onClick={() => addStage("Nowy podetap", stage.id)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: G.text3, width: 24, height: 24, borderRadius: 5, flexShrink: 0 }}
+            <IconButton
+              size="xs"
+              variant="ghost"
+              colorScheme="gray"
+              aria-label="Dodaj podetap"
               title="Dodaj podetap"
-            >
-              <Plus size={12} />
-            </button>
-            <button
-              onClick={() => deleteStage(stage.id)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: G.text3, width: 24, height: 24, borderRadius: 5, flexShrink: 0 }}
+              icon={<Plus size={12} />}
+              onClick={() => addStage("Nowy podetap", stage.id)}
+            />
+            <IconButton
+              size="xs"
+              variant="ghost"
+              colorScheme="gray"
+              aria-label="Usuń etap"
               title="Usuń etap"
-            >
-              <Trash2 size={13} />
-            </button>
+              icon={<Trash2 size={13} />}
+              onClick={() => deleteStage(stage.id)}
+            />
           </>
         )}
       </div>
@@ -448,13 +455,15 @@ const noPeriods = (work.periods ?? []).length === 0;
         )}
         {/* Przycisk zwijania/rozwijania okresów */}
         {hasMultiplePeriods ? (
-          <button
-            onClick={() => toggleWorkPeriods(work.id)}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: G.text3, width: 20, height: 20, borderRadius: 4, flexShrink: 0, padding: 0 }}
+          <IconButton
+            size="xs"
+            variant="ghost"
+            colorScheme="gray"
+            aria-label={periodsCollapsed ? "Rozwiń okresy" : "Zwiń okresy"}
             title={periodsCollapsed ? "Rozwiń okresy" : "Zwiń okresy"}
-          >
-            {periodsCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-          </button>
+            icon={periodsCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+            onClick={() => toggleWorkPeriods(work.id)}
+          />
         ) : (
           <div style={{ width: 20, flexShrink: 0 }} />
         )}
@@ -581,20 +590,19 @@ const noPeriods = (work.periods ?? []).length === 0;
         )}
 
         {/* Menu kontekstowe zakresu (⋯) — zastępuje osobne guziki akcji */}
-        <button
+        <IconButton
+          size="xs"
+          variant="ghost"
+          colorScheme="gray"
+          aria-label="Akcje"
+          title="Akcje"
+          icon={<MoreHorizontal size={14} />}
           onClick={e => {
             e.stopPropagation();
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
             setWorkMenuFor({ stageId: stage.id, work, anchor: rect });
           }}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none",
-            cursor: "pointer", color: G.text3, width: 24, height: 24, flexShrink: 0, borderRadius: 5, padding: 0,
-          }}
-          title="Akcje"
-        >
-          <MoreHorizontal size={14} />
-        </button>
+        />
         </div>{/* koniec nagłówka wiersza pracy */}
 
         {/* Lista okresów */}
@@ -635,18 +643,20 @@ const noPeriods = (work.periods ?? []).length === 0;
               {fmtCompactDate(period.startDate)} – {fmtCompactDate(period.endDate)}
             </span>
             {isEditing && (
-              <button
+              <IconButton
+                size="xs"
+                variant="ghost"
+                colorScheme="gray"
+                aria-label="Usuń okres"
+                title="Usuń okres"
+                icon={<Trash2 size={13} />}
                 onClick={() => {
                   const remaining = periods
                     .filter(p => p.id !== period.id)
                     .map(p => ({ startDate: p.startDate.slice(0, 10), endDate: p.endDate.slice(0, 10), isClosed: p.isClosed }));
                   setPeriods(stage.id, work.id, remaining);
                 }}
-                title="Usuń okres"
-                style={{ background: "none", border: "none", cursor: "pointer", color: G.text3, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderRadius: 4 }}
-              >
-                <Trash2 size={13} />
-              </button>
+              />
             )}
           </div>
         ))}
@@ -702,24 +712,36 @@ const noPeriods = (work.periods ?? []).length === 0;
                 background: G.surface, color: G.text,
               }}
             />
-            <button type="submit" style={{ fontSize: 12, background: G.accent, color: "#fff", border: "none", borderRadius: 4, padding: "5px 8px", cursor: "pointer", flexShrink: 0 }}>
+            <Button
+              size="xs"
+              variant="solid"
+              colorScheme="primary"
+              type="submit"
+              flexShrink={0}
+            >
               Dodaj
-            </button>
-            <button type="button" onClick={() => setAddingWorkFor(null)} style={{ fontSize: 12, background: "none", border: `1px solid ${G.border}`, borderRadius: 4, padding: "5px 6px", cursor: "pointer", color: G.text2, flexShrink: 0 }}>
-              ✕
-            </button>
+            </Button>
+            <IconButton
+              size="xs"
+              variant="ghost"
+              colorScheme="gray"
+              aria-label="Anuluj"
+              icon={<X size={14} />}
+              onClick={() => setAddingWorkFor(null)}
+              type="button"
+              flexShrink={0}
+            />
           </form>
         ) : (
-          <button
+          <Button
+            size="xs"
+            variant="ghost"
+            colorScheme="gray"
+            leftIcon={<Plus size={14} />}
             onClick={() => setAddingWorkFor(stage.id)}
-            style={{
-              display: "flex", alignItems: "center", gap: 4,
-              background: "none", border: "none", cursor: "pointer",
-              color: G.text3, fontSize: 12, padding: "5px 8px", height: 28, borderRadius: 4,
-            }}
           >
-            <Plus size={14} /> zakres
-          </button>
+            zakres
+          </Button>
         )}
       </div>
     );
@@ -908,12 +930,14 @@ const noPeriods = (work.periods ?? []).length === 0;
               <span style={{ fontSize: 15, fontWeight: 700, color: G.text }}>
                 💬 {commentsFor.work.name}
               </span>
-              <button
+              <IconButton
+                size="sm"
+                variant="ghost"
+                colorScheme="gray"
+                aria-label="Zamknij"
+                icon={<X size={16} />}
                 onClick={() => setCommentsFor(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: G.text3, fontSize: 20, lineHeight: 1, padding: 0 }}
-              >
-                ×
-              </button>
+              />
             </div>
             <div style={{ padding: "14px 18px", flex: 1, overflowY: "auto" }}>
               <GanttCommentPopover
@@ -963,81 +987,73 @@ const noPeriods = (work.periods ?? []).length === 0;
           onClick={() => setWorkMenuFor(null)}
         >
           {/* Komentarze */}
-          <button
-            style={{
-              width: "100%", textAlign: "left", padding: "8px 12px",
-              background: "none", border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 8,
-              color: G.text, fontSize: 12,
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = G.surface2; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+          <Button
+            size="sm"
+            variant="ghost"
+            colorScheme="gray"
+            w="full"
+            justifyContent="flex-start"
             onClick={() => {
               const anchor = workMenuFor.anchor;
               setCommentsFor({ stageId: workMenuFor.stageId, work: workMenuFor.work, anchor });
             }}
+            leftIcon={<MessageCircle size={14} />}
           >
-            <span>💬</span> Komentarze
+            Komentarze
             {(workMenuFor.work.comments?.length ?? 0) > 0 && (
               <span style={{ marginLeft: "auto", fontSize: 10, background: G.accentLight, color: G.accent, borderRadius: 10, padding: "0 6px" }}>
                 {workMenuFor.work.comments.length}
               </span>
             )}
-          </button>
+          </Button>
 
           {/* Przypisz osoby */}
-          <button
-            style={{
-              width: "100%", textAlign: "left", padding: "8px 12px",
-              background: "none", border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 8,
-              color: G.text, fontSize: 12,
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = G.surface2; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+          <Button
+            size="sm"
+            variant="ghost"
+            colorScheme="gray"
+            w="full"
+            justifyContent="flex-start"
+            leftIcon={<Users size={14} />}
             onClick={() => {
               const anchor = workMenuFor.anchor;
               setAssigneesFor({ stageId: workMenuFor.stageId, work: workMenuFor.work, anchor });
             }}
           >
-            <span>👥</span> Przypisz osoby
-          </button>
+            Przypisz osoby
+          </Button>
 
           {/* Zależności */}
-          <button
-            style={{
-              width: "100%", textAlign: "left", padding: "8px 12px",
-              background: "none", border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 8,
-              color: G.text, fontSize: 12,
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = G.surface2; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+          <Button
+            size="sm"
+            variant="ghost"
+            colorScheme="gray"
+            w="full"
+            justifyContent="flex-start"
+            leftIcon={<Link2 size={14} />}
             onClick={() => {
               const anchor = workMenuFor.anchor;
               setDepsFor({ stageId: workMenuFor.stageId, work: workMenuFor.work, anchor });
             }}
           >
-            <span>🔗</span> Zależności
-          </button>
+            Zależności
+          </Button>
 
           {/* Usuń — tylko tryb edycji */}
           {isEditing && (
             <>
               <div style={{ height: 1, background: G.border, margin: "2px 0" }} />
-              <button
-                style={{
-                  width: "100%", textAlign: "left", padding: "8px 12px",
-                  background: "none", border: "none", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: 8,
-                  color: "#e53e3e", fontSize: 12,
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fff5f5"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+              <Button
+                size="sm"
+                variant="ghost"
+                colorScheme="red"
+                w="full"
+                justifyContent="flex-start"
+                leftIcon={<Trash2 size={12} />}
                 onClick={() => deleteWork(workMenuFor.stageId, workMenuFor.work.id)}
               >
-                <Trash2 size={12} /> Usuń zakres
-              </button>
+                Usuń zakres
+              </Button>
             </>
           )}
         </div>,

@@ -4,28 +4,28 @@ import './About.css'
 const PILLARS = [
   {
     icon: Zap,
-    title: 'Jedno narzędzie zamiast dziesięciu',
-    description: 'Koniec z Excel do kosztorysów, WhatsApp do komunikacji i e-mail do dokumentów. Wszystko w jednym miejscu.',
+    title: 'Finanse pod kontrolą',
+    description: 'Kosztorys to nie tylko wycena — to punkt odniesienia. Brickly zestawia go z rzeczywistymi wydatkami na bieżąco, żebyś wiedział czy projekt jest rentowny.',
   },
   {
     icon: Users,
-    title: 'Każdy uczestnik w jednym systemie',
-    description: 'Zaproś wykonawców, podwykonawców, architektów i klientów. Każdy widzi dokładnie to, do czego ma dostęp.',
+    title: 'Harmonogram który ma znaczenie',
+    description: 'Opóźnienie tygodnia to nie tylko problem czasowy. To dodatkowe koszty, przestoje, nerwowe telefony. Widzisz to zanim się wydarzy.',
   },
   {
     icon: Shield,
-    title: 'Pełna kontrola i bezpieczeństwo',
-    description: 'Izolowane środowiska dla każdej organizacji. Twoje dane są tylko Twoje – z pełną kontrolą uprawnień.',
+    title: 'Każdy wie co ma robić',
+    description: 'Wykonawca widzi swoje zadania. Inwestor widzi budżet. Ty widzisz wszystko. Nikt nie pyta o to samo dwa razy.',
   },
 ]
 
 const BENEFITS = [
-  'Kosztorysy z szablonami i automatycznymi kalkulacjami',
-  'Harmonogramowanie prac z widokiem osi czasu',
-  'Wymiana dokumentów i plików projektowych',
-  'Komunikator i powiadomienia w czasie rzeczywistym',
-  'Wieloorganizacyjna struktura dostępu',
-  'Śledzenie postępów i przydzielonych zadań',
+  'Kosztorys vs wydatki rzeczywiste — zawsze aktualny',
+  'Dashboard finansowy projektu i organizacji',
+  'Harmonogram z alertami o opóźnieniach',
+  'Dokumenty, pliki i faktury w jednym miejscu',
+  'Komunikacja w kontekście projektu — nie na WhatsAppie',
+  'Raporty dla inwestora gotowe w minutę',
 ]
 
 export default function About() {
@@ -36,17 +36,18 @@ export default function About() {
           <div className="about__left">
             <span className="section-label">O aplikacji</span>
             <h2 className="section-title about__title">
-              Budujesz na Excelu<br />i WhatsAppie?
+              Budujesz. A kto<br />pilnuje kasy?
             </h2>
             <p className="section-subtitle about__subtitle--lead">
-              Większość nadzorców i wykonawców traci godziny tygodniowo na szukanie
-              pliku, odświeżanie arkusza i odpowiadanie na tę samą wiadomość
-              w trzech miejscach naraz.
+              Każda inwestycja ma swój moment — zwykle w środku nocy —
+              kiedy zastanawiasz się czy budżet jeszcze się zgadza.
+              Brickly eliminuje tę niepewność. Masz pełny obraz finansowy
+              projektu w każdej chwili, bez dzwonienia do kierownika.
             </p>
             <p className="section-subtitle about__subtitle--body">
-              Brickly rozwiązuje ten problem. Jedna platforma dla nadzorców
-              inwestycyjnych, inwestorów zastępczych, architektów i generalnych
-              wykonawców – wszystko, czego potrzebujesz do prowadzenia inwestycji.
+              Jedna platforma dla każdego kto prowadzi inwestycję —
+              prywatnego inwestora, nadzorcy, architekta, dewelopera.
+              Każdy widzi to co ważne. Ty widzisz wszystko.
             </p>
 
             <ul className="about__benefits">
@@ -78,9 +79,10 @@ export default function About() {
                   <Lightbulb size={20} />
                 </div>
                 <p className="about__highlight-text">
-                  W Brickly każdy dokument, kosztorys i wiadomość jest
-                  dokładnie tam gdzie powinien być – zawsze aktualny
-                  i widoczny wyłącznie dla właściwych osób.
+                  „Stworzyłem Brickly bo sam byłem tym nadzorcą,
+                  który co piątek sklejał raport z trzech Exceli,
+                  WhatsAppa i skrzynki mailowej.
+                  Teraz robi to system — automatycznie."
                 </p>
               </div>
             </div>

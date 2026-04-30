@@ -71,7 +71,7 @@ export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
             <Text fontWeight="semibold" fontSize="sm" noOfLines={1} flex={1}>
               {stage.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
             </Text>
-            <Badge colorScheme="gray" variant="subtle" fontSize="9px">
+            <Badge colorScheme="gray" variant="subtle" fontSize="2xs">
               {works.length > 0 ? `${works.length}` : "0"}
             </Badge>
           </HStack>

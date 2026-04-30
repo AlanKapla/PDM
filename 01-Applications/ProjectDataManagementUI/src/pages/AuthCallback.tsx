@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus, EventType } from "@azure/msal-browser";
@@ -74,7 +74,7 @@ export default function AuthCallback() {
         <Text fontSize="lg" fontWeight="medium">
           Finalizowanie logowania...
         </Text>
-        <Text fontSize="sm" color="gray.600">
+        <Text fontSize="sm" color="neutral.600">
           Wymieniamy kod autoryzacyjny na tokeny dostępu
         </Text>
       </VStack>

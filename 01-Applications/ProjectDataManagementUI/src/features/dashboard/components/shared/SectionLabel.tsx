@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLOR_PALETTE } from '../../utils/colors';
+import { useToken } from '@chakra-ui/react';
 
 export interface SectionLabelProps {
   text: string;
@@ -7,12 +7,13 @@ export interface SectionLabelProps {
 
 /** Etykieta sekcji — uppercase, 10px, gray400. */
 export function SectionLabel({ text }: SectionLabelProps): React.ReactElement {
+  const [neutral400] = useToken('colors', ['neutral.400']);
   return (
     <div
       style={{
-        fontSize: 12,
-        fontWeight: 600,
-        color: COLOR_PALETTE.gray400,
+        fontSize: "xs",
+      fontWeight: "semibold",
+        color: neutral400,
         textTransform: 'uppercase',
         letterSpacing: '0.06em',
         margin: '16px 0 8px',

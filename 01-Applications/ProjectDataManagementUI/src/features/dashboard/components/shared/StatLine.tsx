@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLOR_PALETTE } from '../../utils/colors';
+import { Text } from '@chakra-ui/react';
 
 export interface StatLineProps {
   label: string;
@@ -10,10 +10,10 @@ export interface StatLineProps {
 /** Wiersz etykieta: wartość — inline, fontSize 11px. */
 export function StatLine({ label, value, color }: StatLineProps): React.ReactElement {
   return (
-    <div style={{ fontSize: 11, lineHeight: '16px' }}>
-      <span style={{ color: COLOR_PALETTE.gray400 }}>{label}: </span>
-      <span style={{ color: color ?? '#1A1916', fontWeight: 500 }}>{value}</span>
-    </div>
+    <Text fontSize="xs" lineHeight="shorter">
+      <Text as="span" color="neutral.400">{label}: </Text>
+      <Text as="span" color={color ?? "gray.800"} fontWeight="medium">{value}</Text>
+    </Text>
   );
 }
 

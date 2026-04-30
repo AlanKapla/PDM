@@ -1,30 +1,30 @@
-import { HardHat, ClipboardCheck, PenLine, UserCheck } from 'lucide-react'
+import { TrendingUp, ClipboardCheck, PenLine, UserCheck } from 'lucide-react'
 import './TargetUsers.css'
 
 const USERS = [
   {
     icon: ClipboardCheck,
-    title: 'Nadzorcy inwestycyjni',
-    description: 'Kontroluj postępy na wielu budowach równocześnie. Weryfikuj kosztorysy, nadzoruj harmonogramy i komunikuj się z wykonawcami – wszystko w jednym miejscu.',
-    perks: ['Wieloprojektowy widok nadzoru', 'Weryfikacja kosztorysów', 'Historia zmian i decyzji'],
+    title: 'Nadzorca inwestycyjny',
+    description: 'Prowadzisz kilka budów naraz. Pamiętasz wszystko — ale nie powinieneś musieć. Miej pełny obraz finansowy każdego projektu bez ciągłego sprawdzania.',
+    perks: ['Dashboard finansowy wielu projektów', 'Alerty gdy etap przekracza budżet', 'Historia zmian i decyzji'],
   },
   {
     icon: UserCheck,
-    title: 'Inwestorzy zastępczy',
-    description: 'Działaj w imieniu inwestora z pełnym dostępem do dokumentacji. Organizuj przetargi, akceptuj kosztorysy i koordynuj pracę generalnych wykonawców.',
-    perks: ['Zarządzanie wieloma ekipami', 'Akceptacja i kontrola budżetu', 'Pełna dokumentacja decyzyjna'],
+    title: 'Inwestor zastępczy',
+    description: 'Działasz w imieniu inwestora. On musi Ci ufać. Brickly sprawia że masz czym udowodnić że to zaufanie jest zasłużone.',
+    perks: ['Raporty jednym kliknięciem', 'Pełna dokumentacja decyzyjna', 'Kosztorys vs wydatki w czasie rzeczywistym'],
   },
   {
     icon: PenLine,
-    title: 'Architekci',
-    description: 'Prowadź nadzór autorski i koordynuj realizację projektowanego obiektu. Udostępniaj rysunki, reaguj na RFI i miej wgląd w postęp prac na budowie.',
-    perks: ['Repozytorium dokumentacji projektowej', 'Nadzór autorski w systemie', 'Komunikacja z kierownikiem budowy'],
+    title: 'Architekt',
+    description: 'Twoja praca to nie tylko projekt — to też koordynacja ludzi, terminów i dokumentów. Miej wszystko w jednym miejscu zamiast w trzech skrzynkach mailowych.',
+    perks: ['Wersjonowane repozytorium dokumentacji', 'Nadzór autorski zintegrowany z harmonogramem', 'Bezpośredni wgląd w postęp prac'],
   },
   {
-    icon: HardHat,
-    title: 'Generalni wykonawcy',
-    description: 'Zarządzaj podwykonawcami, kosztorysami i harmonogramem z jednego miejsca. Deleguj zadania do ekip i śledź realizację każdego etapu prac.',
-    perks: ['Zarządzanie podwykonawcami', 'Kosztorysy i rozliczenia', 'Harmonogram etapów'],
+    icon: TrendingUp,
+    title: 'Deweloper i inwestor prywatny',
+    description: 'Wkładasz pieniądze i chcesz wiedzieć na co idą. Bez cotygodniowych telefonów do wykonawcy. Brickly daje Ci wgląd bez angażowania całego zespołu.',
+    perks: ['Raport stanu projektu zawsze pod ręką', 'Kosztorys vs faktury rzeczywiste', 'Dokumenty i umowy w jednym miejscu'],
   },
 
 ]
@@ -36,12 +36,12 @@ export default function TargetUsers() {
         <div className="target__header">
           <span className="section-label">Dla kogo</span>
           <h2 className="section-title">
-            Dla tych, którzy spinają<br />wiele ekip naraz
+            Dla każdego kto odpowiada<br />za pieniądze i terminy
           </h2>
           <p className="section-subtitle">
-            Brickly jest przede wszystkim dla nadzorców inwestycyjnych, inwestorów
-            zastępczych, architektów i generalnych wykonawców – osób, które stoją
-            w centrum procesu budowlanego i koordynują wielu uczestników jednocześnie.
+            Nieważne jak się nazywa Twoja rola na budowie.
+            Jeśli ktoś pyta Cię „jak idzie?" i „ile zostało w budżecie?" —
+            Brickly jest dla Ciebie.
           </p>
         </div>
 

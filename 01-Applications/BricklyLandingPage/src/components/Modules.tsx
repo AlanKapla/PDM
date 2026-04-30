@@ -8,73 +8,73 @@ const MODULES = [
   {
     icon: FolderKanban,
     title: 'Projekty',
-    description: 'Centralny rejestr wszystkich projektów. Twórz, przeglądaj i zarządzaj projektami budowlanymi oraz remontowymi w jednym miejscu.',
-    color: '#1A5CD8',
-    bg: '#EEF3FF',
+    description: 'Centralny rejestr projektów z podsumowaniem budżetu i postępu. Jednym rzutem oka widzisz stan finansowy każdej inwestycji.',
+    color: 'var(--cobalt-500)',
+    bg: 'var(--cobalt-50)',
     tag: 'Podstawowy',
   },
   {
     icon: Calculator,
     title: 'Kosztorysy',
-    description: 'Twórz szczegółowe kosztorysy z szablonów. Automatyczne kalkulacje, waluty, stawki VAT i udostępnianie klientom.',
-    color: '#0047AB',
-    bg: '#EEF3FF',
+    description: 'Szablonowe kosztorysy z automatycznymi kalkulacjami VAT i walutami. Porównuj planowane koszty z rzeczywistymi wydatkami w czasie rzeczywistym.',
+    color: 'var(--cobalt-600)',
+    bg: 'var(--cobalt-50)',
     tag: 'Finansowy',
   },
   {
     icon: CalendarDays,
     title: 'Harmonogram',
-    description: 'Planuj prace w osi czasu. Przydzielaj zadania do wykonawców, śledź postępy i terminy realizacji.',
-    color: '#00A8E8',
-    bg: '#E0F7FA',
+    description: 'Oś czasu z przypisaniem wykonawców i śledzeniem opóźnień. Każde opóźnienie etapu widoczne natychmiast — razem z wpływem na budżet.',
+    color: 'var(--accent)',
+    bg: 'var(--accent-light)',
     tag: 'Planowanie',
   },
   {
     icon: FolderOpen,
     title: 'Pliki projektowe',
-    description: 'Bezpieczne repozytorium dokumentów. Plany, umowy, faktury – z kontrolą wersji i dzieleniem z zewnętrznymi stronami.',
-    color: '#0047AB',
-    bg: '#EEF3FF',
+    description: 'Bezpieczne repozytorium dokumentów z kontrolą wersji. Plany, umowy i faktury zawsze pod ręką — dla właściwych osób.',
+    color: 'var(--cobalt-600)',
+    bg: 'var(--cobalt-50)',
     tag: 'Dokumenty',
   },
   {
     icon: MessageSquare,
     title: 'Wiadomości',
-    description: 'Wbudowany komunikator do rozmów z członkami zespołu i organizacji. Komunikacja w kontekście projektu.',
-    color: '#1A5CD8',
-    bg: '#EEF3FF',
+    description: 'Wbudowany komunikator w kontekście projektu. Koniec z WhatsAppem i mailem — wszystkie ustalenia zostają w systemie.',
+    color: 'var(--cobalt-500)',
+    bg: 'var(--cobalt-50)',
     tag: 'Komunikacja',
   },
   {
     icon: Building2,
     title: 'Organizacje',
-    description: 'Zarządzaj wieloma firmami lub oddziałami. Pełna izolacja danych i zindywidualizowane uprawnienia dostępu.',
-    color: '#003A8C',
-    bg: '#EEF3FF',
+    description: 'Wielofirmowa struktura z pełną izolacją danych. Każda organizacja widzi tylko swoje projekty i finanse.',
+    color: 'var(--cobalt-700)',
+    bg: 'var(--cobalt-50)',
     tag: 'Zarządzanie',
   },
   {
     icon: Briefcase,
     title: 'Zaplanowane prace',
-    description: 'Dedykowany widok przydzielonych zadań. Każdy wykonawca widzi swoje prace, terminy i priorytety.',
-    color: '#00B8D9',
-    bg: '#E0F7FA',
+    description: 'Dedykowany widok zadań dla każdego wykonawcy. Terminy, priorytety i postępy — bez zbędnych telefonów.',
+    color: 'var(--accent)',
+    bg: 'var(--accent-light)',
     tag: 'Zadania',
   },
   {
     icon: FileText,
     title: 'Szablony kosztorysów',
-    description: 'Twórz i zarządzaj biblioteką szablonów. Standaryzuj wyceny i przyspieszaj tworzenie nowych kosztorysów.',
-    color: '#0047AB',
-    bg: '#EEF3FF',
+    description: 'Biblioteka szablonów wycen dla Twojej branży. Standaryzuj kosztorysy i twórz nowe w minuty zamiast godzin.',
+    color: 'var(--cobalt-600)',
+    bg: 'var(--cobalt-50)',
     tag: 'Szablony',
   },
   {
     icon: Mail,
     title: 'Zaproszenia',
-    description: 'Zapraszaj wykonawców i klientów do projektów lub organizacji. Kontroluj kto ma dostęp i do czego.',
-    color: '#1A5CD8',
-    bg: '#EEF3FF',
+    description: 'Zapraszaj wykonawców, podwykonawców i klientów. Każdy widzi dokładnie to co powinien — nic więcej, nic mniej.',
+    color: 'var(--cobalt-500)',
+    bg: 'var(--cobalt-50)',
     tag: 'Dostęp',
   },
 ]
@@ -86,12 +86,12 @@ export default function Modules() {
         <div className="modules__header">
           <span className="section-label">Moduły</span>
           <h2 className="section-title">
-            Wszystko czego potrzebujesz<br />w jednej platformie
+            Wszystko czego potrzebujesz.<br />Nic czego nie potrzebujesz.
           </h2>
           <p className="section-subtitle">
-            Kompletny zestaw narzędzi dla nadzorców, inwestorów zastępczych
-            i architektów – wszystko, czego potrzebujesz, żeby spinać wiele ekip
-            bez chaosu.
+            Każdy moduł robi jedną rzecz dobrze — i łączy się z pozostałymi.
+            Kosztorys zna harmonogram. Harmonogram zna wydatki.
+            Ty znasz sytuację.
           </p>
         </div>
 

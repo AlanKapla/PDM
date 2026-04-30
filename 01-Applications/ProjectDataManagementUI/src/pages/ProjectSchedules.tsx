@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+﻿import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -68,11 +68,11 @@ const ScheduleTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, 
   return (
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between" flexWrap="wrap" gap={2}>
-        <Text fontSize="sm" color="gray.600">{description}</Text>
+        <Text fontSize="sm" color="neutral.600">{description}</Text>
         {showCreate && (
           <Button
             leftIcon={<Calendar size={18} />}
-            colorScheme="level2"
+            colorScheme="primary"
             onClick={onOpen}
           >
             Utwórz harmonogram
@@ -242,10 +242,10 @@ export default function ProjectSchedules() {
           {schedules.map((schedule) => (
             <Box
               key={schedule.id}
-              bg={cardBg}
+              bg="white"
               p={3}
               borderWidth="1px"
-              borderColor={borderColor}
+              borderColor="neutral.200"
               rounded="lg"
               cursor="pointer"
               shadow="sm"
@@ -261,7 +261,7 @@ export default function ProjectSchedules() {
                       <Badge colorScheme="orange" fontSize="xs" flexShrink={0}>Kosztorys</Badge>
                     )}
                   </HStack>
-                  <HStack spacing={3} fontSize="xs" color="gray.500">
+                  <HStack spacing={3} fontSize="xs" color="neutral.500">
                     <HStack spacing={1}>
                       <Icon as={User} boxSize={3} />
                       <Text noOfLines={1}>{schedule.createdByUserName}</Text>
@@ -291,7 +291,7 @@ export default function ProjectSchedules() {
     }
 
     return (
-      <Box overflowX="auto" bg={cardBg} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+      <Box overflowX="auto" bg="white" rounded="lg" borderWidth="1px" borderColor="neutral.200">
         <Table size="sm" variant="simple">
           <Thead>
             <Tr>
@@ -305,7 +305,7 @@ export default function ProjectSchedules() {
             {schedules.map((schedule) => (
               <Tr
                 key={schedule.id}
-                _hover={{ bg: hoverBg }}
+                _hover={{ bg: 'neutral.50' }}
                 cursor="pointer"
                 onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
               >
@@ -319,13 +319,13 @@ export default function ProjectSchedules() {
                 </Td>
                 <Td>
                   <HStack spacing={1}>
-                    <Icon as={User} boxSize={3} color="gray.500" />
+                    <Icon as={User} boxSize={3} color="neutral.500" />
                     <Text fontSize="sm">{schedule.createdByUserName}</Text>
                   </HStack>
                 </Td>
                 <Td>
                   <HStack spacing={1}>
-                    <Icon as={Clock} boxSize={3} color="gray.500" />
+                    <Icon as={Clock} boxSize={3} color="neutral.500" />
                     <Text fontSize="sm">{formatDate(schedule.createdAt)}</Text>
                   </HStack>
                 </Td>
@@ -370,7 +370,7 @@ export default function ProjectSchedules() {
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Harmonogramy prac</Heading>
               {project && (
-                <Text fontSize="sm" color="gray.600" noOfLines={1}>
+                <Text fontSize="sm" color="neutral.600" noOfLines={1}>
                   {project.name}
                 </Text>
               )}

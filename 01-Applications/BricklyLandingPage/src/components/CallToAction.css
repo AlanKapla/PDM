@@ -192,3 +192,16 @@
     display: none;
   }
 }
+
+.cta-section__integration {
+  margin-bottom: 32px;
+}
+
+.cta-section__integration-text {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.7;
+  font-style: italic;
+}

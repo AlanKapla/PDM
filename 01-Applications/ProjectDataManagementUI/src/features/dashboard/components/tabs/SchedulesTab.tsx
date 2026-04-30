@@ -1,7 +1,7 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { ScheduleSummaryWeb, ProjectFinancialSummaryWeb, ProjectTimelineSummaryWeb } from '../../types/projectDashboard.types';
 import { PLN, DAYS } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { KpiCard } from '../shared/KpiCard';
 import { ScheduleBlock } from './ScheduleBlock';
 
@@ -26,6 +26,10 @@ export function SchedulesTab({
   projectId,
   onRefetch,
 }: SchedulesTabProps): React.ReactElement {
+  const [orange800, level1700, neutral400] = useToken('colors', [
+    'orange.800', 'level1.700', 'neutral.400',
+  ]);
+
   const scs = financialSummary.scheduleCostSummary;
 
   return (
@@ -44,11 +48,11 @@ export function SchedulesTab({
         <KpiCard
           label="Opóźnione zakresy"
           value={String(timelineSummary.delayedCount)}
-          accent={timelineSummary.delayedCount > 0 ? COLOR_PALETTE.coral600 : undefined}
+          accent={timelineSummary.delayedCount > 0 ? orange800 : undefined}
         />
         <KpiCard label="W toku" value={String(timelineSummary.inProgressCount)} />
         <KpiCard label="Nie rozpoczęto" value={String(timelineSummary.notStartedCount)} />
-        <KpiCard label="Ukończono" value={String(timelineSummary.completedCount)} accent={COLOR_PALETTE.teal600} />
+        <KpiCard label="Ukończono" value={String(timelineSummary.completedCount)} accent={level1700} />
         <KpiCard
           label="Czas projektu"
           value={timelineSummary.totalPlannedDays != null ? DAYS(timelineSummary.totalPlannedDays) : '—'}
@@ -66,7 +70,7 @@ export function SchedulesTab({
           />
         ))}
         {summaries.length === 0 && (
-          <div style={{ fontSize: 13, color: COLOR_PALETTE.gray400, fontStyle: 'italic', padding: 12 }}>
+          <div style={{ fontSize: "sm", color: neutral400, fontStyle: 'italic', padding: 12 }}>
             Brak powiązanych harmonogramów
           </div>
         )}

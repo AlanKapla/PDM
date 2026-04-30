@@ -1,7 +1,7 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { ScheduleSummaryWeb } from '../../types/projectDashboard.types';
 import { PLN, PROG, DATE, DAYS } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { Accordion } from '../shared/Accordion';
 import { TimelineStatusBadge } from '../shared/TimelineStatusBadge';
 import { KpiCard } from '../shared/KpiCard';
@@ -26,25 +26,29 @@ export function ScheduleBlock({
   projectId,
   onRefetch,
 }: ScheduleBlockProps): React.ReactElement {
+  const [primary50, primary600, level250, level2600, orange600, orange800] = useToken('colors', [
+    'primary.50', 'primary.600', 'level2.50', 'level2.600', 'orange.600', 'orange.800',
+  ]);
+
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{summary.workScheduleName}</span>
+      <span style={{ fontSize: "sm", fontWeight: "medium", flex: 1 }}>{summary.workScheduleName}</span>
       <Badge
         text={`${summary.totalWorkItemsCount ?? '?'} zakresów`}
-        bg={COLOR_PALETTE.blue50}
-        color={COLOR_PALETTE.blue600}
+        bg={primary50}
+        color={primary600}
         small
       />
       {summary.hasLinkedEstimate && (
         <Badge
           text="Z kosztorysem"
-          bg={COLOR_PALETTE.purple50}
-          color={COLOR_PALETTE.purple600}
+          bg={level250}
+          color={level2600}
           small
         />
       )}
       {summary.totalCostsNet != null && (
-        <span style={{ fontSize: 12, fontWeight: 500, color: COLOR_PALETTE.coral400 }}>
+        <span style={{ fontSize: "xs", fontWeight: "medium", color: orange600 }}>
           {PLN(summary.totalCostsNet)}
         </span>
       )}
@@ -53,7 +57,7 @@ export function ScheduleBlock({
   );
 
   return (
-    <Accordion header={header} headerBg={COLOR_PALETTE.blue50}>
+    <Accordion header={header} headerBg={primary50}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Sekcja A: KPI finansowe */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
@@ -67,7 +71,7 @@ export function ScheduleBlock({
           <KpiCard
             label="Opóźnionych zakresów"
             value={String(summary.workItemsDelayedCount)}
-            accent={summary.workItemsDelayedCount > 0 ? COLOR_PALETTE.coral600 : undefined}
+            accent={summary.workItemsDelayedCount > 0 ? orange800 : undefined}
             small
           />
         </div>

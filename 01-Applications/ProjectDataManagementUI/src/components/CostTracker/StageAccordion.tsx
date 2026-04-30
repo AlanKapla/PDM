@@ -1,4 +1,4 @@
-import {
+﻿import {
   Accordion,
   AccordionItem,
   AccordionButton,
@@ -60,7 +60,7 @@ export default function StageAccordion({
           <AccordionItem
             key={group.groupId}
             borderWidth="1px"
-            borderColor="gray.200"
+            borderColor="neutral.200"
             borderRadius="md"
             mb={2}
             overflow="hidden"
@@ -70,9 +70,9 @@ export default function StageAccordion({
               px={depth > 0 ? 3 : 4}
               py={2}
               minH="44px"
-              bg="gray.50"
-              _hover={{ bg: "gray.100" }}
-              _expanded={{ bg: "gray.100" }}
+              bg="neutral.25"
+              _hover={{ bg: "neutral.50" }}
+              _expanded={{ bg: "neutral.50" }}
             >
               <HStack flex={1} spacing={2} textAlign="left" overflow="hidden">
                 <Text
@@ -90,9 +90,9 @@ export default function StageAccordion({
                   colorScheme={progressColor}
                   flex={1}
                   borderRadius="full"
-                  bg="gray.200"
+                  bg="neutral.100"
                 />
-                <Text fontSize="xs" color="gray.500" flexShrink={0}>
+                <Text fontSize="xs" color="neutral.500" flexShrink={0}>
                   {group.itemsWithCostsCount}/{group.totalItemsCount}
                 </Text>
                 <CostCountBadge count={group.costCount} />
@@ -118,7 +118,7 @@ export default function StageAccordion({
                   <Box
                     pl={6}
                     borderLeft="2px solid"
-                    borderLeftColor="gray.200"
+                    borderLeftColor="neutral.200"
                   >
                     <StageAccordion
                       groups={group.childGroups}

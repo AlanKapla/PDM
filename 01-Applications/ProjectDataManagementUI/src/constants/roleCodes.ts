@@ -95,13 +95,13 @@ export const getRoleName = (roleCode: string): string => {
 export const getRoleColor = (roleCode: string): string => {
   const roleColors: Record<string, string> = {
     [RoleCodes.SYSTEM_SUPERADMIN]: 'red',
-    
-    [RoleCodes.TENANT_ADMIN]: 'purple',
+
+    [RoleCodes.TENANT_ADMIN]: 'level2',
     [RoleCodes.TENANT_MEMBER]: 'gray',
-    
-    [RoleCodes.PROJECT_ADMIN]: 'purple',
-    [RoleCodes.PROJECT_EDITOR]: 'blue',
-    [RoleCodes.PROJECT_VIEWER]: 'green',
+
+    [RoleCodes.PROJECT_ADMIN]:   'level2',
+    [RoleCodes.PROJECT_EDITOR]:  'primary',
+    [RoleCodes.PROJECT_VIEWER]:  'neutral',
   };
   
   return roleColors[roleCode] || 'gray';

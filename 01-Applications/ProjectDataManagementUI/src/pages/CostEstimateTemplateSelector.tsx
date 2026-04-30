@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -88,6 +88,7 @@ import type {
   CostEstimateFieldValueWeb,
 } from "../types/costEstimate.types.new";
 import { CostEstimateStatus, CostEstimateAccessLevel } from "../types/costEstimate.types.new";
+import { handleApiError } from "../utils/handleApiError";
 
 export default function CostEstimateTemplateSelector() {
   const { showSuccess, showError } = useToastNotification();
@@ -122,8 +123,9 @@ export default function CostEstimateTemplateSelector() {
     try {
       const data = await costEstimateTemplateApi.getDefaultTemplates();
       setDefaultTemplates(Array.isArray(data) ? data : []);
-    } catch (error: any) {
-      showError('Nie udało się załadować szablonów', error?.message || 'Wystąpił nieoczekiwany błąd');
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
       setDefaultTemplates([]);
     } finally {
       setLoading(false);
@@ -138,8 +140,9 @@ export default function CostEstimateTemplateSelector() {
     try {
       const structure = await costEstimateTemplateApi.getDefaultTemplate(template.slug);
       setTemplateStructure(structure);
-    } catch (error: any) {
-      showError('Nie udało się załadować struktury szablonu', error?.message);
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
       setTemplateStructure(null);
     } finally {
       setLoadingStructure(false);
@@ -174,8 +177,9 @@ export default function CostEstimateTemplateSelector() {
       
       // Przekieruj do edycji nowo utworzonego szablonu
       navigate(`/cost-estimate-templates/${newTemplateId}/edit`);
-    } catch (error: any) {
-      showError('Nie udało się utworzyć szablonu', error?.message || 'Wystąpił nieoczekiwany błąd');
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setIsCreating(false);
     }
@@ -199,8 +203,9 @@ export default function CostEstimateTemplateSelector() {
     try {
       const structure = await costEstimateTemplateApi.getDefaultTemplate(template.slug);
       setTemplateStructure(structure);
-    } catch (error: any) {
-      showError('Nie udało się załadować struktury szablonu', error?.message);
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
       setTemplateStructure(null);
     } finally {
       setLoadingStructure(false);
@@ -238,7 +243,7 @@ export default function CostEstimateTemplateSelector() {
                 <Layers size={28} />
                 <Heading size="lg">Wybierz szablon kosztorysu</Heading>
               </HStack>
-              <Text fontSize="sm" color="gray.600">
+              <Text fontSize="sm" color="neutral.600">
                 Wybierz jeden z gotowych szablonów jako podstawę lub utwórz pusty szablon od zera
               </Text>
             </VStack>
@@ -260,7 +265,7 @@ export default function CostEstimateTemplateSelector() {
                     <FileText size={20} />
                     <Text fontWeight="bold">Pusty szablon</Text>
                   </HStack>
-                  <Text fontSize="sm" color="gray.600">
+                  <Text fontSize="sm" color="neutral.600">
                     Zacznij od zera — sam zdefiniujesz wszystkie pola, waluty i jednostki
                   </Text>
                 </VStack>
@@ -326,7 +331,7 @@ export default function CostEstimateTemplateSelector() {
                           </HStack>
 
                           {template.description && (
-                            <Text fontSize="sm" color="gray.600" noOfLines={3}>
+                            <Text fontSize="sm" color="neutral.600" noOfLines={3}>
                               {template.description}
                             </Text>
                           )}
@@ -384,7 +389,7 @@ export default function CostEstimateTemplateSelector() {
         >
           <ModalOverlay />
           <ModalContent maxH="90vh">
-            <ModalHeader borderBottom="1px" borderColor="gray.200">
+            <ModalHeader borderBottom="1px" borderColor="neutral.200">
               <HStack spacing={3} justify="space-between" pr={8}>
                 <HStack spacing={3}>
                   <Eye size={24} />
@@ -485,7 +490,7 @@ export default function CostEstimateTemplateSelector() {
                               </Table>
                               </Box>
                             ) : (
-                              <Text color="gray.500" fontSize="sm">Brak zdefiniowanych pól nagłówka etapu</Text>
+                              <Text color="neutral.500" fontSize="sm">Brak zdefiniowanych pól nagłówka etapu</Text>
                             )}
                           </Box>
                         </VStack>
@@ -495,7 +500,7 @@ export default function CostEstimateTemplateSelector() {
                       <TabPanel>
                         <Accordion allowMultiple defaultIndex={[]}>
                           {/* Pola systemowe */}
-                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                          <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                             <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                               <HStack flex={1} spacing={2}>
                                 <FileText size={18} />
@@ -531,13 +536,13 @@ export default function CostEstimateTemplateSelector() {
                                 </Table>
                                 </Box>
                               ) : (
-                                <Text color="gray.500" fontSize="sm">Brak pól systemowych</Text>
+                                <Text color="neutral.500" fontSize="sm">Brak pól systemowych</Text>
                               )}
                             </AccordionPanel>
                           </AccordionItem>
 
                           {/* Pola kalkulowane */}
-                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                          <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                             <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                               <HStack flex={1} spacing={2}>
                                 <Calculator size={18} />
@@ -573,13 +578,13 @@ export default function CostEstimateTemplateSelector() {
                                 </Table>
                                 </Box>
                               ) : (
-                                <Text color="gray.500" fontSize="sm">Brak pól kalkulowanych</Text>
+                                <Text color="neutral.500" fontSize="sm">Brak pól kalkulowanych</Text>
                               )}
                             </AccordionPanel>
                           </AccordionItem>
 
                           {/* Pola generyczne */}
-                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
+                          <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" overflow="hidden">
                             <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                               <HStack flex={1} spacing={2}>
                                 <Tag size={18} />
@@ -615,7 +620,7 @@ export default function CostEstimateTemplateSelector() {
                                 </Table>
                                 </Box>
                               ) : (
-                                <Text color="gray.500" fontSize="sm">Brak pól generycznych</Text>
+                                <Text color="neutral.500" fontSize="sm">Brak pól generycznych</Text>
                               )}
                             </AccordionPanel>
                           </AccordionItem>
@@ -626,7 +631,7 @@ export default function CostEstimateTemplateSelector() {
                       <TabPanel>
                         <Accordion allowMultiple defaultIndex={[]}>
                           {/* Waluty */}
-                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                          <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                             <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                               <HStack flex={1} spacing={2}>
                                 <Text fontSize="lg" lineHeight={1}>💰</Text>
@@ -662,13 +667,13 @@ export default function CostEstimateTemplateSelector() {
                                 </Table>
                                 </Box>
                               ) : (
-                                <Text color="gray.500" fontSize="sm">Brak zdefiniowanych walut</Text>
+                                <Text color="neutral.500" fontSize="sm">Brak zdefiniowanych walut</Text>
                               )}
                             </AccordionPanel>
                           </AccordionItem>
 
                           {/* Jednostki */}
-                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                          <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                             <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                               <HStack flex={1} spacing={2}>
                                 <Text fontSize="lg" lineHeight={1}>📏</Text>
@@ -706,13 +711,13 @@ export default function CostEstimateTemplateSelector() {
                                 </Table>
                                 </Box>
                               ) : (
-                                <Text color="gray.500" fontSize="sm">Brak zdefiniowanych jednostek</Text>
+                                <Text color="neutral.500" fontSize="sm">Brak zdefiniowanych jednostek</Text>
                               )}
                             </AccordionPanel>
                           </AccordionItem>
 
                           {/* Kategorie */}
-                          <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
+                          <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" overflow="hidden">
                             <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                               <HStack flex={1} spacing={2}>
                                 <Text fontSize="lg" lineHeight={1}>🏷️</Text>
@@ -742,7 +747,7 @@ export default function CostEstimateTemplateSelector() {
                                 </Table>
                                 </Box>
                               ) : (
-                                <Text color="gray.500" fontSize="sm">Brak zdefiniowanych kategorii</Text>
+                                <Text color="neutral.500" fontSize="sm">Brak zdefiniowanych kategorii</Text>
                               )}
                             </AccordionPanel>
                           </AccordionItem>
@@ -780,7 +785,7 @@ export default function CostEstimateTemplateSelector() {
                                       </Badge>
                                     </Td>
                                     <Td>
-                                      <Text fontSize="sm" color="gray.600">
+                                      <Text fontSize="sm" color="neutral.600">
                                         {getFieldTypeLabel(col.fieldType)}
                                       </Text>
                                     </Td>
@@ -790,7 +795,7 @@ export default function CostEstimateTemplateSelector() {
                             </Table>
                             </Box>
                           ) : (
-                            <Text color="gray.500" fontSize="sm">Brak konfiguracji kolumn</Text>
+                            <Text color="neutral.500" fontSize="sm">Brak konfiguracji kolumn</Text>
                           )}
                         </Box>
                       </TabPanel>
@@ -798,10 +803,10 @@ export default function CostEstimateTemplateSelector() {
                   </Tabs>
                 </VStack>
               ) : (
-                <Text color="gray.500">Nie udało się załadować struktury szablonu</Text>
+                <Text color="neutral.500">Nie udało się załadować struktury szablonu</Text>
               )}
             </ModalBody>
-            <ModalFooter borderTop="1px" borderColor="gray.200">
+            <ModalFooter borderTop="1px" borderColor="neutral.200">
               <HStack spacing={3}>
                 <Button 
                   variant="outline" 
@@ -841,14 +846,14 @@ export default function CostEstimateTemplateSelector() {
         >
           <ModalOverlay />
           <ModalContent maxH="100vh" m={0}>
-            <ModalHeader borderBottom="1px" borderColor="gray.200">
+            <ModalHeader borderBottom="1px" borderColor="neutral.200">
               <HStack spacing={3}>
                 <Play size={24} />
                 <Text>Podgląd kosztorysu: {selectedTemplate?.name}</Text>
               </HStack>
             </ModalHeader>
             <ModalCloseButton />
-            <ModalBody p={6} bg="gray.50">
+            <ModalBody p={6} bg="neutral.25">
               {loadingStructure ? (
                 <Box py={16}>
                   <LoadingSpinner />
@@ -872,10 +877,10 @@ export default function CostEstimateTemplateSelector() {
                   />
                 </Box>
               ) : (
-                <Text color="gray.500">Nie udało się wygenerować podglądu</Text>
+                <Text color="neutral.500">Nie udało się wygenerować podglądu</Text>
               )}
             </ModalBody>
-            <ModalFooter borderTop="1px" borderColor="gray.200">
+            <ModalFooter borderTop="1px" borderColor="neutral.200">
               <HStack spacing={3}>
                 <Button
                   variant="outline"
@@ -924,7 +929,7 @@ export default function CostEstimateTemplateSelector() {
                     <Text fontSize="sm" fontWeight="medium">
                       Szablon bazowy: {selectedTemplate?.name}
                     </Text>
-                    <Text fontSize="xs" color="gray.600">
+                    <Text fontSize="xs" color="neutral.600">
                       Wszystkie pola, waluty i jednostki zostaną skopiowane. Po utworzeniu będziesz mógł je dowolnie modyfikować.
                     </Text>
                   </VStack>

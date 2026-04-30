@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Box,
   VStack,
@@ -47,18 +47,18 @@ function StatCard({ label, value, sub, accent = "gray" }: StatCardProps) {
   const colorMap = {
     red: "red.600",
     green: "green.600",
-    gray: "gray.700",
+    gray: "neutral.700",
   };
   return (
     <Box bg="white" p={4} borderRadius="lg" borderWidth="1px" shadow="sm">
-      <Text fontSize="xs" color="gray.500" mb={1}>
+      <Text fontSize="xs" color="neutral.500" mb={1}>
         {label}
       </Text>
       <Text fontSize="lg" fontWeight="bold" color={colorMap[accent]}>
         {value}
       </Text>
       {sub && (
-        <Text fontSize="xs" color="gray.400" mt={0.5}>
+        <Text fontSize="xs" color="neutral.400" mt={0.5}>
           {sub}
         </Text>
       )}
@@ -124,7 +124,7 @@ export default function BudgetSummarySection({
       : "green";
 
   return (
-    <Box bg="gray.50" borderRadius="xl" borderWidth="1px" p={{ base: 4, md: 6 }}>
+    <Box bg="neutral.25" borderRadius="xl" borderWidth="1px" p={{ base: 4, md: 6 }}>
       <HStack justify="space-between" mb={4}>
         <HStack spacing={2}>
           <Text fontWeight="bold" fontSize="md">
@@ -187,7 +187,7 @@ export default function BudgetSummarySection({
             </Button>
             <Button
               size="sm"
-              colorScheme="blue"
+              colorScheme="primary"
               leftIcon={<Save size={14} />}
               onClick={handleSave}
               isLoading={isSaving}
@@ -233,7 +233,7 @@ export default function BudgetSummarySection({
             budgetSummary.totalCostsNet !== null && (
               <Box>
                 <HStack justify="space-between" mb={1}>
-                  <Text fontSize="xs" color="gray.500">
+                  <Text fontSize="xs" color="neutral.500">
                     Realizacja budżetu netto
                   </Text>
                   <HStack spacing={1} fontSize="xs" color={deviationAccent === "red" ? "red.500" : "green.600"}>
@@ -249,7 +249,7 @@ export default function BudgetSummarySection({
                     </Text>
                   </HStack>
                 </HStack>
-                <Box bg="gray.200" borderRadius="full" h="8px" overflow="hidden">
+                <Box bg="neutral.100" borderRadius="full" h="8px" overflow="hidden">
                   <Box
                     h="100%"
                     borderRadius="full"

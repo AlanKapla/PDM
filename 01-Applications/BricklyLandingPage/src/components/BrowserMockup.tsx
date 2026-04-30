@@ -38,7 +38,7 @@ export default function BrowserMockup() {
             <span className="browser__dot browser__dot--green" />
           </div>
           <div className="browser__url">
-            <span className="browser__url-lock">🔒</span>
+            <span className="browser__url-lock">●</span>
             app.brickly.pro
           </div>
           <div className="browser__bar-right" />

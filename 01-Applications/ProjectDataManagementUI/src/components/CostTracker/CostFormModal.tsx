@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -218,7 +218,7 @@ export default function CostFormModal({
   );
 
   const mobileStepLabel = isMobile ? (
-    <Text fontSize="sm" color="gray.500" mb={4}>
+    <Text fontSize="sm" color="neutral.500" mb={4}>
       Krok {activeStep + 1} z {STEPS.length} — {STEPS[activeStep].title}
     </Text>
   ) : null;
@@ -322,7 +322,7 @@ export default function CostFormModal({
       </Button>
       {activeStep < STEPS.length - 1 ? (
         <Button
-          colorScheme="blue"
+          colorScheme="primary"
           onClick={handleNext}
           isDisabled={!canNext()}
           width={{ base: "full", md: "auto" }}
@@ -331,7 +331,7 @@ export default function CostFormModal({
         </Button>
       ) : (
         <Button
-          colorScheme="blue"
+          colorScheme="primary"
           onClick={handleSubmit}
           isLoading={isSubmitting}
           width={{ base: "full", md: "auto" }}

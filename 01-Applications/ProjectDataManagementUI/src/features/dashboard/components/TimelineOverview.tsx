@@ -1,8 +1,8 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import { TimelineStatus } from '../types/projectDashboard.types';
 import type { ProjectTimelineSummaryWeb } from '../types/projectDashboard.types';
-import { PROG, DAYS } from '../utils/formatters';
-import { COLOR_PALETTE, TIMELINE_STATUS_MAP } from '../utils/colors';
+import { PROG, DAYS, TIMELINE_STATUS_MAP } from '../utils/formatters';
 import { KpiCard } from './shared/KpiCard';
 import { MiniProgressBar } from './shared/MiniProgressBar';
 import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
@@ -17,15 +17,19 @@ export interface TimelineOverviewProps {
  * Źródło danych: ProjectTimelineSummaryWeb.
  */
 export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactElement {
+  const [level1500, coral400, primary500, neutral200, neutral400, primary600] = useToken('colors', [
+    'level1.500', 'orange.600', 'primary.500', 'neutral.200', 'neutral.400', 'primary.600',
+  ]);
+
   const progressColor = (() => {
     switch (data.overallStatus) {
       case TimelineStatus.Completed:
       case TimelineStatus.CompletedLate:
-        return COLOR_PALETTE.teal400;
+        return level1500;
       case TimelineStatus.Delayed:
-        return COLOR_PALETTE.coral400;
+        return coral400;
       default:
-        return COLOR_PALETTE.blue400;
+        return primary500;
     }
   })();
 
@@ -33,13 +37,13 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
     <div
       style={{
         background: '#fff',
-        border: `0.5px solid ${COLOR_PALETTE.border}`,
+        border: `0.5px solid ${neutral200}`,
         borderRadius: 12,
         padding: 16,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 500 }}>Postęp projektu</span>
+        <span style={{ fontSize: "sm", fontWeight: "medium" }}>Postęp projektu</span>
         <TimelineStatusBadge status={data.overallStatus} small />
       </div>
 
@@ -52,13 +56,13 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
         <KpiCard
           label="Opóźnione"
           value={String(data.delayedCount)}
-          accent={data.delayedCount > 0 ? COLOR_PALETTE.coral400 : undefined}
+          accent={data.delayedCount > 0 ? coral400 : undefined}
           small
         />
         <KpiCard
           label="W toku"
           value={String(data.inProgressCount)}
-          accent={COLOR_PALETTE.blue600}
+          accent={primary600}
           small
         />
         <KpiCard
@@ -73,7 +77,7 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
         color={progressColor}
         height={8}
       />
-      <div style={{ fontSize: 12, color: COLOR_PALETTE.gray400, marginTop: 3, marginBottom: 12 }}>
+      <div style={{ fontSize: "xs", color: neutral400, marginTop: 3, marginBottom: 12 }}>
         {PROG(data.progressPercent)} ukończenia
       </div>
 
@@ -91,7 +95,7 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
         })}
       </div>
 
-      <div style={{ fontSize: 11, color: COLOR_PALETTE.gray400 }}>
+      <div style={{ fontSize: "xs", color: neutral400 }}>
         Harmonogramów: {data.workSchedulesCount}
         {data.activeSchedulesCount > 0 && (
           <span style={{ marginLeft: 6 }}>(aktywnych: {data.activeSchedulesCount})</span>

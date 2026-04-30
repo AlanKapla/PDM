@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -239,7 +239,7 @@ export default function UploadFilesModal({
         <ModalCloseButton isDisabled={uploading} />
         <ModalBody>
           <VStack spacing={4} align="stretch">
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="neutral.600">
               Projekt: <Text as="span" fontWeight="bold">{projectName}</Text>
             </Text>
 
@@ -276,7 +276,7 @@ export default function UploadFilesModal({
                   isDisabled={uploading}
                 />
                 <FormErrorMessage>{packageNameError}</FormErrorMessage>
-                <Text fontSize="xs" color="gray.500" mt={1}>
+                <Text fontSize="xs" color="neutral.500" mt={1}>
                   Pliki zostaną zapisane w nowej paczce
                 </Text>
               </FormControl>
@@ -289,7 +289,7 @@ export default function UploadFilesModal({
                     <Text fontSize="sm">Ładowanie paczek...</Text>
                   </HStack>
                 ) : packages.length === 0 ? (
-                  <Text fontSize="sm" color="gray.500">
+                  <Text fontSize="sm" color="neutral.500">
                     Nie masz jeszcze żadnych paczek. Przełącz się na "Nowa paczka".
                   </Text>
                 ) : (
@@ -307,7 +307,7 @@ export default function UploadFilesModal({
                         </option>
                       ))}
                     </Select>
-                    <Text fontSize="xs" color="gray.500" mt={1}>
+                    <Text fontSize="xs" color="neutral.500" mt={1}>
                       Pliki zostaną dodane do wybranej paczki
                     </Text>
                   </>
@@ -348,7 +348,7 @@ export default function UploadFilesModal({
                         p={3}
                         borderWidth="1px"
                         borderRadius="md"
-                        bg="gray.50"
+                        bg="neutral.25"
                       >
                         <VStack align="stretch" spacing={2}>
                           <HStack justify="space-between">
@@ -358,7 +358,7 @@ export default function UploadFilesModal({
                                 <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
                                   {item.file.name}
                                 </Text>
-                                <Text fontSize="xs" color="gray.500">
+                                <Text fontSize="xs" color="neutral.500">
                                   {formatFileSize(item.file.size)}
                                 </Text>
                               </VStack>

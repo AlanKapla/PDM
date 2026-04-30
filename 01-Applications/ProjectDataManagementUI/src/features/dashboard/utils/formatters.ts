@@ -1,10 +1,28 @@
 import { FinancialStatus, TimelineStatus } from '../types/projectDashboard.types';
-import {
-  COLOR_PALETTE,
-  FINANCIAL_STATUS_MAP,
-  TIMELINE_STATUS_MAP,
-} from './colors';
-import type { StatusConfig } from './colors';
+
+export interface StatusConfig {
+  bg: string;
+  color: string;
+  label: string;
+}
+
+export const FINANCIAL_STATUS_MAP: Record<FinancialStatus, StatusConfig> = {
+  [FinancialStatus.NoBudget]:   { bg: '#F1EFE8', color: '#5F5E5A', label: 'Brak budżetu' },    // neutral.50 / neutral.600
+  [FinancialStatus.NoCosts]:    { bg: '#EBF8FF', color: '#2B6CB0', label: 'Brak kosztów' },   // primary.50 / primary.600
+  [FinancialStatus.InProgress]: { bg: '#E6FFFA', color: '#276749', label: 'W budżecie' },     // action.50  / level1.700
+  [FinancialStatus.NearLimit]:  { bg: '#FAEEDA', color: '#854F0B', label: 'Blisko limitu' },  // amber.50   / amber.600
+  [FinancialStatus.OverBudget]: { bg: '#FFF5F5', color: '#C53030', label: 'Przekroczenie' }, // red.50     / red.600
+};
+
+export const TIMELINE_STATUS_MAP: Record<TimelineStatus, StatusConfig> = {
+  [TimelineStatus.NoSchedule]:    { bg: '#F1EFE8', color: '#888780', label: 'Bez harmonogramu' },    // neutral.50 / neutral.400
+  [TimelineStatus.NotStarted]:    { bg: '#F1EFE8', color: '#5F5E5A', label: 'Nie rozpoczęto' },      // neutral.50 / neutral.600
+  [TimelineStatus.InProgress]:    { bg: '#EBF8FF', color: '#2B6CB0', label: 'W toku' },              // primary.50 / primary.600
+  [TimelineStatus.Delayed]:       { bg: '#FFFAF0', color: '#652B19', label: 'Opóźnione' },          // orange.50  / orange.800
+  [TimelineStatus.Completed]:     { bg: '#E6FFFA', color: '#276749', label: 'Ukończone' },          // action.50  / level1.700
+  [TimelineStatus.CompletedLate]: { bg: '#FAEEDA', color: '#854F0B', label: 'Ukończone późno' },   // amber.50   / amber.600
+  [TimelineStatus.NoWorkItems]:   { bg: '#F1EFE8', color: '#888780', label: 'Nie skonfigurowany' },  // neutral.50 / neutral.400
+};
 
 /** Formatuje kwotę PLN. null/undefined → "—" */
 export function PLN(v: number | null | undefined): string {
@@ -63,12 +81,12 @@ export function DEVIATION_COLOR(
   _isBudgetExceeded: boolean
 ): string {
   if (deviationNet != null && deviationNet < 0) {
-    return COLOR_PALETTE.red400;
+    return '#FC8181'; // red.400
   }
   if (deviationNet != null && deviationNet > 0) {
-    return COLOR_PALETTE.teal600;
+    return '#276749'; // level1.700
   }
-  return COLOR_PALETTE.gray400;
+  return '#888780'; // neutral.400
 }
 
 /** Zwraca konfigurację wizualną dla FinancialStatus. */

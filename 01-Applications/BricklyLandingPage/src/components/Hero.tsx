@@ -20,43 +20,43 @@ export default function Hero() {
         <div className="hero__content">
           <div className="hero__badge">
             <span className="hero__badge-dot" />
-            Excel, WhatsApp, e-mail — koniec z tym.
+            Koniec z chaosem na budowie. Zacznij widzieć liczby.
           </div>
 
           <h1 className="hero__title">
-            Jeden system<br />
-            <span className="hero__title-accent">dla całego procesu</span>{' '}
-            inwestycyjnego.
+            Wiesz ile kosztuje<br />
+            <span className="hero__title-accent">Twoja inwestycja?</span>{' '}
+            Naprawdę?
           </h1>
 
           <p className="hero__subtitle">
-            Koniec z Excelem do kosztorysów, WhatsAppem do komunikacji
-            i mailem do dokumentów. Brickly spina cały proces inwestycyjny
-            w jednym miejscu.
+            Większość inwestorów dowiaduje się o przekroczeniu budżetu
+            za późno. Brickly pokazuje Ci stan finansowy każdej inwestycji
+            w czasie rzeczywistym — zanim będzie za drogo.
           </p>
 
           <div className="hero__pain-strip">
-            <span className="hero__pain-item">Rozproszona dokumentacja</span>
+            <span className="hero__pain-item">„Ile już wydaliśmy?"</span>
             <span className="hero__pain-arrow">→</span>
-            <span className="hero__pain-item">Nieaktualne kosztorysy</span>
+            <span className="hero__pain-item">„Kiedy to skończą?"</span>
             <span className="hero__pain-arrow">→</span>
-            <span className="hero__pain-item">Brak kontroli nad projektem</span>
+            <span className="hero__pain-item">„Gdzie jest ta umowa?"</span>
           </div>
 
           <div className="hero__stats">
             <div className="hero__stat">
-              <span className="hero__stat-value">5 min</span>
-              <span className="hero__stat-label">konfiguracja</span>
+              <span className="hero__stat-value">Budżet</span>
+              <span className="hero__stat-label">vs rzeczywiste wydatki</span>
+            </div>
+            <div className="hero__stat-divider" />
+            <div className="hero__stat">
+              <span className="hero__stat-value">Harmonogram</span>
+              <span className="hero__stat-label">opóźnienia widoczne od razu</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
               <span className="hero__stat-value">1 miejsce</span>
-              <span className="hero__stat-label">zamiast 5 narzędzi</span>
-            </div>
-            <div className="hero__stat-divider" />
-            <div className="hero__stat">
-              <span className="hero__stat-value">100%</span>
-              <span className="hero__stat-label">online</span>
+              <span className="hero__stat-label">dla całego zespołu</span>
             </div>
           </div>
 

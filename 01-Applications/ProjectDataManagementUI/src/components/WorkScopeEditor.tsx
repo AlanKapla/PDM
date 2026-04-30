@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Box,
   FormControl,
@@ -102,7 +102,7 @@ export const WorkScopeEditor: React.FC<WorkScopeEditorProps> = ({
             )}
           </HStack>
           {field.helpText && (
-            <Text fontSize="xs" color="gray.500" fontWeight="normal">
+            <Text fontSize="xs" color="neutral.500" fontWeight="normal">
               {field.helpText}
             </Text>
           )}
@@ -126,7 +126,7 @@ export const WorkScopeEditor: React.FC<WorkScopeEditorProps> = ({
             />
           </NumberInput>
           {field.unit && (
-            <Text fontSize="sm" color="gray.600" minW="40px">
+            <Text fontSize="sm" color="neutral.600" minW="40px">
               {field.unit}
             </Text>
           )}
@@ -158,7 +158,7 @@ export const WorkScopeEditor: React.FC<WorkScopeEditorProps> = ({
             )}
           </HStack>
           {field.helpText && (
-            <Text fontSize="xs" color="gray.500" fontWeight="normal">
+            <Text fontSize="xs" color="neutral.500" fontWeight="normal">
               {field.helpText}
             </Text>
           )}

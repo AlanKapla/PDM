@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -245,7 +245,7 @@ export default function ExpenseFormModal({
                     py={2}
                     borderWidth="1px"
                     borderRadius="md"
-                    borderColor="gray.200"
+                    borderColor="neutral.200"
                     display="inline-flex"
                     maxW="full"
                   >
@@ -284,7 +284,7 @@ export default function ExpenseFormModal({
                     </Button>
                   </>
                 )}
-                <Text fontSize="xs" color="gray.500" mt={1}>
+                <Text fontSize="xs" color="neutral.500" mt={1}>
                   Obsługiwane formaty: PDF, JPG, PNG
                 </Text>
               </FormControl>

@@ -48,7 +48,7 @@ export function ProjectDashboard({
   }
 
   return (
-    <div style={{ padding: '16px 20px', maxWidth: 1400 }}>
+    <Box px={{ base: 3, md: 5 }} py={4} maxW={1400}>
       <OverviewSection
         financialData={data.financialSummary}
         timelineData={data.timelineSummary}
@@ -104,7 +104,7 @@ export function ProjectDashboard({
           onRefetch={refetch}
         />
       )}
-    </div>
+    </Box>
   );
 }
 

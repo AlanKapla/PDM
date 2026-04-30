@@ -85,7 +85,14 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
   };
 
   return (
-    <Tr ref={setNodeRef} style={style} bg="level2.50" _hover={{ bg: 'primary.50', cursor: 'pointer' }}>
+    <Tr
+      ref={setNodeRef}
+      style={style}
+      bg="neutral.25"
+      borderBottomWidth="0.5px"
+      borderBottomColor="neutral.100"
+      _hover={{ bg: 'neutral.50', cursor: 'pointer' }}
+    >
       {editable && (
         <Td
           px={3}
@@ -94,7 +101,9 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
           position="sticky"
           left={0}
           zIndex={5}
-          bg="level2.50"
+          bg="neutral.25"
+          borderLeftWidth="2px"
+          borderLeftColor="neutral.200"
           minW="120px"
           maxW="120px"
         >
@@ -132,13 +141,23 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
         position="sticky"
         left={editable ? '120px' : 0}
         zIndex={5}
-        bg="level2.50"
+        bg="neutral.25"
+        borderLeftWidth={!editable ? '2px' : undefined}
+        borderLeftColor={!editable ? 'neutral.200' : undefined}
         w={`${POSITION_COL_MIN_WIDTH}px`}
         minW={`${POSITION_COL_MIN_WIDTH}px`}
         whiteSpace="nowrap"
       >
-        <Badge colorScheme="level2" size="sm">
-          Opcja {optIndex + 1}
+        <Badge
+          bg="neutral.100"
+          color="neutral.400"
+          px={2}
+          py={0.5}
+          borderRadius="md"
+          fontSize="xs"
+          fontWeight="medium"
+        >
+          OPCJA {optIndex + 1}
         </Badge>
       </Td>
 
@@ -149,7 +168,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
         if (col.type !== 'childField' || !col.childField) {
           return (
             <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
-              <Text fontSize="xs" color="gray.300" textAlign="center">—</Text>
+              <Text fontSize="xs" color="neutral.400" textAlign="center">—</Text>
             </Td>
           );
         }

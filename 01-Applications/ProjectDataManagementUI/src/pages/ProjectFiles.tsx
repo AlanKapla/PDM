@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
+﻿import React, { useEffect, useState, useContext, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -40,6 +40,7 @@ import ShareFilesModal from "../components/ShareFilesModal";
 import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { handleApiError } from "../utils/handleApiError";
 import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import type { ProjectFilePackageWeb, ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
@@ -152,14 +153,15 @@ const FilesTab = React.memo<FilesTabProps>(({
   return (
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between">
-        <Text fontSize="sm" color="gray.600">
+        <Text fontSize="sm" color="neutral.600">
           {config.description}
         </Text>
         <HStack spacing={2}>
           {onShareFilesModalOpen && perms?.canShare && (
             <Button
               leftIcon={<Share2 size={18} />}
-              colorScheme="orange"
+              colorScheme="gray"
+              variant="outline"
               size="sm"
               onClick={onShareFilesModalOpen}
             >
@@ -169,7 +171,7 @@ const FilesTab = React.memo<FilesTabProps>(({
           {onUploadModalOpen && perms?.canCreate && (
             <Button
               leftIcon={<Upload size={18} />}
-              colorScheme="green"
+              colorScheme="primary"
               size="sm"
               onClick={onUploadModalOpen}
             >
@@ -188,14 +190,14 @@ const FilesTab = React.memo<FilesTabProps>(({
       ) : (
         <Accordion allowMultiple index={expandedIndices}>
           {files.map((pkg) => (
-            <AccordionItem key={pkg.id} bg={cardBg} borderWidth="1px" borderColor={borderColor} rounded="md" mb={3}>
-              <AccordionButton py={4} _hover={{ bg: hoverBg }} onClick={() => onTogglePackage(pkg.id)}>
+            <AccordionItem key={pkg.id} bg="white" borderWidth="1px" borderColor="neutral.200" rounded="md" mb={3}>
+              <AccordionButton py={4} _hover={{ bg: 'neutral.50' }} onClick={() => onTogglePackage(pkg.id)}>
                 <HStack flex="1" spacing={3}>
                   <Icon as={config.packageIcon} boxSize={5} color={config.packageIconColor} />
-                  <Text fontWeight="bold" fontSize="lg">📦 {pkg.name}</Text>
+                  <Text fontWeight="semibold" fontSize="md">{pkg.name}</Text>
                   <Badge colorScheme={config.badgeColor} fontSize="sm">{pkg.totalFiles}</Badge>
                   {config.showOwnerInPackage && pkg.ownerName && (
-                    <Text fontSize="sm" color="gray.500">{config.ownerLabel}: {pkg.ownerName}</Text>
+                    <Text fontSize="sm" color="neutral.500">{config.ownerLabel}: {pkg.ownerName}</Text>
                   )}
                 </HStack>
                 {loadingPackages.has(pkg.id) ? <LoadingSpinner /> : <AccordionIcon />}
@@ -237,7 +239,7 @@ export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, toast, showApiSuccess } = useToastNotification();
   const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
@@ -614,7 +616,7 @@ export default function ProjectFiles() {
         comment.trim()
       );
 
-      showSuccess("Komentarz został dodany");
+      showApiSuccess('commentAdded');
       setNewComments((prev) => {
         const updated = new Map(prev);
         updated.delete(commentKey);
@@ -626,7 +628,8 @@ export default function ProjectFiles() {
       const commentsRes = await projectApi.getVersionComments(user.activeTenantId, projectId, fileId, versionId, scope);
       setVersionComments((prev) => new Map(prev).set(commentKey, commentsRes.data));
     } catch (error) {
-      showError("Nie udało się dodać komentarza");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setSubmittingComment(null);
     }
@@ -670,7 +673,7 @@ export default function ProjectFiles() {
                     icon={<Eye size={16} />}
                     size="sm"
                     variant="ghost"
-                    colorScheme="level2"
+                    colorScheme="gray"
                     onClick={() => handlePreview(file.currentVersion.sasUrlView)}
                   />
                 </Tooltip>
@@ -682,7 +685,7 @@ export default function ProjectFiles() {
                     icon={<Download size={16} />}
                     size="sm"
                     variant="ghost"
-                    colorScheme="primary"
+                    colorScheme="gray"
                     onClick={() => handleDownloadFile(fileId, file.currentVersion.sasUrlDownload)}
                   />
                 </Tooltip>
@@ -694,7 +697,7 @@ export default function ProjectFiles() {
                     icon={<Plus size={16} />}
                     size="sm"
                     variant="ghost"
-                    colorScheme="green"
+                    colorScheme="gray"
                     onClick={() => openUploadVersionModal(file)}
                   />
                 </Tooltip>
@@ -706,7 +709,7 @@ export default function ProjectFiles() {
                     icon={<Share2 size={16} />}
                     size="sm"
                     variant="ghost"
-                    colorScheme="orange"
+                    colorScheme="gray"
                     onClick={() => openManageShareModal(file)}
                   />
                 </Tooltip>
@@ -744,19 +747,24 @@ export default function ProjectFiles() {
                           borderWidth="1px"
                           borderRadius="md"
                           p={3}
-                          bg={version.id === file.currentVersion?.id ? useColorModeValue("primary.50", "primary.900") : cardBg}
-                          borderColor={version.id === file.currentVersion?.id ? "primary.300" : borderColor}
+                          bg="white"
+                          borderColor={version.id === file.currentVersion?.id ? "neutral.400" : "neutral.200"}
                         >
                           <HStack justify="space-between" mb={2}>
                             <HStack spacing={2} flexWrap="wrap">
-                              <Badge colorScheme={version.id === file.currentVersion?.id ? "primary" : "gray"}>
+                              <Badge
+                                bg={version.id === file.currentVersion?.id ? "primary.50" : "neutral.50"}
+                                color={version.id === file.currentVersion?.id ? "primary.600" : "neutral.500"}
+                                borderWidth="1px"
+                                borderColor={version.id === file.currentVersion?.id ? "primary.200" : "neutral.200"}
+                              >
                                 Wersja {version.versionNumber}
                                 {version.id === file.currentVersion?.id && " (Aktualna)"}
                               </Badge>
-                              <Badge colorScheme="level2" fontSize="xs">
+                              <Badge colorScheme="neutral" fontSize="xs">
                                 {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
                               </Badge>
-                              <Text fontSize="xs" color="gray.600">
+                              <Text fontSize="xs" color="neutral.600">
                                 {formatFileSize(version.fileSizeBytes)}
                               </Text>
                             </HStack>
@@ -781,7 +789,7 @@ export default function ProjectFiles() {
                               </Button>
                             </HStack>
                           </HStack>
-                          <HStack spacing={4} fontSize="xs" color="gray.600" mb={2}>
+                          <HStack spacing={4} fontSize="xs" color="neutral.600" mb={2}>
                             <HStack spacing={1}>
                               <User size={12} />
                               <Text>{version.createdByUserName}</Text>
@@ -824,8 +832,8 @@ export default function ProjectFiles() {
                                               >
                                                 <Box
                                                   maxW="75%"
-                                                  bg={isMyComment ? "primary.500" : useColorModeValue("gray.100", "gray.700")}
-                                                  color={isMyComment ? "white" : useColorModeValue("black", "white")}
+                                                  bg={isMyComment ? "primary.50" : "neutral.50"}
+                                                  color={isMyComment ? "primary.800" : "neutral.700"}
                                                   p={3}
                                                   borderRadius="lg"
                                                   borderBottomRightRadius={isMyComment ? "sm" : "lg"}
@@ -916,7 +924,7 @@ export default function ProjectFiles() {
             <Icon as={FileText} boxSize={8} color="level2.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Pliki projektu</Heading>
-              {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
+              {project && <Text fontSize="sm" color="neutral.600">{project.name}</Text>}
             </VStack>
           </HStack>
         </HStack>

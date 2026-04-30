@@ -115,7 +115,14 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
 
   return (
     <React.Fragment>
-      <Tr ref={setNodeRef} style={style} bg="level1.50" _hover={{ bg: 'primary.50', cursor: 'pointer' }}>
+      <Tr
+        ref={setNodeRef}
+        style={style}
+        bg="neutral.50"
+        borderBottomWidth="0.5px"
+        borderBottomColor="neutral.100"
+        _hover={{ bg: 'neutral.100', cursor: 'pointer' }}
+      >
         {/* Akcje komponentu */}
         {editable && (
           <Td
@@ -125,7 +132,9 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
             position="sticky"
             left={0}
             zIndex={5}
-            bg="green.50"
+            bg="neutral.50"
+            borderLeftWidth="2px"
+            borderLeftColor="neutral.300"
             minW="120px"
             maxW="120px"
           >
@@ -176,7 +185,9 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           position="sticky"
           left={editable ? '120px' : 0}
           zIndex={5}
-          bg="green.50"
+          bg="neutral.50"
+          borderLeftWidth={!editable ? '2px' : undefined}
+          borderLeftColor={!editable ? 'neutral.300' : undefined}
           w={`${POSITION_COL_MIN_WIDTH}px`}
           minW={`${POSITION_COL_MIN_WIDTH}px`}
           whiteSpace="nowrap"
@@ -196,8 +207,16 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
                 />
               </Tooltip>
             )}
-            <Badge colorScheme="green" size="sm">
-              Komponent {compIndex + 1}
+            <Badge
+              bg="neutral.200"
+              color="neutral.600"
+              px={2}
+              py={0.5}
+              borderRadius="md"
+              fontSize="xs"
+              fontWeight="medium"
+            >
+              KOMPONENT {compIndex + 1}
             </Badge>
           </HStack>
         </Td>
@@ -212,8 +231,8 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           );
           if (groupHeaderField) {
             return (
-              <Td key={col.fieldId} p={2} bg="green.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                <Text fontSize="xs" color="gray.300" textAlign="center">—</Text>
+              <Td key={col.fieldId} p={2} bg="neutral.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                <Text fontSize="xs" color="neutral.400" textAlign="center">—</Text>
               </Td>
             );
           }
@@ -221,8 +240,8 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           // Pola opcji (childField) — pokaż liczbę opcji komponentu
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
-                <Text fontSize="xs" color="level2.400" fontStyle="italic" textAlign="center">
+              <Td key={col.fieldId} p={2} bg="neutral.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+                <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">
                   {componentOptions.length > 0 ? `${componentOptions.length} opcji` : '—'}
                 </Text>
               </Td>

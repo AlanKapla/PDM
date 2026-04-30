@@ -1,4 +1,4 @@
-import {
+﻿import {
   Box,
   VStack,
   HStack,
@@ -84,16 +84,16 @@ function EstimateComparisonBars({ estimates }: { estimates: CostEstimateSummaryW
         const costsPct = maxVal > 0 ? ((est.totalCostsNet ?? 0) / maxVal) * 100 : 0;
         return (
           <Box key={est.costEstimateId}>
-            <Text fontSize="xs" noOfLines={1} mb={1} color="gray.600" fontWeight="medium">
+            <Text fontSize="xs" noOfLines={1} mb={1} color="neutral.600" fontWeight="medium">
               {est.costEstimateName}
             </Text>
             <VStack spacing={1} align="stretch">
               <HStack spacing={2} align="center">
-                <Text fontSize="xs" w="48px" textAlign="right" color="gray.400">Budżet</Text>
-                <Progress value={budgetPct} size="sm" colorScheme="blue" flex={1} borderRadius="full" bg="blue.100" />
+                <Text fontSize="xs" w="48px" textAlign="right" color="neutral.400">Budżet</Text>
+                <Progress value={budgetPct} size="sm" colorScheme="primary" flex={1} borderRadius="full" bg="primary.100" />
               </HStack>
               <HStack spacing={2} align="center">
-                <Text fontSize="xs" w="48px" textAlign="right" color="gray.400">Koszty</Text>
+                <Text fontSize="xs" w="48px" textAlign="right" color="neutral.400">Koszty</Text>
                 <Progress
                   value={costsPct}
                   size="sm"
@@ -130,7 +130,7 @@ function KpiCard({
     <Box
       bg="white"
       borderWidth="1px"
-      borderColor="gray.100"
+      borderColor="neutral.100"
       borderRadius="lg"
       shadow="sm"
       borderLeft={accent ? "4px solid" : undefined}
@@ -144,7 +144,7 @@ function KpiCard({
         <VStack align="flex-start" spacing={0}>
           <Text
             fontSize="xs"
-            color="gray.500"
+            color="neutral.500"
             fontWeight="medium"
             textTransform="uppercase"
             letterSpacing="wide"
@@ -152,10 +152,10 @@ function KpiCard({
           >
             {label}
           </Text>
-          <Text fontSize={{ base: "md", md: "xl" }} fontWeight="bold" color="gray.800" lineHeight="short">
+          <Text fontSize={{ base: "md", md: "xl" }} fontWeight="bold" color="neutral.800" lineHeight="short">
             {value}
           </Text>
-          {unit && <Text fontSize="xs" color="gray.400">{unit}</Text>}
+          {unit && <Text fontSize="xs" color="neutral.400">{unit}</Text>}
         </VStack>
       )}
     </Box>
@@ -192,7 +192,7 @@ export default function ProjectSummaryHeader({ summary, estimates }: ProjectSumm
           <VStack align="flex-start" spacing={0}>
             <Text
               fontSize="xs"
-              color="gray.500"
+              color="neutral.500"
               fontWeight="medium"
               textTransform="uppercase"
               letterSpacing="wide"
@@ -213,7 +213,7 @@ export default function ProjectSummaryHeader({ summary, estimates }: ProjectSumm
                 {formatCurrency(summary.totalDeviationNet, !!isMobile)}
               </Text>
             </HStack>
-            <Text fontSize="xs" color="gray.400">
+            <Text fontSize="xs" color="neutral.400">
               {formatPercent(summary.totalDeviationPercent)}
             </Text>
           </VStack>
@@ -225,21 +225,21 @@ export default function ProjectSummaryHeader({ summary, estimates }: ProjectSumm
               <VStack align="flex-start" spacing={0}>
                 <Text
                   fontSize="xs"
-                  color="gray.500"
+                  color="neutral.500"
                   fontWeight="medium"
                   textTransform="uppercase"
                   letterSpacing="wide"
                 >
                   Realizacja
                 </Text>
-                <Text fontSize={{ base: "md", md: "xl" }} fontWeight="bold" color="gray.800">
+                <Text fontSize={{ base: "md", md: "xl" }} fontWeight="bold" color="neutral.800">
                   {formatPercent(summary.coveredPercent)}
                 </Text>
               </VStack>
               <CircularProgress
                 value={Math.min(coveredPct, 100)}
                 color={summary.isBudgetExceeded ? "red.400" : "green.400"}
-                trackColor="gray.100"
+                trackColor="neutral.100"
                 size={{ base: "60px", md: "72px" } as any}
                 thickness="10px"
               >
@@ -250,10 +250,10 @@ export default function ProjectSummaryHeader({ summary, estimates }: ProjectSumm
             </HStack>
           ) : (
             <VStack align="flex-start" spacing={0}>
-              <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
+              <Text fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
                 Realizacja
               </Text>
-              <Text fontSize="xl" fontWeight="bold" color="gray.800">
+              <Text fontSize="xl" fontWeight="bold" color="neutral.800">
                 {formatPercent(summary.coveredPercent)}
               </Text>
             </VStack>
@@ -264,27 +264,27 @@ export default function ProjectSummaryHeader({ summary, estimates }: ProjectSumm
       {/* Wykresy — od md */}
       {showCharts && (
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-          <Box bg="white" borderWidth="1px" borderColor="gray.100" borderRadius="lg" shadow="sm" p={4}>
-            <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" mb={3}>
+          <Box bg="white" borderWidth="1px" borderColor="neutral.100" borderRadius="lg" shadow="sm" p={4}>
+            <Text fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" mb={3}>
               Realizacja budżetu
             </Text>
             <HStack spacing={5} align="center">
               <DonutChart coveredPercent={summary.coveredPercent} isBudgetExceeded={summary.isBudgetExceeded} />
-              <VStack align="flex-start" spacing={2} fontSize="xs" color="gray.600">
+              <VStack align="flex-start" spacing={2} fontSize="xs" color="neutral.600">
                 <HStack>
                   <Box w="10px" h="10px" borderRadius="sm" bg="green.400" flexShrink={0} />
                   <Text>Koszty: {formatCurrency(summary.totalCostsNet)} PLN</Text>
                 </HStack>
                 <HStack>
-                  <Box w="10px" h="10px" borderRadius="sm" bg="gray.200" flexShrink={0} />
+                  <Box w="10px" h="10px" borderRadius="sm" bg="neutral.100" flexShrink={0} />
                   <Text>Pozostało: {formatCurrency((summary.totalBudgetNet ?? 0) - (summary.totalCostsNet ?? 0))} PLN</Text>
                 </HStack>
               </VStack>
             </HStack>
           </Box>
 
-          <Box bg="white" borderWidth="1px" borderColor="gray.100" borderRadius="lg" shadow="sm" p={4}>
-            <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" mb={3}>
+          <Box bg="white" borderWidth="1px" borderColor="neutral.100" borderRadius="lg" shadow="sm" p={4}>
+            <Text fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" mb={3}>
               Budżet vs koszty per kosztorys
             </Text>
             <EstimateComparisonBars estimates={estimates} />
@@ -294,31 +294,31 @@ export default function ProjectSummaryHeader({ summary, estimates }: ProjectSumm
 
       {/* Liczniki */}
       <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3}>
-        <Box bg="white" borderWidth="1px" borderColor="gray.100" borderRadius="lg" shadow="sm" p={3}>
+        <Box bg="white" borderWidth="1px" borderColor="neutral.100" borderRadius="lg" shadow="sm" p={3}>
           <VStack align="flex-start" spacing={0}>
-            <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
+            <Text fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
               Kosztorysy
             </Text>
             <HStack align="baseline" spacing={1}>
-              <Text fontSize="2xl" fontWeight="bold" color="gray.800">{summary.costEstimatesCount}</Text>
-              <Text fontSize="xs" color="gray.400">{summary.costEstimatesWithCostsCount} z kosztami</Text>
+              <Text fontSize="2xl" fontWeight="bold" color="neutral.800">{summary.costEstimatesCount}</Text>
+              <Text fontSize="xs" color="neutral.400">{summary.costEstimatesWithCostsCount} z kosztami</Text>
             </HStack>
           </VStack>
         </Box>
-        <Box bg="white" borderWidth="1px" borderColor="gray.100" borderRadius="lg" shadow="sm" p={3}>
+        <Box bg="white" borderWidth="1px" borderColor="neutral.100" borderRadius="lg" shadow="sm" p={3}>
           <VStack align="flex-start" spacing={0}>
-            <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
+            <Text fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
               Łączna liczba kosztów
             </Text>
-            <Text fontSize="2xl" fontWeight="bold" color="gray.800">{summary.costCount}</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="neutral.800">{summary.costCount}</Text>
           </VStack>
         </Box>
-        <Box bg="white" borderWidth="1px" borderColor="gray.100" borderRadius="lg" shadow="sm" p={3}>
+        <Box bg="white" borderWidth="1px" borderColor="neutral.100" borderRadius="lg" shadow="sm" p={3}>
           <VStack align="flex-start" spacing={0}>
-            <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
+            <Text fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
               Koszty dodatkowe projektu
             </Text>
-            <Text fontSize="2xl" fontWeight="bold" color="gray.800">{summary.additionalCostsCount}</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="neutral.800">{summary.additionalCostsCount}</Text>
           </VStack>
         </Box>
       </SimpleGrid>

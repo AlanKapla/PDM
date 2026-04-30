@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from "react";
+﻿import { useContext, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertIcon, Box, Spinner, Text } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
@@ -35,7 +35,7 @@ export default function ProjectBudgetPage() {
     return (
       <MainLayout>
         <Box p={8}>
-          <Text color="gray.500">Brak wymaganego kontekstu (tenant lub projekt).</Text>
+          <Text color="neutral.500">Brak wymaganego kontekstu (tenant lub projekt).</Text>
         </Box>
       </MainLayout>
     );

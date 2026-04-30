@@ -140,12 +140,12 @@ export default function ChatMembersDrawer({
                         {member.firstName} {member.lastName}
                       </Text>
                       {member.isAdmin && (
-                        <Badge colorScheme="primary" fontSize="10px" flexShrink={0}>
+                        <Badge colorScheme="primary" fontSize="xs" flexShrink={0}>
                           Admin
                         </Badge>
                       )}
                       {member.userId === currentUserId && (
-                        <Badge colorScheme="gray" fontSize="10px" flexShrink={0}>
+                        <Badge colorScheme="gray" fontSize="xs" flexShrink={0}>
                           Ty
                         </Badge>
                       )}

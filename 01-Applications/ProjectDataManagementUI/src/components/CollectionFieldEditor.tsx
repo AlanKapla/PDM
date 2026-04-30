@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -183,12 +183,12 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
               {value.length} {value.length === 1 ? 'element' : 'elementów'}
             </Badge>
             {minItems && (
-              <Text fontSize="xs" color="gray.600">
+              <Text fontSize="xs" color="neutral.600">
                 min: {minItems}
               </Text>
             )}
             {maxItems && (
-              <Text fontSize="xs" color="gray.600">
+              <Text fontSize="xs" color="neutral.600">
                 max: {maxItems}
               </Text>
             )}
@@ -208,7 +208,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
         </HStack>
 
         {field.description && (
-          <Text fontSize="xs" color="gray.600" mt={1}>
+          <Text fontSize="xs" color="neutral.600" mt={1}>
             {field.description}
           </Text>
         )}
@@ -218,7 +218,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
       <Collapse in={isOpen} animateOpacity>
         {value.length === 0 ? (
           <Box p={6} textAlign="center">
-            <Text color="gray.500" fontSize="sm" mb={3}>
+            <Text color="neutral.500" fontSize="sm" mb={3}>
               Brak elementów w kolekcji
             </Text>
             {!readOnly && canAddItem && (
@@ -254,7 +254,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
                           {f.required && <Text color="red.500">*</Text>}
                         </HStack>
                         {f.unit && (
-                          <Text fontSize="xs" color="gray.500" fontWeight="normal">
+                          <Text fontSize="xs" color="neutral.500" fontWeight="normal">
                             [{f.unit}]
                           </Text>
                         )}
@@ -293,7 +293,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
                       </Td>
                     )}
                     <Td>
-                      <Text fontSize="sm" color="gray.600" fontWeight={item.isSelected ? 'bold' : 'normal'}>
+                      <Text fontSize="sm" color="neutral.600" fontWeight={item.isSelected ? 'bold' : 'normal'}>
                         {index + 1}
                       </Text>
                     </Td>
@@ -383,7 +383,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
                             {f.unit && ` ${f.unit}`}
                           </Text>
                         ) : (
-                          <Text fontSize="sm" color="gray.400">
+                          <Text fontSize="sm" color="neutral.400">
                             -
                           </Text>
                         )}
@@ -391,7 +391,7 @@ export const CollectionFieldEditor: React.FC<CollectionFieldEditorProps> = ({
                     ))}
                     {visibleGenericFields.map(() => (
                       <Td key={Math.random()}>
-                        <Text fontSize="sm" color="gray.400">
+                        <Text fontSize="sm" color="neutral.400">
                           -
                         </Text>
                       </Td>

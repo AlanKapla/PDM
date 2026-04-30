@@ -1,7 +1,7 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { CostEstimateSummaryWeb } from '../../types/projectDashboard.types';
 import { PLN, PROG, DATE, DAYS } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { Accordion } from '../shared/Accordion';
 import { FinancialStatusBadge } from '../shared/FinancialStatusBadge';
 import { KpiCard } from '../shared/KpiCard';
@@ -25,36 +25,46 @@ export function EstimateBlock({
   projectId,
   onRefetch,
 }: EstimateBlockProps): React.ReactElement {
+  const [
+    level2100, level2600, orange50, orange800,
+    level250, neutral50, neutral600,
+    neutral400, neutral200, amber50, amber600,
+  ] = useToken('colors', [
+    'level2.100', 'level2.600', 'orange.50', 'orange.800',
+    'level2.50', 'neutral.50', 'neutral.600',
+    'neutral.400', 'neutral.200', 'amber.50', 'amber.600',
+  ]);
+
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{summary.costEstimateName}</span>
+      <span style={{ fontSize: "sm", fontWeight: "medium", flex: 1 }}>{summary.costEstimateName}</span>
       <Badge
         text={`${summary.totalItemsCount ?? '?'} poz.`}
-        bg={COLOR_PALETTE.purple100}
-        color={COLOR_PALETTE.purple600}
+        bg={level2100}
+        color={level2600}
         small
       />
       {summary.itemsOverBudgetCount > 0 && (
         <Badge
           text={`${summary.itemsOverBudgetCount} przekr.`}
-          bg={COLOR_PALETTE.coral50}
-          color={COLOR_PALETTE.coral600}
+          bg={orange50}
+          color={orange800}
           small
         />
       )}
       <Badge
         text={summary.hasLinkedSchedule ? 'Z harmonogramem' : 'Bez harmonogramu'}
-        bg={summary.hasLinkedSchedule ? COLOR_PALETTE.purple50 : COLOR_PALETTE.gray50}
-        color={summary.hasLinkedSchedule ? COLOR_PALETTE.purple600 : COLOR_PALETTE.gray600}
+        bg={summary.hasLinkedSchedule ? level250 : neutral50}
+        color={summary.hasLinkedSchedule ? level2600 : neutral600}
         small
       />
-      <span style={{ fontSize: 12, color: COLOR_PALETTE.gray600 }}>{PLN(summary.budgetNet)}</span>
+      <span style={{ fontSize: "xs", color: neutral600 }}>{PLN(summary.budgetNet)}</span>
       <FinancialStatusBadge status={summary.financialStatus} small />
     </div>
   );
 
   return (
-    <Accordion header={header} headerBg={COLOR_PALETTE.purple50}>
+    <Accordion header={header} headerBg={level250}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Sekcja A: KPI finansowe (6 kafli) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
@@ -70,7 +80,7 @@ export function EstimateBlock({
           <KpiCard
             label="Przekroczone"
             value={String(summary.itemsOverBudgetCount)}
-            accent={summary.itemsOverBudgetCount > 0 ? COLOR_PALETTE.coral600 : undefined}
+            accent={summary.itemsOverBudgetCount > 0 ? orange800 : undefined}
             small
           />
         </div>
@@ -79,11 +89,11 @@ export function EstimateBlock({
         {!summary.hasLinkedSchedule ? (
           <div
             style={{
-              background: COLOR_PALETTE.gray50,
+              background: neutral50,
               borderRadius: 8,
               padding: '8px 12px',
-              fontSize: 11,
-              color: COLOR_PALETTE.gray400,
+              fontSize: "xs",
+              color: neutral400,
               fontStyle: 'italic',
             }}
           >
@@ -108,10 +118,10 @@ export function EstimateBlock({
               gridTemplateColumns: '3fr 1.5fr 1fr 1fr 1fr 1fr',
               gap: 8,
               padding: '4px 0',
-              fontSize: 10,
-              color: COLOR_PALETTE.gray400,
-              fontWeight: 500,
-              borderBottom: `0.5px solid ${COLOR_PALETTE.border}`,
+              fontSize: "xs",
+              color: neutral400,
+              fontWeight: "medium",
+              borderBottom: `0.5px solid ${neutral200}`,
             }}
           >
             {['Pozycja', 'Czas', 'Budżet netto', 'Koszty', 'Odchylenie', 'Status'].map((col) => (
@@ -139,15 +149,15 @@ export function EstimateBlock({
         {(summary.additionalCosts?.costsCount ?? 0) > 0 && (
           <div
             style={{
-              background: COLOR_PALETTE.amber50,
+              background: amber50,
               borderRadius: 8,
               padding: '10px 12px',
-              fontSize: 12,
-              color: COLOR_PALETTE.amber600,
+              fontSize: "xs",
+              color: amber600,
             }}
           >
             Koszty dodatkowe kosztorysu: {PLN(summary.additionalCosts?.totalNet ?? null)}{' '}
-            <span style={{ color: COLOR_PALETTE.gray400 }}>
+            <span style={{ color: neutral400 }}>
               ({summary.additionalCosts?.costsCount ?? 0} pozycji)
             </span>
           </div>
@@ -156,16 +166,16 @@ export function EstimateBlock({
         {/* Stopka kosztorysu */}
         <div
           style={{
-            borderTop: `0.5px solid ${COLOR_PALETTE.border}`,
+            borderTop: `0.5px solid ${neutral200}`,
             paddingTop: 8,
             display: 'flex',
             justifyContent: 'space-between',
-            fontSize: 11,
-            color: COLOR_PALETTE.gray600,
+            fontSize: "xs",
+            color: neutral600,
           }}
         >
           <span>Suma kosztorysu — budżet / koszty:</span>
-          <span style={{ fontWeight: 500 }}>
+          <span style={{ fontWeight: "medium" }}>
             {PLN(summary.budgetNet)} / {PLN(summary.costsNet)}
           </span>
         </div>

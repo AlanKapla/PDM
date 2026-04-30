@@ -148,12 +148,12 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
           flexDirection="column"
         >
           {/* Drag handle */}
-          <Box w="40px" h="4px" bg="gray.300" borderRadius="full" mx="auto" mt={2} mb={1} cursor="grab" />
+          <Box w="40px" h="4px" bg="neutral.200" borderRadius="full" mx="auto" mt={2} mb={1} cursor="grab" />
 
           <ModalHeader pb={2}>
             <HStack justify="space-between" align="start">
               <VStack align="start" spacing="0">
-                <Text fontSize="xs" color="gray.500">Pozycja</Text>
+                <Text fontSize="xs" color="neutral.400">Pozycja</Text>
                 <Text fontWeight="bold" fontSize="lg" noOfLines={2}>{displayName}</Text>
               </VStack>
               <IconButton
@@ -170,7 +170,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
           <ModalBody pt={1} overflowY="auto" overflowX="hidden" flex="1" px={4}>
 
             {/* Sekcja: Podsumowanie */}
-            <Box borderBottomWidth="1px" borderColor="gray.100">
+            <Box borderBottomWidth="1px" borderColor="neutral.100">
               <HStack
                 px={0}
                 py={3}
@@ -179,28 +179,28 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                 justify="space-between"
                 userSelect="none"
               >
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700">Podsumowanie</Text>
+                <Text fontSize="sm" fontWeight="semibold" color="neutral.700">Podsumowanie</Text>
                 <ChevronDown
                   size={16}
                   style={{
                     transform: openSections['summary'] ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.2s',
-                    color: 'var(--chakra-colors-gray-500)',
+                    color: 'var(--chakra-colors-neutral-400)',
                   }}
                 />
               </HStack>
               <Collapse in={openSections['summary'] ?? false} animateOpacity>
                 <Box pb={4}>
-                  <HStack bg="primary.50" borderRadius="md" px={3} py={2}>
+                  <HStack bg="neutral.50" borderRadius="md" px={3} py={2}>
                     <Text fontSize="xs" color="gray.500">Wartość:</Text>
-                    <Text fontSize="sm" fontWeight="bold" color="primary.700">{displayValue}</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="neutral.700">{displayValue}</Text>
                   </HStack>
                 </Box>
               </Collapse>
             </Box>
 
             {/* Sekcja: Pola pozycji */}
-            <Box borderBottomWidth="1px" borderColor="gray.100">
+            <Box borderBottomWidth="1px" borderColor="neutral.100">
               <HStack
                 px={0}
                 py={3}
@@ -209,13 +209,13 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                 justify="space-between"
                 userSelect="none"
               >
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700">Pola pozycji</Text>
+                <Text fontSize="sm" fontWeight="semibold" color="neutral.700">Pola pozycji</Text>
                 <ChevronDown
                   size={16}
                   style={{
                     transform: openSections['fields'] ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.2s',
-                    color: 'var(--chakra-colors-gray-500)',
+                    color: 'var(--chakra-colors-neutral-400)',
                   }}
                 />
               </HStack>
@@ -241,7 +241,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                       if (!rendered) return null;
                       return (
                         <FormControl key={field.id}>
-                          <FormLabel fontSize="sm" color="gray.600" mb={1}>
+                          <FormLabel fontSize="sm" color="neutral.600" mb={1}>
                             {field.label || field.customLabel || field.fieldName}
                           </FormLabel>
                           {rendered}
@@ -265,9 +265,9 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                   userSelect="none"
                 >
                   <HStack spacing={2}>
-                    <Text fontSize="sm" fontWeight="semibold" color="gray.700">Komponenty</Text>
+                    <Text fontSize="sm" fontWeight="semibold" color="neutral.700">Komponenty</Text>
                     {components.length > 0 && (
-                      <Badge colorScheme="green">{components.length}</Badge>
+                      <Badge colorScheme="neutral">{components.length}</Badge>
                     )}
                   </HStack>
                   <ChevronDown
@@ -275,7 +275,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                     style={{
                       transform: openSections['components'] ? 'rotate(180deg)' : 'rotate(0deg)',
                       transition: 'transform 0.2s',
-                      color: 'var(--chakra-colors-gray-500)',
+                      color: 'var(--chakra-colors-neutral-400)',
                     }}
                   />
                 </HStack>
@@ -285,7 +285,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                       {components.map((comp, idx) => (
                         <HStack
                           key={comp.id}
-                          bg="green.50"
+                          bg="neutral.50"
                           borderRadius="md"
                           px={3}
                           py={2}
@@ -298,7 +298,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                             </Text>
                           </VStack>
                           <HStack spacing={1} flexShrink={0}>
-                            <Text fontSize="sm" color="green.700" fontWeight="medium">
+                            <Text fontSize="sm" color="neutral.600" fontWeight="medium">
                               {formatCurrencyValue(comp.netValue ?? comp.grossValue, currencySymbol)}
                             </Text>
                             {editable && (
@@ -307,7 +307,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                                   aria-label="Edytuj komponent"
                                   icon={<Edit2 size={14} />}
                                   size="xs"
-                                  colorScheme="green"
+                                  colorScheme="gray"
                                   variant="ghost"
                                   onClick={() => openComponentModal(comp)}
                                 />
@@ -329,7 +329,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
                       <Button
                         leftIcon={<Plus size={14} />}
                         variant="ghost"
-                        colorScheme="green"
+                        colorScheme="gray"
                         width="full"
                         size="sm"
                         onClick={handleAddComponent}
@@ -344,7 +344,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
 
           </ModalBody>
 
-          <ModalFooter borderTopWidth="1px" borderTopColor="gray.100">
+          <ModalFooter borderTopWidth="1px" borderTopColor="neutral.100">
             {editable && onDeleteItem && (
               <Button
                 colorScheme="red"
@@ -357,7 +357,7 @@ export const ItemEditModal: React.FC<ItemEditModalProps> = ({
               </Button>
             )}
             <Spacer />
-            <Button variant="outline" onClick={onClose} size="sm">
+            <Button variant="ghost" colorScheme="gray" onClick={onClose} size="sm">
               Zamknij
             </Button>
           </ModalFooter>

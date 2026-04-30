@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -293,7 +293,7 @@ export default function WorkDetailsModal({
                 </Button>
               </HStack>
               {periods.length === 0 && (
-                <Text fontSize="sm" color="gray.500">Brak okresów — dodaj przynajmniej jeden</Text>
+                <Text fontSize="sm" color="neutral.500">Brak okresów — dodaj przynajmniej jeden</Text>
               )}
               <VStack spacing={2} align="stretch">
                 {periods.map((period, idx) => (
@@ -307,11 +307,11 @@ export default function WorkDetailsModal({
                     flexWrap="wrap"
                     _dark={{ borderColor: "gray.600" }}
                   >
-                    <Text fontSize="xs" fontWeight="bold" minW="18px" color="gray.500">{idx + 1}.</Text>
+                    <Text fontSize="xs" fontWeight="bold" minW="18px" color="neutral.500">{idx + 1}.</Text>
                     <VStack align="flex-start" spacing={1} flex={1}>
                       <HStack spacing={2} flexWrap="wrap">
                         <VStack align="flex-start" spacing={0}>
-                          <Text fontSize="2xs" color="gray.500">Od</Text>
+                          <Text fontSize="2xs" color="neutral.500">Od</Text>
                           <Input
                             type="date"
                             size="sm"
@@ -321,7 +321,7 @@ export default function WorkDetailsModal({
                           />
                         </VStack>
                         <VStack align="flex-start" spacing={0}>
-                          <Text fontSize="2xs" color="gray.500">Do</Text>
+                          <Text fontSize="2xs" color="neutral.500">Do</Text>
                           <Input
                             type="date"
                             size="sm"
@@ -367,14 +367,14 @@ export default function WorkDetailsModal({
                       <HStack key={dep.id} spacing={2}>
                         <Badge colorScheme="primary" variant="subtle" fontSize="xs">← {getDepTypeShort(dep.dependencyType)}</Badge>
                         <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.predecessorWorkId)}</Text>
-                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="neutral.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
                       </HStack>
                     ))}
                     {(dependencies ?? []).filter(d => d.predecessorWorkId === work.id).map(dep => (
                       <HStack key={dep.id} spacing={2}>
                         <Badge colorScheme="orange" variant="subtle" fontSize="xs">→ {getDepTypeShort(dep.dependencyType)}</Badge>
                         <Text fontSize="xs" flex={1} noOfLines={1}>{getWorkName(dep.successorWorkId)}</Text>
-                        {dep.lagDays !== 0 && <Text fontSize="xs" color="gray.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
+                        {dep.lagDays !== 0 && <Text fontSize="xs" color="neutral.500">{dep.lagDays > 0 ? `+${dep.lagDays}d` : `${dep.lagDays}d`}</Text>}
                       </HStack>
                     ))}
                   </VStack>
@@ -404,7 +404,7 @@ export default function WorkDetailsModal({
                               bg={isAssigned ? "primary.50" : undefined}
                               cursor="pointer"
                               onClick={() => toggleAssignee(member.userId)}
-                              _hover={{ bg: isAssigned ? "primary.100" : "gray.50" }}
+                              _hover={{ bg: isAssigned ? "primary.100" : "neutral.25" }}
                               transition="all 0.15s"
                             >
                               <Avatar size="2xs" name={getDisplayName(member)} />
@@ -441,7 +441,7 @@ export default function WorkDetailsModal({
               </HStack>
               <VStack spacing={3} align="stretch">
                 {comments.length === 0 && (
-                  <Text fontSize="sm" color="gray.500">
+                  <Text fontSize="sm" color="neutral.500">
                     Brak komentarzy
                   </Text>
                 )}

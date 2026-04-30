@@ -1,7 +1,7 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { CostEstimateSummaryWeb } from '../../types/projectDashboard.types';
 import { PLN, PROG } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { KpiCard } from '../shared/KpiCard';
 import { EstimateBlock } from './EstimateBlock';
 
@@ -22,6 +22,10 @@ export function EstimatesTab({
   projectId,
   onRefetch,
 }: EstimatesTabProps): React.ReactElement {
+  const [orange50, orange600, orange800, neutral400] = useToken('colors', [
+    'orange.50', 'orange.600', 'orange.800', 'neutral.400',
+  ]);
+
   const totalBudgetNet = summaries.reduce((sum, s) => sum + (s.budgetNet ?? 0), 0);
   const totalBudgetGross = summaries.reduce((sum, s) => sum + (s.budgetGross ?? 0), 0);
   const totalCosts = summaries.reduce((sum, s) => sum + (s.costsNet ?? 0), 0);
@@ -49,28 +53,28 @@ export function EstimatesTab({
         <KpiCard
           label="Bez kosztów"
           value={String(totalWithoutCosts)}
-          accent={totalWithoutCosts > 0 ? COLOR_PALETTE.coral600 : undefined}
+          accent={totalWithoutCosts > 0 ? orange800 : undefined}
         />
         <KpiCard
           label="Przekroczonych"
           value={String(totalOverBudget)}
-          accent={totalOverBudget > 0 ? COLOR_PALETTE.coral600 : undefined}
+          accent={totalOverBudget > 0 ? orange800 : undefined}
         />
       </div>
 
       {totalWithoutCosts > 0 && (
         <div
           style={{
-            background: COLOR_PALETTE.coral50,
-            border: `0.5px solid ${COLOR_PALETTE.coral400}`,
+            background: orange50,
+            border: `0.5px solid ${orange600}`,
             borderRadius: 8,
             padding: '10px 14px',
             marginBottom: 12,
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            fontSize: 12,
-            color: COLOR_PALETTE.coral600,
+            fontSize: "xs",
+            color: orange800,
           }}
         >
           <span>⚠</span>
@@ -91,7 +95,7 @@ export function EstimatesTab({
           />
         ))}
         {summaries.length === 0 && (
-          <div style={{ fontSize: 13, color: COLOR_PALETTE.gray400, fontStyle: 'italic', padding: 12 }}>
+          <div style={{ fontSize: "sm", color: neutral400, fontStyle: 'italic', padding: 12 }}>
             Brak powiązanych kosztorysów
           </div>
         )}

@@ -201,7 +201,7 @@ export default function GanttToolbar({
               {canEdit && (
                 <Button
                   leftIcon={<Edit3 size={14} />}
-                  colorScheme={mode === "edit" ? "green" : "gray"}
+                  colorScheme={mode === "edit" ? "primary" : "gray"}
                   variant={mode === "edit" ? "solid" : "outline"}
                   onClick={() => setMode("edit")}
                 >
@@ -246,10 +246,10 @@ export default function GanttToolbar({
           <HStack spacing={1}>
             {!compact && (
               <>
-                <Button size="sm" variant={showDependencies ? "solid" : "outline"} colorScheme={showDependencies ? "purple" : "gray"} leftIcon={<GitBranch size={14} />} onClick={() => setShowDependencies(!showDependencies)}>
+                <Button size="sm" variant={showDependencies ? "solid" : "outline"} colorScheme={showDependencies ? "level2" : "gray"} leftIcon={<GitBranch size={14} />} onClick={() => setShowDependencies(!showDependencies)}>
                   Zależności
                 </Button>
-                <Button size="sm" variant={hideWeekends ? "solid" : "outline"} colorScheme={hideWeekends ? "orange" : "gray"} leftIcon={<CalendarX2 size={14} />} onClick={onToggleWeekends}>
+                <Button size="sm" variant={hideWeekends ? "solid" : "outline"} colorScheme={hideWeekends ? "level2" : "gray"} leftIcon={<CalendarX2 size={14} />} onClick={onToggleWeekends}>
                   Ukryj weekendy
                 </Button>
               </>
@@ -262,7 +262,7 @@ export default function GanttToolbar({
             </Button>
             {!compact && (
               <>
-                <Button size="sm" variant="outline" leftIcon={<CalendarDays size={14} />} onClick={onScrollToToday}>
+                <Button size="sm" variant="outline" colorScheme="primary" leftIcon={<CalendarDays size={14} />} onClick={onScrollToToday}>
                   Dziś
                 </Button>
                 <Box w="1px" h="20px" bg={borderColor} mx={1} />
@@ -289,7 +289,7 @@ export default function GanttToolbar({
               </Tooltip>
               {canEdit && (
                 <Tooltip label="Tryb edycji" hasArrow>
-                  <IconButton aria-label="Edycja" icon={<Edit3 size={14} />} size="sm" colorScheme={mode === "edit" ? "green" : "gray"} variant={mode === "edit" ? "solid" : "outline"} onClick={() => setMode("edit")} />
+                  <IconButton aria-label="Edycja" icon={<Edit3 size={14} />} size="sm" colorScheme={mode === "edit" ? "primary" : "gray"} variant={mode === "edit" ? "solid" : "outline"} onClick={() => setMode("edit")} />
                 </Tooltip>
               )}
             </ButtonGroup>
@@ -319,10 +319,10 @@ export default function GanttToolbar({
             {!compact && (
               <>
                 <Tooltip label="Pokaż zależności" hasArrow>
-                  <IconButton aria-label="Zależności" icon={<GitBranch size={14} />} size="sm" variant={showDependencies ? "solid" : "outline"} colorScheme={showDependencies ? "purple" : "gray"} onClick={() => setShowDependencies(!showDependencies)} />
+                  <IconButton aria-label="Zależności" icon={<GitBranch size={14} />} size="sm" variant={showDependencies ? "solid" : "outline"} colorScheme={showDependencies ? "level2" : "gray"} onClick={() => setShowDependencies(!showDependencies)} />
                 </Tooltip>
                 <Tooltip label="Ukryj weekendy" hasArrow>
-                  <IconButton aria-label="Ukryj weekendy" icon={<CalendarX2 size={14} />} size="sm" variant={hideWeekends ? "solid" : "outline"} colorScheme={hideWeekends ? "orange" : "gray"} onClick={onToggleWeekends} />
+                  <IconButton aria-label="Ukryj weekendy" icon={<CalendarX2 size={14} />} size="sm" variant={hideWeekends ? "solid" : "outline"} colorScheme={hideWeekends ? "level2" : "gray"} onClick={onToggleWeekends} />
                 </Tooltip>
               </>
             )}
@@ -335,7 +335,7 @@ export default function GanttToolbar({
             {!compact && (
               <>
                 <Tooltip label="Przewiń do dziś" hasArrow>
-                  <IconButton aria-label="Dziś" icon={<CalendarDays size={14} />} size="sm" variant="outline" onClick={onScrollToToday} />
+                  <IconButton aria-label="Dziś" icon={<CalendarDays size={14} />} size="sm" variant="outline" colorScheme="primary" onClick={onScrollToToday} />
                 </Tooltip>
 
                 <Box w="1px" h="20px" bg={borderColor} mx={1} />
@@ -356,17 +356,7 @@ export default function GanttToolbar({
       {/* ── MOBILE (<520px): skonsolidowane dropdowny ── */}
       {bp === "mobile" && (
         <HStack spacing={2} flexWrap="wrap">
-          <Menu>
-            <MenuButton as={Button} size="xs" rightIcon={<ChevronDown size={12} />} leftIcon={<Eye size={13} />} colorScheme={mode === "edit" ? "green" : "gray"} variant={mode === "edit" ? "solid" : "outline"}>
-              Tryb
-            </MenuButton>
-            <MenuList>
-              <MenuItem icon={<Eye size={14} />} onClick={() => setMode("view")} fontWeight={mode === "view" ? "semibold" : "normal"}>Podgląd</MenuItem>
-              {canEdit && (
-                <MenuItem icon={<Edit3 size={14} />} onClick={() => setMode("edit")} fontWeight={mode === "edit" ? "semibold" : "normal"}>Edycja</MenuItem>
-              )}
-            </MenuList>
-          </Menu>
+          {/* Na mobile zawsze tryb edycji */}
 
           {hasCostEstimate && (
             <Menu>

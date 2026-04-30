@@ -1,4 +1,4 @@
-import {
+﻿import {
   Box,
   VStack,
   HStack,
@@ -85,7 +85,7 @@ export default function ProjectAdditionalCostsSection({
           </Text>
           <Button
             leftIcon={<Plus size={14} />}
-            colorScheme="blue"
+            colorScheme="primary"
             variant="outline"
             size="sm"
             onClick={onAddOpen}
@@ -244,17 +244,17 @@ function CostsCardList({ costs, onEdit, onDelete }: CostActionsProps) {
           p={3}
           borderRadius="md"
           borderWidth={1}
-          borderColor="gray.200"
-          _dark={{ borderColor: "gray.600" }}
+          borderColor="neutral.200"
+          _dark={{ borderColor: "neutral.600" }}
         >
           <HStack align="flex-start">
             <VStack align="stretch" flex={1} spacing={1}>
               <Text fontWeight="semibold" fontSize="sm">{cost.name}</Text>
               <HStack spacing={3} flexWrap="wrap">
-                <Text fontSize="xs" color="gray.600">N: {fmt(cost.net)} PLN</Text>
-                <Text fontSize="xs" color="gray.600">B: {fmt(cost.gross)} PLN</Text>
+                <Text fontSize="xs" color="neutral.600">N: {fmt(cost.net)} PLN</Text>
+                <Text fontSize="xs" color="neutral.600">B: {fmt(cost.gross)} PLN</Text>
                 {cost.date && (
-                  <Text fontSize="xs" color="gray.600">{formatDate(cost.date, false)}</Text>
+                  <Text fontSize="xs" color="neutral.600">{formatDate(cost.date, false)}</Text>
                 )}
               </HStack>
             </VStack>

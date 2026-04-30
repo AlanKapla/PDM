@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+﻿import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -29,6 +29,7 @@ import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { handleApiError } from "../utils/handleApiError";
 import { useGlobalCache } from "../hooks/useGlobalCache";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
@@ -41,7 +42,7 @@ export default function ProjectMembers() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const permissions = useProjectPermissions(projectId);
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
 
@@ -128,11 +129,12 @@ export default function ProjectMembers() {
         memberToRemove.userId
       );
 
-      showSuccess(`Usunięto członka: ${memberToRemove.name}`);
+      showApiSuccess('memberRemoved');
       setMembers((prev) => prev.filter((m) => m.userId !== memberToRemove.userId));
       onRemoveModalClose();
     } catch (error) {
-      showError("Błąd podczas usuwania członka");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
@@ -161,9 +163,10 @@ export default function ProjectMembers() {
       projectMembersCache.clear();
       await fetchData();
       setEditingRoleMemberId(null);
-      showSuccess("Zaktualizowano rolę członka");
+      showApiSuccess('memberUpdated');
     } catch (error) {
-      showError("Nie udało się zmienić roli");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setUpdatingRole(false);
     }
@@ -187,7 +190,7 @@ export default function ProjectMembers() {
             <VStack spacing={4}>
               <Heading size="md" color="red.500">Brak dostępu</Heading>
               <Text>Nie masz uprawnień do przeglądania członków tego projektu.</Text>
-              <Text fontSize="sm" color="gray.600">Wymagana rola: co najmniej Przeglądający</Text>
+              <Text fontSize="sm" color="neutral.600">Wymagana rola: co najmniej Przeglądający</Text>
             </VStack>
           </Box>
         ) : (
@@ -197,7 +200,7 @@ export default function ProjectMembers() {
             <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="primary.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size={{ base: "md", md: "lg" }}>Członkowie projektu</Heading>
-              {project && <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">{project.name}</Text>}
+              {project && <Text fontSize={{ base: "xs", md: "sm" }} color="neutral.600">{project.name}</Text>}
             </VStack>
           </HStack>
           {permissions.canManageMembers && (
@@ -221,22 +224,21 @@ export default function ProjectMembers() {
           />
         ) : (
           <Box 
-            bg={cardBg} 
+            bg="white" 
             rounded="lg" 
-            shadow="md" 
             borderWidth="1px" 
-            borderColor={borderColor}
+            borderColor="neutral.200"
             overflowX="auto"
             fontSize={{ base: "xs", md: "sm" }}
           >
             <Table variant="simple" size={{ base: "sm", md: "md" }}>
               <Thead>
                 <Tr>
-                  <Th fontSize={{ base: "10px", md: "sm" }}>Imię i nazwisko</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }}>Rola</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }}>Akcje</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }}>Imię i nazwisko</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }}>Rola</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -278,7 +280,7 @@ export default function ProjectMembers() {
                               aria-label="Zapisz rolę"
                               icon={<Save size={14} />}
                               size="sm"
-                              colorScheme="green"
+                              colorScheme="primary"
                               onClick={() => handleUpdateMemberRole(member.userId)}
                               isLoading={updatingRole}
                             />

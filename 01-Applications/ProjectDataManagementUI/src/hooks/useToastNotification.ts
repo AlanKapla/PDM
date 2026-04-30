@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useToast as useChakraToast, useBreakpointValue } from "@chakra-ui/react";
 import type { UseToastOptions } from "@chakra-ui/react";
+import { successMessages, type SuccessMessageKey } from '../utils/errorMessages';
 
 interface ToastOptions extends Omit<UseToastOptions, 'title' | 'description'> {
   title?: string;
@@ -64,11 +65,27 @@ export const useToastNotification = () => {
     });
   }, [toast, position]);
 
+  const showApiSuccess = useCallback(
+    (key: SuccessMessageKey, descriptionOverride?: string) => {
+      const { title, description } = successMessages[key];
+      toast({
+        title,
+        description: descriptionOverride ?? description,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position,
+      });
+    },
+    [toast, position]
+  );
+
   return {
     showSuccess,
     showError,
     showWarning,
     showInfo,
+    showApiSuccess,
     toast, // dla bardziej zaawansowanych przypadków
   };
 };

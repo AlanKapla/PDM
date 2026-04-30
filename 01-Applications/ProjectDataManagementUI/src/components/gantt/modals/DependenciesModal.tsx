@@ -117,7 +117,7 @@ export default function DependenciesModal({ isOpen, onClose }: DependenciesModal
         <DrawerBody py={4} overflowY="auto">
           <VStack spacing={3} align="stretch">
             {rows.length === 0 && (
-              <Text fontSize="sm" color="gray.400" textAlign="center" py={4}>
+              <Text fontSize="sm" color="neutral.400" textAlign="center" py={4}>
                 Brak zdefiniowanych zależności
               </Text>
             )}
@@ -203,7 +203,8 @@ export default function DependenciesModal({ isOpen, onClose }: DependenciesModal
             <Button
               leftIcon={<Plus size={14} />}
               size="sm"
-              variant="outline"
+              variant="ghost"
+              colorScheme="gray"
               onClick={addRow}
               isDisabled={allWorks.length < 2}
             >
@@ -212,7 +213,7 @@ export default function DependenciesModal({ isOpen, onClose }: DependenciesModal
           </VStack>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
           <Button
             colorScheme="primary"
             onClick={handleSave}

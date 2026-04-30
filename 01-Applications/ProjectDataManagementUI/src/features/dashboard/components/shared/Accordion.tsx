@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
-import { COLOR_PALETTE } from '../../utils/colors';
 
 export interface AccordionProps {
   header: ReactNode;
@@ -16,12 +16,13 @@ export function Accordion({
   defaultOpen = false,
   headerBg,
 }: AccordionProps): React.ReactElement {
+  const [neutral200, neutral400] = useToken('colors', ['neutral.200', 'neutral.400']);
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <div
       style={{
-        border: `0.5px solid ${COLOR_PALETTE.border}`,
+        border: `0.5px solid ${neutral200}`,
         borderRadius: 10,
         overflow: 'hidden',
       }}
@@ -50,7 +51,7 @@ export function Accordion({
             flexShrink: 0,
             transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s ease',
-            color: COLOR_PALETTE.gray400,
+            color: neutral400,
           }}
         >
           <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -58,7 +59,7 @@ export function Accordion({
         {header}
       </div>
       {isOpen && (
-        <div style={{ padding: '12px 14px', borderTop: `0.5px solid ${COLOR_PALETTE.border}` }}>
+        <div style={{ padding: '12px 14px', borderTop: `0.5px solid ${neutral200}` }}>
           {children}
         </div>
       )}

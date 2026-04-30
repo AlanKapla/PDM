@@ -1,7 +1,7 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { TrackerGroupWeb } from '../types/projectDashboard.types';
 import { PLN, PROG, DATE, DAYS } from '../utils/formatters';
-import { COLOR_PALETTE } from '../utils/colors';
 import { Accordion } from './shared/Accordion';
 import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
 import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
@@ -28,24 +28,30 @@ export function GroupAccordion({
   onRefetch,
   showCosts = true,
 }: GroupAccordionProps): React.ReactElement {
+  const [
+    neutral400, orange50, orange600, orange800, neutral600, neutral50, amber50, amber600, neutral200,
+  ] = useToken('colors', [
+    'neutral.400', 'orange.50', 'orange.600', 'orange.800', 'neutral.600', 'neutral.50', 'amber.50', 'amber.600', 'neutral.200',
+  ]);
+
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{group.groupName}</span>
-      <span style={{ fontSize: 11, color: COLOR_PALETTE.gray400 }}>
+      <span style={{ fontSize: "xs", fontWeight: "medium", flex: 1 }}>{group.groupName}</span>
+      <span style={{ fontSize: "xs", color: neutral400 }}>
         {group.totalItemsCount} poz.
       </span>
       {group.itemsOverBudgetCount > 0 && (
         <Badge
           text={`${group.itemsOverBudgetCount} przekr.`}
-          bg={COLOR_PALETTE.coral50}
-          color={COLOR_PALETTE.coral600}
+          bg={orange50}
+          color={orange800}
           small
         />
       )}
       <TimelineStatusBadge status={group.timelineStatus} small />
-      <span style={{ fontSize: 12, color: COLOR_PALETTE.gray600 }}>{PLN(group.budgetNet)}</span>
-      <span style={{ fontSize: 11, color: COLOR_PALETTE.gray400 }}>/</span>
-      <span style={{ fontSize: 12, fontWeight: 500, color: group.costsNet != null && group.costsNet > 0 ? COLOR_PALETTE.coral400 : COLOR_PALETTE.gray600 }}>
+      <span style={{ fontSize: "xs", color: neutral600 }}>{PLN(group.budgetNet)}</span>
+      <span style={{ fontSize: "xs", color: neutral400 }}>/</span>
+      <span style={{ fontSize: "xs", fontWeight: "medium", color: group.costsNet != null && group.costsNet > 0 ? orange600 : neutral600 }}>
         {PLN(group.costsNet)}
       </span>
       <FinancialStatusBadge status={group.financialStatus} small />
@@ -53,7 +59,7 @@ export function GroupAccordion({
   );
 
   return (
-    <Accordion header={header} headerBg={COLOR_PALETTE.gray50}>
+    <Accordion header={header} headerBg={neutral50}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* KPI finansowe */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
@@ -63,7 +69,7 @@ export function GroupAccordion({
           <KpiCard
             label="Poz. bez kosztów"
             value={String(group.itemsWithoutCostsCount)}
-            accent={group.itemsWithoutCostsCount > 0 ? COLOR_PALETTE.coral600 : undefined}
+            accent={group.itemsWithoutCostsCount > 0 ? orange800 : undefined}
             small
           />
         </div>
@@ -113,16 +119,16 @@ export function GroupAccordion({
         {(group.additionalCosts?.costsCount ?? 0) > 0 && (
           <div
             style={{
-              background: COLOR_PALETTE.amber50,
+              background: amber50,
               borderRadius: 8,
               padding: '8px 10px',
-              fontSize: 11,
-              color: COLOR_PALETTE.amber600,
+              fontSize: "xs",
+              color: amber600,
               marginTop: 4,
             }}
           >
             Koszty dodatkowe grupy: {PLN(group.additionalCosts.totalNet)}{' '}
-            <span style={{ color: COLOR_PALETTE.gray400 }}>
+            <span style={{ color: neutral400 }}>
               ({group.additionalCosts?.costsCount ?? 0} pozycji)
             </span>
           </div>
@@ -131,16 +137,16 @@ export function GroupAccordion({
         {/* Stopka grupy */}
         <div
           style={{
-            borderTop: `0.5px solid ${COLOR_PALETTE.border}`,
+            borderTop: `0.5px solid ${neutral200}`,
             paddingTop: 8,
             display: 'flex',
             justifyContent: 'space-between',
-            fontSize: 11,
-            color: COLOR_PALETTE.gray600,
+            fontSize: "xs",
+            color: neutral600,
           }}
         >
           <span>Suma grupy — budżet / koszty:</span>
-          <span style={{ fontWeight: 500 }}>
+          <span style={{ fontWeight: "medium" }}>
             {PLN(group.budgetNet)} / {PLN(group.costsNet)}
           </span>
         </div>

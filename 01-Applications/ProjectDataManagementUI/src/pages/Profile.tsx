@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+﻿import { useEffect, useState, useContext } from "react";
 import {
   Box,
   Heading,
@@ -152,7 +152,7 @@ export default function Profile() {
                   <Text fontSize="lg" color={cardText}>
                     {user?.email}
                   </Text>
-                  <Text fontSize="xs" color="gray.500" mt={1}>
+                  <Text fontSize="xs" color="neutral.500" mt={1}>
                     Email nie może być edytowany
                   </Text>
                 </Box>

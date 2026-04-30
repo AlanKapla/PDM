@@ -20,7 +20,7 @@ export default function GanttInlineName({
   value,
   isEditing,
   fontWeight = 400,
-  fontSize = "13px",
+  fontSize = "sm",
   color = G.text,
   textDecoration = "none",
   onCommit,

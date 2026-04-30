@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useToken, Table, Thead, Tbody, Tfoot, Tr, Th, Td, IconButton } from '@chakra-ui/react';
+import { Pencil, Trash2 } from 'lucide-react';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
 import { PLN } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { KpiCard } from '../shared/KpiCard';
 import { TrackedCostModal } from '../TrackedCostModal';
 import AppModal from '../../../../components/ui/AppModal';
@@ -25,6 +26,17 @@ export function AllCostsTab({
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [
+    neutral200, neutral400, neutral50, neutral600,
+    level250, level2600, action50, level1700,
+    primary50, primary600, orange600,
+    red50, red600, red400,
+  ] = useToken('colors', [
+    'neutral.200', 'neutral.400', 'neutral.50', 'neutral.600',
+    'level2.50', 'level2.600', 'action.50', 'level1.700',
+    'primary.50', 'primary.600', 'orange.600',
+    'red.50', 'red.600', 'red.400',
+  ]);
 
   const totalNet = costs.reduce((sum, c) => sum + (c.net ?? 0), 0);
   const totalGross = costs.reduce((sum, c) => sum + (c.gross ?? 0), 0);
@@ -71,55 +83,48 @@ export function AllCostsTab({
       <div
         style={{
           background: '#fff',
-          border: `0.5px solid ${COLOR_PALETTE.border}`,
+          border: `0.5px solid ${neutral200}`,
           borderRadius: 12,
           padding: 16,
         }}
       >
         <div className="dashboard-table-wrap">
         {costs.length === 0 ? (
-          <div style={{ fontSize: 11, color: COLOR_PALETTE.gray400, fontStyle: 'italic' }}>
+          <div style={{ fontSize: "xs", color: neutral400, fontStyle: 'italic' }}>
             Brak kosztów
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-            <thead>
-              <tr>
-                {['Nazwa / Nr', 'Źródło', 'Etap / Zakres', 'Wykonawca', 'Netto', 'Brutto', ''].map((col) => (
-                  <th
-                    key={col}
-                    style={{
-                      textAlign: col === 'Netto' || col === 'Brutto' ? 'right' : 'left',
-                      padding: '4px 6px',
-                      color: COLOR_PALETTE.gray400,
-                      fontWeight: 500,
-                      borderBottom: `0.5px solid ${COLOR_PALETTE.border}`,
-                    }}
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+          <Table size="sm" variant="simple">
+            <Thead>
+              <Tr>
+                <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Nazwa / Nr</Th>
+                <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Źródło</Th>
+                <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px" display={{ base: 'none', md: 'table-cell' }}>Etap / Zakres</Th>
+                <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px" display={{ base: 'none', md: 'table-cell' }}>Wykonawca</Th>
+                <Th isNumeric color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Netto</Th>
+                <Th isNumeric color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Brutto</Th>
+                <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px"></Th>
+              </Tr>
+            </Thead>
+            <Tbody>
               {costs.map((cost) => (
-                <tr key={cost.id}>
-                  <td style={{ padding: '4px 6px' }}>
-                    <div style={{ fontWeight: 500 }}>{cost.name}</div>
+                <Tr key={cost.id}>
+                  <Td px="6px" py="4px">
+                    <div style={{ fontWeight: "medium" }}>{cost.name}</div>
                     {cost.number && (
-                      <div style={{ fontSize: 10, color: COLOR_PALETTE.gray400 }}>{cost.number}</div>
+                      <div style={{ fontSize: "xs", color: neutral400 }}>{cost.number}</div>
                     )}
-                  </td>
-                  <td style={{ padding: '4px 6px' }}>
+                  </Td>
+                  <Td px="6px" py="4px">
                     {(() => {
                       const st = cost.sourceType;
                       if (st === 'ScheduleWorkItem') {
                         return (
                           <span
                             style={{
-                              fontSize: 10,
-                              background: COLOR_PALETTE.purple50,
-                              color: COLOR_PALETTE.purple600,
+                              fontSize: "xs",
+                              background: level250,
+                              color: level2600,
                               borderRadius: 4,
                               padding: '2px 6px',
                               whiteSpace: 'nowrap',
@@ -133,9 +138,9 @@ export function AllCostsTab({
                         return (
                           <span
                             style={{
-                              fontSize: 10,
-                              background: COLOR_PALETTE.teal50,
-                              color: COLOR_PALETTE.teal600,
+                              fontSize: "xs",
+                              background: action50,
+                              color: level1700,
                               borderRadius: 4,
                               padding: '2px 6px',
                               whiteSpace: 'nowrap',
@@ -150,9 +155,9 @@ export function AllCostsTab({
                           <div>
                             <span
                               style={{
-                                fontSize: 10,
-                                background: COLOR_PALETTE.blue50,
-                                color: COLOR_PALETTE.blue600,
+                                fontSize: "xs",
+                              background: primary50,
+                              color: primary600,
                                 borderRadius: 4,
                                 padding: '2px 6px',
                                 whiteSpace: 'nowrap',
@@ -161,7 +166,7 @@ export function AllCostsTab({
                               Powiązany
                             </span>
                             {(cost.scheduleName || cost.estimateName) && (
-                              <div style={{ fontSize: 10, color: COLOR_PALETTE.gray600, marginTop: 2 }}>
+                              <div style={{ fontSize: "xs", color: neutral600, marginTop: 2 }}>
                                 {[cost.scheduleName, cost.estimateName].filter(Boolean).join(' + ')}
                               </div>
                             )}
@@ -171,9 +176,9 @@ export function AllCostsTab({
                       return (
                         <span
                           style={{
-                            fontSize: 10,
-                            background: COLOR_PALETTE.gray50,
-                            color: COLOR_PALETTE.gray600,
+                              fontSize: "xs",
+                              background: neutral50,
+                              color: neutral600,
                             borderRadius: 4,
                             padding: '2px 6px',
                             whiteSpace: 'nowrap',
@@ -183,8 +188,8 @@ export function AllCostsTab({
                         </span>
                       );
                     })()}
-                  </td>
-                  <td style={{ padding: '4px 6px', color: COLOR_PALETTE.gray600 }}>
+                  </Td>
+                  <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
                     {(() => {
                       const st = cost.sourceType;
                       if (st === 'ScheduleWorkItem' || st === 'LinkedWorkItem') {
@@ -199,68 +204,55 @@ export function AllCostsTab({
                       }
                       return '—';
                     })()}
-                  </td>
-                  <td style={{ padding: '4px 6px', color: COLOR_PALETTE.gray600 }}>
+                  </Td>
+                  <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
                     {cost.contractor ?? '—'}
-                  </td>
-                  <td style={{ padding: '4px 6px', textAlign: 'right', color: COLOR_PALETTE.coral400, fontWeight: 500 }}>
+                  </Td>
+                  <Td isNumeric px="6px" py="4px" color="orange.600" fontWeight="medium">
                     {PLN(cost.net)}
-                  </td>
-                  <td style={{ padding: '4px 6px', textAlign: 'right', color: COLOR_PALETTE.gray600 }}>
+                  </Td>
+                  <Td isNumeric px="6px" py="4px" color="neutral.600">
                     {PLN(cost.gross)}
-                  </td>
-                  <td style={{ padding: '4px 6px', whiteSpace: 'nowrap' }}>
-                    <button
+                  </Td>
+                  <Td px="6px" py="4px" whiteSpace="nowrap">
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      colorScheme="gray"
+                      aria-label="Edytuj"
+                      icon={<Pencil size={12} />}
                       onClick={() => setEditingCost(cost)}
-                      style={{
-                        fontSize: 11,
-                        padding: '4px 10px',
-                        background: COLOR_PALETTE.gray50,
-                        color: COLOR_PALETTE.gray600,
-                        border: `0.5px solid ${COLOR_PALETTE.border}`,
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                        marginRight: 4,
-                      }}
-                    >
-                      Edytuj
-                    </button>
-                    <button
+                      mr={1}
+                    />
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      colorScheme="red"
+                      aria-label="Usuń"
+                      icon={<Trash2 size={12} />}
                       onClick={() => setConfirmDeleteCost(cost)}
-                      style={{
-                        fontSize: 11,
-                        padding: '4px 10px',
-                        background: COLOR_PALETTE.red50,
-                        color: COLOR_PALETTE.red600,
-                        border: `0.5px solid ${COLOR_PALETTE.red400}`,
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Usuń
-                    </button>
-                  </td>
-                </tr>
+                    />
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td
+            </Tbody>
+            <Tfoot>
+              <Tr>
+                <Td
                   colSpan={7}
-                  style={{
-                    padding: '6px 6px',
-                    borderTop: `0.5px solid ${COLOR_PALETTE.border}`,
-                    fontSize: 11,
-                    color: COLOR_PALETTE.gray600,
-                    textAlign: 'right',
-                    fontWeight: 500,
-                  }}
+                  px="6px"
+                  py="6px"
+                  borderTopWidth="0.5px"
+                  borderTopColor="neutral.200"
+                  color="neutral.600"
+                  textAlign="right"
+                  fontWeight="medium"
                 >
-                  Suma łączna: <span style={{ color: COLOR_PALETTE.coral400 }}>{PLN(totalNet)}</span>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+                  Suma łączna: <span style={{ color: orange600 }}>{PLN(totalNet)}</span>
+                </Td>
+              </Tr>
+            </Tfoot>
+          </Table>
         )}
         </div>
       </div>
@@ -287,7 +279,7 @@ export function AllCostsTab({
           isActionLoading={isDeleting}
           desktopSize="sm"
         >
-          <span style={{ fontSize: 13 }}>
+          <span style={{ fontSize: "sm" }}>
             Czy na pewno chcesz usunąć <strong>{confirmDeleteCost.name}</strong>? Operacji nie można cofnąć.
           </span>
         </AppModal>

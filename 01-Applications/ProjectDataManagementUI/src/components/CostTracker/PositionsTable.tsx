@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+﻿import { useState, useRef } from "react";
 import {
   Table,
   Thead,
@@ -111,14 +111,14 @@ function PositionsDesktopTable({ items, onAddCost, onListCosts }: { items: Track
     <Box overflowX="auto">
       <Table size="sm" variant="simple">
         <Thead>
-          <Tr bg="gray.50">
-            <Th fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Nazwa</Th>
-            <Th fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" isNumeric>Budżet netto</Th>
-            <Th fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" isNumeric>Koszty netto</Th>
-            <Th fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" isNumeric>Odchylenie</Th>
-            <Th fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" minW="120px">Realizacja</Th>
-            <Th fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Status</Th>
-            <Th fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" w="80px"></Th>
+          <Tr bg="neutral.25">
+            <Th fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Nazwa</Th>
+            <Th fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" isNumeric>Budżet netto</Th>
+            <Th fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" isNumeric>Koszty netto</Th>
+            <Th fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" isNumeric>Odchylenie</Th>
+            <Th fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" minW="120px">Realizacja</Th>
+            <Th fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">Status</Th>
+            <Th fontSize="xs" color="neutral.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide" w="80px"></Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -127,12 +127,12 @@ function PositionsDesktopTable({ items, onAddCost, onListCosts }: { items: Track
             const progressColor = item.isBudgetExceeded ? "red" : coveredPct >= 80 ? "orange" : "green";
             const deviationColor = item.isBudgetExceeded ? "red.500" : "green.600";
             return (
-              <Tr key={item.costEstimateItemId} bg={idx % 2 === 1 ? "gray.50" : "white"}>
+              <Tr key={item.costEstimateItemId} bg={idx % 2 === 1 ? "neutral.25" : "white"}>
                 <Td maxW="200px">
-                  <Text noOfLines={2} fontSize="sm" fontWeight="medium" color="gray.800">{item.name}</Text>
+                  <Text noOfLines={2} fontSize="sm" fontWeight="medium" color="neutral.800">{item.name}</Text>
                 </Td>
-                <Td isNumeric fontSize="sm" color="gray.600">{fmt(item.budgetNet)}</Td>
-                <Td isNumeric fontSize="sm" color="gray.600">{fmt(item.costsNet)}</Td>
+                <Td isNumeric fontSize="sm" color="neutral.600">{fmt(item.budgetNet)}</Td>
+                <Td isNumeric fontSize="sm" color="neutral.600">{fmt(item.costsNet)}</Td>
                 <Td isNumeric>
                   <HStack justify="flex-end" spacing={1}>
                     {item.isBudgetExceeded
@@ -150,10 +150,10 @@ function PositionsDesktopTable({ items, onAddCost, onListCosts }: { items: Track
                       colorScheme={progressColor}
                       w="80px"
                       borderRadius="full"
-                      bg="gray.100"
+                      bg="neutral.50"
                       flexShrink={0}
                     />
-                    <Text fontSize="xs" color="gray.500" flexShrink={0}>{coveredPct.toFixed(0)}%</Text>
+                    <Text fontSize="xs" color="neutral.500" flexShrink={0}>{coveredPct.toFixed(0)}%</Text>
                   </HStack>
                 </Td>
                 <Td>
@@ -168,7 +168,7 @@ function PositionsDesktopTable({ items, onAddCost, onListCosts }: { items: Track
                       aria-label="Dodaj koszt"
                       icon={<Plus size={14} />}
                       size="sm"
-                      colorScheme="blue"
+                      colorScheme="primary"
                       variant="ghost"
                       onClick={() => onAddCost(item)}
                       minH="36px"
@@ -208,12 +208,12 @@ function PositionsCardList({ items, onAddCost, onListCosts }: { items: TrackerIt
             p={3}
             borderRadius="md"
             borderWidth="1px"
-            borderColor="gray.200"
+            borderColor="neutral.200"
             bg="white"
           >
             <VStack align="stretch" spacing={2}>
               <HStack justify="space-between">
-                <Text fontWeight="semibold" fontSize="sm" flex={1} noOfLines={2} color="gray.800">
+                <Text fontWeight="semibold" fontSize="sm" flex={1} noOfLines={2} color="neutral.800">
                   {item.name}
                 </Text>
                 <HStack spacing={1}>
@@ -229,20 +229,20 @@ function PositionsCardList({ items, onAddCost, onListCosts }: { items: TrackerIt
                   size="sm"
                   colorScheme={progressColor}
                   borderRadius="full"
-                  bg="gray.100"
+                  bg="neutral.50"
                 />
-                <Text fontSize="xs" color="gray.500" flexShrink={0}>{coveredPct.toFixed(0)}%</Text>
+                <Text fontSize="xs" color="neutral.500" flexShrink={0}>{coveredPct.toFixed(0)}%</Text>
               </HStack>
 
-              <HStack justify="space-between" fontSize="xs" color="gray.500">
-                <Text>Bud: <Text as="span" fontWeight="medium" color="gray.700">{fmt(item.budgetNet)}</Text></Text>
-                <Text>Koszty: <Text as="span" fontWeight="medium" color="gray.700">{fmt(item.costsNet)}</Text></Text>
+              <HStack justify="space-between" fontSize="xs" color="neutral.500">
+                <Text>Bud: <Text as="span" fontWeight="medium" color="neutral.700">{fmt(item.budgetNet)}</Text></Text>
+                <Text>Koszty: <Text as="span" fontWeight="medium" color="neutral.700">{fmt(item.costsNet)}</Text></Text>
                 <HStack spacing={0}>
                   <IconButton
                     aria-label="Dodaj koszt"
                     icon={<Plus size={14} />}
                     size="sm"
-                    colorScheme="blue"
+                    colorScheme="primary"
                     variant="ghost"
                     onClick={() => onAddCost(item)}
                     minH="44px"

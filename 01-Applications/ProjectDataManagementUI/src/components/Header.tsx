@@ -119,7 +119,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
             display={{ base: "flex", md: "none" }}
           >
             <Text
-              fontSize={{ base: "10px", md: "sm" }}
+              fontSize={{ base: "xs", md: "sm" }}
               fontWeight="medium"
               color={textColor}
               whiteSpace="nowrap"
@@ -129,7 +129,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
             </Text>
 
             {activeTenantName && (
-              <HStack spacing={0.5} fontSize={{ base: "8px", md: "xs" }} color={mutedColor}>
+              <HStack spacing={0.5} fontSize={{ base: "2xs", md: "xs" }} color={mutedColor}>
                 <Icon as={Building2} boxSize={{ base: 3, md: 3 }} flexShrink={0} />
                 <Text whiteSpace="nowrap" noOfLines={1}>{activeTenantName}</Text>
               </HStack>
@@ -147,7 +147,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               display={{ base: "none", md: "flex" }}
             >
               <Text
-                fontSize={{ base: "10px", md: "sm" }}
+                fontSize={{ base: "xs", md: "sm" }}
                 fontWeight="medium"
                 color={textColor}
                 whiteSpace="nowrap"
@@ -157,7 +157,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               </Text>
 
               {activeTenantName && (
-                <HStack spacing={0.5} fontSize={{ base: "8px", md: "xs" }} color={mutedColor}>
+                <HStack spacing={0.5} fontSize={{ base: "2xs", md: "xs" }} color={mutedColor}>
                   <Icon as={Building2} boxSize={{ base: 3, md: 3 }} flexShrink={0} />
                   <Text whiteSpace="nowrap" noOfLines={1}>{activeTenantName}</Text>
                 </HStack>

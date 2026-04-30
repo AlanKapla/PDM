@@ -69,7 +69,7 @@ export default function AssignmentsModal({ isOpen, onClose, stageId, work }: Ass
           <VStack spacing={3}>
             <InputGroup size="sm">
               <InputLeftElement>
-                <Search size={14} color="gray" />
+                <Search size={14} color="var(--chakra-colors-neutral-400)" />
               </InputLeftElement>
               <Input
                 placeholder="Szukaj uczestnika..."
@@ -79,7 +79,7 @@ export default function AssignmentsModal({ isOpen, onClose, stageId, work }: Ass
               />
             </InputGroup>
             {filteredMembers.length === 0 && (
-              <Text fontSize="sm" color="gray.400">Brak uczestników projektu</Text>
+              <Text fontSize="sm" color="neutral.400">Brak uczestników projektu</Text>
             )}
             {filteredMembers.map(member => (
               <HStack key={member.userId} w="100%" spacing={3}>
@@ -93,14 +93,14 @@ export default function AssignmentsModal({ isOpen, onClose, stageId, work }: Ass
                   <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
                     {member.firstName} {member.lastName}
                   </Text>
-                  <Text fontSize="xs" color="gray.500" noOfLines={1}>{member.email}</Text>
+                  <Text fontSize="xs" color="neutral.400" noOfLines={1}>{member.email}</Text>
                 </VStack>
               </HStack>
             ))}
           </VStack>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
           <Button colorScheme="primary" onClick={handleSave} isLoading={isSubmitting}>
             Zapisz ({selectedIds.size})
           </Button>

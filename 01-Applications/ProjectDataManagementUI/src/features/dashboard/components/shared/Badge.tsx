@@ -18,7 +18,7 @@ export function Badge({ text, bg, color, small = false }: BadgeProps): React.Rea
         borderRadius: 20,
         padding: small ? '1px 6px' : '2px 8px',
         fontSize: small ? 10 : 11,
-        fontWeight: 500,
+        fontWeight: "medium",
         lineHeight: '16px',
         whiteSpace: 'nowrap',
       }}

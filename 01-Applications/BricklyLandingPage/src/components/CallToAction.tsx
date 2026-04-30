@@ -1,4 +1,4 @@
-import { ExternalLink, Mail, CheckCircle2, ShieldCheck, Cloud, MapPin } from 'lucide-react'
+import { ExternalLink, Mail, CheckCircle2, ShieldCheck, Plug2, MapPin } from 'lucide-react'
 import './CallToAction.css'
 
 const MICRO_BENEFITS = [
@@ -22,13 +22,12 @@ export default function CallToAction() {
           Zacznij już dziś
         </div>
         <h2 className="cta-section__title">
-          Miej pełną kontrolę<br />
-          <span className="cta-section__title-accent">nad każdą inwestycją.</span>
+          Zacznij widzieć<br />
+          <span className="cta-section__title-accent">gdzie idą pieniądze.</span>
         </h2>
         <p className="cta-section__subtitle">
-          Nadzorcy inwestycyjni, inwestorzy zastępczy, architekci i generalni
-          wykonawcy zyskują przejrzystość i spokój – dokumenty, kosztorysy
-          i komunikacja zawsze pod ręką, w jednym miejscu.
+          Bezpłatny dostęp. Konfiguracja w 5 minut.
+          Bez karty kredytowej. I bez kolejnego Excela.
         </p>
 
         <div className="cta-section__micro-benefits">
@@ -38,6 +37,14 @@ export default function CallToAction() {
               {b}
             </span>
           ))}
+        </div>
+
+        <div className="cta-section__integration">
+          <p className="cta-section__integration-text">
+            Brakuje Ci jakiejś funkcji? Chcesz połączyć Brickly
+            z Twoim systemem ERP, programem księgowym lub platformą zakupową?
+            Napisz do nas — lubimy ciekawe wyzwania.
+          </p>
         </div>
 
         <div className="cta-section__actions">
@@ -59,7 +66,7 @@ export default function CallToAction() {
         <div className="cta-section__trust">
           <span><ShieldCheck size={15} /> Bezpieczna platforma</span>
           <span className="cta-section__trust-divider" />
-          <span><Cloud size={15} /> Dostęp z każdego urządzenia</span>
+          <span><Plug2 size={15} /> Otwarte na integracje</span>
           <span className="cta-section__trust-divider" />
           <span><MapPin size={15} /> Produkt polski</span>
         </div>

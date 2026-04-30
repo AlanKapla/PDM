@@ -1,7 +1,8 @@
 import React from 'react';
+import { Table, Thead, Tbody, Tr, Th, Td, IconButton, useToken } from '@chakra-ui/react';
+import { Pencil, Trash2 } from 'lucide-react';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
 import { PLN, DATE } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { AttachmentsCell } from './AttachmentsCell';
 
 export interface CostTableProps {
@@ -14,109 +15,100 @@ export interface CostTableProps {
 
 /** Tabela kosztów śledzonych. Wartości null wyświetlane jako "—". */
 export function CostTable({ costs, title, bgOverride, onEdit, onDelete }: CostTableProps): React.ReactElement {
+  const [neutral400, neutral600] = useToken('colors', ['neutral.400', 'neutral.600']);
+
   const hasActions = onEdit != null || onDelete != null;
 
   return (
     <div style={{ background: bgOverride ?? '#fff' }}>
       {title && (
-        <div style={{ fontSize: 11, fontWeight: 600, color: COLOR_PALETTE.gray600, marginBottom: 6 }}>
+        <div style={{ fontSize: "xs", fontWeight: "semibold", color: neutral600, marginBottom: 6 }}>
           {title}
         </div>
       )}
       {costs.length === 0 ? (
-        <div style={{ fontSize: 11, color: COLOR_PALETTE.gray400, fontStyle: 'italic' }}>
+        <div style={{ fontSize: "xs", color: neutral400, fontStyle: 'italic' }}>
           Brak kosztów
         </div>
       ) : (
         <div className="dashboard-table-wrap">
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-          <thead>
-            <tr>
+        <Table size="sm" variant="simple">
+          <Thead>
+            <Tr>
               {['Nazwa', 'Wykonawca', 'Data', 'Nr faktury', 'Kwota netto', 'Zał.'].map((col) => (
-                <th
+                <Th
                   key={col}
-                  style={{
-                    textAlign: 'left',
-                    padding: '4px 6px',
-                    color: COLOR_PALETTE.gray400,
-                    fontWeight: 500,
-                    borderBottom: `0.5px solid ${COLOR_PALETTE.border}`,
-                  }}
+                  isNumeric={col === 'Kwota netto'}
+                  color="neutral.400"
+                  fontWeight="medium"
+                  px="6px"
+                  py="4px"
+                  borderBottomWidth="0.5px"
+                  borderBottomColor="neutral.200"
+                  display={col === 'Data' || col === 'Nr faktury' ? { base: 'none', md: 'table-cell' } : undefined}
                 >
                   {col}
-                </th>
+                </Th>
               ))}
               {hasActions && (
-                <th
-                  style={{
-                    padding: '4px 6px',
-                    borderBottom: `0.5px solid ${COLOR_PALETTE.border}`,
-                    width: 80,
-                  }}
+                <Th
+                  px="6px"
+                  py="4px"
+                  borderBottomWidth="0.5px"
+                  borderBottomColor="neutral.200"
+                  w="80px"
                 />
               )}
-            </tr>
-          </thead>
-          <tbody>
+            </Tr>
+          </Thead>
+          <Tbody>
             {costs.map((cost) => (
-              <tr key={cost.id}>
-                <td style={{ padding: '4px 6px' }}>{cost.name}</td>
-                <td style={{ padding: '4px 6px', color: COLOR_PALETTE.gray600 }}>
+              <Tr key={cost.id}>
+                <Td px="6px" py="4px">{cost.name}</Td>
+                <Td px="6px" py="4px" color="neutral.600">
                   {cost.contractor ?? '—'}
-                </td>
-                <td style={{ padding: '4px 6px', color: COLOR_PALETTE.gray600 }}>
+                </Td>
+                <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
                   {DATE(cost.date)}
-                </td>
-                <td style={{ padding: '4px 6px', color: COLOR_PALETTE.gray600 }}>
+                </Td>
+                <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
                   {cost.number ?? '—'}
-                </td>
-                <td style={{ padding: '4px 6px', color: COLOR_PALETTE.coral400, fontWeight: 500 }}>
+                </Td>
+                <Td isNumeric px="6px" py="4px" color="orange.600" fontWeight="medium">
                   {PLN(cost.net)}
-                </td>
-                <td style={{ padding: '4px 6px' }}>
+                </Td>
+                <Td px="6px" py="4px">
                   <AttachmentsCell attachments={cost.attachments} costName={cost.name} />
-                </td>
+                </Td>
                 {hasActions && (
-                  <td style={{ padding: '4px 6px', whiteSpace: 'nowrap' }}>
+                  <Td px="6px" py="4px" whiteSpace="nowrap">
                     {onEdit && (
-                      <button
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="gray"
+                        aria-label="Edytuj"
+                        icon={<Pencil size={12} />}
                         onClick={() => onEdit(cost)}
-                        style={{
-                          fontSize: 11,
-                          padding: '4px 10px',
-                          background: COLOR_PALETTE.gray50,
-                          color: COLOR_PALETTE.gray600,
-                          border: `0.5px solid ${COLOR_PALETTE.border}`,
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                          marginRight: 4,
-                        }}
-                      >
-                        Edytuj
-                      </button>
+                        mr={1}
+                      />
                     )}
                     {onDelete && (
-                      <button
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="red"
+                        aria-label="Usuń"
+                        icon={<Trash2 size={12} />}
                         onClick={() => onDelete(cost)}
-                        style={{
-                          fontSize: 11,
-                          padding: '4px 10px',
-                          background: COLOR_PALETTE.red50,
-                          color: COLOR_PALETTE.red600,
-                          border: `0.5px solid ${COLOR_PALETTE.red400}`,
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Usuń
-                      </button>
+                      />
                     )}
-                  </td>
+                  </Td>
                 )}
-              </tr>
+              </Tr>
             ))}
-          </tbody>
-        </table>
+          </Tbody>
+        </Table>
         </div>
       )}
     </div>

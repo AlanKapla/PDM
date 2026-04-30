@@ -1,8 +1,8 @@
 import React from 'react';
+import { useToken } from '@chakra-ui/react';
 import { TimelineStatus } from '../../types/projectDashboard.types';
 import type { ScheduleStageWeb, TimelineStatsWeb, WorkItemLinkWeb } from '../../types/projectDashboard.types';
 import { DATE } from '../../utils/formatters';
-import { COLOR_PALETTE, TIMELINE_STATUS_MAP } from '../../utils/colors';
 import { TimelineStatusBadge } from '../shared/TimelineStatusBadge';
 
 export interface MiniGanttProps {
@@ -16,6 +16,14 @@ export interface MiniGanttProps {
  * Źródło danych: ScheduleStageWeb[] + TimelineStatsWeb.
  */
 export function MiniGantt({ stages, timeline }: MiniGanttProps): React.ReactElement {
+  const [
+    neutral100, primary500, orange600, level1500,
+    amber400, neutral400, neutral600, neutral50,
+  ] = useToken('colors', [
+    'neutral.100', 'primary.500', 'orange.600', 'level1.500',
+    'amber.400', 'neutral.400', 'neutral.600', 'neutral.50',
+  ]);
+
   const rangeStart = timeline.plannedStart ? new Date(timeline.plannedStart).getTime() : null;
   const rangeEnd = timeline.plannedEnd ? new Date(timeline.plannedEnd).getTime() : null;
   const totalMs = rangeStart != null && rangeEnd != null ? rangeEnd - rangeStart : null;
@@ -37,13 +45,13 @@ export function MiniGantt({ stages, timeline }: MiniGanttProps): React.ReactElem
   const allItems = stages.flatMap(flattenStage).filter(Boolean);
 
   const statusColors: Record<TimelineStatus, string> = {
-    [TimelineStatus.NoSchedule]: COLOR_PALETTE.gray100,
-    [TimelineStatus.NotStarted]: COLOR_PALETTE.gray100,
-    [TimelineStatus.InProgress]: COLOR_PALETTE.blue400,
-    [TimelineStatus.Delayed]: COLOR_PALETTE.coral400,
-    [TimelineStatus.Completed]: COLOR_PALETTE.teal400,
-    [TimelineStatus.CompletedLate]: COLOR_PALETTE.amber400,
-    [TimelineStatus.NoWorkItems]: COLOR_PALETTE.gray100,
+    [TimelineStatus.NoSchedule]: neutral100,
+    [TimelineStatus.NotStarted]: neutral100,
+    [TimelineStatus.InProgress]: primary500,
+    [TimelineStatus.Delayed]: orange600,
+    [TimelineStatus.Completed]: level1500,
+    [TimelineStatus.CompletedLate]: amber400,
+    [TimelineStatus.NoWorkItems]: neutral100,
   };
 
   return (
@@ -51,7 +59,7 @@ export function MiniGantt({ stages, timeline }: MiniGanttProps): React.ReactElem
       {/* Nagłówek osi czasu */}
       <div style={{ display: 'flex', marginBottom: 6 }}>
         <div style={{ width: 140, flexShrink: 0 }} />
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', fontSize: 12, color: COLOR_PALETTE.gray400 }}>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', fontSize: "xs", color: neutral400 }}>
           {rangeStart != null && <span>{DATE(timeline.plannedStart)}</span>}
           {rangeEnd != null && <span>{DATE(timeline.plannedEnd)}</span>}
         </div>
@@ -74,8 +82,8 @@ export function MiniGantt({ stages, timeline }: MiniGanttProps): React.ReactElem
               style={{
                 width: 140,
                 flexShrink: 0,
-                fontSize: 11,
-                color: COLOR_PALETTE.gray600,
+                fontSize: "xs",
+                color: neutral600,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -84,7 +92,7 @@ export function MiniGantt({ stages, timeline }: MiniGanttProps): React.ReactElem
             >
               {item.displayName}
             </div>
-            <div style={{ flex: 1, position: 'relative', height: 10, background: COLOR_PALETTE.gray50, borderRadius: 4 }}>
+            <div style={{ flex: 1, position: 'relative', height: 10, background: neutral50, borderRadius: 4 }}>
               {bar && (
                 <div
                   style={{
@@ -124,7 +132,7 @@ export function MiniGantt({ stages, timeline }: MiniGanttProps): React.ReactElem
                 borderRadius: 2,
               }}
             />
-            <span style={{ fontSize: 12, color: COLOR_PALETTE.gray400 }}>{label}</span>
+            <span style={{ fontSize: "xs", color: neutral400 }}>{label}</span>
           </div>
         ))}
       </div>

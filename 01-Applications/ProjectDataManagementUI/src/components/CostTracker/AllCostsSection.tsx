@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import {
   Box,
   VStack,
@@ -186,13 +186,13 @@ export default function AllCostsSection({
               <option value="project-additional">Dodatkowy projektu</option>
             </Select>
 
-            <Text fontSize="sm" color="gray.500">
+            <Text fontSize="sm" color="neutral.500">
               {filtered.length} kosztów
             </Text>
           </HStack>
 
           {filtered.length === 0 ? (
-            <Text color="gray.500" fontSize="sm" textAlign="center" py={8}>
+            <Text color="neutral.500" fontSize="sm" textAlign="center" py={8}>
               Brak kosztów spełniających kryteria filtrowania.
             </Text>
           ) : isMobile ? (
@@ -320,8 +320,8 @@ function AllCostsMobileList({ costs, onEdit, onDelete }: TableListProps) {
           p={3}
           borderRadius="md"
           borderWidth={1}
-          borderColor="gray.200"
-          _dark={{ borderColor: "gray.600" }}
+          borderColor="neutral.200"
+          _dark={{ borderColor: "neutral.600" }}
         >
           <HStack align="flex-start">
             <VStack align="stretch" flex={1} spacing={1}>
@@ -330,19 +330,19 @@ function AllCostsMobileList({ costs, onEdit, onDelete }: TableListProps) {
                   {SOURCE_LABELS[fc.source]}
                 </Badge>
                 {fc.estimateName && (
-                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                  <Text fontSize="xs" color="neutral.500" noOfLines={1}>
                     {fc.estimateName}
                   </Text>
                 )}
               </HStack>
               <Text fontWeight="semibold" fontSize="sm">{fc.cost.name}</Text>
               <HStack spacing={3} flexWrap="wrap">
-                <Text fontSize="xs" color="gray.600">N: {fmt(fc.cost.net)} PLN</Text>
+                <Text fontSize="xs" color="neutral.600">N: {fmt(fc.cost.net)} PLN</Text>
                 {fc.cost.number && (
-                  <Text fontSize="xs" color="gray.600">Nr: {fc.cost.number}</Text>
+                  <Text fontSize="xs" color="neutral.600">Nr: {fc.cost.number}</Text>
                 )}
                 {fc.cost.date && (
-                  <Text fontSize="xs" color="gray.600">{formatDate(fc.cost.date, false)}</Text>
+                  <Text fontSize="xs" color="neutral.600">{formatDate(fc.cost.date, false)}</Text>
                 )}
               </HStack>
             </VStack>

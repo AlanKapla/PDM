@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+﻿import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
   Table,
@@ -179,6 +179,9 @@ interface CostEstimateTableViewProps {
   onAddSubGroup?: (parentGroupId: string) => Promise<string | undefined>;
   onAddItem?: (groupId: string) => Promise<string | undefined>;
   onDeleteItem?: (groupId: string, itemId: string) => void;
+  onRequestDeleteItem?: (groupId: string, itemId: string) => void;
+  onRequestDeleteOption?: (groupId: string, itemId: string, optionId: string) => void;
+  onRequestDeleteComponent?: (groupId: string, itemId: string, componentId: string) => void;
   /**
    * Callback do dodania opcji (relationType=1) lub komponentu (relationType=2) do pozycji
    * @param groupId ID grupy
@@ -247,6 +250,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   onAddSubGroup,
   onAddItem,
   onDeleteItem,
+  onRequestDeleteItem,
+  onRequestDeleteOption,
+  onRequestDeleteComponent,
   onAddChildItem,
   onUploadFiles,
   onUploadSuccess,
@@ -1731,7 +1737,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
      // Pola z isCollection są obsługiwane przez expandedColumns jako osobne kolumny childFields
      if (cfg?.isCollection) {
-       return <Text fontSize="xs" color="gray.400">—</Text>;
+       return <Text fontSize="xs" color="neutral.400">—</Text>;
      }
 
      // Readonly — pole obliczane lub zablokowane przez komponenty
@@ -1766,11 +1772,11 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            fontSize="sm" 
            textAlign={isNumForDisplay || isVatRateField ? 'right' : 'left'}
            fontWeight="medium"
-           bg="gray.100" 
+           bg="neutral.50" 
            px={2} 
            py={1} 
            borderRadius="md"
-           color="gray.700"
+           color="neutral.700"
            title={effectiveDisabled ? (isRestrictedReadonly ? 'Pole tylko do odczytu' : 'Wartość obliczana z komponentów') : 'Wartość obliczana automatycznie'}
            wordBreak="break-word"
          >
@@ -1814,7 +1820,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
              isDisabled={effectiveDisabled}
              size="md"
              colorScheme="primary"
-             borderColor="gray.400"
+             borderColor="neutral.400"
              sx={{
                '.chakra-checkbox__control': {
                  borderWidth: '2px',
@@ -1859,7 +1865,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            size="sm"
            variant="outline"
            bg="white"
-           borderColor="gray.300"
+           borderColor="neutral.300"
            _hover={{ borderColor: 'primary.400' }}
            _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
          />
@@ -1877,7 +1883,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
              isDisabled={effectiveDisabled}
              size="md"
              colorScheme="primary"
-             borderColor="gray.400"
+             borderColor="neutral.400"
              sx={{
                '.chakra-checkbox__control': {
                  borderWidth: '2px',
@@ -1914,7 +1920,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            size="sm"
            variant="outline"
            bg="white"
-           borderColor="gray.300"
+           borderColor="neutral.300"
            _hover={{ borderColor: 'primary.400' }}
            _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
          />
@@ -1930,7 +1936,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            size="sm"
            variant="outline"
            bg="white"
-           borderColor="gray.300"
+           borderColor="neutral.300"
            _hover={{ borderColor: 'primary.400' }}
            _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
          />
@@ -1949,7 +1955,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
            size="sm"
            variant="outline"
            bg="white"
-           borderColor="gray.300"
+           borderColor="neutral.300"
            _hover={{ borderColor: 'primary.400' }}
            _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
            flex={1}
@@ -2075,7 +2081,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
     onDataChange({ ...details, rootGroups: details.rootGroups.map(updateGroup) });
     // Wywołaj API w tle (UI już zaktualizowane przez onDataChange powyżej)
-    onDeleteItem?.(groupId, optionId);
+    onRequestDeleteOption?.(groupId, itemId, optionId);
   };
 
   // ========== ZARZĄDZANIE KOMPONENTAMI ==========
@@ -2213,7 +2219,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
     onDataChange({ ...details, rootGroups: details.rootGroups.map(updateGroup) });
     // Wywołaj API w tle (UI już zaktualizowane przez onDataChange powyżej)
-    onDeleteItem?.(groupId, componentId);
+    onRequestDeleteComponent?.(groupId, itemId, componentId);
   };
 
   const updateComponentFieldValue = (
@@ -2748,11 +2754,18 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
   const renderTableHeader = () => {
     return (
-      <Thead bg="primary.600" position="sticky" top={0} zIndex={10}>
+      <Thead
+        bg="white"
+        borderBottomWidth="2px"
+        borderBottomColor="neutral.200"
+        position="sticky"
+        top={0}
+        zIndex={10}
+      >
         <Tr>
           {canStructuralEdit && (
             <Th
-              color="white"
+              color="neutral.500"
               fontSize="xs"
               py={4}
               w="120px"
@@ -2762,14 +2775,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               position="sticky"
               left={0}
               zIndex={11}
-              bg="primary.600"
+              bg="white"
             >
               Akcje
             </Th>
           )}
 
           <Th
-            color="white"
+            color="neutral.500"
             fontSize="xs"
             py={4}
             w={`${POSITION_COL_MIN_WIDTH}px`}
@@ -2778,7 +2791,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             position="sticky"
             left={canStructuralEdit ? '120px' : 0}
             zIndex={11}
-            bg="primary.600"
+            bg="white"
             whiteSpace="nowrap"
           >
             Pozycja
@@ -2793,7 +2806,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             return (
               <Th
                 key={col.fieldId}
-                color="white"
+                color="neutral.500"
                 fontSize="sm"
                 py={2}
                 w={`${colWidth}px`}
@@ -2823,8 +2836,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                           }
                           size="xs"
                           variant="ghost"
-                          color={sortDirection ? 'yellow.300' : 'whiteAlpha.700'}
-                          _hover={{ color: 'white', bg: 'whiteAlpha.200' }}
+                          color={sortDirection ? 'primary.500' : 'neutral.400'}
+                          _hover={{ color: 'primary.500', bg: 'neutral.50' }}
                           onClick={() => handleSort(col.fieldId)}
                         />
                       </Tooltip>
@@ -2837,14 +2850,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                         size="xs"
                         value={filterValue}
                         onChange={(e) => handleFilterChange(col.fieldId, e.target.value)}
-                        bg="whiteAlpha.200"
-                        border="none"
-                        color="white"
-                        _hover={{ bg: 'whiteAlpha.300' }}
-                        _focus={{ bg: 'whiteAlpha.300', boxShadow: 'none' }}
+                        bg="neutral.50"
+                        borderColor="neutral.200"
+                        color="neutral.700"
+                        _hover={{ bg: 'neutral.100' }}
+                        _focus={{ bg: 'neutral.100', boxShadow: 'none' }}
                         h="24px"
                         fontSize="xs"
-                        sx={{ '> option': { bg: 'gray.700', color: 'white' } }}
+                        sx={{ '> option': { bg: 'white', color: 'neutral.700' } }}
                       >
                         <option value="">Wszystkie</option>
                         <option value="true">Tak</option>
@@ -2860,12 +2873,12 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                           placeholder="Filtruj..."
                           value={filterValue}
                           onChange={(e) => handleFilterChange(col.fieldId, e.target.value)}
-                          bg="whiteAlpha.200"
-                          border="none"
-                          color="white"
-                          _placeholder={{ color: 'whiteAlpha.600' }}
-                          _hover={{ bg: 'whiteAlpha.300' }}
-                          _focus={{ bg: 'whiteAlpha.300', boxShadow: 'none' }}
+                          bg="neutral.50"
+                          borderColor="neutral.200"
+                          color="neutral.700"
+                          _placeholder={{ color: 'neutral.400' }}
+                          _hover={{ bg: 'neutral.100' }}
+                          _focus={{ bg: 'neutral.100', boxShadow: 'none' }}
                           h="24px"
                           pl="24px"
                           fontSize="xs"
@@ -2884,8 +2897,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                               icon={<X size={10} />}
                               size="xs"
                               variant="ghost"
-                              color="whiteAlpha.700"
-                              _hover={{ color: 'white' }}
+                              color="neutral.400"
+                              _hover={{ color: 'neutral.600' }}
                               position="absolute"
                               right={0}
                               top={0}
@@ -2899,18 +2912,18 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                     ) : (
                       <InputGroup size="xs">
                         <InputLeftElement h="24px" w="24px">
-                          <Search size={12} color="white" style={{ opacity: 0.7 }} />
+                          <Search size={12} color="gray" style={{ opacity: 0.7 }} />
                         </InputLeftElement>
                         <Input
                           placeholder="Filtruj..."
                           value={filterValue}
                           onChange={(e) => handleFilterChange(col.fieldId, e.target.value)}
-                          bg="whiteAlpha.200"
-                          border="none"
-                          color="white"
-                          _placeholder={{ color: 'whiteAlpha.600' }}
-                          _hover={{ bg: 'whiteAlpha.300' }}
-                          _focus={{ bg: 'whiteAlpha.300', boxShadow: 'none' }}
+                          bg="neutral.50"
+                          borderColor="neutral.200"
+                          color="neutral.700"
+                          _placeholder={{ color: 'neutral.400' }}
+                          _hover={{ bg: 'neutral.100' }}
+                          _focus={{ bg: 'neutral.100', boxShadow: 'none' }}
                           h="24px"
                           pl="24px"
                           fontSize="xs"
@@ -2922,8 +2935,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                               icon={<X size={10} />}
                               size="xs"
                               variant="ghost"
-                              color="whiteAlpha.700"
-                              _hover={{ color: 'white' }}
+                              color="neutral.400"
+                              _hover={{ color: 'neutral.600' }}
                               position="absolute"
                               right={0}
                               top={0}
@@ -2947,7 +2960,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                   w="6px"
                   cursor="col-resize"
                   bg="transparent"
-                  _hover={{ bg: 'whiteAlpha.400' }}
+                  _hover={{ bg: 'primary.200' }}
                   onMouseDown={(e) => handleResizeStart(e, col.fieldId, colWidth, calculateWidthFromLabel(col.label))}
                   zIndex={12}
                 />
@@ -2965,7 +2978,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     <Box bg="white" borderRadius="xl" shadow="lg" borderWidth="1px">
       {/* Pasek narzędziowy: Rozwiń/Zwiń + filtry */}
       {(flatRows.length > 0 || hasActiveFilters) && (
-        <Box px={4} py={2} borderBottomWidth="1px" borderBottomColor="gray.200">
+        <Box px={4} py={2} borderBottomWidth="1px" borderBottomColor="neutral.200">
           <HStack justify="space-between" align="center">
             {/* Prawa strona: info o filtrach */}
             {hasActiveFilters && (
@@ -3007,22 +3020,21 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       >
         {flatRows.length === 0 && !hasActiveFilters ? (
           <Box p={8} textAlign="center">
-            <Text fontSize="lg" fontWeight="medium" color="gray.600" mb={4}>
+            <Text fontSize="lg" fontWeight="medium" color="neutral.600" mb={4}>
               Brak etapów w kosztorysie
             </Text>
-            <Text fontSize="sm" color="gray.500" mb={6}>
+            <Text fontSize="sm" color="neutral.500" mb={6}>
               Rozpocznij tworzenie kosztorysu dodając pierwszy etap
             </Text>
             {canStructuralEdit && onAddGroup && (
-              <Tooltip label="Dodaj etap">
-                <IconButton
-                  aria-label="Dodaj etap"
-                  icon={<FolderPlus size={20} />}
-                  colorScheme="green"
-                  size="lg"
-                  onClick={handleAddGroupWithExpand}
-                />
-              </Tooltip>
+              <Button
+                leftIcon={<FolderPlus size={16} />}
+                colorScheme="green"
+                size="md"
+                onClick={handleAddGroupWithExpand}
+              >
+                Dodaj pierwszy etap
+              </Button>
             )}
           </Box>
         ) : (
@@ -3061,7 +3073,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                     <React.Fragment key={sortableId}>
                     {isMainGroupSeparator && (
                       <Tr>
-                        <Td colSpan={totalColCount} p={0} border="none" bg="gray.100" h="6px" />
+                        <Td colSpan={totalColCount} p={0} border="none" bg="neutral.50" h="6px" />
                       </Tr>
                     )}
                     <SortableGroupRow
@@ -3121,6 +3133,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       renderFieldInput={renderFieldInput}
                       formatDisplayValue={formatDisplayValue}
                       onDeleteItem={onDeleteItem}
+                      onRequestDeleteItem={onRequestDeleteItem}
                       onAddOption={collectionFields.length > 0 ? addOptionToItem : undefined}
                       onAddComponent={addComponentToItem}
                     />
@@ -3134,14 +3147,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
               {/* Stopka z podsumowaniem całkowitym — stale widoczna na dole */}
               {showTotalSummary && (
                 <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 5 }}>
-                  <Tr bg="level2.50" borderTopWidth="3px" borderTopColor="level2.300">
+                  <Tr bg="neutral.25" borderTopWidth="2px" borderTopColor="primary.200">
                     {canStructuralEdit && (
                       <Td p={2} w="120px" minW="120px" maxW="120px">
-                        <Badge colorScheme="level2" fontSize="xs">SUMA</Badge>
+                        <Badge colorScheme="neutral" variant="outline" fontSize="xs">SUMA</Badge>
                       </Td>
                     )}
                     <Td p={2} w={`${POSITION_COL_MIN_WIDTH}px`} minW={`${POSITION_COL_MIN_WIDTH}px`}>
-                      <Text fontSize="sm" fontWeight="bold" color="level2.700" whiteSpace="nowrap">
+                      <Text fontSize="sm" fontWeight="bold" color="neutral.600" whiteSpace="nowrap">
                         PODSUMOWANIE KOSZTORYSU
                       </Text>
                     </Td>
@@ -3200,8 +3213,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                           
                           const currencySymbol = details.selectedCurrencySymbol || details.selectedCurrencyCode || '';
                           return (
-                            <Td key={col.fieldId} p={2} textAlign="center" bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                              <Text fontSize="sm" fontWeight="bold" color="level2.700">
+                            <Td key={col.fieldId} p={2} textAlign="center" bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                              <Text fontSize="sm" fontWeight="bold" color="primary.600">
                                 Σ {(sumValue ?? 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}
                               </Text>
                             </Td>
@@ -3210,8 +3223,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       }
                       
                       return (
-                        <Td key={col.fieldId} p={2} bg="level2.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
-                          <Text fontSize="xs" color="gray.400" fontStyle="italic" textAlign="center">—</Text>
+                        <Td key={col.fieldId} p={2} bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                          <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
                         </Td>
                       );
                     })}
@@ -3226,7 +3239,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       
       {/* Przycisk dodawania grupy */}
       {canStructuralEdit && onAddGroup && flatRows.length > 0 && (
-        <Box px={4} py={3} borderTopWidth="1px" borderTopColor="gray.200">
+        <Box px={4} py={3} borderTopWidth="1px" borderTopColor="neutral.200">
           <Button
             leftIcon={<FolderPlus size={16} />}
             colorScheme="primary"

@@ -82,8 +82,7 @@ export default function Navbar() {
           ))}
           <a
             href="#cta"
-            className="btn btn-primary"
-            style={{ marginTop: '8px', justifyContent: 'center' }}
+            className="btn btn-primary navbar__mobile-cta"
             onClick={e => { e.preventDefault(); handleNavClick('#cta') }}
           >
             Wypróbuj za darmo

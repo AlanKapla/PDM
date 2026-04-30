@@ -115,7 +115,7 @@ export default function MobileWorkRow({ work, stageId, depth }: MobileWorkRowPro
             {start && end && (
               <HStack spacing={1}>
                 <Calendar size={10} color="gray" />
-                <Text fontSize="10px" color="gray.500">
+                <Text fontSize="xs" color="gray.500">
                   {fmtDate(start)} – {fmtDate(end)}
                 </Text>
               </HStack>
@@ -132,7 +132,7 @@ export default function MobileWorkRow({ work, stageId, depth }: MobileWorkRowPro
             {showComments && commentCount > 0 && (
               <HStack spacing={1}>
                 <MessageSquare size={10} color="gray" />
-                <Text fontSize="10px" color="gray.500">{commentCount}</Text>
+                <Text fontSize="xs" color="gray.500">{commentCount}</Text>
               </HStack>
             )}
           </HStack>

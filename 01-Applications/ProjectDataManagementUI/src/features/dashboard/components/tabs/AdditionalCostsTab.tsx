@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { useToken } from '@chakra-ui/react';
 import type { ProjectAdditionalCostsWeb, ProjectFinancialSummaryWeb, TrackedCostWeb } from '../../types/projectDashboard.types';
 import { PLN, PROG } from '../../utils/formatters';
-import { COLOR_PALETTE } from '../../utils/colors';
 import { KpiCard } from '../shared/KpiCard';
 import { MiniProgressBar } from '../shared/MiniProgressBar';
 import { CostTable } from '../shared/CostTable';
@@ -31,16 +31,19 @@ export function AdditionalCostsTab({
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [neutral400, level1700, red600, amber400, action50, neutral200, level1500] = useToken('colors', [
+    'neutral.400', 'level1.700', 'red.600', 'amber.400', 'action.50', 'neutral.200', 'level1.500',
+  ]);
 
   const reserveNet = financialSummary.projectReserveBudgetNet;
   const additionalNet = data.totalNet ?? 0;
   const remainingReserve = reserveNet != null ? reserveNet - additionalNet : null;
   const remainingColor =
     remainingReserve == null
-      ? COLOR_PALETTE.gray400
+      ? neutral400
       : remainingReserve >= 0
-      ? COLOR_PALETTE.teal600
-      : COLOR_PALETTE.red600;
+      ? level1700
+      : red600;
 
   const coveragePercent =
     reserveNet != null && reserveNet > 0
@@ -66,7 +69,7 @@ export function AdditionalCostsTab({
     <div>
       <div className="dashboard-kpi-3col">
         <KpiCard label="Budżet główny" value={PLN(reserveNet)} />
-        <KpiCard label="Koszty główne" value={PLN(data.totalNet)} accent={COLOR_PALETTE.amber400} />
+        <KpiCard label="Koszty główne" value={PLN(data.totalNet)} accent={amber400} />
         <KpiCard
           label="Pozostały budżet główny"
           value={PLN(remainingReserve)}
@@ -76,18 +79,18 @@ export function AdditionalCostsTab({
 
       <MiniProgressBar
         percent={coveragePercent}
-        color={COLOR_PALETTE.amber400}
+        color={amber400}
         exceeded={(coveragePercent ?? 0) > 100}
         height={8}
       />
-      <div style={{ fontSize: 12, color: COLOR_PALETTE.gray400, marginTop: 3, marginBottom: 16 }}>
+      <div style={{ fontSize: "xs", color: neutral400, marginTop: 3, marginBottom: 16 }}>
         {PROG(coveragePercent)} wykorzystania budżetu głównego
       </div>
 
       <div
         style={{
           background: '#fff',
-          border: `0.5px solid ${COLOR_PALETTE.border}`,
+          border: `0.5px solid ${neutral200}`,
           borderRadius: 12,
           padding: 16,
           marginBottom: 12,
@@ -105,11 +108,11 @@ export function AdditionalCostsTab({
       <button
         onClick={() => setCreateModal(true)}
         style={{
-          fontSize: 12,
+          fontSize: "xs",
           padding: '7px 14px',
-          background: COLOR_PALETTE.teal50,
-          color: COLOR_PALETTE.teal600,
-          border: `0.5px solid ${COLOR_PALETTE.teal400}`,
+          background: action50,
+          color: level1700,
+          border: `0.5px solid ${level1500}`,
           borderRadius: 6,
           cursor: 'pointer',
         }}
@@ -149,7 +152,7 @@ export function AdditionalCostsTab({
           isActionLoading={isDeleting}
           desktopSize="sm"
         >
-          <span style={{ fontSize: 13 }}>
+          <span style={{ fontSize: "sm" }}>
             Czy na pewno chcesz usunąć <strong>{confirmDeleteCost.name}</strong>? Operacji nie można cofnąć.
           </span>
         </AppModal>

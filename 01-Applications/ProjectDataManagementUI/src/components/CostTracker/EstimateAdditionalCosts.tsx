@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Box,
   VStack,
@@ -42,11 +42,11 @@ export default function EstimateAdditionalCosts({
   return (
     <>
       <Divider />
-      <Box bg="gray.50" px={3} py={3} borderRadius="md">
+      <Box bg="neutral.25" px={3} py={3} borderRadius="md">
         {/* Nagłówek sekcji */}
         <HStack justify="space-between" mb={2} flexWrap="wrap" gap={2}>
           <HStack spacing={2}>
-            <Text fontSize="xs" fontWeight="semibold" color="gray.600" textTransform="uppercase" letterSpacing="wide">
+            <Text fontSize="xs" fontWeight="semibold" color="neutral.600" textTransform="uppercase" letterSpacing="wide">
               Koszty dodatkowe kosztorysu
             </Text>
             <Badge colorScheme="gray" borderRadius="full" fontSize="xs">
@@ -67,7 +67,7 @@ export default function EstimateAdditionalCosts({
             <Button
               size="xs"
               leftIcon={<Plus size={12} />}
-              colorScheme="blue"
+              colorScheme="primary"
               variant="ghost"
               onClick={onAddOpen}
               minH="32px"
@@ -78,14 +78,14 @@ export default function EstimateAdditionalCosts({
         </HStack>
 
         {/* Sumy */}
-        <HStack spacing={4} fontSize="xs" color="gray.500">
+        <HStack spacing={4} fontSize="xs" color="neutral.500">
           <Box>
-            <Text color="gray.400" textTransform="uppercase" letterSpacing="wide" mb="1px">Netto</Text>
-            <Text fontWeight="semibold" fontSize="sm" color="gray.700">{fmt(additionalCosts.totalNet)} PLN</Text>
+            <Text color="neutral.400" textTransform="uppercase" letterSpacing="wide" mb="1px">Netto</Text>
+            <Text fontWeight="semibold" fontSize="sm" color="neutral.700">{fmt(additionalCosts.totalNet)} PLN</Text>
           </Box>
           <Box>
-            <Text color="gray.400" textTransform="uppercase" letterSpacing="wide" mb="1px">Brutto</Text>
-            <Text fontWeight="semibold" fontSize="sm" color="gray.700">{fmt(additionalCosts.totalGross)} PLN</Text>
+            <Text color="neutral.400" textTransform="uppercase" letterSpacing="wide" mb="1px">Brutto</Text>
+            <Text fontWeight="semibold" fontSize="sm" color="neutral.700">{fmt(additionalCosts.totalGross)} PLN</Text>
           </Box>
         </HStack>
 
@@ -101,11 +101,11 @@ export default function EstimateAdditionalCosts({
                 bg="white"
                 borderRadius="md"
                 borderWidth="1px"
-                borderColor="gray.200"
+                borderColor="neutral.200"
                 fontSize="xs"
               >
-                <Text fontWeight="medium" color="gray.700" noOfLines={1} flex={1}>{cost.name}</Text>
-                <HStack spacing={3} flexShrink={0} color="gray.500">
+                <Text fontWeight="medium" color="neutral.700" noOfLines={1} flex={1}>{cost.name}</Text>
+                <HStack spacing={3} flexShrink={0} color="neutral.500">
                   <Text>{fmt(cost.net)} PLN</Text>
                   {cost.date && <Text>{new Date(cost.date).toLocaleDateString("pl-PL")}</Text>}
                 </HStack>
@@ -115,7 +115,7 @@ export default function EstimateAdditionalCosts({
               <Button
                 size="xs"
                 variant="link"
-                colorScheme="blue"
+                colorScheme="primary"
                 onClick={onListOpen}
                 alignSelf="flex-start"
               >
