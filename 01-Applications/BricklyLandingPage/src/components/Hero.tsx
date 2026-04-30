@@ -46,7 +46,7 @@ export default function Hero() {
           <div className="hero__stats">
             <div className="hero__stat">
               <span className="hero__stat-value">Budżet</span>
-              <span className="hero__stat-label">vs rzeczywiste wydatki</span>
+              <span className="hero__stat-label">vs rzeczywistość</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
