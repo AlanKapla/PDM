@@ -18,7 +18,8 @@ import {
 import { UserPlus, Check } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
-import { useProjectCache } from "../hooks/useProjectCache";
+import { useQueryClient } from "@tanstack/react-query";
+import { projectKeys } from "../hooks/queries";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from '../utils/handleApiError';
@@ -44,7 +45,7 @@ export default function AddProjectMemberModal({
   onMemberAdded
 }: AddProjectMemberModalProps) {
   const { showSuccess, showError, showApiSuccess } = useToastNotification();
-  const { invalidateProject } = useProjectCache();
+  const queryClient = useQueryClient();
   const [tenantMembers, setTenantMembers] = useState<TenantMemberWeb[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberWeb[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,8 +87,13 @@ export default function AddProjectMemberModal({
       
       showApiSuccess('memberAdded');
       
-      // Invalidate project cache - permissions might have changed
-      invalidateProject(projectId);
+      // Invalidate project caches — permissions and members might have changed
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(tenantId, projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.members(tenantId, projectId),
+      });
       
       // Odśwież listę członków
       await fetchData();

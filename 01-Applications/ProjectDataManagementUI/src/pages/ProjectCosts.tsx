@@ -44,7 +44,7 @@ import type { CostEstimateStatus } from "../types/costEstimate.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails } from "../hooks/queries";
 import { handleApiError } from "../utils/handleApiError";
 
 /** Formatuje kwotę z separatorami tysięcy (spacjami) */
@@ -353,7 +353,6 @@ export default function ProjectCosts() {
   const { showError, showSuccess } = useToastNotification();
 
   const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<any | null>(null);
   const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToShare, setCostEstimateToShare] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToDelete, setCostEstimateToDelete] = useState<CostEstimateListItemWeb | null>(null);
@@ -411,14 +410,10 @@ export default function ProjectCosts() {
     `cost-estimates-shared-${projectId}`
   );
 
-  // Globalny cache dla project details (współdzielony między stronami projektu)
-  const projectDetailsCache = useGlobalCache(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
-    }
+  // React Query — nazwa projektu (współdzielony cache między stronami projektu)
+  const { data: project } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
 
   useEffect(() => {
@@ -444,9 +439,6 @@ export default function ProjectCosts() {
 
     setLoading(true);
     try {
-      const projectData = await projectDetailsCache.fetch();
-      setProject(projectData);
-
       // Pobierz zakładki równolegle według uprawnień
       const fetchPromises = [];
       if (resourcePerms.tabs.showAll) fetchPromises.push(allCostEstimatesCache.fetch());
@@ -466,7 +458,6 @@ export default function ProjectCosts() {
     myCostEstimatesCache.clear();
     allCostEstimatesCache.clear();
     sharedCostEstimatesCache.clear();
-    projectDetailsCache.clear();
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };

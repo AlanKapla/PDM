@@ -20,6 +20,8 @@
     "@emotion/styled": "^11.14.1",
     "@microsoft/signalr": "^10.0.0",
     "@react-oauth/google": "^0.12.2",
+    "@tanstack/react-query": "^5.100.6",
+    "@tanstack/react-query-devtools": "^5.100.6",
     "axios": "^1.13.2",
     "framer-motion": "^12.23.24",
     "i18next": "^25.6.3",

@@ -30,11 +30,12 @@ import { LoadingSpinner, EmptyState } from "../components/common";
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails, useProjectMembers, projectKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
 import { roleApi, type RoleWeb } from "../api/roleApi";
-import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
+import type { ProjectMemberWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function ProjectMembers() {
@@ -46,9 +47,6 @@ export default function ProjectMembers() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
 
-  const [loading, setLoading] = useState(true);
-  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
-  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
 
@@ -61,28 +59,21 @@ export default function ProjectMembers() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  // Globalny cache dla project details (współdzielony z innymi stronami projektu)
-  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
-    }
+  // React Query — dane projektu i członkowie (współdzielony cache między stronami projektu)
+  const { data: project, isLoading: loadingProject } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
+  const { data: membersData, isLoading: loadingMembers } = useProjectMembers(
+    user?.activeTenantId ?? undefined,
+    projectId
+  );
+  const members = membersData ?? [];
+  const loading = loadingProject || loadingMembers;
 
-  // Globalny cache dla project members (współdzielony z innymi stronami projektu)
-  const projectMembersCache = useGlobalCache<ProjectMemberWeb[]>(
-    `project-members-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      return res.data;
-    }
-  );
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    fetchData();
     fetchRoles();
   }, [projectId]);
 
@@ -91,25 +82,6 @@ export default function ProjectMembers() {
       const roles = await roleApi.getAvailableRoles('project');
       setAvailableRoles(roles);
     } catch (error) {
-    }
-  };
-
-  const fetchData = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoading(true);
-    try {
-      const [projectData, membersData] = await Promise.all([
-        projectDetailsCache.fetch(),
-        projectMembersCache.fetch(),
-      ])
-
-      setProject(projectData);
-      setMembers(membersData);
-    } catch (error) {
-      showError("Nie udało się pobrać danych");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -130,7 +102,12 @@ export default function ProjectMembers() {
       );
 
       showApiSuccess('memberRemoved');
-      setMembers((prev) => prev.filter((m) => m.userId !== memberToRemove.userId));
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
       onRemoveModalClose();
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -159,9 +136,12 @@ export default function ProjectMembers() {
       );
 
       // Odśwież dane po zmianie
-      projectDetailsCache.clear();
-      projectMembersCache.clear();
-      await fetchData();
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
       setEditingRoleMemberId(null);
       showApiSuccess('memberUpdated');
     } catch (error) {
@@ -344,7 +324,7 @@ export default function ProjectMembers() {
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
           projectName={project?.name || ""}
-          onMemberAdded={fetchData}
+          onMemberAdded={() => queryClient.invalidateQueries({ queryKey: projectKeys.members(user?.activeTenantId ?? '', projectId ?? '') })}
         />
 
         <DeleteAlertDialog

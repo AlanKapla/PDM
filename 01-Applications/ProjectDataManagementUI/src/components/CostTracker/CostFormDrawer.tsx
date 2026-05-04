@@ -13,9 +13,11 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react";
 import type { DrawerProps } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
 import CostForm, { validateCostForm } from "./CostForm";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
 import type { TrackedCostWeb, CostFormValues } from "../../types/costTracker.types";
 
@@ -56,6 +58,7 @@ export default function CostFormDrawer({
   title,
 }: CostFormDrawerProps) {
   const { showSuccess, showError } = useToastNotification();
+  const queryClient = useQueryClient();
   const placement = useBreakpointValue({
     base: "bottom",
     md: "right",
@@ -125,6 +128,8 @@ export default function CostFormDrawer({
         showSuccess("Koszt dodany");
       }
 
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.costs(tenantId, projectId) });
       handleClose();
       onSuccess();
     } catch (err) {

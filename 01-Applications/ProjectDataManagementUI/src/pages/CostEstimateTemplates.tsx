@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCostEstimateTemplates, templateKeys } from "../hooks/queries";
 import {
   Box,
   Heading,
@@ -48,9 +50,9 @@ import {
 export default function CostEstimateTemplates() {
   const { showApiSuccess, showError } = useToastNotification();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: templates = [], isLoading: loading } = useCostEstimateTemplates();
 
-  const [loading, setLoading] = useState(true);
-  const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
   const [templateToDelete, setTemplateToDelete] = useState<CostEstimateTemplateListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
@@ -62,24 +64,6 @@ export default function CostEstimateTemplates() {
   const [isDuplicating, setIsDuplicating] = useState(false);
   const { isOpen: isDuplicateOpen, onOpen: onDuplicateOpen, onClose: onDuplicateClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
-    setLoading(true);
-    try {
-      const data = await costEstimateTemplateApi.getTemplates();
-      setTemplates(Array.isArray(data) ? data : []);
-    } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-      setTemplates([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEditTemplate = (templateId: string) => {
     navigate(`/cost-estimate-templates/${templateId}/edit`);
@@ -100,7 +84,7 @@ export default function CostEstimateTemplates() {
       showApiSuccess('deleted');
       onDeleteClose();
       setTemplateToDelete(null);
-      fetchTemplates();
+      queryClient.invalidateQueries({ queryKey: templateKeys.list() });
     } catch (error: unknown) {
       const { title, description } = handleApiError(error);
       showError(title, description);
@@ -140,6 +124,7 @@ export default function CostEstimateTemplates() {
       
       showApiSuccess('estimateCopied');
       handleCloseDuplicateModal();
+      queryClient.invalidateQueries({ queryKey: templateKeys.list() });
       // Przekieruj do edycji nowego szablonu
       navigate(`/cost-estimate-templates/${newTemplateId}/edit`);
     } catch (error: unknown) {

@@ -33,9 +33,11 @@ import {
   useBreakpointValue,
   Box,
 } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
 import CostForm, { validateCostForm } from "./CostForm";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
 import type { CostEstimateSummaryWeb, TrackerGroupWeb, CostFormValues } from "../../types/costTracker.types";
 
@@ -85,6 +87,7 @@ export default function CostFormModal({
   costEstimateSummaries,
 }: CostFormModalProps) {
   const { showSuccess, showError } = useToastNotification();
+  const queryClient = useQueryClient();
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const { activeStep, setActiveStep } = useSteps({ index: 0, count: STEPS.length });
@@ -188,6 +191,8 @@ export default function CostFormModal({
         newFiles: formValues.newFiles ?? [],
       });
 
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.costs(tenantId, projectId) });
       showSuccess("Koszt dodany");
       handleClose();
       onSuccess();

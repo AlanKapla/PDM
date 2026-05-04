@@ -15,7 +15,9 @@ import {
 import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { useAuth } from "../context/AuthContext";
-import { getUserTenants, changeActiveTenant } from "../services/tenantService";
+import { changeActiveTenant } from "../services/tenantService";
+import { useMyTenants, tenantKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
 import type { UserTenant } from "../types/auth.types";
@@ -24,10 +26,10 @@ import { getRoleName, getRoleColor } from "../constants/roleCodes";
 export default function CollaboratingTenants() {
   const { user, refreshUser } = useAuth();
   const { showSuccess, showError, showApiSuccess } = useToastNotification();
-  const [tenants, setTenants] = useState<UserTenant[]>([]);
+  const queryClient = useQueryClient();
+  const { data: tenants = [], isLoading: loading } = useMyTenants();
   const [activeTenantId, setActiveTenantId] = useState<string>("");
   const [changingTenant, setChangingTenant] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
@@ -35,20 +37,9 @@ export default function CollaboratingTenants() {
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
   useEffect(() => {
-    async function load() {
-      try {
-        const tenantsData = await getUserTenants();
-        setTenants(tenantsData);
-        
-        if (user?.activeTenantId) {
-          setActiveTenantId(user.activeTenantId);
-        }
-      } catch (error) {
-      } finally {
-        setLoading(false);
-      }
+    if (user?.activeTenantId) {
+      setActiveTenantId(user.activeTenantId);
     }
-    load();
   }, [user?.activeTenantId]);
 
   const handleTenantChange = async (newTenantId: string) => {
@@ -58,11 +49,9 @@ export default function CollaboratingTenants() {
     try {
       await changeActiveTenant(newTenantId);
       setActiveTenantId(newTenantId);
+      queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
+      await refreshUser();
       showApiSuccess('tenantSwitched');
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     } catch (error) {
       const { title, description } = handleApiError(error);
       showError(title, description);

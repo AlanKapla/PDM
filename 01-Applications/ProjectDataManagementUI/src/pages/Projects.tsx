@@ -35,74 +35,47 @@ import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import { useAuth as useAuthContext } from "../context/AuthContext";
 import { useModal } from "../hooks/useModal";
 import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
-import { getUserTenants, changeActiveTenant } from "../services/tenantService";
+import { changeActiveTenant } from "../services/tenantService";
+import { useProjects, useMyTenants, projectKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Projects() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, refreshUser } = useAuthContext();
-  const [projects, setProjects] = useState<ProjectDetailsWeb[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTenantId, setActiveTenantId] = useState<string | null | undefined>(undefined);
+  const queryClient = useQueryClient();
+
+  // Sprawdź czy aktywny tenant jest poprawny
+  const rawTenantId = user?.activeTenantId;
+  const isValidTenant = Boolean(
+    rawTenantId &&
+    rawTenantId !== "00000000-0000-0000-0000-000000000000" &&
+    rawTenantId.trim() !== ""
+  );
+  const activeTenantId = isValidTenant ? rawTenantId : null;
+
+  const {
+    data: projects = [],
+    isLoading: loading,
+    error: projectsError,
+  } = useProjects(activeTenantId ?? undefined);
+
+  const {
+    data: tenants = [],
+    isLoading: tenantsLoading,
+  } = useMyTenants();
+
+  const error = projectsError
+    ? "Nie udało się pobrać projektów"
+    : null;
+
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
-
-  // Przełączanie organizacji
-  const [tenants, setTenants] = useState<UserTenant[]>([]);
-  const [tenantsLoading, setTenantsLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
   
   const createModal = useModal();
   const { showSuccess, showError, showApiSuccess } = useToastNotification();
   const permissions = useTenantPermissions();
-
-  // Pobierz aktywnego tenanta i projekty
-  useEffect(() => {
-    const activeTenantId = user?.activeTenantId;
-    
-    // Jeśli nie ma aktywnego tenanta - wyświetl info i zatrzymaj
-    if (!activeTenantId || activeTenantId === "00000000-0000-0000-0000-000000000000" || activeTenantId.trim() === "") {
-      setActiveTenantId(null);
-      setProjects([]);
-      setLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        setActiveTenantId(activeTenantId);
-        const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
-        setProjects(projectsResponse.data);
-      } catch (err) {
-        setError("Nie udało się pobrać projektów");
-        setProjects([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user?.activeTenantId]);
-
-  // Pobierz listę organizacji użytkownika
-  useEffect(() => {
-    const fetchTenants = async () => {
-      try {
-        const data = await getUserTenants();
-        setTenants(data);
-      } catch (err) {
-        showError("Nie udało się pobrać listy organizacji");
-        setTenants([]);
-      } finally {
-        setTenantsLoading(false);
-      }
-    };
-    fetchTenants();
-  }, []);
 
   const handleTenantSwitch = async (newTenantId: string) => {
     if (!newTenantId || newTenantId === activeTenantId) return;
@@ -148,8 +121,9 @@ export default function Projects() {
       createModal.onClose();
       
       // Odśwież listę projektów
-      const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
-      setProjects(projectsResponse.data);
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.list(activeTenantId!)
+      });
     } catch (error) {
       const { title, description } = handleApiError(error);
       showError(title, description);

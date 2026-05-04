@@ -40,7 +40,8 @@ import { projectApi, ResourceScope } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails, useProjectMembers, projectKeys } from '../hooks/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ProjectDetailsWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { DeleteAlertDialog } from "../components/ui";
@@ -60,17 +61,30 @@ export default function ProjectDetails() {
   const { isOpen: isWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
   const { showSuccess, showError, showWarning, showApiSuccess } = useToastNotification();
 
-  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
-  const [members, setMembers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [, setLoadingMembers] = useState(false);
+  const {
+    data: projectData,
+    isLoading: isLoadingProject,
+    error: projectError,
+    refetch: refetchProject,
+  } = useProjectDetails(user?.activeTenantId ?? undefined, projectId);
+
+  const {
+    data: membersData,
+    isLoading: isLoadingMembers,
+    refetch: refetchMembers,
+  } = useProjectMembers(user?.activeTenantId ?? undefined, projectId);
+
+  const queryClient = useQueryClient();
+
+  const project = projectData ?? null;
+  const members = membersData ?? [];
+  const loading = isLoadingProject;
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [, setSharedFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [, setExpandedFileIds] = useState<Set<string>>(new Set());
@@ -106,7 +120,6 @@ export default function ProjectDetails() {
   const [, setShowNewCostRow] = useState(false);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [, setSubmittingComment] = useState<string | null>(null);
-  const hasFetchedData = useRef(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
@@ -114,56 +127,14 @@ export default function ProjectDetails() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  // Globalny cache dla project details (współdzielony z innymi stronami projektu)
-  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
+  useEffect(() => {
+    if (projectData?.name) {
+      setEditedName(projectData.name);
     }
-  );
+  }, [projectData?.name]);
 
-  // Globalny cache dla project members (współdzielony z innymi stronami projektu)
-  const projectMembersCache = useGlobalCache(
-    `project-members-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      return res.data;
-    }
-  );
-
-  const fetchProjectDetails = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await projectDetailsCache.fetch();
-      setProject(data);
-      setEditedName(data.name);
-    } catch (err) {
-      setError("Błąd podczas pobierania szczegółów projektu");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMembers = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoadingMembers(true);
-
-    try {
-      const data = await projectMembersCache.fetch();
-      setMembers(data);
-    } catch (err) {
-    } finally {
-      setLoadingMembers(false);
-    }
-  };
+  const fetchProjectDetails = () => refetchProject();
+  const fetchMembers = () => refetchMembers();
 
   const fetchMyFiles = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -526,14 +497,6 @@ export default function ProjectDetails() {
     }
   };
 
-  useEffect(() => {
-    if (hasFetchedData.current) return;
-
-    hasFetchedData.current = true;
-    fetchProjectDetails();
-    fetchMembers();
-  }, [projectId, user?.activeTenantId]);
-
   const _handleRemoveMemberClick = (userId: string, memberName: string) => {
     setMemberToRemove({ userId, name: memberName });
     onRemoveModalOpen();
@@ -548,9 +511,14 @@ export default function ProjectDetails() {
 
       showApiSuccess('memberRemoved');
 
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
+
       // Odśwież listę
-      projectDetailsCache.clear();
-      projectMembersCache.clear();
       await fetchProjectDetails();
       await fetchMembers();
     } catch (error) {
@@ -575,8 +543,11 @@ export default function ProjectDetails() {
 
       onToggleStatusClose();
 
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
+
       // Odśwież dane projektu
-      projectDetailsCache.clear();
       await fetchProjectDetails();
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -601,7 +572,12 @@ export default function ProjectDetails() {
       showApiSuccess('nameUpdated');
 
       setIsEditingName(false);
-      projectDetailsCache.clear();
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.list(user.activeTenantId!)
+      });
       await fetchProjectDetails();
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -621,10 +597,10 @@ export default function ProjectDetails() {
               <Spinner size="xl" color="primary.500" />
               <Text>Ładowanie szczegółów projektu...</Text>
             </VStack>
-          ) : error ? (
+          ) : projectError ? (
             <Alert status="error" rounded="md">
               <AlertIcon />
-              {error}
+              {projectError.message ?? "Błąd podczas pobierania szczegółów projektu"}
             </Alert>
           ) : !project ? (
             <VStack spacing={4} align="center" justify="center" minH="50vh">

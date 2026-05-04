@@ -1,4 +1,4 @@
-using Entities.Models.Base;
+﻿using Entities.Models.Base;
 using Entities.Models.WorkItemLinks;
 
 namespace Entities.Models

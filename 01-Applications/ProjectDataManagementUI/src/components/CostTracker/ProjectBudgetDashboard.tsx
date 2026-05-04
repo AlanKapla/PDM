@@ -79,7 +79,7 @@ export default function ProjectBudgetDashboard({
             <AlertTitle>Błąd ładowania danych</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Box>
-          <Button size="sm" ml="auto" onClick={refetch} leftIcon={<RefreshCw size={14} />}>
+          <Button size="sm" ml="auto" onClick={() => { refetch(); }} leftIcon={<RefreshCw size={14} />}>
             Ponów
           </Button>
         </Alert>
@@ -102,7 +102,7 @@ export default function ProjectBudgetDashboard({
               size="sm"
               variant="ghost"
               leftIcon={<RefreshCw size={14} />}
-              onClick={refetch}
+              onClick={() => { refetch(); }}
               minH="44px"
             >
               {isMobile ? undefined : "Odśwież"}

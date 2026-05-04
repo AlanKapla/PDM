@@ -1,4 +1,4 @@
-﻿import { useContext, useState, useEffect } from "react";
+﻿import { useContext } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertIcon, Box, Spinner, Text } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
@@ -6,7 +6,7 @@ import { ProjectDashboard } from "../features/dashboard/components/ProjectDashbo
 import { AuthContext } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { RoleCodes } from "../constants/roleCodes";
-import { projectApi } from "../api/projectApi";
+import { useProjectDetails } from "../hooks/queries";
 
 const ADMIN_ROLE_CODES = [
   RoleCodes.PROJECT_ADMIN,
@@ -18,18 +18,11 @@ export default function ProjectBudgetPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useContext(AuthContext);
   const { roleCode, loading: permissionsLoading } = useProjectPermissions(projectId);
-  const [projectName, setProjectName] = useState<string>('');
 
   const tenantId = user?.activeTenantId;
 
-  useEffect(() => {
-    if (!tenantId || !projectId) return;
-    projectApi.getProjectDetails(tenantId, projectId).then((res) => {
-      setProjectName(res.data.name);
-    }).catch(() => {
-      // nazwa projektu niedostępna — wyświetlamy puste
-    });
-  }, [tenantId, projectId]);
+  const { data: projectData } = useProjectDetails(tenantId ?? undefined, projectId);
+  const projectName = projectData?.name ?? '';
 
   if (!tenantId || !projectId) {
     return (

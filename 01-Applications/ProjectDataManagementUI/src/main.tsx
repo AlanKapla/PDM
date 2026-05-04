@@ -8,9 +8,27 @@ import type { EventMessage, AuthenticationResult } from "@azure/msal-browser";
 import App from "./App.tsx";
 import theme from "./theme.ts";
 import { msalConfig } from "./config/authConfig";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,        // dane świeże przez 5 minut
+      gcTime: 10 * 60 * 1000,          // garbage collect po 10 minutach
+      retry: 1,                         // 1 retry przy błędzie
+      refetchOnWindowFocus: false,      // nie refetchuj przy focus okna
+    },
+    mutations: {
+      retry: 0,                         // mutacje bez retry
+    },
+  },
+});
+
+export { queryClient };
 
 // Initialize MSAL and render app
 async function initializeApp() {
@@ -61,11 +79,16 @@ async function initializeApp() {
 
     if (root) {
       ReactDOM.createRoot(root).render(
-        <MsalProvider instance={msalInstance}>
-          <ChakraProvider theme={theme}>
-            <App />
-          </ChakraProvider>
-        </MsalProvider>
+        <QueryClientProvider client={queryClient}>
+          <MsalProvider instance={msalInstance}>
+            <ChakraProvider theme={theme}>
+              <App />
+            </ChakraProvider>
+          </MsalProvider>
+          {import.meta.env.DEV && (
+            <ReactQueryDevtools initialIsOpen={false} />
+          )}
+        </QueryClientProvider>
       );
     } else {
     }

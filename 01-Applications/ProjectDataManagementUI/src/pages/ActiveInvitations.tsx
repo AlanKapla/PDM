@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useState } from "react";
 import {
   Box,
   Heading,
@@ -12,15 +12,20 @@ import {
 } from "@chakra-ui/react";
 import { Mail } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getActiveInvitations, acceptTenantInvitation } from "../services/tenantService";
+import { acceptTenantInvitation } from "../services/tenantService";
+import { useActiveInvitations, tenantKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
 import type { TenantInvitationWeb } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
 
 export default function ActiveInvitations() {
-  const [invitations, setInvitations] = useState<TenantInvitationWeb[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: allInvitations = [], isLoading: loading } = useActiveInvitations();
+  const invitations = allInvitations.filter(
+    (inv) => inv.status === InvitationStatus.Pending
+  );
   const [acceptingInvitationId, setAcceptingInvitationId] = useState<string | null>(null);
   
   const { showSuccess, showError, showApiSuccess } = useToastNotification();
@@ -29,30 +34,14 @@ export default function ActiveInvitations() {
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const invitationsData = await getActiveInvitations();
-        // Pokazuj tylko zaproszenia Pending
-        const pendingInvitations = invitationsData.filter((inv: TenantInvitationWeb) => inv.status === InvitationStatus.Pending);
-        setInvitations(pendingInvitations);
-      } catch (error) {
-        console.error("Błąd ładowania zaproszeń:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
   const handleAcceptInvitation = async (invitationId: string, token: string, tenantName: string) => {
     setAcceptingInvitationId(invitationId);
     try {
       const success = await acceptTenantInvitation(token);
       
       if (success) {
-        // Usuń zaproszenie z listy
-        setInvitations(prev => prev.filter(inv => inv.invitationId !== invitationId));
+        queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
+        queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
         
         showApiSuccess('inviteAccepted');
       } else {

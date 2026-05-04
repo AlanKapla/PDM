@@ -15,7 +15,9 @@ import {
   Skeleton,
 } from "@chakra-ui/react";
 import { Edit2, Save, X, TrendingDown, TrendingUp } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
 import type { CostTrackerBudgetSummary } from "../../types/costTracker.types";
 import { useToastNotification } from "../../hooks/useToastNotification";
@@ -74,6 +76,7 @@ export default function BudgetSummarySection({
   onMutated,
 }: BudgetSummarySectionProps) {
   const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [budgetNet, setBudgetNet] = useState<string>(
@@ -100,6 +103,7 @@ export default function BudgetSummarySection({
         budgetNet: budgetNet !== "" ? parseFloat(budgetNet) : null,
         budgetGross: budgetGross !== "" ? parseFloat(budgetGross) : null,
       });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
       showSuccess("Budżet zaktualizowany");
       setIsEditing(false);
       onMutated();

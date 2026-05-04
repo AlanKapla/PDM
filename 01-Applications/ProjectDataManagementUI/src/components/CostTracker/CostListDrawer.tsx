@@ -17,11 +17,13 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react";
 import { Edit2, Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "../../utils/formatters";
 import AttachmentList from "./AttachmentList";
 import CostFormDrawer from "./CostFormDrawer";
 import { DeleteCostConfirm } from "./PositionsTable";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { handleApiError } from "../../utils/handleApiError";
 import type { TrackedCostWeb } from "../../types/costTracker.types";
@@ -51,6 +53,7 @@ export default function CostListDrawer({
   title,
 }: CostListDrawerProps) {
   const { showSuccess, showError } = useToastNotification();
+  const queryClient = useQueryClient();
   const size = useBreakpointValue({ base: "full", md: "lg" }) as string;
 
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
@@ -64,6 +67,8 @@ export default function CostListDrawer({
     setIsDeleting(true);
     try {
       await costTrackerApi.deleteCost(tenantId, projectId, deletingCost.id);
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.costs(tenantId, projectId) });
       showSuccess("Koszt usunięty");
       onDeleteClose();
       setDeletingCost(null);

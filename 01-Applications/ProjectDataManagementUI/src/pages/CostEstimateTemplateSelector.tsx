@@ -1,5 +1,7 @@
-﻿import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useDefaultTemplates, useDefaultTemplate, templateKeys } from "../hooks/queries";
 import {
   Box,
   Heading,
@@ -93,13 +95,16 @@ import { handleApiError } from "../utils/handleApiError";
 export default function CostEstimateTemplateSelector() {
   const { showSuccess, showError } = useToastNotification();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(true);
-  const [defaultTemplates, setDefaultTemplates] = useState<DefaultCostEstimateTemplateListItemWeb[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<DefaultCostEstimateTemplateListItemWeb | null>(null);
-  const [templateStructure, setTemplateStructure] = useState<CostEstimateTemplateStructureWeb | null>(null);
-  const [loadingStructure, setLoadingStructure] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  const { data: defaultTemplates = [], isLoading: loading } = useDefaultTemplates();
+  const {
+    data: templateStructure = null,
+    isLoading: loadingStructure,
+  } = useDefaultTemplate(selectedTemplate?.slug);
   
   // Modal states
   const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
@@ -114,39 +119,10 @@ export default function CostEstimateTemplateSelector() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("primary.50", "primary.900");
 
-  useEffect(() => {
-    fetchDefaultTemplates();
-  }, []);
-
-  const fetchDefaultTemplates = async () => {
-    setLoading(true);
-    try {
-      const data = await costEstimateTemplateApi.getDefaultTemplates();
-      setDefaultTemplates(Array.isArray(data) ? data : []);
-    } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-      setDefaultTemplates([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePreviewTemplate = async (template: DefaultCostEstimateTemplateListItemWeb) => {
+  const handlePreviewTemplate = (template: DefaultCostEstimateTemplateListItemWeb) => {
     setSelectedTemplate(template);
-    setLoadingStructure(true);
     onPreviewOpen();
-    
-    try {
-      const structure = await costEstimateTemplateApi.getDefaultTemplate(template.slug);
-      setTemplateStructure(structure);
-    } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-      setTemplateStructure(null);
-    } finally {
-      setLoadingStructure(false);
-    }
+    // useDefaultTemplate automatycznie pobierze strukturę gdy selectedTemplate.slug się zmieni
   };
 
   const handleOpenCreateModal = (template: DefaultCostEstimateTemplateListItemWeb) => {
@@ -174,7 +150,8 @@ export default function CostEstimateTemplateSelector() {
 
       showSuccess('Szablon został utworzony', 'Możesz teraz edytować strukturę szablonu');
       onCreateClose();
-      
+      queryClient.invalidateQueries({ queryKey: templateKeys.list() });
+
       // Przekieruj do edycji nowo utworzonego szablonu
       navigate(`/cost-estimate-templates/${newTemplateId}/edit`);
     } catch (error: unknown) {
@@ -187,29 +164,16 @@ export default function CostEstimateTemplateSelector() {
 
   const handleClosePreview = () => {
     onPreviewClose();
-    setTemplateStructure(null);
   };
 
   const handleShowLivePreview = () => {
     onLivePreviewOpen();
   };
 
-  // Podgląd kosztorysu — ładuje strukturę i od razu otwiera live preview (bez modalu struktury)
-  const handleLivePreview = async (template: DefaultCostEstimateTemplateListItemWeb) => {
+  // Podgląd kosztorysu — otwiera live preview; struktura przyjdzie z hooka useDefaultTemplate
+  const handleLivePreview = (template: DefaultCostEstimateTemplateListItemWeb) => {
     setSelectedTemplate(template);
-    setLoadingStructure(true);
     onLivePreviewOpen();
-
-    try {
-      const structure = await costEstimateTemplateApi.getDefaultTemplate(template.slug);
-      setTemplateStructure(structure);
-    } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-      setTemplateStructure(null);
-    } finally {
-      setLoadingStructure(false);
-    }
   };
 
   // Generowanie przykładowych danych kosztorysu na podstawie struktury szablonu

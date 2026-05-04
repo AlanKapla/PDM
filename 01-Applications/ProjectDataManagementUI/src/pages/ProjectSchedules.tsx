@@ -38,7 +38,7 @@ import { projectApi, ResourceScope } from "../api/projectApi";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails, useProjectMembers } from "../hooks/queries";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
 
@@ -96,8 +96,6 @@ export default function ProjectSchedules() {
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
-  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const hasFetchedProjectData = useRef(false);
 
@@ -127,25 +125,18 @@ export default function ProjectSchedules() {
     `schedules-all-${projectId}`
   );
 
-  // Globalny cache dla project details (współdzielony między stronami projektu)
-  const projectDetailsCache = useGlobalCache(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
-    }
+  // React Query — dane projektu i członkowie (współdzielony cache między stronami projektu)
+  const { data: projectData } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
+  const project: ProjectDetailsWeb | null = projectData ?? null;
 
-  // Globalny cache dla członków projektu
-  const membersCache = useGlobalCache(
-    `project-members-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      return res.data;
-    }
+  const { data: membersData } = useProjectMembers(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
+  const members: ProjectMemberWeb[] = membersData ?? [];
 
   useEffect(() => {
     if (resourcePerms.raw.loading) return;
@@ -165,13 +156,6 @@ export default function ProjectSchedules() {
 
     setLoading(true);
     try {
-      const projectData = await projectDetailsCache.fetch();
-      setProject(projectData);
-
-      // Pobierz członków projektu
-      const membersData = await membersCache.fetch();
-      setMembers(membersData);
-
       // Pobierz wszystkie zakładki równolegle według uprawnień
       const fetchPromises = [];
       if (resourcePerms.tabs.showAll) {
@@ -213,8 +197,6 @@ export default function ProjectSchedules() {
   const refreshData = () => {
     mySchedulesCache.clear();
     allSchedulesCache.clear();
-    projectDetailsCache.clear();
-    membersCache.clear();
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };

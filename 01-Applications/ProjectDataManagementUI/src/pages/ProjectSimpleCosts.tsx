@@ -53,7 +53,7 @@ import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { ProjectCostListItemWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails } from "../hooks/queries";
 
 // === TAB COMPONENTS ===
 
@@ -654,25 +654,17 @@ export default function ProjectSimpleCosts() {
 
   const resourcePerms = useResourcePermissions(projectId);
 
-  // Globalny cache dla project details (współdzielony między stronami projektu)
-  const projectDetailsCache = useGlobalCache(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
-    }
+  // React Query — dane projektu (współdzielony cache między stronami projektu)
+  const { data: projectData } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
-
-  // Globalny cache dla project members (współdzielony między stronami projektu)
-  const projectMembersCache = useGlobalCache(
-    `project-members-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      return res.data;
+  useEffect(() => {
+    if (projectData) {
+      setProject(projectData);
+      setProjectName(projectData.name);
     }
-  );
+  }, [projectData]);
 
   useEffect(() => {
     if (resourcePerms.raw.loading) return;
@@ -687,11 +679,6 @@ export default function ProjectSimpleCosts() {
 
     setLoading(true);
     try {
-      const projectData = await projectDetailsCache.fetch();
-
-      setProject(projectData);
-      setProjectName(projectData.name);
-
       const fetchPromises = [];
       if (resourcePerms.tabs.showAll) fetchPromises.push(allCostsCache.fetch());
       if (resourcePerms.tabs.showMine) fetchPromises.push(myCostsCache.fetch());
@@ -709,7 +696,6 @@ export default function ProjectSimpleCosts() {
     allCostsCache.clear();
     myCostsCache.clear();
     sharedCostsCache.clear();
-    projectDetailsCache.clear();
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };
