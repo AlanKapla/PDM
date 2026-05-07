@@ -1,4 +1,12 @@
-﻿using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -14,6 +22,14 @@ namespace Entities.Configurations
             builder.Property(w => w.IsDeleted).IsRequired().HasDefaultValue(false);
             builder.Property(w => w.DeletedAt);
 
+            builder.HasQueryFilter(w => !w.IsDeleted);
+
+            builder.HasOne(w => w.CostEstimate)
+                   .WithMany(c => c.WorkSchedules)
+                   .HasForeignKey(w => w.CostEstimateId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
             builder.HasOne(w => w.Project)
                    .WithMany()
                    .HasForeignKey(w => w.ProjectId)
@@ -27,6 +43,7 @@ namespace Entities.Configurations
 
             builder.HasIndex(w => new { w.TenantId, w.ProjectId });
             builder.HasIndex(w => new { w.TenantId, w.ProjectId, w.IsDeleted });
+            builder.HasIndex(w => w.CostEstimateId);
         }
     }
 
@@ -37,9 +54,18 @@ namespace Entities.Configurations
             builder.HasKey(s => s.Id);
             builder.Property(s => s.Name).IsRequired().HasMaxLength(200);
             builder.Property(s => s.Order).IsRequired();
+            builder.Property(s => s.CreatedAt).IsRequired();
             builder.Property(s => s.ProjectId).IsRequired();
             builder.Property(s => s.IsDeleted).IsRequired().HasDefaultValue(false);
             builder.Property(s => s.DeletedAt);
+
+            builder.HasQueryFilter(s => !s.IsDeleted);
+
+            builder.HasOne(s => s.CostEstimateGroup)
+                   .WithMany(g => g.WorkScheduleStages)
+                   .HasForeignKey(s => s.CostEstimateGroupId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
 
             builder.HasOne(s => s.WorkSchedule)
                    .WithMany(w => w.Stages)
@@ -56,6 +82,7 @@ namespace Entities.Configurations
             builder.HasIndex(s => new { s.WorkScheduleId, s.IsDeleted });
             builder.HasIndex(s => new { s.TenantId, s.ProjectId });
             builder.HasIndex(s => s.ParentStageId);
+            builder.HasIndex(s => s.CostEstimateGroupId);
         }
     }
 
@@ -66,9 +93,14 @@ namespace Entities.Configurations
             builder.HasKey(w => w.Id);
             builder.Property(w => w.Name).IsRequired().HasMaxLength(200);
             builder.Property(w => w.Order).IsRequired();
+            builder.Property(w => w.CreatedAt).IsRequired();
             builder.Property(w => w.ProjectId).IsRequired();
             builder.Property(w => w.ColorRgb).IsRequired().HasMaxLength(20);
             builder.Property(w => w.CostEstimateItemId).IsRequired(false);
+            builder.Property(w => w.IsDeleted).IsRequired().HasDefaultValue(false);
+            builder.Property(w => w.DeletedAt);
+
+            builder.HasQueryFilter(w => !w.IsDeleted);
 
             builder.HasOne(w => w.Stage)
                    .WithMany(s => s.Works)
@@ -89,6 +121,8 @@ namespace Entities.Configurations
             builder.HasIndex(w => new { w.WorkScheduleStageId, w.Order });
             builder.HasIndex(w => new { w.TenantId, w.ProjectId });
             builder.HasIndex(w => w.CostEstimateItemId);
+            builder.HasIndex(w => new { w.WorkScheduleStageId, w.IsDeleted });
+            builder.HasIndex(w => new { w.TenantId, w.ProjectId, w.IsDeleted });
         }
     }
 
@@ -134,6 +168,7 @@ namespace Entities.Configurations
             builder.HasKey(c => c.Id);
             builder.Property(c => c.Content).IsRequired().HasMaxLength(2000);
             builder.Property(c => c.CreatedAt).IsRequired();
+            builder.Property(c => c.ProjectId).IsRequired();
 
             builder.HasOne(c => c.Work)
                    .WithMany(w => w.Comments)
@@ -146,6 +181,7 @@ namespace Entities.Configurations
                    .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasIndex(c => new { c.WorkScheduleStageWorkId, c.CreatedAt });
+            builder.HasIndex(c => new { c.TenantId, c.ProjectId });
         }
     }
 

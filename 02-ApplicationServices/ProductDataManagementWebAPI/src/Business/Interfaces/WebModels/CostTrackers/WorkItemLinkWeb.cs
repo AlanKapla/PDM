@@ -1,34 +1,46 @@
 ﻿namespace Business.Interfaces.WebModels.CostTrackers
 {
     /// <summary>
-    /// Opisuje źródło pozycji w trackerze kosztów.
-    /// Link  — pozycja pochodzi z CostEstimateItemWorkScheduleStageWorkLink (ma oba: CostEstimateItem i WorkScheduleStageWork).
-    /// Estimate — pozycja pochodzi wyłącznie z CostEstimateItem (brak powiązanego WorkScheduleStageWork).
-    /// Schedule — pozycja pochodzi wyłącznie z WorkScheduleStageWork (brak powiązanego CostEstimateItem).
+    /// Opisuje typ powiązania pozycji w trackerze kosztów.
+    /// LinkedWorkItem — koszt wspólny:
+    ///   CostEstimateItemId i WorkScheduleStageWorkId oba wypełnione.
+    /// EstimateItem — koszt tylko przy pozycji kosztorysu:
+    ///   CostEstimateItemId wypełnione, WorkScheduleStageWorkId null.
+    /// ScheduleWorkItem — koszt tylko przy zakresie pracy:
+    ///   WorkScheduleStageWorkId wypełnione, CostEstimateItemId null.
     /// </summary>
     public enum WorkItemType
     {
-        Link = 0,
-        Estimate = 1,
-        Schedule = 2
+        LinkedWorkItem = 0,
+        EstimateItem = 1,
+        ScheduleWorkItem = 2
     }
 
     /// <summary>
-    /// Reprezentuje CostEstimateItemWorkScheduleStageWorkLink — pojedynczą pozycję łączącą CostEstimateItem
-    /// z WorkScheduleStageWork. Może istnieć tylko po jednej stronie.
+    /// Reprezentuje pozycję w trackerze kosztów.
+    /// Może być powiązana z pozycją kosztorysu, zakresem pracy,
+    /// oboma (koszt wspólny) lub żadnym (koszt dodatkowy projektu).
+    /// Typ powiązania określa WorkItemType.
     /// Dziedziczy po TrackerNodeWithTimelineWeb.
     /// </summary>
     public sealed record WorkItemLinkWeb : TrackerNodeWithTimelineWeb
     {
-        public Guid? WorkItemLinkId { get; init; }
         public required string DisplayName { get; init; }
         public required int Order { get; init; }
         public required WorkItemType WorkItemType { get; init; }
 
-        /// <summary>Null gdy link nie ma powiązanego CostEstimateItem.</summary>
+        /// <summary>
+        /// ID pozycji kosztorysu.
+        /// Wypełnione gdy WorkItemType = EstimateItem lub LinkedWorkItem.
+        /// Null gdy WorkItemType = ScheduleWorkItem.
+        /// </summary>
         public Guid? CostEstimateItemId { get; init; }
 
-        /// <summary>Null gdy link nie ma powiązanego WorkScheduleStageWork.</summary>
+        /// <summary>
+        /// ID zakresu pracy harmonogramu.
+        /// Wypełnione gdy WorkItemType = ScheduleWorkItem lub LinkedWorkItem.
+        /// Null gdy WorkItemType = EstimateItem.
+        /// </summary>
         public Guid? WorkScheduleStageWorkId { get; init; }
 
         public required List<TrackedCostWeb> Costs { get; init; }

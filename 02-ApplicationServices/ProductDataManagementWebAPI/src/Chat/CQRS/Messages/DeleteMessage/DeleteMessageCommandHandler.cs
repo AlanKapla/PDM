@@ -1,7 +1,15 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Chat.Hubs;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -41,6 +49,7 @@ public sealed class DeleteMessageCommandHandler : IRequestHandler<DeleteMessageC
             cancellationToken)
             ?? throw new NotFoundApiException("Message", request.MessageId.ToString());
 
+        message.IsDeleted = true;
         message.DeletedAt = DateTime.UtcNow;
         await messageWriteRepo.Update(message);
         await messageWriteRepo.SaveChangesAsync(cancellationToken);

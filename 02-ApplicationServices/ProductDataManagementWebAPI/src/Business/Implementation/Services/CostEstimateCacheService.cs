@@ -54,8 +54,7 @@ namespace Business.Implementation.Services
                              c.TenantId == tenantId &&
                              c.ProjectId == projectId &&
                              !c.IsDeleted,
-                        q => q.Include(c => c.Owner),
-                        q => q.Include(c => c.SelectedCurrency));
+                        q => q.Include(c => c.Owner));
                     return ce!;
                 },
                 CostEstimateCacheKeys.Ttl,
@@ -77,8 +76,7 @@ namespace Business.Implementation.Services
                         q => q.Include(t => t.GroupFieldDefinitions),
                         q => q.Include(t => t.SystemFieldDefinitions),
                         q => q.Include(t => t.CalculatedFieldDefinitions),
-                        q => q.Include(t => t.GenericFieldDefinitions),
-                        q => q.Include(t => t.Currencies));
+                        q => q.Include(t => t.GenericFieldDefinitions));
                     return template!;
                 },
                 CostEstimateCacheKeys.Ttl,

@@ -11,6 +11,7 @@ import { CostTable } from './shared/CostTable';
 import { Badge } from './shared/Badge';
 import { TrackedCostModal } from './TrackedCostModal';
 import { DEVIATION_COLOR } from '../utils/formatters';
+import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
 export interface WorkItemAccordionProps {
   item: WorkItemLinkWeb;
@@ -38,6 +39,7 @@ export function WorkItemAccordion({
   const [createModal, setCreateModal] = useState(false);
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const currencySymbol = useDashboardCurrency();
   const [
     neutral400, neutral50, neutral600, neutral200,
     orange600, primary500, level1500,
@@ -86,7 +88,7 @@ export function WorkItemAccordion({
           whiteSpace: 'nowrap',
         }}
       >
-        {item.costsNet != null ? PLN(item.costsNet) : '—'}
+        {item.costsNet != null ? PLN(item.costsNet, currencySymbol) : '—'}
       </span>
       <div style={{ width: 60, flexShrink: 0 }}>
         <MiniProgressBar
@@ -152,12 +154,12 @@ export function WorkItemAccordion({
         )}
       </div>
       {/* Kolumna 3: budżet */}
-      <div style={{ textAlign: 'right', color: neutral600 }}>{PLN(item.budgetNet)}</div>
+      <div style={{ textAlign: 'right', color: neutral600 }}>{PLN(item.budgetNet, currencySymbol)}</div>
       {/* Kolumna 4: koszty */}
-      <div style={{ textAlign: 'right', fontWeight: "medium" }}>{PLN(item.costsNet)}</div>
+      <div style={{ textAlign: 'right', fontWeight: "medium" }}>{PLN(item.costsNet, currencySymbol)}</div>
       {/* Kolumna 5: odchylenie */}
       <div style={{ textAlign: 'right', color: deviationColor }}>
-        {item.deviationNet != null ? PLN(item.deviationNet) : '—'}
+        {item.deviationNet != null ? PLN(item.deviationNet, currencySymbol) : '—'}
       </div>
       {/* Kolumna 6: status */}
       <div>
@@ -207,7 +209,6 @@ export function WorkItemAccordion({
           projectId={projectId}
           mode="create"
           workItemType={item.workItemType}
-          workItemLinkId={item.workItemLinkId}
           costEstimateItemId={item.costEstimateItemId}
           workScheduleStageWorkId={item.workScheduleStageWorkId}
           onSuccess={() => onRefetch()}

@@ -19,7 +19,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
         public string? Description { get; init; }
         public decimal? NetAmount { get; init; }
         public decimal? GrossAmount { get; init; }
-        public bool IsClosed { get; init; }
+        public bool IsAccepted { get; init; }
         public IFormFile? Document { get; init; }
         public IFormFile? UpdatedDocument { get; init; }
         public bool RemoveDocument { get; init; }

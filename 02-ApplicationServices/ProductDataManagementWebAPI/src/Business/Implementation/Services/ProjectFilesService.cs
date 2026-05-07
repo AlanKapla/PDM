@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
@@ -92,8 +100,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 {
                     List<Guid> allPackageIds = await packageRepository.GetIdsBySearchAsync(
                         p => p.ProjectId == projectId && 
-                             p.TenantId == tenantId && 
-                             !p.IsDeleted,
+                             p.TenantId == tenantId,
                         cancellationToken);
 
                     packageIds = allPackageIds.ToHashSet();
@@ -103,8 +110,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                     List<Guid> myPackageIds = await packageRepository.GetIdsBySearchAsync(
                         p => p.ProjectId == projectId && 
                              p.TenantId == tenantId && 
-                             p.OwnerId == currentUser.Id && 
-                             !p.IsDeleted,
+                             p.OwnerId == currentUser.Id,
                         cancellationToken);
 
                     packageIds = myPackageIds.ToHashSet();
@@ -596,7 +602,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 logger.LogDebug("Loading file packages for project {ProjectId} from database", projectId);
 
                 IEnumerable<ProjectFilePackage> packages = await packageRepository.GetBySearch(
-                    p => p.TenantId == tenantId && p.ProjectId == projectId && !p.IsDeleted);
+                    p => p.TenantId == tenantId && p.ProjectId == projectId);
 
                 List<ProjectFilePackage> sortedPackages = packages
                     .OrderBy(p => p.CreatedAt)
@@ -642,7 +648,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 logger.LogDebug("Loading files for project {ProjectId} from database", projectId);
 
                 IEnumerable<ProjectFile> files = await fileRepository.GetBySearch(
-                    f => f.TenantId == tenantId && f.ProjectId == projectId && !f.IsDeleted);
+                    f => f.TenantId == tenantId && f.ProjectId == projectId);
 
                 List<ProjectFile> sortedFiles = files
                     .OrderBy(f => f.CreatedAt)
@@ -756,7 +762,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 logger.LogDebug("Loading file versions for project {ProjectId} from database", projectId);
 
                 List<Guid> projectFileIds = await fileRepository.GetIdsBySearchAsync(
-                    f => f.TenantId == tenantId && f.ProjectId == projectId && !f.IsDeleted,
+                    f => f.TenantId == tenantId && f.ProjectId == projectId,
                     cancellationToken);
 
                 if (projectFileIds.Count == 0)
@@ -765,7 +771,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 }
 
                 IEnumerable<ProjectFileVersion> versions = await versionRepository.GetBySearch(
-                    v => projectFileIds.Contains(v.ProjectFileId) && !v.IsDeleted);
+                    v => projectFileIds.Contains(v.ProjectFileId));
 
                 List<ProjectFileVersion> sortedVersions = versions
                     .OrderBy(v => v.CreatedAt)
@@ -815,7 +821,7 @@ public sealed class ProjectFilesService : IProjectFilesService
                 logger.LogDebug("Loading file version comments for project {ProjectId} from database", projectId);
 
                 IEnumerable<ProjectFileVersionComment> comments = await commentRepository.GetBySearch(
-                    c => c.TenantId == tenantId && c.ProjectId == projectId && !c.IsDeleted);
+                    c => c.TenantId == tenantId && c.ProjectId == projectId);
 
                 List<ProjectFileVersionComment> sortedComments = comments
                     .OrderBy(c => c.CreatedAt)

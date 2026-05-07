@@ -1,6 +1,8 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.Projects;
 using CQRS.Projects.AddProjectMember;
 using CQRS.Projects.CreateProject;
+using CQRS.Projects.SetProjectCurrency;
 using CQRS.Projects.GetProjectDetails;
 using CQRS.Projects.GetProjectMembers;
 using CQRS.Projects.GetProjectsDictionary;
@@ -113,6 +115,22 @@ namespace WebApi.Controllers
             [FromQuery] bool isActive)
         {
             var command = new ToggleProjectStatusCommand(tenantId, projectId, isActive);
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPut("{projectId}/currency")]
+        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> SetProjectCurrency(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] SetProjectCurrencyRequest request)
+        {
+            SetProjectCurrencyCommand command = new SetProjectCurrencyCommand(
+                tenantId, projectId, request.Code, request.Name, request.Symbol);
             await Send(command);
             return NoContent();
         }

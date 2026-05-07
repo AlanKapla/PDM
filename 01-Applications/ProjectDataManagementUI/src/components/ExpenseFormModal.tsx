@@ -37,7 +37,7 @@ export interface ExpenseFormData {
   description: string;
   netAmount: string;
   grossAmount: string;
-  isClosed: boolean;
+  isAccepted: boolean;
   removeDocument: boolean;
 }
 
@@ -48,7 +48,7 @@ const EMPTY_FORM: ExpenseFormData = {
   description: "",
   netAmount: "",
   grossAmount: "",
-  isClosed: false,
+  isAccepted: false,
   removeDocument: false,
 };
 
@@ -60,7 +60,7 @@ function toFormData(cost: ProjectCostListItemWeb): ExpenseFormData {
     description: cost.description || "",
     netAmount: cost.netAmount != null && cost.netAmount !== 0 ? cost.netAmount.toString() : "",
     grossAmount: cost.grossAmount !== 0 ? cost.grossAmount.toString() : "",
-    isClosed: cost.isClosed,
+    isAccepted: cost.isAccepted,
     removeDocument: false,
   };
 }
@@ -289,16 +289,16 @@ export default function ExpenseFormModal({
                 </Text>
               </FormControl>
 
-              {/* Rozliczone */}
+              {/* Zaakceptowane */}
               <FormControl>
                 <Checkbox
-                  isChecked={form.isClosed}
+                  isChecked={form.isAccepted}
                   onChange={(e) =>
-                    setForm((p) => ({ ...p, isClosed: e.target.checked }))
+                    setForm((p) => ({ ...p, isAccepted: e.target.checked }))
                   }
                   colorScheme="green"
                 >
-                  Rozliczone
+                  Zaakceptowane
                 </Checkbox>
               </FormControl>
             </VStack>

@@ -1,6 +1,14 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -12,20 +20,17 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed
         private readonly IRepository<WorkScheduleStageWorkPeriod> periodRepository;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
-        private readonly IWorkItemLinkService workItemLinkService;
 
         public SetWorkScheduleStageWorkIsClosedCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkPeriod> periodRepository,
             IWorkScheduleCacheService scheduleCache,
-            IWorkScheduleAccessService accessService,
-            IWorkItemLinkService workItemLinkService)
+            IWorkScheduleAccessService accessService)
         {
             this.workRepository = workRepository;
             this.periodRepository = periodRepository;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
-            this.workItemLinkService = workItemLinkService;
         }
 
         public async Task<Unit> Handle(SetWorkScheduleStageWorkIsClosedCommand request, CancellationToken cancellationToken)
@@ -66,8 +71,6 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed
             }
 
             bool allClosed = periodList.Count > 0 && periodList.All(p => p.IsClosed);
-            await workItemLinkService.SyncPlannedDatesForStageWorkAsync(
-                request.WorkScheduleStageWorkId, work.PlannedStartDate, work.PlannedEndDate, allClosed, cancellationToken);
 
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;

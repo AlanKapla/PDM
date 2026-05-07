@@ -19,7 +19,6 @@ namespace Business.Implementation.Services
         private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(30);
 
         private readonly IRepository<CostEstimateTemplate> templateRepository;
-        private readonly IRepository<CostEstimateTemplateCurrency> currencyRepository;
         private readonly IRepository<CostEstimateTemplateUnit> unitRepository;
         private readonly IRepository<CostEstimateTemplateCategory> categoryRepository;
         private readonly IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository;
@@ -35,7 +34,6 @@ namespace Business.Implementation.Services
 
         public CostEstimateTemplateService(
             IRepository<CostEstimateTemplate> templateRepository,
-            IRepository<CostEstimateTemplateCurrency> currencyRepository,
             IRepository<CostEstimateTemplateUnit> unitRepository,
             IRepository<CostEstimateTemplateCategory> categoryRepository,
             IRepository<CostEstimateTemplateGroupFieldDefinition> groupFieldRepository,
@@ -50,7 +48,6 @@ namespace Business.Implementation.Services
             ILogger<CostEstimateTemplateService> logger)
         {
             this.templateRepository = templateRepository;
-            this.currencyRepository = currencyRepository;
             this.unitRepository = unitRepository;
             this.categoryRepository = categoryRepository;
             this.groupFieldRepository = groupFieldRepository;
@@ -107,7 +104,6 @@ namespace Business.Implementation.Services
             bool autoNumberGroups,
             string? groupNumberFormat,
             bool updateStructure,
-            List<CurrencyDto>? currencies,
             List<UnitDto>? units,
             List<CategoryDto>? categories,
             List<FieldDefinitionDto>? groupHeaderFields,
@@ -129,11 +125,6 @@ namespace Business.Implementation.Services
 
             await templateRepository.Update(template);
             await templateRepository.SaveChangesAsync(cancellationToken);
-
-            if (currencies != null)
-            {
-                await UpdateCurrenciesAsync(template.Id, currencies, cancellationToken);
-            }
 
             if (units != null)
             {
@@ -240,19 +231,6 @@ namespace Business.Implementation.Services
             CostEstimateTemplate template,
             CancellationToken cancellationToken = default)
         {
-            var currencies = await currencyRepository.SelectAsync(
-                c => c.TemplateId == template.Id,
-                c => new CurrencyWeb(
-                    c.Id,
-                    c.Code,
-                    c.Name,
-                    c.Symbol,
-                    c.IsDefault,
-                    c.Order
-                ),
-                cancellationToken
-            );
-
             var units = await unitRepository.SelectAsync(
                 u => u.TemplateId == template.Id,
                 u => new UnitWeb(
@@ -348,7 +326,6 @@ namespace Business.Implementation.Services
             return new CostEstimateTemplateStructureWeb(
                 template.Id,
                 template.MaxGroupLevel,
-                currencies.OrderBy(c => c.Order).ToList(),
                 units.OrderBy(u => u.Order).ToList(),
                 categories.OrderBy(c => c.Order).ToList(),
                 groupHeaderFields,
@@ -415,52 +392,7 @@ namespace Business.Implementation.Services
 
         #endregion
 
-        #region Currencies & Units
-
-        private async Task UpdateCurrenciesAsync(
-            Guid templateId,
-            List<CurrencyDto> currencies,
-            CancellationToken cancellationToken)
-        {
-            var existingCurrencies = (await currencyRepository
-                .GetBySearch(c => c.TemplateId == templateId)).ToList();
-
-            var toUpdate = new List<CostEstimateTemplateCurrency>();
-            var toInsert = new List<CostEstimateTemplateCurrency>();
-
-            foreach (var currencyDto in currencies)
-            {
-                var existing = existingCurrencies.FirstOrDefault(c => c.Code == currencyDto.Code);
-
-                if (existing != null)
-                {
-                    existing.Name = currencyDto.Name;
-                    existing.Symbol = currencyDto.Symbol;
-                    existing.IsDefault = currencyDto.IsDefault;
-                    existing.Order = currencyDto.Order;
-                    toUpdate.Add(existing);
-                }
-                else
-                {
-                    toInsert.Add(new CostEstimateTemplateCurrency
-                    {
-                        TemplateId = templateId,
-                        Code = currencyDto.Code,
-                        Name = currencyDto.Name,
-                        Symbol = currencyDto.Symbol,
-                        IsDefault = currencyDto.IsDefault,
-                        Order = currencyDto.Order
-                    });
-                }
-            }
-
-            if (toUpdate.Any())
-                await currencyRepository.UpdateRange(toUpdate);
-            if (toInsert.Any())
-                await currencyRepository.InsertRange(toInsert);
-
-            await currencyRepository.SaveChangesAsync(cancellationToken);
-        }
+        #region Units & Categories
 
         private async Task UpdateUnitsAsync(
             Guid templateId,
@@ -1062,13 +994,6 @@ namespace Business.Implementation.Services
 
         private static CostEstimateTemplateStructureWeb MapDefaultTemplateToStructure(DefaultTemplateJson template)
         {
-            var currencies = template.Currencies
-                .Select((c, i) => new CurrencyWeb(
-                    GenerateDeterministicGuid($"{template.Slug}:currency:{c.Code}"),
-                    c.Code, c.Name, c.Symbol, c.IsDefault, c.Order))
-                .OrderBy(c => c.Order)
-                .ToList();
-
             var units = template.Units
                 .Select(u => new UnitWeb(
                     GenerateDeterministicGuid($"{template.Slug}:unit:{u.Code}"),
@@ -1104,7 +1029,6 @@ namespace Business.Implementation.Services
             return new CostEstimateTemplateStructureWeb(
                 TemplateId: template.TemplateId,
                 MaxGroupLevel: template.MaxGroupLevel,
-                Currencies: currencies,
                 Units: units,
                 Categories: template.Categories
                     .Select(c => new CategoryWeb(
@@ -1208,7 +1132,6 @@ namespace Business.Implementation.Services
                 autoNumberGroups: false,
                 groupNumberFormat: null,
                 updateStructure: true,
-                defaultTemplate.Currencies,
                 defaultTemplate.Units,
                 defaultTemplate.Categories,
                 groupFields,
@@ -1260,10 +1183,6 @@ namespace Business.Implementation.Services
             var newTemplate = await templateRepository.GetFirstBySearch(t => t.Id == templateId)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), templateId.ToString());
 
-            var currencies = structure.Currencies
-                .Select(c => new CurrencyDto(c.Code, c.Name, c.Symbol, c.IsDefault, c.Order))
-                .ToList();
-
             var units = structure.Units
                 .Select(u => new UnitDto(u.Code, u.Name, u.Symbol, u.Category, u.IsDefault, u.Order))
                 .ToList();
@@ -1296,7 +1215,6 @@ namespace Business.Implementation.Services
                 sourceTemplate.AutoNumberGroups,
                 sourceTemplate.GroupNumberFormat,
                 updateStructure: true,
-                currencies,
                 units,
                 categories,
                 groupFields,

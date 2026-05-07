@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -48,8 +56,7 @@ namespace CQRS.Files.UpdateFileShare
             var file = await projectFileRepo.GetFirstBySearch(
                 pf => pf.Id == request.FileId
                     && pf.ProjectId == request.ProjectId
-                    && pf.TenantId == request.TenantId
-                    && !pf.IsDeleted)
+                    && pf.TenantId == request.TenantId)
                 ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
             // 2. Authorization check: tenant admin OR project admin OR file owner
@@ -374,8 +381,8 @@ namespace CQRS.Files.UpdateFileShare
                     Type = NotifType.Info,
                     Title = "Udostępniono Ci plik",
                     Message = $"{ownerName} udostępnił Ci plik \"{file.DisplayName}\"",
-                    Readed = false,
-                    CreatedAt = DateTimeOffset.UtcNow,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow,
                     Metadata = new Dictionary<string, object?>
                     {
                         ["FileId"] = request.FileId,
@@ -408,8 +415,8 @@ namespace CQRS.Files.UpdateFileShare
                     Type = NotifType.Warning,
                     Title = "Cofnięto dostęp do pliku",
                     Message = $"{ownerName} cofnął Ci dostęp do pliku \"{file.DisplayName}\"",
-                    Readed = false,
-                    CreatedAt = DateTimeOffset.UtcNow,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow,
                     Metadata = new Dictionary<string, object?>
                     {
                         ["FileId"] = request.FileId,

@@ -4,6 +4,7 @@ import type { ScheduleSummaryWeb, ProjectFinancialSummaryWeb, ProjectTimelineSum
 import { PLN, DAYS } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { ScheduleBlock } from './ScheduleBlock';
+import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface SchedulesTabProps {
   summaries: ScheduleSummaryWeb[];
@@ -26,6 +27,7 @@ export function SchedulesTab({
   projectId,
   onRefetch,
 }: SchedulesTabProps): React.ReactElement {
+  const currencySymbol = useDashboardCurrency();
   const [orange800, level1700, neutral400] = useToken('colors', [
     'orange.800', 'level1.700', 'neutral.400',
   ]);
@@ -42,7 +44,7 @@ export function SchedulesTab({
           marginBottom: 16,
         }}
       >
-        <KpiCard label="Łączne koszty harmonogramów" value={PLN(scs?.totalSchedulesCostsNet ?? null)} />
+        <KpiCard label="Łączne koszty harmonogramów" value={PLN(scs?.totalSchedulesCostsNet ?? null, currencySymbol)} />
         <KpiCard label="Harmonogramów" value={String(summaries.length)} />
         <KpiCard label="Zakresów łącznie" value={String(timelineSummary.totalWorkCount)} />
         <KpiCard

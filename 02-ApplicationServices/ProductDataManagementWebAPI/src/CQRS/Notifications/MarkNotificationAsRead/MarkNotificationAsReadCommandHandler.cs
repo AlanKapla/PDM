@@ -1,7 +1,15 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -30,13 +38,13 @@ namespace CQRS.Notifications.MarkNotificationAsRead
                 .GetFirstBySearch(n => n.Id == request.NotificationId && n.UserId == currentUser.Id))!;
 
             // Jeśli już przeczytana, nie rób nic
-            if (notification.Readed)
+            if (notification.IsRead)
             {
                 return Unit.Value;
             }
 
             // Oznacz jako przeczytaną
-            notification.Readed = true;
+            notification.IsRead = true;
             await notificationRepo.Update(notification);
 
             await notificationMarkAsReadSender.EnqueueAsync(new NotificationMarkAsReadDto

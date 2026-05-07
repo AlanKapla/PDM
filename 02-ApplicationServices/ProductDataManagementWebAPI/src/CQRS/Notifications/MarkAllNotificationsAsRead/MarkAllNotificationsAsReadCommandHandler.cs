@@ -1,5 +1,13 @@
-﻿using Business.Interfaces.Model;
-using Entities.Models;
+using Business.Interfaces.Model;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -25,7 +33,7 @@ namespace CQRS.Notifications.MarkAllNotificationsAsRead
         public async Task<int> Handle(MarkAllNotificationsAsReadCommand request, CancellationToken cancellationToken)
         {
             var unreadNotifications = await notificationRepo.GetBySearch(
-                n => n.UserId == currentUser.Id && !n.Readed);
+                n => n.UserId == currentUser.Id && !n.IsRead);
 
             if (!unreadNotifications.Any())
             {
@@ -35,7 +43,7 @@ namespace CQRS.Notifications.MarkAllNotificationsAsRead
 
             foreach (var notification in unreadNotifications)
             {
-                notification.Readed = true;
+                notification.IsRead = true;
             }
 
             await notificationRepo.UpdateRange(unreadNotifications);

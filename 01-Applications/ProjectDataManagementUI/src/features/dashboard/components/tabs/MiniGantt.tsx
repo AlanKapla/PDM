@@ -75,7 +75,7 @@ export function MiniGantt({ stages, timeline }: MiniGanttProps): React.ReactElem
 
         return (
           <div
-            key={item.workItemLinkId}
+            key={`${item.costEstimateItemId ?? ''}-${item.workScheduleStageWorkId ?? ''}`}
             style={{ display: 'flex', alignItems: 'center', marginBottom: 3, height: 22 }}
           >
             <div

@@ -7,6 +7,7 @@ import { FinancialStatusBadge } from '../shared/FinancialStatusBadge';
 import { KpiCard } from '../shared/KpiCard';
 import { Badge } from '../shared/Badge';
 import { GroupAccordion } from '../GroupAccordion';
+import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface EstimateBlockProps {
   summary: CostEstimateSummaryWeb;
@@ -25,6 +26,7 @@ export function EstimateBlock({
   projectId,
   onRefetch,
 }: EstimateBlockProps): React.ReactElement {
+  const currencySymbol = useDashboardCurrency();
   const [
     level2100, level2600, orange50, orange800,
     level250, neutral50, neutral600,
@@ -58,7 +60,7 @@ export function EstimateBlock({
         color={summary.hasLinkedSchedule ? level2600 : neutral600}
         small
       />
-      <span style={{ fontSize: "xs", color: neutral600 }}>{PLN(summary.budgetNet)}</span>
+      <span style={{ fontSize: "xs", color: neutral600 }}>{PLN(summary.budgetNet, currencySymbol)}</span>
       <FinancialStatusBadge status={summary.financialStatus} small />
     </div>
   );
@@ -68,9 +70,9 @@ export function EstimateBlock({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Sekcja A: KPI finansowe (6 kafli) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-          <KpiCard label="Budżet netto" value={PLN(summary.budgetNet)} small />
-          <KpiCard label="Budżet brutto" value={PLN(summary.budgetGross)} small />
-          <KpiCard label="Koszty" value={PLN(summary.costsNet)} small />
+          <KpiCard label="Budżet netto" value={PLN(summary.budgetNet, currencySymbol)} small />
+          <KpiCard label="Budżet brutto" value={PLN(summary.budgetGross, currencySymbol)} small />
+          <KpiCard label="Koszty" value={PLN(summary.costsNet, currencySymbol)} small />
           <KpiCard label="Pokrycie" value={PROG(summary.coveredPercent)} small />
           <KpiCard
             label="Poz. z kosztami"
@@ -156,7 +158,7 @@ export function EstimateBlock({
               color: amber600,
             }}
           >
-            Koszty dodatkowe kosztorysu: {PLN(summary.additionalCosts?.totalNet ?? null)}{' '}
+            Koszty dodatkowe kosztorysu: {PLN(summary.additionalCosts?.totalNet ?? null, currencySymbol)}{' '}
             <span style={{ color: neutral400 }}>
               ({summary.additionalCosts?.costsCount ?? 0} pozycji)
             </span>
@@ -176,7 +178,7 @@ export function EstimateBlock({
         >
           <span>Suma kosztorysu — budżet / koszty:</span>
           <span style={{ fontWeight: "medium" }}>
-            {PLN(summary.budgetNet)} / {PLN(summary.costsNet)}
+            {PLN(summary.budgetNet, currencySymbol)} / {PLN(summary.costsNet, currencySymbol)}
           </span>
         </div>
       </div>

@@ -33,7 +33,6 @@ namespace Business.Interfaces.Services
             bool autoNumberGroups,
             string? groupNumberFormat,
             bool updateStructure,
-            List<CurrencyDto>? currencies,
             List<UnitDto>? units,
             List<CategoryDto>? categories,
             List<FieldDefinitionDto>? groupHeaderFields,

@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -72,8 +72,7 @@ namespace CQRS.CostEstimates.ReorderCostEstimateItems
             var items = await itemRepository.GetBySearch(
                 i => i.CostEstimateId == request.CostEstimateId &&
                      i.GroupId == request.GroupId &&
-                     requestedItemIds.Contains(i.Id) &&
-                     !i.IsDeleted);
+                     requestedItemIds.Contains(i.Id));
 
             var trackedItemsById = items.ToDictionary(i => i.Id);
             var now = DateTime.UtcNow;

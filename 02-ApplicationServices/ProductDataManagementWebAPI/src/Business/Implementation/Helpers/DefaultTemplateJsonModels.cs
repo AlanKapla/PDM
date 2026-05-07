@@ -14,7 +14,6 @@ namespace Business.Implementation.Helpers
         public string? Category { get; init; }
         public Guid TemplateId { get; init; }
         public int? MaxGroupLevel { get; init; }
-        public List<CurrencyDto> Currencies { get; init; } = [];
         public List<UnitDto> Units { get; init; } = [];
         public List<CategoryDto> Categories { get; init; } = [];
         public List<FieldDefinitionDto> GroupHeaderFields { get; init; } = [];

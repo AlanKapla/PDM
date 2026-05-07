@@ -4,6 +4,7 @@ import type { CostEstimateSummaryWeb } from '../../types/projectDashboard.types'
 import { PLN, PROG } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { EstimateBlock } from './EstimateBlock';
+import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface EstimatesTabProps {
   summaries: CostEstimateSummaryWeb[];
@@ -22,6 +23,7 @@ export function EstimatesTab({
   projectId,
   onRefetch,
 }: EstimatesTabProps): React.ReactElement {
+  const currencySymbol = useDashboardCurrency();
   const [orange50, orange600, orange800, neutral400] = useToken('colors', [
     'orange.50', 'orange.600', 'orange.800', 'neutral.400',
   ]);
@@ -44,9 +46,9 @@ export function EstimatesTab({
           marginBottom: 16,
         }}
       >
-        <KpiCard label="Budżet łączny netto" value={PLN(totalBudgetNet)} />
-        <KpiCard label="Budżet łączny brutto" value={PLN(totalBudgetGross)} />
-        <KpiCard label="Koszty łączne" value={PLN(totalCosts)} />
+        <KpiCard label="Budżet łączny netto" value={PLN(totalBudgetNet, currencySymbol)} />
+        <KpiCard label="Budżet łączny brutto" value={PLN(totalBudgetGross, currencySymbol)} />
+        <KpiCard label="Koszty łączne" value={PLN(totalCosts, currencySymbol)} />
         <KpiCard label="Pokrycie budżetu" value={PROG(coverage)} />
         <KpiCard label="Kosztorysów" value={String(summaries.length)} />
         <KpiCard label="Pozycji łącznie" value={String(totalItems)} />

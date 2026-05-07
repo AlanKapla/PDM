@@ -9,7 +9,7 @@
     /// ProjectReserve          = Project.BudgetNet — rezerwa obciążana kosztami niespiętnymi
     /// TotalCostsNet           = LinkedCostsNet + ScheduleWorkItemCostsNet + AdditionalCostsNet
     /// LinkedCostsNet          = suma(TrackedCost.Net) WHERE CostEstimateItemId != null
-    /// ScheduleWorkItemCostsNet = suma(TrackedCost.Net) WHERE WorkScheduleStageWorkId != null AND WorkItemLinkId = null AND CostEstimateItemId = null
+    /// ScheduleWorkItemCostsNet = suma(TrackedCost.Net) WHERE WorkScheduleStageWorkId != null AND CostEstimateItemId = null
     /// AdditionalCostsNet      = suma(TrackedCost.Net) WHERE brak powiązania z kosztorysem i harmonogramem
     /// DeviationNet            = TotalBudgetNet - TotalCostsNet  (ujemna = przekroczenie)
     /// DeviationPercent        = DeviationNet / TotalBudgetNet * 100 (null gdy brak budżetu)

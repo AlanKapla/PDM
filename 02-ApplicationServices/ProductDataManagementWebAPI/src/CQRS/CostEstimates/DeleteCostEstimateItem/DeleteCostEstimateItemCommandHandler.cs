@@ -1,9 +1,18 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Configurations;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
+using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -15,10 +24,10 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
         private readonly IRepository<CostEstimateItem> itemRepository;
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
         private readonly IRepository<CostEstimateFieldFile> fieldFileRepository;
-        private readonly IBlobStorageService blobStorageService;
+        private readonly IRepository<WorkScheduleStageWork> stageWorkRepository;
+        private readonly IRepository<TrackedCost> trackedCostRepository;
         private readonly ICostEstimateCacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
-        private readonly IWorkItemLinkService workItemLinkService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteCostEstimateItemCommandHandler> logger;
 
@@ -26,20 +35,20 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             IRepository<CostEstimateItem> itemRepository,
             IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
             IRepository<CostEstimateFieldFile> fieldFileRepository,
-            IBlobStorageService blobStorageService,
+            IRepository<WorkScheduleStageWork> stageWorkRepository,
+            IRepository<TrackedCost> trackedCostRepository,
             ICostEstimateCacheService cacheService,
             ICostEstimateAccessService ceAccessService,
-            IWorkItemLinkService workItemLinkService,
             ICurrentUser currentUser,
             ILogger<DeleteCostEstimateItemCommandHandler> logger)
         {
             this.itemRepository = itemRepository;
             this.itemFieldValueRepository = itemFieldValueRepository;
             this.fieldFileRepository = fieldFileRepository;
-            this.blobStorageService = blobStorageService;
+            this.stageWorkRepository = stageWorkRepository;
+            this.trackedCostRepository = trackedCostRepository;
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
-            this.workItemLinkService = workItemLinkService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -80,25 +89,20 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             // Soft-delete files + delete blobs
             var filesToDelete = (await fieldFileRepository.GetBySearch(
                 f => f.CostEstimateId == request.CostEstimateId &&
-                     allItemIds.Contains(f.FieldValue.ItemId) &&
-                     !f.IsDeleted)).ToList();
+                     allItemIds.Contains(f.FieldValue.ItemId))).ToList();
 
             if (filesToDelete.Count > 0)
             {
-                string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.CostEstimates);
-
                 foreach (var file in filesToDelete)
                 {
                     file.IsDeleted = true;
                     file.DeletedAt = now;
-
-                    await blobStorageService.DeleteAsync(containerName, file.BlobName, cancellationToken);
                 }
 
                 await fieldFileRepository.UpdateRange(filesToDelete);
 
                 logger.LogInformation(
-                    "Soft-deleted {FileCount} files and removed blobs for deleted items in cost estimate {CostEstimateId}",
+                    "Soft-deleted {FileCount} files for deleted items in cost estimate {CostEstimateId}",
                     filesToDelete.Count, request.CostEstimateId);
             }
 
@@ -108,7 +112,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
 
             // Soft-delete items
             var itemsToDelete = (await itemRepository.GetBySearch(
-                i => allItemIds.Contains(i.Id) && !i.IsDeleted)).ToList();
+                i => allItemIds.Contains(i.Id))).ToList();
 
             foreach (var item in itemsToDelete)
             {
@@ -119,8 +123,15 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             await itemRepository.UpdateRange(itemsToDelete);
             await itemRepository.SaveChangesAsync(cancellationToken);
 
-            await workItemLinkService.DeleteWorkItemLinksForItemsAsync(
-                allItemIds, cancellationToken);
+            await stageWorkRepository.ExecuteUpdateAsync(
+                w => allItemIds.Contains(w.CostEstimateItemId!.Value),
+                s => s.SetProperty(w => w.CostEstimateItemId, (Guid?)null),
+                cancellationToken);
+
+            await trackedCostRepository.ExecuteUpdateAsync(
+                tc => allItemIds.Contains(tc.CostEstimateItemId!.Value),
+                s => s.SetProperty(tc => tc.CostEstimateItemId, (Guid?)null),
+                cancellationToken);
 
             // Invalidate cache
             await cacheService.InvalidateCostEstimateAsync(

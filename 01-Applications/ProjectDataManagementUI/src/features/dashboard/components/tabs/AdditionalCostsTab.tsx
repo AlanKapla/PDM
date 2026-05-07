@@ -7,6 +7,7 @@ import { MiniProgressBar } from '../shared/MiniProgressBar';
 import { CostTable } from '../shared/CostTable';
 import { TrackedCostModal } from '../TrackedCostModal';
 import AppModal from '../../../../components/ui/AppModal';
+import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface AdditionalCostsTabProps {
   data: ProjectAdditionalCostsWeb;
@@ -31,6 +32,7 @@ export function AdditionalCostsTab({
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const currencySymbol = useDashboardCurrency();
   const [neutral400, level1700, red600, amber400, action50, neutral200, level1500] = useToken('colors', [
     'neutral.400', 'level1.700', 'red.600', 'amber.400', 'action.50', 'neutral.200', 'level1.500',
   ]);
@@ -68,11 +70,11 @@ export function AdditionalCostsTab({
   return (
     <div>
       <div className="dashboard-kpi-3col">
-        <KpiCard label="Budżet główny" value={PLN(reserveNet)} />
-        <KpiCard label="Koszty główne" value={PLN(data.totalNet)} accent={amber400} />
+        <KpiCard label="Budżet główny" value={PLN(reserveNet, currencySymbol)} />
+        <KpiCard label="Koszty główne" value={PLN(data.totalNet, currencySymbol)} accent={amber400} />
         <KpiCard
           label="Pozostały budżet główny"
-          value={PLN(remainingReserve)}
+          value={PLN(remainingReserve, currencySymbol)}
           accent={remainingColor}
         />
       </div>

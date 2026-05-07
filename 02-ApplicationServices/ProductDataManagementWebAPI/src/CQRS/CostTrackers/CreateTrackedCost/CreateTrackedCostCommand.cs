@@ -7,7 +7,6 @@ namespace CQRS.CostTrackers.CreateTrackedCost
     /// </summary>
     public sealed record CreateTrackedCostCommand : TrackedCostCommandBase
     {
-        public Guid? WorkItemLinkId { get; init; }
         public Guid? CostEstimateItemId { get; init; }
         public Guid? WorkScheduleStageWorkId { get; init; }
     }

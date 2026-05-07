@@ -1,8 +1,16 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -43,8 +51,7 @@ namespace CQRS.Files.DeleteProjectFile
             ProjectFile? file = await projectFileRepo.GetFirstBySearch(
                 pf => pf.Id == request.FileId &&
                       pf.ProjectId == request.ProjectId &&
-                      pf.TenantId == request.TenantId &&
-                      !pf.IsDeleted)
+                      pf.TenantId == request.TenantId)
                 ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
             // 3. Authorization check: tenant admin OR project admin OR file owner
@@ -58,7 +65,7 @@ namespace CQRS.Files.DeleteProjectFile
 
             // 4. Get file versions
             var versions = await projectFileVersionRepo.GetBySearch(
-                v => v.ProjectFileId == file.Id && !v.IsDeleted);
+                v => v.ProjectFileId == file.Id);
 
             var versionsList = versions.ToList();
 

@@ -60,8 +60,8 @@ import { useProjectDetails } from "../hooks/queries";
 function CostSummaryBar({ costs }: { costs: ProjectCostListItemWeb[] }) {
   const summaryBg = useColorModeValue("primary.50", "primary.900");
   const total = costs.reduce((s, c) => s + c.grossAmount, 0);
-  const open = costs.filter(c => !c.isClosed).reduce((s, c) => s + c.grossAmount, 0);
-  const closed = costs.filter(c => c.isClosed).reduce((s, c) => s + c.grossAmount, 0);
+  const open = costs.filter(c => !c.isAccepted).reduce((s, c) => s + c.grossAmount, 0);
+  const accepted = costs.filter(c => c.isAccepted).reduce((s, c) => s + c.grossAmount, 0);
 
   return (
     <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3} p={3} bg={summaryBg} rounded="md">
@@ -70,12 +70,12 @@ function CostSummaryBar({ costs }: { costs: ProjectCostListItemWeb[] }) {
         <Text fontSize="md" fontWeight="bold">{formatCurrency(total)}</Text>
       </Box>
       <Box>
-        <Text fontSize="xs" color="neutral.600">Nierozliczone:</Text>
+        <Text fontSize="xs" color="neutral.600">Niezaakceptowane:</Text>
         <Text fontSize="md" fontWeight="bold" color="orange.500">{formatCurrency(open)}</Text>
       </Box>
       <Box>
-        <Text fontSize="xs" color="neutral.600">Rozliczone:</Text>
-        <Text fontSize="md" fontWeight="bold" color="green.500">{formatCurrency(closed)}</Text>
+        <Text fontSize="xs" color="neutral.600">Zaakceptowane:</Text>
+        <Text fontSize="md" fontWeight="bold" color="green.500">{formatCurrency(accepted)}</Text>
       </Box>
     </SimpleGrid>
   );
@@ -226,13 +226,13 @@ function AllCostsTab({
               canEdit={resourcePerms.all.canEdit}
               canDelete={resourcePerms.all.canDelete}
               canManageShare={resourcePerms.all.canManageShare}
-              canToggleClosed={canToggleClosed}
-              isTogglingClosed={editingClosedCostId === cost.id && savingClosedCost}
+              canToggleAccepted={canToggleClosed}
+              isTogglingAccepted={editingClosedCostId === cost.id && savingClosedCost}
               isDeleting={deletingCostId === cost.id}
               onEdit={() => onEditCost(cost)}
               onDelete={() => onDeleteCost(cost.id)}
               onManageShare={() => onManageShare(cost)}
-              onToggleClosed={() => onToggleCostClosed(cost.id, cost.isClosed)}
+              onToggleAccepted={() => onToggleCostClosed(cost.id, cost.isAccepted)}
             />
           ))}
         </VStack>
@@ -247,7 +247,7 @@ function AllCostsTab({
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
-                <Th textAlign="center">Rozliczone</Th>
+                <Th textAlign="center">Zaakceptowane</Th>
                 <Th textAlign="center">Dokument</Th>
                 {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
                   <Th textAlign="center">Akcje</Th>
@@ -265,8 +265,8 @@ function AllCostsTab({
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
-                      isChecked={cost.isClosed}
-                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                      isChecked={cost.isAccepted}
+                      onChange={() => onToggleCostClosed(cost.id, cost.isAccepted)}
                       colorScheme="green"
                       isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
                     />
@@ -400,13 +400,13 @@ function MyCostsTab({
               canEdit={resourcePerms.mine.canEdit}
               canDelete={resourcePerms.mine.canDelete}
               canManageShare={resourcePerms.mine.canManageShare}
-              canToggleClosed={canToggleClosed}
-              isTogglingClosed={editingClosedCostId === cost.id && savingClosedCost}
+              canToggleAccepted={canToggleClosed}
+              isTogglingAccepted={editingClosedCostId === cost.id && savingClosedCost}
               isDeleting={deletingCostId === cost.id}
               onEdit={() => onEditCost(cost)}
               onDelete={() => onDeleteCost(cost.id)}
               onManageShare={() => onShareCost(cost)}
-              onToggleClosed={() => onToggleCostClosed(cost.id, cost.isClosed)}
+              onToggleAccepted={() => onToggleCostClosed(cost.id, cost.isAccepted)}
             />
           ))}
         </VStack>
@@ -420,7 +420,7 @@ function MyCostsTab({
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
-                <Th textAlign="center">Rozliczone</Th>
+                <Th textAlign="center">Zaakceptowane</Th>
                 <Th textAlign="center">Dokument</Th>
                 <Th textAlign="center">Akcje</Th>
               </Tr>
@@ -435,8 +435,8 @@ function MyCostsTab({
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
-                      isChecked={cost.isClosed}
-                      onChange={() => onToggleCostClosed(cost.id, cost.isClosed)}
+                      isChecked={cost.isAccepted}
+                      onChange={() => onToggleCostClosed(cost.id, cost.isAccepted)}
                       colorScheme="green"
                       isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
                     />
@@ -529,9 +529,9 @@ function SharedCostsTab({
               key={cost.id}
               cost={cost}
               showOwner
-              canToggleClosed={canToggleClosed}
-              isTogglingClosed={editingSharedCostId === cost.id && savingSharedCost}
-              onToggleClosed={() => onToggleSharedCostClosed(cost.id, cost.isClosed)}
+              canToggleAccepted={canToggleClosed}
+              isTogglingAccepted={editingSharedCostId === cost.id && savingSharedCost}
+              onToggleAccepted={() => onToggleSharedCostClosed(cost.id, cost.isAccepted)}
             />
           ))}
         </VStack>
@@ -545,7 +545,7 @@ function SharedCostsTab({
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
-                <Th textAlign="center">Rozliczone</Th>
+                <Th textAlign="center">Zaakceptowane</Th>
                 <Th textAlign="center">Dokument</Th>
                 <Th>Udostępnione przez</Th>
               </Tr>
@@ -560,8 +560,8 @@ function SharedCostsTab({
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
                   <Td textAlign="center">
                     <Checkbox
-                      isChecked={cost.isClosed}
-                      onChange={() => onToggleSharedCostClosed(cost.id, cost.isClosed)}
+                      isChecked={cost.isAccepted}
+                      onChange={() => onToggleSharedCostClosed(cost.id, cost.isAccepted)}
                       colorScheme="green"
                       isDisabled={!canToggleClosed || (editingSharedCostId === cost.id && savingSharedCost)}
                     />
@@ -733,7 +733,7 @@ export default function ProjectSimpleCosts() {
           description: formData.description || undefined,
           netAmount: formData.netAmount ? parseFloat(formData.netAmount) : null,
           grossAmount: formData.grossAmount ? parseFloat(formData.grossAmount) : null,
-          isClosed: formData.isClosed,
+          isAccepted: formData.isAccepted,
           // Jeśli koszt miał już dokument i dodajemy nowy plik → UpdatedDocument (zastąpienie)
           // Jeśli koszt nie miał dokumentu i dodajemy plik → Document (nowy)
           document: modalDocumentFile && !editingCost.hasDocument ? modalDocumentFile : undefined,
@@ -749,7 +749,7 @@ export default function ProjectSimpleCosts() {
           description: formData.description || undefined,
           netAmount: formData.netAmount ? parseFloat(formData.netAmount) : null,
           grossAmount: formData.grossAmount ? parseFloat(formData.grossAmount) : null,
-          isClosed: formData.isClosed,
+          isAccepted: formData.isAccepted,
           document: modalDocumentFile || undefined,
         });
         showApiSuccess('costAdded');
@@ -829,7 +829,7 @@ export default function ProjectSimpleCosts() {
           description: cost.description || undefined,
           netAmount: cost.netAmount ?? null,
           grossAmount: cost.grossAmount ?? null,
-          isClosed: !currentIsClosed,
+          isAccepted: !currentIsClosed,
           removeDocument: false,
         }
       );
@@ -869,7 +869,7 @@ export default function ProjectSimpleCosts() {
           description: cost.description || undefined,
           netAmount: cost.netAmount ?? null,
           grossAmount: cost.grossAmount ?? null,
-          isClosed: !currentIsClosed,
+          isAccepted: !currentIsClosed,
           removeDocument: false,
         }
       );

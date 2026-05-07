@@ -1,10 +1,18 @@
-﻿using Business.Implementation.Helpers;
+using Business.Implementation.Helpers;
 using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
@@ -212,7 +220,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
             }
 
             CostEstimateGroup group = await groupRepository.GetFirstBySearch(
-                g => g.Id == request.GroupId && !g.IsDeleted)
+                g => g.Id == request.GroupId)
                 ?? throw new NotFoundApiException(nameof(CostEstimateGroup), request.GroupId.ToString());
 
             group.Name = request.StringValue ?? string.Empty;

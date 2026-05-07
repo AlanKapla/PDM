@@ -715,20 +715,9 @@ export default function CostEstimateTemplateEditor() {
 
         // Konfiguracja UI
         setColumns(struct.uiConfiguration?.columns ?? []);
-        
-        // Załaduj waluty i jednostki — upewnij się, że PLN jest zawsze obecny
-        const loadedCurrencies = struct.currencies.map(c => ({
-          code: c.code,
-          name: c.name,
-          symbol: c.symbol,
-          isDefault: c.isDefault,
-          order: c.order,
-        }));
-        if (!loadedCurrencies.some(c => c.code === 'PLN')) {
-          loadedCurrencies.push({ ...DEFAULT_PLN_CURRENCY, isDefault: loadedCurrencies.length === 0, order: loadedCurrencies.length });
-        }
-        setCurrencies(loadedCurrencies);
-        setUnits(struct.units.map(u => ({
+
+        // Waluty nie są już częścią szablonu kosztorysu — pozostaje domyślna PLN ze stanu lokalnego.
+        setUnits((struct.units ?? []).map(u => ({
           code: u.code,
           name: u.name,
           symbol: u.symbol,
@@ -743,6 +732,7 @@ export default function CostEstimateTemplateEditor() {
         })));
       }
     } catch (error: unknown) {
+      console.error("[CostEstimateTemplateEditor] fetchTemplateDetails failed:", error);
       showError("Błąd", "Nie udało się załadować szablonu");
       navigate("/cost-estimate-templates");
     } finally {
@@ -2078,7 +2068,6 @@ export default function CostEstimateTemplateEditor() {
                           onRemove={handleRemoveCalculatedField}
                           onUpdate={handleUpdateCalculatedField}
                           fieldTypeConfigs={fieldTypeConfigs}
-                          units={units}
                         />
                       </AccordionPanel>
                     </AccordionItem>
@@ -3406,7 +3395,6 @@ interface CalculatedFieldsEditorProps {
   onRemove: (index: number) => void;
   onUpdate: (index: number, updates: Partial<CalculatedFieldDefinition>) => void;
   fieldTypeConfigs: Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
-  units: Array<{ code: string; name: string; symbol: string; }>;
 }
 
 function CalculatedFieldsEditor({
@@ -3415,7 +3403,6 @@ function CalculatedFieldsEditor({
   onRemove,
   onUpdate,
   fieldTypeConfigs,
-  units,
 }: CalculatedFieldsEditorProps) {
   // Pobierz dostępne typy pól kalkulowanych z BE (scope 2 = calculated)
   const availableCalculatedFields = fieldTypeConfigs[2] || [];
@@ -3503,7 +3490,6 @@ function CalculatedFieldsEditor({
                   <Tooltip label="Typ pola obliczeniowego" hasArrow><span>Typ pola</span></Tooltip>
                 </Th>
                 <Th>Etykieta</Th>
-                <Th w="120px">Jednostka</Th>
                 <Th w="80px">
                   <Tooltip label="Czy kolumna jest widoczna w widoku kosztorysu" hasArrow><span>Widoczne</span></Tooltip>
                 </Th>
@@ -3541,22 +3527,6 @@ function CalculatedFieldsEditor({
                         value={field.label}
                         onChange={(e) => onUpdate(index, { label: e.target.value })}
                       />
-                    </Td>
-                    <Td>
-                      <Input
-                        size="sm"
-                        list={`units-list-${index}`}
-                        value={field.unit || ''}
-                        onChange={(e) => onUpdate(index, { unit: e.target.value })}
-                        placeholder="Wybierz lub wpisz"
-                      />
-                      <datalist id={`units-list-${index}`}>
-                        {units.map((u) => (
-                          <option key={u.code} value={u.symbol || u.code}>
-                            {u.name} ({u.symbol || u.code})
-                          </option>
-                        ))}
-                      </datalist>
                     </Td>
                     <Td>
                       <Checkbox

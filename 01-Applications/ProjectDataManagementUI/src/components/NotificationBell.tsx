@@ -178,13 +178,13 @@ export default function NotificationBell() {
           <Box
             key={notification.id}
             p={3}
-            bg={!notification.readed ? unreadBg : "transparent"}
+            bg={!notification.isRead ? unreadBg : "transparent"}
             borderBottom="1px"
             borderColor={borderColor}
             _hover={{ bg: hoverBg }}
             transition="background 0.2s"
             cursor="pointer"
-            onClick={() => !notification.readed && handleMarkAsRead(notification.id)}
+            onClick={() => !notification.isRead && handleMarkAsRead(notification.id)}
           >
             <HStack align="flex-start" spacing={3}>
               <Icon
@@ -198,7 +198,7 @@ export default function NotificationBell() {
                   <Text fontWeight="600" fontSize="sm" noOfLines={2} flex={1}>
                     {notification.title}
                   </Text>
-                  {!notification.readed && (
+                  {!notification.isRead && (
                     <Badge colorScheme="primary" fontSize="xs" flexShrink={0}>
                       Nowe
                     </Badge>

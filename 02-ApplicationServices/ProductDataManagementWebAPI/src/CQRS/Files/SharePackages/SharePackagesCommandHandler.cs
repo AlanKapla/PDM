@@ -1,7 +1,15 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -40,8 +48,7 @@ namespace CQRS.Files.SharePackages
             var packages = (await packageRepo.GetBySearch(
                 p => request.PackageIds.Contains(p.Id)
                     && p.ProjectId == request.ProjectId
-                    && p.TenantId == request.TenantId
-                    && !p.IsDeleted)).ToList();
+                    && p.TenantId == request.TenantId)).ToList();
 
             if (packages.Count != request.PackageIds.Count)
             {

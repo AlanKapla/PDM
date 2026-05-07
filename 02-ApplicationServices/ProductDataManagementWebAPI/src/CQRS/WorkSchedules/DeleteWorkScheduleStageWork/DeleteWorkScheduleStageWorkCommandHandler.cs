@@ -1,6 +1,15 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
+using Entities.Models.CostTrackers;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -10,22 +19,22 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWork
     {
         private readonly IRepository<WorkScheduleStageWork> workRepository;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepository;
+        private readonly IRepository<TrackedCost> trackedCostRepository;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
-        private readonly IWorkItemLinkService workItemLinkService;
 
         public DeleteWorkScheduleStageWorkCommandHandler(
             IRepository<WorkScheduleStageWork> workRepository,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepository,
+            IRepository<TrackedCost> trackedCostRepository,
             IWorkScheduleCacheService scheduleCache,
-            IWorkScheduleAccessService accessService,
-            IWorkItemLinkService workItemLinkService)
+            IWorkScheduleAccessService accessService)
         {
             this.workRepository = workRepository;
             this.dependencyRepository = dependencyRepository;
+            this.trackedCostRepository = trackedCostRepository;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
-            this.workItemLinkService = workItemLinkService;
         }
 
         public async Task<Unit> Handle(DeleteWorkScheduleStageWorkCommand request, CancellationToken cancellationToken)
@@ -44,16 +53,28 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWork
 
             await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
-            await workItemLinkService.DeleteWorkItemLinkForWorkAsync(
-                request.WorkScheduleStageWorkId, cancellationToken);
+            // Nulluj TrackedCost.WorkScheduleStageWorkId przed soft-delete
+            await trackedCostRepository.ExecuteUpdateAsync(
+                x => x.WorkScheduleStageWorkId == request.WorkScheduleStageWorkId,
+                x => x.SetProperty(p => p.WorkScheduleStageWorkId, (Guid?)null),
+                cancellationToken);
+
+            // Nulluj WorkScheduleStageWork.CostEstimateItemId
+            await workRepository.ExecuteUpdateAsync(
+                x => x.Id == request.WorkScheduleStageWorkId,
+                x => x.SetProperty(p => p.CostEstimateItemId, (Guid?)null),
+                cancellationToken);
 
             await dependencyRepository.ExecuteDeleteAsync(
                 d => d.PredecessorWorkId == request.WorkScheduleStageWorkId
                   || d.SuccessorWorkId == request.WorkScheduleStageWorkId,
                 cancellationToken);
 
-            await workRepository.ExecuteDeleteAsync(
-                w => w.Id == request.WorkScheduleStageWorkId,
+            // Soft-delete WorkScheduleStageWork
+            await workRepository.ExecuteUpdateAsync(
+                x => x.Id == request.WorkScheduleStageWorkId,
+                x => x.SetProperty(p => p.IsDeleted, true)
+                      .SetProperty(p => p.DeletedAt, DateTime.UtcNow),
                 cancellationToken);
 
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);

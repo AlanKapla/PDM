@@ -14,7 +14,7 @@
         public string? Description { get; init; }
         public decimal? NetAmount { get; init; }
         public decimal? GrossAmount { get; init; }
-        public bool IsClosed { get; init; }
+        public bool IsAccepted { get; init; }
         public bool HasDocument { get; init; }
         public string? DocumentFileName { get; init; }
         public string? PreviewSasUrl { get; init; }

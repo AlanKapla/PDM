@@ -40,12 +40,6 @@ namespace Entities.Configurations
             builder.Property(f => f.CreatedByUserId)
                 .IsRequired();
             
-            builder.Property(f => f.IsDeleted)
-                .IsRequired()
-                .HasDefaultValue(false);
-            
-            builder.Property(f => f.DeletedAt);
-            
             builder.HasOne(f => f.FieldValue)
                 .WithMany(fv => fv.Files)
                 .HasForeignKey(f => f.FieldValueId)

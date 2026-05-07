@@ -43,16 +43,14 @@ namespace CQRS.CostEstimates.GetCostEstimates
                 case ResourceScope.All:
                     costEstimates = await costEstimateRepository.GetBySearch(
                         c => c.ProjectId == request.ProjectId &&
-                             c.TenantId == request.TenantId &&
-                             !c.IsDeleted);
+                             c.TenantId == request.TenantId);
                     break;
 
                 case ResourceScope.Mine:
                     costEstimates = await costEstimateRepository.GetBySearch(
                         c => c.ProjectId == request.ProjectId &&
                              c.TenantId == request.TenantId &&
-                             c.OwnerId == currentUser.Id &&
-                             !c.IsDeleted);
+                             c.OwnerId == currentUser.Id);
                     break;
 
                 case ResourceScope.Shared:
@@ -66,7 +64,7 @@ namespace CQRS.CostEstimates.GetCostEstimates
                     costEstimates = sharedCeIds.Count == 0
                         ? Enumerable.Empty<CostEstimate>()
                         : await costEstimateRepository.GetBySearch(
-                            c => sharedCeIds.Contains(c.Id) && !c.IsDeleted);
+                            c => sharedCeIds.Contains(c.Id));
                     break;
 
                 default:

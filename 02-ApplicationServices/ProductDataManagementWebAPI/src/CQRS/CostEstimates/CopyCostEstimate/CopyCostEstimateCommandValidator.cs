@@ -1,6 +1,14 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using CQRS.Extensions;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -47,7 +55,6 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         ce => ce.Id == command.CostEstimateId
                             && ce.TenantId == command.TenantId
                             && ce.ProjectId == command.ProjectId
-                            && !ce.IsDeleted
                             && ce.OwnerId == currentUser.Id);
 
                     return costEstimate != null;

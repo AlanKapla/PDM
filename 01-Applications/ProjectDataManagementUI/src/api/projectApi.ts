@@ -1,4 +1,5 @@
 ﻿import { axiosClient } from "./axiosClient";
+import type { SetProjectCurrencyRequest } from "../types/project.types";
 
 // Resource scope enum matching backend
 export enum ResourceScope {
@@ -384,7 +385,7 @@ export const projectApi = {
       netAmount?: number | null;
       vatRate?: number | null;
       grossAmount?: number | null;
-      isClosed?: boolean;
+      isAccepted?: boolean;
       document?: File;
     }
   ) => {
@@ -398,7 +399,7 @@ export const projectApi = {
     if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
     if (data.vatRate !== undefined && data.vatRate !== null) formData.append("VatRate", data.vatRate.toString());
     if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
-    if (data.isClosed !== undefined) formData.append("IsClosed", data.isClosed.toString());
+    if (data.isAccepted !== undefined) formData.append("IsAccepted", data.isAccepted.toString());
     if (data.document) formData.append("Document", data.document);
 
     return axiosClient.post(`/tenants/${tenantId}/project/${projectId}/cost`, formData, {
@@ -418,7 +419,7 @@ export const projectApi = {
       description?: string;
       netAmount?: number | null;
       grossAmount?: number | null;
-      isClosed: boolean;
+      isAccepted: boolean;
       /** Nowy dokument – gdy koszt nie miał wcześniej pliku */
       document?: File;
       /** Nowy plik zastępujący istniejący dokument */
@@ -436,7 +437,7 @@ export const projectApi = {
     if (data.description) formData.append("Description", data.description);
     if (data.netAmount !== undefined && data.netAmount !== null) formData.append("NetAmount", data.netAmount.toString());
     if (data.grossAmount !== undefined && data.grossAmount !== null) formData.append("GrossAmount", data.grossAmount.toString());
-    formData.append("IsClosed", data.isClosed.toString());
+    formData.append("IsAccepted", data.isAccepted.toString());
     if (data.document) formData.append("Document", data.document);
     if (data.updatedDocument) formData.append("UpdatedDocument", data.updatedDocument);
     formData.append("RemoveDocument", data.removeDocument.toString());
@@ -478,5 +479,14 @@ export const projectApi = {
   // Zmień rolę członka projektu
   updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, roleId: string) => {
       return axiosClient.patch(`/tenants/${tenantId}/project/${projectId}/members/${userId}/role`, { roleId });
+  },
+
+  // Ustaw walutę projektu
+  setProjectCurrency: async (
+    tenantId: string,
+    projectId: string,
+    data: SetProjectCurrencyRequest
+  ): Promise<void> => {
+    await axiosClient.put(`/tenants/${tenantId}/project/${projectId}/currency`, data);
   },
 };

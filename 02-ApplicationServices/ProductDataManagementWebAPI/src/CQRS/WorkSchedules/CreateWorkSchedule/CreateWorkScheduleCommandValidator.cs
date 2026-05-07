@@ -1,4 +1,12 @@
-﻿using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
@@ -22,8 +30,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                         await costEstimateRepo.AnyAsync(
                             ce => ce.Id == id!.Value
                                   && ce.TenantId == command.TenantId
-                                  && ce.ProjectId == command.ProjectId
-                                  && !ce.IsDeleted,
+                                  && ce.ProjectId == command.ProjectId,
                             cancellationToken))
                     .WithMessage("Cost estimate not found or does not belong to this project");
 
@@ -32,8 +39,7 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                         !await workScheduleRepo.AnyAsync(
                             ws => ws.TenantId == command.TenantId
                                   && ws.ProjectId == command.ProjectId
-                                  && !ws.IsDeleted
-                                  && ws.CostEstimateLinks.Any(l => l.CostEstimateId == id!.Value),
+                                  && ws.CostEstimateId == id!.Value,
                             cancellationToken))
                     .WithMessage("A work schedule for this cost estimate already exists");
             });

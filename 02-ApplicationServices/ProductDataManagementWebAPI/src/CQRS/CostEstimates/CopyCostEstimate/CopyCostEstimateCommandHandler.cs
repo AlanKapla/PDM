@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.CostEstimates;
@@ -86,7 +86,6 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                     Name = $"{sourceCostEstimate.Name} (kopia)",
                     Description = sourceCostEstimate.Description,
                     Status = CostEstimateStatus.Draft,
-                    SelectedCurrencyId = sourceCostEstimate.SelectedCurrencyId,
                     TotalNet = sourceCostEstimate.TotalNet,
                     TotalGross = sourceCostEstimate.TotalGross,
                     TotalVat = sourceCostEstimate.TotalVat,

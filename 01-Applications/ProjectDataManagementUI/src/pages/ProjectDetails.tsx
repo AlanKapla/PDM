@@ -26,7 +26,7 @@ import {
   Input,
   Tooltip,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp, Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { handleApiError } from "../utils/handleApiError";
@@ -274,7 +274,7 @@ export default function ProjectDetails() {
       description: cost.description || '',
       netAmount: cost.netAmount?.toString() || '',
       grossAmount: cost.grossAmount.toString(),
-      isClosed: cost.isClosed,
+      isAccepted: cost.isAccepted,
       removeDocument: false,
     });
     setDocumentFile(null);
@@ -320,7 +320,7 @@ export default function ProjectDetails() {
           description: editingCostData.description || undefined,
           netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
           grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
-          isClosed: editingCostData.isClosed ?? false,
+          isAccepted: editingCostData.isAccepted ?? false,
           document: documentFile || undefined,
           removeDocument: editingCostData.removeDocument,
         }
@@ -829,6 +829,26 @@ export default function ProjectDetails() {
                     <VStack spacing={3}>
                       <Icon as={TrendingUp} boxSize={8} color="green.600" />
                       <Text fontWeight="bold" fontSize="md">Dashboard</Text>
+                    </VStack>
+                  </Box>
+                )}
+
+                {permissions.canView && (
+                  <Box
+                    as="button"
+                    bg={cardBg}
+                    p={6}
+                    rounded="lg"
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                    shadow="sm"
+                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                    transition="all 0.2s"
+                    onClick={() => navigate(`/projects/${projectId}/parameters`)}
+                  >
+                    <VStack spacing={3}>
+                      <Icon as={Settings} boxSize={8} color="action.600" />
+                      <Text fontWeight="bold" fontSize="md">Parametry</Text>
                     </VStack>
                   </Box>
                 )}

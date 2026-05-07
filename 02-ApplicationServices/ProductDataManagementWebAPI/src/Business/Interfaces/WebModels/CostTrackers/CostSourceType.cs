@@ -8,11 +8,8 @@ namespace Business.Interfaces.WebModels.CostTrackers
     ///
     /// Logika rozstrzygania (Resolve):
     /// <code>
-    ///   if (WorkItemLinkId != null)
-    ///       return LinkedWorkItem;
-    ///
     ///   if (CostEstimateItemId != null &amp;&amp; WorkScheduleStageWorkId != null)
-    ///       return LinkedWorkItem;  // edge case — oba ustawione bez linku
+    ///       return LinkedWorkItem;  // koszt wspólny — pozycja kosztorysu i zakres pracy
     ///
     ///   if (WorkScheduleStageWorkId != null)
     ///       return ScheduleWorkItem;

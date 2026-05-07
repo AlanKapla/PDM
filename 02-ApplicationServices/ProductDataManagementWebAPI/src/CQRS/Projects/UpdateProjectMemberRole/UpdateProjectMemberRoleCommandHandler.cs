@@ -1,11 +1,19 @@
-﻿using Business.Implementation.Services;
+using Business.Implementation.Services;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
 using Entities.Enums;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
@@ -81,8 +89,8 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 Type = NotificationType.Info,
                 Title = "Zmieniono Twoją rolę w projekcie",
                 Message = $"Twoja rola w projekcie '{project.Name}' została zmieniona na {newRole.Name}.",
-                CreatedAt = DateTimeOffset.UtcNow,
-                Readed = false,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "projectId", request.ProjectId },

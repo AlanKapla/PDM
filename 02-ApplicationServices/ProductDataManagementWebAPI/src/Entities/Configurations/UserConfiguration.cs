@@ -1,6 +1,15 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Entities.Models; 
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models;
+using Entities.Models.WorkSchedules;
 
 namespace Entities.Configurations
 {
@@ -41,11 +50,13 @@ namespace Entities.Configurations
         {
             builder.HasKey(p => p.Id);
             builder.HasOne(p => p.User)
-                   .WithMany(u => u.Profiles) 
+                   .WithMany(u => u.Profiles)
                    .HasForeignKey(p => p.UserId)
+                   .IsRequired()
                    .OnDelete(DeleteBehavior.Cascade);
             builder.HasDiscriminator<string>("ProfileType")
-                   .HasValue<TenantPreferencesProfile>("TenantPreferences");
+                   .HasValue<TenantPreferencesProfile>("TenantPreferences")
+                   .HasValue<PermissionsVersionProfile>("PermissionsVersion");
         }
     }
 }

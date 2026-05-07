@@ -135,8 +135,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
         {
             var existingFiles = await fieldFileRepo.GetBySearch(
                 f => f.FieldValueId == fieldValueId &&
-                     f.CostEstimateId == costEstimateId &&
-                     !f.IsDeleted);
+                     f.CostEstimateId == costEstimateId);
 
             var fileList = existingFiles.ToList();
             if (fileList.Count == 0)

@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -161,8 +169,8 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
                     Title = title,
                     Message = message,
                     Metadata = metadata,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    Readed = false
+                    CreatedAt = DateTime.UtcNow,
+                    IsRead = false
                 };
 
                 var payload = await NotificationPayloadHelper.CreatePayloadAsync(

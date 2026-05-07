@@ -22,7 +22,6 @@ export interface TrackedCostModalProps {
   mode: 'create' | 'edit';
   /** null = koszt dodatkowy projektu (bez żadnego powiązania) */
   workItemType?: WorkItemType | null;
-  workItemLinkId?: string | null;
   costEstimateItemId?: string | null;
   workScheduleStageWorkId?: string | null;
   cost?: TrackedCostWeb;
@@ -36,7 +35,6 @@ export function TrackedCostModal({
   projectId,
   mode,
   workItemType,
-  workItemLinkId,
   costEstimateItemId,
   workScheduleStageWorkId,
   cost,
@@ -81,12 +79,15 @@ export function TrackedCostModal({
           contractor: contractor || null,
           date: date || null,
           newFiles: newFiles.length > 0 ? newFiles : undefined,
-          ...(workItemType === WorkItemType.Schedule
-            ? workItemLinkId ? { workItemLinkId } : { workScheduleStageWorkId: workScheduleStageWorkId ?? null }
-            : workItemType === WorkItemType.Estimate
-              ? workItemLinkId ? { workItemLinkId } : { costEstimateItemId: costEstimateItemId ?? null }
-              : workItemType === WorkItemType.Link
-                ? { workItemLinkId: workItemLinkId ?? null }
+          ...(workItemType === WorkItemType.LinkedWorkItem
+            ? {
+                costEstimateItemId: costEstimateItemId ?? null,
+                workScheduleStageWorkId: workScheduleStageWorkId ?? null,
+              }
+            : workItemType === WorkItemType.ScheduleWorkItem
+              ? { workScheduleStageWorkId: workScheduleStageWorkId ?? null }
+              : workItemType === WorkItemType.EstimateItem
+                ? { costEstimateItemId: costEstimateItemId ?? null }
                 : {}),
         };
         result = await createCost(data);

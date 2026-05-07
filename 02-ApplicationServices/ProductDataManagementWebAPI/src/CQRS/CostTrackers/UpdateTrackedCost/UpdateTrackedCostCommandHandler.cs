@@ -1,9 +1,19 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
+using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
-using Entities.Models.WorkItemLinks;
+using Entities.Models.Costs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -19,12 +29,13 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
 
         public UpdateTrackedCostCommandHandler(
             IReadRepository<TrackedCost> trackedCostRepository,
-            IReadRepository<CostEstimateItemWorkScheduleStageWorkLink> workItemLinkRepository,
+            IReadRepository<CostEstimateItem> costEstimateItemRepository,
+            IReadRepository<WorkScheduleStageWork> stageWorkRepository,
             ICostTrackerFinancialService financialService,
             ICostTrackerAttachmentService attachmentService,
             ICurrentUser currentUser,
             ILogger<UpdateTrackedCostCommandHandler> logger)
-            : base(currentUser, trackedCostRepository, workItemLinkRepository, attachmentService)
+            : base(currentUser, trackedCostRepository, costEstimateItemRepository, stageWorkRepository, attachmentService)
         {
             this.trackedCostRepository = trackedCostRepository;
             this.financialService = financialService;
@@ -37,7 +48,7 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
         {
             TrackedCost cost = await GetAndValidateTrackedCostAsync(request.CostId, request.TenantId, request.ProjectId, cancellationToken);
 
-            var (net, gross) = financialService.Calculate(request.Net, request.Gross);
+            (decimal? net, decimal? gross) = financialService.Calculate(request.Net, request.Gross);
 
             cost.Name = request.Name;
             cost.Number = request.Number;
@@ -58,7 +69,7 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
                 ? new List<Guid>()
                 : request.ExistingAttachmentIds;
 
-            var attachments = await attachmentService.SyncAttachmentsAsync(
+            List<BaseCostAttachment> attachments = await attachmentService.SyncAttachmentsAsync(
                 cost, request.NewFiles, effectiveExistingIds, request.TenantId, request.ProjectId, cancellationToken);
 
             return BuildCostWeb(cost, attachments);

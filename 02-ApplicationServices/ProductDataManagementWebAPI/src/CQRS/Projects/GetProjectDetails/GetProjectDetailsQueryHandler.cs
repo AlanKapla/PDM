@@ -2,7 +2,15 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
@@ -13,15 +21,18 @@ namespace CQRS.Projects.GetProjectDetails
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
+        private readonly IReadRepository<ProjectCurrency> currencyRepo;
         private readonly ICurrentUser currentUser;
 
         public GetProjectDetailsQueryHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
+            IReadRepository<ProjectCurrency> currencyRepo,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
+            this.currencyRepo = currencyRepo;
             this.currentUser = currentUser;
         }
 
@@ -88,6 +99,13 @@ namespace CQRS.Projects.GetProjectDetails
                 userPermissions = projectSnapshot.ProjectPermissionCodes;
             }
 
+            // ─────────────────────────────────────────────────────────────────────
+            // STEP 6: Get project currency
+            // ─────────────────────────────────────────────────────────────────────
+            ProjectCurrency? currency = await currencyRepo.GetFirstBySearch(
+                x => x.ProjectId == request.ProjectId,
+                cancellationToken);
+
             return new ProjectDetailsWeb(
                 Id: project.Id,
                 TenantId: project.TenantId,
@@ -100,7 +118,10 @@ namespace CQRS.Projects.GetProjectDetails
                     : "Unknown",
                 UserRoleCode: userRoleCode,
                 MembersCount: allMembers.Count(),
-                UserPermissions: userPermissions
+                UserPermissions: userPermissions,
+                Currency: currency is null
+                    ? null
+                    : new ProjectCurrencyWeb(currency.Code, currency.Name, currency.Symbol)
             );
         }
     }

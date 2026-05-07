@@ -1,10 +1,19 @@
-﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
+using Entities.Models.Costs;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
@@ -14,7 +23,6 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IReadRepository<SharedProjectCost> sharedProjectCostRepo;
-        private readonly IBlobStorageService blobStorageService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UpdateProjectCostCommandHandler> logger;
 
@@ -22,13 +30,13 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             IRepository<ProjectCost> projectCostRepo,
             IReadRepository<SharedProjectCost> sharedProjectCostRepo,
             IBlobStorageService blobStorageService,
+            IRepository<BaseCostAttachment> attachmentRepository,
             ICurrentUser currentUser,
             ILogger<UpdateProjectCostCommandHandler> logger)
-            : base(blobStorageService)
+            : base(blobStorageService, attachmentRepository)
         {
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
-            this.blobStorageService = blobStorageService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -44,7 +52,6 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                 return Unit.Value;
             }
 
-            bool wasAccepted = projectCost.IsClosed;
             ApplyFieldUpdates(request, projectCost);
             await HandleDocumentOperationsAsync(request, projectCost, cancellationToken);
 
@@ -58,17 +65,21 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             return Unit.Value;
         }
 
-        private async Task<ProjectCost> GetAndValidateProjectCostAsync(UpdateProjectCostCommand request, CancellationToken cancellationToken)
+        private async Task<ProjectCost> GetAndValidateProjectCostAsync(
+            UpdateProjectCostCommand request,
+            CancellationToken cancellationToken)
         {
             return await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId
                     && pc.TenantId == request.TenantId
-                    && pc.ProjectId == request.ProjectId
-                    && !pc.IsDeleted)
+                    && pc.ProjectId == request.ProjectId)
                 ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
         }
 
-        private async Task<bool> ValidateAccessAndGetPermissionsAsync(UpdateProjectCostCommand request, ProjectCost projectCost, CancellationToken cancellationToken)
+        private async Task<bool> ValidateAccessAndGetPermissionsAsync(
+            UpdateProjectCostCommand request,
+            ProjectCost projectCost,
+            CancellationToken cancellationToken)
         {
             bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
             bool isCostOwner = projectCost.UserId == currentUser.Id;
@@ -80,7 +91,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                     spc => spc.ProjectCostId == request.CostId
                         && spc.SharedWithUserId == currentUser.Id);
 
-                hasShareAccess = share != null;
+                hasShareAccess = share is not null;
 
                 if (!hasShareAccess)
                 {
@@ -92,18 +103,20 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             return hasShareAccess && !canEditAllFields;
         }
 
-        private async Task HandleSharedUserUpdateAsync(UpdateProjectCostCommand request, ProjectCost projectCost, CancellationToken cancellationToken)
+        private async Task HandleSharedUserUpdateAsync(
+            UpdateProjectCostCommand request,
+            ProjectCost projectCost,
+            CancellationToken cancellationToken)
         {
-            bool wasAccepted = projectCost.IsClosed;
-            projectCost.IsClosed = request.IsClosed;
+            projectCost.IsAccepted = request.IsAccepted;
             projectCost.UpdatedAt = DateTime.UtcNow;
 
             await projectCostRepo.Update(projectCost);
             await projectCostRepo.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
-                "Cost {CostId} IsClosed updated to {IsClosed} in project {ProjectId} by shared user {UserId}",
-                request.CostId, request.IsClosed, request.ProjectId, currentUser.Id);
+                "Cost {CostId} IsAccepted updated to {IsAccepted} in project {ProjectId} by shared user {UserId}",
+                request.CostId, request.IsAccepted, request.ProjectId, currentUser.Id);
         }
 
         private void ApplyFieldUpdates(UpdateProjectCostCommand request, ProjectCost projectCost)
@@ -112,81 +125,41 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             projectCost.Place = request.Place;
             projectCost.Date = request.Date.Date;
             projectCost.Description = request.Description;
-            projectCost.NetAmount = request.NetAmount;
-            projectCost.GrossAmount = request.GrossAmount ?? request.NetAmount!.Value;
-            projectCost.IsClosed = request.IsClosed;
+            projectCost.Net = request.NetAmount;
+            projectCost.Gross = request.GrossAmount ?? request.NetAmount;
+            projectCost.IsAccepted = request.IsAccepted;
             projectCost.UpdatedAt = DateTime.UtcNow;
         }
 
-        private async Task HandleDocumentOperationsAsync(UpdateProjectCostCommand request, ProjectCost projectCost, CancellationToken cancellationToken)
+        private async Task HandleDocumentOperationsAsync(
+            UpdateProjectCostCommand request,
+            ProjectCost projectCost,
+            CancellationToken cancellationToken)
         {
-            if (request.RemoveDocument && projectCost.HasDocument && !string.IsNullOrWhiteSpace(projectCost.DocumentBlobPath))
+            if (request.RemoveDocument)
             {
-                try
-                {
-                    string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.ProjectCosts);
-                    await blobStorageService.DeleteAsync(containerName, projectCost.DocumentBlobPath, cancellationToken);
+                await RemoveAttachmentsAsync(projectCost.Id, cancellationToken);
 
-                    logger.LogInformation(
-                        "Document removed for cost {CostId} in project {ProjectId}",
-                        request.CostId, request.ProjectId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex,
-                        "Failed to delete document for cost {CostId}, continuing with metadata removal",
-                        request.CostId);
-                }
-
-                projectCost.HasDocument = false;
-                projectCost.DocumentFileName = null;
-                projectCost.DocumentBlobPath = null;
-                projectCost.DocumentContentType = null;
-                projectCost.DocumentSizeBytes = null;
+                logger.LogInformation(
+                    "Document removed for cost {CostId} in project {ProjectId}",
+                    request.CostId, request.ProjectId);
             }
 
-            if (request.UpdatedDocument != null)
+            IFormFile? fileToUpload = request.UpdatedDocument ?? request.Document;
+
+            if (fileToUpload is not null)
             {
-                if (projectCost.HasDocument && !string.IsNullOrWhiteSpace(projectCost.DocumentBlobPath))
+                if (request.UpdatedDocument is not null)
                 {
-                    try
-                    {
-                        string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.ProjectCosts);
-                        await blobStorageService.DeleteAsync(containerName, projectCost.DocumentBlobPath, cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex,
-                            "Failed to delete old document for cost {CostId}",
-                            request.CostId);
-                    }
+                    await RemoveAttachmentsAsync(projectCost.Id, cancellationToken);
                 }
 
                 try
                 {
-                    await UploadDocumentToCostAsync(projectCost, request.UpdatedDocument, request.TenantId, request.CostId, cancellationToken);
+                    await UploadDocumentToCostAsync(projectCost, fileToUpload, cancellationToken);
 
                     logger.LogInformation(
-                        "Document replaced for cost {CostId} in project {ProjectId}",
-                        request.CostId, request.ProjectId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex,
-                        "Failed to upload updated document for cost {CostId}",
-                        request.CostId);
-
-                    throw new ValidationApiException("Cost updated but document upload failed");
-                }
-            }
-            else if (request.Document != null)
-            {
-                try
-                {
-                    await UploadDocumentToCostAsync(projectCost, request.Document, request.TenantId, request.CostId, cancellationToken);
-
-                    logger.LogInformation(
-                        "Document added to cost {CostId} in project {ProjectId}",
+                        "Document uploaded for cost {CostId} in project {ProjectId}",
                         request.CostId, request.ProjectId);
                 }
                 catch (Exception ex)

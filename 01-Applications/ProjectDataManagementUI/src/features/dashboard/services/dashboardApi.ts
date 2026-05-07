@@ -36,7 +36,6 @@ export async function createTrackedCost(
   data: CreateTrackedCostRequest
 ): Promise<TrackedCostWeb> {
   const formData = new FormData();
-  if (data.workItemLinkId != null) formData.append('workItemLinkId', data.workItemLinkId);
   if (data.costEstimateItemId != null) formData.append('costEstimateItemId', data.costEstimateItemId);
   if (data.workScheduleStageWorkId != null) formData.append('workScheduleStageWorkId', data.workScheduleStageWorkId);
   formData.append('name', data.name);

@@ -1,10 +1,19 @@
-﻿using Business.Interfaces.Constants;
+using Entities.Models;
+using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
@@ -107,8 +116,8 @@ public class ToggleTenantStatusCommandHandler : IRequestHandler<ToggleTenantStat
                 Type = notificationType,
                 Title = $"Organizacja {actionText}",
                 Message = $"Organizacja \"{tenant.Name}\" została {actionText}",
-                CreatedAt = DateTimeOffset.UtcNow,
-                Readed = false,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "tenantId", request.TenantId },

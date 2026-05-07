@@ -18,13 +18,13 @@ interface ExpenseCardProps {
   canEdit?: boolean;
   canDelete?: boolean;
   canManageShare?: boolean;
-  canToggleClosed?: boolean;
-  isTogglingClosed?: boolean;
+  canToggleAccepted?: boolean;
+  isTogglingAccepted?: boolean;
   isDeleting?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
   onManageShare?: () => void;
-  onToggleClosed?: () => void;
+  onToggleAccepted?: () => void;
 }
 
 export default function ExpenseCard({
@@ -33,13 +33,13 @@ export default function ExpenseCard({
   canEdit = false,
   canDelete = false,
   canManageShare = false,
-  canToggleClosed = false,
-  isTogglingClosed = false,
+  canToggleAccepted = false,
+  isTogglingAccepted = false,
   isDeleting = false,
   onEdit,
   onDelete,
   onManageShare,
-  onToggleClosed,
+  onToggleAccepted,
 }: ExpenseCardProps) {
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const bg = useColorModeValue("white", "gray.800");
@@ -86,15 +86,15 @@ export default function ExpenseCard({
       {/* Wiersz 3: Badges + ikony akcji */}
       <HStack justify="space-between" align="center" flexWrap="wrap" gap={1}>
         <HStack spacing={2} flexWrap="wrap">
-          {/* Checkbox Rozliczone */}
+          {/* Checkbox Zaakceptowane */}
           <Checkbox
-            isChecked={cost.isClosed}
-            onChange={canToggleClosed && !isTogglingClosed ? onToggleClosed : undefined}
+            isChecked={cost.isAccepted}
+            onChange={canToggleAccepted && !isTogglingAccepted ? onToggleAccepted : undefined}
             colorScheme="green"
-            isDisabled={!canToggleClosed || isTogglingClosed}
+            isDisabled={!canToggleAccepted || isTogglingAccepted}
             size="sm"
           >
-            <Text fontSize="xs">{cost.isClosed ? "Rozliczone" : "Nierozliczone"}</Text>
+            <Text fontSize="xs">{cost.isAccepted ? "Zaakceptowane" : "Niezaakceptowane"}</Text>
           </Checkbox>
 
           {/* Chip dokumentu */}

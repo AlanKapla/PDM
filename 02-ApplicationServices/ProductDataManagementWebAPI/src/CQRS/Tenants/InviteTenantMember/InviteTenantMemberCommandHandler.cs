@@ -1,8 +1,16 @@
-﻿using Business.Implementation.Helpers;
+using Business.Implementation.Helpers;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using Microsoft.Extensions.Options;
@@ -106,8 +114,8 @@ namespace CQRS.Tenants.InviteTenantMember
                     Type = DtoNotificationType.Info,
                     Title = "Zaproszenie do organizacji",
                     Message = $"Zostałeś zaproszony do {tenantName}",
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    Readed = false,
+                    CreatedAt = DateTime.UtcNow,
+                    IsRead = false,
                     Metadata = new Dictionary<string, object?>
                     {
                         { "invitationId", invitation.Id },

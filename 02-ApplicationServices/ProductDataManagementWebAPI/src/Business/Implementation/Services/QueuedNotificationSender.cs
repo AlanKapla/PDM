@@ -1,10 +1,18 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Encodings.Web;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
 using Microsoft.Extensions.Logging;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Repositories.Repository.Interfaces;
 
 namespace Business.Implementation.Services
@@ -72,8 +80,8 @@ namespace Business.Implementation.Services
                 Type = MapType(notification.Type),
                 Title = notification.Title,
                 Message = notification.Message,
-                CreatedAt = notification.CreatedAt == default ? DateTimeOffset.UtcNow : notification.CreatedAt,
-                Readed = notification.Readed,
+                CreatedAt = notification.CreatedAt == default ? DateTime.UtcNow : notification.CreatedAt,
+                IsRead = notification.IsRead,
                 MetadataJson = notification.Metadata != null ? JsonSerializer.Serialize(notification.Metadata) : null
             };
 
@@ -89,15 +97,15 @@ namespace Business.Implementation.Services
                 notification.Id, payload.UnreadNotificationCounter, elapsedMs, DateTimeOffset.UtcNow);
         }
 
-        private static Entities.Models.NotificationType MapType(Business.Interfaces.DTO.NotificationType type)
+        private static Entities.Models.Notifications.NotificationType MapType(Business.Interfaces.DTO.NotificationType type)
         {
             return type switch
             {
-                Interfaces.DTO.NotificationType.Info => Entities.Models.NotificationType.Info,
-                Interfaces.DTO.NotificationType.Success => Entities.Models.NotificationType.Success,
-                Interfaces.DTO.NotificationType.Warning => Entities.Models.NotificationType.Warning,
-                Interfaces.DTO.NotificationType.Error => Entities.Models.NotificationType.Error,
-                _ => Entities.Models.NotificationType.Info
+                Interfaces.DTO.NotificationType.Info => Entities.Models.Notifications.NotificationType.Info,
+                Interfaces.DTO.NotificationType.Success => Entities.Models.Notifications.NotificationType.Success,
+                Interfaces.DTO.NotificationType.Warning => Entities.Models.Notifications.NotificationType.Warning,
+                Interfaces.DTO.NotificationType.Error => Entities.Models.Notifications.NotificationType.Error,
+                _ => Entities.Models.Notifications.NotificationType.Info
             };
         }
     }

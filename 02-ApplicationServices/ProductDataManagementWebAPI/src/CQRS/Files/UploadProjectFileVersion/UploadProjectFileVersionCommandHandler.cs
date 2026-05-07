@@ -1,10 +1,18 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -46,10 +54,9 @@ namespace CQRS.Files.UploadProjectFileVersion
             var projectFiles = await projectFileRepo.GetBySearch(
                 pf => pf.Id == request.FileId &&
                       pf.TenantId == request.TenantId &&
-                      pf.ProjectId == request.ProjectId &&
-                      !pf.IsDeleted,
+                      pf.ProjectId == request.ProjectId,
                 include => include.Include(pf => pf.Package)
-                                  .Include(pf => pf.Versions.Where(v => !v.IsDeleted))
+                                  .Include(pf => pf.Versions)
                                   .Include(pf => pf.SharedWith)
             );
 
@@ -91,6 +98,8 @@ namespace CQRS.Files.UploadProjectFileVersion
             ProjectFileVersion newVersion = new ProjectFileVersion
             {
                 ProjectFileId = request.FileId,
+                TenantId = request.TenantId,
+                ProjectId = request.ProjectId,
                 VersionNumber = nextVersionNumber,
                 CreatedByUserId = currentUser.Id,
                 ContentType = request.File.ContentType,

@@ -1,11 +1,12 @@
 ﻿using Entities.Models.Base;
+using Entities.Models.Users;
 
 namespace Entities.Models.CostEstimateTemplates
 {
     /// <summary>
     /// Szablon kosztorysu - definicja struktury kosztorysu wielokrotnego użytku
     /// </summary>
-    public class CostEstimateTemplate : BaseEntity
+    public class CostEstimateTemplate : DeletableEntity
     {
         /// <summary>
         /// ID właściciela szablonu (User)
@@ -62,27 +63,12 @@ namespace Entities.Models.CostEstimateTemplates
         /// </summary>
         public DateTime? UpdatedAt { get; set; }
         
-        /// <summary>
-        /// Soft delete
-        /// </summary>
-        public bool IsDeleted { get; set; }
-        
-        /// <summary>
-        /// Data usunięcia
-        /// </summary>
-        public DateTime? DeletedAt { get; set; }
-        
         // Navigation properties
         
         /// <summary>
         /// Właściciel szablonu
         /// </summary>
         public virtual User Owner { get; set; } = default!;
-        
-        /// <summary>
-        /// Waluty dostępne w szablonie
-        /// </summary>
-        public virtual ICollection<CostEstimateTemplateCurrency> Currencies { get; set; } = new List<CostEstimateTemplateCurrency>();
         
         /// <summary>
         /// Jednostki miary dostępne w szablonie

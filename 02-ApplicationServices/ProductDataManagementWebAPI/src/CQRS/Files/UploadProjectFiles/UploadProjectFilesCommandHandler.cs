@@ -1,10 +1,18 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Files;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -49,8 +57,7 @@ namespace CQRS.Files.UploadProjectFiles
             ProjectFilePackage? package = await projectFilePackageRepo.GetFirstBySearch(
                 pfp => pfp.Id == request.ProjectFilePackageId &&
                        pfp.ProjectId == request.ProjectId &&
-                       pfp.TenantId == request.TenantId &&
-                       !pfp.IsDeleted) ?? throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
+                       pfp.TenantId == request.TenantId) ?? throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
 
             // 2. Authorization check: tenant admin OR project admin OR package owner
             bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
@@ -97,6 +104,8 @@ namespace CQRS.Files.UploadProjectFiles
                     ProjectFileVersion firstVersion = new ProjectFileVersion
                     {
                         ProjectFileId = fileId,
+                        TenantId = request.TenantId,
+                        ProjectId = request.ProjectId,
                         VersionNumber = versionNumber,
                         CreatedByUserId = currentUser.Id,
                         ContentType = file.ContentType,

@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
+using Entities.Models.Costs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -19,9 +27,10 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
         public DeleteProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
             IBlobStorageService blobStorageService,
+            IRepository<BaseCostAttachment> attachmentRepository,
             ICurrentUser currentUser,
             ILogger<DeleteProjectCostCommandHandler> logger)
-            : base(blobStorageService)
+            : base(blobStorageService, attachmentRepository)
         {
             this.projectCostRepo = projectCostRepo;
             this.currentUser = currentUser;
@@ -34,10 +43,13 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
 
             await ValidateDeleteAccessAsync(projectCost, request, cancellationToken);
 
+            await RemoveAttachmentsAsync(projectCost.Id, cancellationToken);
+
             projectCost.IsDeleted = true;
             projectCost.DeletedAt = DateTime.UtcNow;
 
             await projectCostRepo.Update(projectCost);
+            await projectCostRepo.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
                 "Cost {CostId} deleted from project {ProjectId} by user {UserId}",
@@ -53,8 +65,7 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
             return await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId
                     && pc.TenantId == request.TenantId
-                    && pc.ProjectId == request.ProjectId
-                    && !pc.IsDeleted)
+                    && pc.ProjectId == request.ProjectId)
                 ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
         }
 

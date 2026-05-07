@@ -1,4 +1,12 @@
-﻿using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,10 +24,9 @@ namespace Entities.Configurations
 
             builder.Property(m => m.CreatedAt).IsRequired();
             builder.Property(m => m.EditedAt);
-            builder.Property(m => m.DeletedAt);
             builder.Property(m => m.ReplyToMessageId);
 
-            builder.Ignore(m => m.IsDeleted);
+            builder.HasQueryFilter(m => !m.IsDeleted);
 
             builder.HasOne(m => m.Chat)
                 .WithMany(c => c.Messages)

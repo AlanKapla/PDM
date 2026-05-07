@@ -1,12 +1,19 @@
-﻿using Entities.Models;
+﻿using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.Base;
 using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
-using Entities.Models.WorkItemLinks;
 
 namespace Entities.Models.CostEstimates
 {
-    public class CostEstimate : BaseEntity
+    public class CostEstimate : DeletableEntity
     {
         public Guid TenantId { get; set; }
         public Guid ProjectId { get; set; }
@@ -15,24 +22,19 @@ namespace Entities.Models.CostEstimates
         public string Name { get; set; } = default!;
         public string? Description { get; set; }
         public CostEstimateStatus Status { get; set; }
-        public Guid SelectedCurrencyId { get; set; }
         public decimal? TotalNet { get; set; }
         public decimal? TotalGross { get; set; }
         public decimal? TotalVat { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? LastCalculatedAt { get; set; }
-        public bool IsDeleted { get; set; }
-        public DateTime? DeletedAt { get; set; }
-
         public virtual Tenant Tenant { get; set; } = default!;
         public virtual Project Project { get; set; } = default!;
         public virtual CostEstimateTemplate Template { get; set; } = default!;
         public virtual User Owner { get; set; } = default!;
-        public virtual CostEstimateTemplateCurrency SelectedCurrency { get; set; } = default!;
         public virtual ICollection<CostEstimateGroup> AllGroups { get; set; } = new List<CostEstimateGroup>();
         public virtual ICollection<CostEstimateItem> AllItems { get; set; } = new List<CostEstimateItem>();
-        public virtual ICollection<CostEstimateWorkScheduleLink> WorkScheduleLinks { get; set; } = new List<CostEstimateWorkScheduleLink>();
+        public virtual ICollection<WorkSchedule> WorkSchedules { get; set; } = new List<WorkSchedule>();
         public IEnumerable<CostEstimateGroup> RootGroups => AllGroups?.Where(g => g.ParentGroupId == null) ?? Enumerable.Empty<CostEstimateGroup>();
         
         /// <summary>

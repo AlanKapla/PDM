@@ -15,6 +15,7 @@ namespace Business.Interfaces.WebModels.Projects
         string CreatedByUserName,
         string UserRoleCode,
         int MembersCount,
-        HashSet<string> UserPermissions  // User's permissions for this project
+        HashSet<string> UserPermissions,  // User's permissions for this project
+        ProjectCurrencyWeb? Currency
     );
 }

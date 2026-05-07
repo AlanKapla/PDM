@@ -9,6 +9,7 @@ import { EstimatesTab } from './tabs/EstimatesTab';
 import { SchedulesTab } from './tabs/SchedulesTab';
 import { AdditionalCostsTab } from './tabs/AdditionalCostsTab';
 import { AllCostsTab } from './tabs/AllCostsTab';
+import { DashboardCurrencyProvider } from '../context/DashboardCurrencyContext';
 
 export interface ProjectDashboardProps {
   tenantId: string;
@@ -48,63 +49,65 @@ export function ProjectDashboard({
   }
 
   return (
-    <Box px={{ base: 3, md: 5 }} py={4} maxW={1400}>
-      <OverviewSection
-        financialData={data.financialSummary}
-        timelineData={data.timelineSummary}
-        tenantId={tenantId}
-        projectId={projectId}
-        onRefetch={refetch}
-      />
-
-      <DashboardTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        estimatesCount={data.costEstimateSummaries.length}
-        schedulesCount={data.scheduleSummaries.length}
-        additionalCount={data.projectAdditionalCosts?.costsCount ?? 0}
-        allCostsCount={data.allCosts?.length ?? 0}
-      />
-
-      {activeTab === 'estimates' && (
-        <EstimatesTab
-          summaries={data.costEstimateSummaries}
+    <DashboardCurrencyProvider currencySymbol={data.currencySymbol ?? 'zł'}>
+      <Box px={{ base: 3, md: 5 }} py={4} maxW={1400}>
+        <OverviewSection
+          financialData={data.financialSummary}
+          timelineData={data.timelineSummary}
           tenantId={tenantId}
           projectId={projectId}
           onRefetch={refetch}
         />
-      )}
 
-      {activeTab === 'schedules' && (
-        <SchedulesTab
-          summaries={data.scheduleSummaries}
-          financialSummary={data.financialSummary}
-          timelineSummary={data.timelineSummary}
-          tenantId={tenantId}
-          projectId={projectId}
-          onRefetch={refetch}
+        <DashboardTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          estimatesCount={data.costEstimateSummaries.length}
+          schedulesCount={data.scheduleSummaries.length}
+          additionalCount={data.projectAdditionalCosts?.costsCount ?? 0}
+          allCostsCount={data.allCosts?.length ?? 0}
         />
-      )}
 
-      {activeTab === 'additional' && data.projectAdditionalCosts && (
-        <AdditionalCostsTab
-          data={data.projectAdditionalCosts}
-          financialSummary={data.financialSummary}
-          tenantId={tenantId}
-          projectId={projectId}
-          onRefetch={refetch}
-        />
-      )}
+        {activeTab === 'estimates' && (
+          <EstimatesTab
+            summaries={data.costEstimateSummaries}
+            tenantId={tenantId}
+            projectId={projectId}
+            onRefetch={refetch}
+          />
+        )}
 
-      {activeTab === 'all' && (
-        <AllCostsTab
-          costs={data.allCosts ?? []}
-          tenantId={tenantId}
-          projectId={projectId}
-          onRefetch={refetch}
-        />
-      )}
-    </Box>
+        {activeTab === 'schedules' && (
+          <SchedulesTab
+            summaries={data.scheduleSummaries}
+            financialSummary={data.financialSummary}
+            timelineSummary={data.timelineSummary}
+            tenantId={tenantId}
+            projectId={projectId}
+            onRefetch={refetch}
+          />
+        )}
+
+        {activeTab === 'additional' && data.projectAdditionalCosts && (
+          <AdditionalCostsTab
+            data={data.projectAdditionalCosts}
+            financialSummary={data.financialSummary}
+            tenantId={tenantId}
+            projectId={projectId}
+            onRefetch={refetch}
+          />
+        )}
+
+        {activeTab === 'all' && (
+          <AllCostsTab
+            costs={data.allCosts ?? []}
+            tenantId={tenantId}
+            projectId={projectId}
+            onRefetch={refetch}
+          />
+        )}
+      </Box>
+    </DashboardCurrencyProvider>
   );
 }
 

@@ -1,13 +1,5 @@
 ﻿namespace Business.Interfaces.WebModels.CostEstimateTemplates
 {
-    public record CurrencyDto(
-        string Code,
-        string Name,
-        string? Symbol,
-        bool IsDefault,
-        int Order
-    );
-
     public record UnitDto(
         string Code,
         string Name,

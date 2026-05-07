@@ -6,6 +6,7 @@ import { PLN } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { TrackedCostModal } from '../TrackedCostModal';
 import AppModal from '../../../../components/ui/AppModal';
+import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface AllCostsTabProps {
   costs: TrackedCostWeb[];
@@ -26,6 +27,7 @@ export function AllCostsTab({
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const currencySymbol = useDashboardCurrency();
   const [
     neutral200, neutral400, neutral50, neutral600,
     level250, level2600, action50, level1700,
@@ -73,7 +75,7 @@ export function AllCostsTab({
           marginBottom: 16,
         }}
       >
-        <KpiCard label="Łączne koszty" value={PLN(totalNet)} />
+        <KpiCard label="Łączne koszty" value={PLN(totalNet, currencySymbol)} />
         <KpiCard label="Liczba pozycji" value={String(costs.length)} />
         <KpiCard label="Z harmonogramu" value={String(countSchedule)} />
         <KpiCard label="Z kosztorysu" value={String(countEstimate)} />
@@ -209,10 +211,10 @@ export function AllCostsTab({
                     {cost.contractor ?? '—'}
                   </Td>
                   <Td isNumeric px="6px" py="4px" color="orange.600" fontWeight="medium">
-                    {PLN(cost.net)}
+                    {PLN(cost.net, currencySymbol)}
                   </Td>
                   <Td isNumeric px="6px" py="4px" color="neutral.600">
-                    {PLN(cost.gross)}
+                    {PLN(cost.gross, currencySymbol)}
                   </Td>
                   <Td px="6px" py="4px" whiteSpace="nowrap">
                     <IconButton
@@ -248,7 +250,7 @@ export function AllCostsTab({
                   textAlign="right"
                   fontWeight="medium"
                 >
-                  Suma łączna: <span style={{ color: orange600 }}>{PLN(totalNet)}</span>
+                  Suma łączna: <span style={{ color: orange600 }}>{PLN(totalNet, currencySymbol)}</span>
                 </Td>
               </Tr>
             </Tfoot>

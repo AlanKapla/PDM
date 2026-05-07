@@ -24,14 +24,14 @@ import {
 } from "@chakra-ui/react";
 import { Plus, FileText } from "lucide-react";
 import { Link as RouterLink } from "react-router-dom";
-import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateStructureWeb, type CurrencyWeb } from "../api/costEstimateTemplateApi";
+import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateStructureWeb } from "../api/costEstimateTemplateApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
+import { useProjectDetails } from "../hooks/queries";
 
 interface TemplateWithStructure extends CostEstimateTemplateListItem {
   structure?: CostEstimateTemplateStructureWeb;
-  currencies?: CurrencyWeb[];
 }
 
 interface CreateCostEstimateModalProps {
@@ -53,12 +53,15 @@ export default function CreateCostEstimateModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
   const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
   const [selectedTemplateDetails, setSelectedTemplateDetails] = useState<TemplateWithStructure | null>(null);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [loadingTemplateDetails, setLoadingTemplateDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Waluta projektu — do wyświetlenia (read-only). Backend pobierze ją z ProjectCurrency.
+  const { data: projectDetails } = useProjectDetails(tenantId, projectId);
+  const projectCurrency = projectDetails?.currency;
 
   // Load template list when modal opens
   useEffect(() => {
@@ -79,11 +82,10 @@ export default function CreateCostEstimateModal({
     }
   }, [isOpen, toast]);
 
-  // Load details (currencies, structure) only for the selected template
+  // Load details (structure) only for the selected template
   useEffect(() => {
     if (!selectedTemplateId) {
       setSelectedTemplateDetails(null);
-      setSelectedCurrencyId("");
       return;
     }
 
@@ -96,18 +98,11 @@ export default function CreateCostEstimateModal({
         const withDetails: TemplateWithStructure = {
           ...templateBase,
           structure: details.structure,
-          currencies: details.structure?.currencies || [],
         };
         setSelectedTemplateDetails(withDetails);
-
-        // Auto-select default currency
-        const currencies = details.structure?.currencies || [];
-        const defaultCurrency = currencies.find((c) => c.isDefault) ?? currencies[0];
-        setSelectedCurrencyId(defaultCurrency?.id ?? "");
       } catch {
         showError("Błąd", "Nie udało się pobrać szczegółów szablonu");
         setSelectedTemplateDetails(null);
-        setSelectedCurrencyId("");
       } finally {
         setLoadingTemplateDetails(false);
       }
@@ -119,7 +114,6 @@ export default function CreateCostEstimateModal({
     setName("");
     setDescription("");
     setSelectedTemplateId("");
-    setSelectedCurrencyId("");
     setSelectedTemplateDetails(null);
     onClose();
   };
@@ -135,30 +129,23 @@ export default function CreateCostEstimateModal({
       return;
     }
 
-    if (!selectedCurrencyId) {
-      showError("Sprawdź formularz", "Wybierz walutę kosztorysu");
-      return;
-    }
-
     const selectedTemplate = selectedTemplateDetails;
     if (!selectedTemplate) {
       showError("Sprawdź formularz", "Nie znaleziono wybranego szablonu");
       return;
     }
 
-    const selectedCurrency = selectedTemplate.currencies?.find(c => c.id === selectedCurrencyId);
-    if (!selectedCurrency) {
-      showError("Sprawdź formularz", "Wybrana waluta nie jest dostępna w tym szablonie");
+    if (!projectCurrency) {
+      showError("Brak waluty projektu", "Ustaw walutę projektu w Parametrach przed utworzeniem kosztorysu");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Backend tworzy pusty kosztorys na podstawie szablonu
+      // Backend tworzy pusty kosztorys na podstawie szablonu, walutę pobiera z ProjectCurrency.
       await costEstimateApi.createCostEstimate(tenantId, projectId, {
         templateId: selectedTemplateId,
-        selectedCurrencyId: selectedCurrencyId,
         name: name.trim(),
         description: description.trim() || undefined,
       });
@@ -270,33 +257,23 @@ export default function CreateCostEstimateModal({
                 </HStack>
               )}
 
-            {selectedTemplate && selectedTemplate.currencies && selectedTemplate.currencies.length > 0 && (
-              <FormControl isRequired>
-                <FormLabel>Waluta kosztorysu</FormLabel>
-                <Select
-                  value={selectedCurrencyId}
-                  onChange={(e) => setSelectedCurrencyId(e.target.value)}
-                  placeholder="Wybierz walutę"
-                >
-                  {selectedTemplate.currencies.map((currency) => (
-                    <option key={currency.id} value={currency.id}>
-                      {currency.name} ({currency.code}){currency.symbol ? ` - ${currency.symbol}` : ''}{currency.isDefault ? ' [Domyślna]' : ''}
-                    </option>
-                  ))}
-                </Select>
+            {selectedTemplate && (
+              <FormControl>
+                <FormLabel>Waluta projektu</FormLabel>
+                {projectCurrency ? (
+                  <Text fontWeight="semibold">
+                    {projectCurrency.name}
+                    {projectCurrency.symbol ? ` (${projectCurrency.symbol})` : ""}
+                  </Text>
+                ) : (
+                  <Text color="orange.500" fontSize="sm">
+                    Projekt nie ma ustawionej waluty. Ustaw ją w Parametrach projektu.
+                  </Text>
+                )}
                 <Text fontSize="xs" color="neutral.600" mt={1}>
-                  Wybierz walutę, w której będzie prowadzony kosztorys
+                  Kosztorys zostanie utworzony w walucie projektu.
                 </Text>
               </FormControl>
-            )}
-
-            {selectedTemplate && selectedTemplate.currencies && selectedTemplate.currencies.length === 0 && (
-              <Alert status="error" borderRadius="md">
-                <AlertIcon />
-                <Text fontSize="sm">
-                  Wybrany szablon nie ma zdefiniowanych walut. Skontaktuj się z administratorem.
-                </Text>
-              </Alert>
             )}
 
             {selectedTemplate && (
@@ -323,9 +300,6 @@ export default function CreateCostEstimateModal({
                       </Text>
                       <Text fontSize="xs" color="neutral.600">
                         • Pola dodatkowe: {selectedTemplate.structure.genericFields?.length ?? 0}
-                      </Text>
-                      <Text fontSize="xs" color="neutral.600">
-                        • Waluty: {selectedTemplate.structure.currencies?.length ?? 0}
                       </Text>
                     </VStack>
                   </Box>

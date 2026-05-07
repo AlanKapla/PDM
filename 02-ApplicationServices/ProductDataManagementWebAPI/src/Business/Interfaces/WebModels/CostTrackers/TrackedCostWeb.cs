@@ -3,7 +3,6 @@
     public record TrackedCostWeb
     {
         public required Guid Id { get; init; }
-        public Guid? WorkItemLinkId { get; init; }
         public Guid? CostEstimateItemId { get; init; }
         public Guid? WorkScheduleStageWorkId { get; init; }
         public required bool IsAdditional { get; init; }

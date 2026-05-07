@@ -1,6 +1,14 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -9,18 +17,15 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
     public class CreateWorkScheduleCommandHandler : IRequestHandler<CreateWorkScheduleCommand, Guid>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
-        private readonly IWorkItemLinkService workItemLinkService;
         private readonly IWorkScheduleSyncService workScheduleSyncService;
         private readonly ICurrentUser currentUser;
 
         public CreateWorkScheduleCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
-            IWorkItemLinkService workItemLinkService,
             IWorkScheduleSyncService workScheduleSyncService,
             ICurrentUser currentUser)
         {
             this.workScheduleRepo = workScheduleRepo;
-            this.workItemLinkService = workItemLinkService;
             this.workScheduleSyncService = workScheduleSyncService;
             this.currentUser = currentUser;
         }
@@ -32,14 +37,12 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
                 Name = request.Name,
+                CostEstimateId = request.CostEstimateId,
                 CreatedByUserId = currentUser.Id
             };
 
             await workScheduleRepo.Insert(workSchedule);
             await workScheduleRepo.SaveChangesAsync(cancellationToken);
-
-            await workItemLinkService.CreateWorkScheduleLinkAsync(
-                workSchedule.Id, request.CostEstimateId, cancellationToken);
 
             if (request.CostEstimateId.HasValue)
             {

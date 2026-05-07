@@ -18,7 +18,7 @@ export interface NotificationWeb {
   title: string;
   message: string;
   createdAt: string;
-  readed: boolean;
+  isRead: boolean;
   metadata?: Record<string, any> | null;
 }
 

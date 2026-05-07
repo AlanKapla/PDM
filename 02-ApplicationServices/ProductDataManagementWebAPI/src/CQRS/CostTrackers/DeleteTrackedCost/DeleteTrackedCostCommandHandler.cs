@@ -1,9 +1,9 @@
 ﻿using Business.Interfaces.Configurations;
-using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.CostTrackers.Shared;
 using Entities.Models.CostTrackers;
+using Entities.Models.Costs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -13,8 +13,8 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
     public sealed class DeleteTrackedCostCommandHandler
         : CostTrackerHandlerBase, IRequestHandler<DeleteTrackedCostCommand, Unit>
     {
-        private readonly IReadRepository<TrackedCost> trackedCostRepository;
-        private readonly IRepository<TrackedCostAttachment> attachmentRepository;
+        private readonly IRepository<TrackedCost> trackedCostRepository;
+        private readonly IRepository<BaseCostAttachment> attachmentRepository;
         private readonly IBlobStorageService blobStorageService;
         private readonly ILogger<DeleteTrackedCostCommandHandler> logger;
 
@@ -22,8 +22,8 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
             BlobStorageSettings.GetContainerName(BlobContainerNames.CostTrackers);
 
         public DeleteTrackedCostCommandHandler(
-            IReadRepository<TrackedCost> trackedCostRepository,
-            IRepository<TrackedCostAttachment> attachmentRepository,
+            IRepository<TrackedCost> trackedCostRepository,
+            IRepository<BaseCostAttachment> attachmentRepository,
             IBlobStorageService blobStorageService,
             ICurrentUser currentUser,
             ILogger<DeleteTrackedCostCommandHandler> logger)
@@ -41,7 +41,7 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
         {
             TrackedCost cost = await GetAndValidateTrackedCostAsync(request.CostId, request.TenantId, request.ProjectId, cancellationToken);
 
-            var now = DateTime.UtcNow;
+            DateTime now = DateTime.UtcNow;
             await SoftDeleteAttachmentsAsync(cost.Id, now, cancellationToken);
 
             cost.IsDeleted = true;
@@ -58,10 +58,10 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
         private async Task SoftDeleteAttachmentsAsync(
             Guid costId, DateTime deletedAt, CancellationToken cancellationToken)
         {
-            List<TrackedCostAttachment> attachments = (await attachmentRepository.GetBySearch(
-                a => a.TrackedCostId == costId)).ToList();
+            List<BaseCostAttachment> attachments = (await attachmentRepository.GetBySearch(
+                a => a.CostId == costId)).ToList();
 
-            foreach (var attachment in attachments)
+            foreach (BaseCostAttachment attachment in attachments)
             {
                 attachment.IsDeleted = true;
                 attachment.DeletedAt = deletedAt;

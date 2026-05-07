@@ -63,8 +63,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
                     return await costEstimateRepo.AnyAsync(
                         c => c.Id == command.CostEstimateId &&
                              c.TenantId == command.TenantId &&
-                             c.ProjectId == command.ProjectId &&
-                             !c.IsDeleted,
+                             c.ProjectId == command.ProjectId,
                         cancellation);
                 })
                 .WithMessage("Cost estimate not found");
@@ -75,8 +74,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
                 {
                     return await itemRepo.AnyAsync(
                         i => i.Id == command.ItemId &&
-                             i.CostEstimateId == command.CostEstimateId &&
-                             !i.IsDeleted,
+                             i.CostEstimateId == command.CostEstimateId,
                         cancellation);
                 })
                 .WithMessage("Item not found or does not belong to the specified cost estimate");

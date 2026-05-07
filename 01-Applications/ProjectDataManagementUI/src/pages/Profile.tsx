@@ -15,9 +15,10 @@ import MainLayout from "../layout/MainLayout";
 import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { axiosClient } from "../api/axiosClient";
 
 export default function Profile() {
-  const { user } = useContext(AuthContext);
+  const { user, refreshUser } = useContext(AuthContext);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   
@@ -58,11 +59,19 @@ export default function Profile() {
 
     setSaving(true);
     try {
-      // TODO: Implement profile update via MSAL/backend API
-      showError("Funkcja niedostępna", "Aktualizacja profilu nie jest jeszcze zaimplementowana w MSAL");
+      await axiosClient.put("/user/me", {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      });
+      await refreshUser();
+      showSuccess("Profil zaktualizowany", "Twoje dane zostały zapisane");
       setIsEditing(false);
-    } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ??
+        error?.response?.data?.detail ??
+        "Nie udało się zaktualizować profilu";
+      showError("Błąd", message);
     } finally {
       setSaving(false);
     }

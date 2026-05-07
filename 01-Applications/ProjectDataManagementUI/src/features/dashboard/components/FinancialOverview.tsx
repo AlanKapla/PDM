@@ -7,6 +7,7 @@ import { MiniProgressBar } from './shared/MiniProgressBar';
 import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
 import { BudgetReserveModal } from './BudgetReserveModal';
 import { DEVIATION_COLOR } from '../utils/formatters';
+import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
 export interface FinancialOverviewProps {
   data: ProjectFinancialSummaryWeb;
@@ -26,6 +27,7 @@ export function FinancialOverview({
   onRefetch,
 }: FinancialOverviewProps): React.ReactElement {
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const currencySymbol = useDashboardCurrency();
   const [
     neutral200, amber400, level1500, neutral400,
     action50, action600, level250, level2600, level2100, red400,
@@ -51,15 +53,15 @@ export function FinancialOverview({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-        <KpiCard label="Budżet łączny" value={PLN(data.totalBudgetNet)} small />
-        <KpiCard label="Koszty łączne" value={PLN(data.totalCostsNet)} small />
+        <KpiCard label="Budżet łączny" value={PLN(data.totalBudgetNet, currencySymbol)} small />
+        <KpiCard label="Koszty łączne" value={PLN(data.totalCostsNet, currencySymbol)} small />
         <KpiCard
           label="Pozostało do wydania"
-          value={PLN(data.deviationNet)}
+          value={PLN(data.deviationNet, currencySymbol)}
           accent={deviationColor}
           small
         />
-        <KpiCard label="Koszty główne" value={PLN(data.additionalCostsNet)} accent={amber400} small />
+        <KpiCard label="Koszty główne" value={PLN(data.additionalCostsNet, currencySymbol)} accent={amber400} small />
       </div>
 
       <MiniProgressBar
@@ -76,13 +78,13 @@ export function FinancialOverview({
         <div style={{ background: action50, borderRadius: 8, padding: '10px 12px' }}>
           <div style={{ fontSize: "xs", color: neutral400, marginBottom: 2 }}>Budżet kosztorysów</div>
           <div style={{ fontSize: "md", fontWeight: "medium", color: action600 }}>
-            {PLN(data.estimateBudgetNet)}
+            {PLN(data.estimateBudgetNet, currencySymbol)}
           </div>
         </div>
         <div style={{ background: level250, borderRadius: 8, padding: '10px 12px' }}>
           <div style={{ fontSize: "xs", color: neutral400, marginBottom: 2 }}>Budżet główny</div>
           <div style={{ fontSize: "md", fontWeight: "medium", color: level2600 }}>
-            {PLN(data.projectReserveBudgetNet)}
+            {PLN(data.projectReserveBudgetNet, currencySymbol)}
           </div>
         </div>
       </div>

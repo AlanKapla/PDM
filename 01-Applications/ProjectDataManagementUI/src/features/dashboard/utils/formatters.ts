@@ -24,14 +24,17 @@ export const TIMELINE_STATUS_MAP: Record<TimelineStatus, StatusConfig> = {
   [TimelineStatus.NoWorkItems]:   { bg: '#F1EFE8', color: '#888780', label: 'Nie skonfigurowany' },  // neutral.50 / neutral.400
 };
 
-/** Formatuje kwotę PLN. null/undefined → "—" */
-export function PLN(v: number | null | undefined): string {
+/** Formatuje kwotę pieniężną z dynamicznym symbolem waluty. null/undefined → "—" */
+export function PLN(
+  v: number | null | undefined,
+  currencySymbol: string = 'zł'
+): string {
   if (v == null) return '—';
   return (
     new Intl.NumberFormat('pl-PL', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(v) + ' zł'
+    }).format(v) + ' ' + currencySymbol
   );
 }
 

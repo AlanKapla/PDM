@@ -5,49 +5,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Entities.Configurations
 {
     /// <summary>
-    /// Konfiguracja EF Core dla CostEstimateTemplateCurrency
-    /// </summary>
-    public class CostEstimateTemplateCurrencyConfiguration : IEntityTypeConfiguration<CostEstimateTemplateCurrency>
-    {
-        public void Configure(EntityTypeBuilder<CostEstimateTemplateCurrency> builder)
-        {
-            builder.HasKey(c => c.Id);
-            
-            builder.Property(c => c.TemplateId)
-                .IsRequired();
-            
-            builder.Property(c => c.Code)
-                .IsRequired()
-                .HasMaxLength(10);
-            
-            builder.Property(c => c.Name)
-                .IsRequired()
-                .HasMaxLength(100);
-            
-            builder.Property(c => c.Symbol)
-                .HasMaxLength(10);
-            
-            builder.Property(c => c.IsDefault)
-                .IsRequired()
-                .HasDefaultValue(false);
-            
-            builder.Property(c => c.Order)
-                .IsRequired();
-            
-            // Relationship with CostEstimateTemplate
-            builder.HasOne(c => c.Template)
-                .WithMany(t => t.Currencies)
-                .HasForeignKey(c => c.TemplateId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
-            // Indexes
-            builder.HasIndex(c => c.TemplateId);
-            builder.HasIndex(c => new { c.TemplateId, c.Code }).IsUnique();
-            builder.HasIndex(c => new { c.TemplateId, c.IsDefault });
-        }
-    }
-    
-    /// <summary>
     /// Konfiguracja EF Core dla CostEstimateTemplateUnit
     /// </summary>
     public class CostEstimateTemplateUnitConfiguration : IEntityTypeConfiguration<CostEstimateTemplateUnit>

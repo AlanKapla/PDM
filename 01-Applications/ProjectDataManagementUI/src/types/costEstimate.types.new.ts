@@ -126,11 +126,12 @@ export interface CostEstimateGroupDto {
 }
 
 /**
- * DTO dla tworzenia kosztorysu z pełną strukturą
+ * DTO dla tworzenia kosztorysu z pełną strukturą.
+ * Waluta nie jest wysyłana — backend pobiera ją z ProjectCurrency projektu.
  */
 export interface CreateCostEstimateWithDataDto {
   templateId: string;
-  selectedCurrencyId: string;  // Wybrana waluta z dostępnych w template
+  selectedCurrencyId?: string;  // DEPRECATED: waluta pochodzi z ProjectCurrency, pole zachowane dla wstecznej kompatybilności
   name: string;
   description?: string;
   rootGroups?: CostEstimateGroupDto[];  // null lub pusta = pusty kosztorys

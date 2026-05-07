@@ -49,7 +49,6 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                 request.AutoNumberGroups,
                 request.GroupNumberFormat,
                 request.UpdateStructure,
-                request.Currencies,
                 request.Units,
                 request.Categories,
                 request.GroupHeaderFields,

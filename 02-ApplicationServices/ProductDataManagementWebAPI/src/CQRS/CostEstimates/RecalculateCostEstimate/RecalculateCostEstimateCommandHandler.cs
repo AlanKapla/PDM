@@ -64,10 +64,10 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
 
             // Load tracked entities for recalculation and save
             var groups = (await groupRepository.GetBySearch(
-                g => g.CostEstimateId == request.CostEstimateId && !g.IsDeleted)).ToList();
+                g => g.CostEstimateId == request.CostEstimateId)).ToList();
 
             var items = (await itemRepository.GetBySearch(
-                i => i.CostEstimateId == request.CostEstimateId && !i.IsDeleted)).ToList();
+                i => i.CostEstimateId == request.CostEstimateId)).ToList();
 
             var itemIds = items.Select(i => i.Id).ToHashSet();
 
@@ -100,7 +100,7 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
 
             // Build a temporary CostEstimate graph for the calculation service
             var costEstimateForCalculation = await costEstimateRepository.GetFirstBySearch(
-                c => c.Id == request.CostEstimateId && !c.IsDeleted)
+                c => c.Id == request.CostEstimateId)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
             costEstimateForCalculation.Template = template;

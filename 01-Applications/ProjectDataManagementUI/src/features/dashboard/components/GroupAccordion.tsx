@@ -8,6 +8,7 @@ import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
 import { KpiCard } from './shared/KpiCard';
 import { Badge } from './shared/Badge';
 import { WorkItemAccordion } from './WorkItemAccordion';
+import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
 export interface GroupAccordionProps {
   group: TrackerGroupWeb;
@@ -28,6 +29,7 @@ export function GroupAccordion({
   onRefetch,
   showCosts = true,
 }: GroupAccordionProps): React.ReactElement {
+  const currencySymbol = useDashboardCurrency();
   const [
     neutral400, orange50, orange600, orange800, neutral600, neutral50, amber50, amber600, neutral200,
   ] = useToken('colors', [
@@ -49,10 +51,10 @@ export function GroupAccordion({
         />
       )}
       <TimelineStatusBadge status={group.timelineStatus} small />
-      <span style={{ fontSize: "xs", color: neutral600 }}>{PLN(group.budgetNet)}</span>
+      <span style={{ fontSize: "xs", color: neutral600 }}>{PLN(group.budgetNet, currencySymbol)}</span>
       <span style={{ fontSize: "xs", color: neutral400 }}>/</span>
       <span style={{ fontSize: "xs", fontWeight: "medium", color: group.costsNet != null && group.costsNet > 0 ? orange600 : neutral600 }}>
-        {PLN(group.costsNet)}
+        {PLN(group.costsNet, currencySymbol)}
       </span>
       <FinancialStatusBadge status={group.financialStatus} small />
     </div>
@@ -63,8 +65,8 @@ export function GroupAccordion({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* KPI finansowe */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          <KpiCard label="Budżet" value={PLN(group.budgetNet)} small />
-          <KpiCard label="Koszty" value={PLN(group.costsNet)} small />
+          <KpiCard label="Budżet" value={PLN(group.budgetNet, currencySymbol)} small />
+          <KpiCard label="Koszty" value={PLN(group.costsNet, currencySymbol)} small />
           <KpiCard label="Pokrycie grupy" value={PROG(group.coveredPercent)} small />
           <KpiCard
             label="Poz. bez kosztów"
@@ -88,7 +90,7 @@ export function GroupAccordion({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {(group.items ?? []).map((item) => (
             <WorkItemAccordion
-              key={item.workItemLinkId}
+              key={`${item.costEstimateItemId ?? ''}-${item.workScheduleStageWorkId ?? ''}`}
               item={item}
               tenantId={tenantId}
               projectId={projectId}
@@ -127,7 +129,7 @@ export function GroupAccordion({
               marginTop: 4,
             }}
           >
-            Koszty dodatkowe grupy: {PLN(group.additionalCosts.totalNet)}{' '}
+            Koszty dodatkowe grupy: {PLN(group.additionalCosts.totalNet, currencySymbol)}{' '}
             <span style={{ color: neutral400 }}>
               ({group.additionalCosts?.costsCount ?? 0} pozycji)
             </span>
@@ -147,7 +149,7 @@ export function GroupAccordion({
         >
           <span>Suma grupy — budżet / koszty:</span>
           <span style={{ fontWeight: "medium" }}>
-            {PLN(group.budgetNet)} / {PLN(group.costsNet)}
+            {PLN(group.budgetNet, currencySymbol)} / {PLN(group.costsNet, currencySymbol)}
           </span>
         </div>
       </div>

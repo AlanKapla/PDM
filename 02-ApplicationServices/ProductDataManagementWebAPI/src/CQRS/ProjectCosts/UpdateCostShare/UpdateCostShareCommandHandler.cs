@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -49,8 +57,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
             var cost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId 
                     && pc.TenantId == request.TenantId 
-                    && pc.ProjectId == request.ProjectId 
-                    && !pc.IsDeleted,
+                    && pc.ProjectId == request.ProjectId,
                 query => query.Include(pc => pc.SharedWith))
                 ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
 
@@ -97,8 +104,8 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         Type = NotificationType.Info,
                         Title = "Odebrano dostęp do kosztu",
                         Message = $"{currentUser.FirstName} {currentUser.LastName} odebrał Ci dostęp do kosztu: {cost.Name}",
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        Readed = false,
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false,
                         Metadata = new Dictionary<string, object?>
                         {
                             { "costId", request.CostId },
@@ -147,8 +154,8 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         Type = NotificationType.Success,
                         Title = "Udostępniono Ci koszt",
                         Message = $"{currentUser.FirstName} {currentUser.LastName} udostępnił Ci koszt: {cost.Name}",
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        Readed = false,
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false,
                         Metadata = new Dictionary<string, object?>
                         {
                             { "costId", request.CostId },

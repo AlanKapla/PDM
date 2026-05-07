@@ -11,7 +11,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
     /// </summary>
     public sealed record CreateCostEstimateCommand(
         Guid TemplateId,
-        Guid SelectedCurrencyId,
         string Name,
         string? Description 
     ) : IRequestCommand<Guid>, IAuthorizableRequest

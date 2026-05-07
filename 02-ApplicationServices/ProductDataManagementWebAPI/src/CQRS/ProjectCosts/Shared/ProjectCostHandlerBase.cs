@@ -1,6 +1,15 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
+using Entities.Models.Costs;
 using Microsoft.AspNetCore.Http;
 using Repositories.Repository.Interfaces;
 
@@ -9,34 +18,77 @@ namespace CQRS.ProjectCosts.Shared
     public abstract class ProjectCostHandlerBase
     {
         private readonly IBlobStorageService blobStorageService;
+        private readonly IRepository<BaseCostAttachment> attachmentRepository;
 
-        protected ProjectCostHandlerBase(IBlobStorageService blobStorageService)
+        private static readonly string ContainerName =
+            BlobStorageSettings.GetContainerName(BlobContainerNames.CostTrackers);
+
+        protected ProjectCostHandlerBase(
+            IBlobStorageService blobStorageService,
+            IRepository<BaseCostAttachment> attachmentRepository)
         {
             this.blobStorageService = blobStorageService;
+            this.attachmentRepository = attachmentRepository;
         }
 
-        protected async Task UploadDocumentToCostAsync(
+        protected async Task<BaseCostAttachment> UploadDocumentToCostAsync(
             ProjectCost projectCost,
             IFormFile document,
-            Guid tenantId,
-            Guid costId,
             CancellationToken cancellationToken)
         {
-            string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.ProjectCosts);
             string fileExtension = Path.GetExtension(document.FileName).ToLowerInvariant();
-            string blobFileName = $"{costId}{fileExtension}";
-            string blobPath = $"{tenantId}/{projectCost.ProjectId}/{projectCost.UserId}/{costId}/{blobFileName}";
+            string blobName = $"{projectCost.TenantId}/{projectCost.ProjectId}/{projectCost.Id}/{Guid.NewGuid()}{fileExtension}";
 
             using (Stream stream = document.OpenReadStream())
             {
-                await blobStorageService.UploadAsync(containerName, blobPath, stream, document.ContentType, cancellationToken);
+                await blobStorageService.UploadAsync(ContainerName, blobName, stream, document.ContentType, cancellationToken);
             }
 
-            projectCost.HasDocument = true;
-            projectCost.DocumentFileName = document.FileName;
-            projectCost.DocumentBlobPath = blobPath;
-            projectCost.DocumentContentType = document.ContentType;
-                    projectCost.DocumentSizeBytes = document.Length;
-                    }
+            BaseCostAttachment attachment = new BaseCostAttachment
+            {
+                CostId = projectCost.Id,
+                TenantId = projectCost.TenantId,
+                ProjectId = projectCost.ProjectId,
+                OriginalFileName = document.FileName,
+                BlobName = blobName,
+                ContentType = document.ContentType,
+                FileSize = document.Length,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await attachmentRepository.Insert(attachment);
+            await attachmentRepository.SaveChangesAsync(cancellationToken);
+
+            return attachment;
+        }
+
+        protected async Task RemoveAttachmentsAsync(
+            Guid costId,
+            CancellationToken cancellationToken)
+        {
+            List<BaseCostAttachment> attachments = (await attachmentRepository.GetBySearch(
+                a => a.CostId == costId)).ToList();
+
+            foreach (BaseCostAttachment attachment in attachments)
+            {
+                try
+                {
+                    await blobStorageService.DeleteAsync(ContainerName, attachment.BlobName, cancellationToken);
                 }
+                catch
+                {
+                    // blob deletion failure is non-fatal; record is soft-deleted regardless
+                }
+
+                attachment.IsDeleted = true;
+                attachment.DeletedAt = DateTime.UtcNow;
+                await attachmentRepository.Update(attachment);
             }
+
+            if (attachments.Count > 0)
+            {
+                await attachmentRepository.SaveChangesAsync(cancellationToken);
+            }
+        }
+    }
+}

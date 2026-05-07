@@ -36,6 +36,12 @@ export { TenantRole } from './auth.types';
 
 // ===== Interfaces =====
 
+export interface ProjectCurrencyWeb {
+  code: string;
+  name: string;
+  symbol?: string;
+}
+
 export interface ProjectDetailsWeb {
   id: string;
   tenantId: string;
@@ -47,6 +53,13 @@ export interface ProjectDetailsWeb {
   userRoleCode: string;
   membersCount: number;
   userPermissions: string[];  // User's permissions for this specific project
+  currency?: ProjectCurrencyWeb;
+}
+
+export interface SetProjectCurrencyRequest {
+  code: string;
+  name: string;
+  symbol?: string;
 }
 
 export interface TenantMemberWeb {
@@ -166,7 +179,7 @@ export interface ProjectCostListItemWeb {
   description?: string;
   netAmount?: number;
   grossAmount: number;
-  isClosed: boolean;
+  isAccepted: boolean;
   hasDocument: boolean;
   documentFileName?: string;
   previewSasUrl?: string;
@@ -184,7 +197,7 @@ export interface CreateProjectCostCommand {
   description?: string;
   netAmount?: number;
   grossAmount?: number;
-  isClosed?: boolean;
+  isAccepted?: boolean;
   document?: File;
 }
 
@@ -198,7 +211,7 @@ export interface UpdateProjectCostCommand {
   description?: string;
   netAmount?: number;
   grossAmount?: number;
-  isClosed: boolean;
+  isAccepted: boolean;
   /** Nowy dokument dołączany do kosztu który nie miał wcześniej pliku */
   document?: File;
   /** Nowy plik zastępujący istniejący dokument */
@@ -221,7 +234,7 @@ export interface SharedProjectCostWeb {
   costNetAmount?: number;
   costVatRate?: number;
   costGrossAmount: number;
-  costIsClosed: boolean;
+  costIsAccepted: boolean;
   costHasDocument: boolean;
   costDocumentFileName?: string;
   previewSasUrl?: string;

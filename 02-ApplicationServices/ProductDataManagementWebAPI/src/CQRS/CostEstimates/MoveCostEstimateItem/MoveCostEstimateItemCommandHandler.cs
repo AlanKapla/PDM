@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -97,7 +97,7 @@ namespace CQRS.CostEstimates.MoveCostEstimateItem
 
             // Load tracked entities in a single query
             var trackedItems = (await itemRepository.GetBySearch(
-                i => itemIdsToMove.Contains(i.Id) && !i.IsDeleted)).ToList();
+                i => itemIdsToMove.Contains(i.Id))).ToList();
 
             var now = DateTime.UtcNow;
 

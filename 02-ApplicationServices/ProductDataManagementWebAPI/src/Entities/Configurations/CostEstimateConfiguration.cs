@@ -30,10 +30,7 @@ namespace Entities.Configurations
             builder.Property(c => c.Status)
                 .IsRequired()
                 .HasConversion<string>();
-            
-            builder.Property(c => c.SelectedCurrencyId)
-                .IsRequired();
-            
+
             builder.Property(c => c.TotalNet)
                 .HasPrecision(18, 2);
             
@@ -80,13 +77,7 @@ namespace Entities.Configurations
                 .HasForeignKey(c => c.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
             
-            // Relationship with SelectedCurrency
-            builder.HasOne(c => c.SelectedCurrency)
-                .WithMany()
-                .HasForeignKey(c => c.SelectedCurrencyId)
-                .OnDelete(DeleteBehavior.Restrict);
-            
-            // RootGroups - ignoruj jako osobną nawigację, będzie to filtrowane zapytanie na AllGroups
+            // RootGroups - ignoruj jako osobną nawigację
             builder.Ignore(c => c.RootGroups);
             
             // Relationship with AllGroups (all groups in cost estimate) - GŁÓWNA RELACJA
@@ -107,7 +98,6 @@ namespace Entities.Configurations
             builder.HasIndex(c => new { c.TenantId, c.ProjectId });
             builder.HasIndex(c => c.TemplateId);
             builder.HasIndex(c => c.OwnerId);
-            builder.HasIndex(c => c.SelectedCurrencyId);
             builder.HasIndex(c => c.Status);
             builder.HasIndex(c => c.IsDeleted);
             builder.HasIndex(c => c.CreatedAt);

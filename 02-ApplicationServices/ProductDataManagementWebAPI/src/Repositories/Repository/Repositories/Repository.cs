@@ -132,4 +132,14 @@ public class Repository<T> : IRepository<T> where T : class
             .Where(predicate)
             .ExecuteDeleteAsync(cancellationToken);
     }
+
+    public async Task<int> ExecuteUpdateAsync(
+        Expression<Func<T, bool>> predicate,
+        Action<Microsoft.EntityFrameworkCore.Query.UpdateSettersBuilder<T>> setPropertyCalls,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(predicate)
+            .ExecuteUpdateAsync(setPropertyCalls, cancellationToken);
+    }
 }

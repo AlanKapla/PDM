@@ -1,8 +1,16 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -42,15 +50,14 @@ namespace CQRS.Files.AddFileVersionComment
         {
             // 1. Verify file version exists
             var fileVersion = await projectFileVersionRepo.GetFirstBySearch(
-                pfv => pfv.Id == request.VersionId && !pfv.IsDeleted)
+                pfv => pfv.Id == request.VersionId)
                 ?? throw new NotFoundApiException(nameof(ProjectFileVersion), request.VersionId.ToString());
 
             // 2. Verify file exists and belongs to the correct project/tenant
             var file = await projectFileRepo.GetFirstBySearch(
                 pf => pf.Id == request.FileId
                     && pf.ProjectId == request.ProjectId
-                    && pf.TenantId == request.TenantId
-                    && !pf.IsDeleted,
+                    && pf.TenantId == request.TenantId,
                 query => query.Include(pf => pf.SharedWith))
                 ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 

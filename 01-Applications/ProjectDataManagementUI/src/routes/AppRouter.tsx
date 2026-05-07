@@ -22,6 +22,7 @@ import CostEstimateTemplateSelector from "../pages/CostEstimateTemplateSelector"
 import ProjectMembers from "../pages/ProjectMembers";
 import ProjectSchedules from "../pages/ProjectSchedules";
 import ProjectFiles from "../pages/ProjectFiles";
+import ProjectParameters from "../pages/ProjectParameters";
 import ProjectCosts from "../pages/ProjectCosts";
 import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
 import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
@@ -222,6 +223,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ProjectFiles />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/parameters"
+        element={
+          <ProtectedRoute>
+            <ProjectParameters />
           </ProtectedRoute>
         }
       />

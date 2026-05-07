@@ -1,4 +1,5 @@
-﻿using Azure.Identity;
+﻿using Entities.Models;
+using Azure.Identity;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
 using Business.Implementation.Validators;
@@ -10,12 +11,20 @@ using Business.Interfaces.Services;
 using Chat.Registration;
 using CQRS.Behaviours;
 using Entities.Context;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
-using Entities.Models.WorkItemLinks;
+using Entities.Models.Costs;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -264,9 +273,9 @@ namespace WebApi.Extensions
 
             services
                 .AddRepository<Project>()
-                .AddReadOnlyRepository<ProjectGroup>()
                 .AddWriteRepository<ProjectMember>()
-                .AddWriteRepository<ProjectGroupMember>();
+                .AddRepository<ProjectParams>()
+                .AddRepository<ProjectCurrency>();
 
             services
                 .AddRepository<Notification>();
@@ -285,9 +294,7 @@ namespace WebApi.Extensions
                 .AddRepository<WorkScheduleStageWorkPeriod>()
                 .AddWriteRepository<WorkScheduleStageWorkAssignment>()
                 .AddWriteRepository<WorkScheduleStageWorkComment>()
-                .AddWriteRepository<WorkScheduleStageWorkDependency>()
-                .AddRepository<CostEstimateWorkScheduleLink>()
-                .AddRepository<CostEstimateGroupWorkScheduleStageLink>();
+                .AddWriteRepository<WorkScheduleStageWorkDependency>();
 
             services
                 .AddRepository<ProjectCost>()
@@ -295,7 +302,6 @@ namespace WebApi.Extensions
 
             services
                 .AddRepository<CostEstimateTemplate>()
-                .AddWriteRepository<CostEstimateTemplateCurrency>()
                 .AddWriteRepository<CostEstimateTemplateUnit>()
                 .AddWriteRepository<CostEstimateTemplateCategory>()
                 .AddWriteRepository<CostEstimateTemplateGroupFieldDefinition>()
@@ -314,9 +320,7 @@ namespace WebApi.Extensions
 
             services
                 .AddRepository<TrackedCost>()
-                .AddRepository<TrackedCostAttachment>()
-                .AddRepository<ProjectCostTrackedCostLink>()
-                .AddRepository<CostEstimateItemWorkScheduleStageWorkLink>();
+                .AddRepository<BaseCostAttachment>();
 
             services
                 .AddRepository<Role>()
@@ -362,7 +366,6 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<ICostTrackerFinancialService, CostTrackerFinancialService>();
             services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
-            services.AddScoped<IWorkItemLinkService, WorkItemLinkService>();
             services.AddScoped<ICostTrackerTimelineService, CostTrackerTimelineService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();

@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
+using Entities.Models.Costs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -13,19 +21,18 @@ namespace CQRS.ProjectCosts.CreateProjectCost
     public class CreateProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<CreateProjectCostCommand, Guid>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
-        private readonly IBlobStorageService blobStorageService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<CreateProjectCostCommandHandler> logger;
 
         public CreateProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
             IBlobStorageService blobStorageService,
+            IRepository<BaseCostAttachment> attachmentRepository,
             ICurrentUser currentUser,
             ILogger<CreateProjectCostCommandHandler> logger)
-            : base(blobStorageService)
+            : base(blobStorageService, attachmentRepository)
         {
             this.projectCostRepo = projectCostRepo;
-            this.blobStorageService = blobStorageService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -60,23 +67,22 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 Place = request.Place,
                 Date = request.Date.Date,
                 Description = request.Description,
-                NetAmount = request.NetAmount,
-                GrossAmount = request.GrossAmount ?? request.NetAmount!.Value,
-                IsClosed = request.IsClosed,
-                HasDocument = false,
+                Net = request.NetAmount,
+                Gross = request.GrossAmount ?? request.NetAmount,
+                IsAccepted = request.IsAccepted,
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
             };
         }
 
-        private async Task UploadCostDocumentAsync(CreateProjectCostCommand request, ProjectCost projectCost, CancellationToken cancellationToken)
+        private async Task UploadCostDocumentAsync(
+            CreateProjectCostCommand request,
+            ProjectCost projectCost,
+            CancellationToken cancellationToken)
         {
             try
             {
-                await UploadDocumentToCostAsync(projectCost, request.Document!, request.TenantId, projectCost.Id, cancellationToken);
-
-                await projectCostRepo.Update(projectCost);
-                await projectCostRepo.SaveChangesAsync(cancellationToken);
+                await UploadDocumentToCostAsync(projectCost, request.Document!, cancellationToken);
 
                 logger.LogInformation(
                     "Document uploaded for cost {CostId} in project {ProjectId}",

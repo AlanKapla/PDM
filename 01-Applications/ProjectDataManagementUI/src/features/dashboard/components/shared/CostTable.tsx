@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
 import { PLN, DATE } from '../../utils/formatters';
 import { AttachmentsCell } from './AttachmentsCell';
+import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface CostTableProps {
   costs: TrackedCostWeb[];
@@ -16,6 +17,7 @@ export interface CostTableProps {
 /** Tabela kosztów śledzonych. Wartości null wyświetlane jako "—". */
 export function CostTable({ costs, title, bgOverride, onEdit, onDelete }: CostTableProps): React.ReactElement {
   const [neutral400, neutral600] = useToken('colors', ['neutral.400', 'neutral.600']);
+  const currencySymbol = useDashboardCurrency();
 
   const hasActions = onEdit != null || onDelete != null;
 
@@ -75,7 +77,7 @@ export function CostTable({ costs, title, bgOverride, onEdit, onDelete }: CostTa
                   {cost.number ?? '—'}
                 </Td>
                 <Td isNumeric px="6px" py="4px" color="orange.600" fontWeight="medium">
-                  {PLN(cost.net)}
+                  {PLN(cost.net, currencySymbol)}
                 </Td>
                 <Td px="6px" py="4px">
                   <AttachmentsCell attachments={cost.attachments} costName={cost.name} />

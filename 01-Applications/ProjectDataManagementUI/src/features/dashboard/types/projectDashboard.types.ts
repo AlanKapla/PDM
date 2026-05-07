@@ -68,7 +68,6 @@ export interface TrackedCostAttachmentWeb {
 
 export interface TrackedCostWeb {
   id: string;
-  workItemLinkId: string | null;
   costEstimateItemId: string | null;
   workScheduleStageWorkId: string | null;
   isAdditional: boolean;
@@ -109,13 +108,12 @@ export interface ProjectAdditionalCostsWeb {
 }
 
 export enum WorkItemType {
-  Link = 0,
-  Estimate = 1,
-  Schedule = 2,
+  LinkedWorkItem = 0,
+  EstimateItem = 1,
+  ScheduleWorkItem = 2,
 }
 
 export interface WorkItemLinkWeb extends TrackerNodeWithTimelineWeb {
-  workItemLinkId: string | null;
   displayName: string;
   order: number;
   workItemType: WorkItemType;
@@ -247,6 +245,7 @@ export interface ProjectTimelineSummaryWeb {
 
 export interface ProjectDashboardWeb {
   projectId: string;
+  currencySymbol: string;
   referenceDate: string;
   generatedAt: string;
   financialSummary: ProjectFinancialSummaryWeb;
@@ -260,7 +259,6 @@ export interface ProjectDashboardWeb {
 // --- Request types ---
 
 export interface CreateTrackedCostRequest {
-  workItemLinkId?: string | null;
   costEstimateItemId?: string | null;
   workScheduleStageWorkId?: string | null;
   name: string;

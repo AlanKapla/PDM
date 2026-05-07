@@ -1,9 +1,20 @@
 ﻿using Microsoft.EntityFrameworkCore; // required for DbContext, DbSet
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
 using Entities.Models;
+using Entities.Models.WorkSchedules;
+using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
-using Entities.Models.WorkItemLinks;
+using Entities.Models.Costs;
 
 namespace Entities.Context
 {
@@ -15,6 +26,8 @@ namespace Entities.Context
         public DbSet<TenantMember> TenantMembers=> Set<TenantMember>();
         public DbSet<Project> Projects => Set<Project>();
         public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+        public DbSet<ProjectParams> ProjectParams => Set<ProjectParams>();
+        public DbSet<ProjectCurrency> ProjectCurrencies => Set<ProjectCurrency>();
         public DbSet<ProjectFilePackage> ProjectFilePackages => Set<ProjectFilePackage>();
         public DbSet<ProjectFile> ProjectFiles => Set<ProjectFile>();
         public DbSet<ProjectFileVersion> ProjectFileVersions => Set<ProjectFileVersion>();
@@ -30,13 +43,12 @@ namespace Entities.Context
         public DbSet<WorkSchedule> WorkSchedules => Set<WorkSchedule>();
         public DbSet<WorkScheduleStage> WorkScheduleStages => Set<WorkScheduleStage>();
         public DbSet<WorkScheduleStageWork> WorkScheduleStageWorks => Set<WorkScheduleStageWork>();
+        public DbSet<WorkScheduleStageWorkPeriod> WorkScheduleStageWorkPeriods => Set<WorkScheduleStageWorkPeriod>();
         public DbSet<WorkScheduleStageWorkAssignment> WorkScheduleStageWorkAssignments => Set<WorkScheduleStageWorkAssignment>();
         public DbSet<WorkScheduleStageWorkComment> WorkScheduleStageWorkComments => Set<WorkScheduleStageWorkComment>();
         public DbSet<WorkScheduleStageWorkDependency> WorkScheduleStageWorkDependencies => Set<WorkScheduleStageWorkDependency>();
-        public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
-        public DbSet<CostEstimateTemplateCurrency> CostEstimateTemplateCurrencies => Set<CostEstimateTemplateCurrency>();
         public DbSet<CostEstimateTemplateUnit> CostEstimateTemplateUnits => Set<CostEstimateTemplateUnit>();
         public DbSet<CostEstimateTemplateCategory> CostEstimateTemplateCategories => Set<CostEstimateTemplateCategory>();
         public DbSet<CostEstimateTemplateGroupFieldDefinition> CostEstimateTemplateGroupFieldDefinitions => Set<CostEstimateTemplateGroupFieldDefinition>();
@@ -50,11 +62,10 @@ namespace Entities.Context
         public DbSet<CostEstimateItemFieldValue> CostEstimateItemFieldValues => Set<CostEstimateItemFieldValue>();
         public DbSet<CostEstimateFieldFile> CostEstimateFieldFiles => Set<CostEstimateFieldFile>();
         public DbSet<SharedCostEstimate> SharedCostEstimates => Set<SharedCostEstimate>();
+        public DbSet<BaseCost> Costs => Set<BaseCost>();
         public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
-        public DbSet<TrackedCostAttachment> TrackedCostAttachments => Set<TrackedCostAttachment>();
-        public DbSet<CostEstimateWorkScheduleLink> CostEstimateWorkScheduleLinks => Set<CostEstimateWorkScheduleLink>();
-        public DbSet<CostEstimateGroupWorkScheduleStageLink> CostEstimateGroupWorkScheduleStageLinks => Set<CostEstimateGroupWorkScheduleStageLink>();
-        public DbSet<CostEstimateItemWorkScheduleStageWorkLink> CostEstimateItemWorkScheduleStageWorkLinks => Set<CostEstimateItemWorkScheduleStageWorkLink>();
+        public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
+        public DbSet<BaseCostAttachment> CostAttachments => Set<BaseCostAttachment>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
@@ -62,18 +73,38 @@ namespace Entities.Context
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
-            modelBuilder.Entity<UserProfileBase>(b =>
-            {
-                b.HasKey(p => p.Id);
-                b.HasOne(p => p.User)
-                 .WithMany()
-                 .HasForeignKey(p => p.UserId)
-                 .OnDelete(DeleteBehavior.Cascade);
+        }
 
-                b.HasDiscriminator<string>("ProfileType")
-                 .HasValue<TenantPreferencesProfile>("TenantPreferences")
-                 .HasValue<PermissionsVersionProfile>("PermissionsVersion");
-            });
+        public override async Task<int> SaveChangesAsync(
+            CancellationToken cancellationToken = default)
+        {
+            DateTime now = DateTime.UtcNow;
+
+            foreach (EntityEntry<DeletableEntity> entry in ChangeTracker.Entries<DeletableEntity>())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.IsDeleted = false;
+                    entry.Entity.DeletedAt = null;
+                }
+            }
+
+            foreach (EntityEntry entry in ChangeTracker.Entries())
+            {
+                if (entry.State == EntityState.Added
+                    && entry.Properties.Any(p => p.Metadata.Name == "CreatedAt"))
+                {
+                    entry.Property("CreatedAt").CurrentValue = now;
+                }
+
+                if (entry.State == EntityState.Modified
+                    && entry.Properties.Any(p => p.Metadata.Name == "UpdatedAt"))
+                {
+                    entry.Property("UpdatedAt").CurrentValue = now;
+                }
+            }
+
+            return await base.SaveChangesAsync(cancellationToken);
         }
     }
 }

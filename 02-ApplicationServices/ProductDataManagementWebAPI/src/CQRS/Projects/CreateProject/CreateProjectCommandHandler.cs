@@ -3,9 +3,10 @@ using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Enums;
-using Entities.Models;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.CreateProject
@@ -16,6 +17,7 @@ namespace CQRS.Projects.CreateProject
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
+        private readonly IRepository<ProjectCurrency> currencyRepo;
         private readonly PermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
@@ -24,6 +26,7 @@ namespace CQRS.Projects.CreateProject
             IRepository<ProjectMember> projectMemberRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<Role> roleRepo,
+            IRepository<ProjectCurrency> currencyRepo,
             PermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
@@ -31,6 +34,7 @@ namespace CQRS.Projects.CreateProject
             this.projectMemberRepo = projectMemberRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.roleRepo = roleRepo;
+            this.currencyRepo = currencyRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
@@ -50,6 +54,16 @@ namespace CQRS.Projects.CreateProject
 
             await projectRepo.Insert(project);
             await projectRepo.SaveChangesAsync(cancellationToken);
+
+            ProjectCurrency defaultCurrency = new ProjectCurrency
+            {
+                ProjectId = project.Id,
+                Code = "PLN",
+                Name = "Polski złoty",
+                Symbol = "zł"
+            };
+            await currencyRepo.Insert(defaultCurrency);
+            await currencyRepo.SaveChangesAsync(cancellationToken);
 
             // Get PROJECT.ADMIN role
             var adminRole = await roleRepo.GetFirstBySearch(
@@ -92,7 +106,8 @@ namespace CQRS.Projects.CreateProject
                 CreatedByUserName: createdByUserName,
                 UserRoleCode: RoleCodes.ProjectAdmin,
                 MembersCount: 1,
-                UserPermissions: userPermissions
+                UserPermissions: userPermissions,
+                Currency: new ProjectCurrencyWeb("PLN", "Polski złoty", "zł")
             );
         }
     }

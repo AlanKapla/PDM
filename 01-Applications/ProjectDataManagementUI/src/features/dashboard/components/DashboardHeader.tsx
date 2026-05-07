@@ -4,6 +4,7 @@ import type { ProjectDashboardWeb } from '../types/projectDashboard.types';
 import { PLN, DATE } from '../utils/formatters';
 import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
 import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
+import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
 export interface DashboardHeaderProps {
   data: ProjectDashboardWeb;
@@ -17,6 +18,7 @@ export interface DashboardHeaderProps {
 export function DashboardHeader({ data, projectName }: DashboardHeaderProps): React.ReactElement {
   const { financialSummary, timelineSummary } = data;
   const additionalNet = financialSummary.additionalCostsNet;
+  const currencySymbol = useDashboardCurrency();
 
   return (
     <Box mb={5}>
@@ -28,14 +30,14 @@ export function DashboardHeader({ data, projectName }: DashboardHeaderProps): Re
       </Text>
       <HStack wrap="wrap" spacing={2} gap={1} align="center">
         <Badge colorScheme="gray" px={2} py={1} borderRadius="full" fontSize="xs" fontWeight="normal">
-          Budżet: <strong>{PLN(financialSummary.totalBudgetNet)}</strong>
+          Budżet: <strong>{PLN(financialSummary.totalBudgetNet, currencySymbol)}</strong>
         </Badge>
         <Badge colorScheme="gray" px={2} py={1} borderRadius="full" fontSize="xs" fontWeight="normal">
-          Koszty: <strong>{PLN(financialSummary.totalCostsNet)}</strong>
+          Koszty: <strong>{PLN(financialSummary.totalCostsNet, currencySymbol)}</strong>
         </Badge>
         {additionalNet != null && additionalNet > 0 && (
           <Badge colorScheme="orange" px={2} py={1} borderRadius="full" fontSize="xs" fontWeight="normal">
-            Dodatkowe: <strong>{PLN(additionalNet)}</strong>
+            Dodatkowe: <strong>{PLN(additionalNet, currencySymbol)}</strong>
           </Badge>
         )}
         <FinancialStatusBadge status={financialSummary.financialStatus} small />

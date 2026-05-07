@@ -3,10 +3,18 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
-using Entities.Models.WorkItemLinks;
+using Entities.Models.Costs;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -18,30 +26,28 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
         private readonly IReadRepository<Project> projectRepository;
         private readonly IReadRepository<CostEstimate> costEstimateRepository;
         private readonly IReadRepository<TrackedCost> trackedCostRepository;
-        private readonly IReadRepository<TrackedCostAttachment> attachmentRepository;
-        private readonly IReadRepository<CostEstimateItemWorkScheduleStageWorkLink> workItemLinkRepository;
+        private readonly IReadRepository<ProjectCost> projectCostRepository;
+        private readonly IReadRepository<BaseCostAttachment> attachmentRepository;
         private readonly IReadRepository<CostEstimateItem> ceItemRepository;
         private readonly IReadRepository<WorkSchedule> workScheduleRepository;
         private readonly IReadRepository<WorkScheduleStage> workScheduleStageRepository;
-        private readonly IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepository;
-        private readonly IReadRepository<CostEstimateGroupWorkScheduleStageLink> groupStageLinkRepository;
         private readonly IReadRepository<WorkScheduleStageWork> stageWorkRepository;
         private readonly IReadRepository<WorkScheduleStageWorkPeriod> stageWorkPeriodRepository;
+        private readonly IReadRepository<ProjectCurrency> projectCurrencyRepository;
         private readonly ICostEstimateCacheService ceCacheService;
 
         public GetProjectDashboardQueryHandler(
             IReadRepository<Project> projectRepository,
             IReadRepository<CostEstimate> costEstimateRepository,
             IReadRepository<TrackedCost> trackedCostRepository,
-            IReadRepository<TrackedCostAttachment> attachmentRepository,
-            IReadRepository<CostEstimateItemWorkScheduleStageWorkLink> workItemLinkRepository,
+            IReadRepository<ProjectCost> projectCostRepository,
+            IReadRepository<BaseCostAttachment> attachmentRepository,
             IReadRepository<CostEstimateItem> ceItemRepository,
             IReadRepository<WorkSchedule> workScheduleRepository,
             IReadRepository<WorkScheduleStage> workScheduleStageRepository,
-            IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepository,
-            IReadRepository<CostEstimateGroupWorkScheduleStageLink> groupStageLinkRepository,
             IReadRepository<WorkScheduleStageWork> stageWorkRepository,
             IReadRepository<WorkScheduleStageWorkPeriod> stageWorkPeriodRepository,
+            IReadRepository<ProjectCurrency> projectCurrencyRepository,
             ICostEstimateCacheService ceCacheService,
             ICostTrackerFinancialService financialService,
             ICostTrackerTimelineService timelineService,
@@ -52,15 +58,14 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
             this.projectRepository = projectRepository;
             this.costEstimateRepository = costEstimateRepository;
             this.trackedCostRepository = trackedCostRepository;
+            this.projectCostRepository = projectCostRepository;
             this.attachmentRepository = attachmentRepository;
-            this.workItemLinkRepository = workItemLinkRepository;
             this.ceItemRepository = ceItemRepository;
             this.workScheduleRepository = workScheduleRepository;
             this.workScheduleStageRepository = workScheduleStageRepository;
-            this.workScheduleLinkRepository = workScheduleLinkRepository;
-            this.groupStageLinkRepository = groupStageLinkRepository;
             this.stageWorkRepository = stageWorkRepository;
             this.stageWorkPeriodRepository = stageWorkPeriodRepository;
+            this.projectCurrencyRepository = projectCurrencyRepository;
             this.ceCacheService = ceCacheService;
         }
 
@@ -75,22 +80,26 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
                 cancellationToken)
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            List<TrackedCost> allTrackedCosts = await LoadTrackedCostsAsync(request.TenantId, request.ProjectId);
+            ProjectCurrency? projectCurrency = await projectCurrencyRepository.GetFirstBySearch(
+                c => c.ProjectId == request.ProjectId,
+                cancellationToken);
 
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId = await LoadAttachmentLookupAsync(allTrackedCosts);
+            List<BaseCost> allCosts = await LoadAllCostsAsync(request.TenantId, request.ProjectId);
+
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId = await LoadAttachmentLookupAsync(allCosts);
 
             Dictionary<Guid, (Guid? CostEstimateId, Guid? CostEstimateItemId)> costEstimateContext =
-                await ResolveCostEstimateContextAsync(allTrackedCosts, cancellationToken);
+                await ResolveCostEstimateContextAsync(allCosts, cancellationToken);
 
             ProjectAdditionalCostsWeb projectAdditionalCosts = BuildProjectAdditionalCosts(
-                allTrackedCosts, attachmentsByCostId, costEstimateContext);
+                allCosts, attachmentsByCostId, costEstimateContext);
 
-            List<TrackedCost> estimateScopedCosts = allTrackedCosts
-                .Where(tc => costEstimateContext.TryGetValue(tc.Id, out var ctx) && ctx.CostEstimateId.HasValue)
+            List<BaseCost> estimateScopedCosts = allCosts
+                .Where(c => costEstimateContext.TryGetValue(c.Id, out var ctx) && ctx.CostEstimateId.HasValue)
                 .ToList();
 
             List<CostEstimate> allEstimates = (await costEstimateRepository.GetBySearch(
-                ce => ce.ProjectId == request.ProjectId && ce.TenantId == request.TenantId && !ce.IsDeleted)).ToList();
+                ce => ce.ProjectId == request.ProjectId && ce.TenantId == request.TenantId)).ToList();
 
             DateTime referenceDate = DateTime.UtcNow;
             DateTime generatedAt = DateTime.UtcNow;
@@ -100,10 +109,10 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
                 request.TenantId, request.ProjectId, referenceDate, cancellationToken);
 
             List<ScheduleSummaryWeb> scheduleSummaries = await BuildScheduleSummariesAsync(
-                request.TenantId, request.ProjectId, allTrackedCosts, attachmentsByCostId, referenceDate);
+                request.TenantId, request.ProjectId, allCosts, attachmentsByCostId, referenceDate);
 
             ProjectFinancialSummaryWeb financialSummary = BuildProjectFinancialSummary(
-                estimateSummaries, projectAdditionalCosts, allTrackedCosts, project.BudgetNet, project.BudgetGross,
+                estimateSummaries, projectAdditionalCosts, allCosts, project.BudgetNet, project.BudgetGross,
                 workSchedulesCount: scheduleSummaries.Count);
 
             ProjectTimelineSummaryWeb timelineSummary = BuildProjectTimelineSummary(estimateSummaries, scheduleSummaries);
@@ -114,99 +123,78 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
             Dictionary<Guid, (string EstimateName, string GroupName, string ItemName)> estimateItemContext =
                 BuildEstimateItemContext(estimateSummaries);
 
-            List<TrackedCostWeb> allCosts = BuildAllCosts(allTrackedCosts, attachmentsByCostId, scheduleWorkItemContext, estimateItemContext);
+            List<TrackedCostWeb> allCostWebs = BuildAllCosts(allCosts, attachmentsByCostId, scheduleWorkItemContext, estimateItemContext);
 
             return new ProjectDashboardWeb
             {
                 ProjectId = request.ProjectId,
                 GeneratedAt = generatedAt,
                 ReferenceDate = referenceDate,
+                SelectedCurrencyCode = projectCurrency?.Code,
+                SelectedCurrencySymbol = projectCurrency?.Symbol,
                 FinancialSummary = financialSummary,
                 TimelineSummary = timelineSummary,
                 CostEstimateSummaries = estimateSummaries,
                 ScheduleSummaries = scheduleSummaries,
                 ProjectAdditionalCosts = projectAdditionalCosts,
-                AllCosts = allCosts
+                AllCosts = allCostWebs
             };
         }
 
-        private async Task<List<TrackedCost>> LoadTrackedCostsAsync(Guid tenantId, Guid projectId)
+        private async Task<List<BaseCost>> LoadAllCostsAsync(Guid tenantId, Guid projectId)
         {
-            return (await trackedCostRepository.GetBySearch(
-                tc => tc.TenantId == tenantId && tc.ProjectId == projectId && !tc.IsDeleted))
+            List<TrackedCost> trackedCosts = (await trackedCostRepository.GetBySearch(
+                tc => tc.TenantId == tenantId && tc.ProjectId == projectId))
                 .ToList();
+
+            List<ProjectCost> acceptedProjectCosts = (await projectCostRepository.GetBySearch(
+                pc => pc.TenantId == tenantId && pc.ProjectId == projectId && pc.IsAccepted))
+                .ToList();
+
+            return trackedCosts.Cast<BaseCost>().Concat(acceptedProjectCosts).ToList();
         }
 
-        private async Task<ILookup<Guid, TrackedCostAttachment>> LoadAttachmentLookupAsync(
-            List<TrackedCost> trackedCosts)
+        private async Task<ILookup<Guid, BaseCostAttachment>> LoadAttachmentLookupAsync(List<BaseCost> allCosts)
         {
-            HashSet<Guid> costIds = trackedCosts.Select(tc => tc.Id).ToHashSet();
+            HashSet<Guid> costIds = allCosts.Select(c => c.Id).ToHashSet();
 
-            List<TrackedCostAttachment> allAttachments = costIds.Count > 0
-                ? (await attachmentRepository.GetBySearch(a => costIds.Contains(a.TrackedCostId))).ToList()
-                : new List<TrackedCostAttachment>();
+            List<BaseCostAttachment> allAttachments = costIds.Count > 0
+                ? (await attachmentRepository.GetBySearch(a => costIds.Contains(a.CostId))).ToList()
+                : new List<BaseCostAttachment>();
 
-            return allAttachments.ToLookup(a => a.TrackedCostId);
+            return allAttachments.ToLookup(a => a.CostId);
         }
 
         /// <summary>
-        /// Batch-resolves (CostEstimateId, CostEstimateItemId) per cost via two paths:
-        /// 1. WorkItemLinkId → CostEstimateItemWorkScheduleStageWorkLink → CostEstimateItem.CostEstimateId
-        /// 2. Direct CostEstimateItemId → CostEstimateItem.CostEstimateId (when WorkItemLinkId is null)
+        /// Batch-resolves (CostEstimateId, CostEstimateItemId) per cost via direct CostEstimateItemId FK.
         /// </summary>
         private async Task<Dictionary<Guid, (Guid? CostEstimateId, Guid? CostEstimateItemId)>> ResolveCostEstimateContextAsync(
-            List<TrackedCost> trackedCosts,
+            List<BaseCost> costs,
             CancellationToken cancellationToken)
         {
-            HashSet<Guid> workItemLinkIds = trackedCosts
-                .Where(tc => tc.WorkItemLinkId.HasValue)
-                .Select(tc => tc.WorkItemLinkId!.Value)
+            HashSet<Guid> directCeItemIds = costs
+                .Where(c => c.CostEstimateItemId.HasValue)
+                .Select(c => c.CostEstimateItemId!.Value)
                 .ToHashSet();
 
-            Dictionary<Guid, CostEstimateItemWorkScheduleStageWorkLink> workItemLinksById = workItemLinkIds.Count > 0
-                ? (await workItemLinkRepository.GetBySearch(l => workItemLinkIds.Contains(l.Id)))
-                    .ToDictionary(l => l.Id)
-                : new Dictionary<Guid, CostEstimateItemWorkScheduleStageWorkLink>();
-
-            HashSet<Guid> ceItemIdsFromLinks = workItemLinksById.Values
-                .Where(l => l.CostEstimateItemId.HasValue)
-                .Select(l => l.CostEstimateItemId!.Value)
-                .ToHashSet();
-
-            HashSet<Guid> directCeItemIds = trackedCosts
-                .Where(tc => !tc.WorkItemLinkId.HasValue && tc.CostEstimateItemId.HasValue)
-                .Select(tc => tc.CostEstimateItemId!.Value)
-                .ToHashSet();
-
-            HashSet<Guid> allCeItemIds = ceItemIdsFromLinks.Union(directCeItemIds).ToHashSet();
-
-            Dictionary<Guid, CostEstimateItem> ceItemsById = allCeItemIds.Count > 0
-                ? (await ceItemRepository.GetBySearch(i => allCeItemIds.Contains(i.Id)))
+            Dictionary<Guid, CostEstimateItem> ceItemsById = directCeItemIds.Count > 0
+                ? (await ceItemRepository.GetBySearch(i => directCeItemIds.Contains(i.Id)))
                     .ToDictionary(i => i.Id)
                 : new Dictionary<Guid, CostEstimateItem>();
 
             Dictionary<Guid, (Guid? CostEstimateId, Guid? CostEstimateItemId)> result =
                 new Dictionary<Guid, (Guid? CostEstimateId, Guid? CostEstimateItemId)>();
 
-            foreach (TrackedCost cost in trackedCosts)
+            foreach (BaseCost cost in costs)
             {
                 Guid? ceItemId = null;
                 Guid? ceId = null;
 
-                if (cost.WorkItemLinkId.HasValue &&
-                    workItemLinksById.TryGetValue(cost.WorkItemLinkId.Value, out CostEstimateItemWorkScheduleStageWorkLink? link))
-                {
-                    ceItemId = link.CostEstimateItemId;
-                    if (ceItemId.HasValue && ceItemsById.TryGetValue(ceItemId.Value, out CostEstimateItem? itemViaLink))
-                    {
-                        ceId = itemViaLink.CostEstimateId;
-                    }
-                }
-                else if (cost.CostEstimateItemId.HasValue &&
-                         ceItemsById.TryGetValue(cost.CostEstimateItemId.Value, out CostEstimateItem? directItem))
+                if (cost.CostEstimateItemId.HasValue &&
+                    ceItemsById.TryGetValue(cost.CostEstimateItemId.Value, out CostEstimateItem? item))
                 {
                     ceItemId = cost.CostEstimateItemId;
-                    ceId = directItem.CostEstimateId;
+                    ceId = item.CostEstimateId;
                 }
 
                 result[cost.Id] = (ceId, ceItemId);
@@ -216,37 +204,45 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
         }
 
         private ProjectAdditionalCostsWeb BuildProjectAdditionalCosts(
-            List<TrackedCost> allTrackedCosts,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            List<BaseCost> allCosts,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             Dictionary<Guid, (Guid? CostEstimateId, Guid? CostEstimateItemId)> costEstimateContext)
         {
-            List<TrackedCost> projectAdditionalCostsList = allTrackedCosts
-                .Where(tc => !(tc.CostEstimateItemId.HasValue || tc.WorkItemLinkId.HasValue || tc.WorkScheduleStageWorkId.HasValue))
+            List<TrackedCost> additionalTrackedCosts = allCosts.OfType<TrackedCost>()
+                .Where(tc => !tc.CostEstimateItemId.HasValue && !tc.WorkScheduleStageWorkId.HasValue)
                 .ToList();
 
-            decimal? totalNet = projectAdditionalCostsList.Any(c => c.Net.HasValue)
-                ? projectAdditionalCostsList.Sum(c => c.Net ?? 0)
+            List<TrackedCostWeb> trackedCostWebs = additionalTrackedCosts
+                .Select(c => MapTrackedCostToWeb(c, attachmentsByCostId[c.Id]))
+                .ToList();
+
+            List<TrackedCostWeb> projectCostWebs = allCosts.OfType<ProjectCost>()
+                .Select(c => MapProjectCostToWeb(c, attachmentsByCostId[c.Id]))
+                .ToList();
+
+            List<TrackedCostWeb> allAdditionalCosts = trackedCostWebs.Concat(projectCostWebs).ToList();
+
+            decimal? totalNet = allAdditionalCosts.Any(c => c.Net.HasValue)
+                ? allAdditionalCosts.Sum(c => c.Net ?? 0)
                 : null;
 
-            decimal? totalGross = projectAdditionalCostsList.Any(c => c.Gross.HasValue)
-                ? projectAdditionalCostsList.Sum(c => c.Gross ?? 0)
+            decimal? totalGross = allAdditionalCosts.Any(c => c.Gross.HasValue)
+                ? allAdditionalCosts.Sum(c => c.Gross ?? 0)
                 : null;
 
             return new ProjectAdditionalCostsWeb
             {
                 TotalNet = totalNet,
                 TotalGross = totalGross,
-                CostsCount = projectAdditionalCostsList.Count,
-                Costs = projectAdditionalCostsList
-                    .Select(c => MapTrackedCostToWeb(c, attachmentsByCostId[c.Id]))
-                    .ToList()
+                CostsCount = allAdditionalCosts.Count,
+                Costs = allAdditionalCosts
             };
         }
 
         private async Task<List<CostEstimateSummaryWeb>> BuildEstimateSummariesAsync(
             List<CostEstimate> allEstimates,
-            List<TrackedCost> estimateScopedCosts,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            List<BaseCost> estimateScopedCosts,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             Dictionary<Guid, (Guid? CostEstimateId, Guid? CostEstimateItemId)> costEstimateContext,
             Guid tenantId,
             Guid projectId,
@@ -255,14 +251,20 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
         {
             List<CostEstimateSummaryWeb> summaries = new List<CostEstimateSummaryWeb>();
 
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> workItemLinksByItemId = await LoadWorkItemLinksByItemIdAsync(tenantId, projectId);
+            List<WorkScheduleStageWork> linkedStageWorks = (await stageWorkRepository.GetBySearch(
+                w => w.TenantId == tenantId && w.ProjectId == projectId && w.CostEstimateItemId.HasValue)).ToList();
 
-            HashSet<Guid> estimateIds = allEstimates.Select(e => e.Id).ToHashSet();
-            Dictionary<Guid, Guid> workScheduleIdByEstimateId = estimateIds.Count > 0
-                ? (await workScheduleLinkRepository.GetBySearch(
-                    l => l.CostEstimateId.HasValue && estimateIds.Contains(l.CostEstimateId!.Value) && l.WorkScheduleId.HasValue))
-                    .ToDictionary(l => l.CostEstimateId!.Value, l => l.WorkScheduleId!.Value)
-                : new Dictionary<Guid, Guid>();
+            ILookup<Guid, WorkScheduleStageWork> stageWorksByItemId =
+                linkedStageWorks.ToLookup(w => w.CostEstimateItemId!.Value);
+
+            HashSet<Guid> linkedWorkIds = linkedStageWorks.Select(w => w.Id).ToHashSet();
+            HashSet<Guid> closedWorkIds = await ResolveClosedWorkIdsAsync(linkedWorkIds);
+
+            List<WorkSchedule> linkedSchedules = (await workScheduleRepository.GetBySearch(
+                ws => ws.CostEstimateId.HasValue && ws.ProjectId == projectId)).ToList();
+            Dictionary<Guid, Guid> workScheduleIdByEstimateId = linkedSchedules
+                .GroupBy(ws => ws.CostEstimateId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().Id);
 
             foreach (CostEstimate costEstimate in allEstimates)
             {
@@ -271,21 +273,21 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
                 Dictionary<Guid, CostEstimateItem> itemsDict = await ceCacheService.GetItemsDictionaryAsync(
                     costEstimate.Id, tenantId, projectId, cancellationToken);
 
-                List<TrackedCost> estimateCosts = estimateScopedCosts
-                    .Where(tc => costEstimateContext.TryGetValue(tc.Id, out var ctx) && ctx.CostEstimateId == costEstimate.Id)
+                List<BaseCost> estimateCosts = estimateScopedCosts
+                    .Where(c => costEstimateContext.TryGetValue(c.Id, out var ctx) && ctx.CostEstimateId == costEstimate.Id)
                     .ToList();
 
-                ILookup<Guid, TrackedCost> costsByItemId = estimateCosts
+                ILookup<Guid, TrackedCost> costsByItemId = estimateCosts.OfType<TrackedCost>()
                     .Where(tc => costEstimateContext.TryGetValue(tc.Id, out var ctx) && ctx.CostEstimateItemId.HasValue)
                     .ToLookup(tc => costEstimateContext[tc.Id].CostEstimateItemId!.Value);
 
-                List<TrackedCost> additionalCostsList = estimateCosts
+                List<TrackedCost> additionalCostsList = estimateCosts.OfType<TrackedCost>()
                     .Where(tc => !costEstimateContext.TryGetValue(tc.Id, out var ctx) || !ctx.CostEstimateItemId.HasValue)
                     .ToList();
 
                 List<TrackerGroupWeb> groups = BuildTrackerGroups(
                     groupsDict, itemsDict,
-                    costsByItemId, attachmentsByCostId, workItemLinksByItemId, referenceDate);
+                    costsByItemId, attachmentsByCostId, stageWorksByItemId, closedWorkIds, referenceDate);
 
                 List<TrackedCostWeb> additionalCostWebs = additionalCostsList
                     .Select(tc => MapTrackedCostToWeb(tc, attachmentsByCostId[tc.Id]))
@@ -301,41 +303,24 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
             return summaries;
         }
 
-        private async Task<ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink>> LoadWorkItemLinksByItemIdAsync(
-            Guid tenantId, Guid projectId)
-        {
-            List<CostEstimateItemWorkScheduleStageWorkLink> links = (await workItemLinkRepository.GetBySearch(
-                l => l.ProjectId == projectId && l.CostEstimateItemId.HasValue))
-                .ToList();
-
-            return links.ToLookup(l => l.CostEstimateItemId!.Value);
-        }
-
         private async Task<List<ScheduleSummaryWeb>> BuildScheduleSummariesAsync(
             Guid tenantId,
             Guid projectId,
-            List<TrackedCost> allTrackedCosts,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            List<BaseCost> allCosts,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             DateTime referenceDate)
         {
             List<WorkSchedule> schedules = (await workScheduleRepository.GetBySearch(
-                ws => ws.ProjectId == projectId && ws.TenantId == tenantId && !ws.IsDeleted)).ToList();
+                ws => ws.ProjectId == projectId && ws.TenantId == tenantId)).ToList();
 
             if (schedules.Count == 0) return [];
 
             HashSet<Guid> scheduleIds = schedules.Select(ws => ws.Id).ToHashSet();
 
             List<WorkScheduleStage> allStages = (await workScheduleStageRepository.GetBySearch(
-                s => s.ProjectId == projectId && scheduleIds.Contains(s.WorkScheduleId) && !s.IsDeleted)).ToList();
+                s => s.ProjectId == projectId && scheduleIds.Contains(s.WorkScheduleId))).ToList();
 
             ILookup<Guid, WorkScheduleStage> stagesByScheduleId = allStages.ToLookup(s => s.WorkScheduleId);
-
-            List<CostEstimateWorkScheduleLink> wsLinks = (await workScheduleLinkRepository.GetBySearch(
-                l => l.WorkScheduleId.HasValue && scheduleIds.Contains(l.WorkScheduleId!.Value))).ToList();
-
-            Dictionary<Guid, CostEstimateWorkScheduleLink> wsLinkByScheduleId = wsLinks
-                .Where(l => l.WorkScheduleId.HasValue)
-                .ToDictionary(l => l.WorkScheduleId!.Value);
 
             HashSet<Guid> stageIds = allStages.Select(s => s.Id).ToHashSet();
 
@@ -346,66 +331,43 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
             ILookup<Guid, WorkScheduleStageWork> worksByStageId = allStageWorks.ToLookup(w => w.WorkScheduleStageId);
 
             HashSet<Guid> workIds = allStageWorks.Select(w => w.Id).ToHashSet();
-
             HashSet<Guid> closedWorkIds = await ResolveClosedWorkIdsAsync(workIds);
 
-            List<CostEstimateItemWorkScheduleStageWorkLink> workItemLinks = workIds.Count > 0
-                ? (await workItemLinkRepository.GetBySearch(
-                    l => l.WorkScheduleStageWorkId.HasValue && workIds.Contains(l.WorkScheduleStageWorkId!.Value))).ToList()
-                : [];
-
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> linksByStageWorkId = workItemLinks
-                .Where(l => l.WorkScheduleStageWorkId.HasValue)
-                .ToLookup(l => l.WorkScheduleStageWorkId!.Value);
-
-            HashSet<Guid> linkIds = workItemLinks.Select(l => l.Id).ToHashSet();
-            ILookup<Guid, TrackedCost> costsByLinkId = allTrackedCosts
-                .Where(tc => tc.WorkItemLinkId.HasValue && linkIds.Contains(tc.WorkItemLinkId!.Value))
-                .ToLookup(tc => tc.WorkItemLinkId!.Value);
-
-            ILookup<Guid, TrackedCost> costsByStageWorkId = allTrackedCosts
-                .Where(tc => !tc.WorkItemLinkId.HasValue && tc.WorkScheduleStageWorkId.HasValue && workIds.Contains(tc.WorkScheduleStageWorkId!.Value))
+            ILookup<Guid, TrackedCost> costsByStageWorkId = allCosts.OfType<TrackedCost>()
+                .Where(tc => tc.WorkScheduleStageWorkId.HasValue && workIds.Contains(tc.WorkScheduleStageWorkId!.Value))
                 .ToLookup(tc => tc.WorkScheduleStageWorkId!.Value);
+
+            HashSet<Guid> ceItemIds = allStageWorks
+                .Where(w => w.CostEstimateItemId.HasValue)
+                .Select(w => w.CostEstimateItemId!.Value)
+                .ToHashSet();
+
+            Dictionary<Guid, CostEstimateItem> ceItemsById = ceItemIds.Count > 0
+                ? (await ceItemRepository.GetBySearch(i => ceItemIds.Contains(i.Id)))
+                    .ToDictionary(i => i.Id)
+                : new Dictionary<Guid, CostEstimateItem>();
 
             return schedules
                 .Select(schedule => BuildScheduleSummaryWeb(
                     schedule,
                     stagesByScheduleId[schedule.Id].OrderBy(s => s.Order).ToList(),
-                    wsLinkByScheduleId.TryGetValue(schedule.Id, out CostEstimateWorkScheduleLink? wsLink) ? wsLink : null,
                     worksByStageId,
-                    linksByStageWorkId,
-                    costsByLinkId,
                     costsByStageWorkId,
                     attachmentsByCostId,
                     closedWorkIds,
+                    ceItemsById,
                     referenceDate))
                 .ToList();
-        }
-
-        private IEnumerable<TrackedCost> ResolveTrackedCostsForWork(
-            CostEstimateItemWorkScheduleStageWorkLink? link,
-            Guid stageWorkId,
-            ILookup<Guid, TrackedCost> costsByLinkId,
-            ILookup<Guid, TrackedCost> costsByStageWorkId)
-        {
-            if (link is not null)
-            {
-                return costsByLinkId[link.Id].Where(c => !c.IsDeleted);
-            }
-
-            return costsByStageWorkId[stageWorkId].Where(c => !c.IsDeleted);
         }
 
         private ScheduleSummaryWeb BuildScheduleSummaryWeb(
             WorkSchedule schedule,
             List<WorkScheduleStage> stages,
-            CostEstimateWorkScheduleLink? wsLink,
             ILookup<Guid, WorkScheduleStageWork> worksByStageId,
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> linksByStageWorkId,
-            ILookup<Guid, TrackedCost> costsByLinkId,
             ILookup<Guid, TrackedCost> costsByStageWorkId,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             HashSet<Guid> closedWorkIds,
+            Dictionary<Guid, CostEstimateItem> ceItemsById,
             DateTime referenceDate)
         {
             Dictionary<Guid, List<WorkScheduleStage>> childrenByParentId = stages
@@ -420,8 +382,8 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
 
             List<ScheduleStageWeb> stageWebs = rootStages
                 .Select(stage => BuildScheduleStageWeb(
-                    stage, childrenByParentId, worksByStageId, linksByStageWorkId,
-                    costsByLinkId, costsByStageWorkId, attachmentsByCostId, closedWorkIds, referenceDate))
+                    stage, childrenByParentId, worksByStageId,
+                    costsByStageWorkId, attachmentsByCostId, closedWorkIds, ceItemsById, referenceDate))
                 .ToList();
 
             decimal? budgetNet = stageWebs.Any(s => s.BudgetNet.HasValue) ? stageWebs.Sum(s => s.BudgetNet ?? 0) : null;
@@ -449,8 +411,8 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
             {
                 WorkScheduleId           = schedule.Id,
                 WorkScheduleName         = schedule.Name,
-                HasLinkedEstimate        = wsLink?.CostEstimateId.HasValue == true,
-                LinkedCostEstimateId     = wsLink?.CostEstimateId,
+                HasLinkedEstimate        = schedule.CostEstimateId.HasValue,
+                LinkedCostEstimateId     = schedule.CostEstimateId,
                 TotalWorkItemsCount      = stageWebs.Sum(s => s.TotalWorkItemsCount),
                 WorkItemsWithCostsCount  = stageWebs.Sum(s => CountWorkItemsWithCosts(s)),
                 WorkItemsOverBudgetCount = stageWebs.Sum(s => CountWorkItemsByStatus(s, FinancialStatus.OverBudget)),
@@ -486,19 +448,18 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
             WorkScheduleStage stage,
             Dictionary<Guid, List<WorkScheduleStage>> childrenByParentId,
             ILookup<Guid, WorkScheduleStageWork> worksByStageId,
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> linksByStageWorkId,
-            ILookup<Guid, TrackedCost> costsByLinkId,
             ILookup<Guid, TrackedCost> costsByStageWorkId,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             HashSet<Guid> closedWorkIds,
+            Dictionary<Guid, CostEstimateItem> ceItemsById,
             DateTime referenceDate)
         {
             List<ScheduleStageWeb> childStageWebs = childrenByParentId.TryGetValue(stage.Id, out List<WorkScheduleStage>? children)
                 ? children
                     .OrderBy(c => c.Order)
                     .Select(c => BuildScheduleStageWeb(
-                        c, childrenByParentId, worksByStageId, linksByStageWorkId,
-                        costsByLinkId, costsByStageWorkId, attachmentsByCostId, closedWorkIds, referenceDate))
+                        c, childrenByParentId, worksByStageId,
+                        costsByStageWorkId, attachmentsByCostId, closedWorkIds, ceItemsById, referenceDate))
                     .ToList()
                 : [];
 
@@ -506,13 +467,13 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
                 .OrderBy(w => w.Order)
                 .Select(w =>
                 {
-                    CostEstimateItemWorkScheduleStageWorkLink? link = linksByStageWorkId[w.Id].FirstOrDefault();
-                    List<TrackedCost> resolvedCosts = ResolveTrackedCostsForWork(
-                        link, w.Id, costsByLinkId, costsByStageWorkId).ToList();
+                    List<TrackedCost> resolvedCosts = costsByStageWorkId[w.Id].ToList();
+                    bool isWorkClosed = closedWorkIds.Contains(w.Id);
+                    CostEstimateItem? linkedItem = w.CostEstimateItemId.HasValue
+                        && ceItemsById.TryGetValue(w.CostEstimateItemId.Value, out CostEstimateItem? ci) ? ci : null;
 
-                    return link is not null
-                        ? BuildWorkItemLinkWebFromLink(link, costsByLinkId, attachmentsByCostId, referenceDate)
-                        : BuildWorkItemLinkWebFromStageWork(w, resolvedCosts, attachmentsByCostId, closedWorkIds.Contains(w.Id), referenceDate);
+                    return BuildWorkItemLinkWebFromStageWork(
+                        w, resolvedCosts, attachmentsByCostId, linkedItem, isWorkClosed, referenceDate);
                 })
                 .ToList();
 
@@ -603,12 +564,12 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
         }
 
         private List<TrackedCostWeb> BuildAllCosts(
-            List<TrackedCost> allTrackedCosts,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            List<BaseCost> allCosts,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             Dictionary<Guid, (string ScheduleName, string StageName, string WorkItemName)> scheduleWorkItemContext,
             Dictionary<Guid, (string EstimateName, string GroupName, string ItemName)> estimateItemContext)
         {
-            return allTrackedCosts.Select(tc =>
+            List<TrackedCostWeb> trackedCostWebs = allCosts.OfType<TrackedCost>().Select(tc =>
             {
                 TrackedCostWeb web = MapTrackedCostToWeb(tc, attachmentsByCostId[tc.Id]);
 
@@ -625,6 +586,12 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
                     EstimateItemName = estCtx.ItemName
                 };
             }).ToList();
+
+            List<TrackedCostWeb> projectCostWebs = allCosts.OfType<ProjectCost>()
+                .Select(pc => MapProjectCostToWeb(pc, attachmentsByCostId[pc.Id]))
+                .ToList();
+
+            return trackedCostWebs.Concat(projectCostWebs).ToList();
         }
 
         private static Dictionary<Guid, (string EstimateName, string GroupName, string ItemName)> BuildEstimateItemContext(

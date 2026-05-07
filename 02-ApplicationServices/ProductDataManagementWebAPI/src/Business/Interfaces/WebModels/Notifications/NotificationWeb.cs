@@ -1,4 +1,4 @@
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 
 namespace Business.Interfaces.WebModels.Notifications
 {
@@ -13,7 +13,7 @@ namespace Business.Interfaces.WebModels.Notifications
         string Title,
         string Message,
         DateTimeOffset CreatedAt,
-        bool Readed,
+        bool IsRead,
         Dictionary<string, object?>? Metadata
     );
 }

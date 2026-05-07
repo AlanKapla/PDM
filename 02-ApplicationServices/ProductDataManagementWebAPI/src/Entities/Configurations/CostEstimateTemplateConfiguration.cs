@@ -45,24 +45,13 @@ namespace Entities.Configurations
             
             builder.Property(t => t.UpdatedAt);
             
-            builder.Property(t => t.IsDeleted)
-                .IsRequired()
-                .HasDefaultValue(false);
-            
-            builder.Property(t => t.DeletedAt);
-            
             // Relationship with User (Owner)
             builder.HasOne(t => t.Owner)
                 .WithMany()
                 .HasForeignKey(t => t.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
             
-            // Relationships with field definitions, currencies and units
-            builder.HasMany(t => t.Currencies)
-                .WithOne(c => c.Template)
-                .HasForeignKey(c => c.TemplateId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
+            // Relationships with field definitions and units
             builder.HasMany(t => t.Units)
                 .WithOne(u => u.Template)
                 .HasForeignKey(u => u.TemplateId)

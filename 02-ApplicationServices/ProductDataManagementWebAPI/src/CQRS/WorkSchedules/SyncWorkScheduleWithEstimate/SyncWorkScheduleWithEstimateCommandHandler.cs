@@ -1,9 +1,16 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
-using Entities.Models.WorkItemLinks;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -12,7 +19,6 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
     public class SyncWorkScheduleWithEstimateCommandHandler : IRequestHandler<SyncWorkScheduleWithEstimateCommand, Unit>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
-        private readonly IRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepo;
         private readonly IWorkScheduleSyncService workScheduleSyncService;
         private readonly ICostEstimateAccessService costEstimateAccessService;
         private readonly ICurrentUser currentUser;
@@ -20,14 +26,12 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
 
         public SyncWorkScheduleWithEstimateCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
-            IRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepo,
             IWorkScheduleSyncService workScheduleSyncService,
             ICostEstimateAccessService costEstimateAccessService,
             ICurrentUser currentUser,
             IWorkScheduleCacheService scheduleCache)
         {
             this.workScheduleRepo = workScheduleRepo;
-            this.workScheduleLinkRepo = workScheduleLinkRepo;
             this.workScheduleSyncService = workScheduleSyncService;
             this.costEstimateAccessService = costEstimateAccessService;
             this.currentUser = currentUser;
@@ -41,16 +45,13 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
 
             WorkSchedule workSchedule = await LoadAndAuthorizeAsync(tenantId, projectId, request.WorkScheduleId, cancellationToken);
 
-            CostEstimateWorkScheduleLink? link = await workScheduleLinkRepo.GetFirstBySearch(
-                l => l.WorkScheduleId == workSchedule.Id);
-
-            if (link?.CostEstimateId == null)
+            if (!workSchedule.CostEstimateId.HasValue)
             {
                 throw new ValidationApiException("Work schedule is not linked to a cost estimate.");
             }
 
             CostEstimateAccessLevel accessLevel = await costEstimateAccessService.GetAccessLevelAsync(
-                currentUser, tenantId, projectId, link.CostEstimateId.Value, cancellationToken);
+                currentUser, tenantId, projectId, workSchedule.CostEstimateId.Value, cancellationToken);
 
             if (accessLevel < CostEstimateAccessLevel.Full)
             {
@@ -68,7 +69,7 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
             CancellationToken cancellationToken)
         {
             WorkSchedule? workSchedule = await workScheduleRepo.GetFirstBySearch(
-                ws => ws.Id == workScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId && !ws.IsDeleted)
+                ws => ws.Id == workScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId)
                 ?? throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
 
             bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken);

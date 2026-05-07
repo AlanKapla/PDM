@@ -1,7 +1,15 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -123,7 +131,7 @@ namespace Business.Implementation.Services
                 return new Dictionary<Guid, int>();
 
             return await notificationRepo.CountGroupedByAsync(
-                n => userIds.Contains(n.UserId) && !n.Readed,
+                n => userIds.Contains(n.UserId) && !n.IsRead,
                 n => n.UserId,
                 cancellationToken);
         }
@@ -149,8 +157,8 @@ namespace Business.Implementation.Services
             Type = NotificationType.Info,
             Title = title,
             Message = message,
-            CreatedAt = DateTimeOffset.UtcNow,
-            Readed = false,
+            CreatedAt = DateTime.UtcNow,
+            IsRead = false,
             Metadata = new Dictionary<string, object?>
             {
                 { "workScheduleId", workScheduleId },

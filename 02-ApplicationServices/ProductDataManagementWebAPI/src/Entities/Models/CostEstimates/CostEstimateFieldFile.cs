@@ -1,4 +1,5 @@
 ﻿using Entities.Models.Base;
+using Entities.Models.Users;
 
 namespace Entities.Models.CostEstimates
 {
@@ -6,7 +7,7 @@ namespace Entities.Models.CostEstimates
     /// Plik dołączony do pola kosztorysu typu ItemSystemFiles
     /// Przechowywany w Azure Blob Storage, dozwolone formaty: PDF, JPG (max 50 MB)
     /// </summary>
-    public class CostEstimateFieldFile : BaseEntity
+    public class CostEstimateFieldFile : DeletableEntity
     {
         /// <summary>
         /// ID wartości pola (CostEstimateItemFieldValue), do której plik jest dołączony
@@ -14,7 +15,9 @@ namespace Entities.Models.CostEstimates
         public Guid FieldValueId { get; set; }
         
         /// <summary>
-        /// ID kosztorysu - denormalizacja dla łatwego filtrowania i budowania klucza cache
+        /// Denormalizacja — CostEstimateId z powiązanego CostEstimateItemFieldValue.
+        /// Przyspiesza zapytania per kosztorys bez JOIN przez FieldValue.
+        /// Musi być spójne z CostEstimateItemFieldValue.CostEstimateItem.CostEstimateId.
         /// </summary>
         public Guid CostEstimateId { get; set; }
         
@@ -45,8 +48,6 @@ namespace Entities.Models.CostEstimates
         
         public DateTime CreatedAt { get; set; }
         public Guid CreatedByUserId { get; set; }
-        public bool IsDeleted { get; set; }
-        public DateTime? DeletedAt { get; set; }
         
         // Navigation properties
         public virtual CostEstimateItemFieldValue FieldValue { get; set; } = default!;

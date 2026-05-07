@@ -1,12 +1,18 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models;
-using Entities.Models.WorkItemLinks;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.GetWorkSchedules
@@ -17,18 +23,15 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
     public class GetWorkSchedulesQueryHandler : IRequestHandler<GetWorkSchedulesQuery, List<WorkScheduleSummaryWeb>>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
-        private readonly IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepository;
         private readonly IUserService userService;
         private readonly ICurrentUser currentUser;
 
         public GetWorkSchedulesQueryHandler(
             IRepository<WorkSchedule> workScheduleRepo,
-            IReadRepository<CostEstimateWorkScheduleLink> workScheduleLinkRepository,
             IUserService userService,
             ICurrentUser currentUser)
         {
             this.workScheduleRepo = workScheduleRepo;
-            this.workScheduleLinkRepository = workScheduleLinkRepository;
             this.userService = userService;
             this.currentUser = currentUser;
         }
@@ -48,42 +51,33 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
                 case ResourceScope.All:
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
-                              ws.TenantId == request.TenantId &&
-                              !ws.IsDeleted);
+                              ws.TenantId == request.TenantId);
                     break;
 
                 case ResourceScope.Mine:
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
                               ws.TenantId == request.TenantId &&
-                              ws.CreatedByUserId == currentUser.Id &&
-                              !ws.IsDeleted);
+                              ws.CreatedByUserId == currentUser.Id);
                     break;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request.Scope));
             }
 
-            var workScheduleIds = workSchedules.Select(ws => ws.Id).ToHashSet();
-
-            var costEstimateIdByWorkScheduleId = (await workScheduleLinkRepository.GetBySearch(
-                    l => l.WorkScheduleId != null && workScheduleIds.Contains(l.WorkScheduleId!.Value)))
-                .GroupBy(l => l.WorkScheduleId!.Value)
-                .ToDictionary(g => g.Key, g => g.First().CostEstimateId);
-
-            var membersDict = (await userService.GetProjectMembersAsync(
+            Dictionary<Guid, ProjectMemberUserInfo> membersDict = (await userService.GetProjectMembersAsync(
                 request.TenantId, request.ProjectId, cancellationToken))
                 .ToDictionary(m => m.UserId);
 
-            var result = workSchedules
+            List<WorkScheduleSummaryWeb> result = workSchedules
                 .OrderByDescending(ws => ws.CreatedAt)
                 .Select(ws => new WorkScheduleSummaryWeb(
                     Id: ws.Id,
-                    CostEstimateId: costEstimateIdByWorkScheduleId.TryGetValue(ws.Id, out var ceId) ? ceId : null,
+                    CostEstimateId: ws.CostEstimateId,
                     Name: ws.Name,
                     CreatedAt: ws.CreatedAt,
                     CreatedByUserId: ws.CreatedByUserId,
-                    CreatedByUserName: membersDict.TryGetValue(ws.CreatedByUserId, out var creator)
+                    CreatedByUserName: membersDict.TryGetValue(ws.CreatedByUserId, out ProjectMemberUserInfo? creator)
                         ? creator.FullName
                         : "Unknown"
                 ))

@@ -5,7 +5,6 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
     public record CostEstimateTemplateStructureWeb(
         Guid TemplateId,
         int? MaxGroupLevel,
-        List<CurrencyWeb> Currencies,
         List<UnitWeb> Units,
         List<CategoryWeb> Categories,
         List<FieldDefinitionWeb> GroupHeaderFields,
@@ -14,16 +13,7 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         List<FieldDefinitionWeb> GenericFields,
         UiConfigurationWeb? UiConfiguration
     );
-    
-    public record CurrencyWeb(
-        Guid Id,
-        string Code,
-        string Name,
-        string? Symbol,
-        bool IsDefault,
-        int Order
-    );
-    
+
     public record UnitWeb(
         Guid Id,
         string Code,

@@ -1,17 +1,26 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
-using Entities.Models.WorkItemLinks;
+using Entities.Models.Costs;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostTrackers.Shared
 {
     public abstract class CostTrackerHandlerBase
     {
-        private readonly IReadRepository<TrackedCost> trackedCostRepository;
+        private readonly IRepository<TrackedCost> trackedCostRepository;
         private readonly ICostTrackerAttachmentService attachmentService;
         protected readonly ICurrentUser currentUser;
         protected readonly ICostTrackerFinancialService? financialService;
@@ -19,7 +28,7 @@ namespace CQRS.CostTrackers.Shared
 
         protected CostTrackerHandlerBase(
             ICurrentUser currentUser,
-            IReadRepository<TrackedCost> trackedCostRepository,
+            IRepository<TrackedCost> trackedCostRepository,
             ICostTrackerAttachmentService attachmentService)
         {
             this.currentUser = currentUser;
@@ -29,7 +38,7 @@ namespace CQRS.CostTrackers.Shared
 
         protected CostTrackerHandlerBase(
             ICurrentUser currentUser,
-            IReadRepository<TrackedCost> trackedCostRepository,
+            IRepository<TrackedCost> trackedCostRepository,
             ICostTrackerAttachmentService attachmentService,
             ICostTrackerFinancialService financialService,
             ICostTrackerTimelineService timelineService)
@@ -41,7 +50,7 @@ namespace CQRS.CostTrackers.Shared
 
         protected CostTrackerHandlerBase(
             ICurrentUser currentUser,
-            IReadRepository<TrackedCost> trackedCostRepository)
+            IRepository<TrackedCost> trackedCostRepository)
         {
             this.currentUser = currentUser;
             this.trackedCostRepository = trackedCostRepository;
@@ -70,7 +79,7 @@ namespace CQRS.CostTrackers.Shared
 
         protected TrackedCostWeb MapTrackedCostToWeb(
             TrackedCost cost,
-            IEnumerable<TrackedCostAttachment> attachments)
+            IEnumerable<BaseCostAttachment> attachments)
         {
             List<TrackedCostAttachmentWeb> attachmentWebs = attachments
                 .Select(a => new TrackedCostAttachmentWeb
@@ -87,10 +96,9 @@ namespace CQRS.CostTrackers.Shared
             return new TrackedCostWeb
             {
                 Id = cost.Id,
-                WorkItemLinkId = cost.WorkItemLinkId,
-                CostEstimateItemId = cost.CostEstimateItemId ?? cost.CostEstimateItemWorkScheduleStageWorkLink?.CostEstimateItemId,
-                WorkScheduleStageWorkId = cost.WorkScheduleStageWorkId ?? cost.CostEstimateItemWorkScheduleStageWorkLink?.WorkScheduleStageWorkId,
-                IsAdditional = !cost.WorkItemLinkId.HasValue,
+                CostEstimateItemId = cost.CostEstimateItemId,
+                WorkScheduleStageWorkId = cost.WorkScheduleStageWorkId,
+                IsAdditional = !cost.CostEstimateItemId.HasValue && !cost.WorkScheduleStageWorkId.HasValue,
                 SourceType = ResolveSourceType(cost),
                 Name = cost.Name,
                 Number = cost.Number,
@@ -105,67 +113,11 @@ namespace CQRS.CostTrackers.Shared
             };
         }
 
-        protected WorkItemLinkWeb BuildWorkItemLinkWebFromLink(
-            CostEstimateItemWorkScheduleStageWorkLink link,
-            ILookup<Guid, TrackedCost> costsByLinkId,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
-            DateTime referenceDate)
-        {
-            List<TrackedCost> costs = costsByLinkId[link.Id].Where(tc => !tc.IsDeleted).ToList();
-
-            decimal? costsNet = costs.Any(c => c.Net.HasValue) ? costs.Sum(c => c.Net ?? 0) : null;
-            decimal? costsGross = costs.Any(c => c.Gross.HasValue) ? costs.Sum(c => c.Gross ?? 0) : null;
-            decimal? deviationNet = link.BudgetNet.HasValue && costsNet.HasValue
-                ? Math.Round(link.BudgetNet.Value - costsNet.Value, 2)
-                : null;
-            decimal? deviationPercent = link.BudgetNet.HasValue && link.BudgetNet.Value != 0 && deviationNet.HasValue
-                ? Math.Round(deviationNet.Value / link.BudgetNet.Value * 100, 2)
-                : null;
-
-            bool hasSchedule = link.WorkScheduleStageWorkId.HasValue;
-            TimelineStatsWeb? timeline = hasSchedule
-                ? BuildLeafTimelineStats(link.PlannedStart, link.PlannedEnd, link.IsWorkClosed, referenceDate)
-                : null;
-
-            List<TrackedCostWeb> costWebs = costs
-                .Select(c => MapTrackedCostToWeb(c, attachmentsByCostId[c.Id]))
-                .ToList();
-
-            return new WorkItemLinkWeb
-            {
-                WorkItemLinkId = link.Id,
-                DisplayName = link.DisplayName,
-                Order = link.Order,
-                WorkItemType = WorkItemType.Link,
-                CostEstimateItemId = link.CostEstimateItemId,
-                WorkScheduleStageWorkId = link.WorkScheduleStageWorkId,
-                BudgetNet = link.BudgetNet,
-                BudgetGross = link.BudgetGross,
-                CostsNet = costsNet,
-                CostsGross = costsGross,
-                DeviationNet = deviationNet,
-                DeviationPercent = deviationPercent,
-                IsBudgetExceeded = deviationNet.HasValue && deviationNet.Value < 0,
-                FinancialStatus = financialService!.ComputeItemStatus(link.BudgetNet, costsNet, costs.Count),
-                TimelineStatus = timeline?.OverallStatus ?? TimelineStatus.NoSchedule,
-                CostCount = costs.Count,
-                CoveredPercent = costs.Count > 0 ? 100.0m : 0.0m,
-                BudgetCoveredPercent = link.BudgetNet.HasValue && link.BudgetNet.Value != 0 && costsNet.HasValue
-                    ? Math.Round(costsNet.Value / link.BudgetNet.Value * 100, 2) : null,
-                HasLinkedSchedule = hasSchedule,
-                Timeline = timeline,
-                TimelinePlannedStart = ToDateOnly(timeline?.PlannedStart),
-                TimelinePlannedEnd = ToDateOnly(timeline?.PlannedEnd),
-                TimelineTotalDays = timeline?.TotalPlannedDays.HasValue == true
-                    ? (int?)Math.Round(timeline.TotalPlannedDays.Value) : null,
-                Costs = costWebs
-            };
-        }
-
         protected WorkItemLinkWeb BuildWorkItemLinkWebFromStageWork(
-            Entities.Models.WorkScheduleStageWork work,
+            Entities.Models.WorkSchedules.WorkScheduleStageWork work,
             List<TrackedCost> costs,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
+            CostEstimateItem? linkedItem,
             bool isWorkClosed,
             DateTime referenceDate)
         {
@@ -174,6 +126,13 @@ namespace CQRS.CostTrackers.Shared
 
             decimal? costsNet = costs.Any(c => c.Net.HasValue) ? costs.Sum(c => c.Net ?? 0) : null;
             decimal? costsGross = costs.Any(c => c.Gross.HasValue) ? costs.Sum(c => c.Gross ?? 0) : null;
+            decimal? budgetNet = linkedItem?.NetValue;
+            decimal? budgetGross = linkedItem?.GrossValue;
+            decimal? deviationNet = budgetNet.HasValue && costsNet.HasValue
+                ? Math.Round(budgetNet.Value - costsNet.Value, 2) : null;
+            decimal? deviationPercent = budgetNet.HasValue && budgetNet.Value != 0 && deviationNet.HasValue
+                ? Math.Round(deviationNet.Value / budgetNet.Value * 100, 2) : null;
+            WorkItemType workItemType = linkedItem is not null ? WorkItemType.LinkedWorkItem : WorkItemType.ScheduleWorkItem;
 
             List<TrackedCostWeb> costWebs = costs
                 .Select(c => MapTrackedCostToWeb(c, attachmentsByCostId[c.Id]))
@@ -181,24 +140,24 @@ namespace CQRS.CostTrackers.Shared
 
             return new WorkItemLinkWeb
             {
-                WorkItemLinkId = null,
                 DisplayName = work.Name,
                 Order = work.Order,
-                WorkItemType = WorkItemType.Schedule,
-                CostEstimateItemId = null,
+                WorkItemType = workItemType,
+                CostEstimateItemId = work.CostEstimateItemId,
                 WorkScheduleStageWorkId = work.Id,
-                BudgetNet = null,
-                BudgetGross = null,
+                BudgetNet = budgetNet,
+                BudgetGross = budgetGross,
                 CostsNet = costsNet,
                 CostsGross = costsGross,
-                DeviationNet = null,
-                DeviationPercent = null,
-                IsBudgetExceeded = false,
-                FinancialStatus = financialService!.ComputeItemStatus(null, costsNet, costs.Count),
+                DeviationNet = deviationNet,
+                DeviationPercent = deviationPercent,
+                IsBudgetExceeded = deviationNet.HasValue && deviationNet.Value < 0,
+                FinancialStatus = financialService!.ComputeItemStatus(budgetNet, costsNet, costs.Count),
                 TimelineStatus = timeline.OverallStatus,
                 CostCount = costs.Count,
-                CoveredPercent = null,
-                BudgetCoveredPercent = null,
+                CoveredPercent = costs.Count > 0 ? 100.0m : 0.0m,
+                BudgetCoveredPercent = budgetNet.HasValue && budgetNet.Value != 0 && costsNet.HasValue
+                    ? Math.Round(costsNet.Value / budgetNet.Value * 100, 2) : null,
                 HasLinkedSchedule = true,
                 Timeline = timeline,
                 TimelinePlannedStart = ToDateOnly(timeline.PlannedStart),
@@ -325,8 +284,9 @@ namespace CQRS.CostTrackers.Shared
             Dictionary<Guid, CostEstimateGroup> groupsDict,
             Dictionary<Guid, CostEstimateItem> itemsDict,
             ILookup<Guid, TrackedCost> costsByItemId,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> workItemLinksByItemId,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
+            ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
+            HashSet<Guid> closedWorkIds,
             DateTime referenceDate)
         {
             Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParentId = groupsDict.Values
@@ -350,7 +310,8 @@ namespace CQRS.CostTrackers.Shared
                 mainItemsByGroupId,
                 costsByItemId,
                 attachmentsByCostId,
-                workItemLinksByItemId,
+                stageWorksByItemId,
+                closedWorkIds,
                 referenceDate);
         }
 
@@ -359,15 +320,16 @@ namespace CQRS.CostTrackers.Shared
             Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParentId,
             Dictionary<Guid, List<CostEstimateItem>> mainItemsByGroupId,
             ILookup<Guid, TrackedCost> costsByItemId,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> workItemLinksByItemId,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
+            ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
+            HashSet<Guid> closedWorkIds,
             DateTime referenceDate)
         {
             return currentLevelGroups
                 .OrderBy(g => g.Order)
                 .Select(group => BuildTrackerGroupWeb(
                     group, childGroupsByParentId, mainItemsByGroupId,
-                    costsByItemId, attachmentsByCostId, workItemLinksByItemId, referenceDate))
+                    costsByItemId, attachmentsByCostId, stageWorksByItemId, closedWorkIds, referenceDate))
                 .ToList();
         }
 
@@ -376,8 +338,9 @@ namespace CQRS.CostTrackers.Shared
             Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParentId,
             Dictionary<Guid, List<CostEstimateItem>> mainItemsByGroupId,
             ILookup<Guid, TrackedCost> costsByItemId,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> workItemLinksByItemId,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
+            ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
+            HashSet<Guid> closedWorkIds,
             DateTime referenceDate)
         {
             List<CostEstimateGroup> children = childGroupsByParentId.TryGetValue(group.Id, out List<CostEstimateGroup>? childList)
@@ -385,14 +348,14 @@ namespace CQRS.CostTrackers.Shared
 
             List<TrackerGroupWeb> childGroups = BuildTrackerGroupHierarchy(
                 children, childGroupsByParentId, mainItemsByGroupId,
-                costsByItemId, attachmentsByCostId, workItemLinksByItemId, referenceDate);
+                costsByItemId, attachmentsByCostId, stageWorksByItemId, closedWorkIds, referenceDate);
 
             List<CostEstimateItem> groupItems = mainItemsByGroupId.TryGetValue(group.Id, out List<CostEstimateItem>? items)
                 ? items : [];
 
             List<WorkItemLinkWeb> workItemLinks = groupItems
                 .Select(item => BuildWorkItemLinkWebForCostEstimateItem(
-                    item, workItemLinksByItemId, costsByItemId, attachmentsByCostId, referenceDate))
+                    item, stageWorksByItemId, closedWorkIds, costsByItemId, attachmentsByCostId, referenceDate))
                 .ToList();
 
             decimal? directCostsNet = workItemLinks.Any(i => i.CostsNet.HasValue) ? workItemLinks.Sum(i => i.CostsNet ?? 0) : null;
@@ -472,12 +435,13 @@ namespace CQRS.CostTrackers.Shared
 
         private WorkItemLinkWeb BuildWorkItemLinkWebForCostEstimateItem(
             CostEstimateItem item,
-            ILookup<Guid, CostEstimateItemWorkScheduleStageWorkLink> workItemLinksByItemId,
+            ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
+            HashSet<Guid> closedWorkIds,
             ILookup<Guid, TrackedCost> costsByItemId,
-            ILookup<Guid, TrackedCostAttachment> attachmentsByCostId,
+            ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             DateTime referenceDate)
         {
-            CostEstimateItemWorkScheduleStageWorkLink? link = workItemLinksByItemId[item.Id].FirstOrDefault();
+            Entities.Models.WorkSchedules.WorkScheduleStageWork? stageWork = stageWorksByItemId[item.Id].FirstOrDefault();
             List<TrackedCost> costs = costsByItemId[item.Id].ToList();
 
             decimal? costsNet = costs.Any(c => c.Net.HasValue) ? costs.Sum(c => c.Net ?? 0) : null;
@@ -487,9 +451,9 @@ namespace CQRS.CostTrackers.Shared
             decimal? deviationPercent = item.NetValue.HasValue && item.NetValue.Value != 0 && deviationNet.HasValue
                 ? Math.Round(deviationNet.Value / item.NetValue.Value * 100, 2) : null;
 
-            bool hasSchedule = link?.WorkScheduleStageWorkId.HasValue == true;
-            TimelineStatsWeb? timeline = hasSchedule
-                ? BuildLeafTimelineStats(link!.PlannedStart, link.PlannedEnd, link.IsWorkClosed, referenceDate)
+            bool isWorkClosed = stageWork is not null && closedWorkIds.Contains(stageWork.Id);
+            TimelineStatsWeb? timeline = stageWork is not null
+                ? BuildLeafTimelineStats(stageWork.PlannedStartDate, stageWork.PlannedEndDate, isWorkClosed, referenceDate)
                 : null;
 
             List<TrackedCostWeb> costWebs = costs
@@ -498,14 +462,11 @@ namespace CQRS.CostTrackers.Shared
 
             return new WorkItemLinkWeb
             {
-                WorkItemLinkId = link?.Id,
-                DisplayName = link?.DisplayName ?? item.Name,
-                Order = link?.Order ?? item.Order,
-                WorkItemType = link is not null && link.WorkScheduleStageWorkId.HasValue
-                    ? WorkItemType.Link
-                    : WorkItemType.Estimate,
+                DisplayName = stageWork?.Name ?? item.Name,
+                Order = stageWork?.Order ?? item.Order,
+                WorkItemType = stageWork is not null ? WorkItemType.LinkedWorkItem : WorkItemType.EstimateItem,
                 CostEstimateItemId = item.Id,
-                WorkScheduleStageWorkId = link?.WorkScheduleStageWorkId,
+                WorkScheduleStageWorkId = stageWork?.Id,
                 BudgetNet = item.NetValue,
                 BudgetGross = item.GrossValue,
                 CostsNet = costsNet,
@@ -519,7 +480,7 @@ namespace CQRS.CostTrackers.Shared
                 CoveredPercent = costs.Count > 0 ? 100.0m : 0.0m,
                 BudgetCoveredPercent = item.NetValue.HasValue && item.NetValue.Value != 0 && costsNet.HasValue
                     ? Math.Round(costsNet.Value / item.NetValue.Value * 100, 2) : null,
-                HasLinkedSchedule = hasSchedule,
+                HasLinkedSchedule = stageWork is not null,
                 Timeline = timeline,
                 TimelinePlannedStart = ToDateOnly(timeline?.PlannedStart),
                 TimelinePlannedEnd = ToDateOnly(timeline?.PlannedEnd),
@@ -531,11 +492,6 @@ namespace CQRS.CostTrackers.Shared
 
         protected static CostSourceType ResolveSourceType(TrackedCost cost)
         {
-            if (cost.WorkItemLinkId.HasValue)
-            {
-                return CostSourceType.LinkedWorkItem;
-            }
-
             if (cost.CostEstimateItemId.HasValue && cost.WorkScheduleStageWorkId.HasValue)
             {
                 return CostSourceType.LinkedWorkItem;
@@ -552,6 +508,42 @@ namespace CQRS.CostTrackers.Shared
             }
 
             return CostSourceType.ProjectAdditional;
+        }
+
+        protected TrackedCostWeb MapProjectCostToWeb(
+            ProjectCost cost,
+            IEnumerable<BaseCostAttachment> attachments)
+        {
+            List<TrackedCostAttachmentWeb> attachmentWebs = attachments
+                .Select(a => new TrackedCostAttachmentWeb
+                {
+                    Id = a.Id,
+                    OriginalFileName = a.OriginalFileName,
+                    FileUrl = attachmentService.GenerateFileUrl(a),
+                    ContentType = a.ContentType,
+                    FileSize = a.FileSize,
+                    CreatedAt = a.CreatedAt
+                })
+                .ToList();
+
+            return new TrackedCostWeb
+            {
+                Id = cost.Id,
+                CostEstimateItemId = null,
+                WorkScheduleStageWorkId = null,
+                IsAdditional = true,
+                SourceType = CostSourceType.ProjectAdditional,
+                Name = cost.Name,
+                Number = cost.Number,
+                Description = cost.Description,
+                Net = cost.Net,
+                Gross = cost.Gross,
+                Contractor = cost.Contractor,
+                Date = cost.Date,
+                CreatedAt = cost.CreatedAt,
+                UpdatedAt = cost.UpdatedAt,
+                Attachments = attachmentWebs
+            };
         }
 
         private static decimal? CombineNullable(decimal? a, decimal? b)
@@ -579,7 +571,7 @@ namespace CQRS.CostTrackers.Shared
         protected static ProjectFinancialSummaryWeb BuildProjectFinancialSummary(
             IReadOnlyCollection<CostEstimateSummaryWeb> estimateSummaries,
             ProjectAdditionalCostsWeb projectAdditionalCosts,
-            IReadOnlyCollection<TrackedCost> allTrackedCosts,
+            IReadOnlyCollection<BaseCost> allCosts,
             decimal? projectReserveBudgetNet,
             decimal? projectReserveBudgetGross,
             int workSchedulesCount)
@@ -602,10 +594,10 @@ namespace CQRS.CostTrackers.Shared
             decimal? additionalCostsNet = projectAdditionalCosts.TotalNet;
             decimal? additionalCostsGross = projectAdditionalCosts.TotalGross;
 
-            decimal? totalCostsNet = allTrackedCosts.Any(s => s.Net.HasValue)
-                ? allTrackedCosts.Sum(s => s.Net ?? 0) : null;
-            decimal? totalCostsGross = allTrackedCosts.Any(s => s.Gross.HasValue)
-                ? allTrackedCosts.Sum(s => s.Gross ?? 0) : null;
+            decimal? totalCostsNet = allCosts.Any(s => s.Net.HasValue)
+                ? allCosts.Sum(s => s.Net ?? 0) : null;
+            decimal? totalCostsGross = allCosts.Any(s => s.Gross.HasValue)
+                ? allCosts.Sum(s => s.Gross ?? 0) : null;
 
             decimal? deviationNet = totalBudgetNet.HasValue && totalCostsNet.HasValue
                 ? Math.Round(totalBudgetNet.Value - totalCostsNet.Value, 2) : null;
@@ -651,7 +643,7 @@ namespace CQRS.CostTrackers.Shared
                 CoveredPercent = coveredPercent,
                 IsBudgetExceeded = deviationNet.HasValue && deviationNet.Value > 0,
                 FinancialStatus = status,
-                TotalCostCount = allTrackedCosts.Count,
+                TotalCostCount = allCosts.Count,
                 LinkedCostCount = linkedCostCount,
                 AdditionalCostCount = additionalCostCount,
                 CostEstimatesCount = estimateSummaries.Count,

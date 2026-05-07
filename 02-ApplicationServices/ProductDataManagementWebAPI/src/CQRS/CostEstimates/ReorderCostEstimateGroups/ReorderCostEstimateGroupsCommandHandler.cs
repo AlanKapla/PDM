@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -91,8 +91,7 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
             var requestedGroupIds = request.Groups.Select(g => g.GroupId).ToHashSet();
             var groups = await groupRepository.GetBySearch(
                 g => g.CostEstimateId == request.CostEstimateId &&
-                     requestedGroupIds.Contains(g.Id) &&
-                     !g.IsDeleted);
+                     requestedGroupIds.Contains(g.Id));
 
             var trackedGroupsById = groups.ToDictionary(g => g.Id);
             var now = DateTime.UtcNow;

@@ -45,19 +45,13 @@ namespace CQRS.CostEstimates.CreateCostEstimate
             // Verify template exists and load with all necessary includes
             var templates = await templateRepository.GetBySearch(
                 t => t.Id == request.TemplateId && !t.IsDeleted && t.OwnerId == currentUser.Id,
-                q => q.Include(v => v.Currencies)
-                          .Include(v => v.GroupFieldDefinitions)
+                q => q.Include(v => v.GroupFieldDefinitions)
                           .Include(v => v.SystemFieldDefinitions)
                           .Include(v => v.CalculatedFieldDefinitions)
                           .Include(v => v.GenericFieldDefinitions));
-            
+
             var template = templates.FirstOrDefault()
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
-
-            // Verify selected currency exists in version
-            var selectedCurrency = template.Currencies.FirstOrDefault(c => c.Id == request.SelectedCurrencyId)
-                ?? throw new ValidationApiException(
-                    $"Currency with ID {request.SelectedCurrencyId} not found in template version. Available currencies: {string.Join(", ", template.Currencies.Select(c => $"{c.Code} ({c.Id})"))}");
 
             var now = DateTime.UtcNow;
 
@@ -72,7 +66,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
                 Name = request.Name,
                 Description = request.Description,
                 Status = CostEstimateStatus.Draft,
-                SelectedCurrencyId = request.SelectedCurrencyId,
                 TotalNet = null,
                 TotalGross = null,
                 TotalVat = null,
