@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
@@ -13,7 +13,6 @@ using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
-using Entities.Models.Costs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -33,9 +32,10 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
             IReadRepository<WorkScheduleStageWork> stageWorkRepository,
             ICostTrackerFinancialService financialService,
             ICostTrackerAttachmentService attachmentService,
+            IContractorService contractorService,
             ICurrentUser currentUser,
             ILogger<UpdateTrackedCostCommandHandler> logger)
-            : base(currentUser, trackedCostRepository, costEstimateItemRepository, stageWorkRepository, attachmentService)
+            : base(currentUser, trackedCostRepository, costEstimateItemRepository, stageWorkRepository, attachmentService, contractorService)
         {
             this.trackedCostRepository = trackedCostRepository;
             this.financialService = financialService;
@@ -50,13 +50,19 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
 
             (decimal? net, decimal? gross) = financialService.Calculate(request.Net, request.Gross);
 
+            await ValidateTrackedCostLinksAsync(
+                request.CostEstimateItemId, request.WorkScheduleStageWorkId,
+                request.ProjectId, request.TenantId, cancellationToken);
+
             cost.Name = request.Name;
             cost.Number = request.Number;
             cost.Description = request.Description;
             cost.Net = net;
             cost.Gross = gross;
-            cost.Contractor = request.Contractor;
+            cost.ContractorId = request.ContractorId;
             cost.Date = request.Date;
+            cost.CostEstimateItemId = request.CostEstimateItemId;
+            cost.WorkScheduleStageWorkId = request.WorkScheduleStageWorkId;
             cost.UpdatedAt = DateTime.UtcNow;
 
             await trackedCostRepository.Update(cost);
@@ -72,7 +78,9 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
             List<BaseCostAttachment> attachments = await attachmentService.SyncAttachmentsAsync(
                 cost, request.NewFiles, effectiveExistingIds, request.TenantId, request.ProjectId, cancellationToken);
 
-            return BuildCostWeb(cost, attachments);
+            await LoadContractorNamesAsync(new List<BaseCost> { cost }, request.TenantId, cancellationToken);
+
+            return MapTrackedCostToWeb(cost, attachments);
         }
     }
 }

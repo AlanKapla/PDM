@@ -5,7 +5,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.SetProjectCurrency
 {
-    public class SetProjectCurrencyCommandHandler : IRequestHandler<SetProjectCurrencyCommand, Unit>
+    public sealed class SetProjectCurrencyCommandHandler : IRequestHandler<SetProjectCurrencyCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectCurrency> currencyRepo;

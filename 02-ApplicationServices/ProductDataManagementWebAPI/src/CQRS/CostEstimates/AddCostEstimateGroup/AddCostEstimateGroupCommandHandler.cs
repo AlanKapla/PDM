@@ -9,7 +9,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.AddCostEstimateGroup
 {
-    public class AddCostEstimateGroupCommandHandler
+    public sealed class AddCostEstimateGroupCommandHandler
         : IRequestHandler<AddCostEstimateGroupCommand, Guid>
     {
         private readonly IRepository<CostEstimateGroup> groupRepository;
@@ -40,20 +40,7 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
             CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
-            if (accessLevel == CostEstimateAccessLevel.None)
-            {
-                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
-            }
-
-            if (accessLevel == CostEstimateAccessLevel.Restricted)
-            {
-                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
-            }
-
-            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
-            {
-                throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
-            }
+            accessLevel.EnsureCanModifyStructure();
 
             CostEstimateTemplate template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());

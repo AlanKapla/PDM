@@ -1,4 +1,4 @@
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -26,7 +26,7 @@ namespace CQRS.CostEstimates.ShareCostEstimate
         private readonly IRepository<SharedCostEstimate> sharedCeRepository;
         private readonly IUserService userService;
         private readonly IReadRepository<Notification> notificationRepository;
-        private readonly ICostEstimateAccessService ceAccessService;
+        private readonly ICostEstimateShareService ceShareService;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<ShareCostEstimateCommandHandler> logger;
@@ -36,7 +36,7 @@ namespace CQRS.CostEstimates.ShareCostEstimate
             IRepository<SharedCostEstimate> sharedCeRepository,
             IUserService userService,
             IReadRepository<Notification> notificationRepository,
-            ICostEstimateAccessService ceAccessService,
+            ICostEstimateShareService ceShareService,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<ShareCostEstimateCommandHandler> logger)
@@ -45,7 +45,7 @@ namespace CQRS.CostEstimates.ShareCostEstimate
             this.sharedCeRepository = sharedCeRepository;
             this.userService = userService;
             this.notificationRepository = notificationRepository;
-            this.ceAccessService = ceAccessService;
+            this.ceShareService = ceShareService;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -53,23 +53,19 @@ namespace CQRS.CostEstimates.ShareCostEstimate
 
         public async Task<Unit> Handle(ShareCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(
-                request.TenantId, request.ProjectId, cancellationToken);
+            await ceShareService.ValidateOwnerOrAdminAsync(costEstimate, cancellationToken);
 
-            if (costEstimate.OwnerId != currentUser.Id && !isAdmin)
-                throw new ForbiddenApiException("Only the owner or an admin can share this cost estimate.");
-
-            var existingUserIds = await sharedCeRepository.SelectToHashSetAsync(
+            HashSet<Guid> existingUserIds = await sharedCeRepository.SelectToHashSetAsync(
                 s => s.CostEstimateId == request.CostEstimateId,
                 s => s.SharedWithUserId,
                 cancellationToken);
 
-            var now = DateTime.UtcNow;
-            var newShares = request.ShareWithUserIds
+            DateTime now = DateTime.UtcNow;
+            List<SharedCostEstimate> newShares = request.ShareWithUserIds
                 .Where(userId => !existingUserIds.Contains(userId))
                 .Select(userId => new SharedCostEstimate
                 {
@@ -84,18 +80,15 @@ namespace CQRS.CostEstimates.ShareCostEstimate
             if (newShares.Count > 0)
                 await sharedCeRepository.InsertRange(newShares);
 
-            await ceAccessService.InvalidateCostEstimateAccessCacheAsync(
-                request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
-
-            await ceAccessService.InvalidateAccessCacheAsync(
-                request.TenantId, request.ProjectId, cancellationToken);
+            await ceShareService.InvalidateAccessCacheAsync(
+                request.CostEstimateId, request.ProjectId, request.TenantId, cancellationToken);
 
             // Send notifications only to users who were newly added
             if (newShares.Count > 0)
             {
                 string sharerName = currentUser.FullName;
 
-                foreach (var share in newShares)
+                foreach (SharedCostEstimate share in newShares)
                     await SendNotificationAsync(request, share.SharedWithUserId, sharerName, cancellationToken);
             }
 
@@ -114,7 +107,7 @@ namespace CQRS.CostEstimates.ShareCostEstimate
         {
             try
             {
-                var targetUser = await userService.GetProjectMemberAsync(
+                ProjectMemberUserInfo? targetUser = await userService.GetProjectMemberAsync(
                     request.TenantId, request.ProjectId, targetUserId, cancellationToken);
 
                 if (targetUser == null)
@@ -122,7 +115,7 @@ namespace CQRS.CostEstimates.ShareCostEstimate
                     return;
                 }
 
-                var metadata = new Dictionary<string, object?>
+                Dictionary<string, object?> metadata = new Dictionary<string, object?>
                 {
                     ["CostEstimateId"] = request.CostEstimateId,
                     ["ProjectId"] = request.ProjectId,
@@ -130,7 +123,7 @@ namespace CQRS.CostEstimates.ShareCostEstimate
                     ["SharedByUserName"] = sharerName
                 };
 
-                var notification = new NotificationDto
+                NotificationDto notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = request.TenantId,
@@ -145,7 +138,7 @@ namespace CQRS.CostEstimates.ShareCostEstimate
                     IsRead = false
                 };
 
-                var payload = await NotificationPayloadHelper.CreatePayloadAsync(
+                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(
                     notification, notificationRepository, cancellationToken);
 
                 await notificationSender.EnqueueAsync(payload, cancellationToken);

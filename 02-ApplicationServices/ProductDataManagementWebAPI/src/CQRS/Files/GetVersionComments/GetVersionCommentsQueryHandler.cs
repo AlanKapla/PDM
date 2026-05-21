@@ -1,22 +1,15 @@
+using Business.Implementation.Services.Files;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
 using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 
 namespace CQRS.Files.GetVersionComments;
 
-public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionCommentsQuery, List<ProjectFileVersionCommentWeb>>
+public sealed class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionCommentsQuery, List<ProjectFileVersionCommentWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
     private readonly IUserService userService;
@@ -57,19 +50,26 @@ public class GetVersionCommentsQueryHandler : IRequestHandler<GetVersionComments
 
         return commentDtos
             .OrderBy(c => c.CreatedAt)
-            .Select(c => new ProjectFileVersionCommentWeb
-            {
-                Id = c.Id,
-                ProjectFileVersionId = c.ProjectFileVersionId,
-                UserId = c.UserId,
-                UserName = userDict.TryGetValue(c.UserId, out ProjectMemberUserInfo? user) ? user.FullName : string.Empty,
-                Content = c.Content,
-                CreatedAt = c.CreatedAt,
-                EditedAt = c.EditedAt,
-                IsEdited = c.EditedAt.HasValue,
-                CanEdit = c.UserId == currentUser.Id,
-                CanDelete = c.UserId == currentUser.Id
-            })
+            .Select(c => MapToCommentWeb(c, userDict))
             .ToList();
+    }
+
+    private ProjectFileVersionCommentWeb MapToCommentWeb(
+        ProjectFileVersionCommentDto comment,
+        IReadOnlyDictionary<Guid, ProjectMemberUserInfo> userDict)
+    {
+        return new ProjectFileVersionCommentWeb
+        {
+            Id = comment.Id,
+            ProjectFileVersionId = comment.ProjectFileVersionId,
+            UserId = comment.UserId,
+            UserName = ProjectMemberNameResolver.ResolveUserName(userDict, comment.UserId),
+            Content = comment.Content,
+            CreatedAt = comment.CreatedAt,
+            EditedAt = comment.EditedAt,
+            IsEdited = comment.EditedAt.HasValue,
+            CanEdit = comment.UserId == currentUser.Id,
+            CanDelete = comment.UserId == currentUser.Id
+        };
     }
 }

@@ -1,13 +1,15 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.DeleteWorkSchedule
 {
-    public class DeleteWorkScheduleCommandValidator : AbstractValidator<DeleteWorkScheduleCommand>
+    public sealed class DeleteWorkScheduleCommandValidator : AbstractValidator<DeleteWorkScheduleCommand>
     {
         public DeleteWorkScheduleCommandValidator()
         {
-            RuleFor(x => x.WorkScheduleId)
-                .NotEmpty().WithMessage("Work schedule ID is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
         }
     }
 }

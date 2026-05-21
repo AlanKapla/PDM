@@ -8,6 +8,8 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
     public sealed record UpdateTrackedCostCommand : TrackedCostCommandBase
     {
         public Guid CostId { get; init; }
+        public Guid? CostEstimateItemId { get; init; }
+        public Guid? WorkScheduleStageWorkId { get; init; }
         public IReadOnlyList<Guid>? ExistingAttachmentIds { get; init; }
         public bool ClearAllAttachments { get; init; }
     }

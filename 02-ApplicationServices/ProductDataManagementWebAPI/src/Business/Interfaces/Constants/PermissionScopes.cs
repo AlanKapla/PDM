@@ -59,6 +59,19 @@ public static class PermissionScopes
 
         // PROJECT - ZASOBY (własne - dla przypisanych memberów)
         [PermissionCodes.ProjectResourcesWriteOwn] = PermissionScope.Project,
+
+
+        // ==================== CHAT (TENANT SCOPE) ====================
+        // Chat permissions are validated at tenant level. Per-chat membership
+        // is verified separately in handlers (defense in depth). Project-scoped
+        // chats also use tenant scope here because chat members are always
+        // tenant members; project membership is checked through chat membership.
+
+        [PermissionCodes.ChatRead] = PermissionScope.Tenant,
+        [PermissionCodes.ChatWrite] = PermissionScope.Tenant,
+        [PermissionCodes.ChatMembersManage] = PermissionScope.Tenant,
+        [PermissionCodes.ChatRename] = PermissionScope.Tenant,
+        [PermissionCodes.ChatDelete] = PermissionScope.Tenant,
         
         
         // ==================== RESOURCE SCOPE ====================

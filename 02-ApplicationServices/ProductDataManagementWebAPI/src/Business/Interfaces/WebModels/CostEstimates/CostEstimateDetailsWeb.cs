@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostEstimateTemplates;
 using Entities.Models.Chats;
 using Entities.Models.Costs;
@@ -17,7 +17,7 @@ namespace Business.Interfaces.WebModels.CostEstimates
     /// Result DTO for cost estimate details
     /// Zawiera pełne dane kosztorysu wraz ze strukturą szablonu użytego do jego utworzenia
     /// </summary>
-    public record CostEstimateDetailsWeb(
+    public sealed record CostEstimateDetailsWeb(
         Guid Id,
         Guid TenantId,
         Guid ProjectId,

@@ -1,5 +1,4 @@
-﻿using Entities.Models;
-using Azure.Identity;
+﻿using Azure.Identity;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
 using Business.Implementation.Validators;
@@ -10,9 +9,15 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Chat.Registration;
 using CQRS.Behaviours;
+using CQRS.PostCommit;
+using CQRS.WorkSchedules.Shared;
 using Entities.Context;
-using Entities.Models.Chats;
+using Entities.Models;
+using Entities.Models.Base;
+using Entities.Models.CostEstimates;
+using Entities.Models.CostEstimateTemplates;
 using Entities.Models.Costs;
+using Entities.Models.CostTrackers;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
@@ -20,11 +25,6 @@ using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
-using Entities.Models.Base;
-using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
-using Entities.Models.CostTrackers;
-using Entities.Models.Costs;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -33,7 +33,6 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Graph;
-using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Repository.Interfaces;
@@ -47,8 +46,6 @@ namespace WebApi.Extensions
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
         {
-            IdentityModelEventSource.ShowPII = true;
-
             services
                 .AddApiBasics()
                 .AddDatabase(config)
@@ -88,7 +85,8 @@ namespace WebApi.Extensions
 
             services.AddEndpointsApiExplorer();
             services.AddSwaggerDocumentation();
-            services.AddHealthChecks();
+            services.AddHealthChecks()
+                .AddDbContextCheck<AppDbContext>("database");
 
             services.AddSignalR(options =>
             {
@@ -175,12 +173,29 @@ namespace WebApi.Extensions
                     configuration.Ssl = true;
                     return StackExchange.Redis.ConnectionMultiplexer.Connect(configuration);
                 });
+
+                services.AddHealthChecks()
+                    .AddCheck("redis", () =>
+                    {
+                        // IConnectionMultiplexer is resolved inline — health check runs outside DI scope
+                        var connectionString = redisSettings.ConnectionString;
+                        try
+                        {
+                            var mux = StackExchange.Redis.ConnectionMultiplexer.Connect(connectionString);
+                            return mux.IsConnected
+                                ? Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy()
+                                : Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("Redis connection not established.");
+                        }
+                        catch (Exception ex)
+                        {
+                            return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy(ex.Message);
+                        }
+                    });
             }
-            else
-            {
-                // Redis disabled - CacheService będzie działał w trybie bypass (bez cache)
-                services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp => null!);
-            }
+
+            // Jeśli Redis wyłączony — IConnectionMultiplexer nie jest rejestrowany.
+            // CacheService przyjmuje go jako opcjonalny (IConnectionMultiplexer? redis = null)
+            // i automatycznie przechodzi w tryb bypass bez cache.
 
             return services;
         }
@@ -188,10 +203,12 @@ namespace WebApi.Extensions
         public static IServiceCollection AddCqrs(this IServiceCollection services)
         {
             services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AssignedAuthorizationBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+            services.AddScoped<IPostCommitDispatcher, PostCommitDispatcher>();
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(AppDomain.CurrentDomain.GetAssemblies()));
             return services;
         }
@@ -268,8 +285,9 @@ namespace WebApi.Extensions
                 .AddRepository<TenantPreferencesProfile>()
                 .AddRepository<PermissionsVersionProfile>()
                 .AddWriteRepository<TenantMember>()
-                .AddWriteRepository<TenantInvitation>()
-                .AddReadOnlyRepository<UserSession>();
+                .AddRepository<TenantInvitation>()
+                .AddReadOnlyRepository<UserSession>()
+                .AddRepository<Contractor>();
 
             services
                 .AddRepository<Project>()
@@ -312,8 +330,8 @@ namespace WebApi.Extensions
             services
                 .AddRepository<CostEstimate>()
                 .AddRepository<SharedCostEstimate>()
-                .AddWriteRepository<CostEstimateGroup>()
-                .AddWriteRepository<CostEstimateGroupFieldValue>()
+                .AddRepository<CostEstimateGroup>()
+                .AddRepository<CostEstimateGroupFieldValue>()
                 .AddRepository<CostEstimateItem>()
                 .AddRepository<CostEstimateItemFieldValue>()
                 .AddWriteRepository<CostEstimateFieldFile>();
@@ -334,15 +352,14 @@ namespace WebApi.Extensions
         {
             services.AddScoped<ICurrentUser, CurrentUser>();
             services.AddSingleton<IUserContextCache, InMemoryUserContextCache>();
-            services.AddScoped<AccessService>();
-            services.AddScoped<IAccessService>(sp => sp.GetRequiredService<AccessService>());
-            services.AddScoped<PermissionsVersionService>();
+            services.AddScoped<IAccessService, AccessService>();
+            services.AddScoped<IPermissionsVersionService, PermissionsVersionService>();
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IHttpCookieService, HttpCookieService>();
             services.AddScoped<IEmailSender, QueuedEmailSender>();
             services.AddSingleton<IEmailTransport, SmtpEmailSender>();
             services.AddScoped<ITokenGenerator, TokenGenerator>();
-            services.AddScoped<IBlobStorageService, BlobStorageService>();
+            services.AddSingleton<IBlobStorageService, BlobStorageService>();
             services.AddSingleton<IQueueStorageService, QueueStorageService>();
             services.AddHostedService<EmailWorker>();
 
@@ -364,20 +381,31 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
-            services.AddScoped<ICostTrackerFinancialService, CostTrackerFinancialService>();
+            services.AddScoped<IProjectCostAccessService, ProjectCostAccessService>();
+            services.AddScoped<ICostEstimateShareService, CostEstimateShareService>();
+            services.AddScoped<IContractorService, ContractorService>();
+            services.AddSingleton<ICostTrackerFinancialService, CostTrackerFinancialService>();
             services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
-            services.AddScoped<ICostTrackerTimelineService, CostTrackerTimelineService>();
+            services.AddSingleton<ICostTrackerTimelineService, CostTrackerTimelineService>();
             services.AddScoped<IWorkScheduleSyncService, WorkScheduleSyncService>();
             services.AddScoped<IWorkScheduleNotificationService, WorkScheduleNotificationService>();
             services.AddScoped<IWorkScheduleCacheService, WorkScheduleCacheService>();
             services.AddScoped<IWorkScheduleAccessService, WorkScheduleAccessService>();
-            services.AddScoped<CQRS.WorkSchedules.Shared.WorkScheduleBuilder>();
+            services.AddScoped<WorkScheduleBuilder>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<CostEstimateGroupValidator>();
             services.AddScoped<CostEstimateItemValidator>();
-            services.AddScoped<ICacheService, CacheService>();
+            services.AddSingleton<ICacheService, CacheService>();
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
+            services.AddScoped<IFileAccessGuard, FileAccessGuard>();
+            services.AddSingleton<IFileShareDiffService, Business.Implementation.Services.Files.FileShareDiffService>();
+            services.AddScoped<IFileShareNotificationService, Business.Implementation.Services.Files.FileShareNotificationService>();
+            services.AddSingleton<IFileVersionWebMapper, Business.Implementation.Services.Files.FileVersionWebMapper>();
+            services.AddScoped<IDashboardDataLoader, DashboardDataLoader>();
+            services.AddScoped<IScheduleSummaryBuilder, ScheduleSummaryBuilder>();
+            services.AddScoped<IProjectTimelineAggregator, ProjectTimelineAggregator>();
+            services.AddScoped<IProjectDashboardAssembler, ProjectDashboardAssembler>();
 
             services.AddHostedService<StartupSeederService>();
             services.AddHostedService<RolePermissionSeederService>();

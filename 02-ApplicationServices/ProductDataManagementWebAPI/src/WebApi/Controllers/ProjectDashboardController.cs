@@ -1,5 +1,5 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.WebModels.CostTrackers;
+using Business.Interfaces.WebModels.ProjectDashboard;
 using CQRS.ProjectDashboard.GetProjectDashboard;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -33,7 +33,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
         {
-            GetProjectDashboardQuery query = new GetProjectDashboardQuery() with
+            GetProjectDashboardQuery query = new GetProjectDashboardQuery
             {
                 TenantId = tenantId,
                 ProjectId = projectId

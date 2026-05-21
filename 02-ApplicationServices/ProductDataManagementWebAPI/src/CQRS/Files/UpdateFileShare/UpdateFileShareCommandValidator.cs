@@ -1,46 +1,38 @@
 using Business.Interfaces.Model;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
+using CQRS.Extensions;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.UpdateFileShare
 {
-    public class UpdateFileShareCommandValidator : AbstractValidator<UpdateFileShareCommand>
+    public sealed class UpdateFileShareCommandValidator : AbstractValidator<UpdateFileShareCommand>
     {
         public UpdateFileShareCommandValidator(
             IRepository<ProjectMember> projectMemberRepo,
             ICurrentUser currentUser)
         {
-            RuleFor(x => x.FileId)
-                .NotEmpty().WithMessage("FileId is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.FileId).RequiredId();
 
-            // Verify all target users are project members
+            // Verify all target users are project members — single query (avoids N+1).
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
-                    if (command.SharedWithUserIds == null || !command.SharedWithUserIds.Any())
-                        return true; // Empty list is valid (remove all shares)
-                    
-                    foreach (var userId in command.SharedWithUserIds)
+                    if (command.SharedWithUserIds is null || command.SharedWithUserIds.Count == 0)
                     {
-                        var member = await projectMemberRepo.GetFirstBySearch(
-                            pm => pm.ProjectId == command.ProjectId
-                                && pm.TenantId == command.TenantId
-                                && pm.UserId == userId);
-                        
-                        if (member == null)
-                            return false;
+                        return true; // Empty list is valid (remove all shares)
                     }
-                    
-                    return true;
+
+                    HashSet<Guid> targetIds = command.SharedWithUserIds.ToHashSet();
+                    IEnumerable<ProjectMember> members = await projectMemberRepo.GetBySearch(
+                        pm => pm.ProjectId == command.ProjectId
+                            && pm.TenantId == command.TenantId
+                            && targetIds.Contains(pm.UserId));
+
+                    HashSet<Guid> memberIds = members.Select(m => m.UserId).ToHashSet();
+                    return targetIds.All(memberIds.Contains);
                 })
                 .WithMessage("All users must be members of the project");
 
@@ -48,7 +40,7 @@ namespace CQRS.Files.UpdateFileShare
             // Note: File owner is checked in handler (owner always has access, no need for explicit share)
             RuleFor(x => x.SharedWithUserIds)
                 .Must((command, userIds) => !userIds.Contains(currentUser.Id))
-                .When(x => x.SharedWithUserIds != null && x.SharedWithUserIds.Any())
+                .When(x => x.SharedWithUserIds is not null && x.SharedWithUserIds.Count > 0)
                 .WithMessage("You cannot share a file with yourself. File owner and current user always have access without explicit sharing.");
         }
     }

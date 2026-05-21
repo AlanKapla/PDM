@@ -3,14 +3,6 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -41,7 +33,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
             // Shared work schedules are not implemented yet
             if (request.Scope == ResourceScope.Shared)
             {
-                return new List<WorkScheduleSummaryWeb>();
+                throw new NotImplementedApiException("Shared work schedules are not yet supported.");
             }
 
             IEnumerable<WorkSchedule> workSchedules;

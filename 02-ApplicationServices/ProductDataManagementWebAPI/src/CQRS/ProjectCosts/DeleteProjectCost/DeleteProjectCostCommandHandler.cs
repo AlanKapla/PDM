@@ -2,15 +2,6 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Entities.Models.Costs;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -18,21 +9,25 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.DeleteProjectCost
 {
-    public class DeleteProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<DeleteProjectCostCommand, Unit>
+    public sealed class DeleteProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<DeleteProjectCostCommand, Unit>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
+        private readonly IProjectCostAccessService accessService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteProjectCostCommandHandler> logger;
 
         public DeleteProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
+            IProjectCostAccessService accessService,
             IBlobStorageService blobStorageService,
             IRepository<BaseCostAttachment> attachmentRepository,
             ICurrentUser currentUser,
-            ILogger<DeleteProjectCostCommandHandler> logger)
-            : base(blobStorageService, attachmentRepository)
+            ILogger<DeleteProjectCostCommandHandler> logger,
+            ILogger<ProjectCostHandlerBase> baseLogger)
+            : base(blobStorageService, attachmentRepository, baseLogger)
         {
             this.projectCostRepo = projectCostRepo;
+            this.accessService = accessService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -74,12 +69,12 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
             DeleteProjectCostCommand request,
             CancellationToken cancellationToken)
         {
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            bool isCostOwner = projectCost.UserId == currentUser.Id;
+            bool hasWriteAccess = await accessService.HasWriteAccessAsync(
+                projectCost, currentUser.Id, cancellationToken);
 
-            if (!isAdmin && !isCostOwner)
+            if (!hasWriteAccess)
             {
-                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+                throw new ForbiddenApiException("You do not have permission to delete this cost.");
             }
         }
     }

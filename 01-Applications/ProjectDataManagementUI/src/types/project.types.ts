@@ -174,11 +174,13 @@ export interface ProjectCostListItemWeb {
   userId: string;
   userName: string;
   name: string;
-  place?: string;
+  number: string | null;
+  contractorId: string | null;
+  contractorName: string | null;
   date: string;
   description?: string;
-  netAmount?: number;
-  grossAmount: number;
+  net: number | null;
+  gross: number | null;
   isAccepted: boolean;
   hasDocument: boolean;
   documentFileName?: string;
@@ -192,11 +194,12 @@ export interface CreateProjectCostCommand {
   tenantId: string;
   projectId: string;
   name: string;
-  place?: string;
+  number?: string | null;
+  contractorId?: string | null;
   date: string;
   description?: string;
-  netAmount?: number;
-  grossAmount?: number;
+  net?: number | null;
+  gross?: number | null;
   isAccepted?: boolean;
   document?: File;
 }
@@ -206,11 +209,12 @@ export interface UpdateProjectCostCommand {
   projectId: string;
   costId: string;
   name: string;
-  place?: string;
+  number?: string | null;
+  contractorId?: string | null;
   date: string;
   description?: string;
-  netAmount?: number;
-  grossAmount?: number;
+  net?: number | null;
+  gross?: number | null;
   isAccepted: boolean;
   /** Nowy dokument dołączany do kosztu który nie miał wcześniej pliku */
   document?: File;

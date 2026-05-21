@@ -1,4 +1,4 @@
-using Business.Interfaces.Services;
+﻿using Business.Interfaces.Services;
 using Entities.Models.Chats;
 using Entities.Models.Costs;
 using Entities.Models.Files;
@@ -186,7 +186,6 @@ namespace Business.Implementation.Services
                         Order = i
                     };
                     await stageRepo.Insert(stage);
-                    await stageRepo.SaveChangesAsync(cancellationToken);
 
                     logger.LogInformation(
                         "Created work schedule stage {StageId} for cost estimate group {GroupId} in work schedule {WorkScheduleId}",

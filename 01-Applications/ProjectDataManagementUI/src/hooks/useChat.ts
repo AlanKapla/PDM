@@ -17,18 +17,20 @@ export function useChatList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const activeTenantId = user?.activeTenantId ?? null;
+
   const loadChats = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await chatApi.getChats();
+      const data = await chatApi.getChats(activeTenantId);
       setChats(data);
     } catch {
       setError("Nie udało się załadować rozmów.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTenantId]);
 
   useEffect(() => {
     loadChats();
@@ -127,7 +129,7 @@ const PAGE_SIZE = 50;
  * Zarządza wiadomościami dla konkretnej rozmowy: ładowanie stronami,
  * wysyłanie, edycja, usuwanie oraz obsługa zdarzeń SignalR.
  */
-export function useChatMessages(chatId: string | null) {
+export function useChatMessages(tenantId: string | null, chatId: string | null) {
   const [messages, setMessages] = useState<import("../types/chat.types").MessageWeb[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -152,7 +154,7 @@ export function useChatMessages(chatId: string | null) {
     try {
       setLoadingInitial(true);
       setError(null);
-      const data = await chatApi.getMessages(id, PAGE_SIZE);
+      const data = await chatApi.getMessages(tenantId, id, PAGE_SIZE);
       setMessages(data);
       setHasMore(data.length === PAGE_SIZE);
       cursorRef.current = data.length > 0 ? data[data.length - 1].id : undefined;
@@ -161,7 +163,7 @@ export function useChatMessages(chatId: string | null) {
     } finally {
       setLoadingInitial(false);
     }
-  }, []);
+  }, [tenantId]);
 
   // Załaduj starszą stronę (scroll w górę)
   const loadMore = useCallback(async () => {
@@ -169,7 +171,7 @@ export function useChatMessages(chatId: string | null) {
 
     try {
       setLoadingMore(true);
-      const data = await chatApi.getMessages(chatId, PAGE_SIZE, cursorRef.current);
+      const data = await chatApi.getMessages(tenantId, chatId, PAGE_SIZE, cursorRef.current);
       if (data.length === 0) {
         setHasMore(false);
         return;
@@ -182,7 +184,7 @@ export function useChatMessages(chatId: string | null) {
     } finally {
       setLoadingMore(false);
     }
-  }, [chatId, loadingMore, hasMore]);
+  }, [chatId, loadingMore, hasMore, tenantId]);
 
   // Przeładuj czat gdy zmieni się chatId
   useEffect(() => {
@@ -202,7 +204,7 @@ export function useChatMessages(chatId: string | null) {
     joinedRef.current = chatId;
 
     // Oznacz jako przeczytane
-    chatApi.markAsRead(chatId).catch(() => {});
+    chatApi.markAsRead(tenantId, chatId).catch(() => {});
 
     return () => {
       if (joinedRef.current) {
@@ -220,10 +222,10 @@ export function useChatMessages(chatId: string | null) {
         if (prev.some((m) => m.id === message.id)) return prev;
         return [message, ...prev];
       });
-      chatApi.markAsRead(chatId!).catch(() => {});
+      chatApi.markAsRead(tenantId, chatId!).catch(() => {});
     });
     return unsubscribe;
-  }, [chatId]);
+  }, [chatId, tenantId]);
 
   // SignalR: edycja wiadomości
   useEffect(() => {

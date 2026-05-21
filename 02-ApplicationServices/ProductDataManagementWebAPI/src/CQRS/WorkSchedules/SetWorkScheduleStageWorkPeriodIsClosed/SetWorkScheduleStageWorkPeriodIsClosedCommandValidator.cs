@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriodIsClosed
 {
@@ -6,11 +7,11 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriodIsClosed
     {
         public SetWorkScheduleStageWorkPeriodIsClosedCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageWorkId).NotEmpty();
-            RuleFor(x => x.PeriodId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageWorkId).RequiredId();
+            RuleFor(x => x.PeriodId).RequiredId();
         }
     }
 }

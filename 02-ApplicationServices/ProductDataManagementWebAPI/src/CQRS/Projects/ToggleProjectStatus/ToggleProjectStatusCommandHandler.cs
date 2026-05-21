@@ -1,4 +1,4 @@
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -21,9 +21,9 @@ namespace CQRS.Projects.ToggleProjectStatus;
 /// <summary>
 /// Handler zmieniający status aktywności projektu
 /// </summary>
-public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectStatusCommand, Unit>
+public sealed class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectStatusCommand, Unit>
 {
-    private readonly IReadRepository<Project> projectRepo;
+    private readonly IRepository<Project> projectRepo;
     private readonly IReadRepository<User> userRepo;
     private readonly IRepository<ProjectMember> projectMemberRepo;
     private readonly IReadRepository<Notification> notificationRepo;
@@ -31,7 +31,7 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
     private readonly ICurrentUser currentUser;
 
     public ToggleProjectStatusCommandHandler(
-        IReadRepository<Project> projectRepo,
+        IRepository<Project> projectRepo,
         IReadRepository<User> userRepo,
         IRepository<ProjectMember> projectMemberRepo,
         IReadRepository<Notification> notificationRepo,
@@ -63,13 +63,13 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
         string actionText = request.IsActive ? "aktywowany" : "zdezaktywowany";
         NotificationType notificationType = request.IsActive ? NotificationType.Info : NotificationType.Warning;
 
-        var memberUserIds = projectMembers
+        List<Guid> memberUserIds = projectMembers
             .Where(pm => pm.UserId != currentUser.Id)
             .Select(pm => pm.UserId)
             .ToList();
 
-        var users = await userRepo.GetBySearch(u => memberUserIds.Contains(u.Id));
-        var userDict = users.ToDictionary(u => u.Id);
+        IEnumerable<User> users = await userRepo.GetBySearch(u => memberUserIds.Contains(u.Id));
+        Dictionary<Guid, User> userDict = users.ToDictionary(u => u.Id);
 
         foreach (ProjectMember member in projectMembers.Where(pm => pm.UserId != currentUser.Id))
         {
@@ -96,7 +96,7 @@ public class ToggleProjectStatusCommandHandler : IRequestHandler<ToggleProjectSt
                 }
             };
 
-            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
             await notificationSender.EnqueueAsync(payload, cancellationToken);
         }
 

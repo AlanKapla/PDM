@@ -1,4 +1,4 @@
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -26,7 +26,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
         private readonly IRepository<SharedCostEstimate> sharedCeRepository;
         private readonly IUserService userService;
         private readonly IReadRepository<Notification> notificationRepository;
-        private readonly ICostEstimateAccessService ceAccessService;
+        private readonly ICostEstimateShareService ceShareService;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UpdateCostEstimateSharesCommandHandler> logger;
@@ -36,7 +36,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
             IRepository<SharedCostEstimate> sharedCeRepository,
             IUserService userService,
             IReadRepository<Notification> notificationRepository,
-            ICostEstimateAccessService ceAccessService,
+            ICostEstimateShareService ceShareService,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             ILogger<UpdateCostEstimateSharesCommandHandler> logger)
@@ -45,7 +45,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
             this.sharedCeRepository = sharedCeRepository;
             this.userService = userService;
             this.notificationRepository = notificationRepository;
-            this.ceAccessService = ceAccessService;
+            this.ceShareService = ceShareService;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -53,31 +53,27 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
 
         public async Task<Unit> Handle(UpdateCostEstimateSharesCommand request, CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(
-                request.TenantId, request.ProjectId, cancellationToken);
-
-            if (costEstimate.OwnerId != currentUser.Id && !isAdmin)
-                throw new ForbiddenApiException("Only the owner or an admin can update shares for this cost estimate.");
+            await ceShareService.ValidateOwnerOrAdminAsync(costEstimate, cancellationToken);
 
             // Load current shares as dict: userId → SharedCostEstimate
-            var existingShares = (await sharedCeRepository.GetBySearch(
+            List<SharedCostEstimate> existingShares = (await sharedCeRepository.GetBySearch(
                 s => s.CostEstimateId == request.CostEstimateId)).ToList();
 
-            var existingUserIds = existingShares.Select(s => s.SharedWithUserId).ToHashSet();
-            var desiredUserIds = request.UserIds.ToHashSet();
+            HashSet<Guid> existingUserIds = existingShares.Select(s => s.SharedWithUserId).ToHashSet();
+            HashSet<Guid> desiredUserIds = request.UserIds.ToHashSet();
 
-            var toAdd = desiredUserIds.Except(existingUserIds).ToList();
-            var toRemove = existingUserIds.Except(desiredUserIds).ToList();
+            List<Guid> toAdd = desiredUserIds.Except(existingUserIds).ToList();
+            List<Guid> toRemove = existingUserIds.Except(desiredUserIds).ToList();
 
             // Add new shares
             if (toAdd.Count > 0)
             {
-                var now = DateTime.UtcNow;
-                var newShares = toAdd.Select(userId => new SharedCostEstimate
+                DateTime now = DateTime.UtcNow;
+                List<SharedCostEstimate> newShares = toAdd.Select(userId => new SharedCostEstimate
                 {
                     TenantId = request.TenantId,
                     ProjectId = request.ProjectId,
@@ -101,20 +97,17 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
 
             if (toAdd.Count > 0 || toRemove.Count > 0)
             {
-                await ceAccessService.InvalidateCostEstimateAccessCacheAsync(
-                    request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
-
-                await ceAccessService.InvalidateAccessCacheAsync(
-                    request.TenantId, request.ProjectId, cancellationToken);
+                await ceShareService.InvalidateAccessCacheAsync(
+                    request.CostEstimateId, request.ProjectId, request.TenantId, cancellationToken);
             }
 
             // Send notifications (fire-and-forget per user, never throw)
             string sharerName = currentUser.FullName;
 
-            foreach (var userId in toAdd)
+            foreach (Guid userId in toAdd)
                 await SendNotificationAsync(request, userId, sharerName, shared: true, cancellationToken);
 
-            foreach (var userId in toRemove)
+            foreach (Guid userId in toRemove)
                 await SendNotificationAsync(request, userId, sharerName, shared: false, cancellationToken);
 
             logger.LogInformation(
@@ -133,7 +126,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
         {
             try
             {
-                var targetUser = await userService.GetProjectMemberAsync(
+                ProjectMemberUserInfo? targetUser = await userService.GetProjectMemberAsync(
                     request.TenantId, request.ProjectId, targetUserId, cancellationToken);
 
                 if (targetUser == null)
@@ -149,7 +142,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
                     ? $"{sharerName} udostępnił Ci kosztorys"
                     : $"{sharerName} cofnął Twój dostęp do kosztorysu";
 
-                var metadata = new Dictionary<string, object?>
+                Dictionary<string, object?> metadata = new Dictionary<string, object?>
                 {
                     ["CostEstimateId"] = request.CostEstimateId,
                     ["ProjectId"] = request.ProjectId,
@@ -158,7 +151,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
                     ["Action"] = shared ? "Shared" : "Unshared"
                 };
 
-                var notification = new NotificationDto
+                NotificationDto notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = request.TenantId,
@@ -173,7 +166,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
                     IsRead = false
                 };
 
-                var payload = await NotificationPayloadHelper.CreatePayloadAsync(
+                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(
                     notification, notificationRepository, cancellationToken);
 
                 await notificationSender.EnqueueAsync(payload, cancellationToken);

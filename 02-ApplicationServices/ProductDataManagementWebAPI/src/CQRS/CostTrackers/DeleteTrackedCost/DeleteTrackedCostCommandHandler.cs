@@ -25,9 +25,10 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
             IRepository<TrackedCost> trackedCostRepository,
             IRepository<BaseCostAttachment> attachmentRepository,
             IBlobStorageService blobStorageService,
+            IContractorService contractorService,
             ICurrentUser currentUser,
             ILogger<DeleteTrackedCostCommandHandler> logger)
-            : base(currentUser, trackedCostRepository)
+            : base(currentUser, trackedCostRepository, contractorService)
         {
             this.trackedCostRepository = trackedCostRepository;
             this.attachmentRepository = attachmentRepository;

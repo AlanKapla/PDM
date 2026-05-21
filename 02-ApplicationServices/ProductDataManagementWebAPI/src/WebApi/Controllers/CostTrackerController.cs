@@ -2,9 +2,10 @@
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.CreateTrackedCost;
 using CQRS.CostTrackers.DeleteTrackedCost;
+using CQRS.CostTrackers.GetCostLinkOptions;
 using CQRS.ProjectDashboard.GetProjectDashboard;
 using CQRS.CostTrackers.UpdateTrackedCost;
-using CQRS.CostTrackers.UpdateTrackerBudget;
+using CQRS.Projects.UpdateProjectBudget;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -33,7 +34,7 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.ProjectEdit)]
         [RequestSizeLimit(52428800)]
         [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
-        [ProducesResponseType(typeof(TrackedCostWeb), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(TrackedCostWeb), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CreateTrackedCost(
@@ -47,7 +48,8 @@ namespace WebApi.Controllers
                 ProjectId = projectId,
             };
 
-            return Ok(await Send(command));
+            TrackedCostWeb result = await Send(command);
+            return Created(string.Empty, result);
         }
 
         /// <summary>
@@ -97,7 +99,7 @@ namespace WebApi.Controllers
         public async Task<IActionResult> UpdateTrackerBudget(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
-            [FromBody] UpdateTrackerBudgetCommand command)
+            [FromBody] UpdateProjectBudgetCommand command)
         {
             command = command with
             {
@@ -134,6 +136,30 @@ namespace WebApi.Controllers
 
             await Send(command);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Get available link options for a tracked cost — flat lists of estimate items and work items
+        /// with tree paths and cross-reference between them.
+        /// </summary>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <returns>Available estimate items and work items with paths and mutual link info</returns>
+        [HttpGet("link-options")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [ProducesResponseType(typeof(CostLinkOptionsWeb), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetCostLinkOptions(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            GetCostLinkOptionsQuery query = new GetCostLinkOptionsQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+
+            return Ok(await Send(query));
         }
     }
 }

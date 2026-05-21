@@ -1,15 +1,7 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
 using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -20,11 +12,12 @@ namespace CQRS.Files.SharePackages
     /// Handler do udostępniania paczek członkom projektu
     /// Zawsze udostępnia CAŁE paczki (bez wykluczeń plików)
     /// </summary>
-    public class SharePackagesCommandHandler : IRequestHandler<SharePackagesCommand, Unit>
+    public sealed class SharePackagesCommandHandler : IRequestHandler<SharePackagesCommand, Unit>
     {
         private readonly IRepository<SharedProjectFile> sharedProjectFileRepo;
         private readonly IRepository<ProjectFilePackage> packageRepo;
         private readonly IProjectFilesService projectFilesService;
+        private readonly IFileAccessGuard fileAccessGuard;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<SharePackagesCommandHandler> logger;
 
@@ -32,54 +25,46 @@ namespace CQRS.Files.SharePackages
             IRepository<SharedProjectFile> sharedProjectFileRepo,
             IRepository<ProjectFilePackage> packageRepo,
             IProjectFilesService projectFilesService,
+            IFileAccessGuard fileAccessGuard,
             ICurrentUser currentUser,
             ILogger<SharePackagesCommandHandler> logger)
         {
             this.sharedProjectFileRepo = sharedProjectFileRepo;
             this.packageRepo = packageRepo;
             this.projectFilesService = projectFilesService;
+            this.fileAccessGuard = fileAccessGuard;
             this.currentUser = currentUser;
             this.logger = logger;
         }
 
         public async Task<Unit> Handle(SharePackagesCommand request, CancellationToken cancellationToken)
         {
-            // 1. Verify all packages exist and authorize
-            var packages = (await packageRepo.GetBySearch(
+            // 1. Authorize each package (NotFound if missing, Forbidden if caller is not admin/owner)
+            foreach (Guid packageId in request.PackageIds)
+            {
+                await fileAccessGuard.EnsureCanAccessPackageAsync(
+                    request.TenantId, request.ProjectId, packageId, FileAccessKind.Share, cancellationToken);
+            }
+
+            // 2. Load packages for owner lookup (used to skip sharing with the package owner)
+            List<ProjectFilePackage> packages = (await packageRepo.GetBySearch(
                 p => request.PackageIds.Contains(p.Id)
                     && p.ProjectId == request.ProjectId
                     && p.TenantId == request.TenantId)).ToList();
 
-            if (packages.Count != request.PackageIds.Count)
-            {
-                throw new NotFoundApiException(nameof(ProjectFilePackage), "One or more packages not found");
-            }
-
-            // 2. Authorization check: tenant admin OR project admin OR owner of ALL packages
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            
-            if (!isAdmin)
-            {
-                var notOwnedPackages = packages.Where(p => p.OwnerId != currentUser.Id).ToList();
-                if (notOwnedPackages.Any())
-                {
-                    throw new ForbiddenApiException("You are not the owner of all selected packages");
-                }
-            }
-
             // 3. Create dictionary for fast owner lookup
-            var packageOwners = packages.ToDictionary(p => p.Id, p => p.OwnerId);
+            Dictionary<Guid, Guid> packageOwners = packages.ToDictionary(p => p.Id, p => p.OwnerId);
 
             // 4. Share all packages with all specified users (excluding self and package owners)
             int totalShared = 0;
             int skippedSelf = 0;
             int skippedOwners = 0;
 
-            foreach (var packageId in request.PackageIds)
+            foreach (Guid packageId in request.PackageIds)
             {
-                var packageOwnerId = packageOwners[packageId];
+                Guid packageOwnerId = packageOwners[packageId];
 
-                foreach (var userId in request.SharedWithUserIds)
+                foreach (Guid userId in request.SharedWithUserIds)
                 {
                     // Pomijamy udostępnienie samemu sobie
                     if (userId == currentUser.Id)
@@ -135,15 +120,15 @@ namespace CQRS.Files.SharePackages
                 cancellationToken);
 
             // Sprawdź czy paczka już jest udostępniona
-            var existingPackageShare = await sharedProjectFileRepo.GetFirstBySearch(
+            SharedProjectFile? existingPackageShare = await sharedProjectFileRepo.GetFirstBySearch(
                 spf => spf.ProjectFilePackageId == packageId
                     && spf.ProjectFileId == null
                     && spf.SharedWithUserId == userId);
 
-            if (existingPackageShare == null)
+            if (existingPackageShare is null)
             {
                 // Dodaj udostępnienie całej paczki
-                var packageShare = new SharedProjectFile
+                SharedProjectFile packageShare = new SharedProjectFile
                 {
                     TenantId = request.TenantId,
                     ProjectId = request.ProjectId,

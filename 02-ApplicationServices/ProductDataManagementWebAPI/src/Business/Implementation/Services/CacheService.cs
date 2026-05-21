@@ -1,4 +1,4 @@
-using Business.Interfaces.Configurations;
+﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -85,6 +85,7 @@ public sealed class CacheService : ICacheService
         }
 
         logger.LogDebug("Cache miss for key {Key}, executing factory", key);
+        expiration ??= TimeSpan.FromMinutes(settings.DefaultExpirationMinutes);
         T value = await factory();
 
         if (value is not null)
@@ -186,10 +187,11 @@ public sealed class CacheService : ICacheService
         }
 
         IDatabase db = redis.GetDatabase();
+        expiration ??= TimeSpan.FromMinutes(settings.DefaultExpirationMinutes);
 
         try
         {
-            // IBatch pipeline: każdy StringSetAsync(key, value, expiry) = atomiczny SET key value PX ms
+            // IBatch pipeline
             // Zamiast MSET (bez TTL) + N×EXPIRE — eliminuje okno w którym klucze nie mają TTL
             IBatch batch = db.CreateBatch();
             List<Task> tasks = new(items.Count);

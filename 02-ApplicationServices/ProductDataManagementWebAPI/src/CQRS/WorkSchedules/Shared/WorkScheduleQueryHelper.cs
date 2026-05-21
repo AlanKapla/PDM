@@ -1,20 +1,17 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 
 namespace CQRS.WorkSchedules.Shared
 {
     public static class WorkScheduleQueryHelper
     {
+        /// <summary>
+        /// Fallback display name used when a user reference cannot be resolved against project members.
+        /// </summary>
+        public const string UnknownUser = "Unknown";
+
         public static string FormatFullName(string? firstName, string? lastName) =>
             $"{firstName} {lastName}".Trim();
 
@@ -59,10 +56,10 @@ namespace CQRS.WorkSchedules.Shared
                     ?? (dep.SuccessorTempId.HasValue && tempIdToWorkId.TryGetValue(dep.SuccessorTempId.Value, out Guid sId) ? sId : null);
 
                 if (!predId.HasValue)
-                    throw new ValidationApiException("Nie można rozwiązać poprzednika zależności — sprawdź poprawność przesłanych identyfikatorów.");
+                    throw new ValidationApiException("Cannot resolve dependency predecessor — verify the provided identifiers.");
 
                 if (!succId.HasValue)
-                    throw new ValidationApiException("Nie można rozwiązać następnika zależności — sprawdź poprawność przesłanych identyfikatorów.");
+                    throw new ValidationApiException("Cannot resolve dependency successor — verify the provided identifiers.");
 
                 WorkScheduleStageWorkDependency entity = new WorkScheduleStageWorkDependency
                 {

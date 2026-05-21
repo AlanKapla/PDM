@@ -1,10 +1,10 @@
-﻿namespace Business.Interfaces.WebModels.CostEstimates
+namespace Business.Interfaces.WebModels.CostEstimates
 {
-    public record ShareCostEstimateRequestWeb(List<Guid> UserIds);
+    public sealed record ShareCostEstimateRequestWeb(List<Guid> UserIds);
 
-    public record UpdateCostEstimateSharesRequestWeb(List<Guid> UserIds);
+    public sealed record UpdateCostEstimateSharesRequestWeb(List<Guid> UserIds);
 
-    public record CostEstimateShareWeb(
+    public sealed record CostEstimateShareWeb(
         Guid UserId,
         string FullName,
         string Email,

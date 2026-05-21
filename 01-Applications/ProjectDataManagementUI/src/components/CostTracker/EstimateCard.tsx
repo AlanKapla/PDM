@@ -27,6 +27,7 @@ interface EstimateCardProps {
   tenantId: string;
   projectId: string;
   onCostMutated: () => void;
+  allEstimates?: CostEstimateSummaryWeb[];
 }
 
 export default function EstimateCard({
@@ -34,6 +35,7 @@ export default function EstimateCard({
   tenantId,
   projectId,
   onCostMutated,
+  allEstimates,
 }: EstimateCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -172,6 +174,7 @@ export default function EstimateCard({
                   projectId={projectId}
                   costEstimateId={estimate.costEstimateId}
                   onCostMutated={onCostMutated}
+                  estimates={allEstimates}
                 />
               )}
               <EstimateAdditionalCosts
@@ -180,6 +183,7 @@ export default function EstimateCard({
                 projectId={projectId}
                 costEstimateId={estimate.costEstimateId}
                 onCostMutated={onCostMutated}
+                estimates={allEstimates}
               />
             </VStack>
           </Box>

@@ -31,6 +31,19 @@ export interface UserProfile {
    * Permissions in the active tenant (empty if no active tenant)
    */
   activeTenantPermissions: string[];
+
+  // Kontaktowe
+  phoneNumber?: string | null;
+
+  // Firmowe
+  companyName?: string | null;
+  taxId?: string | null;
+
+  // Adresowe
+  street?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
 }
 
 export interface PasswordResetRequest {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "pdm-static-v1";
+const CACHE_NAME = "pdm-static-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -22,11 +22,14 @@ self.addEventListener("fetch", (event) => {
     return; // do not intercept
   }
 
-  // 2) IGNORE navigation + API requests + auth redirects
+  // 2) IGNORE navigation + API requests + auth redirects + favicons
   if (
     req.mode === "navigate" ||      // index.html routing
     url.pathname.startsWith("/api/") ||
-    url.pathname.includes("User/")
+    url.pathname.includes("User/") ||
+    url.pathname.startsWith("/favicon") ||
+    url.pathname === "/logo.png" ||
+    url.pathname === "/logo.svg"
   ) {
     return; // let the browser handle it normally
   }

@@ -1,6 +1,6 @@
 ﻿namespace Business.Interfaces.WebModels.CostTrackers
 {
-    public record TrackerGroupWeb : TrackerNodeWithTimelineWeb
+    public sealed record TrackerGroupWeb : TrackerNodeWithTimelineWeb
     {
         public required Guid GroupId { get; init; }
         public required string GroupName { get; init; }

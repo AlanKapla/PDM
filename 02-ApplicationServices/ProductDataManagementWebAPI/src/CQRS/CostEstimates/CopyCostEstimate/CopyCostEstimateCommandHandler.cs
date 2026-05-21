@@ -11,7 +11,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.CopyCostEstimate
 {
-    public class CopyCostEstimateCommandHandler : IRequestHandler<CopyCostEstimateCommand, List<Guid>>
+    public sealed class CopyCostEstimateCommandHandler : IRequestHandler<CopyCostEstimateCommand, List<Guid>>
     {
         private readonly IRepository<CostEstimate> costEstimateRepo;
         private readonly IRepository<CostEstimateGroup> groupRepo;
@@ -42,37 +42,64 @@ namespace CQRS.CostEstimates.CopyCostEstimate
         public async Task<List<Guid>> Handle(CopyCostEstimateCommand request, CancellationToken cancellationToken)
         {
             Guid tenantId = request.TenantId;
+            Guid costEstimateId = request.CostEstimateId;
 
             // 1. Verify source cost estimate exists and belongs to the correct project/tenant
-            var costEstimates = await costEstimateRepo.GetBySearch(
-                ce => ce.Id == request.CostEstimateId
+            CostEstimate sourceCostEstimate = await costEstimateRepo.GetFirstBySearch(
+                ce => ce.Id == costEstimateId
                     && ce.TenantId == tenantId
                     && ce.ProjectId == request.ProjectId
-                    && !ce.IsDeleted,
-                q => q.Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                              .ThenInclude(g => g.FieldValues)
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                              .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
-                                  .ThenInclude(w => w.FieldValues)
-                      .Include(c => c.AllGroups.Where(g => !g.IsDeleted))
-                              .ThenInclude(g => g.Items.Where(w => !w.IsDeleted))
-                                  .ThenInclude(w => w.Options.Where(o => !o.IsDeleted))
-                                      .ThenInclude(o => o.FieldValues));
+                    && !ce.IsDeleted)
+                ?? throw new NotFoundApiException(nameof(CostEstimate), costEstimateId.ToString());
 
-            CostEstimate? sourceCostEstimate = costEstimates.FirstOrDefault()
-                ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
-
-
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
-                currentUser, tenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
+                currentUser, tenantId, request.ProjectId, costEstimateId, cancellationToken);
 
             if (accessLevel != CostEstimateAccessLevel.Full)
+            {
                 throw new ForbiddenApiException("Only the owner or an admin can copy this cost estimate.");
+            }
+
+            // 2. Load full hierarchy via separate batch queries (avoids 3-level Include chain timeouts)
+            IEnumerable<CostEstimateGroup> sourceGroupsQuery = await groupRepo.GetBySearch(
+                g => g.CostEstimateId == costEstimateId && !g.IsDeleted);
+            List<CostEstimateGroup> sourceGroups = sourceGroupsQuery.ToList();
+
+            IEnumerable<CostEstimateItem> sourceItemsQuery = await itemRepo.GetBySearch(
+                i => i.CostEstimateId == costEstimateId && !i.IsDeleted);
+            List<CostEstimateItem> sourceItems = sourceItemsQuery.ToList();
+
+            IEnumerable<CostEstimateGroupFieldValue> sourceGroupFieldValuesQuery = await groupFieldValueRepo.GetBySearch(
+                fv => fv.Group.CostEstimateId == costEstimateId);
+            List<CostEstimateGroupFieldValue> sourceGroupFieldValues = sourceGroupFieldValuesQuery.ToList();
+
+            IEnumerable<CostEstimateItemFieldValue> sourceItemFieldValuesQuery = await itemFieldValueRepo.GetBySearch(
+                fv => fv.Item.CostEstimateId == costEstimateId);
+            List<CostEstimateItemFieldValue> sourceItemFieldValues = sourceItemFieldValuesQuery.ToList();
+
+            // 3. Build lookup dictionaries to replace navigation property access
+            Dictionary<Guid, List<CostEstimateGroupFieldValue>> groupFieldValuesByGroupId = sourceGroupFieldValues
+                .GroupBy(fv => fv.GroupId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            Dictionary<Guid, List<CostEstimateItemFieldValue>> itemFieldValuesByItemId = sourceItemFieldValues
+                .GroupBy(fv => fv.ItemId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            Dictionary<Guid, List<CostEstimateItem>> mainItemsByGroupId = sourceItems
+                .Where(i => i.ParentItemId == null)
+                .GroupBy(i => i.GroupId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            Dictionary<Guid, List<CostEstimateItem>> optionsByParentItemId = sourceItems
+                .Where(i => i.ParentItemId != null)
+                .GroupBy(i => i.ParentItemId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
             List<Guid> createdCostEstimateIds = new List<Guid>();
             DateTime now = DateTime.UtcNow;
 
-            // 3. Create copy for each target project
+            // 4. Create copy for each target project
             foreach (Guid targetProjectId in request.TargetProjectIds)
             {
                 // Create new cost estimate
@@ -99,16 +126,16 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                 await costEstimateRepo.SaveChangesAsync(cancellationToken);
 
                 // Deep copy groups and work scope items
-                var groupIdMapping = new Dictionary<Guid, Guid>(); // old ID => new ID
-                var allCopiedGroups = new List<CostEstimateGroup>();
-                var allCopiedGroupFieldValues = new List<CostEstimateGroupFieldValue>();
-                var allCopiedItems = new List<CostEstimateItem>();
-                var allCopiedItemFieldValues = new List<CostEstimateItemFieldValue>();
+                Dictionary<Guid, Guid> groupIdMapping = new Dictionary<Guid, Guid>(); // old ID => new ID
+                List<CostEstimateGroup> allCopiedGroups = new List<CostEstimateGroup>();
+                List<CostEstimateGroupFieldValue> allCopiedGroupFieldValues = new List<CostEstimateGroupFieldValue>();
+                List<CostEstimateItem> allCopiedItems = new List<CostEstimateItem>();
+                List<CostEstimateItemFieldValue> allCopiedItemFieldValues = new List<CostEstimateItemFieldValue>();
 
                 // Copy all groups (maintain hierarchy)
-                foreach (var sourceGroup in sourceCostEstimate.AllGroups.OrderBy(g => g.Level))
+                foreach (CostEstimateGroup sourceGroup in sourceGroups.OrderBy(g => g.Level))
                 {
-                    var newGroupId = Guid.NewGuid();
+                    Guid newGroupId = Guid.NewGuid();
                     groupIdMapping[sourceGroup.Id] = newGroupId;
 
                     allCopiedGroups.Add(new CostEstimateGroup
@@ -129,26 +156,31 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                     });
 
                     // Copy group field values
-                    foreach (var sourceFieldValue in sourceGroup.FieldValues)
+                    if (groupFieldValuesByGroupId.TryGetValue(sourceGroup.Id, out List<CostEstimateGroupFieldValue>? sourceGroupFvs))
                     {
-                        allCopiedGroupFieldValues.Add(new CostEstimateGroupFieldValue
+                        foreach (CostEstimateGroupFieldValue sourceFieldValue in sourceGroupFvs)
                         {
-                            Id = Guid.NewGuid(),
-                            GroupId = newGroupId,
-                            FieldDefinitionId = sourceFieldValue.FieldDefinitionId,
-                            StringValue = sourceFieldValue.StringValue,
-                            DecimalValue = sourceFieldValue.DecimalValue,
-                            BoolValue = sourceFieldValue.BoolValue,
-                            DateTimeValue = sourceFieldValue.DateTimeValue,
-                            CreatedAt = now
-                        });
+                            allCopiedGroupFieldValues.Add(new CostEstimateGroupFieldValue
+                            {
+                                Id = Guid.NewGuid(),
+                                GroupId = newGroupId,
+                                FieldDefinitionId = sourceFieldValue.FieldDefinitionId,
+                                StringValue = sourceFieldValue.StringValue,
+                                DecimalValue = sourceFieldValue.DecimalValue,
+                                BoolValue = sourceFieldValue.BoolValue,
+                                DateTimeValue = sourceFieldValue.DateTimeValue,
+                                CreatedAt = now
+                            });
+                        }
                     }
 
                     // Copy work scope items for this group (tylko główne pozycje - ParentItemId == null)
-                    var mainItems = sourceGroup.Items.Where(i => i.ParentItemId == null).ToList();
-                    var itemIdMapping = new Dictionary<Guid, Guid>(); // old item ID => new item ID
+                    List<CostEstimateItem> mainItems = mainItemsByGroupId.TryGetValue(sourceGroup.Id, out List<CostEstimateItem>? items)
+                        ? items
+                        : new List<CostEstimateItem>();
+                    Dictionary<Guid, Guid> itemIdMapping = new Dictionary<Guid, Guid>(); // old item ID => new item ID
 
-                    foreach (var sourceItem in mainItems)
+                    foreach (CostEstimateItem sourceItem in mainItems)
                     {
                         CollectCopiedItems(
                             copiedCostEstimate.Id,
@@ -158,7 +190,9 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                             itemIdMapping,
                             now,
                             allCopiedItems,
-                            allCopiedItemFieldValues);
+                            allCopiedItemFieldValues,
+                            optionsByParentItemId,
+                            itemFieldValuesByItemId);
                     }
                 }
 
@@ -184,9 +218,11 @@ namespace CQRS.CostEstimates.CopyCostEstimate
             Dictionary<Guid, Guid> itemIdMapping,
             DateTime now,
             List<CostEstimateItem> allItems,
-            List<CostEstimateItemFieldValue> allFieldValues)
+            List<CostEstimateItemFieldValue> allFieldValues,
+            Dictionary<Guid, List<CostEstimateItem>> optionsByParentItemId,
+            Dictionary<Guid, List<CostEstimateItemFieldValue>> itemFieldValuesByItemId)
         {
-            var newItemId = Guid.NewGuid();
+            Guid newItemId = Guid.NewGuid();
             itemIdMapping[sourceItem.Id] = newItemId;
 
             allItems.Add(new CostEstimateItem
@@ -201,25 +237,28 @@ namespace CQRS.CostEstimates.CopyCostEstimate
             });
 
             // Copy field values
-            foreach (var sourceFieldValue in sourceItem.FieldValues)
+            if (itemFieldValuesByItemId.TryGetValue(sourceItem.Id, out List<CostEstimateItemFieldValue>? sourceFvs))
             {
-                allFieldValues.Add(new CostEstimateItemFieldValue
+                foreach (CostEstimateItemFieldValue sourceFieldValue in sourceFvs)
                 {
-                    Id = Guid.NewGuid(),
-                    ItemId = newItemId,
-                    FieldDefinitionId = sourceFieldValue.FieldDefinitionId,
-                    StringValue = sourceFieldValue.StringValue,
-                    DecimalValue = sourceFieldValue.DecimalValue,
-                    BoolValue = sourceFieldValue.BoolValue,
-                    DateTimeValue = sourceFieldValue.DateTimeValue,
-                    CreatedAt = now
-                });
+                    allFieldValues.Add(new CostEstimateItemFieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        ItemId = newItemId,
+                        FieldDefinitionId = sourceFieldValue.FieldDefinitionId,
+                        StringValue = sourceFieldValue.StringValue,
+                        DecimalValue = sourceFieldValue.DecimalValue,
+                        BoolValue = sourceFieldValue.BoolValue,
+                        DateTimeValue = sourceFieldValue.DateTimeValue,
+                        CreatedAt = now
+                    });
+                }
             }
 
             // Recursively collect options
-            if (sourceItem.Options != null)
+            if (optionsByParentItemId.TryGetValue(sourceItem.Id, out List<CostEstimateItem>? sourceOptions))
             {
-                foreach (var sourceOption in sourceItem.Options.Where(o => !o.IsDeleted))
+                foreach (CostEstimateItem sourceOption in sourceOptions)
                 {
                     CollectCopiedItems(
                         costEstimateId,
@@ -229,7 +268,9 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         itemIdMapping,
                         now,
                         allItems,
-                        allFieldValues);
+                        allFieldValues,
+                        optionsByParentItemId,
+                        itemFieldValuesByItemId);
                 }
             }
         }

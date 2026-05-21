@@ -1,6 +1,7 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Files;
+using CQRS.Files._Shared;
 
 namespace CQRS.Files.GetFileVersions;
 
@@ -8,16 +9,11 @@ namespace CQRS.Files.GetFileVersions;
 /// Query to get all versions of a specific file based on scope (All, Mine, Shared)
 /// Validates user access to the file based on ResourceScope
 /// </summary>
-public sealed record GetFileVersionsQuery(
-    Guid TenantId,
-    Guid ProjectId,
-    Guid FileId,
-    ResourceScope Scope
-) : IRequestQuery<List<ProjectFileVersionWeb>>, IAuthorizableRequest
+public sealed record GetFileVersionsQuery : FileScopedRequestBase, IRequestQuery<List<ProjectFileVersionWeb>>
 {
-    public string PermissionCode => PermissionCodes.ProjectView;
-    
-    public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
-    
+    public required ResourceScope Scope { get; init; }
+
+    public override string PermissionCode => PermissionCodes.ProjectView;
+
     public ResourceScope? GetResourceScope() => Scope;
 }

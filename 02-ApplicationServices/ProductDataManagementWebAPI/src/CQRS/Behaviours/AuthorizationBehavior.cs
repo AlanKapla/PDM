@@ -1,6 +1,7 @@
 ﻿using Business.Implementation.Services;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -10,12 +11,12 @@ public class AuthorizationBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
     where TRequest : notnull
 {
     private readonly ICurrentUser currentUser;
-    private readonly AccessService accessService;
+    private readonly IAccessService accessService;
     private readonly ILogger<AuthorizationBehavior<TRequest, TResponse>> logger;
 
     public AuthorizationBehavior(
         ICurrentUser currentUser,
-        AccessService accessService,
+        IAccessService accessService,
         ILogger<AuthorizationBehavior<TRequest, TResponse>> logger)
     {
         this.currentUser = currentUser;

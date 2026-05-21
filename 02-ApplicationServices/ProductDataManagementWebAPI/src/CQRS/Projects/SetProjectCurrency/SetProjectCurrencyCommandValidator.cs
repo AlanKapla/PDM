@@ -1,16 +1,14 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.Projects.SetProjectCurrency
 {
-    public class SetProjectCurrencyCommandValidator : AbstractValidator<SetProjectCurrencyCommand>
+    public sealed class SetProjectCurrencyCommandValidator : AbstractValidator<SetProjectCurrencyCommand>
     {
         public SetProjectCurrencyCommandValidator()
         {
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
 
             RuleFor(x => x.Code)
                 .NotEmpty().WithMessage("Currency code is required")

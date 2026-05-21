@@ -26,10 +26,11 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useContext } from "react";
 import { chatApi } from "../../api/chatApi";
 import type { ProjectContactsGroupWeb } from "../../types/chat.types";
 import { useToastNotification } from "../../hooks/useToastNotification";
+import { AuthContext } from "../../context/AuthContext";
 
 interface CreateGroupChatModalProps {
   isOpen: boolean;
@@ -49,6 +50,8 @@ export default function CreateGroupChatModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { showError, showSuccess } = useToastNotification();
+  const { user } = useContext(AuthContext);
+  const activeTenantId = user?.activeTenantId ?? null;
 
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
@@ -61,7 +64,11 @@ export default function CreateGroupChatModal({
     const load = async () => {
       setLoading(true);
       try {
-        const groups = await chatApi.getContacts();
+        if (!activeTenantId) {
+          setContactGroups([]);
+          return;
+        }
+        const groups = await chatApi.getContacts(activeTenantId);
         setContactGroups(groups);
       } catch {
         showError("Nie udało się załadować listy kontaktów.");
@@ -70,7 +77,7 @@ export default function CreateGroupChatModal({
       }
     };
     load();
-  }, [isOpen]);
+  }, [isOpen, activeTenantId]);
 
   // Wyzeruj wybranych członków przy zmianie projektu
   useEffect(() => {
@@ -99,9 +106,13 @@ export default function CreateGroupChatModal({
 
   const handleSubmit = async () => {
     if (!groupName.trim() || selectedUserIds.length === 0) return;
+    if (!activeTenantId) {
+      showError("Wybierz aktywny tenant aby utworzyć grupę.");
+      return;
+    }
     setSubmitting(true);
     try {
-      const result = await chatApi.createChat({
+      const result = await chatApi.createGroupChat(activeTenantId, {
         projectId: selectedProjectId || null,
         memberUserIds: selectedUserIds,
         name: groupName.trim(),

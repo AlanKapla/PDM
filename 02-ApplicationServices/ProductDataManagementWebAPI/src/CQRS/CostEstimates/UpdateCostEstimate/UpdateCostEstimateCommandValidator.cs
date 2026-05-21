@@ -1,13 +1,15 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.CostEstimates.UpdateCostEstimate
 {
-    public class UpdateCostEstimateCommandValidator : AbstractValidator<UpdateCostEstimateCommand>
+    public sealed class UpdateCostEstimateCommandValidator : AbstractValidator<UpdateCostEstimateCommand>
     {
         public UpdateCostEstimateCommandValidator()
         {
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("Cost estimate ID is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
 
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Cost estimate name is required")

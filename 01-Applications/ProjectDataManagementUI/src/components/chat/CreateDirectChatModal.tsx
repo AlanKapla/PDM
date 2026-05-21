@@ -19,10 +19,11 @@ import {
   Avatar,
   Input,
 } from "@chakra-ui/react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useContext } from "react";
 import { chatApi } from "../../api/chatApi";
 import type { ProjectMateWeb, ProjectContactsGroupWeb } from "../../types/chat.types";
 import { useToastNotification } from "../../hooks/useToastNotification";
+import { AuthContext } from "../../context/AuthContext";
 
 interface CreateDirectChatModalProps {
   isOpen: boolean;
@@ -41,6 +42,8 @@ export default function CreateDirectChatModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { showError, showSuccess } = useToastNotification();
+  const { user } = useContext(AuthContext);
+  const activeTenantId = user?.activeTenantId ?? null;
 
   const hoverBg = useColorModeValue("primary.50", "primary.900");
   const selectedBg = useColorModeValue("primary.100", "primary.800");
@@ -53,7 +56,11 @@ export default function CreateDirectChatModal({
     const load = async () => {
       setLoading(true);
       try {
-        const groups = await chatApi.getContacts();
+        if (!activeTenantId) {
+          setContactGroups([]);
+          return;
+        }
+        const groups = await chatApi.getContacts(activeTenantId);
         setContactGroups(groups);
       } catch {
         showError("Nie udało się załadować listy kontaktów.");
@@ -62,7 +69,7 @@ export default function CreateDirectChatModal({
       }
     };
     load();
-  }, [isOpen]);
+  }, [isOpen, activeTenantId]);
 
   // Spłaszcz wszystkich kontaktów — deduplikacja po userId
   const allContacts = useMemo<ProjectMateWeb[]>(() => {
@@ -93,7 +100,7 @@ export default function CreateDirectChatModal({
     if (!selectedUserId) return;
     setSubmitting(true);
     try {
-      const result = await chatApi.createChat({ memberUserIds: [selectedUserId] });
+      const result = await chatApi.createDirectChat(selectedUserId);
       showSuccess("Rozmowa utworzona");
       onCreated(result.id);
       onClose();

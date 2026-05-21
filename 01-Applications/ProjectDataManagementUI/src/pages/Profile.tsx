@@ -10,6 +10,7 @@ import {
   FormControl,
   FormLabel,
   HStack,
+  Divider,
 } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
 import { AuthContext } from "../context/AuthContext";
@@ -21,22 +22,41 @@ export default function Profile() {
   const { user, refreshUser } = useContext(AuthContext);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [country, setCountry] = useState("");
+
   const { showSuccess, showError } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const cardText = useColorModeValue("gray.700", "gray.300");
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const labelColor = useColorModeValue("gray.700", "gray.300");
+  const sectionHeadingColor = useColorModeValue("gray.500", "gray.400");
 
-  useEffect(() => {
+  const syncFormFromUser = () => {
     if (user) {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
+      setPhoneNumber(user.phoneNumber || "");
+      setCompanyName(user.companyName || "");
+      setTaxId(user.taxId || "");
+      setStreet(user.street || "");
+      setCity(user.city || "");
+      setPostalCode(user.postalCode || "");
+      setCountry(user.country || "");
     }
+  };
+
+  useEffect(() => {
+    syncFormFromUser();
   }, [user]);
 
   const handleEdit = () => {
@@ -45,10 +65,7 @@ export default function Profile() {
 
   const handleCancel = () => {
     setIsEditing(false);
-    if (user) {
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
-    }
+    syncFormFromUser();
   };
 
   const handleSave = async () => {
@@ -62,6 +79,13 @@ export default function Profile() {
       await axiosClient.put("/user/me", {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        phoneNumber: phoneNumber.trim() || null,
+        companyName: companyName.trim() || null,
+        taxId: taxId.trim() || null,
+        street: street.trim() || null,
+        city: city.trim() || null,
+        postalCode: postalCode.trim() || null,
+        country: country.trim() || null,
       });
       await refreshUser();
       showSuccess("Profil zaktualizowany", "Twoje dane zostały zapisane");
@@ -101,33 +125,77 @@ export default function Profile() {
           </Heading>
 
           <VStack spacing={4} align="stretch">
+            {/* === DANE PODSTAWOWE === */}
+            <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color={sectionHeadingColor} letterSpacing="wider">
+              Dane podstawowe
+            </Text>
+
             {!isEditing ? (
               <>
-                <Box>
-                  <Text fontSize="sm" color={labelColor} mb={1}>
-                    Imię
-                  </Text>
-                  <Text fontSize="lg" color={cardText}>
-                    {user?.firstName}
-                  </Text>
-                </Box>
+                <HStack spacing={6} align="start">
+                  <Box flex={1}>
+                    <Text fontSize="sm" color={labelColor} mb={1}>Imię</Text>
+                    <Text fontSize="lg" color={cardText}>{user.firstName}</Text>
+                  </Box>
+                  <Box flex={1}>
+                    <Text fontSize="sm" color={labelColor} mb={1}>Nazwisko</Text>
+                    <Text fontSize="lg" color={cardText}>{user.lastName}</Text>
+                  </Box>
+                </HStack>
 
                 <Box>
-                  <Text fontSize="sm" color={labelColor} mb={1}>
-                    Nazwisko
-                  </Text>
-                  <Text fontSize="lg" color={cardText}>
-                    {user?.lastName}
-                  </Text>
+                  <Text fontSize="sm" color={labelColor} mb={1}>Email</Text>
+                  <Text fontSize="lg" color={cardText}>{user.email}</Text>
                 </Box>
 
+                {/* Kontakt */}
+                <Divider />
+                <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color={sectionHeadingColor} letterSpacing="wider">
+                  Kontakt
+                </Text>
                 <Box>
-                  <Text fontSize="sm" color={labelColor} mb={1}>
-                    Email
-                  </Text>
-                  <Text fontSize="lg" color={cardText}>
-                    {user?.email}
-                  </Text>
+                  <Text fontSize="sm" color={labelColor} mb={1}>Telefon</Text>
+                  <Text fontSize="lg" color={cardText}>{user.phoneNumber || "—"}</Text>
+                </Box>
+
+                {/* Firma */}
+                <Divider />
+                <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color={sectionHeadingColor} letterSpacing="wider">
+                  Firma
+                </Text>
+                <HStack spacing={6} align="start">
+                  <Box flex={1}>
+                    <Text fontSize="sm" color={labelColor} mb={1}>Nazwa firmy</Text>
+                    <Text fontSize="lg" color={cardText}>{user.companyName || "—"}</Text>
+                  </Box>
+                  <Box flex={1}>
+                    <Text fontSize="sm" color={labelColor} mb={1}>NIP</Text>
+                    <Text fontSize="lg" color={cardText}>{user.taxId || "—"}</Text>
+                  </Box>
+                </HStack>
+
+                {/* Adres */}
+                <Divider />
+                <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color={sectionHeadingColor} letterSpacing="wider">
+                  Adres
+                </Text>
+                <Box>
+                  <Text fontSize="sm" color={labelColor} mb={1}>Ulica i numer</Text>
+                  <Text fontSize="lg" color={cardText}>{user.street || "—"}</Text>
+                </Box>
+                <HStack spacing={6} align="start">
+                  <Box flex={1}>
+                    <Text fontSize="sm" color={labelColor} mb={1}>Kod pocztowy</Text>
+                    <Text fontSize="lg" color={cardText}>{user.postalCode || "—"}</Text>
+                  </Box>
+                  <Box flex={2}>
+                    <Text fontSize="sm" color={labelColor} mb={1}>Miasto</Text>
+                    <Text fontSize="lg" color={cardText}>{user.city || "—"}</Text>
+                  </Box>
+                </HStack>
+                <Box>
+                  <Text fontSize="sm" color={labelColor} mb={1}>Kraj</Text>
+                  <Text fontSize="lg" color={cardText}>{user.country || "—"}</Text>
                 </Box>
 
                 <Button colorScheme="primary" onClick={handleEdit} mt={4}>
@@ -136,35 +204,116 @@ export default function Profile() {
               </>
             ) : (
               <>
-                <FormControl>
-                  <FormLabel color={labelColor}>Imię</FormLabel>
-                  <Input
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Podaj imię"
-                  />
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel color={labelColor}>Nazwisko</FormLabel>
-                  <Input
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Podaj nazwisko"
-                  />
-                </FormControl>
+                {/* Dane podstawowe — edycja */}
+                <HStack spacing={4}>
+                  <FormControl isRequired>
+                    <FormLabel color={labelColor}>Imię</FormLabel>
+                    <Input
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Podaj imię"
+                    />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel color={labelColor}>Nazwisko</FormLabel>
+                    <Input
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Podaj nazwisko"
+                    />
+                  </FormControl>
+                </HStack>
 
                 <Box>
-                  <Text fontSize="sm" color={labelColor} mb={1}>
-                    Email
-                  </Text>
-                  <Text fontSize="lg" color={cardText}>
-                    {user?.email}
-                  </Text>
-                  <Text fontSize="xs" color="neutral.500" mt={1}>
-                    Email nie może być edytowany
-                  </Text>
+                  <Text fontSize="sm" color={labelColor} mb={1}>Email</Text>
+                  <Text fontSize="lg" color={cardText}>{user.email}</Text>
+                  <Text fontSize="xs" color="neutral.500" mt={1}>Email nie może być edytowany</Text>
                 </Box>
+
+                {/* Kontakt — edycja */}
+                <Divider />
+                <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color={sectionHeadingColor} letterSpacing="wider">
+                  Kontakt
+                </Text>
+                <FormControl>
+                  <FormLabel color={labelColor}>Telefon</FormLabel>
+                  <Input
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="np. +48 123 456 789"
+                    maxLength={20}
+                  />
+                </FormControl>
+
+                {/* Firma — edycja */}
+                <Divider />
+                <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color={sectionHeadingColor} letterSpacing="wider">
+                  Firma
+                </Text>
+                <HStack spacing={4}>
+                  <FormControl>
+                    <FormLabel color={labelColor}>Nazwa firmy</FormLabel>
+                    <Input
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="Nazwa firmy"
+                      maxLength={200}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel color={labelColor}>NIP</FormLabel>
+                    <Input
+                      value={taxId}
+                      onChange={(e) => setTaxId(e.target.value)}
+                      placeholder="np. 123-456-78-90"
+                      maxLength={50}
+                    />
+                  </FormControl>
+                </HStack>
+
+                {/* Adres — edycja */}
+                <Divider />
+                <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color={sectionHeadingColor} letterSpacing="wider">
+                  Adres
+                </Text>
+                <FormControl>
+                  <FormLabel color={labelColor}>Ulica i numer</FormLabel>
+                  <Input
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    placeholder="np. ul. Przykładowa 1/2"
+                    maxLength={200}
+                  />
+                </FormControl>
+                <HStack spacing={4}>
+                  <FormControl maxW="140px">
+                    <FormLabel color={labelColor}>Kod pocztowy</FormLabel>
+                    <Input
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                      placeholder="00-000"
+                      maxLength={20}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel color={labelColor}>Miasto</FormLabel>
+                    <Input
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="Miasto"
+                      maxLength={100}
+                    />
+                  </FormControl>
+                </HStack>
+                <FormControl>
+                  <FormLabel color={labelColor}>Kraj</FormLabel>
+                  <Input
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    placeholder="Polska"
+                    maxLength={100}
+                  />
+                </FormControl>
 
                 <HStack spacing={3} mt={4}>
                   <Button

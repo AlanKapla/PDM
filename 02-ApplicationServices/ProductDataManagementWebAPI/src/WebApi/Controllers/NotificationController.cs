@@ -20,7 +20,12 @@ namespace WebApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int take = 50, [FromQuery] int skip = 0)
         {
-            var result = await Send(new GetAllNotificationsQuery(take, skip));
+            GetAllNotificationsQuery query = new GetAllNotificationsQuery
+            {
+                Take = take,
+                Skip = skip
+            };
+            IEnumerable<Business.Interfaces.WebModels.Notifications.NotificationWeb> result = await Send(query);
             return Ok(result);
         }
 
@@ -28,28 +33,37 @@ namespace WebApi.Controllers
         [HttpGet("unread")]
         public async Task<IActionResult> GetUnread([FromQuery] int take = 50, [FromQuery] int skip = 0)
         {
-            var result = await Send(new GetUnreadNotificationsQuery(take, skip));
+            GetUnreadNotificationsQuery query = new GetUnreadNotificationsQuery
+            {
+                Take = take,
+                Skip = skip
+            };
+            IEnumerable<Business.Interfaces.WebModels.Notifications.NotificationWeb> result = await Send(query);
             return Ok(result);
         }
 
         [HttpGet("unread-counter")]
         public async Task<IActionResult> GetUnreadCounter()
         {
-            var result = await Send(new GetUnreadCounterQuery());
-            return Ok(result);
+            int counter = await Send(new GetUnreadCounterQuery());
+            return Ok(counter);
         }
 
         [HttpPut("{notificationId}/mark-as-read")]
         public async Task<IActionResult> MarkAsRead(Guid notificationId)
         {
-            await Send(new MarkNotificationAsReadCommand(notificationId));
+            MarkNotificationAsReadCommand command = new MarkNotificationAsReadCommand
+            {
+                NotificationId = notificationId
+            };
+            await Send(command);
             return NoContent();
         }
 
         [HttpPut("mark-all-as-read")]
         public async Task<IActionResult> MarkAllAsRead()
         {
-            var markedCount = await Send(new MarkAllNotificationsAsReadCommand());
+            int markedCount = await Send(new MarkAllNotificationsAsReadCommand());
             return Ok(new { markedCount });
         }
     }

@@ -31,13 +31,14 @@ import { costTrackerKeys } from "../../hooks/queries";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { handleApiError } from "../../utils/handleApiError";
 import { formatDate } from "../../utils/formatters";
-import type { ProjectAdditionalCostsWeb, TrackedCostWeb } from "../../types/costTracker.types";
+import type { ProjectAdditionalCostsWeb, TrackedCostWeb, CostEstimateSummaryWeb } from "../../types/costTracker.types";
 
 interface ProjectAdditionalCostsSectionProps {
   projectAdditionalCosts: ProjectAdditionalCostsWeb;
   tenantId: string;
   projectId: string;
   onCostMutated: () => void;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 function fmt(value: number | null): string {
@@ -50,6 +51,7 @@ export default function ProjectAdditionalCostsSection({
   tenantId,
   projectId,
   onCostMutated,
+  estimates,
 }: ProjectAdditionalCostsSectionProps) {
   const { showSuccess, showError } = useToastNotification();
   const queryClient = useQueryClient();
@@ -202,7 +204,7 @@ function CostsTable({ costs, onEdit, onDelete }: CostActionsProps) {
               <Td fontSize="sm">{cost.number ?? "—"}</Td>
               <Td fontSize="sm">{cost.date ? formatDate(cost.date, false) : "—"}</Td>
               <Td fontSize="sm" maxW="120px">
-                <Text noOfLines={1}>{cost.contractor ?? "—"}</Text>
+                <Text noOfLines={1}>{cost.contractorName ?? "—"}</Text>
               </Td>
               <Td fontSize="sm">{cost.attachments.length > 0 ? cost.attachments.length : "—"}</Td>
               <Td>

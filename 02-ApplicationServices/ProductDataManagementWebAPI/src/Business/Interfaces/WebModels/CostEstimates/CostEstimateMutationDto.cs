@@ -16,7 +16,7 @@ namespace Business.Interfaces.WebModels.CostEstimates
     /// Używa pojedynczego FieldDefinitionId wskazującego na definicję pola w szablonie
     /// Wartość zapisywana w odpowiednim polu typowanym w zależności od FieldType
     /// </summary>
-    public record CostEstimateFieldValueDto(
+    public sealed record CostEstimateFieldValueDto(
         Guid FieldDefinitionId,
         string? StringValue,
         decimal? DecimalValue,
@@ -30,7 +30,7 @@ namespace Business.Interfaces.WebModels.CostEstimates
     /// Może zawierać kolekcję Components - wtedy NIE MOŻE mieć FieldValues!
     /// WAŻNE: Options i Components mogą mieć tylko 1 poziom zagnieżdżenia (child nie może mieć childa)
     /// </summary>
-    public record CostEstimateItemDto(
+    public sealed record CostEstimateItemDto(
         Guid? Id,  // null dla nowych pozycji
         Guid? ParentItemId,  // ID pozycji nadrzędnej (jeśli to opcja lub komponent)
         ItemRelationType RelationType,  // None/Option/Component
@@ -43,7 +43,7 @@ namespace Business.Interfaces.WebModels.CostEstimates
     /// <summary>
     /// DTO dla tworzenia/edycji grupy kosztorysu
     /// </summary>
-    public record CostEstimateGroupDto(
+    public sealed record CostEstimateGroupDto(
         Guid? Id,  // null dla nowych grup
         Guid? ParentGroupId,
         int Level,

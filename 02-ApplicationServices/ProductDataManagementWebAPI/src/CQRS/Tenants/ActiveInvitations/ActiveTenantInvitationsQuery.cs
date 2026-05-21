@@ -1,7 +1,6 @@
-using Business.Interfaces.WebModels.Tenants;
-using MediatR;
+﻿using Business.Interfaces.WebModels.Tenants;
 
 namespace CQRS.Tenants.ActiveInvitations
 {
-    public record ActiveTenantInvitationsQuery() : IRequestQuery<IEnumerable<TenantInvitationWeb>>;
+    public sealed record ActiveTenantInvitationsQuery : IRequestQuery<IEnumerable<TenantInvitationWeb>>;
 }

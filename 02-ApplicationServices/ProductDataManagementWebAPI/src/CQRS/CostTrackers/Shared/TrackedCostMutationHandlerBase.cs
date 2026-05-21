@@ -1,19 +1,9 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Business.Interfaces.WebModels.CostTrackers;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
-using Entities.Models.Costs;
+using Entities.Models.WorkSchedules;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostTrackers.Shared
@@ -22,19 +12,18 @@ namespace CQRS.CostTrackers.Shared
     {
         private readonly IReadRepository<CostEstimateItem> costEstimateItemRepository;
         private readonly IReadRepository<WorkScheduleStageWork> stageWorkRepository;
-        protected readonly ICostTrackerAttachmentService attachmentService;
 
         protected TrackedCostMutationHandlerBase(
             ICurrentUser currentUser,
             IReadRepository<TrackedCost> trackedCostRepository,
             IReadRepository<CostEstimateItem> costEstimateItemRepository,
             IReadRepository<WorkScheduleStageWork> stageWorkRepository,
-            ICostTrackerAttachmentService attachmentService)
-            : base(currentUser, trackedCostRepository, attachmentService)
+            ICostTrackerAttachmentService attachmentService,
+            IContractorService contractorService)
+            : base(currentUser, trackedCostRepository, attachmentService, contractorService)
         {
             this.costEstimateItemRepository = costEstimateItemRepository;
             this.stageWorkRepository = stageWorkRepository;
-            this.attachmentService = attachmentService;
         }
 
         protected async Task ValidateTrackedCostLinksAsync(
@@ -79,43 +68,9 @@ namespace CQRS.CostTrackers.Shared
                 if (!linked)
                 {
                     throw new ValidationApiException(
-                        "WorkScheduleStageWork nie jest powiązany z podaną pozycją kosztorysu.");
+                        "WorkScheduleStageWork is not linked to the provided cost estimate item.");
                 }
             }
-        }
-
-        protected TrackedCostWeb BuildCostWeb(TrackedCost cost, IEnumerable<BaseCostAttachment> attachments)
-        {
-            List<TrackedCostAttachmentWeb> attachmentWebs = attachments
-                .Select(a => new TrackedCostAttachmentWeb
-                {
-                    Id = a.Id,
-                    OriginalFileName = a.OriginalFileName,
-                    FileUrl = attachmentService.GenerateFileUrl(a),
-                    ContentType = a.ContentType,
-                    FileSize = a.FileSize,
-                    CreatedAt = a.CreatedAt
-                })
-                .ToList();
-
-            return new TrackedCostWeb
-            {
-                Id = cost.Id,
-                CostEstimateItemId = cost.CostEstimateItemId,
-                WorkScheduleStageWorkId = cost.WorkScheduleStageWorkId,
-                IsAdditional = !cost.CostEstimateItemId.HasValue && !cost.WorkScheduleStageWorkId.HasValue,
-                SourceType = ResolveSourceType(cost),
-                Name = cost.Name,
-                Number = cost.Number,
-                Description = cost.Description,
-                Net = cost.Net,
-                Gross = cost.Gross,
-                Contractor = cost.Contractor,
-                Date = cost.Date,
-                CreatedAt = cost.CreatedAt,
-                UpdatedAt = cost.UpdatedAt,
-                Attachments = attachmentWebs
-            };
         }
     }
 }

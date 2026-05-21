@@ -1,17 +1,13 @@
-using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Constants;
+using CQRS.WorkSchedules.Shared;
 
 namespace CQRS.WorkSchedules.CreateWorkSchedule
 {
-    public sealed record CreateWorkScheduleCommand(
-        string Name,
-        Guid? CostEstimateId
-    ) : IRequestCommand<Guid>, IAuthorizableRequest
+    public sealed record CreateWorkScheduleCommand : WorkScheduleRequestBase, IRequestCommand<Guid>
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public Guid? CostEstimateId { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
     }
 }

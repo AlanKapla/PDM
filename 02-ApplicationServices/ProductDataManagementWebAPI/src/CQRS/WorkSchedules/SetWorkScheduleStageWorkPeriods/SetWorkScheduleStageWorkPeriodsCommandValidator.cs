@@ -1,5 +1,6 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
 using CQRS.WorkSchedules.Shared;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
 {
@@ -7,10 +8,10 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
     {
         public SetWorkScheduleStageWorkPeriodsCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageWorkId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageWorkId).RequiredId();
             RuleFor(x => x.Periods).NotNull();
 
             RuleForEach(x => x.Periods).ChildRules(period =>
@@ -20,12 +21,12 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
                 period.RuleFor(p => p)
                     .Must(p => p.EndDate > p.StartDate)
                     .WithName("Period")
-                    .WithMessage("Data rozpocz\u0119cia musi by\u0107 wcze\u015bniejsza ni\u017c data zako\u0144czenia.");
+                    .WithMessage("Start date must be earlier than end date.");
             });
 
             RuleFor(x => x.Periods)
                 .Must(HaveNoOverlappingPeriods)
-                .WithMessage("Okresy nie mog\u0105 si\u0119 nak\u0142ada\u0107.");
+                .WithMessage("Periods must not overlap.");
         }
 
         private static bool HaveNoOverlappingPeriods(List<WorkPeriodDto> periods)

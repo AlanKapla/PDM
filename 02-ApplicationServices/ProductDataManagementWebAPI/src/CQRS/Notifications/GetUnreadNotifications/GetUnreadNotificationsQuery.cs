@@ -3,5 +3,9 @@ using CQRS;
 
 namespace CQRS.Notifications.GetUnreadNotifications
 {
-    public record GetUnreadNotificationsQuery(int Take = 50, int Skip = 0) : IRequestQuery<IEnumerable<NotificationWeb>>;
+    public sealed record GetUnreadNotificationsQuery : IRequestQuery<IEnumerable<NotificationWeb>>
+    {
+        public int Take { get; init; } = 50;
+        public int Skip { get; init; } = 0;
+    }
 }

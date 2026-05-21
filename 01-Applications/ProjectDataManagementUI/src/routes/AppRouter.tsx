@@ -28,6 +28,7 @@ import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
 import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
+import ContractorsPage from "../pages/ContractorsPage";
 
 export default function AppRouter() {
   return (
@@ -277,6 +278,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/contractors"
+        element={
+          <ProtectedRoute>
+            <ContractorsPage />
           </ProtectedRoute>
         }
       />

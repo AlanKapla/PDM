@@ -1,16 +1,16 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.CostEstimates.AddCostEstimateGroup
 {
-    public class AddCostEstimateGroupCommandValidator : AbstractValidator<AddCostEstimateGroupCommand>
+    public sealed class AddCostEstimateGroupCommandValidator : AbstractValidator<AddCostEstimateGroupCommand>
     {
         public AddCostEstimateGroupCommandValidator()
         {
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("Cost estimate ID is required");
-
-            RuleFor(x => x.Order)
-                .GreaterThanOrEqualTo(0).WithMessage("Order must be non-negative");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
+            RuleFor(x => x.Order).NonNegativeOrder();
         }
     }
 }

@@ -1,20 +1,18 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
 using Entities.Models.CostEstimates;
+using FluentValidation;
 
 namespace CQRS.CostEstimates.AddCostEstimateItem
 {
-    public class AddCostEstimateItemCommandValidator : AbstractValidator<AddCostEstimateItemCommand>
+    public sealed class AddCostEstimateItemCommandValidator : AbstractValidator<AddCostEstimateItemCommand>
     {
         public AddCostEstimateItemCommandValidator()
         {
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("Cost estimate ID is required");
-
-            RuleFor(x => x.GroupId)
-                .NotEmpty().WithMessage("Group ID is required");
-
-            RuleFor(x => x.Order)
-                .GreaterThanOrEqualTo(0).WithMessage("Order must be non-negative");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
+            RuleFor(x => x.GroupId).RequiredId();
+            RuleFor(x => x.Order).NonNegativeOrder();
 
             RuleFor(x => x.RelationType)
                 .IsInEnum().WithMessage("Invalid relation type");

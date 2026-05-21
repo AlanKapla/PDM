@@ -1,13 +1,5 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -33,10 +25,10 @@ namespace CQRS.WorkSchedules.RenameWorkScheduleStage
         public async Task<Unit> Handle(RenameWorkScheduleStageCommand request, CancellationToken cancellationToken)
         {
             WorkScheduleStage stage = await stageRepo.GetFirstBySearch(
-                s => s.Id == request.StageId
+                s => s.Id == request.WorkScheduleStageId
                   && s.WorkScheduleId == request.WorkScheduleId
                   && s.TenantId == request.TenantId)
-                ?? throw new NotFoundApiException(nameof(WorkScheduleStage), request.StageId.ToString());
+                ?? throw new NotFoundApiException(nameof(WorkScheduleStage), request.WorkScheduleStageId.ToString());
 
             await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 

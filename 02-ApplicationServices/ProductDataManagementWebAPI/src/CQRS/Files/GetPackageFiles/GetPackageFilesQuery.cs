@@ -1,6 +1,7 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Files;
+using CQRS.Files._Shared;
 
 namespace CQRS.Files.GetPackageFiles;
 
@@ -8,16 +9,11 @@ namespace CQRS.Files.GetPackageFiles;
 /// Query to get files in a specific package based on scope (All, Mine, Shared)
 /// Validates user access to the package based on ResourceScope
 /// </summary>
-public sealed record GetPackageFilesQuery(
-    Guid TenantId,
-    Guid ProjectId,
-    Guid PackageId,
-    ResourceScope Scope
-) : IRequestQuery<List<ProjectFileWeb>>, IAuthorizableRequest
+public sealed record GetPackageFilesQuery : PackageScopedRequestBase, IRequestQuery<List<ProjectFileWeb>>
 {
-    public string PermissionCode => PermissionCodes.ProjectView;
-    
-    public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
-    
+    public required ResourceScope Scope { get; init; }
+
+    public override string PermissionCode => PermissionCodes.ProjectView;
+
     public ResourceScope? GetResourceScope() => Scope;
 }

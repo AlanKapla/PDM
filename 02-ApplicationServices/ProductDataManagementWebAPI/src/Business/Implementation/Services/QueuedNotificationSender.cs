@@ -1,19 +1,13 @@
-using System.Text.Json;
-using System.Text.Encodings.Web;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
-using Microsoft.Extensions.Logging;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
+using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 
 namespace Business.Implementation.Services
 {
@@ -28,14 +22,14 @@ namespace Business.Implementation.Services
 
         private readonly IQueueStorageService queueStorageService;
         private readonly ILogger<QueuedNotificationSender> logger;
-        private readonly IReadRepository<Notification> notificationRepo;
+        private readonly IRepository<Notification> notificationRepo;
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IReadRepository<Project> projectRepo;
 
         public QueuedNotificationSender(
             IQueueStorageService queueStorageService, 
             ILogger<QueuedNotificationSender> logger, 
-            IReadRepository<Notification> notificationRepo,
+            IRepository<Notification> notificationRepo,
             IReadRepository<Tenant> tenantRepo,
             IReadRepository<Project> projectRepo)
         {
@@ -86,6 +80,7 @@ namespace Business.Implementation.Services
             };
 
             await notificationRepo.Insert(entity);
+            await notificationRepo.SaveChangesAsync(cancellationToken);
 
             await queueStorageService.EnsureQueueAsync(QueueNames.NotificationSend, cancellationToken);
 

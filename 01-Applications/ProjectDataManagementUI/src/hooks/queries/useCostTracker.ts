@@ -4,6 +4,7 @@ import type {
   CostTrackerDetailsWeb,
   CostEstimateSummaryWeb,
   TrackedCostWeb,
+  CostLinkOptionsWeb,
 } from '../../types/costTracker.types';
 
 export const costTrackerKeys = {
@@ -23,6 +24,8 @@ export const costTrackerKeys = {
     itemId: string
   ) =>
     ['cost-tracker', tenantId, projectId, 'by-estimate', estimateId, 'items', itemId] as const,
+  linkOptions: (tenantId: string, projectId: string) =>
+    ['cost-tracker', tenantId, projectId, 'link-options'] as const,
 };
 
 export function useCostTrackerByProject(
@@ -75,5 +78,18 @@ export function useCostTrackerItemCosts(
     queryFn: () =>
       costTrackerApi.getItemCosts(tenantId!, projectId!, estimateId!, itemId!),
     enabled: Boolean(tenantId && projectId && estimateId && itemId),
+  });
+}
+
+export function useCostLinkOptions(
+  tenantId: string | undefined,
+  projectId: string | undefined,
+  enabled: boolean
+) {
+  return useQuery<CostLinkOptionsWeb>({
+    queryKey: costTrackerKeys.linkOptions(tenantId ?? '', projectId ?? ''),
+    queryFn: () => costTrackerApi.getLinkOptions(tenantId!, projectId!),
+    enabled: Boolean(enabled && tenantId && projectId),
+    staleTime: 1000 * 60 * 2,
   });
 }

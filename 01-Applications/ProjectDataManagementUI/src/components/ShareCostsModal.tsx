@@ -250,8 +250,8 @@ export default function ShareCostsModal({
                         </Text>
                         <HStack spacing={2} fontSize="xs" color="gray.600">
                           <Text>{formatDate(cost.date)}</Text>
-                          {cost.place && <Text>• {cost.place}</Text>}
-                          <Text>• {formatCurrency(cost.grossAmount)}</Text>
+                          {cost.contractorName && <Text>• {cost.contractorName}</Text>}
+                          <Text>• {formatCurrency(cost.gross ?? 0)}</Text>
                         </HStack>
                       </VStack>
                     </HStack>

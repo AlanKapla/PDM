@@ -18,10 +18,11 @@ import {
   Badge,
 } from "@chakra-ui/react";
 import { Search, PenLine, Users } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import type { ChatSearchResultWeb, ChatWeb } from "../../types/chat.types";
 import { chatApi } from "../../api/chatApi";
 import ChatListItem from "./ChatListItem";
+import { AuthContext } from "../../context/AuthContext";
 
 const SEARCH_MIN_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -49,6 +50,8 @@ export default function ChatListPanel({
   const [searchResults, setSearchResults] = useState<ChatSearchResultWeb[] | null>(null);
   const [searching, setSearching] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const { user } = useContext(AuthContext);
+  const activeTenantId = user?.activeTenantId ?? null;
 
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const headerBg = useColorModeValue("white", "gray.800");
@@ -72,7 +75,11 @@ export default function ChatListPanel({
       abortRef.current = new AbortController();
 
       try {
-        const results = await chatApi.searchChats(trimmed);
+        if (!activeTenantId) {
+          setSearchResults([]);
+          return;
+        }
+        const results = await chatApi.searchChats(activeTenantId, trimmed);
         setSearchResults(results);
       } catch {
         // Ignore aborted requests
@@ -85,7 +92,7 @@ export default function ChatListPanel({
     return () => {
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, activeTenantId]);
 
   // Wyniki wyszukiwania: dopasuj ChatSearchResultWeb do załadowanych ChatWeb
   const resolvedSearchItems = searchResults?.map((result) => ({

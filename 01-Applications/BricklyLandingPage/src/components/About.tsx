@@ -1,23 +1,5 @@
-import { CheckCircle2, Zap, Shield, Users, Lightbulb } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import './About.css'
-
-const PILLARS = [
-  {
-    icon: Zap,
-    title: 'Finanse pod kontrolą',
-    description: 'Kosztorys to nie tylko wycena — to punkt odniesienia. Brickly zestawia go z rzeczywistymi wydatkami na bieżąco, żebyś wiedział czy projekt jest rentowny.',
-  },
-  {
-    icon: Users,
-    title: 'Harmonogram który ma znaczenie',
-    description: 'Opóźnienie tygodnia to nie tylko problem czasowy. To dodatkowe koszty, przestoje, nerwowe telefony. Widzisz to zanim się wydarzy.',
-  },
-  {
-    icon: Shield,
-    title: 'Każdy wie co ma robić',
-    description: 'Wykonawca widzi swoje zadania. Inwestor widzi budżet. Ty widzisz wszystko. Nikt nie pyta o to samo dwa razy.',
-  },
-]
 
 const BENEFITS = [
   'Kosztorys vs wydatki rzeczywiste — zawsze aktualny',
@@ -44,11 +26,6 @@ export default function About() {
               Brickly eliminuje tę niepewność. Masz pełny obraz finansowy
               projektu w każdej chwili, bez dzwonienia do kierownika.
             </p>
-            <p className="section-subtitle about__subtitle--body">
-              Jedna platforma dla każdego kto prowadzi inwestycję —
-              prywatnego inwestora, nadzorcy, architekta, dewelopera.
-              Każdy widzi to co ważne. Ty widzisz wszystko.
-            </p>
 
             <ul className="about__benefits">
               {BENEFITS.map(benefit => (
@@ -61,29 +38,28 @@ export default function About() {
           </div>
 
           <div className="about__right">
-            {PILLARS.map(pillar => (
-              <div key={pillar.title} className="about__pillar">
-                <div className="about__pillar-icon">
-                  <pillar.icon size={22} />
-                </div>
-                <div>
-                  <h3 className="about__pillar-title">{pillar.title}</h3>
-                  <p className="about__pillar-desc">{pillar.description}</p>
-                </div>
-              </div>
-            ))}
+            <blockquote className="about__quote">
+              <p className="about__quote-text">
+                „Stworzyłem Brickly bo sam byłem tym nadzorcą,
+                który co piątek sklejał raport z trzech Exceli,
+                WhatsAppa i skrzynki mailowej.
+                Teraz robi to system — automatycznie."
+              </p>
+              <footer className="about__quote-author">— Założyciel, Brickly</footer>
+            </blockquote>
 
-            <div className="about__highlight">
-              <div className="about__highlight-inner">
-                <div className="about__highlight-icon">
-                  <Lightbulb size={20} />
-                </div>
-                <p className="about__highlight-text">
-                  „Stworzyłem Brickly bo sam byłem tym nadzorcą,
-                  który co piątek sklejał raport z trzech Exceli,
-                  WhatsAppa i skrzynki mailowej.
-                  Teraz robi to system — automatycznie."
-                </p>
+            <div className="about__pillars-new">
+              <div className="about__pillar-new">
+                <span className="about__pillar-new-title">Finanse pod kontrolą</span>
+                <p className="about__pillar-new-desc">Kosztorys zestawiony z wydatkami — zawsze aktualny, bez ręcznej pracy.</p>
+              </div>
+              <div className="about__pillar-new">
+                <span className="about__pillar-new-title">Harmonogram który ostrzega</span>
+                <p className="about__pillar-new-desc">Opóźnienie widoczne natychmiast — razem z wpływem na budżet.</p>
+              </div>
+              <div className="about__pillar-new">
+                <span className="about__pillar-new-title">Jeden ekran zamiast pięciu</span>
+                <p className="about__pillar-new-desc">Wykonawca widzi zadania. Inwestor widzi budżet. Ty widzisz wszystko.</p>
               </div>
             </div>
           </div>

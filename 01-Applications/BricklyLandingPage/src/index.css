@@ -53,7 +53,7 @@ html {
 body {
   font-family: var(--font-sans);
   color: var(--gray-800);
-  background-color: var(--white);
+  background-color: #ffffff;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -91,7 +91,7 @@ button {
 }
 
 .section--alt {
-  background-color: var(--gray-50);
+  background-color: #f5f5f5;
 }
 
 .section-label {
@@ -168,4 +168,30 @@ button {
 .btn-ghost-white:hover {
   background: rgba(255, 255, 255, 0.22);
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ============================================
+   Mobile overrides
+   ============================================ */
+
+@media (max-width: 768px) {
+  .section {
+    padding: 64px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .section {
+    padding: 48px 0;
+  }
+
+  .container {
+    padding: 0 16px;
+  }
+
+  .btn {
+    white-space: normal;
+    text-align: center;
+    justify-content: center;
+  }
 }

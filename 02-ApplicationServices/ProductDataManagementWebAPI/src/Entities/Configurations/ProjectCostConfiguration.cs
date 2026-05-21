@@ -18,9 +18,6 @@ namespace Entities.Configurations
         {
             builder.Property(pc => pc.UserId).IsRequired();
 
-            builder.Property(pc => pc.Place)
-                .HasMaxLength(500);
-
             builder.Property(pc => pc.IsAccepted)
                 .IsRequired()
                 .HasDefaultValue(false);

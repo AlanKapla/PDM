@@ -62,6 +62,13 @@ public static class RolePermissionSeedData
 
         // PROJECT – ZASOBY (własne - dla przypisanych)
         new PermissionSeed(RoleScope.Project, PermissionCodes.ProjectResourcesWriteOwn, "Write own assigned resources", "Zapis zasobów do których użytkownik jest bezpośrednio przypisany (cross-tenant)"),
+
+        // CHAT – GROUP/PROJECT
+        new PermissionSeed(RoleScope.Tenant, PermissionCodes.ChatRead, "Read chats", "Odczyt czatów grupowych/projektowych i wiadomości"),
+        new PermissionSeed(RoleScope.Tenant, PermissionCodes.ChatWrite, "Write to chats", "Wysyłanie/edycja/usuwanie wiadomości w czatach grupowych/projektowych"),
+        new PermissionSeed(RoleScope.Tenant, PermissionCodes.ChatMembersManage, "Manage chat members", "Dodawanie/usuwanie członków czatów grupowych/projektowych"),
+        new PermissionSeed(RoleScope.Tenant, PermissionCodes.ChatRename, "Rename chats", "Zmiana nazwy czatów grupowych/projektowych"),
+        new PermissionSeed(RoleScope.Tenant, PermissionCodes.ChatDelete, "Delete chats", "Usuwanie czatów grupowych/projektowych"),
     };
 
     public static RolePermissionSeed[] GetRolePermissions()
@@ -104,10 +111,19 @@ public static class RolePermissionSeedData
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesWriteAll),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesReadSingle),
             RP(RoleCodes.TenantAdmin, PermissionCodes.ProjectResourcesWriteOwn),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ChatRead),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ChatWrite),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ChatMembersManage),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ChatRename),
+            RP(RoleCodes.TenantAdmin, PermissionCodes.ChatDelete),
 
             // TENANT.MEMBER
             RP(RoleCodes.TenantMember, PermissionCodes.TenantListAvailable),
             RP(RoleCodes.TenantMember, PermissionCodes.TenantView),
+            RP(RoleCodes.TenantMember, PermissionCodes.ChatRead),
+            RP(RoleCodes.TenantMember, PermissionCodes.ChatWrite),
+            RP(RoleCodes.TenantMember, PermissionCodes.ChatMembersManage),
+            RP(RoleCodes.TenantMember, PermissionCodes.ChatRename),
 
             // PROJECT.ADMIN - wszystkie uprawnienia projektowe (w tym READ_ALL, WRITE_ALL, SHARE i READ_SINGLE)
             RP(RoleCodes.ProjectAdmin, PermissionCodes.RoleList),
@@ -125,6 +141,11 @@ public static class RolePermissionSeedData
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesWriteAll),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesReadSingle),
             RP(RoleCodes.ProjectAdmin, PermissionCodes.ProjectResourcesWriteOwn),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ChatRead),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ChatWrite),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ChatMembersManage),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ChatRename),
+            RP(RoleCodes.ProjectAdmin, PermissionCodes.ChatDelete),
 
             // PROJECT.EDITOR - read/write własnych i shared oraz SHARE i READ_SINGLE
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectView),
@@ -136,6 +157,10 @@ public static class RolePermissionSeedData
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesWriteShared),
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesReadSingle),
             RP(RoleCodes.ProjectEditor, PermissionCodes.ProjectResourcesWriteOwn),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ChatRead),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ChatWrite),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ChatMembersManage),
+            RP(RoleCodes.ProjectEditor, PermissionCodes.ChatRename),
 
             // PROJECT.VIEWER - tylko read shared i READ_SINGLE
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectView),
@@ -144,6 +169,7 @@ public static class RolePermissionSeedData
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesWriteShared),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesReadSingle),
             RP(RoleCodes.ProjectViewer, PermissionCodes.ProjectResourcesWriteOwn),
+            RP(RoleCodes.ProjectViewer, PermissionCodes.ChatRead),
         };
     }
 }

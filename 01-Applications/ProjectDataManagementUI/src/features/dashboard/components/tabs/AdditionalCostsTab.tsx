@@ -5,7 +5,7 @@ import { PLN, PROG } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { MiniProgressBar } from '../shared/MiniProgressBar';
 import { CostTable } from '../shared/CostTable';
-import { TrackedCostModal } from '../TrackedCostModal';
+import { CostModal } from '../CostModal';
 import AppModal from '../../../../components/ui/AppModal';
 import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
@@ -123,7 +123,8 @@ export function AdditionalCostsTab({
       </button>
 
       {createModal && (
-        <TrackedCostModal
+        <CostModal
+          type="tracked"
           tenantId={tenantId}
           projectId={projectId}
           mode="create"
@@ -133,7 +134,8 @@ export function AdditionalCostsTab({
       )}
 
       {editingCost && (
-        <TrackedCostModal
+        <CostModal
+          type="tracked"
           tenantId={tenantId}
           projectId={projectId}
           mode="edit"

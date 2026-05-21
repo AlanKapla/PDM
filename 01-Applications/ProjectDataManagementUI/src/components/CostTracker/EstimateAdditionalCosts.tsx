@@ -14,7 +14,7 @@ import {
 import { Plus, Edit2, List } from "lucide-react";
 import CostFormDrawer from "./CostFormDrawer";
 import CostListDrawer from "./CostListDrawer";
-import type { TrackerAdditionalCostsWeb } from "../../types/costTracker.types";
+import type { CostEstimateSummaryWeb, TrackerAdditionalCostsWeb } from "../../types/costTracker.types";
 
 const fmt = (value: number | null): string => {
   if (value === null || value === undefined) return "—";
@@ -27,6 +27,7 @@ interface EstimateAdditionalCostsProps {
   projectId: string;
   costEstimateId: string;
   onCostMutated: () => void;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 export default function EstimateAdditionalCosts({
@@ -35,6 +36,7 @@ export default function EstimateAdditionalCosts({
   projectId,
   costEstimateId,
   onCostMutated,
+  estimates,
 }: EstimateAdditionalCostsProps) {
   const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure();
   const { isOpen: isListOpen, onOpen: onListOpen, onClose: onListClose } = useDisclosure();
@@ -146,6 +148,7 @@ export default function EstimateAdditionalCosts({
           projectId={projectId}
           costs={additionalCosts.costs}
           title="Koszty dodatkowe kosztorysu"
+          estimates={estimates}
         />
       )}
     </>

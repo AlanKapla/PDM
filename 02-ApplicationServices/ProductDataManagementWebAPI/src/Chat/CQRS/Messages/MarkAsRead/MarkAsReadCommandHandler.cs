@@ -1,15 +1,8 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Chat.Hubs;
+using CQRS.PostCommit;
 using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -21,40 +14,39 @@ public sealed class MarkAsReadCommandHandler : IRequestHandler<MarkAsReadCommand
 {
     private readonly IRepository<ChatMember> chatMemberRepo;
     private readonly IHubContext<ChatHub, IChatClient> hubContext;
+    private readonly IPostCommitDispatcher dispatcher;
     private readonly ICurrentUser currentUser;
     private readonly ILogger<MarkAsReadCommandHandler> logger;
 
     public MarkAsReadCommandHandler(
         IRepository<ChatMember> chatMemberRepo,
         IHubContext<ChatHub, IChatClient> hubContext,
+        IPostCommitDispatcher dispatcher,
         ICurrentUser currentUser,
         ILogger<MarkAsReadCommandHandler> logger)
     {
         this.chatMemberRepo = chatMemberRepo;
         this.hubContext = hubContext;
+        this.dispatcher = dispatcher;
         this.currentUser = currentUser;
         this.logger = logger;
     }
 
     public async Task<Unit> Handle(MarkAsReadCommand request, CancellationToken cancellationToken)
     {
-        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
-            cm => cm.ChatId == request.ChatId &&
-                  cm.UserId == currentUser.Id);
-
-        if (membership == null)
-        {
-            throw new NotFoundApiException("ChatMember", currentUser.Id.ToString());
-        }
+        ChatMember membership = await GetAndValidateMembershipAsync(request.ChatId, currentUser.Id, cancellationToken);
 
         DateTime readAt = DateTime.UtcNow;
-        membership.LastReadAt = readAt;
+        membership.MarkRead(readAt);
         await chatMemberRepo.Update(membership);
         await chatMemberRepo.SaveChangesAsync(cancellationToken);
 
-        await hubContext.Clients
-            .Group(ChatHubGroups.Chat(request.ChatId))
-            .ReadReceipt(new ReadReceiptPayload(request.ChatId, currentUser.Id, readAt));
+        Guid chatIdForBroadcast = request.ChatId;
+        Guid readerUserId = currentUser.Id;
+        dispatcher.Enqueue(_ =>
+            hubContext.Clients
+                .Group(ChatHubGroups.Chat(chatIdForBroadcast))
+                .ReadReceipt(new ReadReceiptPayload(chatIdForBroadcast, readerUserId, readAt)));
 
         logger.LogDebug(
             "User {UserId} marked chat {ChatId} as read",
@@ -62,5 +54,21 @@ public sealed class MarkAsReadCommandHandler : IRequestHandler<MarkAsReadCommand
             request.ChatId);
 
         return Unit.Value;
+    }
+
+    private async Task<ChatMember> GetAndValidateMembershipAsync(
+        Guid chatId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
+            cm => cm.ChatId == chatId && cm.UserId == userId);
+
+        if (membership is null)
+        {
+            throw new NotFoundApiException(nameof(ChatMember), userId.ToString());
+        }
+
+        return membership;
     }
 }

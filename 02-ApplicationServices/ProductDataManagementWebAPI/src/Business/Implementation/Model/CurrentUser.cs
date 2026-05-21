@@ -1,17 +1,13 @@
-using Entities.Models;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Enums;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
+using Entities.Models;
 using Entities.Models.Projects;
 using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
@@ -75,6 +71,12 @@ namespace Business.Implementation.Model
             get
             {
                 EnsureLoaded();
+
+                if (_id == Guid.Empty)
+                {
+                    throw new UnauthorizedApiException();
+                }
+
                 return _id;
             }
         }

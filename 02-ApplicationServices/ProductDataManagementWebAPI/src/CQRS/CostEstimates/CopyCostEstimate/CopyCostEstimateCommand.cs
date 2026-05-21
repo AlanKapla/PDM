@@ -1,18 +1,11 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
 
 namespace CQRS.CostEstimates.CopyCostEstimate
 {
-    public sealed record CopyCostEstimateCommand(
-        Guid CostEstimateId,
-        List<Guid> TargetProjectIds
-    ) : IRequestCommand<List<Guid>>, IAuthorizableRequest
+    public sealed record CopyCostEstimateCommand : CostEstimateCommandBase, IRequestCommand<List<Guid>>
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
+        public List<Guid> TargetProjectIds { get; init; } = new();
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-        
-        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
     }
 }

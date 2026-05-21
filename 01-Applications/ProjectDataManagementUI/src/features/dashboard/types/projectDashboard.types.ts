@@ -76,7 +76,8 @@ export interface TrackedCostWeb {
   net: number | null;
   gross: number | null;
   vatRate: number | null;
-  contractor: string | null;
+  contractorId: string | null;
+  contractorName: string | null;
   date: string | null;
   number: string | null;
   attachments: TrackedCostAttachmentWeb[];
@@ -91,6 +92,10 @@ export interface TrackedCostWeb {
   estimateName: string | null;
   estimateGroupName: string | null;
   estimateItemName: string | null;
+  /** Pełna ścieżka pozycji kosztorysu np. "KosztorysA > Folder > Pozycja". Gotowy string do wyświetlenia. */
+  costEstimateItemPath: string | null;
+  /** Pełna ścieżka zakresu pracy np. "HarmonogramA > Etap > Praca". Gotowy string do wyświetlenia. */
+  workScheduleWorkPath: string | null;
 }
 
 export interface TrackerAdditionalCostsWeb {
@@ -245,7 +250,8 @@ export interface ProjectTimelineSummaryWeb {
 
 export interface ProjectDashboardWeb {
   projectId: string;
-  currencySymbol: string;
+  selectedCurrencyCode?: string;
+  selectedCurrencySymbol?: string;
   referenceDate: string;
   generatedAt: string;
   financialSummary: ProjectFinancialSummaryWeb;
@@ -266,7 +272,7 @@ export interface CreateTrackedCostRequest {
   net?: number | null;
   gross?: number | null;
   number?: string | null;
-  contractor?: string | null;
+  contractorId?: string | null;
   date?: string | null;
   newFiles?: File[];
 }
@@ -277,10 +283,12 @@ export interface UpdateTrackedCostRequest {
   net?: number | null;
   gross?: number | null;
   number?: string | null;
-  contractor?: string | null;
+  contractorId?: string | null;
   date?: string | null;
   newFiles?: File[];
   existingAttachmentIds?: string[];
+  costEstimateItemId?: string | null;
+  workScheduleStageWorkId?: string | null;
 }
 
 export interface UpdateTrackerBudgetRequest {

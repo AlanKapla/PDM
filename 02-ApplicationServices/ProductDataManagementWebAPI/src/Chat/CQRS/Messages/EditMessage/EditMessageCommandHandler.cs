@@ -1,15 +1,8 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Chat.Hubs;
+using CQRS.PostCommit;
 using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -20,24 +13,24 @@ namespace Chat.CQRS.Messages.EditMessage;
 
 public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageCommand, Unit>
 {
-    private readonly IReadRepository<MessageHistory> messageRepo;
-    private readonly IRepository<MessageHistory> messageWriteRepo;
+    private readonly IRepository<MessageHistory> messageRepo;
     private readonly IHubContext<ChatHub, IChatClient> hubContext;
+    private readonly IPostCommitDispatcher dispatcher;
     private readonly ICurrentUser currentUser;
     private readonly ChatOptions options;
     private readonly ILogger<EditMessageCommandHandler> logger;
 
     public EditMessageCommandHandler(
-        IReadRepository<MessageHistory> messageRepo,
-        IRepository<MessageHistory> messageWriteRepo,
+        IRepository<MessageHistory> messageRepo,
         IHubContext<ChatHub, IChatClient> hubContext,
+        IPostCommitDispatcher dispatcher,
         ICurrentUser currentUser,
         IOptions<ChatOptions> options,
         ILogger<EditMessageCommandHandler> logger)
     {
         this.messageRepo = messageRepo;
-        this.messageWriteRepo = messageWriteRepo;
         this.hubContext = hubContext;
+        this.dispatcher = dispatcher;
         this.currentUser = currentUser;
         this.options = options.Value;
         this.logger = logger;
@@ -45,37 +38,27 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
 
     public async Task<Unit> Handle(EditMessageCommand request, CancellationToken cancellationToken)
     {
-        MessageHistory? message = await messageRepo.GetFirstBySearch(
-            m => m.Id == request.MessageId &&
-                 m.ChatId == request.ChatId &&
-                 m.UserId == currentUser.Id &&
-                 m.DeletedAt == null,
-            cancellationToken);
+        MessageHistory message = await GetAndValidateMessageAsync(request.ChatId, request.MessageId, cancellationToken);
 
-        if (message == null)
-        {
-            throw new NotFoundApiException("Message", request.MessageId.ToString());
-        }
+        EnsureWithinEditWindow(message);
 
-        if (DateTime.UtcNow - message.CreatedAt > options.MaxEditWindow)
-        {
-            throw new ValidationApiException(
-                $"Messages can only be edited within {options.MaxMessageEditWindowMinutes} minutes of sending.");
-        }
+        DateTime editedAtUtc = DateTime.UtcNow;
+        message.Edit(request.NewContent, editedAtUtc);
 
-        message.Content = request.NewContent;
-        message.EditedAt = DateTime.UtcNow;
+        await messageRepo.Update(message);
+        await messageRepo.SaveChangesAsync(cancellationToken);
 
-        await messageWriteRepo.Update(message);
-        await messageWriteRepo.SaveChangesAsync(cancellationToken);
-
-        await hubContext.Clients
-            .Group(ChatHubGroups.Chat(request.ChatId))
-            .MessageEdited(new MessageEditedPayload(
-                message.Id,
-                request.ChatId,
-                message.Content,
-                message.EditedAt.Value));
+        Guid messageId = message.Id;
+        Guid chatIdForBroadcast = request.ChatId;
+        string newContent = message.Content;
+        dispatcher.Enqueue(_ =>
+            hubContext.Clients
+                .Group(ChatHubGroups.Chat(chatIdForBroadcast))
+                .MessageEdited(new MessageEditedPayload(
+                    messageId,
+                    chatIdForBroadcast,
+                    newContent,
+                    editedAtUtc)));
 
         logger.LogDebug(
             "Message {MessageId} edited by user {UserId} in chat {ChatId}",
@@ -84,5 +67,33 @@ public sealed class EditMessageCommandHandler : IRequestHandler<EditMessageComma
             request.ChatId);
 
         return Unit.Value;
+    }
+
+    private async Task<MessageHistory> GetAndValidateMessageAsync(
+        Guid chatId,
+        Guid messageId,
+        CancellationToken cancellationToken)
+    {
+        MessageHistory? message = await messageRepo.GetFirstBySearch(
+            m => m.Id == messageId &&
+                 m.ChatId == chatId &&
+                 m.UserId == currentUser.Id &&
+                 m.DeletedAt == null);
+
+        if (message is null)
+        {
+            throw new NotFoundApiException(nameof(MessageHistory), messageId.ToString());
+        }
+
+        return message;
+    }
+
+    private void EnsureWithinEditWindow(MessageHistory message)
+    {
+        if (DateTime.UtcNow - message.CreatedAt > options.MaxEditWindow)
+        {
+            throw new ValidationApiException(
+                $"Messages can only be edited within {options.MaxMessageEditWindowMinutes} minutes of sending.");
+        }
     }
 }

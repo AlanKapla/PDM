@@ -1,4 +1,4 @@
-using Business.Interfaces.Configurations;
+﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
@@ -23,7 +23,7 @@ namespace Business.Implementation.Services;
 public sealed class ProjectFilesService : IProjectFilesService
 {
     private readonly ICacheService cacheService;
-    private readonly AccessService accessService;
+    private readonly IAccessService accessService;
     private readonly IReadRepository<SharedProjectFile> sharedFileRepository;
     private readonly IReadRepository<ProjectFile> fileRepository;
     private readonly IReadRepository<ProjectFilePackage> packageRepository;
@@ -34,7 +34,7 @@ public sealed class ProjectFilesService : IProjectFilesService
 
     public ProjectFilesService(
         ICacheService cacheService,
-        AccessService accessService,
+        IAccessService accessService,
         IReadRepository<SharedProjectFile> sharedFileRepository,
         IReadRepository<ProjectFile> fileRepository,
         IReadRepository<ProjectFilePackage> packageRepository,

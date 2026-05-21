@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -32,7 +32,7 @@ import {
   Tooltip,
   Icon,
 } from "@chakra-ui/react";
-import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power } from "lucide-react";
+import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power, Users } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getTenantDetails, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberRole } from "../services/tenantService";
 import type { TenantDetails as TenantDetailsType } from "../types/auth.types";
@@ -853,7 +853,38 @@ export default function TenantDetails() {
                 </Box>
               </Collapse>
             </Box>
+          </Box>
 
+          {/* Kontrahenci */}
+          <Box
+            as={RouterLink}
+            to="/contractors"
+            bg="white"
+            p={{ base: 3, md: 4 }}
+            rounded="lg"
+            borderWidth="1px"
+            borderColor="neutral.200"
+            _hover={{ borderColor: "primary.400", textDecoration: "none" }}
+            display="block"
+          >
+            <HStack justify="space-between">
+              <HStack spacing={3}>
+                <Users size={20} />
+                <Heading size="md">Kontrahenci</Heading>
+              </HStack>
+              <Button
+                size="sm"
+                colorScheme="primary"
+                variant="ghost"
+                pointerEvents="none"
+              >
+                Zarządzaj
+              </Button>
+            </HStack>
+          </Box>
+
+          {/* Dialogi */}
+          <Box>
             {/* Dialog potwierdzenia usunięcia członka */}
             <AlertDialog
               isOpen={isMemberDeleteOpen}

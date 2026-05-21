@@ -1,26 +1,16 @@
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
+﻿using CQRS.Extensions;
 using FluentValidation;
-using Repositories.Repository.Interfaces;
 
-namespace CQRS.Tenants.ToggleTenantStatus;
-
-/// <summary>
-/// Walidator dla ToggleTenantStatusCommand
-/// </summary>
-public class ToggleTenantStatusCommandValidator : AbstractValidator<ToggleTenantStatusCommand>
+namespace CQRS.Tenants.ToggleTenantStatus
 {
-    public ToggleTenantStatusCommandValidator()
+    /// <summary>
+    /// Walidator dla ToggleTenantStatusCommand
+    /// </summary>
+    public sealed class ToggleTenantStatusCommandValidator : AbstractValidator<ToggleTenantStatusCommand>
     {
-        RuleFor(x => x.TenantId)
-            .NotEmpty()
-            .WithMessage("TenantId is required");
+        public ToggleTenantStatusCommandValidator()
+        {
+            RuleFor(x => x.TenantId).RequiredId();
+        }
     }
 }

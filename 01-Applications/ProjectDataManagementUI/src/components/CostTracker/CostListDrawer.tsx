@@ -26,7 +26,7 @@ import { costTrackerApi } from "../../api/costTrackerApi";
 import { costTrackerKeys } from "../../hooks/queries";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { handleApiError } from "../../utils/handleApiError";
-import type { TrackedCostWeb } from "../../types/costTracker.types";
+import type { CostEstimateSummaryWeb, TrackedCostWeb } from "../../types/costTracker.types";
 
 interface CostListDrawerProps {
   isOpen: boolean;
@@ -36,6 +36,7 @@ interface CostListDrawerProps {
   projectId: string;
   costs: TrackedCostWeb[];
   title: string;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 function formatNet(value: number | null): string {
@@ -51,6 +52,7 @@ export default function CostListDrawer({
   projectId,
   costs,
   title,
+  estimates,
 }: CostListDrawerProps) {
   const { showSuccess, showError } = useToastNotification();
   const queryClient = useQueryClient();
@@ -116,9 +118,9 @@ export default function CostListDrawer({
                               Data: {formatDate(cost.date, false)}
                             </Text>
                           )}
-                          {cost.contractor && (
+                          {cost.contractorName && (
                             <Text fontSize="xs" color="neutral.600">
-                              Wykonawca: {cost.contractor}
+                              Wykonawca: {cost.contractorName}
                             </Text>
                           )}
                         </HStack>

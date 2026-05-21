@@ -15,7 +15,7 @@ import CostTrackerStatusBadge from "./CostTrackerStatusBadge";
 import CostCountBadge from "./CostCountBadge";
 import PositionsTable from "./PositionsTable";
 import { TrackedCostItemStatus } from "../../types/costTracker.types";
-import type { TrackerGroupWeb } from "../../types/costTracker.types";
+import type { CostEstimateSummaryWeb, TrackerGroupWeb } from "../../types/costTracker.types";
 
 interface StageAccordionProps {
   groups: TrackerGroupWeb[];
@@ -24,6 +24,7 @@ interface StageAccordionProps {
   costEstimateId: string;
   onCostMutated: () => void;
   depth?: number;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 function groupLeftBorder(group: TrackerGroupWeb): string {
@@ -39,6 +40,7 @@ export default function StageAccordion({
   costEstimateId,
   onCostMutated,
   depth = 0,
+  estimates,
 }: StageAccordionProps) {
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -110,6 +112,7 @@ export default function StageAccordion({
                     projectId={projectId}
                     costEstimateId={costEstimateId}
                     onCostMutated={onCostMutated}
+                    estimates={estimates}
                   />
                 )}
 
@@ -127,6 +130,7 @@ export default function StageAccordion({
                       costEstimateId={costEstimateId}
                       onCostMutated={onCostMutated}
                       depth={depth + 1}
+                      estimates={estimates}
                     />
                   </Box>
                 )}

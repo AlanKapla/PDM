@@ -1,20 +1,20 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
 {
-    public class UpsertCostEstimateGroupFieldCommandValidator : AbstractValidator<UpsertCostEstimateGroupFieldCommand>
+    public sealed class UpsertCostEstimateGroupFieldCommandValidator : AbstractValidator<UpsertCostEstimateGroupFieldCommand>
     {
         public UpsertCostEstimateGroupFieldCommandValidator()
         {
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("Cost estimate ID is required");
-
-            RuleFor(x => x.GroupId)
-                .NotEmpty().WithMessage("Group ID is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
+            RuleFor(x => x.GroupId).RequiredId();
 
             // FieldDefinitionId is required only when adding (FieldValueId is null)
             RuleFor(x => x.FieldDefinitionId)
-                .NotEmpty().WithMessage("Field definition ID is required when creating a new field value")
+                .NotEmpty().WithMessage("'FieldDefinitionId' is required.")
                 .When(x => x.FieldValueId is null);
         }
     }

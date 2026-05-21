@@ -206,13 +206,18 @@ namespace Business.Implementation.Services
         {
             var cacheKey = $"{CacheKeyPrefix}{template.Id}";
 
-            var cached = await cacheService.GetOrAddAsync(
+            CostEstimateTemplateStructureWeb? cached = await cacheService.GetOrAddAsync(
                 cacheKey,
                 () => BuildTemplateStructureAsync(template, cancellationToken),
                 CacheExpiration,
                 cancellationToken);
 
-            return cached!;
+            if (cached is null)
+            {
+                throw new NotFoundApiException(nameof(CostEstimateTemplate), template.Id.ToString());
+            }
+
+            return cached;
         }
 
         public async Task InvalidateTemplateCacheAsync(

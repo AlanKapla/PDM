@@ -1,14 +1,14 @@
-﻿using CQRS.Files.GetProjectFilePackages;
+﻿using CQRS.Extensions;
 using FluentValidation;
 
 namespace CQRS.Files.GetProjectFilePackages;
 
-public class GetProjectFilePackagesQueryValidator : AbstractValidator<GetProjectFilePackagesQuery>
+public sealed class GetProjectFilePackagesQueryValidator : AbstractValidator<GetProjectFilePackagesQuery>
 {
     public GetProjectFilePackagesQueryValidator()
     {
-        RuleFor(x => x.Scope)
-            .IsInEnum()
-            .WithMessage("Scope is invalid");
+        RuleFor(x => x.TenantId).RequiredId();
+        RuleFor(x => x.ProjectId).RequiredId();
+        RuleFor(x => x.Scope).ValidScope();
     }
 }

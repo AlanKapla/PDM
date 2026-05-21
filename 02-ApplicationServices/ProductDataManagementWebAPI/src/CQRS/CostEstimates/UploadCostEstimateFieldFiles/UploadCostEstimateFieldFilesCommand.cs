@@ -1,5 +1,4 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
 using Microsoft.AspNetCore.Http;
 
 namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
@@ -11,12 +10,8 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
     /// Sending empty Files list clears all files from the field.
     /// Allowed formats: PDF, JPG. Max file size: 50 MB.
     /// </summary>
-    public sealed record UploadCostEstimateFieldFilesCommand : IRequestCommand<List<Guid>>, IAuthorizableRequest
+    public sealed record UploadCostEstimateFieldFilesCommand : CostEstimateCommandBase, IRequestCommand<List<Guid>>
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
-        public Guid CostEstimateId { get; init; }
-
         /// <summary>
         /// ID pozycji kosztorysu (CostEstimateItem) do której dołączane są pliki
         /// </summary>
@@ -35,8 +30,6 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
         /// </summary>
         public List<IFormFile> Files { get; init; } = new();
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-
-        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
     }
 }

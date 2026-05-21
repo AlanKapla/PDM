@@ -32,10 +32,27 @@ namespace CQRS.Users.UserUpdate
 
             user.FirstName = request.FirstName;
             user.LastName = request.LastName;
+            user.PhoneNumber = request.PhoneNumber;
+            user.CompanyName = request.CompanyName;
+            user.TaxId = request.TaxId;
+            user.Street = request.Street;
+            user.City = request.City;
+            user.PostalCode = request.PostalCode;
+            user.Country = request.Country;
 
             await userRepo.Update(user);
 
-            return new UserUpdateWeb(user.Id, user.FirstName, user.LastName);
+            return new UserUpdateWeb(
+                user.Id,
+                user.FirstName,
+                user.LastName,
+                user.PhoneNumber,
+                user.CompanyName,
+                user.TaxId,
+                user.Street,
+                user.City,
+                user.PostalCode,
+                user.Country);
         }
     }
 }

@@ -4,7 +4,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
 import { PLN } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
-import { TrackedCostModal } from '../TrackedCostModal';
+import { CostModal } from '../CostModal';
 import AppModal from '../../../../components/ui/AppModal';
 import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
@@ -208,7 +208,7 @@ export function AllCostsTab({
                     })()}
                   </Td>
                   <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
-                    {cost.contractor ?? '—'}
+                    {cost.contractorName ?? '—'}
                   </Td>
                   <Td isNumeric px="6px" py="4px" color="orange.600" fontWeight="medium">
                     {PLN(cost.net, currencySymbol)}
@@ -260,7 +260,8 @@ export function AllCostsTab({
       </div>
 
       {editingCost && (
-        <TrackedCostModal
+        <CostModal
+          type="tracked"
           tenantId={tenantId}
           projectId={projectId}
           mode="edit"

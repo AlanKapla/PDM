@@ -30,7 +30,7 @@ export default function Navbar() {
     <header className={`navbar${scrolled ? ' navbar--scrolled' : ''}`}>
       <div className="container navbar__inner">
         <a className="navbar__logo" href="#" onClick={() => scrollTo('#')}>
-          <span className="navbar__logo-text">Brickly</span>
+          <img src="/logo.png" alt="Brickly" className="navbar__logo-img" />
         </a>
 
         <nav className="navbar__links">

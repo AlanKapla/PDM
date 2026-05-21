@@ -3,7 +3,7 @@
     /// <summary>
     /// Summary view of a work schedule with basic information only
     /// </summary>
-    public record WorkScheduleSummaryWeb(
+    public sealed record WorkScheduleSummaryWeb(
         Guid Id,
         Guid? CostEstimateId,
         string Name,

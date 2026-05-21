@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
@@ -20,7 +20,7 @@ using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Projects.AddProjectMember
 {
-    public class AddProjectMemberCommandHandler : IRequestHandler<AddProjectMemberCommand, Unit>
+    public sealed class AddProjectMemberCommandHandler : IRequestHandler<AddProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
@@ -55,12 +55,12 @@ namespace CQRS.Projects.AddProjectMember
                 cancellationToken)
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            var viewerRole = await roleRepo.GetFirstBySearch(
+            Role viewerRole = await roleRepo.GetFirstBySearch(
                 r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectViewer && r.IsActive,
                 cancellationToken)
                 ?? throw new InvalidOperationException($"{RoleCodes.ProjectViewer} role not found");
 
-            var targetUser = await userService.GetTenantMemberInfoAsync(
+            ProjectMemberUserInfo? targetUser = await userService.GetTenantMemberInfoAsync(
                 request.TenantId, request.UserId, cancellationToken);
 
             ProjectMember newMember = new ProjectMember
@@ -95,7 +95,7 @@ namespace CQRS.Projects.AddProjectMember
                 }
             };
 
-            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
             await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;

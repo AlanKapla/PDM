@@ -1,5 +1,6 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
 using CQRS.WorkSchedules.Shared;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
 {
@@ -7,15 +8,15 @@ namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
     {
         public SetWorkScheduleDependenciesCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
             RuleFor(x => x.Dependencies).NotNull();
 
             RuleForEach(x => x.Dependencies).ChildRules(dep =>
             {
-                dep.RuleFor(d => d.PredecessorWorkId).NotEmpty();
-                dep.RuleFor(d => d.SuccessorWorkId).NotEmpty();
+                dep.RuleFor(d => d.PredecessorWorkId).RequiredId();
+                dep.RuleFor(d => d.SuccessorWorkId).RequiredId();
                 dep.RuleFor(d => d)
                     .Must(d => d.PredecessorWorkId != d.SuccessorWorkId)
                     .WithName("Dependency")

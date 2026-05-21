@@ -1,27 +1,16 @@
-﻿using FluentValidation;
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
+using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.Tenants.RemoveTenantMember
 {
-    public class RemoveTenantMemberCommandValidator : AbstractValidator<RemoveTenantMemberCommand>
+    public sealed class RemoveTenantMemberCommandValidator : AbstractValidator<RemoveTenantMemberCommand>
     {
-        private readonly ICurrentUser currentUser;
-
         public RemoveTenantMemberCommandValidator(ICurrentUser currentUser)
         {
-            this.currentUser = currentUser;
-
-            RuleFor(x => x.TenantId)
-                .NotEmpty()
-                .WithMessage("TenantId is required");
-
-            RuleFor(x => x.UserId)
-                .NotEmpty()
-                .WithMessage("UserId is required");
-
-            RuleFor(x => x.UserId)
-                .Must(userId => userId != currentUser.Id)
-                .WithMessage("Cannot remove yourself from the tenant");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.UserId).RequiredId();
+            RuleFor(x => x.UserId).NotCurrentUser(currentUser);
         }
     }
 }

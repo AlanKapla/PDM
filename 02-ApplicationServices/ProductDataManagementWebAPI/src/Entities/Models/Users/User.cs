@@ -15,6 +15,19 @@ namespace Entities.Models.Users
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public SystemRole SystemRole { get; set; } = SystemRole.User;
 
+        // Kontaktowe
+        public string? PhoneNumber { get; set; }
+
+        // Firmowe
+        public string? CompanyName { get; set; }
+        public string? TaxId { get; set; }
+
+        // Adresowe
+        public string? Street { get; set; }
+        public string? City { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
+
         public ICollection<TenantMember> TenantMemberships { get; set; } = new List<TenantMember>();
         public ICollection<UserSession> UserSessions { get; set; } = new List<UserSession>();
         public ICollection<UserProfileBase> Profiles { get; set; } = new List<UserProfileBase>();

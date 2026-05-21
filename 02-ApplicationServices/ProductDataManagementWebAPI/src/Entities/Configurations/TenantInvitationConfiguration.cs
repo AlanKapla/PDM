@@ -1,4 +1,4 @@
-using Entities.Models.Chats;
+﻿using Entities.Models.Chats;
 using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
@@ -44,7 +44,7 @@ namespace Entities.Configurations
                 .HasForeignKey(x => x.InvitedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasOne<Tenant>()
+            builder.HasOne(x => x.Tenant)
                 .WithMany()
                 .HasForeignKey(x => x.TenantId)
                 .OnDelete(DeleteBehavior.Cascade);

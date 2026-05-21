@@ -6,11 +6,12 @@ internal class Program
 {
     private static void Main(string[] args)
     {
-        // Enable PII logging FIRST - before any authentication setup
-        // ⚠️ WARNING: Only for development! Shows sensitive token data in logs
-        IdentityModelEventSource.ShowPII = true;
-
         var builder = WebApplication.CreateBuilder(args);
+
+        if (builder.Environment.IsDevelopment())
+        {
+            IdentityModelEventSource.ShowPII = true;
+        }
 
         // Set Azure environment variables in Development mode
         if (builder.Environment.IsDevelopment())
@@ -39,6 +40,8 @@ internal class Program
 
         var app = builder.Build();
 
+        app.UseGlobalExceptionHandling();
+
         app.UseWebSockets();
 
         app.UseRequestLocalization();
@@ -51,8 +54,6 @@ internal class Program
         }
 
         app.UseCors("AllowFrontend");
-
-        app.UseGlobalExceptionHandling();
 
         if (app.Environment.IsDevelopment())
         {

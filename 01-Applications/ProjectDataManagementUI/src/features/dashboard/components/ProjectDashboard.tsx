@@ -49,7 +49,7 @@ export function ProjectDashboard({
   }
 
   return (
-    <DashboardCurrencyProvider currencySymbol={data.currencySymbol ?? 'zł'}>
+    <DashboardCurrencyProvider currencySymbol={data.selectedCurrencySymbol ?? 'zł'}>
       <Box px={{ base: 3, md: 5 }} py={4} maxW={1400}>
         <OverviewSection
           financialData={data.financialSummary}

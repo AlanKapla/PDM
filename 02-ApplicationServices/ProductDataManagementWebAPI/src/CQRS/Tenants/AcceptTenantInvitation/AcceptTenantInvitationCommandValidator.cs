@@ -1,19 +1,12 @@
-using FluentValidation;
-using Business.Interfaces.Model;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
+﻿using Business.Interfaces.Model;
+using Entities.Enums;
 using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
+using FluentValidation;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.AcceptTenantInvitation
 {
-    public class AcceptTenantInvitationCommandValidator : AbstractValidator<AcceptTenantInvitationCommand>
+    public sealed class AcceptTenantInvitationCommandValidator : AbstractValidator<AcceptTenantInvitationCommand>
     {
         public AcceptTenantInvitationCommandValidator(IRepository<TenantInvitation> invitationRepo, ICurrentUser currentUser)
         {

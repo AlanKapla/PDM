@@ -5,7 +5,7 @@ using MediatR;
 
 namespace CQRS.Projects.GetProjectMembers
 {
-    public class GetProjectMembersQueryHandler : IRequestHandler<GetProjectMembersQuery, IEnumerable<ProjectMemberWeb>>
+    public sealed class GetProjectMembersQueryHandler : IRequestHandler<GetProjectMembersQuery, IEnumerable<ProjectMemberWeb>>
     {
         private readonly IUserService userService;
 
@@ -16,18 +16,19 @@ namespace CQRS.Projects.GetProjectMembers
 
         public async Task<IEnumerable<ProjectMemberWeb>> Handle(GetProjectMembersQuery request, CancellationToken cancellationToken)
         {
-            var members = await userService.GetProjectMembersAsync(
+            List<ProjectMemberUserInfo> members = await userService.GetProjectMembersAsync(
                 request.TenantId, request.ProjectId, cancellationToken);
 
             return members
-                .Select(m => new ProjectMemberWeb(
-                    UserId: m.UserId,
-                    Email: m.Email,
-                    FirstName: m.FirstName,
-                    LastName: m.LastName,
-                    RoleCode: m.RoleCode ?? RoleCodes.ProjectViewer,
-                    JoinedAt: m.JoinedAt
-                ))
+                .Select(m => new ProjectMemberWeb
+                {
+                    UserId = m.UserId,
+                    Email = m.Email,
+                    FirstName = m.FirstName,
+                    LastName = m.LastName,
+                    RoleCode = m.RoleCode ?? RoleCodes.ProjectViewer,
+                    JoinedAt = m.JoinedAt
+                })
                 .OrderBy(m => m.LastName)
                 .ThenBy(m => m.FirstName);
         }

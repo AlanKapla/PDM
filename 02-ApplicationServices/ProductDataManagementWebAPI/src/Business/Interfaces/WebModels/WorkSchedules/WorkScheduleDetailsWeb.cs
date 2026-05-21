@@ -1,4 +1,4 @@
-using Entities.Models.Chats;
+﻿using Entities.Models.Chats;
 using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
@@ -10,7 +10,7 @@ using Entities.Models.WorkSchedules;
 
 namespace Business.Interfaces.WebModels.WorkSchedules
 {
-    public record WorkScheduleDetailsWeb(
+    public sealed record WorkScheduleDetailsWeb(
         Guid Id,
         Guid TenantId,
         Guid ProjectId,
@@ -23,7 +23,7 @@ namespace Business.Interfaces.WebModels.WorkSchedules
         List<WorkScheduleWorkDependencyWeb> Dependencies
     );
 
-    public record WorkScheduleStageWeb(
+    public sealed record WorkScheduleStageWeb(
         Guid Id,
         string Name,
         int Order,
@@ -33,8 +33,9 @@ namespace Business.Interfaces.WebModels.WorkSchedules
         List<WorkScheduleStageWeb> ChildStages
     );
 
-    public record WorkScheduleStageWorkWeb(
+    public sealed record WorkScheduleStageWorkWeb(
         Guid Id,
+        Guid? CostEstimateItemId,
         string Name,
         int Order,
         string ColorRgb,
@@ -46,19 +47,19 @@ namespace Business.Interfaces.WebModels.WorkSchedules
         List<WorkScheduleStageWorkCommentWeb> Comments
     );
 
-    public record WorkScheduleStageWorkPeriodWeb(
+    public sealed record WorkScheduleStageWorkPeriodWeb(
         Guid Id,
         DateTime StartDate,
         DateTime EndDate,
         bool IsClosed
     );
 
-    public record WorkScheduleStageWorkAssigneeWeb(
+    public sealed record WorkScheduleStageWorkAssigneeWeb(
         Guid UserId,
         string UserName
     );
 
-    public record WorkScheduleStageWorkCommentWeb(
+    public sealed record WorkScheduleStageWorkCommentWeb(
         Guid Id,
         string Content,
         Guid CreatedByUserId,
@@ -66,7 +67,7 @@ namespace Business.Interfaces.WebModels.WorkSchedules
         DateTime CreatedAt
     );
 
-    public record WorkScheduleWorkDependencyWeb(
+    public sealed record WorkScheduleWorkDependencyWeb(
         Guid Id,
         Guid PredecessorWorkId,
         Guid SuccessorWorkId,
@@ -74,18 +75,18 @@ namespace Business.Interfaces.WebModels.WorkSchedules
         int LagDays
     );
 
-    public record MyWorkSchedulesItemDto(
+    public sealed record MyWorkSchedulesItemDto(
         Guid WorkScheduleId,
         string WorkScheduleName
     );
 
-    public record MyWorkSchedulesProjectDto(
+    public sealed record MyWorkSchedulesProjectDto(
         Guid ProjectId,
         string ProjectName,
         List<MyWorkSchedulesItemDto> WorkSchedules
     );
 
-    public record MyWorkSchedulesTenantDto(
+    public sealed record MyWorkSchedulesTenantDto(
         Guid TenantId,
         string TenantName,
         List<MyWorkSchedulesProjectDto> Projects

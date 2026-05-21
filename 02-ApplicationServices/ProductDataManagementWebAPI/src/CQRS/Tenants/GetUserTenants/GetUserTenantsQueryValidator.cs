@@ -3,7 +3,7 @@ using FluentValidation;
 
 namespace CQRS.Tenants.GetUserTenants
 {
-    public class GetUserTenantsQueryValidator : AbstractValidator<GetUserTenantsQuery>
+    public sealed class GetUserTenantsQueryValidator : AbstractValidator<GetUserTenantsQuery>
     {
         public GetUserTenantsQueryValidator(ICurrentUser currentUser)
         {

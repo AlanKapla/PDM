@@ -1,25 +1,16 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
-using Business.Interfaces.WebModels.CostEstimates;
 
 namespace CQRS.CostEstimates.CreateCostEstimate
 {
     /// <summary>
-    /// Command do tworzenia kosztorysu
-    /// Jeśli RootGroups jest puste - tworzy pusty kosztorys
-    /// Jeśli RootGroups zawiera dane - tworzy kosztorys z pełną hierarchią
+    /// Command do tworzenia kosztorysu na bazie wybranego szablonu.
     /// </summary>
-    public sealed record CreateCostEstimateCommand(
-        Guid TemplateId,
-        string Name,
-        string? Description 
-    ) : IRequestCommand<Guid>, IAuthorizableRequest
+    public sealed record CreateCostEstimateCommand : CostEstimateRequestBase, IRequestCommand<Guid>
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
+        public Guid TemplateId { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public string? Description { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-        
-        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
     }
 }

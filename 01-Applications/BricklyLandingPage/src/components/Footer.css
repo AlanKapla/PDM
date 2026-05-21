@@ -28,6 +28,13 @@
   font-size: 22px;
 }
 
+.footer__logo-img {
+  height: 40px;
+  width: auto;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
 .footer__logo-text {
   font-size: 22px;
   font-weight: 800;
@@ -177,5 +184,14 @@
     flex-direction: column;
     gap: 8px;
     text-align: center;
+  }
+
+  .footer__info-strip-inner {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .footer__info-divider {
+    display: none;
   }
 }

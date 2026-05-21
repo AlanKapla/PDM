@@ -16,6 +16,14 @@ namespace Business.Interfaces.WebModels.Users
         /// <summary>
         /// Permissions in the active tenant (empty if no active tenant)
         /// </summary>
-        HashSet<string> ActiveTenantPermissions
+        HashSet<string> ActiveTenantPermissions,
+
+        string? PhoneNumber,
+        string? CompanyName,
+        string? TaxId,
+        string? Street,
+        string? City,
+        string? PostalCode,
+        string? Country
     );
 }

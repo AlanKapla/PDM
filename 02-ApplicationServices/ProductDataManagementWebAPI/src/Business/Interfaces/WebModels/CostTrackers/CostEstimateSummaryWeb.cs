@@ -1,6 +1,6 @@
 ﻿namespace Business.Interfaces.WebModels.CostTrackers
 {
-    public record CostEstimateSummaryWeb : TrackerNodeWithTimelineWeb
+    public sealed record CostEstimateSummaryWeb : TrackerNodeWithTimelineWeb
     {
         public required Guid CostEstimateId { get; init; }
         public required string CostEstimateName { get; init; }

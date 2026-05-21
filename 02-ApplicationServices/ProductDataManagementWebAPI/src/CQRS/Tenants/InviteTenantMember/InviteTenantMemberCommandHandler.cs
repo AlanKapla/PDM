@@ -1,16 +1,10 @@
-using Business.Implementation.Helpers;
+﻿using Business.Implementation.Helpers;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
 using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using Microsoft.Extensions.Options;
@@ -21,7 +15,7 @@ using Business.Interfaces.Model;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
-    public class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
+    public sealed class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
         private readonly IReadRepository<User> userRepo;
@@ -82,7 +76,7 @@ namespace CQRS.Tenants.InviteTenantMember
 
             string tenantName = tenant.Name;
 
-            if (existingUser == null)
+            if (existingUser is null)
             {
                 string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
                 string path = frontendSettings.Value.HomePath.TrimStart('/');
@@ -104,7 +98,7 @@ namespace CQRS.Tenants.InviteTenantMember
             }
             else
             {
-                var notification = new NotificationDto
+                NotificationDto notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = request.TenantId,
@@ -124,7 +118,7 @@ namespace CQRS.Tenants.InviteTenantMember
                     }
                 };
                 
-                var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
                 await notificationSender.EnqueueAsync(payload, cancellationToken);
             }
 

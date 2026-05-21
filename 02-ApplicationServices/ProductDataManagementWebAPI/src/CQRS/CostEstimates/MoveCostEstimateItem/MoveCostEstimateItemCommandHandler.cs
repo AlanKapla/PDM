@@ -8,7 +8,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.MoveCostEstimateItem
 {
-    public class MoveCostEstimateItemCommandHandler
+    public sealed class MoveCostEstimateItemCommandHandler
         : IRequestHandler<MoveCostEstimateItemCommand, Unit>
     {
         private readonly IRepository<CostEstimateItem> itemRepository;
@@ -30,28 +30,21 @@ namespace CQRS.CostEstimates.MoveCostEstimateItem
 
         public async Task<Unit> Handle(MoveCostEstimateItemCommand request, CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
 
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
-            if (accessLevel == CostEstimateAccessLevel.None)
-                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
-
-            if (accessLevel == CostEstimateAccessLevel.Restricted)
-                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
-
-            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
-                throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
+            accessLevel.EnsureCanModifyStructure();
 
             // Validate item exists
-            var itemsDict = await cacheService.GetItemsDictionaryAsync(
+            Dictionary<Guid, CostEstimateItem> itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
-            if (!itemsDict.TryGetValue(request.ItemId, out var cachedItem))
+            if (!itemsDict.TryGetValue(request.ItemId, out CostEstimateItem? cachedItem))
             {
                 throw new NotFoundApiException(nameof(CostEstimateItem), request.ItemId.ToString());
             }
@@ -65,7 +58,7 @@ namespace CQRS.CostEstimates.MoveCostEstimateItem
             }
 
             // Validate target group exists
-            var groupsDict = await cacheService.GetGroupsDictionaryAsync(
+            Dictionary<Guid, CostEstimateGroup> groupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             if (!groupsDict.ContainsKey(request.TargetGroupId))
@@ -80,7 +73,7 @@ namespace CQRS.CostEstimates.MoveCostEstimateItem
             }
 
             // Collect IDs to move (main item + direct children from cache)
-            var itemIdsToMove = itemsDict.Values
+            HashSet<Guid> itemIdsToMove = itemsDict.Values
                 .Where(i => i.ParentItemId == request.ItemId)
                 .Select(i => i.Id)
                 .ToHashSet();
@@ -96,19 +89,19 @@ namespace CQRS.CostEstimates.MoveCostEstimateItem
                 .Max() + 1;
 
             // Load tracked entities in a single query
-            var trackedItems = (await itemRepository.GetBySearch(
+            List<CostEstimateItem> trackedItems = (await itemRepository.GetBySearch(
                 i => itemIdsToMove.Contains(i.Id))).ToList();
 
-            var now = DateTime.UtcNow;
+            DateTime now = DateTime.UtcNow;
 
-            foreach (var trackedItem in trackedItems)
+            foreach (CostEstimateItem trackedItem in trackedItems)
             {
                 trackedItem.GroupId = request.TargetGroupId;
                 trackedItem.UpdatedAt = now;
             }
 
             // Set the moved item's order as last position
-            var movedItem = trackedItems.First(i => i.Id == request.ItemId);
+            CostEstimateItem movedItem = trackedItems.First(i => i.Id == request.ItemId);
             movedItem.Order = lastOrder;
 
             await itemRepository.UpdateRange(trackedItems);

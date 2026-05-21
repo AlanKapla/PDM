@@ -109,12 +109,12 @@ export default function ProjectDetails() {
   const [, setDeletingCostId] = useState<string | null>(null);
   const [newCostData, setNewCostData] = useState<any>({
     name: '',
-    place: '',
+    number: '',
+    contractorId: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
-    netAmount: '',
-    vatRate: '',
-    grossAmount: '',
+    net: '',
+    gross: '',
   });
   const [, setAddingNewCost] = useState(false);
   const [, setShowNewCostRow] = useState(false);
@@ -215,12 +215,12 @@ export default function ProjectDetails() {
       return;
     }
 
-    // Walidacja: albo netto+VAT albo gross
-    const hasNet = newCostData.netAmount && newCostData.vatRate;
-    const hasGross = newCostData.grossAmount;
+    // Walidacja: albo netto albo brutto
+    const hasNet = newCostData.net;
+    const hasGross = newCostData.gross;
 
     if (!hasNet && !hasGross) {
-      showError("Błąd", "Podaj kwotę netto i stawkę VAT lub kwotę brutto");
+      showError("Błąd", "Podaj kwotę netto lub brutto");
       return;
     }
 
@@ -231,12 +231,12 @@ export default function ProjectDetails() {
         projectId,
         {
           name: newCostData.name,
-          place: newCostData.place || undefined,
+          number: newCostData.number || undefined,
+          contractorId: newCostData.contractorId || undefined,
           date: new Date(newCostData.date),
           description: newCostData.description || undefined,
-          netAmount: newCostData.netAmount ? parseFloat(newCostData.netAmount) : undefined,
-          vatRate: newCostData.vatRate ? parseFloat(newCostData.vatRate) : undefined,
-          grossAmount: newCostData.grossAmount ? parseFloat(newCostData.grossAmount) : undefined,
+          net: newCostData.net ? parseFloat(newCostData.net) : undefined,
+          gross: newCostData.gross ? parseFloat(newCostData.gross) : undefined,
           document: documentFile || undefined,
         }
       );
@@ -246,12 +246,12 @@ export default function ProjectDetails() {
       // Reset formularza
       setNewCostData({
         name: '',
-        place: '',
+        number: '',
+        contractorId: '',
         date: new Date().toISOString().split('T')[0],
         description: '',
-        netAmount: '',
-        vatRate: '',
-        grossAmount: '',
+        net: '',
+        gross: '',
       });
       setDocumentFile(null);
       setShowNewCostRow(false);
@@ -269,11 +269,12 @@ export default function ProjectDetails() {
     setEditingCostId(cost.id);
     setEditingCostData({
       name: cost.name,
-      place: cost.place || '',
+      number: cost.number ?? '',
+      contractorId: cost.contractorId ?? '',
       date: new Date(cost.date).toISOString().split('T')[0],
       description: cost.description || '',
-      netAmount: cost.netAmount?.toString() || '',
-      grossAmount: cost.grossAmount.toString(),
+      net: cost.net?.toString() || '',
+      gross: (cost.gross ?? '').toString(),
       isAccepted: cost.isAccepted,
       removeDocument: false,
     });
@@ -298,12 +299,12 @@ export default function ProjectDetails() {
       return;
     }
 
-    // Walidacja: albo netto+VAT albo gross
-    const hasNet = editingCostData.netAmount && editingCostData.vatRate;
-    const hasGross = editingCostData.grossAmount;
+    // Walidacja: albo netto albo brutto
+    const hasNet = editingCostData.net;
+    const hasGross = editingCostData.gross;
 
     if (!hasNet && !hasGross) {
-      showError("Błąd", "Podaj kwotę netto i stawkę VAT lub kwotę brutto");
+      showError("Błąd", "Podaj kwotę netto lub brutto");
       return;
     }
 
@@ -315,11 +316,12 @@ export default function ProjectDetails() {
         editingCostId,
         {
           name: editingCostData.name,
-          place: editingCostData.place || undefined,
+          number: editingCostData.number || undefined,
+          contractorId: editingCostData.contractorId || undefined,
           date: new Date(editingCostData.date),
           description: editingCostData.description || undefined,
-          netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
-          grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
+          net: editingCostData.net ? parseFloat(editingCostData.net) : undefined,
+          gross: editingCostData.gross ? parseFloat(editingCostData.gross) : undefined,
           isAccepted: editingCostData.isAccepted ?? false,
           document: documentFile || undefined,
           removeDocument: editingCostData.removeDocument,

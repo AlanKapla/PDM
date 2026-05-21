@@ -3,32 +3,27 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
 using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 
 namespace CQRS.Files.GetFileVersions;
 
-public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery, List<ProjectFileVersionWeb>>
+public sealed class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery, List<ProjectFileVersionWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
     private readonly IUserService userService;
+    private readonly IFileVersionWebMapper fileVersionWebMapper;
     private readonly ICurrentUser currentUser;
 
     public GetFileVersionsQueryHandler(
         IProjectFilesService projectFilesService,
         IUserService userService,
+        IFileVersionWebMapper fileVersionWebMapper,
         ICurrentUser currentUser)
     {
         this.projectFilesService = projectFilesService;
         this.userService = userService;
+        this.fileVersionWebMapper = fileVersionWebMapper;
         this.currentUser = currentUser;
     }
 
@@ -58,30 +53,7 @@ public class GetFileVersionsQueryHandler : IRequestHandler<GetFileVersionsQuery,
 
         return versionDtos
             .OrderByDescending(v => v.VersionNumber)
-            .Select(v => MapToVersionWeb(v, userDict, sasUrisDict.GetValueOrDefault(v.Id)))
+            .Select(v => fileVersionWebMapper.Map(v, userDict, sasUrisDict.GetValueOrDefault(v.Id)))
             .ToList();
-    }
-
-    private static ProjectFileVersionWeb MapToVersionWeb(
-        ProjectFileVersionDto versionDto,
-        Dictionary<Guid, ProjectMemberUserInfo> userDict,
-        FileVersionSasUriInfo? sasUriInfo)
-    {
-        return new ProjectFileVersionWeb
-        {
-            Id = versionDto.Id,
-            ProjectFileId = versionDto.ProjectFileId,
-            VersionNumber = versionDto.VersionNumber,
-            ContentType = versionDto.ContentType,
-            FileSizeBytes = versionDto.FileSizeBytes,
-            CreatedAt = versionDto.CreatedAt,
-            CreatedByUserId = versionDto.CreatedByUserId,
-            CreatedByUserName = userDict.TryGetValue(versionDto.CreatedByUserId, out ProjectMemberUserInfo? user)
-                ? user.FullName
-                : string.Empty,
-            SasUrlView = sasUriInfo?.SasUriView ?? string.Empty,
-            SasUrlDownload = sasUriInfo?.SasUriDownload ?? string.Empty,
-            Comments = new List<ProjectFileVersionCommentWeb>()
-        };
     }
 }

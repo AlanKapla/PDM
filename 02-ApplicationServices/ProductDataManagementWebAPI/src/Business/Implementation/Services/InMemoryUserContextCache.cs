@@ -6,6 +6,7 @@ namespace Business.Implementation.Services;
 
 public sealed class InMemoryUserContextCache : IUserContextCache
 {
+    private const string RolePermissionsCacheKeyPrefix = "role:permissions:";
     private readonly IMemoryCache cache;
 
     public InMemoryUserContextCache(IMemoryCache cache)
@@ -20,13 +21,13 @@ public sealed class InMemoryUserContextCache : IUserContextCache
         CancellationToken cancellationToken = default)
     {
         var key = $"user:permissions-version:{userId}";
-        
+
         var result = await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
             return await factory();
         });
-        
+
         return result;
     }
 
@@ -37,7 +38,7 @@ public sealed class InMemoryUserContextCache : IUserContextCache
         CancellationToken cancellationToken = default)
     {
         var key = $"role:permissions:{roleId}";
-        
+
         return await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
@@ -54,7 +55,7 @@ public sealed class InMemoryUserContextCache : IUserContextCache
         CancellationToken cancellationToken = default)
     {
         var key = $"tenant:ctx:{userId}:{tenantId}:{version}";
-        
+
         var result = await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
@@ -74,7 +75,7 @@ public sealed class InMemoryUserContextCache : IUserContextCache
         CancellationToken cancellationToken = default)
     {
         var key = $"project:ctx:{userId}:{tenantId}:{projectId}:{version}";
-        
+
         var result = await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
@@ -86,21 +87,13 @@ public sealed class InMemoryUserContextCache : IUserContextCache
 
     public void InvalidateUserPermissionsVersion(Guid userId)
     {
-        var key = $"user:permissions-version:{userId}";
+        string key = $"user:permissions-version:{userId}";
         cache.Remove(key);
     }
 
-    public void InvalidateTenantContext(Guid userId, Guid tenantId)
+    public void InvalidateRolePermissions(Guid roleId)
     {
-        var pattern = $"tenant:ctx:{userId}:{tenantId}:";
-        // Note: IMemoryCache doesn't support pattern-based removal
-        // Version bump will naturally invalidate old entries
-    }
-
-    public void InvalidateProjectContext(Guid userId, Guid projectId)
-    {
-        var pattern = $"project:ctx:{userId}:*:{projectId}:";
-        // Note: IMemoryCache doesn't support pattern-based removal
-        // Version bump will naturally invalidate old entries
+        string key = $"{RolePermissionsCacheKeyPrefix}{roleId}";
+        cache.Remove(key);
     }
 }

@@ -33,7 +33,7 @@ namespace CQRS.Messages.MarkMessagesAsRead
 
             if (chatMember != null)
             {
-                chatMember.LastReadAt = DateTime.UtcNow;
+                chatMember.MarkRead(DateTime.UtcNow);
                 await chatMemberRepo.Update(chatMember);
                 await chatMemberRepo.SaveChangesAsync(cancellationToken);
                 return 1;

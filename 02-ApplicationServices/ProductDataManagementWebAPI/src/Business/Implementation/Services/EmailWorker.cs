@@ -25,6 +25,8 @@ namespace Business.Implementation.Services
             this.logger = logger;
         }
 
+        private const int MaxDequeueCount = 5;
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await queueStorageService.EnsureQueueAsync(QueueNames.EmailSend, stoppingToken);
@@ -39,6 +41,15 @@ namespace Business.Implementation.Services
                     if (msg is null)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                        continue;
+                    }
+
+                    if (msg.DequeueCount > MaxDequeueCount)
+                    {
+                        logger.LogError(
+                            "Poison message detected after {Count} attempts. MessageId: {MessageId}. Deleting.",
+                            msg.DequeueCount, msg.MessageId);
+                        await queueStorageService.DeleteMessageAsync(QueueNames.EmailSend, msg.MessageId, msg.PopReceipt, stoppingToken);
                         continue;
                     }
 

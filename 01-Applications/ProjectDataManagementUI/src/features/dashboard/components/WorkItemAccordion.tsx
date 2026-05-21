@@ -9,7 +9,7 @@ import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
 import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
 import { CostTable } from './shared/CostTable';
 import { Badge } from './shared/Badge';
-import { TrackedCostModal } from './TrackedCostModal';
+import { CostModal } from './CostModal';
 import { DEVIATION_COLOR } from '../utils/formatters';
 import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
@@ -75,7 +75,7 @@ export function WorkItemAccordion({
                 border: `0.5px solid ${neutral200}`,
               }}
             >
-              {[cost.number, cost.contractor].filter(Boolean).join(' · ')}
+              {[cost.number, cost.contractorName].filter(Boolean).join(' · ')}
             </span>
           ))}
         </div>
@@ -204,7 +204,8 @@ export function WorkItemAccordion({
       </Accordion>
 
       {createModal && (
-        <TrackedCostModal
+        <CostModal
+          type="tracked"
           tenantId={tenantId}
           projectId={projectId}
           mode="create"
@@ -217,7 +218,8 @@ export function WorkItemAccordion({
       )}
 
       {editingCost && (
-        <TrackedCostModal
+        <CostModal
+          type="tracked"
           tenantId={tenantId}
           projectId={projectId}
           mode="edit"

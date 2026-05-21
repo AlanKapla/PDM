@@ -68,7 +68,7 @@ export function CostTable({ costs, title, bgOverride, onEdit, onDelete }: CostTa
               <Tr key={cost.id}>
                 <Td px="6px" py="4px">{cost.name}</Td>
                 <Td px="6px" py="4px" color="neutral.600">
-                  {cost.contractor ?? '—'}
+                  {cost.contractorName ?? '—'}
                 </Td>
                 <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
                   {DATE(cost.date)}

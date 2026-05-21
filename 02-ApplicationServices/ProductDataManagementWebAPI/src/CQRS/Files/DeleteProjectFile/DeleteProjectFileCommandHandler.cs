@@ -2,28 +2,21 @@ using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
 using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.DeleteProjectFile
 {
-    public class DeleteProjectFileCommandHandler : IRequestHandler<DeleteProjectFileCommand, Unit>
+    public sealed class DeleteProjectFileCommandHandler : IRequestHandler<DeleteProjectFileCommand, Unit>
     {
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IReadRepository<SharedProjectFile> sharedFileRepo;
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
         private readonly IBlobStorageService blobStorageService;
         private readonly IProjectFilesService projectFilesService;
+        private readonly IFileAccessGuard fileAccessGuard;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteProjectFileCommandHandler> logger;
 
@@ -33,6 +26,7 @@ namespace CQRS.Files.DeleteProjectFile
             IRepository<ProjectFileVersion> projectFileVersionRepo,
             IBlobStorageService blobStorageService,
             IProjectFilesService projectFilesService,
+            IFileAccessGuard fileAccessGuard,
             ICurrentUser currentUser,
             ILogger<DeleteProjectFileCommandHandler> logger)
         {
@@ -41,42 +35,40 @@ namespace CQRS.Files.DeleteProjectFile
             this.projectFileVersionRepo = projectFileVersionRepo;
             this.blobStorageService = blobStorageService;
             this.projectFilesService = projectFilesService;
+            this.fileAccessGuard = fileAccessGuard;
             this.currentUser = currentUser;
             this.logger = logger;
         }
 
         public async Task<Unit> Handle(DeleteProjectFileCommand request, CancellationToken cancellationToken)
         {
-            // 1. Verify file exists and belongs to the correct project/tenant
-            ProjectFile? file = await projectFileRepo.GetFirstBySearch(
+            // 1. Authorization (NotFound when file missing, Forbidden otherwise)
+            await fileAccessGuard.EnsureCanAccessFileAsync(
+                request.TenantId, request.ProjectId, request.FileId, FileAccessKind.Delete, cancellationToken);
+
+            // 2. Load file for the actual delete operation
+            ProjectFile file = await projectFileRepo.GetFirstBySearch(
                 pf => pf.Id == request.FileId &&
                       pf.ProjectId == request.ProjectId &&
                       pf.TenantId == request.TenantId)
                 ?? throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
 
-            // 3. Authorization check: tenant admin OR project admin OR file owner
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            bool isFileOwner = file.OwnerId == currentUser.Id;
-            
-            if (!isAdmin && !isFileOwner)
-            {
-                throw new NotFoundApiException(nameof(ProjectFile), request.FileId.ToString());
-            }
+            // 3. Get file versions
+            IEnumerable<ProjectFileVersion> versions = await projectFileVersionRepo.GetBySearch(
+                v => v.ProjectFileId == file.Id
+                    && v.TenantId == request.TenantId
+                    && v.ProjectId == request.ProjectId);
 
-            // 4. Get file versions
-            var versions = await projectFileVersionRepo.GetBySearch(
-                v => v.ProjectFileId == file.Id);
+            List<ProjectFileVersion> versionsList = versions.ToList();
 
-            var versionsList = versions.ToList();
-
-            // 5. Check if file was shared
+            // 4. Check if file was shared
             bool wasShared = await sharedFileRepo.AnyAsync(
                 spf => spf.ProjectFileId == request.FileId);
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
 
             // 5. Delete blobs and soft delete versions
-            foreach (var version in versionsList)
+            foreach (ProjectFileVersion version in versionsList)
             {
                 try
                 {
@@ -84,8 +76,8 @@ namespace CQRS.Files.DeleteProjectFile
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, 
-                        "Failed to delete blob {BlobPath} from storage, continuing with database soft delete", 
+                    logger.LogWarning(ex,
+                        "Failed to delete blob {BlobPath} from storage, continuing with database soft delete",
                         version.BlobPath);
                 }
 

@@ -26,7 +26,7 @@ export default function Footer() {
       <div className="container footer__inner">
         <div className="footer__brand">
           <a href="#" className="footer__logo" onClick={() => scrollTo('#')}>
-            <span className="footer__logo-text">Brickly</span>
+            <img src="/logo.png" alt="Brickly" className="footer__logo-img" />
           </a>
           <p className="footer__tagline">
             Nowoczesna platforma do zarządzania projektami budowlanymi i remontowymi.

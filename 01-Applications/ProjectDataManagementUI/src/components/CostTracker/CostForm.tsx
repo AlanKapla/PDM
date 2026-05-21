@@ -16,12 +16,15 @@ import {
 } from "@chakra-ui/react";
 import { Plus, X } from "lucide-react";
 import AttachmentList from "./AttachmentList";
+import ContractorPicker from "../ContractorPicker";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import type { TrackedCostAttachmentWeb, CostFormValues } from "../../types/costTracker.types";
 
 interface CostFormProps {
   values: CostFormValues;
   onChange: (values: CostFormValues) => void;
+  tenantId: string;
+  canQuickAdd?: boolean;
   existingAttachments?: TrackedCostAttachmentWeb[];
   errors?: Partial<Record<keyof CostFormValues, string>>;
   isSubmitting?: boolean;
@@ -32,6 +35,8 @@ const MAX_FILE_SIZE = 52 * 1024 * 1024; // 52 MB
 export default function CostForm({
   values,
   onChange,
+  tenantId,
+  canQuickAdd = false,
   existingAttachments = [],
   errors = {},
   isSubmitting = false,
@@ -111,15 +116,21 @@ export default function CostForm({
       </HStack>
 
       {/* Wykonawca */}
-      <FormControl>
+      <FormControl isInvalid={!!errors.contractorId}>
         <FormLabel>Wykonawca</FormLabel>
-        <Input
-          value={values.contractor ?? ""}
-          onChange={(e) => set({ contractor: e.target.value })}
-          placeholder="Nazwa wykonawcy"
-          maxLength={300}
+        <ContractorPicker
+          tenantId={tenantId}
+          value={values.contractorId ?? null}
+          onChange={(id) => set({ contractorId: id })}
+          canQuickAdd={canQuickAdd}
           isDisabled={isSubmitting}
+          isInvalid={!!errors.contractorId}
         />
+        {!canQuickAdd && (
+          <Text fontSize="xs" color="gray.500" mt={1}>
+            Aby dodać nowego kontrahenta, zgłoś się do administratora.
+          </Text>
+        )}
       </FormControl>
 
       {/* Data */}

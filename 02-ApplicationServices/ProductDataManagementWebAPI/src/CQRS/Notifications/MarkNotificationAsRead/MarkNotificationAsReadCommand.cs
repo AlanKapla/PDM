@@ -2,5 +2,8 @@ using MediatR;
 
 namespace CQRS.Notifications.MarkNotificationAsRead
 {
-    public record MarkNotificationAsReadCommand(Guid NotificationId) : IRequestCommand<Unit>;
+    public sealed record MarkNotificationAsReadCommand : IRequestCommand<Unit>
+    {
+        public required Guid NotificationId { get; init; }
+    }
 }

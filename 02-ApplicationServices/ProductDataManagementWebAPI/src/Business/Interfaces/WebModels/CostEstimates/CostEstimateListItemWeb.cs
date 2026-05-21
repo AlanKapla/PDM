@@ -15,7 +15,7 @@ namespace Business.Interfaces.WebModels.CostEstimates
     /// <summary>
     /// Result DTO for cost estimate list item
     /// </summary>
-    public record CostEstimateListItemWeb(
+    public sealed record CostEstimateListItemWeb(
         Guid Id,
         Guid TenantId,
         Guid ProjectId,
@@ -33,6 +33,8 @@ namespace Business.Interfaces.WebModels.CostEstimates
         string OwnerName,
         bool IsSharedWithMe,
         bool IsSharedByMe,
-        IReadOnlyList<CostEstimateShareWeb> SharedWithUsers
+        IReadOnlyList<CostEstimateShareWeb> SharedWithUsers,
+        string? CurrencyCode,
+        string? CurrencySymbol
     );
 }

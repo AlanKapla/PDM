@@ -24,7 +24,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
-        private readonly IRepository<Project> projectRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
@@ -34,7 +33,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
         public UpdateCostShareCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
             IRepository<SharedProjectCost> sharedProjectCostRepo,
-            IRepository<Project> projectRepo,
             IReadRepository<User> userRepo,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
@@ -43,7 +41,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
         {
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
-            this.projectRepo = projectRepo;
             this.userRepo = userRepo;
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
@@ -67,7 +64,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
             
             if (!isAdmin && !isCostOwner)
             {
-                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+                throw new ForbiddenApiException("You do not have permission to manage shares for this cost.");
             }
 
             var existingUserIds = cost.SharedWith.Select(s => s.SharedWithUserId).ToHashSet();

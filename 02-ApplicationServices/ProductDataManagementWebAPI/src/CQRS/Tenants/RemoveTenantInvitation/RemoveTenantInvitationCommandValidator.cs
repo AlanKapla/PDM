@@ -1,19 +1,12 @@
-using FluentValidation;
-using Business.Interfaces.Model;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
+﻿using Business.Interfaces.Model;
+using CQRS.Extensions;
 using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
+using FluentValidation;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.RemoveTenantInvitation
 {
-    public class RemoveTenantInvitationCommandValidator : AbstractValidator<RemoveTenantInvitationCommand>
+    public sealed class RemoveTenantInvitationCommandValidator : AbstractValidator<RemoveTenantInvitationCommand>
     {
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantInvitation> invitationRepo;
@@ -28,15 +21,8 @@ namespace CQRS.Tenants.RemoveTenantInvitation
             this.invitationRepo = invitationRepo;
             this.currentUser = currentUser;
 
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.InvitationId)
-                .NotEmpty().WithMessage("InvitationId is required");
-
-            RuleFor(x => x.TenantId)
-                .Must(tenantId => tenantId == currentUser.ActiveTenantId)
-                .WithMessage("TenantId must match the active tenant");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.InvitationId).RequiredId();
 
             RuleFor(x => x)
                 .MustAsync(TenantMustExist)

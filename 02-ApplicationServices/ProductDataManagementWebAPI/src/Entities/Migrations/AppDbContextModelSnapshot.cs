@@ -784,9 +784,8 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasDefaultValueSql("NEWSEQUENTIALID()");
 
-                    b.Property<string>("Contractor")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                    b.Property<Guid?>("ContractorId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CostEstimateItemId")
                         .HasColumnType("uniqueidentifier");
@@ -847,6 +846,8 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ContractorId");
 
                     b.HasIndex("CostEstimateItemId");
 
@@ -1513,6 +1514,75 @@ namespace Entities.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Street")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Name")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("Contractors", (string)null);
+                });
+
             modelBuilder.Entity("Entities.Models.Tenants.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1652,6 +1722,18 @@ namespace Entities.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CompanyName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1675,9 +1757,25 @@ namespace Entities.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Street")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("SystemRole")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -2105,10 +2203,6 @@ namespace Entities.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<string>("Place")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2454,6 +2548,11 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.Costs.BaseCost", b =>
                 {
+                    b.HasOne("Entities.Models.Tenants.Contractor", "Contractor")
+                        .WithMany("Costs")
+                        .HasForeignKey("ContractorId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Entities.Models.CostEstimates.CostEstimateItem", "CostEstimateItem")
                         .WithMany()
                         .HasForeignKey("CostEstimateItemId")
@@ -2479,6 +2578,8 @@ namespace Entities.Migrations
                     b.HasOne("Entities.Models.WorkSchedules.WorkScheduleStageWork", "WorkScheduleStageWork")
                         .WithMany()
                         .HasForeignKey("WorkScheduleStageWorkId1");
+
+                    b.Navigation("Contractor");
 
                     b.Navigation("CostEstimateItem");
 
@@ -2800,6 +2901,17 @@ namespace Entities.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>
+                {
+                    b.HasOne("Entities.Models.Tenants.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("Entities.Models.Tenants.TenantInvitation", b =>
                 {
                     b.HasOne("Entities.Models.Users.User", "InvitedByUser")
@@ -2808,13 +2920,15 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Entities.Models.Tenants.Tenant", null)
+                    b.HasOne("Entities.Models.Tenants.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("InvitedByUser");
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenants.TenantMember", b =>
@@ -3192,6 +3306,11 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.Roles.Role", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>
+                {
+                    b.Navigation("Costs");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenants.Tenant", b =>

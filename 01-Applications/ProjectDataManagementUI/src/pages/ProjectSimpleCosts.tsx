@@ -1,4 +1,4 @@
-﻿import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Badge,
@@ -45,23 +45,22 @@ import { formatCurrency, formatDate } from "../utils/formatters";
 import ShareCostModal from "../components/ShareCostModal";
 import { ManageCostShareModal } from "../components/ManageCostShareModal";
 import ShareCostsModal from "../components/ShareCostsModal";
-import ExpenseFormModal, {
-  type ExpenseFormData,
-} from "../components/ExpenseFormModal";
+import { CostModal } from "../features/dashboard/components/CostModal";
 import ExpenseCard from "../components/ExpenseCard";
 import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { ProjectCostListItemWeb } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useProjectDetails } from "../hooks/queries";
+import { useProjectCostMutations } from "../hooks/useProjectCostMutations";
 
 // === TAB COMPONENTS ===
 
 function CostSummaryBar({ costs }: { costs: ProjectCostListItemWeb[] }) {
   const summaryBg = useColorModeValue("primary.50", "primary.900");
-  const total = costs.reduce((s, c) => s + c.grossAmount, 0);
-  const open = costs.filter(c => !c.isAccepted).reduce((s, c) => s + c.grossAmount, 0);
-  const accepted = costs.filter(c => c.isAccepted).reduce((s, c) => s + c.grossAmount, 0);
+  const total = costs.reduce((s, c) => s + (c.gross ?? 0), 0);
+  const open = costs.filter(c => !c.isAccepted).reduce((s, c) => s + (c.gross ?? 0), 0);
+  const accepted = costs.filter(c => c.isAccepted).reduce((s, c) => s + (c.gross ?? 0), 0);
 
   return (
     <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3} p={3} bg={summaryBg} rounded="md">
@@ -243,7 +242,7 @@ function AllCostsTab({
               <Tr>
                 <Th>Nazwa</Th>
                 <Th>Właściciel</Th>
-                <Th>Miejsce</Th>
+                <Th>Kontrahent</Th>
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
@@ -259,10 +258,10 @@ function AllCostsTab({
                 <Tr key={cost.id} _hover={{ bg: 'neutral.50' }} cursor="pointer" onClick={() => onEditCost(cost)}>
                   <Td fontWeight="medium">{cost.name}</Td>
                   <Td fontSize="sm" color="neutral.600">{cost.userName || "-"}</Td>
-                  <Td>{cost.place || "-"}</Td>
+                  <Td>{cost.contractorName || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
-                  <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                  <Td isNumeric>{formatCurrency(cost.net ?? 0)}</Td>
+                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.gross ?? 0)}</Td>
                   <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       isChecked={cost.isAccepted}
@@ -416,7 +415,7 @@ function MyCostsTab({
             <Thead>
               <Tr>
                 <Th>Nazwa</Th>
-                <Th>Miejsce</Th>
+                <Th>Kontrahent</Th>
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
@@ -429,10 +428,10 @@ function MyCostsTab({
               {costs.map((cost) => (
                 <Tr key={cost.id} _hover={{ bg: 'neutral.50' }} cursor="pointer" onClick={() => onEditCost(cost)}>
                   <Td fontWeight="medium">{cost.name}</Td>
-                  <Td>{cost.place || "-"}</Td>
+                  <Td>{cost.contractorName || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
-                  <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                  <Td isNumeric>{formatCurrency(cost.net ?? 0)}</Td>
+                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.gross ?? 0)}</Td>
                   <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       isChecked={cost.isAccepted}
@@ -541,7 +540,7 @@ function SharedCostsTab({
             <Thead>
               <Tr>
                 <Th>Nazwa</Th>
-                <Th>Miejsce</Th>
+                <Th>Kontrahent</Th>
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
@@ -554,10 +553,10 @@ function SharedCostsTab({
               {costs.map((cost) => (
                 <Tr key={cost.id} _hover={{ bg: 'neutral.50' }}>
                   <Td fontWeight="medium">{cost.name}</Td>
-                  <Td>{cost.place || "-"}</Td>
+                  <Td>{cost.contractorName || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
-                  <Td isNumeric>{formatCurrency(cost.netAmount ?? 0)}</Td>
-                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.grossAmount)}</Td>
+                  <Td isNumeric>{formatCurrency(cost.net ?? 0)}</Td>
+                  <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.gross ?? 0)}</Td>
                   <Td textAlign="center">
                     <Checkbox
                       isChecked={cost.isAccepted}
@@ -592,18 +591,17 @@ export default function ProjectSimpleCosts() {
   const [projectName, setProjectName] = useState("");
   const hasFetchedProjectData = useRef(false);
 
-  const [savingCost, setSavingCost] = useState(false);
   const [deletingCostId, setDeletingCostId] = useState<string | null>(null);
   const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
-  const [costToManageShare, setCostToManageShare] = useState<ProjectCostListItemWeb | null>(null);
-  const [editingSharedCostId, setEditingSharedCostId] = useState<string | null>(null);
-  const [savingSharedCost, setSavingSharedCost] = useState(false);
   const [editingClosedCostId, setEditingClosedCostId] = useState<string | null>(null);
   const [savingClosedCost, setSavingClosedCost] = useState(false);
 
+  const [costToManageShare, setCostToManageShare] = useState<ProjectCostListItemWeb | null>(null);
+  const [editingSharedCostId, setEditingSharedCostId] = useState<string | null>(null);
+  const [savingSharedCost, setSavingSharedCost] = useState(false);
+
   // Modal state for add/edit expense
   const [editingCost, setEditingCost] = useState<ProjectCostListItemWeb | null>(null);
-  const [modalDocumentFile, setModalDocumentFile] = useState<File | null>(null);
   const {
     isOpen: isExpenseModalOpen,
     onOpen: onExpenseModalOpen,
@@ -653,6 +651,11 @@ export default function ProjectSimpleCosts() {
   const { isOpen: isShareCostsModalOpen, onOpen: onShareCostsModalOpen, onClose: onShareCostsModalClose } = useDisclosure();
 
   const resourcePerms = useResourcePermissions(projectId);
+
+  const { updateCost, deleteCost } = useProjectCostMutations(
+    user?.activeTenantId ?? '',
+    projectId ?? ''
+  );
 
   // React Query — dane projektu (współdzielony cache między stronami projektu)
   const { data: projectData } = useProjectDetails(
@@ -704,68 +707,17 @@ export default function ProjectSimpleCosts() {
 
   const handleOpenAddModal = () => {
     setEditingCost(null);
-    setModalDocumentFile(null);
     onExpenseModalOpen();
   };
 
   const handleOpenEditModal = (cost: ProjectCostListItemWeb) => {
     setEditingCost(cost);
-    setModalDocumentFile(null);
     onExpenseModalOpen();
   };
 
   const handleCloseModal = () => {
     onExpenseModalClose();
     setEditingCost(null);
-    setModalDocumentFile(null);
-  };
-
-  const handleSaveCost = async (formData: ExpenseFormData) => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setSavingCost(true);
-    try {
-      if (editingCost) {
-        await projectApi.updateProjectCost(user.activeTenantId, projectId, editingCost.id, {
-          name: formData.name,
-          place: formData.place || undefined,
-          date: new Date(formData.date),
-          description: formData.description || undefined,
-          netAmount: formData.netAmount ? parseFloat(formData.netAmount) : null,
-          grossAmount: formData.grossAmount ? parseFloat(formData.grossAmount) : null,
-          isAccepted: formData.isAccepted,
-          // Jeśli koszt miał już dokument i dodajemy nowy plik → UpdatedDocument (zastąpienie)
-          // Jeśli koszt nie miał dokumentu i dodajemy plik → Document (nowy)
-          document: modalDocumentFile && !editingCost.hasDocument ? modalDocumentFile : undefined,
-          updatedDocument: modalDocumentFile && editingCost.hasDocument ? modalDocumentFile : undefined,
-          removeDocument: formData.removeDocument,
-        });
-        showApiSuccess('costUpdated');
-      } else {
-        await projectApi.createProjectCost(user.activeTenantId, projectId, {
-          name: formData.name,
-          place: formData.place || undefined,
-          date: new Date(formData.date),
-          description: formData.description || undefined,
-          netAmount: formData.netAmount ? parseFloat(formData.netAmount) : null,
-          grossAmount: formData.grossAmount ? parseFloat(formData.grossAmount) : null,
-          isAccepted: formData.isAccepted,
-          document: modalDocumentFile || undefined,
-        });
-        showApiSuccess('costAdded');
-      }
-
-      handleCloseModal();
-      refreshData();
-    } catch {
-      showError(
-        editingCost
-          ? "Wystąpił błąd podczas aktualizacji kosztu"
-          : "Wystąpił błąd podczas dodawania kosztu",
-      );
-    } finally {
-      setSavingCost(false);
-    }
   };
 
   const handleDeleteCost = (costId: string) => {
@@ -779,7 +731,7 @@ export default function ProjectSimpleCosts() {
     setDeletingCostId(costToDelete);
     onDeleteAlertClose();
     try {
-      await projectApi.deleteProjectCost(user.activeTenantId, projectId, costToDelete);
+      await deleteCost(costToDelete);
       showApiSuccess('costDeleted');
       refreshData();
     } catch {
@@ -818,21 +770,17 @@ export default function ProjectSimpleCosts() {
         return;
       }
 
-      await projectApi.updateProjectCost(
-        user.activeTenantId,
-        projectId,
-        costId,
-        {
-          name: cost.name,
-          place: cost.place || undefined,
-          date: new Date(cost.date),
-          description: cost.description || undefined,
-          netAmount: cost.netAmount ?? null,
-          grossAmount: cost.grossAmount ?? null,
-          isAccepted: !currentIsClosed,
-          removeDocument: false,
-        }
-      );
+      await updateCost(costId, {
+        name: cost.name,
+        number: cost.number ?? undefined,
+        contractorId: cost.contractorId ?? undefined,
+        date: new Date(cost.date),
+        description: cost.description || undefined,
+        net: cost.net ?? null,
+        gross: cost.gross ?? null,
+        isAccepted: !currentIsClosed,
+        removeDocument: false,
+      });
 
       showApiSuccess('statusUpdated');
       refreshData();
@@ -858,21 +806,17 @@ export default function ProjectSimpleCosts() {
         return;
       }
 
-      await projectApi.updateProjectCost(
-        user.activeTenantId,
-        projectId,
-        costId,
-        {
-          name: cost.name,
-          place: cost.place || undefined,
-          date: new Date(cost.date),
-          description: cost.description || undefined,
-          netAmount: cost.netAmount ?? null,
-          grossAmount: cost.grossAmount ?? null,
-          isAccepted: !currentIsClosed,
-          removeDocument: false,
-        }
-      );
+      await updateCost(costId, {
+        name: cost.name,
+        number: cost.number ?? undefined,
+        contractorId: cost.contractorId ?? undefined,
+        date: new Date(cost.date),
+        description: cost.description || undefined,
+        net: cost.net ?? null,
+        gross: cost.gross ?? null,
+        isAccepted: !currentIsClosed,
+        removeDocument: false,
+      });
 
       showApiSuccess('statusUpdated');
       refreshData();
@@ -1007,15 +951,21 @@ export default function ProjectSimpleCosts() {
         </Box>
 
         {/* MODAL: Dodaj / Edytuj koszt */}
-        <ExpenseFormModal
-          isOpen={isExpenseModalOpen}
-          onClose={handleCloseModal}
-          editingCost={editingCost}
-          documentFile={modalDocumentFile}
-          onDocumentFileChange={setModalDocumentFile}
-          onSave={handleSaveCost}
-          isSaving={savingCost}
-        />
+        {isExpenseModalOpen && user?.activeTenantId && projectId && (
+          <CostModal
+            type="project"
+            tenantId={user.activeTenantId}
+            projectId={projectId}
+            mode={editingCost ? 'edit' : 'create'}
+            cost={editingCost ?? undefined}
+            onSuccess={() => {
+              showApiSuccess(editingCost ? 'costUpdated' : 'costAdded');
+              handleCloseModal();
+              refreshData();
+            }}
+            onClose={handleCloseModal}
+          />
+        )}
 
         {/* ALERT: Potwierdzenie usunięcia kosztu */}
         <DeleteAlertDialog

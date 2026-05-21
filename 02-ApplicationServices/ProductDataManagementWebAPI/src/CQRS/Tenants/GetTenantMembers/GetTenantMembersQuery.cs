@@ -4,12 +4,12 @@ using Business.Interfaces.WebModels.Tenants;
 
 namespace CQRS.Tenants.GetTenantMembers
 {
-    public sealed record GetTenantMembersQuery(
-        Guid TenantId
-    ) : IRequestQuery<IEnumerable<TenantMemberWeb>>, IAuthorizableRequest
+    public sealed record GetTenantMembersQuery : IRequestQuery<IEnumerable<TenantMemberWeb>>, IAuthorizableRequest
     {
+        public required Guid TenantId { get; init; }
+
         public string PermissionCode => PermissionCodes.TenantView;
-        
+
         public ResourceRef GetResource() => new(TenantId: TenantId);
     }
 }

@@ -1,4 +1,4 @@
-﻿using Chat.DTOs;
+using Business.Interfaces.WebModels.Chats;
 using CQRS;
 
 namespace Chat.CQRS.Conversations.FindChatsByMembers;

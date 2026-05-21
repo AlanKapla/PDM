@@ -1,16 +1,8 @@
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Entities.Models.Costs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.Shared
@@ -19,19 +11,40 @@ namespace CQRS.ProjectCosts.Shared
     {
         private readonly IBlobStorageService blobStorageService;
         private readonly IRepository<BaseCostAttachment> attachmentRepository;
+        private readonly ILogger<ProjectCostHandlerBase> logger;
 
         private static readonly string ContainerName =
             BlobStorageSettings.GetContainerName(BlobContainerNames.CostTrackers);
 
         protected ProjectCostHandlerBase(
             IBlobStorageService blobStorageService,
-            IRepository<BaseCostAttachment> attachmentRepository)
+            IRepository<BaseCostAttachment> attachmentRepository,
+            ILogger<ProjectCostHandlerBase> logger)
         {
             this.blobStorageService = blobStorageService;
             this.attachmentRepository = attachmentRepository;
+            this.logger = logger;
         }
 
         protected async Task<BaseCostAttachment> UploadDocumentToCostAsync(
+            ProjectCost projectCost,
+            IFormFile document,
+            CancellationToken cancellationToken)
+        {
+            BaseCostAttachment attachment = await UploadBlobAndBuildAttachmentAsync(projectCost, document, cancellationToken);
+
+            await attachmentRepository.Insert(attachment);
+            await attachmentRepository.SaveChangesAsync(cancellationToken);
+
+            return attachment;
+        }
+
+        /// <summary>
+        /// Uploads the document to blob storage and returns an in-memory <see cref="BaseCostAttachment"/>
+        /// without persisting it to the database. Use when DB writes must occur in a specific order
+        /// (e.g. after the parent <see cref="ProjectCost"/> insert).
+        /// </summary>
+        protected async Task<BaseCostAttachment> UploadBlobAndBuildAttachmentAsync(
             ProjectCost projectCost,
             IFormFile document,
             CancellationToken cancellationToken)
@@ -44,7 +57,7 @@ namespace CQRS.ProjectCosts.Shared
                 await blobStorageService.UploadAsync(ContainerName, blobName, stream, document.ContentType, cancellationToken);
             }
 
-            BaseCostAttachment attachment = new BaseCostAttachment
+            return new BaseCostAttachment
             {
                 CostId = projectCost.Id,
                 TenantId = projectCost.TenantId,
@@ -55,11 +68,14 @@ namespace CQRS.ProjectCosts.Shared
                 FileSize = document.Length,
                 CreatedAt = DateTime.UtcNow
             };
+        }
 
+        protected async Task PersistAttachmentAsync(
+            BaseCostAttachment attachment,
+            CancellationToken cancellationToken)
+        {
             await attachmentRepository.Insert(attachment);
             await attachmentRepository.SaveChangesAsync(cancellationToken);
-
-            return attachment;
         }
 
         protected async Task RemoveAttachmentsAsync(
@@ -75,9 +91,13 @@ namespace CQRS.ProjectCosts.Shared
                 {
                     await blobStorageService.DeleteAsync(ContainerName, attachment.BlobName, cancellationToken);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // blob deletion failure is non-fatal; record is soft-deleted regardless
+                    // Blob deletion failure is non-fatal; the attachment row is soft-deleted regardless,
+                    // but we still want visibility into orphaned blobs.
+                    logger.LogWarning(ex,
+                        "Failed to delete blob {BlobName} for cost attachment {AttachmentId}",
+                        attachment.BlobName, attachment.Id);
                 }
 
                 attachment.IsDeleted = true;

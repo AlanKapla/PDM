@@ -1,17 +1,14 @@
-using Business.Interfaces.Exceptions;
-using Business.Interfaces.Model;
+using CQRS.Extensions;
 using FluentValidation;
 
 namespace CQRS.Notifications.GetUnreadNotifications
 {
-    public class GetUnreadNotificationsQueryValidator : AbstractValidator<GetUnreadNotificationsQuery>
+    public sealed class GetUnreadNotificationsQueryValidator : AbstractValidator<GetUnreadNotificationsQuery>
     {
-        public GetUnreadNotificationsQueryValidator(ICurrentUser currentUser)
+        public GetUnreadNotificationsQueryValidator()
         {
-            RuleFor(x => x)
-                .Must(_ => currentUser.IsAuthenticated && currentUser.Id != Guid.Empty)
-                .WithMessage("User must be authenticated")
-                .WithErrorCode("401");
+            RuleFor(x => x.Take).PageSize();
+            RuleFor(x => x.Skip).NonNegativeOffset();
         }
     }
 }

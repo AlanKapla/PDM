@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace Chat.CQRS.Messages.EditMessage;
 
@@ -6,11 +7,9 @@ public sealed class EditMessageCommandValidator : AbstractValidator<EditMessageC
 {
     public EditMessageCommandValidator()
     {
-        RuleFor(x => x.ChatId)
-            .NotEmpty().WithMessage("ChatId is required.");
+        RuleFor(x => x.ChatId).RequiredId();
 
-        RuleFor(x => x.MessageId)
-            .NotEmpty().WithMessage("MessageId is required.");
+        RuleFor(x => x.MessageId).RequiredId();
 
         RuleFor(x => x.NewContent)
             .NotEmpty().WithMessage("Message content cannot be empty.")

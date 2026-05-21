@@ -1,9 +1,7 @@
-﻿using Business.Implementation.Services;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 
 namespace WebApi.Authorization;
 
@@ -13,13 +11,13 @@ namespace WebApi.Authorization;
 public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {
     private readonly ICurrentUser currentUser;
-    private readonly AccessService accessService;
+    private readonly IAccessService accessService;
     private readonly IHttpContextAccessor httpContextAccessor;
     private readonly ILogger<PermissionAuthorizationHandler> logger;
 
     public PermissionAuthorizationHandler(
         ICurrentUser currentUser,
-        AccessService accessService,
+        IAccessService accessService,
         IHttpContextAccessor httpContextAccessor,
         ILogger<PermissionAuthorizationHandler> logger)
     {

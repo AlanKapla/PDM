@@ -1,4 +1,4 @@
-﻿using Chat.DTOs;
+using Business.Interfaces.WebModels.Chats;
 
 namespace Chat.Hubs;
 
@@ -36,9 +36,9 @@ public interface IChatClient
     Task ChatDeleted(Guid chatId);
 }
 
-public record MessageEditedPayload(Guid MessageId, Guid ChatId, string NewContent, DateTime EditedAt);
-public record MessageDeletedPayload(Guid MessageId, Guid ChatId);
-public record UserTypingPayload(Guid ChatId, Guid UserId, bool IsTyping);
-public record ReadReceiptPayload(Guid ChatId, Guid UserId, DateTime ReadAt);
-public record RemovedFromChatPayload(Guid ChatId, Guid? RedirectToChatId);
-public record MemberAddedPayload(Guid ChatId, ChatMemberWeb Member);
+public sealed record MessageEditedPayload(Guid MessageId, Guid ChatId, string NewContent, DateTime EditedAt);
+public sealed record MessageDeletedPayload(Guid MessageId, Guid ChatId);
+public sealed record UserTypingPayload(Guid ChatId, Guid UserId, bool IsTyping);
+public sealed record ReadReceiptPayload(Guid ChatId, Guid UserId, DateTime ReadAt);
+public sealed record RemovedFromChatPayload(Guid ChatId, Guid? RedirectToChatId);
+public sealed record MemberAddedPayload(Guid ChatId, ChatMemberWeb Member);

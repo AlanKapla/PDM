@@ -48,9 +48,9 @@ import { useProjectDetails } from "../hooks/queries";
 import { handleApiError } from "../utils/handleApiError";
 
 /** Formatuje kwotę z separatorami tysięcy (spacjami) */
-const formatCurrency = (value: number | null | undefined): string => {
+const formatCurrency = (value: number | null | undefined, currency: string = 'PLN'): string => {
   if (value == null) return '-';
-  return `${value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN`;
+  return `${value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 };
 
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
@@ -174,11 +174,11 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                 <HStack justify="space-between">
                   <VStack align="flex-start" spacing={0}>
                     <Text fontSize="xs" color="neutral.500">Netto</Text>
-                    <Text fontSize="sm" fontWeight="medium">{formatCurrency(costEstimate.totalNet)}</Text>
+                    <Text fontSize="sm" fontWeight="medium">{formatCurrency(costEstimate.totalNet, costEstimate.currencySymbol ?? costEstimate.currencyCode)}</Text>
                   </VStack>
                   <VStack align="flex-end" spacing={0}>
                     <Text fontSize="xs" color="neutral.500">Brutto</Text>
-                    <Text fontSize="sm" fontWeight="bold" color="green.600">{formatCurrency(costEstimate.totalGross)}</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="green.600">{formatCurrency(costEstimate.totalGross, costEstimate.currencySymbol ?? costEstimate.currencyCode)}</Text>
                   </VStack>
                 </HStack>
 
@@ -283,10 +283,10 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                     <Text fontSize="sm">{costEstimate.templateName}</Text>
                   </Td>
                   <Td isNumeric>
-                    {formatCurrency(costEstimate.totalNet)}
+                    {formatCurrency(costEstimate.totalNet, costEstimate.currencySymbol ?? costEstimate.currencyCode)}
                   </Td>
                   <Td isNumeric fontWeight="bold" color="green.600">
-                    {formatCurrency(costEstimate.totalGross)}
+                    {formatCurrency(costEstimate.totalGross, costEstimate.currencySymbol ?? costEstimate.currencyCode)}
                   </Td>
                   <Td>
                     <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>

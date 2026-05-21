@@ -2,6 +2,7 @@
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimates;
+using Entities.Models.Projects;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using Entities.Models.CostEstimates;
@@ -19,19 +20,22 @@ namespace CQRS.CostEstimates.GetCostEstimates
         private readonly ICostEstimateCacheService ceCacheService;
         private readonly IUserService userService;
         private readonly ICurrentUser currentUser;
+        private readonly IReadRepository<ProjectCurrency> projectCurrencyRepository;
 
         public GetCostEstimatesQueryHandler(
             IReadRepository<CostEstimate> costEstimateRepository,
             IReadRepository<SharedCostEstimate> sharedCeRepository,
             ICostEstimateCacheService ceCacheService,
             IUserService userService,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IReadRepository<ProjectCurrency> projectCurrencyRepository)
         {
             this.costEstimateRepository = costEstimateRepository;
             this.sharedCeRepository = sharedCeRepository;
             this.ceCacheService = ceCacheService;
             this.userService = userService;
             this.currentUser = currentUser;
+            this.projectCurrencyRepository = projectCurrencyRepository;
         }
 
         public async Task<List<CostEstimateListItemWeb>> Handle(GetCostEstimatesQuery request, CancellationToken cancellationToken)
@@ -77,6 +81,10 @@ namespace CQRS.CostEstimates.GetCostEstimates
             {
                 return [];
             }
+
+            ProjectCurrency? projectCurrency = await projectCurrencyRepository.GetFirstBySearch(
+                c => c.ProjectId == request.ProjectId,
+                cancellationToken);
 
             List<Guid> templateIds = costEstimatesList.Select(c => c.TemplateId).Distinct().ToList();
 
@@ -137,7 +145,9 @@ namespace CQRS.CostEstimates.GetCostEstimates
                     OwnerName: membersDict.TryGetValue(c.OwnerId, out var owner) ? owner.FullName : "Unknown",
                     IsSharedWithMe: request.Scope == ResourceScope.Shared,
                     IsSharedByMe: sharesByCeId.ContainsKey(c.Id),
-                    SharedWithUsers: sharesByCeId.TryGetValue(c.Id, out var shares) ? shares : []
+                    SharedWithUsers: sharesByCeId.TryGetValue(c.Id, out var shares) ? shares : [],
+                    CurrencyCode: projectCurrency?.Code,
+                    CurrencySymbol: projectCurrency?.Symbol
                 ))
                 .ToList();
         }

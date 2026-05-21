@@ -1,11 +1,3 @@
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 
 namespace CQRS.WorkSchedules.Shared
@@ -13,7 +5,7 @@ namespace CQRS.WorkSchedules.Shared
     /// <summary>
     /// Shared DTO for work schedule stage (used in both Create and Update)
     /// </summary>
-    public record WorkScheduleStageDto(
+    public sealed record WorkScheduleStageDto(
         Guid? Id,
         string Name,
         int Order,
@@ -26,7 +18,7 @@ namespace CQRS.WorkSchedules.Shared
     /// TempId is a client-assigned temporary identifier for new works (no DB Id yet),
     /// used to reference the work in dependency definitions within the same request.
     /// </summary>
-    public record WorkScheduleWorkDto(
+    public sealed record WorkScheduleWorkDto(
         Guid? Id,
         Guid? TempId,
         string Name,
@@ -41,7 +33,7 @@ namespace CQRS.WorkSchedules.Shared
     /// <summary>
     /// Shared DTO for work schedule work period (used in both Create and Update)
     /// </summary>
-    public record WorkScheduleWorkPeriodDto(
+    public sealed record WorkScheduleWorkPeriodDto(
         Guid? Id,
         DateTime StartDate,
         DateTime EndDate,
@@ -51,7 +43,7 @@ namespace CQRS.WorkSchedules.Shared
     /// <summary>
     /// Shared DTO for work schedule work comment (used in both Create and Update)
     /// </summary>
-    public record WorkScheduleWorkCommentDto(
+    public sealed record WorkScheduleWorkCommentDto(
         Guid? Id,
         string Content
     );
@@ -62,7 +54,7 @@ namespace CQRS.WorkSchedules.Shared
     /// Use TempId when referencing a new work item being created in the same request.
     /// If both are provided, DbId takes precedence.
     /// </summary>
-    public record WorkScheduleWorkDependencyDto(
+    public sealed record WorkScheduleWorkDependencyDto(
         Guid? PredecessorDbId,
         Guid? PredecessorTempId,
         Guid? SuccessorDbId,
@@ -74,7 +66,7 @@ namespace CQRS.WorkSchedules.Shared
     /// <summary>
     /// DTO for a single work period used in SetWorkScheduleStageWorkPeriods (replace-all operation).
     /// </summary>
-    public record WorkPeriodDto(
+    public sealed record WorkPeriodDto(
         DateTime StartDate,
         DateTime EndDate,
         bool IsClosed
@@ -84,7 +76,7 @@ namespace CQRS.WorkSchedules.Shared
     /// DTO for a dependency used in SetWorkScheduleDependencies (replace-all operation).
     /// Uses direct work IDs (no TempId) since all works already exist in the database.
     /// </summary>
-    public record WorkDependencyDto(
+    public sealed record WorkDependencyDto(
         Guid PredecessorWorkId,
         Guid SuccessorWorkId,
         WorkDependencyType DependencyType,

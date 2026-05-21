@@ -1,4 +1,4 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
@@ -6,7 +6,6 @@ using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
 using Entities.Models.Costs;
 using Entities.Models.Chats;
-using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
@@ -33,9 +32,10 @@ namespace CQRS.CostTrackers.CreateTrackedCost
             IReadRepository<WorkScheduleStageWork> stageWorkRepository,
             ICostTrackerFinancialService financialService,
             ICostTrackerAttachmentService attachmentService,
+            IContractorService contractorService,
             ICurrentUser currentUser,
             ILogger<CreateTrackedCostCommandHandler> logger)
-            : base(currentUser, trackedCostRepository, costEstimateItemRepository, stageWorkRepository, attachmentService)
+            : base(currentUser, trackedCostRepository, costEstimateItemRepository, stageWorkRepository, attachmentService, contractorService)
         {
             this.trackedCostRepository = trackedCostRepository;
             this.financialService = financialService;
@@ -63,7 +63,7 @@ namespace CQRS.CostTrackers.CreateTrackedCost
                 Description = request.Description,
                 Net = net,
                 Gross = gross,
-                Contractor = request.Contractor,
+                ContractorId = request.ContractorId,
                 Date = request.Date,
                 CreatedAt = DateTime.UtcNow
             };
@@ -78,7 +78,9 @@ namespace CQRS.CostTrackers.CreateTrackedCost
             List<BaseCostAttachment> attachments = await attachmentService.SyncAttachmentsAsync(
                 cost, request.NewFiles, [], request.TenantId, request.ProjectId, cancellationToken);
 
-            return BuildCostWeb(cost, attachments);
+            await LoadContractorNamesAsync(new List<BaseCost> { cost }, request.TenantId, cancellationToken);
+
+            return MapTrackedCostToWeb(cost, attachments);
         }
     }
 }

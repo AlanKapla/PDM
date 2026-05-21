@@ -177,6 +177,7 @@ export default function ProjectBudgetDashboard({
                       tenantId={tenantId}
                       projectId={projectId}
                       onCostMutated={refetch}
+                      allEstimates={data.costEstimateSummaries}
                     />
                   ))
                 )}
@@ -190,6 +191,7 @@ export default function ProjectBudgetDashboard({
                 tenantId={tenantId}
                 projectId={projectId}
                 onCostMutated={refetch}
+                estimates={data.costEstimateSummaries}
               />
             </TabPanel>
 

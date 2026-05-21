@@ -40,6 +40,47 @@ namespace Repositories.Repository.Repositories
             List<T> entities = await query.Where(predicate).ToListAsync(cancellationToken);
             return entities.ToDictionary(x => x.Id);
         }
+
+        public async Task<List<T>> GetPagedBySearchAsync<TKey>(
+            Expression<Func<T, bool>> predicate,
+            Expression<Func<T, TKey>> orderBy,
+            bool descending,
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default,
+            params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet.IncludeMultiple(includes).Where(predicate);
+            IOrderedQueryable<T> ordered = descending
+                ? query.OrderByDescending(orderBy)
+                : query.OrderBy(orderBy);
+            return await ordered.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<T>> GetPagedBySearchAsync(
+            Expression<Func<T, bool>> predicate,
+            Func<IQueryable<T>, IOrderedQueryable<T>> orderBy,
+            int take,
+            CancellationToken cancellationToken = default,
+            params Func<IQueryable<T>, IIncludableQueryable<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet.IncludeMultiple(includes).Where(predicate);
+            IOrderedQueryable<T> ordered = orderBy(query);
+            return await ordered.Take(take).ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<TResult>> SelectGroupedAsync<TKey, TResult>(
+            Expression<Func<T, bool>> predicate,
+            Expression<Func<T, TKey>> groupBy,
+            Expression<Func<IGrouping<TKey, T>, TResult>> selector,
+            CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Where(predicate)
+                .GroupBy(groupBy)
+                .Select(selector)
+                .ToListAsync(cancellationToken);
+        }
     }
 
 }

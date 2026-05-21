@@ -125,13 +125,49 @@ jobs:
 
           Write-Host "✅ Migration completed successfully"
 
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        working-directory: 02-ApplicationServices/ProductDataManagementWebAPI
+        run: dotnet restore
+
+      - name: Build test projects
+        working-directory: 02-ApplicationServices/ProductDataManagementWebAPI
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        working-directory: 02-ApplicationServices/ProductDataManagementWebAPI
+        run: |
+          dotnet test --configuration Release --no-build \
+            --logger "trx;LogFileName=test-results.trx" \
+            --results-directory ${{ github.workspace }}/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: ${{ github.workspace }}/test-results/**/*.trx
+          retention-days: 30
+
   build-and-deploy-api:
     runs-on: ubuntu-latest
-    needs: migrate-database
+    needs: [migrate-database, run-tests]
     if: |
       always() &&
       github.event.inputs.deploy_api == 'true' &&
-      (needs.migrate-database.result == 'success' || needs.migrate-database.result == 'skipped')
+      (needs.migrate-database.result == 'success' || needs.migrate-database.result == 'skipped') &&
+      needs.run-tests.result == 'success'
     environment:
       name: azure-${{ github.event.inputs.environment }}
       url: ${{ vars.API_URL }}
@@ -365,7 +401,7 @@ jobs:
 
   verify-deployment:
     runs-on: ubuntu-latest
-    needs: [migrate-database, build-and-deploy-api, build-and-deploy-ui, build-and-deploy-landing]
+    needs: [migrate-database, run-tests, build-and-deploy-api, build-and-deploy-ui, build-and-deploy-landing]
     if: always() && !cancelled()
     environment:
       name: azure-${{ github.event.inputs.environment }}
@@ -381,6 +417,7 @@ jobs:
         run: |
           echo "❌ One or more deployment stages failed!"
           echo "   Migration: ${{ needs.migrate-database.result }}"
+          echo "   Tests:     ${{ needs.run-tests.result }}"
           echo "   API:       ${{ needs.build-and-deploy-api.result }}"
           echo "   UI:        ${{ needs.build-and-deploy-ui.result }}"
           echo "   Landing:   ${{ needs.build-and-deploy-landing.result }}"
@@ -407,6 +444,7 @@ jobs:
           Write-Host ""
           Write-Host "🔧 Stages:"
           Write-Host "   Migration: ${{ needs.migrate-database.result }}"
+          Write-Host "   Tests:     ${{ needs.run-tests.result }}"
           Write-Host "   API:       ${{ needs.build-and-deploy-api.result }}"
           Write-Host "   UI:        ${{ needs.build-and-deploy-ui.result }}"
           Write-Host "   Landing:   ${{ needs.build-and-deploy-landing.result }}"

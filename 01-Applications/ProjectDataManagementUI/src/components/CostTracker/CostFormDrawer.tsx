@@ -10,12 +10,16 @@ import {
   Button,
   HStack,
   Text,
+  VStack,
   useBreakpointValue,
 } from "@chakra-ui/react";
 import type { DrawerProps } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import CostForm, { validateCostForm } from "./CostForm";
+import CostLinkSection from "./CostLinkSection";
 import { useToastNotification } from "../../hooks/useToastNotification";
+import { useProjectPermissions } from "../../hooks/useProjectPermissions";
+import { useTenantPermissions } from "../../hooks/useTenantPermissions";
 import { costTrackerApi } from "../../api/costTrackerApi";
 import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
@@ -40,7 +44,7 @@ const EMPTY_FORM: CostFormValues = {
   description: "",
   net: undefined,
   number: "",
-  contractor: "",
+  contractorId: null,
   date: "",
   newFiles: [],
   existingAttachmentIds: undefined,
@@ -59,6 +63,9 @@ export default function CostFormDrawer({
 }: CostFormDrawerProps) {
   const { showSuccess, showError } = useToastNotification();
   const queryClient = useQueryClient();
+  const { canEdit: isProjectAdmin } = useProjectPermissions(projectId);
+  const { canEdit: isTenantAdmin } = useTenantPermissions();
+  const canQuickAdd = isProjectAdmin || isTenantAdmin;
   const placement = useBreakpointValue({
     base: "bottom",
     md: "right",
@@ -74,7 +81,7 @@ export default function CostFormDrawer({
           description: cost.description ?? "",
           net: cost.net ?? undefined,
           number: cost.number ?? "",
-          contractor: cost.contractor ?? "",
+          contractorId: cost.contractorId ?? null,
           date: cost.date ?? "",
           newFiles: [],
           existingAttachmentIds: cost.attachments.map((a) => a.id),
@@ -84,6 +91,30 @@ export default function CostFormDrawer({
 
   const [errors, setErrors] = useState<Partial<Record<keyof CostFormValues, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Zarządzanie powiązaniem kosztu
+  const [linkItemId, setLinkItemId] = useState<string | null>(
+    () => cost?.costEstimateItemId ?? null
+  );
+  const [linkWorkId, setLinkWorkId] = useState<string | null>(
+    () => cost?.workScheduleStageWorkId ?? null
+  );
+
+  const handleLinkChange = (newItemId: string | null) => {
+    setLinkItemId(newItemId);
+    // Zmiana pozycji kosztorysu — wyczyść zakres pracy, bo może nie być spójny
+    if (newItemId !== null) {
+      setLinkWorkId(null);
+    }
+  };
+
+  const handleWorkChange = (workId: string | null, relatedEstimateItemId?: string | null) => {
+    setLinkWorkId(workId);
+    // Auto-ustaw pozycję kosztorysu na podstawie wybranego zakresu pracy
+    if (workId !== null && relatedEstimateItemId) {
+      setLinkItemId(relatedEstimateItemId);
+    }
+  };
 
   const handleClose = () => {
     setValues(EMPTY_FORM);
@@ -106,7 +137,7 @@ export default function CostFormDrawer({
         description: values.description?.trim() || undefined,
         net: values.net !== undefined && values.net !== "" ? Number(values.net) : undefined,
         number: values.number?.trim() || undefined,
-        contractor: values.contractor?.trim() || undefined,
+        contractorId: values.contractorId?.trim() || undefined,
         date: values.date || undefined,
         newFiles: values.newFiles ?? [],
       };
@@ -114,8 +145,8 @@ export default function CostFormDrawer({
       if (isEdit && cost) {
         await costTrackerApi.updateCost(tenantId, projectId, cost.id, {
           ...payload,
-          costEstimateId: cost.costEstimateId,
-          costEstimateItemId: cost.costEstimateItemId,
+          costEstimateItemId: linkItemId ?? undefined,
+          workScheduleStageWorkId: linkWorkId ?? undefined,
           existingAttachmentIds: values.existingAttachmentIds,
         });
         showSuccess("Koszt zaktualizowany");
@@ -150,13 +181,29 @@ export default function CostFormDrawer({
         </DrawerHeader>
 
         <DrawerBody>
-          <CostForm
-            values={values}
-            onChange={setValues}
-            existingAttachments={cost?.attachments ?? []}
-            errors={errors}
-            isSubmitting={isSubmitting}
-          />
+          <VStack spacing={4} align="stretch">
+            <CostForm
+              values={values}
+              onChange={setValues}
+              existingAttachments={cost?.attachments ?? []}
+              errors={errors}
+              isSubmitting={isSubmitting}
+              tenantId={tenantId}
+              canQuickAdd={canQuickAdd}
+            />
+            {isEdit && (
+              <CostLinkSection
+                currentEstimatePath={cost?.costEstimateItemPath ?? null}
+                currentWorkPath={cost?.workScheduleWorkPath ?? null}
+                selectedItemId={linkItemId}
+                selectedWorkId={linkWorkId}
+                onChange={handleLinkChange}
+                onWorkChange={handleWorkChange}
+                tenantId={tenantId}
+                projectId={projectId}
+              />
+            )}
+          </VStack>
         </DrawerBody>
 
         <DrawerFooter>

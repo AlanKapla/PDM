@@ -1,4 +1,4 @@
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
@@ -13,7 +13,6 @@ using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
-using Entities.Models.Costs;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostTrackers.Shared
@@ -21,19 +20,23 @@ namespace CQRS.CostTrackers.Shared
     public abstract class CostTrackerHandlerBase
     {
         private readonly IRepository<TrackedCost> trackedCostRepository;
-        private readonly ICostTrackerAttachmentService attachmentService;
+        protected readonly ICostTrackerAttachmentService attachmentService;
         protected readonly ICurrentUser currentUser;
         protected readonly ICostTrackerFinancialService? financialService;
         protected readonly ICostTrackerTimelineService? timelineService;
+        protected readonly IContractorService contractorService;
+        private Dictionary<Guid, string> contractorNamesCache = new Dictionary<Guid, string>();
 
         protected CostTrackerHandlerBase(
             ICurrentUser currentUser,
             IRepository<TrackedCost> trackedCostRepository,
-            ICostTrackerAttachmentService attachmentService)
+            ICostTrackerAttachmentService attachmentService,
+            IContractorService contractorService)
         {
             this.currentUser = currentUser;
             this.trackedCostRepository = trackedCostRepository;
             this.attachmentService = attachmentService;
+            this.contractorService = contractorService;
         }
 
         protected CostTrackerHandlerBase(
@@ -41,8 +44,9 @@ namespace CQRS.CostTrackers.Shared
             IRepository<TrackedCost> trackedCostRepository,
             ICostTrackerAttachmentService attachmentService,
             ICostTrackerFinancialService financialService,
-            ICostTrackerTimelineService timelineService)
-            : this(currentUser, trackedCostRepository, attachmentService)
+            ICostTrackerTimelineService timelineService,
+            IContractorService contractorService)
+            : this(currentUser, trackedCostRepository, attachmentService, contractorService)
         {
             this.financialService = financialService;
             this.timelineService = timelineService;
@@ -50,10 +54,12 @@ namespace CQRS.CostTrackers.Shared
 
         protected CostTrackerHandlerBase(
             ICurrentUser currentUser,
-            IRepository<TrackedCost> trackedCostRepository)
+            IRepository<TrackedCost> trackedCostRepository,
+            IContractorService contractorService)
         {
             this.currentUser = currentUser;
             this.trackedCostRepository = trackedCostRepository;
+            this.contractorService = contractorService;
         }
 
         protected async Task ValidateAccessAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken)
@@ -105,12 +111,37 @@ namespace CQRS.CostTrackers.Shared
                 Description = cost.Description,
                 Net = cost.Net,
                 Gross = cost.Gross,
-                Contractor = cost.Contractor,
+                ContractorId = cost.ContractorId,
+                ContractorName = cost.ContractorId.HasValue
+                    ? contractorNamesCache.GetValueOrDefault(cost.ContractorId.Value)
+                    : null,
                 Date = cost.Date,
                 CreatedAt = cost.CreatedAt,
                 UpdatedAt = cost.UpdatedAt,
                 Attachments = attachmentWebs
             };
+        }
+
+        protected async Task<Dictionary<Guid, string>> LoadContractorNamesAsync(
+            IEnumerable<BaseCost> costs, Guid tenantId, CancellationToken cancellationToken)
+        {
+            List<Guid> ids = costs
+                .Where(c => c.ContractorId.HasValue)
+                .Select(c => c.ContractorId!.Value)
+                .Distinct()
+                .ToList();
+
+            Dictionary<Guid, string> names = ids.Count > 0
+                ? await contractorService.GetNamesByIdsAsync(ids, tenantId, cancellationToken)
+                : new Dictionary<Guid, string>();
+
+            contractorNamesCache = names;
+            return names;
+        }
+
+        protected void SetContractorNames(Dictionary<Guid, string> names)
+        {
+            contractorNamesCache = names;
         }
 
         protected WorkItemLinkWeb BuildWorkItemLinkWebFromStageWork(
@@ -538,7 +569,10 @@ namespace CQRS.CostTrackers.Shared
                 Description = cost.Description,
                 Net = cost.Net,
                 Gross = cost.Gross,
-                Contractor = cost.Contractor,
+                ContractorId = cost.ContractorId,
+                ContractorName = cost.ContractorId.HasValue
+                    ? contractorNamesCache.GetValueOrDefault(cost.ContractorId.Value)
+                    : null,
                 Date = cost.Date,
                 CreatedAt = cost.CreatedAt,
                 UpdatedAt = cost.UpdatedAt,

@@ -1,16 +1,16 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.CostEstimates.ReorderCostEstimateItems
 {
-    public class ReorderCostEstimateItemsCommandValidator : AbstractValidator<ReorderCostEstimateItemsCommand>
+    public sealed class ReorderCostEstimateItemsCommandValidator : AbstractValidator<ReorderCostEstimateItemsCommand>
     {
         public ReorderCostEstimateItemsCommandValidator()
         {
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("Cost estimate ID is required");
-
-            RuleFor(x => x.GroupId)
-                .NotEmpty().WithMessage("Group ID is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
+            RuleFor(x => x.GroupId).RequiredId();
 
             RuleFor(x => x.Items)
                 .NotNull().WithMessage("Items collection is required")
@@ -18,11 +18,8 @@ namespace CQRS.CostEstimates.ReorderCostEstimateItems
 
             RuleForEach(x => x.Items).ChildRules(item =>
             {
-                item.RuleFor(i => i.ItemId)
-                    .NotEmpty().WithMessage("Item ID is required");
-
-                item.RuleFor(i => i.Order)
-                    .GreaterThanOrEqualTo(0).WithMessage("Order must be non-negative");
+                item.RuleFor(i => i.ItemId).RequiredId();
+                item.RuleFor(i => i.Order).NonNegativeOrder();
             });
         }
     }

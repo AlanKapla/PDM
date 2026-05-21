@@ -1,15 +1,16 @@
 ﻿using Business.Interfaces.Constants;
+using CQRS.Extensions;
 using FluentValidation;
 
 namespace CQRS.Files.UploadProjectFileVersion
 {
-    public class UploadProjectFileVersionCommandValidator : AbstractValidator<UploadProjectFileVersionCommand>
+    public sealed class UploadProjectFileVersionCommandValidator : AbstractValidator<UploadProjectFileVersionCommand>
     {
         public UploadProjectFileVersionCommandValidator()
         {
-            RuleFor(x => x.FileId)
-                .NotEmpty()
-                .WithMessage("FileId is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.FileId).RequiredId();
 
             RuleFor(x => x.File)
                 .NotNull()
@@ -18,23 +19,10 @@ namespace CQRS.Files.UploadProjectFileVersion
             When(x => x.File != null, () =>
             {
                 RuleFor(x => x.File.Length)
-                    .LessThanOrEqualTo(FileConstants.MaxFileSizeBytes)
-                    .WithMessage($"File cannot be larger than {FileConstants.MaxFileSizeBytes / 1024 / 1024} MB");
-
-                RuleFor(x => x.File.Length)
-                    .GreaterThan(0)
-                    .WithMessage("File cannot be empty");
+                    .MaxFileSize(FileConstants.MaxFileSizeBytes);
 
                 RuleFor(x => x.File.FileName)
-                    .Must(fileName =>
-                    {
-                        if (string.IsNullOrWhiteSpace(fileName))
-                            return false;
-
-                        string extension = Path.GetExtension(fileName).ToLowerInvariant();
-                        return FileConstants.AllowedExtensions.Contains(extension);
-                    })
-                    .WithMessage($"Allowed file formats are: {FileConstants.GetAllowedExtensionsMessage()}");
+                    .AllowedFileExtension(FileConstants.AllowedExtensions);
             });
 
             When(x => !string.IsNullOrWhiteSpace(x.Comment), () =>

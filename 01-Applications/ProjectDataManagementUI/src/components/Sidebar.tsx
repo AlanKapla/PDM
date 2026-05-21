@@ -36,7 +36,6 @@ import { ChatUnreadContext } from "../context/ChatUnreadContext";
 export function SidebarContent() {
   const location = useLocation();
   const { totalUnread } = useContext(ChatUnreadContext);
-
   const { data: invitations = [] } = useActiveInvitations({
     refetchInterval: 30000,
   });

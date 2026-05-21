@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore; // required for DbContext, DbSet
+using Microsoft.EntityFrameworkCore; // required for DbContext, DbSet
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Entities.Models.Chats;
 using Entities.Models.Costs;
@@ -14,7 +14,6 @@ using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
-using Entities.Models.Costs;
 
 namespace Entities.Context
 {
@@ -62,6 +61,7 @@ namespace Entities.Context
         public DbSet<CostEstimateItemFieldValue> CostEstimateItemFieldValues => Set<CostEstimateItemFieldValue>();
         public DbSet<CostEstimateFieldFile> CostEstimateFieldFiles => Set<CostEstimateFieldFile>();
         public DbSet<SharedCostEstimate> SharedCostEstimates => Set<SharedCostEstimate>();
+        public DbSet<Contractor> Contractors => Set<Contractor>();
         public DbSet<BaseCost> Costs => Set<BaseCost>();
         public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();

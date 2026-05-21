@@ -1,11 +1,12 @@
 ﻿namespace Business.Interfaces.WebModels.Tenants
 {
-    public sealed record UserTenantWeb(
-        Guid Id,
-        string Name,
-        DateTime CreatedAt,
-        bool IsActive,
-        string RoleCode,
-        bool IsActiveTenant
-    );
+    public sealed record UserTenantWeb
+    {
+        public required Guid Id { get; init; }
+        public required string Name { get; init; }
+        public required DateTime CreatedAt { get; init; }
+        public required bool IsActive { get; init; }
+        public required string RoleCode { get; init; }
+        public required bool IsActiveTenant { get; init; }
+    }
 }

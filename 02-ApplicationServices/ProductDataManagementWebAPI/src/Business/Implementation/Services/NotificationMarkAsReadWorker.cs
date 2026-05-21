@@ -23,6 +23,13 @@ namespace Business.Implementation.Services
             this.dispatcher = dispatcher;
         }
 
+        private const int MaxDequeueCount = 5;
+
+        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await queueStorage.EnsureQueueAsync(QueueNames.NotificationMarkAsRead, stoppingToken);
@@ -38,11 +45,16 @@ namespace Business.Implementation.Services
                         continue;
                     }
 
-                    JsonSerializerOptions jsonOptions = new JsonSerializerOptions
+                    if (message.DequeueCount > MaxDequeueCount)
                     {
-                        PropertyNameCaseInsensitive = true
-                    };
-                    NotificationMarkAsReadDto? notificationMarkAsRead = JsonSerializer.Deserialize<NotificationMarkAsReadDto>(message.Text, jsonOptions);
+                        logger.LogError(
+                            "Poison message detected after {Count} attempts. MessageId: {MessageId}. Deleting.",
+                            message.DequeueCount, message.MessageId);
+                        await queueStorage.DeleteMessageAsync(QueueNames.NotificationMarkAsRead, message.MessageId, message.PopReceipt, stoppingToken);
+                        continue;
+                    }
+
+                    NotificationMarkAsReadDto? notificationMarkAsRead = JsonSerializer.Deserialize<NotificationMarkAsReadDto>(message.Text, JsonOptions);
 
                     if (notificationMarkAsRead != null)
                     {

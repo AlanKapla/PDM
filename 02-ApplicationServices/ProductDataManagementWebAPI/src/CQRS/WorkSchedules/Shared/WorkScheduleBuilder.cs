@@ -1,14 +1,6 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using Repositories.Repository.Interfaces;
 
@@ -74,7 +66,7 @@ namespace CQRS.WorkSchedules.Shared
             List<WorkRow> works = stageIds.Count > 0
                 ? await workRepo.SelectAsync(
                     w => stageIds.Contains(w.WorkScheduleStageId),
-                    w => new WorkRow(w.Id, w.WorkScheduleStageId, w.Name, w.Order, w.ColorRgb, w.PlannedStartDate, w.PlannedEndDate),
+                    w => new WorkRow(w.Id, w.WorkScheduleStageId, w.CostEstimateItemId, w.Name, w.Order, w.ColorRgb, w.PlannedStartDate, w.PlannedEndDate),
                     ct)
                 : new List<WorkRow>();
 
@@ -187,6 +179,7 @@ namespace CQRS.WorkSchedules.Shared
 
             return new WorkScheduleStageWorkWeb(
                 Id: w.Id,
+                CostEstimateItemId: w.CostEstimateItemId,
                 Name: w.Name,
                 Order: w.Order,
                 ColorRgb: w.ColorRgb,
@@ -211,7 +204,7 @@ namespace CQRS.WorkSchedules.Shared
 
         private sealed record ScheduleRow(Guid Id, Guid TenantId, Guid ProjectId, string Name, DateTime CreatedAt, Guid CreatedByUserId, Guid? CostEstimateId);
         private sealed record StageRow(Guid Id, string Name, int Order, Guid? ParentStageId, Guid? CostEstimateGroupId);
-        private sealed record WorkRow(Guid Id, Guid WorkScheduleStageId, string Name, int Order, string ColorRgb, DateTime? PlannedStartDate, DateTime? PlannedEndDate);
+        private sealed record WorkRow(Guid Id, Guid WorkScheduleStageId, Guid? CostEstimateItemId, string Name, int Order, string ColorRgb, DateTime? PlannedStartDate, DateTime? PlannedEndDate);
         private sealed record PeriodRow(Guid Id, Guid WorkScheduleStageWorkId, DateTime StartDate, DateTime EndDate, bool IsClosed);
         private sealed record AssigneeRow(Guid WorkScheduleStageWorkId, Guid UserId);
         private sealed record CommentRow(Guid Id, Guid WorkScheduleStageWorkId, string Content, Guid CreatedByUserId, DateTime CreatedAt);

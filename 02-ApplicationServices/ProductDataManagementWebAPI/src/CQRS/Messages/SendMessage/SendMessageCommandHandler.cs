@@ -35,13 +35,11 @@ namespace CQRS.Messages.SendMessage
 
         public async Task<Guid> Handle(SendMessageCommand request, CancellationToken cancellationToken)
         {
-            MessageHistory message = new MessageHistory
-            {
-                ChatId = request.ChatId,
-                UserId = currentUser.Id,
-                Content = request.Content,
-                CreatedAt = DateTime.UtcNow
-            };
+            MessageHistory message = MessageHistory.Create(
+                chatId: request.ChatId,
+                authorId: currentUser.Id,
+                content: request.Content,
+                replyToId: null);
 
             await messageRepo.Insert(message);
 

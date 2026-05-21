@@ -1,25 +1,19 @@
-using Entities.Models;
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
+using Entities.Models;
 using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Tenants.RemoveTenantMember
 {
-    public class RemoveTenantMemberCommandHandler : IRequestHandler<RemoveTenantMemberCommand, Unit>
+    public sealed class RemoveTenantMemberCommandHandler : IRequestHandler<RemoveTenantMemberCommand, Unit>
     {
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IReadRepository<User> userRepo;
@@ -64,7 +58,7 @@ namespace CQRS.Tenants.RemoveTenantMember
             TenantPreferencesProfile? tenantProfile = await tenantPreferencesRepo.GetFirstBySearch(
                 p => p.UserId == request.UserId && p.ActiveTenantId == request.TenantId);
 
-            if (tenantProfile != null)
+            if (tenantProfile is not null)
             {
                 tenantProfile.ActiveTenantId = null;
                 await tenantPreferencesRepo.Update(tenantProfile);
@@ -92,7 +86,7 @@ namespace CQRS.Tenants.RemoveTenantMember
                 }
             };
 
-            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
             await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;

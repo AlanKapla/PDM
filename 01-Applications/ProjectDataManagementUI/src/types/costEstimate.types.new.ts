@@ -284,6 +284,10 @@ export interface CostEstimateListItemWeb {
   isSharedByMe: boolean;
   /** Lista userów, którym kosztorys jest udostępniony (widoczna dla ownera/admina) */
   sharedWithUsers: CostEstimateShareWeb[];
+  /** Kod waluty projektu (np. "PLN", "EUR") */
+  currencyCode?: string;
+  /** Symbol waluty projektu (np. "zł", "€") */
+  currencySymbol?: string;
 }
 
 // ========== HELPER FUNCTIONS ==========

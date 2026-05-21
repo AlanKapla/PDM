@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace Chat.CQRS.Messages.MarkAsRead;
 
@@ -6,7 +7,6 @@ public sealed class MarkAsReadCommandValidator : AbstractValidator<MarkAsReadCom
 {
     public MarkAsReadCommandValidator()
     {
-        RuleFor(x => x.ChatId)
-            .NotEmpty().WithMessage("ChatId is required.");
+        RuleFor(x => x.ChatId).RequiredId();
     }
 }

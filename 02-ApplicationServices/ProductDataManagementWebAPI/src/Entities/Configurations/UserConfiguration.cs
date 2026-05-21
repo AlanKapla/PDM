@@ -25,7 +25,15 @@ namespace Entities.Configurations
             builder.Property(u => u.AzureAdB2CObjectId).IsRequired().HasMaxLength(200);
             builder.Property(u => u.IsActive).HasDefaultValue(false);
             builder.Property(p => p.SystemRole).HasConversion<string>();
-            
+
+            builder.Property(u => u.PhoneNumber).HasMaxLength(20);
+            builder.Property(u => u.CompanyName).HasMaxLength(200);
+            builder.Property(u => u.TaxId).HasMaxLength(50);
+            builder.Property(u => u.Street).HasMaxLength(200);
+            builder.Property(u => u.City).HasMaxLength(100);
+            builder.Property(u => u.PostalCode).HasMaxLength(20);
+            builder.Property(u => u.Country).HasMaxLength(100);
+
             builder.HasIndex(u => u.AzureAdB2CObjectId).IsUnique();
         }
     }

@@ -1,6 +1,7 @@
 using Business.Interfaces.Services;
-using Chat.DTOs;
+using Business.Interfaces.WebModels.Chats;
 using Chat.Hubs;
+using Chat.Mappers;
 using Entities.Models.Chats;
 using Entities.Models.Costs;
 using Entities.Models.Files;
@@ -82,21 +83,13 @@ public sealed class ChatDirectService : IChatDirectService
             ? $"{nB.FirstName} {nB.LastName}".Trim()
             : userB.ToString();
 
-        ChatModel direct = new ChatModel
-        {
-            Name = $"{nameA}, {nameB}",
-            IsGroupChat = false,
-            ProjectId = null,
-            TenantId = null,
-            CreatedAt = DateTime.UtcNow,
-            CreatedByUserId = userA
-        };
+        ChatModel direct = ChatModel.CreateDirect(userA, userB, $"{nameA}, {nameB}");
 
         await chatWriteRepo.Insert(direct);
         await chatWriteRepo.SaveChangesAsync(cancellationToken);
 
-        await chatMemberRepo.Insert(new ChatMember { ChatId = direct.Id, UserId = userA, JoinedAt = DateTime.UtcNow, IsAdmin = false });
-        await chatMemberRepo.Insert(new ChatMember { ChatId = direct.Id, UserId = userB, JoinedAt = DateTime.UtcNow, IsAdmin = false });
+        await chatMemberRepo.Insert(new ChatMember(direct.Id, userA, isAdmin: false));
+        await chatMemberRepo.Insert(new ChatMember(direct.Id, userB, isAdmin: false));
 
         logger.LogInformation(
             "Auto-created direct chat {ChatId} between {UserA} and {UserB} after group shrink",
@@ -104,21 +97,14 @@ public sealed class ChatDirectService : IChatDirectService
 
         Guid notifyUserId = userA == requestingUserId ? userB : userA;
 
-        ChatWeb chatWeb = new ChatWeb(
-            Id: direct.Id,
-            Name: direct.Name,
-            IsGroupChat: false,
-            ProjectId: null,
-            TenantId: null,
-            CreatedAt: direct.CreatedAt,
-            CreatedByUserId: direct.CreatedByUserId,
-            UnreadCount: 0,
-            LastMessage: null,
-            Members: new List<ChatMemberWeb>
-            {
-                new(userA, string.Empty, string.Empty, DateTime.UtcNow, false, null),
-                new(userB, string.Empty, string.Empty, DateTime.UtcNow, false, null)
-            });
+        DateTime joinedAt = DateTime.UtcNow;
+        List<ChatMemberWeb> memberWebs = new List<ChatMemberWeb>
+        {
+            new(userA, string.Empty, string.Empty, joinedAt, false, null),
+            new(userB, string.Empty, string.Empty, joinedAt, false, null)
+        };
+
+        ChatWeb chatWeb = ChatMapper.MapChat(direct, memberWebs, lastMessage: null, unreadCount: 0);
 
         await hubContext.Clients
             .Group(ChatHubGroups.User(notifyUserId))

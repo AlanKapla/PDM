@@ -11,22 +11,22 @@ namespace Business.Implementation.Services
     public class CostEstimateCacheService : ICostEstimateCacheService
     {
         private readonly ICacheService cacheService;
-        private readonly IRepository<CostEstimate> costEstimateRepository;
-        private readonly IRepository<CostEstimateTemplate> templateRepository;
-        private readonly IRepository<CostEstimateGroup> groupRepository;
-        private readonly IRepository<CostEstimateItem> itemRepository;
-        private readonly IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository;
-        private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
+        private readonly IReadRepository<CostEstimate> costEstimateRepository;
+        private readonly IReadRepository<CostEstimateTemplate> templateRepository;
+        private readonly IReadRepository<CostEstimateGroup> groupRepository;
+        private readonly IReadRepository<CostEstimateItem> itemRepository;
+        private readonly IReadRepository<CostEstimateGroupFieldValue> groupFieldValueRepository;
+        private readonly IReadRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
         private readonly ILogger<CostEstimateCacheService> logger;
 
         public CostEstimateCacheService(
             ICacheService cacheService,
-            IRepository<CostEstimate> costEstimateRepository,
-            IRepository<CostEstimateTemplate> templateRepository,
-            IRepository<CostEstimateGroup> groupRepository,
-            IRepository<CostEstimateItem> itemRepository,
-            IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository,
-            IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
+            IReadRepository<CostEstimate> costEstimateRepository,
+            IReadRepository<CostEstimateTemplate> templateRepository,
+            IReadRepository<CostEstimateGroup> groupRepository,
+            IReadRepository<CostEstimateItem> itemRepository,
+            IReadRepository<CostEstimateGroupFieldValue> groupFieldValueRepository,
+            IReadRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
             ILogger<CostEstimateCacheService> logger)
         {
             this.cacheService = cacheService;

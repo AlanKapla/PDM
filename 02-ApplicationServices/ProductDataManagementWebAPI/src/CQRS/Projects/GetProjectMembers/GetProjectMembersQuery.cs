@@ -4,13 +4,13 @@ using Business.Interfaces.WebModels.Projects;
 
 namespace CQRS.Projects.GetProjectMembers
 {
-    public record GetProjectMembersQuery(
-        Guid TenantId,
-        Guid ProjectId
-    ) : IRequestQuery<IEnumerable<ProjectMemberWeb>>, IAuthorizableRequest
+    public sealed record GetProjectMembersQuery : IRequestQuery<IEnumerable<ProjectMemberWeb>>, IAuthorizableRequest
     {
+        public required Guid TenantId { get; init; }
+        public required Guid ProjectId { get; init; }
+
         public string PermissionCode => PermissionCodes.ProjectMembersView;
-        
+
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

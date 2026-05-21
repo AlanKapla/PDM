@@ -47,7 +47,7 @@ export default function ExpenseCard({
 
   const metaParts = [
     showOwner && cost.userName,
-    cost.place,
+    cost.contractorName,
     formatDate(cost.date, false),
   ].filter(Boolean) as string[];
 
@@ -72,7 +72,7 @@ export default function ExpenseCard({
           flexShrink={0}
           ml={2}
         >
-          {formatCurrency(cost.grossAmount)}
+          {formatCurrency(cost.gross ?? 0)}
         </Text>
       </HStack>
 

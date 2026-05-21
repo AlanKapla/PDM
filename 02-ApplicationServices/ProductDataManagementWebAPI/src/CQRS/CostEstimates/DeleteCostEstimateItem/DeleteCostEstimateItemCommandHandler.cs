@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -19,7 +19,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.DeleteCostEstimateItem
 {
-    public class DeleteCostEstimateItemCommandHandler : IRequestHandler<DeleteCostEstimateItemCommand, Unit>
+    public sealed class DeleteCostEstimateItemCommandHandler : IRequestHandler<DeleteCostEstimateItemCommand, Unit>
     {
         private readonly IRepository<CostEstimateItem> itemRepository;
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
@@ -55,24 +55,17 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
 
         public async Task<Unit> Handle(DeleteCostEstimateItemCommand request, CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
 
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
-            if (accessLevel == CostEstimateAccessLevel.None)
-                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+            accessLevel.EnsureCanModifyStructure();
 
-            if (accessLevel == CostEstimateAccessLevel.Restricted)
-                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
-
-            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
-                throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
-
-            var itemsDict = await cacheService.GetItemsDictionaryAsync(
+            Dictionary<Guid, CostEstimateItem> itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             if (!itemsDict.ContainsKey(request.ItemId))
@@ -80,20 +73,20 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
                 throw new NotFoundApiException(nameof(CostEstimateItem), request.ItemId.ToString());
             }
 
-            var now = DateTime.UtcNow;
+            DateTime now = DateTime.UtcNow;
 
             // Collect all descendant item IDs from cached dictionary
-            var allItemIds = CollectDescendantItemIds(itemsDict, request.ItemId);
+            HashSet<Guid> allItemIds = CollectDescendantItemIds(itemsDict, request.ItemId);
             allItemIds.Add(request.ItemId);
 
             // Soft-delete files + delete blobs
-            var filesToDelete = (await fieldFileRepository.GetBySearch(
+            List<CostEstimateFieldFile> filesToDelete = (await fieldFileRepository.GetBySearch(
                 f => f.CostEstimateId == request.CostEstimateId &&
                      allItemIds.Contains(f.FieldValue.ItemId))).ToList();
 
             if (filesToDelete.Count > 0)
             {
-                foreach (var file in filesToDelete)
+                foreach (CostEstimateFieldFile file in filesToDelete)
                 {
                     file.IsDeleted = true;
                     file.DeletedAt = now;
@@ -111,10 +104,10 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
                 fv => allItemIds.Contains(fv.ItemId), cancellationToken);
 
             // Soft-delete items
-            var itemsToDelete = (await itemRepository.GetBySearch(
+            List<CostEstimateItem> itemsToDelete = (await itemRepository.GetBySearch(
                 i => allItemIds.Contains(i.Id))).ToList();
 
-            foreach (var item in itemsToDelete)
+            foreach (CostEstimateItem item in itemsToDelete)
             {
                 item.IsDeleted = true;
                 item.DeletedAt = now;
@@ -144,9 +137,9 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             Dictionary<Guid, CostEstimateItem> itemsDict,
             Guid parentItemId)
         {
-            var result = new HashSet<Guid>();
+            HashSet<Guid> result = new HashSet<Guid>();
 
-            foreach (var kvp in itemsDict)
+            foreach (KeyValuePair<Guid, CostEstimateItem> kvp in itemsDict)
             {
                 if (kvp.Value.ParentItemId == parentItemId)
                 {

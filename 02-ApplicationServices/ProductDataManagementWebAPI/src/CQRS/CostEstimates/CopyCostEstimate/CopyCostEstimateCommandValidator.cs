@@ -1,22 +1,15 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using CQRS.Extensions;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
+using Entities.Models.CostEstimates;
 using Entities.Models.Projects;
 using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
-using Entities.Models.CostEstimates;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.CopyCostEstimate
 {
-    public class CopyCostEstimateCommandValidator : AbstractValidator<CopyCostEstimateCommand>
+    public sealed class CopyCostEstimateCommandValidator : AbstractValidator<CopyCostEstimateCommand>
     {
         private readonly IRepository<CostEstimate> costEstimateRepo;
         private readonly IRepository<Project> projectRepo;
@@ -34,19 +27,14 @@ namespace CQRS.CostEstimates.CopyCostEstimate
             this.projectMemberRepo = projectMemberRepo;
             this.currentUser = currentUser;
 
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("CostEstimateId is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
 
             RuleFor(x => x.TargetProjectIds)
                 .NotEmpty().WithMessage("At least one target project is required")
                 .Must(ids => ids != null && ids.Count > 0).WithMessage("At least one target project is required")
-                .Must(ids => ids.Distinct().Count() == ids.Count).WithMessage("Target project IDs must be unique");
+                .UniqueIds();
 
             RuleFor(x => x)
                 .MustAsync(async (command, cancellationToken) =>

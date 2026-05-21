@@ -1,9 +1,9 @@
-﻿namespace Business.Interfaces.WebModels.CostEstimates
+namespace Business.Interfaces.WebModels.CostEstimates
 {
     /// <summary>
     /// Plik dołączony do pola kosztorysu typu ItemSystemFiles
     /// </summary>
-    public record CostEstimateFieldFileWeb(
+    public sealed record CostEstimateFieldFileWeb(
         Guid Id,
         string OriginalFileName,
         string ContentType,
@@ -18,7 +18,7 @@
     /// Wartość pola w kosztorysie (wspólna dla grup i pozycji)
     /// Wartość zwracana w odpowiednim polu typowanym w zależności od FieldType
     /// </summary>
-    public record CostEstimateFieldValueWeb(
+    public sealed record CostEstimateFieldValueWeb(
         Guid Id,
         Guid FieldDefinitionId,
         int FieldType,      // FieldType enum jako int (kompatybilność JSON)
@@ -38,7 +38,7 @@
     /// Może zawierać kolekcję Components - pozycja składa się z komponentów
     /// WAŻNE: Options i Components mogą mieć tylko 1 poziom zagnieżdżenia (child nie może mieć childa)
     /// </summary>
-    public record CostEstimateItemWeb(
+    public sealed record CostEstimateItemWeb(
         Guid Id,
         Guid GroupId,
         Guid? ParentItemId,     // ID pozycji nadrzędnej (jeśli to opcja lub komponent)
@@ -57,7 +57,7 @@
     /// <summary>
     /// Grupa kosztorysu
     /// </summary>
-    public record CostEstimateGroupWeb(
+    public sealed record CostEstimateGroupWeb(
         Guid Id,
         Guid? ParentGroupId,
         int Level,

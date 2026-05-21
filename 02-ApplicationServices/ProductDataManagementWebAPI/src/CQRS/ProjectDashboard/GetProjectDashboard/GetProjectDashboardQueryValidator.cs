@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.ProjectDashboard.GetProjectDashboard
 {
@@ -6,11 +7,8 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
     {
         public GetProjectDashboardQueryValidator()
         {
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("Project ID is required.");
-
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("Tenant ID is required.");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
         }
     }
 }

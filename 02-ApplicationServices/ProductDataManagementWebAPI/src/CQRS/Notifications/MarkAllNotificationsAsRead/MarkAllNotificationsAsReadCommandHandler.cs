@@ -1,20 +1,12 @@
 using Business.Interfaces.Model;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
 using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Notifications.MarkAllNotificationsAsRead
 {
-    public class MarkAllNotificationsAsReadCommandHandler : IRequestHandler<MarkAllNotificationsAsReadCommand, int>
+    public sealed class MarkAllNotificationsAsReadCommandHandler : IRequestHandler<MarkAllNotificationsAsReadCommand, int>
     {
         private readonly IRepository<Notification> notificationRepo;
         private readonly ICurrentUser currentUser;
@@ -32,26 +24,19 @@ namespace CQRS.Notifications.MarkAllNotificationsAsRead
 
         public async Task<int> Handle(MarkAllNotificationsAsReadCommand request, CancellationToken cancellationToken)
         {
-            var unreadNotifications = await notificationRepo.GetBySearch(
-                n => n.UserId == currentUser.Id && !n.IsRead);
+            int updated = await notificationRepo.ExecuteUpdateAsync(
+                n => n.UserId == currentUser.Id && !n.IsRead,
+                s => s.SetProperty(n => n.IsRead, true),
+                cancellationToken);
 
-            if (!unreadNotifications.Any())
+            if (updated == 0)
             {
                 logger.LogInformation("No unread notifications to mark as read for user {UserId}", currentUser.Id);
                 return 0;
             }
 
-            foreach (var notification in unreadNotifications)
-            {
-                notification.IsRead = true;
-            }
-
-            await notificationRepo.UpdateRange(unreadNotifications);
-
-            logger.LogInformation("Marked {Count} notifications as read for user {UserId}", 
-                unreadNotifications.Count(), currentUser.Id);
-
-            return unreadNotifications.Count();
+            logger.LogInformation("Marked {Count} notifications as read for user {UserId}", updated, currentUser.Id);
+            return updated;
         }
     }
 }

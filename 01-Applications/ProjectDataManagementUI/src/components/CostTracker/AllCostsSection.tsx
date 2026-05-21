@@ -29,9 +29,8 @@ import { formatDate } from "../../utils/formatters";
 import type {
   CostTrackerDetailsWeb,
   TrackedCostWeb,
-  CostEstimateSummaryWeb,
   TrackerGroupWeb,
-  TrackerItemWeb,
+  CostEstimateSummaryWeb,
 } from "../../types/costTracker.types";
 
 type CostSource = "item" | "estimate-additional" | "project-additional";

@@ -36,6 +36,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import CostForm, { validateCostForm } from "./CostForm";
 import { useToastNotification } from "../../hooks/useToastNotification";
+import { useProjectPermissions } from "../../hooks/useProjectPermissions";
+import { useTenantPermissions } from "../../hooks/useTenantPermissions";
 import { costTrackerApi } from "../../api/costTrackerApi";
 import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
@@ -73,7 +75,7 @@ const EMPTY_FORM: CostFormValues = {
   description: "",
   net: undefined,
   number: "",
-  contractor: "",
+  contractorId: null,
   date: "",
   newFiles: [],
 };
@@ -88,6 +90,9 @@ export default function CostFormModal({
 }: CostFormModalProps) {
   const { showSuccess, showError } = useToastNotification();
   const queryClient = useQueryClient();
+  const { canEdit: isProjectAdmin } = useProjectPermissions(projectId);
+  const { canEdit: isTenantAdmin } = useTenantPermissions();
+  const canQuickAdd = isProjectAdmin || isTenantAdmin;
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const { activeStep, setActiveStep } = useSteps({ index: 0, count: STEPS.length });
@@ -184,7 +189,7 @@ export default function CostFormModal({
         description: formValues.description?.trim() || undefined,
         net: formValues.net !== undefined && formValues.net !== "" ? Number(formValues.net) : undefined,
         number: formValues.number?.trim() || undefined,
-        contractor: formValues.contractor?.trim() || undefined,
+        contractorId: formValues.contractorId?.trim() || undefined,
         date: formValues.date || undefined,
         costEstimateId,
         costEstimateItemId,
@@ -297,6 +302,8 @@ export default function CostFormModal({
             onChange={setFormValues}
             errors={formErrors}
             isSubmitting={isSubmitting}
+            tenantId={tenantId}
+            canQuickAdd={canQuickAdd}
           />
         );
 

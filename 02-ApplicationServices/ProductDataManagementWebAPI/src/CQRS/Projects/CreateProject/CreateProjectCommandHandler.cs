@@ -1,6 +1,7 @@
-﻿using Business.Implementation.Services;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Enums;
 using Entities.Models.Projects;
@@ -11,28 +12,25 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.CreateProject
 {
-    public class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand, ProjectDetailsWeb>
+    public sealed class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand, ProjectDetailsWeb>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
         private readonly IRepository<ProjectCurrency> currencyRepo;
-        private readonly PermissionsVersionService permissionsVersionService;
+        private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
         public CreateProjectCommandHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<Role> roleRepo,
             IRepository<ProjectCurrency> currencyRepo,
-            PermissionsVersionService permissionsVersionService,
+            IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.tenantMemberRepo = tenantMemberRepo;
             this.roleRepo = roleRepo;
             this.currencyRepo = currencyRepo;
             this.permissionsVersionService = permissionsVersionService;
@@ -41,7 +39,7 @@ namespace CQRS.Projects.CreateProject
 
         public async Task<ProjectDetailsWeb> Handle(CreateProjectCommand request, CancellationToken cancellationToken)
         {
-            Guid tenantId = currentUser.ActiveTenantId!.Value;
+            Guid tenantId = request.TenantId;
 
             Project project = new Project
             {
@@ -66,10 +64,10 @@ namespace CQRS.Projects.CreateProject
             await currencyRepo.SaveChangesAsync(cancellationToken);
 
             // Get PROJECT.ADMIN role
-            var adminRole = await roleRepo.GetFirstBySearch(
+            Role adminRole = await roleRepo.GetFirstBySearch(
                 r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectAdmin,
                 cancellationToken)
-                ?? throw new InvalidOperationException($"{RoleCodes.ProjectAdmin} role not found");
+                ?? throw new NotFoundApiException(nameof(Role), RoleCodes.ProjectAdmin);
 
             ProjectMember projectMember = new ProjectMember
             {
@@ -89,26 +87,27 @@ namespace CQRS.Projects.CreateProject
             string createdByUserName = $"{currentUser.FirstName} {currentUser.LastName}".Trim();
 
             // Get user's permissions for newly created project
-            var userPermissions = new HashSet<string>();
-            var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
-            if (projectSnapshot != null)
+            HashSet<string> userPermissions = new HashSet<string>();
+            ProjectCtxSnapshot? projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
+            if (projectSnapshot is not null)
             {
                 userPermissions = projectSnapshot.ProjectPermissionCodes;
             }
 
-            return new ProjectDetailsWeb(
-                Id: project.Id,
-                TenantId: project.TenantId,
-                Name: project.Name,
-                IsActive: project.IsActive,
-                CreatedAt: project.CreatedAt,
-                CreatedByUserId: project.CreatedByUserId,
-                CreatedByUserName: createdByUserName,
-                UserRoleCode: RoleCodes.ProjectAdmin,
-                MembersCount: 1,
-                UserPermissions: userPermissions,
-                Currency: new ProjectCurrencyWeb("PLN", "Polski złoty", "zł")
-            );
+            return new ProjectDetailsWeb
+            {
+                Id = project.Id,
+                TenantId = project.TenantId,
+                Name = project.Name,
+                IsActive = project.IsActive,
+                CreatedAt = project.CreatedAt,
+                CreatedByUserId = project.CreatedByUserId,
+                CreatedByUserName = createdByUserName,
+                UserRoleCode = RoleCodes.ProjectAdmin,
+                MembersCount = 1,
+                UserPermissions = userPermissions,
+                Currency = new ProjectCurrencyWeb { Code = "PLN", Name = "Polski złoty", Symbol = "zł" }
+            };
         }
     }
 }

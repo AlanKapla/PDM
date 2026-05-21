@@ -28,7 +28,7 @@ import CostTrackerStatusBadge from "./CostTrackerStatusBadge";
 import CostCountBadge from "./CostCountBadge";
 import CostFormDrawer from "./CostFormDrawer";
 import CostListDrawer from "./CostListDrawer";
-import type { TrackerItemWeb } from "../../types/costTracker.types";
+import type { CostEstimateSummaryWeb, TrackerItemWeb } from "../../types/costTracker.types";
 
 interface PositionsTableProps {
   items: TrackerItemWeb[];
@@ -36,6 +36,7 @@ interface PositionsTableProps {
   projectId: string;
   costEstimateId: string;
   onCostMutated: () => void;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 const fmt = (value: number | null): string => {
@@ -49,6 +50,7 @@ export default function PositionsTable({
   projectId,
   costEstimateId,
   onCostMutated,
+  estimates,
 }: PositionsTableProps) {
   const isMobile = useBreakpointValue({ base: true, md: false });
   const [addTarget, setAddTarget] = useState<TrackerItemWeb | null>(null);
@@ -93,6 +95,7 @@ export default function PositionsTable({
           projectId={projectId}
           costs={listTarget.costs}
           title={`Koszty — ${listTarget.name}`}
+          estimates={estimates}
         />
       )}
     </>

@@ -8,7 +8,6 @@ using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using Entities.Models.CostTrackers;
-using Entities.Models.Costs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -54,8 +53,11 @@ namespace Entities.Configurations.Costs
             builder.Property(x => x.Description)
                 .HasMaxLength(2000);
 
-            builder.Property(x => x.Contractor)
-                .HasMaxLength(500);
+            builder.HasOne(x => x.Contractor)
+                .WithMany(c => c.Costs)
+                .HasForeignKey(x => x.ContractorId)
+                .OnDelete(DeleteBehavior.NoAction);
+            builder.Property(x => x.ContractorId).IsRequired(false);
 
             builder.Property(x => x.Net)
                 .HasPrecision(18, 2);

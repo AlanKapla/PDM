@@ -14,15 +14,16 @@ export interface UseProjectDashboardResult {
  * Endpoint: GET api/tenants/{tenantId}/projects/{projectId}/dashboard
  */
 export function useProjectDashboard(
-  tenantId: string,
-  projectId: string
+  tenantId: string | undefined,
+  projectId: string | undefined
 ): UseProjectDashboardResult {
   const [data, setData] = useState<ProjectDashboardWeb | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchDashboard = useCallback(async () => {
+    if (!tenantId || !projectId) return;
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;

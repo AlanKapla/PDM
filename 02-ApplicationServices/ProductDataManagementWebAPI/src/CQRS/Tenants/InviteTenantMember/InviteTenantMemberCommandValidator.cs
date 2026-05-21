@@ -1,20 +1,14 @@
-using FluentValidation;
-using Business.Interfaces.Model;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
+﻿using Business.Interfaces.Model;
+using CQRS.Extensions;
+using Entities.Enums;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
-using Entities.Enums;
+using FluentValidation;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
-    public class InviteTenantMemberCommandValidator : AbstractValidator<InviteTenantMemberCommand>
+    public sealed class InviteTenantMemberCommandValidator : AbstractValidator<InviteTenantMemberCommand>
     {
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IRepository<TenantInvitation> invitationRepo;
@@ -32,13 +26,13 @@ namespace CQRS.Tenants.InviteTenantMember
             this.userRepo = userRepo;
             this.currentUser = currentUser;
 
-            RuleFor(x => x.TenantId)
-                .NotEmpty()
-                .WithMessage("TenantId is required");
-            
+            RuleFor(x => x.TenantId).RequiredId();
+
             RuleFor(x => x.Email)
                 .NotEmpty()
                 .WithMessage("Email is required")
+                .MaximumLength(320)
+                .WithMessage("Email cannot exceed 320 characters")
                 .EmailAddress()
                 .WithMessage("Invalid email format")
                 .Must(email =>
@@ -60,29 +54,29 @@ namespace CQRS.Tenants.InviteTenantMember
         private async Task<bool> UserMustNotBeAlreadyMember(InviteTenantMemberCommand command, CancellationToken cancellationToken)
         {
             string normalizedEmail = command.Email.Trim().ToLowerInvariant();
-            
-            var existingUser = await userRepo.GetFirstBySearch(u => u.Email == normalizedEmail && u.IsActive);
-            
+
+            User? existingUser = await userRepo.GetFirstBySearch(u => u.Email == normalizedEmail && u.IsActive);
+
             if (existingUser == null)
             {
                 return true;
             }
 
-            var existingMembership = await tenantMemberRepo.GetFirstBySearch(
+            TenantMember? existingMembership = await tenantMemberRepo.GetFirstBySearch(
                 m => m.TenantId == command.TenantId && m.UserId == existingUser.Id && m.IsActive);
-            
+
             return existingMembership == null;
         }
 
         private async Task<bool> InvitationMustNotExist(InviteTenantMemberCommand command, CancellationToken cancellationToken)
         {
             string normalizedEmail = command.Email.Trim().ToLowerInvariant();
-            
-            var existingInvitation = await invitationRepo.GetFirstBySearch(
-                i => i.TenantId == command.TenantId 
-                    && i.Email == normalizedEmail 
-                    && i.IsActive 
-                    && i.Status == InvitationStatus.Pending 
+
+            TenantInvitation? existingInvitation = await invitationRepo.GetFirstBySearch(
+                i => i.TenantId == command.TenantId
+                    && i.Email == normalizedEmail
+                    && i.IsActive
+                    && i.Status == InvitationStatus.Pending
                     && i.ExpiresAt > DateTime.UtcNow);
 
             return existingInvitation == null;

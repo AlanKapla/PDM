@@ -1,13 +1,5 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using Entities.Models.CostTrackers;
 using MediatR;
@@ -48,16 +40,16 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
 
             List<WorkScheduleStage> allStagesList = allScheduleStages.ToList();
 
-            WorkScheduleStage? targetStage = allStagesList.FirstOrDefault(s => s.Id == request.StageId);
+            WorkScheduleStage? targetStage = allStagesList.FirstOrDefault(s => s.Id == request.WorkScheduleStageId);
 
             if (targetStage == null)
             {
-                throw new NotFoundApiException(nameof(WorkScheduleStage), request.StageId.ToString());
+                throw new NotFoundApiException(nameof(WorkScheduleStage), request.WorkScheduleStageId.ToString());
             }
 
             await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
-            List<Guid> stageIdsInSubtree = CollectSubtreeIds(allStagesList, request.StageId);
+            List<Guid> stageIdsInSubtree = CollectSubtreeIds(allStagesList, request.WorkScheduleStageId);
 
             List<Guid> workIds = await workRepo.SelectAsync(
                 w => stageIdsInSubtree.Contains(w.WorkScheduleStageId),

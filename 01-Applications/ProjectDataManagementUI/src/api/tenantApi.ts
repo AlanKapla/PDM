@@ -1,59 +1,59 @@
-﻿import { axiosClient } from "./axiosClient";
+import { axiosClient } from "./axiosClient";
 
 export const tenantApi = {
   getUserTenants: async () => {
-    return axiosClient.get("/tenant/my-tenants");
+    return axiosClient.get("/tenants/my-tenants");
   },
 
   getAdminTenants: async () => {
-    return axiosClient.get("/tenant/admin-tenants");
+    return axiosClient.get("/tenants/admin-tenants");
   },
 
   getTenantDetails: async (tenantId: string) => {
-    return axiosClient.get(`/tenant/${tenantId}/details`);
+    return axiosClient.get(`/tenants/${tenantId}/details`);
   },
 
   changeActiveTenant: async (tenantId: string) => {
-    return axiosClient.put("/tenant/active", { tenantId });
+    return axiosClient.put("/tenants/active", { tenantId });
   },
 
   createTenant: async (name: string) => {
-    return axiosClient.post("/tenant/create", { name });
+    return axiosClient.post("/tenants/create", { name });
   },
 
   updateTenant: async (tenantId: string, name: string) => {
-    return axiosClient.put(`/tenant/${tenantId}`, { name });
+    return axiosClient.put(`/tenants/${tenantId}`, { name });
   },
 
   toggleTenantStatus: async (tenantId: string, isActive: boolean) => {
-    return axiosClient.patch(`/tenant/${tenantId}/status?isActive=${isActive}`);
+    return axiosClient.patch(`/tenants/${tenantId}/status?isActive=${isActive}`);
   },
 
   inviteMember: async (tenantId: string, email: string) => {
-    return axiosClient.post(`/tenant/${tenantId}/invitations`, { email });
+    return axiosClient.post(`/tenants/${tenantId}/invitations`, { email });
   },
 
   acceptInvitation: async (token: string) => {
-    return axiosClient.post("/tenant/invitations/accept", { token });
+    return axiosClient.post("/tenants/invitations/accept", { token });
   },
 
   removeInvitation: async (tenantId: string, invitationId: string) => {
-    return axiosClient.delete(`/tenant/${tenantId}/invitations/${invitationId}`);
+    return axiosClient.delete(`/tenants/${tenantId}/invitations/${invitationId}`);
   },
 
   removeMember: async (tenantId: string, userId: string) => {
-    return axiosClient.delete(`/tenant/${tenantId}/members/${userId}`);
+    return axiosClient.delete(`/tenants/${tenantId}/members/${userId}`);
   },
 
   getActiveInvitations: async () => {
-    return axiosClient.get("/tenant/invitations");
+    return axiosClient.get("/tenants/invitations");
   },
 
   getTenantMembers: async (tenantId: string) => {
-    return axiosClient.get(`/tenant/${tenantId}/members`);
+    return axiosClient.get(`/tenants/${tenantId}/members`);
   },
 
   updateTenantMemberRole: async (tenantId: string, userId: string, roleId: string) => {
-    return axiosClient.patch(`/tenant/${tenantId}/members/${userId}/role`, { roleId });
+    return axiosClient.patch(`/tenants/${tenantId}/members/${userId}/role`, { roleId });
   }
 };

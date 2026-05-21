@@ -1,34 +1,25 @@
-using Entities.Models;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
+using Entities.Models;
 using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Repositories.Repository.Interfaces;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.GetUserTenants
 {
-    public class GetUserTenantsQueryHandler : IRequestHandler<GetUserTenantsQuery, IEnumerable<UserTenantWeb>>
+    public sealed class GetUserTenantsQueryHandler : IRequestHandler<GetUserTenantsQuery, IEnumerable<UserTenantWeb>>
     {
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly IRepository<TenantPreferencesProfile> preferencesRepo;
+        private readonly IReadRepository<TenantPreferencesProfile> preferencesRepo;
         private readonly ICurrentUser currentUser;
 
         public GetUserTenantsQueryHandler(
             IReadRepository<Tenant> tenantRepo,
             IRepository<TenantMember> tenantMemberRepo,
-            IRepository<TenantPreferencesProfile> preferencesRepo,
+            IReadRepository<TenantPreferencesProfile> preferencesRepo,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
@@ -44,42 +35,38 @@ namespace CQRS.Tenants.GetUserTenants
 
             Guid? activeTenantId = preferences?.ActiveTenantId;
 
-            // SuperAdmin sees all tenants with membership roles where applicable
             if (currentUser.IsSuperAdmin)
             {
-                // Get all tenants
-                var allTenants = await tenantRepo.GetBySearch(_ => true);
+                IEnumerable<Tenant> allTenants = await tenantRepo.GetBySearch(_ => true);
 
-                // Get user's memberships to show actual roles
-                var memberships = await tenantMemberRepo.GetBySearch(
+                IEnumerable<TenantMember> memberships = await tenantMemberRepo.GetBySearch(
                     m => m.UserId == currentUser.Id && m.IsActive,
                     q => q.Include(m => m.MemberRole)
                 );
 
-                var membershipDict = memberships.ToDictionary(m => m.TenantId);
+                Dictionary<Guid, TenantMember> membershipDict = memberships.ToDictionary(m => m.TenantId);
 
                 return allTenants
                     .Select(t =>
                     {
-                        // If has membership, use membership role; otherwise SystemSuperAdmin
-                        string roleCode = membershipDict.TryGetValue(t.Id, out var membership)
+                        string roleCode = membershipDict.TryGetValue(t.Id, out TenantMember? membership)
                             ? (membership.MemberRole?.Code ?? RoleCodes.TenantMember)
                             : RoleCodes.SystemSuperAdmin;
 
-                        return new UserTenantWeb(
-                            Id: t.Id,
-                            Name: t.Name,
-                            CreatedAt: t.CreatedAt,
-                            IsActive: t.IsActive,
-                            RoleCode: roleCode,
-                            IsActiveTenant: t.Id == activeTenantId
-                        );
+                        return new UserTenantWeb
+                        {
+                            Id = t.Id,
+                            Name = t.Name,
+                            CreatedAt = t.CreatedAt,
+                            IsActive = t.IsActive,
+                            RoleCode = roleCode,
+                            IsActiveTenant = t.Id == activeTenantId
+                        };
                     })
                     .OrderBy(t => t.Name)
                     .ToList();
             }
 
-            // Regular users see only tenants where they are members (admins see inactive, members only active)
             IEnumerable<TenantMember> regularMemberships = await tenantMemberRepo.GetBySearch(
                 m => m.UserId == currentUser.Id
                      && m.IsActive
@@ -88,14 +75,15 @@ namespace CQRS.Tenants.GetUserTenants
             );
 
             return regularMemberships
-                .Select(m => new UserTenantWeb(
-                    Id: m.TenantId,
-                    Name: m.Tenant.Name,
-                    CreatedAt: m.Tenant.CreatedAt,
-                    IsActive: m.Tenant.IsActive,
-                    RoleCode: m.MemberRole?.Code ?? RoleCodes.TenantMember,
-                    IsActiveTenant: m.TenantId == activeTenantId
-                ))
+                .Select(m => new UserTenantWeb
+                {
+                    Id = m.TenantId,
+                    Name = m.Tenant.Name,
+                    CreatedAt = m.Tenant.CreatedAt,
+                    IsActive = m.Tenant.IsActive,
+                    RoleCode = m.MemberRole?.Code ?? RoleCodes.TenantMember,
+                    IsActiveTenant = m.TenantId == activeTenantId
+                })
                 .OrderBy(t => t.Name)
                 .ToList();
         }

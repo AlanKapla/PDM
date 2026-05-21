@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.DTO;
+﻿using Business.Implementation.Services.Files;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
@@ -6,7 +7,7 @@ using MediatR;
 
 namespace CQRS.Files.GetProjectFilePackages;
 
-public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFilePackagesQuery, List<ProjectFilePackageWeb>>
+public sealed class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFilePackagesQuery, List<ProjectFilePackageWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
     private readonly IUserService userService;
@@ -58,26 +59,29 @@ public class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProjectFile
 
         foreach ((Guid packageId, ProjectFilePackageDto package) in accessiblePackages)
         {
-            string ownerName = string.Empty;
-            if (userDict.TryGetValue(package.OwnerId, out ProjectMemberUserInfo? owner))
-            {
-                ownerName = owner.FullName;
-            }
-
-            result.Add(new ProjectFilePackageWeb
-            {
-                Id = package.Id,
-                Name = package.Name,
-                CreatedAt = package.CreatedAt,
-                OwnerId = package.OwnerId,
-                OwnerName = ownerName,
-                Files = new List<ProjectFileWeb>(),
-                TotalFiles = fileCountDict.GetValueOrDefault(packageId, 0)
-            });
+            int totalFiles = fileCountDict.GetValueOrDefault(packageId, 0);
+            result.Add(MapToPackageWeb(package, userDict, totalFiles));
         }
 
         result.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
 
         return result;
+    }
+
+    private static ProjectFilePackageWeb MapToPackageWeb(
+        ProjectFilePackageDto package,
+        IReadOnlyDictionary<Guid, ProjectMemberUserInfo> userDict,
+        int totalFiles)
+    {
+        return new ProjectFilePackageWeb
+        {
+            Id = package.Id,
+            Name = package.Name,
+            CreatedAt = package.CreatedAt,
+            OwnerId = package.OwnerId,
+            OwnerName = ProjectMemberNameResolver.ResolveUserName(userDict, package.OwnerId),
+            Files = new List<ProjectFileWeb>(),
+            TotalFiles = totalFiles
+        };
     }
 }

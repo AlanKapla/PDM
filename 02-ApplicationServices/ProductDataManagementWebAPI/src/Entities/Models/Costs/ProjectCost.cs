@@ -13,11 +13,6 @@ namespace Entities.Models.Costs
         public Guid UserId { get; set; }
 
         /// <summary>
-        /// Miejsce poniesienia kosztu (opcjonalne)
-        /// </summary>
-        public string? Place { get; set; }
-
-        /// <summary>
         /// Czy koszt został zaakceptowany (włączony do trackera)
         /// </summary>
         public bool IsAccepted { get; set; } = false;

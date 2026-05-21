@@ -1,22 +1,14 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.GetAdminTenants
 {
-    public class GetAdminTenantsQueryHandler : IRequestHandler<GetAdminTenantsQuery, IEnumerable<TenantBasicWeb>>
+    public sealed class GetAdminTenantsQueryHandler : IRequestHandler<GetAdminTenantsQuery, IEnumerable<TenantBasicWeb>>
     {
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly ICurrentUser currentUser;
@@ -31,7 +23,6 @@ namespace CQRS.Tenants.GetAdminTenants
 
         public async Task<IEnumerable<TenantBasicWeb>> Handle(GetAdminTenantsQuery request, CancellationToken cancellationToken)
         {
-            // Get admin memberships (works for both regular users and SuperAdmin)
             IEnumerable<TenantMember> adminMemberships = await tenantMemberRepo.GetBySearch(
                 m => m.UserId == currentUser.Id
                     && m.IsActive
@@ -40,13 +31,14 @@ namespace CQRS.Tenants.GetAdminTenants
             );
 
             return adminMemberships
-                .Select(m => new TenantBasicWeb(
-                    Id: m.Tenant.Id,
-                    Name: m.Tenant.Name,
-                    CreatedAt: m.Tenant.CreatedAt,
-                    IsActive: m.Tenant.IsActive,
-                    RoleCode: RoleCodes.TenantAdmin
-                ))
+                .Select(m => new TenantBasicWeb
+                {
+                    Id = m.Tenant.Id,
+                    Name = m.Tenant.Name,
+                    CreatedAt = m.Tenant.CreatedAt,
+                    IsActive = m.Tenant.IsActive,
+                    RoleCode = RoleCodes.TenantAdmin
+                })
                 .OrderBy(t => t.Name)
                 .ToList();
         }

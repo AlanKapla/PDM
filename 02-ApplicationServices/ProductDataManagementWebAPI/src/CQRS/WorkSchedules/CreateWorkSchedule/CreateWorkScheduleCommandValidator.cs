@@ -1,11 +1,4 @@
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
+﻿using CQRS.Extensions;
 using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using FluentValidation;
@@ -13,14 +6,14 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.CreateWorkSchedule
 {
-    public class CreateWorkScheduleCommandValidator : AbstractValidator<CreateWorkScheduleCommand>
+    public sealed class CreateWorkScheduleCommandValidator : AbstractValidator<CreateWorkScheduleCommand>
     {
         public CreateWorkScheduleCommandValidator(
             IRepository<CostEstimate> costEstimateRepo,
             IRepository<WorkSchedule> workScheduleRepo)
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
             RuleFor(x => x.Name).NotEmpty().MaximumLength(255);
 
             When(x => x.CostEstimateId.HasValue, () =>

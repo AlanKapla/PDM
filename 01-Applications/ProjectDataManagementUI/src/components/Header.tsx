@@ -14,7 +14,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
+import { User as UserIcon, RefreshCw, Building2 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
 import { useMyTenants } from "../hooks/queries";
@@ -71,16 +71,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
           onClick={() => navigate("/dashboard")}
           flexShrink={0}
         >
-          <Icon as={Database} boxSize={{ base: 5, md: 5 }} color="primary.600" flexShrink={0} />
-
-          <Text
-            fontSize={{ base: "xs", md: "md" }}
-            fontWeight="bold"
-            color={textColor}
-            whiteSpace="nowrap"
-          >
-            Brickly
-          </Text>
+          <img src="/logo.png" alt="Brickly" style={{ height: "40px", width: "auto", display: "block" }} />
         </HStack>
 
         {/* Nazwa tenanta + imię i nazwisko - wycentrowane na mobilach */}

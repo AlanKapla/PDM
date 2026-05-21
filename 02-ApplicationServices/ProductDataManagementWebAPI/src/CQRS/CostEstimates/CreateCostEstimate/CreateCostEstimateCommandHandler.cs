@@ -1,12 +1,8 @@
-﻿using Business.Implementation.Validators;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Business.Interfaces.Services;
-using Business.Interfaces.WebModels.CostEstimates;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.CreateCostEstimate
@@ -17,7 +13,7 @@ namespace CQRS.CostEstimates.CreateCostEstimate
     /// Waliduje strukturę grup i wartości pól przed utworzeniem
     /// Automatycznie przelicza sumy po utworzeniu
     /// </summary>
-    public class CreateCostEstimateCommandHandler : IRequestHandler<CreateCostEstimateCommand, Guid>
+    public sealed class CreateCostEstimateCommandHandler : IRequestHandler<CreateCostEstimateCommand, Guid>
     {
         private readonly IRepository<CostEstimate> costEstimateRepository;
         private readonly IRepository<CostEstimateTemplate> templateRepository;
@@ -26,13 +22,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
         public CreateCostEstimateCommandHandler(
             IRepository<CostEstimate> costEstimateRepository,
             IRepository<CostEstimateTemplate> templateRepository,
-            IRepository<CostEstimateGroup> groupRepository,
-            IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository,
-            IRepository<CostEstimateItem> itemRepository,
-            IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
-            ICostEstimateCalculationService calculationService,
-            CostEstimateGroupValidator groupValidator,
-            CostEstimateItemValidator itemValidator,
             ICurrentUser currentUser)
         {
             this.costEstimateRepository = costEstimateRepository;
@@ -42,21 +31,15 @@ namespace CQRS.CostEstimates.CreateCostEstimate
 
         public async Task<Guid> Handle(CreateCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            // Verify template exists and load with all necessary includes
-            var templates = await templateRepository.GetBySearch(
-                t => t.Id == request.TemplateId && !t.IsDeleted && t.OwnerId == currentUser.Id,
-                q => q.Include(v => v.GroupFieldDefinitions)
-                          .Include(v => v.SystemFieldDefinitions)
-                          .Include(v => v.CalculatedFieldDefinitions)
-                          .Include(v => v.GenericFieldDefinitions));
-
-            var template = templates.FirstOrDefault()
+            // Verify template exists (field definitions are not needed at create-time)
+            CostEstimateTemplate template = await templateRepository.GetFirstBySearch(
+                t => t.Id == request.TemplateId && !t.IsDeleted && t.OwnerId == currentUser.Id)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
 
-            var now = DateTime.UtcNow;
+            DateTime now = DateTime.UtcNow;
 
             // Create cost estimate
-            var costEstimate = new CostEstimate
+            CostEstimate costEstimate = new CostEstimate
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,

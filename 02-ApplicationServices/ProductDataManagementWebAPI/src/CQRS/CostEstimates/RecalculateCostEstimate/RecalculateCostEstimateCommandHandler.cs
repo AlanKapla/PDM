@@ -10,7 +10,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.RecalculateCostEstimate
 {
-    public class RecalculateCostEstimateCommandHandler
+    public sealed class RecalculateCostEstimateCommandHandler
         : IRequestHandler<RecalculateCostEstimateCommand, Unit>
     {
         private readonly IRepository<CostEstimate> costEstimateRepository;
@@ -44,12 +44,12 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
 
         public async Task<Unit> Handle(RecalculateCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            var cachedCostEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate cachedCostEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
 
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
             if (accessLevel == CostEstimateAccessLevel.None)
@@ -59,47 +59,47 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
                 throw new ForbiddenApiException("Read-only access does not allow recalculation.");
 
             // Get template from cache (needed for CalculatedFieldDefinitions + SystemFieldDefinitions)
-            var template = await cacheService.GetTemplateAsync(cachedCostEstimate.TemplateId, cancellationToken)
+            CostEstimateTemplate template = await cacheService.GetTemplateAsync(cachedCostEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), cachedCostEstimate.TemplateId.ToString());
 
             // Load tracked entities for recalculation and save
-            var groups = (await groupRepository.GetBySearch(
+            List<CostEstimateGroup> groups = (await groupRepository.GetBySearch(
                 g => g.CostEstimateId == request.CostEstimateId)).ToList();
 
-            var items = (await itemRepository.GetBySearch(
+            List<CostEstimateItem> items = (await itemRepository.GetBySearch(
                 i => i.CostEstimateId == request.CostEstimateId)).ToList();
 
-            var itemIds = items.Select(i => i.Id).ToHashSet();
+            HashSet<Guid> itemIds = items.Select(i => i.Id).ToHashSet();
 
-            var fieldValues = (await itemFieldValueRepository.GetBySearch(
+            List<CostEstimateItemFieldValue> fieldValues = (await itemFieldValueRepository.GetBySearch(
                 fv => itemIds.Contains(fv.ItemId),
                 q => q.Include(fv => fv.FieldDefinition))).ToList();
 
             // Assemble entity graph for calculation service
-            var fieldValuesByItemId = fieldValues
+            Dictionary<Guid, List<CostEstimateItemFieldValue>> fieldValuesByItemId = fieldValues
                 .GroupBy(fv => fv.ItemId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            var itemsByGroupId = items
+            Dictionary<Guid, List<CostEstimateItem>> itemsByGroupId = items
                 .GroupBy(i => i.GroupId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            foreach (var item in items)
+            foreach (CostEstimateItem item in items)
             {
-                item.FieldValues = fieldValuesByItemId.TryGetValue(item.Id, out var fvs)
+                item.FieldValues = fieldValuesByItemId.TryGetValue(item.Id, out List<CostEstimateItemFieldValue>? fvs)
                     ? fvs
                     : new List<CostEstimateItemFieldValue>();
             }
 
-            foreach (var group in groups)
+            foreach (CostEstimateGroup group in groups)
             {
-                group.Items = itemsByGroupId.TryGetValue(group.Id, out var groupItems)
+                group.Items = itemsByGroupId.TryGetValue(group.Id, out List<CostEstimateItem>? groupItems)
                     ? groupItems
                     : new List<CostEstimateItem>();
             }
 
             // Build a temporary CostEstimate graph for the calculation service
-            var costEstimateForCalculation = await costEstimateRepository.GetFirstBySearch(
+            CostEstimate costEstimateForCalculation = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 

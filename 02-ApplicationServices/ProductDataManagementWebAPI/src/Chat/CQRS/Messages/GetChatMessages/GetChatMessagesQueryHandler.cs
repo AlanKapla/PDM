@@ -1,16 +1,9 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Chat.DTOs;
+using Business.Interfaces.WebModels.Chats;
+using Chat.Mappers;
 using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -46,25 +39,40 @@ public sealed class GetChatMessagesQueryHandler : IRequestHandler<GetChatMessage
             throw new ForbiddenApiException("You are not a member of this chat.");
         }
 
-        IEnumerable<MessageHistory> allMessages = await messageRepo.GetBySearch(
-            m => m.ChatId == request.ChatId);
-
         int pageSize = Math.Clamp(request.PageSize, 1, 100);
 
-        List<MessageHistory> ordered = allMessages
-            .OrderByDescending(m => m.CreatedAt)
-            .ToList();
-
-        if (request.Before.HasValue)
+        List<MessageHistory> page;
+        if (request.Before is null)
         {
-            int cursorIndex = ordered.FindIndex(m => m.Id == request.Before.Value);
-            if (cursorIndex >= 0)
-            {
-                ordered = ordered.Skip(cursorIndex + 1).ToList();
-            }
+            page = await messageRepo.GetPagedBySearchAsync(
+                m => m.ChatId == request.ChatId && m.DeletedAt == null,
+                q => q.OrderByDescending(m => m.CreatedAt).ThenByDescending(m => m.Id),
+                pageSize,
+                cancellationToken);
         }
+        else
+        {
+            MessageHistory? cursor = await messageRepo.GetFirstBySearch(
+                m => m.Id == request.Before.Value,
+                cancellationToken);
 
-        List<MessageHistory> page = ordered.Take(pageSize).ToList();
+            if (cursor is null)
+            {
+                throw new NotFoundApiException(nameof(MessageHistory), request.Before.Value.ToString());
+            }
+
+            DateTime cursorCreatedAt = cursor.CreatedAt;
+            Guid cursorId = cursor.Id;
+
+            page = await messageRepo.GetPagedBySearchAsync(
+                m => m.ChatId == request.ChatId
+                     && m.DeletedAt == null
+                     && (m.CreatedAt < cursorCreatedAt
+                         || (m.CreatedAt == cursorCreatedAt && m.Id.CompareTo(cursorId) < 0)),
+                q => q.OrderByDescending(m => m.CreatedAt).ThenByDescending(m => m.Id),
+                pageSize,
+                cancellationToken);
+        }
 
         HashSet<Guid> senderIds = page.Select(m => m.UserId).ToHashSet();
 
@@ -75,18 +83,7 @@ public sealed class GetChatMessagesQueryHandler : IRequestHandler<GetChatMessage
             .Select(m =>
             {
                 userNames.TryGetValue(m.UserId, out (string FirstName, string LastName) sender);
-                return new MessageWeb(
-                    Id: m.Id,
-                    ChatId: m.ChatId,
-                    SenderId: m.UserId,
-                    SenderFirstName: sender.FirstName ?? string.Empty,
-                    SenderLastName: sender.LastName ?? string.Empty,
-                    Content: m.IsDeleted ? string.Empty : m.Content,
-                    IsDeleted: m.IsDeleted,
-                    IsEdited: m.EditedAt.HasValue,
-                    SentAt: m.CreatedAt,
-                    EditedAt: m.EditedAt,
-                    ReplyToMessageId: m.ReplyToMessageId);
+                return ChatMapper.MapMessage(m, sender.FirstName, sender.LastName);
             })
             .ToList();
     }
