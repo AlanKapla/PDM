@@ -1,5 +1,5 @@
-import { Box, Button, Container, Heading, HStack, Text, VStack, useColorModeValue, Flex, Spinner } from "@chakra-ui/react";
-import { LogIn, Building2 } from "lucide-react";
+import { Box, Button, Container, Text, Link, VStack, Flex, Spinner } from "@chakra-ui/react";
+import { LogIn } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useMsal, useIsAuthenticated, useAccount } from "@azure/msal-react";
@@ -11,137 +11,128 @@ export default function Home() {
   const isAuthenticated = useIsAuthenticated();
   const account = useAccount(accounts[0] || null);
 
-  const bg = useColorModeValue("gray.50", "gray.900");
-  const cardBg = useColorModeValue("white", "gray.800");
-  const textColor = useColorModeValue("gray.700", "gray.200");
-  const accentColor = useColorModeValue("primary.600", "primary.400");
-
   const isLoading = inProgress === "login" || inProgress === "acquireToken";
   const authLoading = isAuthenticated && !account;
 
-  useEffect(() => {
-  }, [isAuthenticated, isLoading, authLoading, account]);
-
+  useEffect(() => {}, [isAuthenticated, isLoading, authLoading, account]);
 
   const handleLogin = async () => {
     try {
-      
-      // Preserve return URL through OAuth state
-      const returnUrl = (location.state as any)?.from?.pathname || "/dashboard";
-      
-      // Redirect to External ID login/signup page
+      const returnUrl = (location.state as { from?: { pathname?: string } })?.from?.pathname || "/dashboard";
       await instance.loginRedirect({
         ...loginRequest,
         state: JSON.stringify({ returnUrl }),
       });
-      
-      // User will be redirected to External ID, then back to /auth/callback
-    } catch (error) {
-    }
+    } catch {}
   };
 
   if (isLoading) {
     return (
-      <Flex minH="100vh" align="center" justify="center">
+      <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>
-          <Spinner size="xl" color="primary.500" thickness="4px" />
-          <Text>Przetwarzanie logowania...</Text>
+          <Spinner size="xl" color="gray.400" thickness="3px" />
+          <Text color="gray.500">Przetwarzanie logowania...</Text>
         </VStack>
       </Flex>
     );
   }
-  // If authenticated, wait for user profile
+
   if (isAuthenticated && authLoading) {
     return (
-      <Flex minH="100vh" align="center" justify="center">
+      <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>
-          <Spinner size="xl" color="green.500" thickness="4px" />
-          <Text>Ładowanie profilu użytkownika...</Text>
+          <Spinner size="xl" color="gray.400" thickness="3px" />
+          <Text color="gray.500">Ładowanie profilu użytkownika...</Text>
         </VStack>
       </Flex>
     );
   }
 
-  // If fully authenticated with profile, show redirect message
   if (isAuthenticated && account) {
     return (
-      <Flex minH="100vh" align="center" justify="center">
+      <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>
-          <Spinner size="xl" color="green.500" thickness="4px" />
-          <Text>Przekierowywanie do aplikacji...</Text>
+          <Spinner size="xl" color="gray.400" thickness="3px" />
+          <Text color="gray.500">Przekierowywanie do aplikacji...</Text>
         </VStack>
       </Flex>
     );
   }
-  return (
-    <Box bg={bg} minH="100vh" py={10} overflowY="auto">
-      <Container maxW="container.md" py={10} pb={40}>
-        <VStack spacing={8} align="center">
-          {/* Logo */}
-          <Box
-            p={6}
-            bg={accentColor}
-            rounded="2xl"
-            shadow="xl"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Building2 size={64} color="white" />
-          </Box>
 
-          {/* Heading */}
-          <VStack spacing={6} textAlign="center">
-            <Heading
-              size="2xl"
-              bgGradient="linear(to-r, primary.400, primary.600)"
-              bgClip="text"
-              fontWeight="extrabold"
-              lineHeight="1.3"
-              pb={2}
-              pt={1}
-            >
-              Brickly
-            </Heading>
-            <Text fontSize="xl" color={textColor} maxW="600px">
-              Kompleksowe rozwiązanie do zarządzania projektami i danymi w środowisku wielotenantowym
-            </Text>
+  return (
+    <Flex minH="100vh" bg="white" align="flex-start" justify="center" pt="12vh" px={4}>
+      <Container maxW="440px">
+        <VStack spacing={12} align="center" textAlign="center">
+
+          {/* Logo */}
+          <VStack spacing={3}>
+            <Link href="https://brickly.pro" target="_blank" rel="noopener noreferrer">
+              <img src="/logo.png" alt="Brickly" style={{ height: "64px", width: "auto" }} />
+            </Link>
           </VStack>
 
-          {/* Card with buttons */}
+          {/* Card */}
           <Box
-            bg={cardBg}
+            w="full"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
+            borderRadius="16px"
             p={8}
-            rounded="2xl"
-            shadow="2xl"
-            w="100%"
-            maxW="500px"
           >
-            <VStack spacing={6}>
+            <VStack spacing={4}>
+              <Text fontSize="sm" color="gray.500">
+                Zaloguj się, żeby kontynuować pracę
+              </Text>
               <Button
-                colorScheme="primary"
                 size="lg"
                 w="full"
+                bg="#0047AB"
+                color="white"
+                fontWeight={700}
+                borderRadius="10px"
+                _hover={{ bg: "#003A8C", transform: "translateY(-1px)" }}
+                transition="all 0.2s"
+                leftIcon={<LogIn size={18} />}
                 onClick={handleLogin}
-                leftIcon={<LogIn size={20} />}
                 isLoading={isLoading}
                 loadingText="Przekierowywanie..."
-                _hover={{ transform: "translateY(-2px)", shadow: "lg" }}
-                transition="all 0.2s"
               >
-                Zaloguj się / Zarejestruj się
+                Zaloguj się / Zarejestruj
               </Button>
             </VStack>
           </Box>
 
-          {/* Footer info */}
-          <HStack spacing={8} pt={6} color={textColor} fontSize="sm">
-            <Text>✓ Wielotenantowe</Text>
-            <Text>✓ Bezpieczne</Text>
-            <Text>✓ Skalowalne</Text>
-          </HStack>
+          <Text fontSize="sm" color="gray.400" textAlign="center">
+            Kosztorysy · Harmonogramy · Pliki · Komunikacja
+          </Text>
+
+          <Link
+            href="https://brickly.pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            fontSize="sm"
+            color="gray.400"
+            _hover={{ color: "#0047AB" }}
+          >
+            brickly.pro
+          </Link>
+
         </VStack>
       </Container>
-    </Box>
+
+      <Box
+        position="fixed"
+        bottom={4}
+        left={0}
+        right={0}
+        textAlign="center"
+      >
+        <Text fontSize="xs" color="gray.300">
+          © 2026 Brickly
+        </Text>
+      </Box>
+    </Flex>
   );
 }
+

@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.AddWorkScheduleStageWorkComment
 {
@@ -6,11 +7,13 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWorkComment
     {
         public AddWorkScheduleStageWorkCommentCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageWorkId).NotEmpty();
-            RuleFor(x => x.Content).NotEmpty().MaximumLength(2000);
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageWorkId).RequiredId();
+            RuleFor(x => x.Content)
+                .NotEmpty().WithMessage("'Content' is required.")
+                .MaximumLength(2000).WithMessage("'Content' must not exceed 2000 characters.");
         }
     }
 }

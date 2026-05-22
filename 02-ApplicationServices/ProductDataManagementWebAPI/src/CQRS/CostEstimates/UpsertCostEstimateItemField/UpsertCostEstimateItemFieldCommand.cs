@@ -1,5 +1,4 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
 
 namespace CQRS.CostEstimates.UpsertCostEstimateItemField
 {
@@ -9,9 +8,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
     /// When FieldValueId is provided the existing field value is updated.
     /// Works for main items, options, and components.
     /// </summary>
-    public sealed record UpsertCostEstimateItemFieldCommand : IRequestCommand<Guid>, IAuthorizableRequest
+    public sealed record UpsertCostEstimateItemFieldCommand : CostEstimateCommandBase, IRequestCommand<Guid>
     {
-        public Guid CostEstimateId { get; init; }
         public Guid ItemId { get; init; }
         public Guid? FieldValueId { get; init; }
         public Guid? FieldDefinitionId { get; init; }
@@ -19,11 +17,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
         public decimal? DecimalValue { get; init; }
         public bool? BoolValue { get; init; }
         public DateTime? DateTimeValue { get; init; }
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWriteShared;
-
-        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
     }
 }

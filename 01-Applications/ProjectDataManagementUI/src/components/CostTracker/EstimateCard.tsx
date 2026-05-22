@@ -1,4 +1,4 @@
-import {
+﻿import {
   Box,
   VStack,
   HStack,
@@ -27,6 +27,7 @@ interface EstimateCardProps {
   tenantId: string;
   projectId: string;
   onCostMutated: () => void;
+  allEstimates?: CostEstimateSummaryWeb[];
 }
 
 export default function EstimateCard({
@@ -34,6 +35,7 @@ export default function EstimateCard({
   tenantId,
   projectId,
   onCostMutated,
+  allEstimates,
 }: EstimateCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -57,7 +59,7 @@ export default function EstimateCard({
       borderRadius="lg"
       shadow="sm"
       borderWidth="1px"
-      borderColor="gray.100"
+      borderColor="neutral.100"
       mb={4}
       overflow="hidden"
       width="100%"
@@ -69,19 +71,19 @@ export default function EstimateCard({
         pb={3}
         cursor="pointer"
         onClick={() => setExpanded((v) => !v)}
-        _hover={{ bg: "gray.50" }}
+        _hover={{ bg: "neutral.25" }}
         transition="background 0.15s"
       >
         {/* Rząd 1: nazwa + badge + ikona */}
         <HStack justify="space-between" mb={1}>
           <HStack spacing={1} flex={1} minW={0} align="center">
-            <Text fontWeight="bold" fontSize={{ base: "sm", md: "md" }} noOfLines={2} color="gray.800">
+            <Text fontWeight="bold" fontSize={{ base: "sm", md: "md" }} noOfLines={2} color="neutral.800">
               {estimate.costEstimateName}
             </Text>
             <Tooltip label="Otwórz kosztorys" hasArrow>
               <Box
                 as="span"
-                color="gray.400"
+                color="neutral.400"
                 _hover={{ color: "blue.500" }}
                 cursor="pointer"
                 flexShrink={0}
@@ -96,7 +98,7 @@ export default function EstimateCard({
           </HStack>
           <HStack spacing={2} flexShrink={0}>
             <CostCountBadge count={estimate.costCount} />
-            <Box color="gray.400">
+            <Box color="neutral.400">
               {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </Box>
           </HStack>
@@ -107,17 +109,17 @@ export default function EstimateCard({
           spacing={isMobile ? 2 : 4}
           flexWrap="wrap"
           fontSize="xs"
-          color="gray.500"
+          color="neutral.500"
           mb={2}
         >
           <Text>{estimate.itemsWithCostsCount}/{estimate.totalItemsCount} poz. z kosztami</Text>
           {!isMobile && (
             <>
-              <Text color="gray.300">·</Text>
-              <Text>Budżet: <Text as="span" fontWeight="semibold" color="gray.700">{formatCurrency(estimate.totalBudgetNet)}</Text> PLN</Text>
-              <Text color="gray.300">·</Text>
-              <Text>Koszty: <Text as="span" fontWeight="semibold" color="gray.700">{formatCurrency(estimate.totalCostsNet)}</Text> PLN</Text>
-              <Text color="gray.300">·</Text>
+              <Text color="neutral.300">·</Text>
+              <Text>Budżet: <Text as="span" fontWeight="semibold" color="neutral.700">{formatCurrency(estimate.totalBudgetNet)}</Text> PLN</Text>
+              <Text color="neutral.300">·</Text>
+              <Text>Koszty: <Text as="span" fontWeight="semibold" color="neutral.700">{formatCurrency(estimate.totalCostsNet)}</Text> PLN</Text>
+              <Text color="neutral.300">·</Text>
               <Text>
                 Odchylenie:{" "}
                 <Text as="span" fontWeight="semibold" color={deviationColor}>
@@ -137,8 +139,8 @@ export default function EstimateCard({
 
         {/* Na mobile: kwoty */}
         {isMobile && (
-          <HStack spacing={4} fontSize="xs" color="gray.500" mb={2} flexWrap="wrap">
-            <Text>Budżet: <Text as="span" fontWeight="semibold" color="gray.700">{formatCurrency(estimate.totalBudgetNet)}</Text> PLN</Text>
+          <HStack spacing={4} fontSize="xs" color="neutral.500" mb={2} flexWrap="wrap">
+            <Text>Budżet: <Text as="span" fontWeight="semibold" color="neutral.700">{formatCurrency(estimate.totalBudgetNet)}</Text> PLN</Text>
             <Text>Koszty: <Text as="span" fontWeight="semibold" color={deviationColor}>{formatCurrency(estimate.totalCostsNet)}</Text> PLN</Text>
           </HStack>
         )}
@@ -151,9 +153,9 @@ export default function EstimateCard({
             size="sm"
             colorScheme={progressColor}
             borderRadius="full"
-            bg="gray.100"
+            bg="neutral.50"
           />
-          <Text fontSize="xs" fontWeight="semibold" color="gray.600" flexShrink={0} minW="36px" textAlign="right">
+          <Text fontSize="xs" fontWeight="semibold" color="neutral.600" flexShrink={0} minW="36px" textAlign="right">
             {coveredPct.toFixed(1)}%
           </Text>
         </HStack>
@@ -172,6 +174,7 @@ export default function EstimateCard({
                   projectId={projectId}
                   costEstimateId={estimate.costEstimateId}
                   onCostMutated={onCostMutated}
+                  estimates={allEstimates}
                 />
               )}
               <EstimateAdditionalCosts
@@ -180,6 +183,7 @@ export default function EstimateCard({
                 projectId={projectId}
                 costEstimateId={estimate.costEstimateId}
                 onCostMutated={onCostMutated}
+                estimates={allEstimates}
               />
             </VStack>
           </Box>

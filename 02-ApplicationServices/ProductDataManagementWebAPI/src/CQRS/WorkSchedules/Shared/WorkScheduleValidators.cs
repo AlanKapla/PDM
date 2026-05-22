@@ -1,5 +1,6 @@
-﻿using FluentValidation;
-using Entities.Models;
+using FluentValidation;
+using Entities.Models.Projects;
+using Entities.Models.WorkSchedules;
 using Repositories.Repository.Interfaces;
 using System.Linq.Expressions;
 
@@ -25,18 +26,18 @@ namespace CQRS.WorkSchedules.Shared
                 return false;
             }
 
-            var periodsList = periods.ToList();
+            List<TPeriod> periodsList = periods.ToList();
             if (periodsList.Count <= 1)
             {
                 return false;
             }
 
-            var sortedPeriods = periodsList.OrderBy(startDateSelector).ToList();
+            List<TPeriod> sortedPeriods = periodsList.OrderBy(startDateSelector).ToList();
 
             for (int i = 0; i < sortedPeriods.Count - 1; i++)
             {
-                var currentPeriod = sortedPeriods[i];
-                var nextPeriod = sortedPeriods[i + 1];
+                TPeriod currentPeriod = sortedPeriods[i];
+                TPeriod nextPeriod = sortedPeriods[i + 1];
 
                 if (endDateSelector(currentPeriod) > startDateSelector(nextPeriod))
                 {
@@ -60,7 +61,7 @@ namespace CQRS.WorkSchedules.Shared
                 return true;
             }
 
-            var periodsList = periods.ToList();
+            List<TPeriod> periodsList = periods.ToList();
             bool allPeriodsClosed = periodsList.All(isClosedSelector);
             bool anyPeriodOpen = periodsList.Any(p => !isClosedSelector(p));
 
@@ -84,11 +85,11 @@ namespace CQRS.WorkSchedules.Shared
         /// </summary>
         public static IEnumerable<WorkScheduleStageDto> FlattenStages(IEnumerable<WorkScheduleStageDto> stages)
         {
-            foreach (var stage in stages)
+            foreach (WorkScheduleStageDto stage in stages)
             {
                 yield return stage;
                 if (stage.Children != null)
-                    foreach (var child in FlattenStages(stage.Children))
+                    foreach (WorkScheduleStageDto child in FlattenStages(stage.Children))
                         yield return child;
             }
         }
@@ -111,7 +112,7 @@ namespace CQRS.WorkSchedules.Shared
             }
 
             // Get all unique user IDs from all works
-            var allUserIds = stages
+            HashSet<Guid> allUserIds = stages
                 .Where(s => worksSelector(s) != null)
                 .SelectMany(s => worksSelector(s)!)
                 .Where(w => assignedUserIdsSelector(w) != null)
@@ -125,7 +126,7 @@ namespace CQRS.WorkSchedules.Shared
             }
 
             // Validate all assigned users are project members
-            var projectMembers = (await projectMemberRepo
+            List<ProjectMember> projectMembers = (await projectMemberRepo
                 .GetBySearch(
                     pm => pm.TenantId == tenantId
                         && pm.ProjectId == projectId
@@ -140,8 +141,8 @@ namespace CQRS.WorkSchedules.Shared
         /// </summary>
         public static Dictionary<Guid, WorkScheduleWorkDto> BuildWorkRefMap(IEnumerable<WorkScheduleStageDto> stages)
         {
-            var map = new Dictionary<Guid, WorkScheduleWorkDto>();
-            foreach (var work in FlattenStages(stages).Where(s => s.Works != null).SelectMany(s => s.Works!))
+            Dictionary<Guid, WorkScheduleWorkDto> map = new Dictionary<Guid, WorkScheduleWorkDto>();
+            foreach (WorkScheduleWorkDto work in FlattenStages(stages).Where(s => s.Works != null).SelectMany(s => s.Works!))
             {
                 if (work.Id.HasValue) map[work.Id.Value] = work;
                 if (work.TempId.HasValue) map[work.TempId.Value] = work;
@@ -157,15 +158,15 @@ namespace CQRS.WorkSchedules.Shared
             IEnumerable<WorkScheduleWorkDependencyDto> dependencies,
             Dictionary<Guid, WorkScheduleWorkDto> workMap)
         {
-            var adjacency = new Dictionary<Guid, HashSet<Guid>>();
+            Dictionary<Guid, HashSet<Guid>> adjacency = new Dictionary<Guid, HashSet<Guid>>();
 
-            foreach (var dep in dependencies)
+            foreach (WorkScheduleWorkDependencyDto dep in dependencies)
             {
                 Guid? predKey = ResolveCanonicalKey(dep.PredecessorDbId, dep.PredecessorTempId, workMap);
                 Guid? succKey = ResolveCanonicalKey(dep.SuccessorDbId, dep.SuccessorTempId, workMap);
                 if (!predKey.HasValue || !succKey.HasValue) continue;
 
-                if (!adjacency.TryGetValue(predKey.Value, out var set))
+                if (!adjacency.TryGetValue(predKey.Value, out HashSet<Guid>? set))
                 {
                     set = new HashSet<Guid>();
                     adjacency[predKey.Value] = set;
@@ -173,8 +174,8 @@ namespace CQRS.WorkSchedules.Shared
                 set.Add(succKey.Value);
             }
 
-            var visited = new HashSet<Guid>();
-            var inStack = new HashSet<Guid>();
+            HashSet<Guid> visited = new HashSet<Guid>();
+            HashSet<Guid> inStack = new HashSet<Guid>();
 
             bool HasCycle(Guid node)
             {
@@ -182,9 +183,9 @@ namespace CQRS.WorkSchedules.Shared
                 if (visited.Contains(node)) return false;
                 visited.Add(node);
                 inStack.Add(node);
-                if (adjacency.TryGetValue(node, out var successors))
+                if (adjacency.TryGetValue(node, out HashSet<Guid>? successors))
                 {
-                    foreach (var succ in successors)
+                    foreach (Guid succ in successors)
                         if (HasCycle(succ)) return true;
                 }
                 inStack.Remove(node);
@@ -202,10 +203,10 @@ namespace CQRS.WorkSchedules.Shared
             IEnumerable<WorkScheduleWorkDependencyDto> dependencies,
             Dictionary<Guid, WorkScheduleWorkDto> workMap)
         {
-            foreach (var dep in dependencies)
+            foreach (WorkScheduleWorkDependencyDto dep in dependencies)
             {
-                var predWork = ResolveWork(dep.PredecessorDbId, dep.PredecessorTempId, workMap);
-                var succWork = ResolveWork(dep.SuccessorDbId, dep.SuccessorTempId, workMap);
+                WorkScheduleWorkDto? predWork = ResolveWork(dep.PredecessorDbId, dep.PredecessorTempId, workMap);
+                WorkScheduleWorkDto? succWork = ResolveWork(dep.SuccessorDbId, dep.SuccessorTempId, workMap);
 
                 if (predWork?.Periods == null || predWork.Periods.Count == 0) continue;
                 if (succWork?.Periods == null || succWork.Periods.Count == 0) continue;
@@ -218,15 +219,15 @@ namespace CQRS.WorkSchedules.Shared
 
         private static Guid? ResolveCanonicalKey(Guid? dbId, Guid? tempId, Dictionary<Guid, WorkScheduleWorkDto> workMap)
         {
-            if (dbId.HasValue && workMap.TryGetValue(dbId.Value, out var w1)) return w1.Id ?? w1.TempId;
-            if (tempId.HasValue && workMap.TryGetValue(tempId.Value, out var w2)) return w2.Id ?? w2.TempId;
+            if (dbId.HasValue && workMap.TryGetValue(dbId.Value, out WorkScheduleWorkDto? w1)) return w1.Id ?? w1.TempId;
+            if (tempId.HasValue && workMap.TryGetValue(tempId.Value, out WorkScheduleWorkDto? w2)) return w2.Id ?? w2.TempId;
             return null;
         }
 
         private static WorkScheduleWorkDto? ResolveWork(Guid? dbId, Guid? tempId, Dictionary<Guid, WorkScheduleWorkDto> workMap)
         {
-            if (dbId.HasValue && workMap.TryGetValue(dbId.Value, out var w1)) return w1;
-            if (tempId.HasValue && workMap.TryGetValue(tempId.Value, out var w2)) return w2;
+            if (dbId.HasValue && workMap.TryGetValue(dbId.Value, out WorkScheduleWorkDto? w1)) return w1;
+            if (tempId.HasValue && workMap.TryGetValue(tempId.Value, out WorkScheduleWorkDto? w2)) return w2;
             return null;
         }
 

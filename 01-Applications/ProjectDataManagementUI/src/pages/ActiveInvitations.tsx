@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useState } from "react";
 import {
   Box,
   Heading,
@@ -12,37 +12,27 @@ import {
 } from "@chakra-ui/react";
 import { Mail } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getActiveInvitations, acceptTenantInvitation } from "../services/tenantService";
+import { acceptTenantInvitation } from "../services/tenantService";
+import { useActiveInvitations, tenantKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { handleApiError } from "../utils/handleApiError";
 import type { TenantInvitationWeb } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
 
 export default function ActiveInvitations() {
-  const [invitations, setInvitations] = useState<TenantInvitationWeb[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: allInvitations = [], isLoading: loading } = useActiveInvitations();
+  const invitations = allInvitations.filter(
+    (inv) => inv.status === InvitationStatus.Pending
+  );
   const [acceptingInvitationId, setAcceptingInvitationId] = useState<string | null>(null);
   
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const invitationsData = await getActiveInvitations();
-        // Pokazuj tylko zaproszenia Pending
-        const pendingInvitations = invitationsData.filter((inv: TenantInvitationWeb) => inv.status === InvitationStatus.Pending);
-        setInvitations(pendingInvitations);
-      } catch (error) {
-        console.error("Błąd ładowania zaproszeń:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
 
   const handleAcceptInvitation = async (invitationId: string, token: string, tenantName: string) => {
     setAcceptingInvitationId(invitationId);
@@ -50,16 +40,17 @@ export default function ActiveInvitations() {
       const success = await acceptTenantInvitation(token);
       
       if (success) {
-        // Usuń zaproszenie z listy
-        setInvitations(prev => prev.filter(inv => inv.invitationId !== invitationId));
+        queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
+        queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
         
-        showSuccess("✅ Zaproszenie zaakceptowane", `Dołączyłeś do organizacji ${tenantName}`);
+        showApiSuccess('inviteAccepted');
       } else {
         showError("Nie udało się zaakceptować zaproszenia", "Zaproszenie może być nieaktualne lub wygasłe");
       }
     } catch (error) {
       console.error("Błąd akceptacji zaproszenia:", error);
-      showError("Wystąpił błąd połączenia", "Sprawdź połączenie internetowe i spróbuj ponownie");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setAcceptingInvitationId(null);
     }
@@ -91,10 +82,10 @@ export default function ActiveInvitations() {
             <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
               <VStack spacing={3}>
                 <Mail size={48} color="gray" />
-                <Text color="gray.500" textAlign="center" fontSize="lg">
+                <Text color="neutral.500" textAlign="center" fontSize="lg">
                   Nie masz aktywnych zaproszeń
                 </Text>
-                <Text color="gray.400" textAlign="center" fontSize="sm">
+                <Text color="neutral.400" textAlign="center" fontSize="sm">
                   Kiedy ktoś zaprosi Cię do organizacji, zobaczysz to tutaj
                 </Text>
               </VStack>
@@ -116,23 +107,23 @@ export default function ActiveInvitations() {
                         <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>{invitation.tenantName}</Text>
                         <VStack align="flex-start" spacing={1}>
                           <HStack spacing={2}>
-                            <Text fontSize="sm" color="gray.600">
+                            <Text fontSize="sm" color="neutral.600">
                               Zaproszenie od:
                             </Text>
                             <Text fontSize="sm" fontWeight="medium">
                               {invitation.invitedByUserName}
                             </Text>
-                            <Text fontSize="xs" color="gray.400">
+                            <Text fontSize="xs" color="neutral.400">
                               ({invitation.invitedByUserEmail})
                             </Text>
                           </HStack>
                           <HStack spacing={2} flexWrap="wrap">
-                            <Text fontSize="xs" color="gray.500">
+                            <Text fontSize="xs" color="neutral.500">
                               Wysłano: {new Date(invitation.createdAt).toLocaleDateString('pl-PL')}
                             </Text>
                             {invitation.expiresAt && (
                               <>
-                                <Text fontSize="xs" color="gray.500">
+                                <Text fontSize="xs" color="neutral.500">
                                   •
                                 </Text>
                                 <Text fontSize="xs" color="orange.500">

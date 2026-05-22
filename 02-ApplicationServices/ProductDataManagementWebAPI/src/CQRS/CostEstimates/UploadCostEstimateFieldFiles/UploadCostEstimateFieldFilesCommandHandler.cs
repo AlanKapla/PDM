@@ -11,7 +11,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
 {
-    public class UploadCostEstimateFieldFilesCommandHandler : IRequestHandler<UploadCostEstimateFieldFilesCommand, List<Guid>>
+    public sealed class UploadCostEstimateFieldFilesCommandHandler : IRequestHandler<UploadCostEstimateFieldFilesCommand, List<Guid>>
     {
         private readonly IReadRepository<CostEstimateItemFieldValue> fieldValueReadRepo;
         private readonly IRepository<CostEstimateItemFieldValue> fieldValueRepo;
@@ -48,12 +48,12 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
         public async Task<List<Guid>> Handle(UploadCostEstimateFieldFilesCommand request, CancellationToken cancellationToken)
         {
             // Validate cost estimate via cache
-            var costEstimate = await ceCacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await ceCacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
 
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
             if (accessLevel == CostEstimateAccessLevel.None)
@@ -67,7 +67,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             }
 
             // Validate item belongs to cost estimate via cached items
-            var itemsDict = await ceCacheService.GetItemsDictionaryAsync(
+            Dictionary<Guid, CostEstimateItem> itemsDict = await ceCacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             if (!itemsDict.ContainsKey(request.ItemId))
@@ -76,10 +76,10 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             }
 
             // Validate field definition via cached template
-            var template = await ceCacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
+            CostEstimateTemplate template = await ceCacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
-            var fieldDef = template.SystemFieldDefinitions
+            CostEstimateTemplateFieldDefinitionBase fieldDef = template.SystemFieldDefinitions
                 .FirstOrDefault(fd => fd.Id == request.FieldDefinitionId &&
                                       fd.FieldType == FieldType.ItemSystemFiles)
                 ?? throw new ValidationApiException("Field definition not found or is not of type ItemSystemFiles");
@@ -90,7 +90,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             }
 
             // Find or create field value for this item + field definition
-            var fieldValue = await fieldValueReadRepo.GetFirstBySearch(
+            CostEstimateItemFieldValue? fieldValue = await fieldValueReadRepo.GetFirstBySearch(
                 fv => fv.ItemId == request.ItemId &&
                       fv.FieldDefinitionId == request.FieldDefinitionId,
                 cancellationToken);
@@ -116,7 +116,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             await DeleteExistingFilesAsync(fieldValue.Id, request.CostEstimateId, cancellationToken);
 
             // --- Upload new files ---
-            var createdFileIds = new List<Guid>();
+            List<Guid> createdFileIds = new List<Guid>();
             if (request.Files.Count > 0)
             {
                 createdFileIds = await UploadNewFilesAsync(request, fieldValue.Id, cancellationToken);
@@ -133,21 +133,20 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
 
         private async Task DeleteExistingFilesAsync(Guid fieldValueId, Guid costEstimateId, CancellationToken cancellationToken)
         {
-            var existingFiles = await fieldFileRepo.GetBySearch(
+            IEnumerable<CostEstimateFieldFile> existingFiles = await fieldFileRepo.GetBySearch(
                 f => f.FieldValueId == fieldValueId &&
-                     f.CostEstimateId == costEstimateId &&
-                     !f.IsDeleted);
+                     f.CostEstimateId == costEstimateId);
 
-            var fileList = existingFiles.ToList();
+            List<CostEstimateFieldFile> fileList = existingFiles.ToList();
             if (fileList.Count == 0)
             {
                 return;
             }
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.CostEstimates);
-            var now = DateTime.UtcNow;
+            DateTime now = DateTime.UtcNow;
 
-            foreach (var file in fileList)
+            foreach (CostEstimateFieldFile file in fileList)
             {
                 file.IsDeleted = true;
                 file.DeletedAt = now;
@@ -156,7 +155,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             await fieldFileRepo.UpdateRange(fileList);
 
             // Delete from Blob Storage
-            foreach (var file in fileList)
+            foreach (CostEstimateFieldFile file in fileList)
             {
                 await blobStorageService.DeleteAsync(containerName, file.BlobName, cancellationToken);
             }
@@ -174,16 +173,16 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             CancellationToken cancellationToken)
         {
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.CostEstimates);
-            var createdFileIds = new List<Guid>();
+            List<Guid> createdFileIds = new List<Guid>();
 
-            var fieldFiles = new List<CostEstimateFieldFile>();
+            List<CostEstimateFieldFile> fieldFiles = new List<CostEstimateFieldFile>();
 
             for (int i = 0; i < request.Files.Count; i++)
             {
-                var file = request.Files[i];
+                Microsoft.AspNetCore.Http.IFormFile file = request.Files[i];
                 string fileExtension = Path.GetExtension(file.FileName);
 
-                var fieldFile = new CostEstimateFieldFile
+                CostEstimateFieldFile fieldFile = new CostEstimateFieldFile
                 {
                     FieldValueId = fieldValueId,
                     CostEstimateId = request.CostEstimateId,
@@ -199,7 +198,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
                 string blobName = $"{request.TenantId}/{request.ProjectId}/{request.CostEstimateId}/{fieldValueId}/{fieldFile.Id}{fileExtension}";
                 fieldFile.BlobName = blobName;
 
-                using (var stream = file.OpenReadStream())
+                using (Stream stream = file.OpenReadStream())
                 {
                     await blobStorageService.UploadAsync(
                         containerName,

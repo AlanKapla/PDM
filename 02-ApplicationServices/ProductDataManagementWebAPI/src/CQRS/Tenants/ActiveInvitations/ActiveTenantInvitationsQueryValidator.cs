@@ -1,9 +1,9 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using FluentValidation;
 
 namespace CQRS.Tenants.ActiveInvitations
 {
-    public class ActiveTenantInvitationsQueryValidator : AbstractValidator<ActiveTenantInvitationsQuery>
+    public sealed class ActiveTenantInvitationsQueryValidator : AbstractValidator<ActiveTenantInvitationsQuery>
     {
         public ActiveTenantInvitationsQueryValidator(ICurrentUser currentUser)
         {

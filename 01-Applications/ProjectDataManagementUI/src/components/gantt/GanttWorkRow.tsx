@@ -365,7 +365,7 @@ export default function GanttWorkRow({
                 <Badge
                   colorScheme="primary"
                   variant="subtle"
-                  fontSize="9px"
+                  fontSize="2xs"
                   flexShrink={0}
                   cursor="pointer"
                   onClick={() => setShowInlineComments(v => !v)}

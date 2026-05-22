@@ -2,8 +2,7 @@
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using CQRS.Files;
-using Entities.Models;
+using Entities.Models.Files;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -11,7 +10,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.CreatePackageAndUploadFiles
 {
-    public class CreatePackageAndUploadFilesCommandHandler : IRequestHandler<CreatePackageAndUploadFilesCommand, Unit>
+    public sealed class CreatePackageAndUploadFilesCommandHandler : IRequestHandler<CreatePackageAndUploadFilesCommand, Unit>
     {
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
@@ -44,8 +43,51 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
 
         public async Task<Unit> Handle(CreatePackageAndUploadFilesCommand request, CancellationToken cancellationToken)
         {
-            // Create new package (validator ensures it doesn't already exist)
-            ProjectFilePackage package = new ProjectFilePackage
+            ProjectFilePackage package = BuildPackage(request);
+            string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
+            string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(request.PackageName);
+
+            List<ProjectFile> projectFiles = new List<ProjectFile>();
+            List<ProjectFileVersion> versions = new List<ProjectFileVersion>();
+            List<ProjectFileVersionComment> comments = new List<ProjectFileVersionComment>();
+
+            BuildFilesAndVersions(request, package.Id, projectFiles, versions, comments);
+
+            List<string> uploadedBlobPaths = new List<string>();
+
+            try
+            {
+                await UploadBlobsAsync(containerName, packageNameForBlob, request, projectFiles, versions, uploadedBlobPaths, cancellationToken);
+
+                await projectFilePackageRepo.Insert(package);
+                await projectFileRepo.InsertRange(projectFiles);
+                await projectFileVersionRepo.InsertRange(versions);
+                if (comments.Count > 0)
+                {
+                    await commentRepo.InsertRange(comments);
+                }
+
+                await InvalidateCachesAsync(request, comments.Count > 0, cancellationToken);
+
+                logger.LogInformation(
+                    "Created package {PackageName} (ID: {PackageId}) with {FileCount} files for project {ProjectId} by user {UserId}",
+                    request.PackageName, package.Id, projectFiles.Count, request.ProjectId, currentUser.Id);
+
+                return Unit.Value;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to create package {PackageName} in project {ProjectId}; compensating {BlobCount} blob(s)",
+                    request.PackageName, request.ProjectId, uploadedBlobPaths.Count);
+
+                await CompensateBlobsAsync(containerName, uploadedBlobPaths, cancellationToken);
+                throw;
+            }
+        }
+
+        private ProjectFilePackage BuildPackage(CreatePackageAndUploadFilesCommand request) =>
+            new ProjectFilePackage
             {
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
@@ -56,171 +98,130 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                 IsDeleted = false
             };
 
-            await projectFilePackageRepo.Insert(package);
-            await projectFilePackageRepo.SaveChangesAsync(cancellationToken);
-
-            logger.LogInformation(
-                "Created new package {PackageName} (ID: {PackageId}) for user {UserId} in project {ProjectId}",
-                request.PackageName, package.Id, currentUser.Id, request.ProjectId);
-
-            string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
-            string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(request.PackageName);
-
-            var allProjectFiles = new List<ProjectFile>();
-            var allProjectFileVersions = new List<ProjectFileVersion>();
-            var allComments = new List<ProjectFileVersionComment>();
-
+        private void BuildFilesAndVersions(
+            CreatePackageAndUploadFilesCommand request,
+            Guid packageId,
+            List<ProjectFile> projectFiles,
+            List<ProjectFileVersion> versions,
+            List<ProjectFileVersionComment> comments)
+        {
             foreach (FileUploadItem fileItem in request.Files)
             {
-                try
-                {
-                    IFormFile file = fileItem.File;
-                    
-                    string displayName = !string.IsNullOrWhiteSpace(fileItem.DisplayName)
-                        ? fileItem.DisplayName
-                        : Path.GetFileNameWithoutExtension(file.FileName);
+                IFormFile file = fileItem.File;
+                string displayName = !string.IsNullOrWhiteSpace(fileItem.DisplayName)
+                    ? fileItem.DisplayName
+                    : Path.GetFileNameWithoutExtension(file.FileName);
 
-                    // Step 1: Create ProjectFile WITHOUT CurrentVersionId to break circular dependency
-                    ProjectFile projectFile = new ProjectFile
+                ProjectFile projectFile = new ProjectFile
+                {
+                    TenantId = request.TenantId,
+                    ProjectId = request.ProjectId,
+                    ProjectFilePackageId = packageId,
+                    OwnerId = currentUser.Id,
+                    FileName = file.FileName,
+                    DisplayName = displayName,
+                    CurrentVersionId = null,
+                    CreatedAt = DateTime.UtcNow,
+                    IsDeleted = false
+                };
+
+                ProjectFileVersion firstVersion = new ProjectFileVersion
+                {
+                    ProjectFileId = projectFile.Id,
+                    VersionNumber = 1,
+                    CreatedByUserId = currentUser.Id,
+                    ContentType = file.ContentType,
+                    FileSizeBytes = file.Length,
+                    CreatedAt = DateTime.UtcNow,
+                    IsDeleted = false
+                };
+
+                projectFile.CurrentVersionId = firstVersion.Id;
+
+                projectFiles.Add(projectFile);
+                versions.Add(firstVersion);
+
+                if (!string.IsNullOrWhiteSpace(fileItem.Comment))
+                {
+                    comments.Add(new ProjectFileVersionComment
                     {
-                        TenantId = request.TenantId,
+                        ProjectFileVersionId = firstVersion.Id,
                         ProjectId = request.ProjectId,
-                        ProjectFilePackageId = package.Id,
-                        OwnerId = currentUser.Id,
-                        FileName = file.FileName,
-                        DisplayName = displayName,
-                        CurrentVersionId = null,
+                        UserId = currentUser.Id,
+                        TenantId = request.TenantId,
+                        Content = fileItem.Comment!,
                         CreatedAt = DateTime.UtcNow,
                         IsDeleted = false
-                    };
-
-                    allProjectFiles.Add(projectFile);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex,
-                        "Error preparing file {FileName} for upload to new package in project {ProjectId}",
-                        fileItem.File.FileName, request.ProjectId);
-                    throw;
+                    });
                 }
             }
+        }
 
-            // Step 2: Insert ProjectFiles first (without CurrentVersionId set)
-            if (allProjectFiles.Any())
-            {
-                await projectFileRepo.InsertRange(allProjectFiles);
-                await projectFileRepo.SaveChangesAsync(cancellationToken);
-            }
-
-            // Step 3: Now create versions and upload files
+        private async Task UploadBlobsAsync(
+            string containerName,
+            string packageNameForBlob,
+            CreatePackageAndUploadFilesCommand request,
+            IReadOnlyList<ProjectFile> projectFiles,
+            IReadOnlyList<ProjectFileVersion> versions,
+            List<string> uploadedBlobPaths,
+            CancellationToken cancellationToken)
+        {
             for (int i = 0; i < request.Files.Count; i++)
             {
-                FileUploadItem fileItem = request.Files[i];
-                ProjectFile projectFile = allProjectFiles[i];
+                IFormFile file = request.Files[i].File;
+                ProjectFile projectFile = projectFiles[i];
+                ProjectFileVersion version = versions[i];
 
+                string fileExtension = Path.GetExtension(file.FileName);
+                string blobPath = BuildBlobPath(request, packageNameForBlob, projectFile.Id, version.Id, version.VersionNumber, fileExtension);
+                version.BlobFileName = $"{version.Id}{fileExtension}";
+                version.BlobPath = blobPath;
+
+                using (Stream stream = file.OpenReadStream())
+                {
+                    await blobStorageService.UploadAsync(containerName, blobPath, stream, file.ContentType, cancellationToken);
+                }
+                uploadedBlobPaths.Add(blobPath);
+            }
+        }
+
+        private static string BuildBlobPath(
+            CreatePackageAndUploadFilesCommand request,
+            string packageNameForBlob,
+            Guid fileId,
+            Guid versionId,
+            int versionNumber,
+            string fileExtension) =>
+            $"{request.TenantId}/{request.ProjectId}/{packageNameForBlob}/{fileId}/{versionNumber}/{versionId}{fileExtension}";
+
+        private async Task CompensateBlobsAsync(
+            string containerName,
+            IReadOnlyCollection<string> uploadedBlobPaths,
+            CancellationToken cancellationToken)
+        {
+            foreach (string blobPath in uploadedBlobPaths)
+            {
                 try
                 {
-                    IFormFile file = fileItem.File;
-                    Guid fileId = projectFile.Id;
-
-                    string fileExtension = Path.GetExtension(file.FileName);
-                    int versionNumber = 1;
-                    
-                    // Create ProjectFileVersion now that ProjectFile exists in database
-                    ProjectFileVersion firstVersion = new ProjectFileVersion
-                    {
-                        ProjectFileId = fileId,
-                        VersionNumber = versionNumber,
-                        CreatedByUserId = currentUser.Id,
-                        ContentType = file.ContentType,
-                        FileSizeBytes = file.Length,
-                        CreatedAt = DateTime.UtcNow,
-                        IsDeleted = false
-                    };
-
-                    Guid versionId = firstVersion.Id;
-                    string blobFileName = $"{versionId}{fileExtension}";
-                    string blobPath = $"{request.TenantId}/{request.ProjectId}/{packageNameForBlob}/{fileId}/{versionNumber}/{blobFileName}";
-
-                    firstVersion.BlobFileName = blobFileName;
-                    firstVersion.BlobPath = blobPath;
-
-                    // Upload file to blob storage
-                    using (Stream stream = file.OpenReadStream())
-                    {
-                        await blobStorageService.UploadAsync(
-                            containerName,
-                            blobPath,
-                            stream,
-                            file.ContentType,
-                            cancellationToken);
-                    }
-
-                    allProjectFileVersions.Add(firstVersion);
-
-                    if (!string.IsNullOrWhiteSpace(fileItem.Comment))
-                    {
-                        ProjectFileVersionComment comment = new ProjectFileVersionComment
-                        {
-                            ProjectFileVersionId = versionId,
-                            ProjectId = request.ProjectId,
-                            UserId = currentUser.Id,
-                            TenantId = request.TenantId,
-                            Content = fileItem.Comment,
-                            CreatedAt = DateTime.UtcNow,
-                            IsDeleted = false
-                        };
-
-                        allComments.Add(comment);
-                    }
-
-                    logger.LogInformation(
-                        "File {FileName} (ID: {FileId}) with version {VersionNumber} prepared for upload to new package {PackageName} in project {ProjectId} by user {UserId}",
-                        file.FileName, fileId, versionNumber, request.PackageName, request.ProjectId, currentUser.Id);
+                    await blobStorageService.DeleteAsync(containerName, blobPath, cancellationToken);
                 }
-                catch (Exception ex)
+                catch (Exception deleteEx)
                 {
-                    logger.LogError(ex,
-                        "Error uploading file {FileName} to new package in project {ProjectId}",
-                        fileItem.File.FileName, request.ProjectId);
-                    throw;
+                    logger.LogWarning(deleteEx, "Failed to cleanup blob {BlobPath} after package creation failure", blobPath);
                 }
             }
+        }
 
-            // Step 4: Insert all versions
-            if (allProjectFileVersions.Any())
-            {
-                await projectFileVersionRepo.InsertRange(allProjectFileVersions);
-                await projectFileVersionRepo.SaveChangesAsync(cancellationToken);
-            }
-
-            // Step 5: Update CurrentVersionId on each ProjectFile now that versions exist
-            for (int i = 0; i < allProjectFiles.Count; i++)
-            {
-                allProjectFiles[i].CurrentVersionId = allProjectFileVersions[i].Id;
-                await projectFileRepo.Update(allProjectFiles[i]);
-            }
-
-            // Step 6: Insert comments
-            if (allComments.Any())
-            {
-                await commentRepo.InsertRange(allComments);
-            }
-
-            // Invalidate all relevant caches
+        private async Task InvalidateCachesAsync(
+            CreatePackageAndUploadFilesCommand request, bool hasComments, CancellationToken cancellationToken)
+        {
             await projectFilesService.InvalidateProjectFilesCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
             await projectFilesService.InvalidateProjectVersionsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
-            
-            if (allComments.Any())
+
+            if (hasComments)
             {
                 await projectFilesService.InvalidateProjectCommentsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
             }
-
-            logger.LogInformation(
-                "Created package {PackageName} with {FileCount} files for project {ProjectId}. Cache invalidated.",
-                request.PackageName, allProjectFiles.Count, request.ProjectId);
-
-            return Unit.Value;
         }
     }
 }

@@ -1,4 +1,4 @@
-import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack, Badge, HStack } from "@chakra-ui/react";
+﻿import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack, Badge, HStack } from "@chakra-ui/react";
 import { Building2, FolderKanban, Settings, Briefcase, FileText, RefreshCw, Mail, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -121,7 +121,7 @@ export default function Dashboard() {
                   </HStack>
                   <VStack align="flex-start" spacing={1}>
                     <Heading size={{ base: "sm", md: "md" }}>{card.title}</Heading>
-                    <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>
+                    <Text color="neutral.600" fontSize={{ base: "xs", md: "sm" }}>
                       {card.description}
                     </Text>
                   </VStack>

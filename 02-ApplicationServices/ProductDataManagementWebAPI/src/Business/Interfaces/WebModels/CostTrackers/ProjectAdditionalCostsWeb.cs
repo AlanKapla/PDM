@@ -1,6 +1,6 @@
 ﻿namespace Business.Interfaces.WebModels.CostTrackers
 {
-    public record ProjectAdditionalCostsWeb
+    public sealed record ProjectAdditionalCostsWeb
     {
         public decimal? TotalNet { get; init; }
         public decimal? TotalGross { get; init; }

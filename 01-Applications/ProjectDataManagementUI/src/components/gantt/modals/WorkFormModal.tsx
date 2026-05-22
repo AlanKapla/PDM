@@ -96,7 +96,7 @@ export default function WorkFormModal({ isOpen, onClose, stageId, editWork }: Wo
                       bg={c}
                       cursor="pointer"
                       border={color === c ? "3px solid" : "2px solid transparent"}
-                      borderColor={color === c ? "gray.800" : "transparent"}
+                      borderColor={color === c ? "neutral.600" : "transparent"}
                       onClick={() => setColor(c)}
                     />
                   ))}
@@ -108,15 +108,15 @@ export default function WorkFormModal({ isOpen, onClose, stageId, editWork }: Wo
                     onChange={e => setColor(e.target.value)}
                     style={{ width: 32, height: 32, border: "none", padding: 0, cursor: "pointer", borderRadius: 4 }}
                   />
-                  <Text fontSize="xs" color="gray.500">{color}</Text>
+                  <Text fontSize="xs" color="neutral.400">{color}</Text>
                 </HStack>
               </VStack>
             </FormControl>
           </VStack>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
-          <Button colorScheme="green" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!name.trim()}>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
+          <Button colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!name.trim()}>
             {isEditMode ? "Zapisz" : "Dodaj"}
           </Button>
         </DrawerFooter>

@@ -1,8 +1,8 @@
-﻿using Business.Interfaces.Model;
-using Business.Interfaces.Services;
-using Chat.DTOs;
-using Entities.Models;
-using ChatModel = Entities.Models.Chat;
+using Business.Interfaces.Model;
+using Business.Interfaces.WebModels.Chats;
+using Entities.Models.Chats;
+using Entities.Models.Users;
+using ChatModel = Entities.Models.Chats.Chat;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -10,23 +10,25 @@ namespace Chat.CQRS.Conversations.SearchChats;
 
 public sealed class SearchChatsQueryHandler : IRequestHandler<SearchChatsQuery, List<ChatSearchResultWeb>>
 {
+    private const int MaxResults = 50;
+
     private readonly IReadRepository<ChatModel> chatRepo;
     private readonly IReadRepository<ChatMember> chatMemberRepo;
     private readonly IReadRepository<MessageHistory> messageRepo;
-    private readonly IProjectMemberService projectMemberService;
+    private readonly IReadRepository<User> userRepo;
     private readonly ICurrentUser currentUser;
 
     public SearchChatsQueryHandler(
         IReadRepository<ChatModel> chatRepo,
         IReadRepository<ChatMember> chatMemberRepo,
         IReadRepository<MessageHistory> messageRepo,
-        IProjectMemberService projectMemberService,
+        IReadRepository<User> userRepo,
         ICurrentUser currentUser)
     {
         this.chatRepo = chatRepo;
         this.chatMemberRepo = chatMemberRepo;
         this.messageRepo = messageRepo;
-        this.projectMemberService = projectMemberService;
+        this.userRepo = userRepo;
         this.currentUser = currentUser;
     }
 
@@ -44,43 +46,55 @@ public sealed class SearchChatsQueryHandler : IRequestHandler<SearchChatsQuery, 
 
         string phrase = request.Phrase.Trim();
 
-        // Load my chats, messages matching the phrase, and all member entries
-        IEnumerable<ChatModel> allMyChats = await chatRepo.GetBySearch(
-            c => myChatIds.Contains(c.Id));
+        // My chats (optionally restricted to a tenant) — projected to flat rows.
+        List<ChatHeader> chatHeaders = request.TenantId is not null
+            ? await chatRepo.SelectAsync(
+                c => myChatIds.Contains(c.Id) && c.TenantId == request.TenantId.Value,
+                c => new ChatHeader(c.Id, c.Name, c.IsGroupChat, c.ProjectId, c.TenantId),
+                cancellationToken)
+            : await chatRepo.SelectAsync(
+                c => myChatIds.Contains(c.Id),
+                c => new ChatHeader(c.Id, c.Name, c.IsGroupChat, c.ProjectId, c.TenantId),
+                cancellationToken);
 
-        IEnumerable<MessageHistory> matchingMessages = await messageRepo.GetBySearch(
-            m => myChatIds.Contains(m.ChatId) && m.DeletedAt == null && m.Content.Contains(phrase));
+        if (chatHeaders.Count == 0)
+        {
+            return new();
+        }
 
-        IEnumerable<ChatMember> allMembers = await chatMemberRepo.GetBySearch(
-            cm => myChatIds.Contains(cm.ChatId));
+        List<Guid> scopedChatIds = chatHeaders.Select(c => c.Id).ToList();
 
-        // Resolve member names for name-based matching
-        HashSet<Guid> memberUserIds = allMembers.Select(m => m.UserId).ToHashSet();
-        Dictionary<Guid, (string FirstName, string LastName)> userNames =
-            await projectMemberService.GetUserNamesByIdsAsync(memberUserIds, cancellationToken);
+        // Matching message ids per chat — single SQL projection (no full entities).
+        List<MessageMatch> matchingMessages = await messageRepo.SelectAsync(
+            m => scopedChatIds.Contains(m.ChatId)
+                 && m.DeletedAt == null
+                 && m.Content.Contains(phrase),
+            m => new MessageMatch(m.ChatId, m.Id),
+            cancellationToken);
 
-        // chatId → list of matching message IDs
         Dictionary<Guid, List<Guid>> messageIdsByChatId = matchingMessages
             .GroupBy(m => m.ChatId)
-            .ToDictionary(g => g.Key, g => g.Select(m => m.Id).ToList());
+            .ToDictionary(g => g.Key, g => g.Select(m => m.MessageId).ToList());
 
-        // chatId → true if any member's full name contains the phrase
-        HashSet<Guid> chatsWithMemberNameMatch = allMembers
-            .GroupBy(m => m.ChatId)
-            .Where(g => g.Any(m =>
-            {
-                userNames.TryGetValue(m.UserId, out (string FirstName, string LastName) name);
-                return $"{name.FirstName} {name.LastName}".Trim()
-                    .Contains(phrase, StringComparison.OrdinalIgnoreCase);
-            }))
-            .Select(g => g.Key)
-            .ToHashSet();
+        // User name match pushed to SQL via JOIN through ChatMember → User.
+        HashSet<Guid> matchingUserIds = await userRepo.SelectToHashSetAsync(
+            u => (u.FirstName + " " + u.LastName).Contains(phrase),
+            u => u.Id,
+            cancellationToken);
 
-        return allMyChats
+        HashSet<Guid> chatsWithMemberNameMatch = matchingUserIds.Count == 0
+            ? new HashSet<Guid>()
+            : await chatMemberRepo.SelectToHashSetAsync(
+                cm => scopedChatIds.Contains(cm.ChatId) && matchingUserIds.Contains(cm.UserId),
+                cm => cm.ChatId,
+                cancellationToken);
+
+        return chatHeaders
             .Where(c =>
                 c.Name.Contains(phrase, StringComparison.OrdinalIgnoreCase) ||
                 messageIdsByChatId.ContainsKey(c.Id) ||
                 chatsWithMemberNameMatch.Contains(c.Id))
+            .Take(MaxResults)
             .Select(c => new ChatSearchResultWeb(
                 ChatId: c.Id,
                 ChatName: c.Name,
@@ -90,4 +104,8 @@ public sealed class SearchChatsQueryHandler : IRequestHandler<SearchChatsQuery, 
                 MatchingMessageIds: messageIdsByChatId.GetValueOrDefault(c.Id) ?? new()))
             .ToList();
     }
+
+    private sealed record ChatHeader(Guid Id, string Name, bool IsGroupChat, Guid? ProjectId, Guid? TenantId);
+
+    private sealed record MessageMatch(Guid ChatId, Guid MessageId);
 }

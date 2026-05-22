@@ -1,7 +1,9 @@
-using CQRS;
-using MediatR;
+﻿using MediatR;
 
 namespace CQRS.Tenants.AcceptTenantInvitation
 {
-    public record AcceptTenantInvitationCommand(string Token) : IRequestCommand<Unit>;
+    public sealed record AcceptTenantInvitationCommand : IRequestCommand<Unit>
+    {
+        public required string Token { get; init; }
+    }
 }

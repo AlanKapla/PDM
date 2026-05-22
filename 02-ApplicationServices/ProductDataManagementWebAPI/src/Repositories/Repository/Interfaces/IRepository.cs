@@ -45,5 +45,10 @@ namespace Repositories.Repository.Interfaces
         Task<int> ExecuteDeleteAsync(
             Expression<Func<T, bool>> predicate,
             CancellationToken cancellationToken = default);
+
+        Task<int> ExecuteUpdateAsync(
+            Expression<Func<T, bool>> predicate,
+            Action<Microsoft.EntityFrameworkCore.Query.UpdateSettersBuilder<T>> setPropertyCalls,
+            CancellationToken cancellationToken = default);
     }
 }

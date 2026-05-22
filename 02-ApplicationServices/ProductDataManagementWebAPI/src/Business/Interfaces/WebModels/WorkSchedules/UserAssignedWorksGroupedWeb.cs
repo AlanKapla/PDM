@@ -3,7 +3,7 @@
     /// <summary>
     /// User's assigned works grouped by Tenant
     /// </summary>
-    public record UserAssignedWorksByTenantWeb(
+    public sealed record UserAssignedWorksByTenantWeb(
         Guid TenantId,
         string TenantName,
         List<UserAssignedWorksGroupedWeb> Projects
@@ -12,7 +12,7 @@
     /// <summary>
     /// User's assigned works grouped by Project
     /// </summary>
-    public record UserAssignedWorksGroupedWeb(
+    public sealed record UserAssignedWorksGroupedWeb(
         Guid ProjectId,
         string ProjectName,
         List<UserAssignedWorkScheduleWeb> WorkSchedules
@@ -21,7 +21,7 @@
     /// <summary>
     /// Work schedule with assigned works grouped by Stage
     /// </summary>
-    public record UserAssignedWorkScheduleWeb(
+    public sealed record UserAssignedWorkScheduleWeb(
         Guid WorkScheduleId,
         string WorkScheduleName,
         DateTime WorkScheduleCreatedAt,
@@ -31,7 +31,7 @@
     /// <summary>
     /// Stage with user's assigned works
     /// </summary>
-    public record UserAssignedStageWeb(
+    public sealed record UserAssignedStageWeb(
         Guid StageId,
         string StageName,
         int StageOrder,
@@ -41,7 +41,7 @@
     /// <summary>
     /// Individual work assigned to the user with periods
     /// </summary>
-    public record UserAssignedWorkWeb(
+    public sealed record UserAssignedWorkWeb(
         Guid WorkId,
         string WorkName,
         int WorkOrder,

@@ -2,7 +2,9 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Notifications;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using Microsoft.Extensions.Options;
@@ -13,7 +15,7 @@ using Business.Interfaces.Model;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
-    public class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
+    public sealed class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
         private readonly IReadRepository<User> userRepo;
@@ -74,7 +76,7 @@ namespace CQRS.Tenants.InviteTenantMember
 
             string tenantName = tenant.Name;
 
-            if (existingUser == null)
+            if (existingUser is null)
             {
                 string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
                 string path = frontendSettings.Value.HomePath.TrimStart('/');
@@ -96,7 +98,7 @@ namespace CQRS.Tenants.InviteTenantMember
             }
             else
             {
-                var notification = new NotificationDto
+                NotificationDto notification = new NotificationDto
                 {
                     Id = Guid.NewGuid(),
                     TenantId = request.TenantId,
@@ -106,8 +108,8 @@ namespace CQRS.Tenants.InviteTenantMember
                     Type = DtoNotificationType.Info,
                     Title = "Zaproszenie do organizacji",
                     Message = $"Zostałeś zaproszony do {tenantName}",
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    Readed = false,
+                    CreatedAt = DateTime.UtcNow,
+                    IsRead = false,
                     Metadata = new Dictionary<string, object?>
                     {
                         { "invitationId", invitation.Id },
@@ -116,7 +118,7 @@ namespace CQRS.Tenants.InviteTenantMember
                     }
                 };
                 
-                var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
                 await notificationSender.EnqueueAsync(payload, cancellationToken);
             }
 

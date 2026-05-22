@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -44,12 +44,13 @@ import type { CostEstimateStatus } from "../types/costEstimate.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails } from "../hooks/queries";
+import { handleApiError } from "../utils/handleApiError";
 
 /** Formatuje kwotę z separatorami tysięcy (spacjami) */
-const formatCurrency = (value: number | null | undefined): string => {
+const formatCurrency = (value: number | null | undefined, currency: string = 'PLN'): string => {
   if (value == null) return '-';
-  return `${value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN`;
+  return `${value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 };
 
 const costEstimateStatusLabels: Record<CostEstimateStatus, string> = {
@@ -142,12 +143,11 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
           costEstimates.map((costEstimate) => (
             <Box
               key={costEstimate.id}
-              bg={cardBg}
+              bg="white"
               border="1px"
-              borderColor={borderColor}
+              borderColor="neutral.200"
               borderRadius="lg"
               p={3}
-              shadow="sm"
               cursor="pointer"
               onClick={() => handleViewCostEstimate(costEstimate.id)}
             >
@@ -156,10 +156,10 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                   <VStack align="flex-start" spacing={0} flex={1} minW={0}>
                     <Text fontWeight="semibold" fontSize="sm" noOfLines={2}>{costEstimate.name}</Text>
                     {costEstimate.description && (
-                      <Text fontSize="xs" color="gray.500" noOfLines={1}>{costEstimate.description}</Text>
+                      <Text fontSize="xs" color="neutral.500" noOfLines={1}>{costEstimate.description}</Text>
                     )}
                     {showOwnerColumn && costEstimate.ownerName && (
-                      <Text fontSize="xs" color="gray.500">{costEstimate.ownerName}</Text>
+                      <Text fontSize="xs" color="neutral.500">{costEstimate.ownerName}</Text>
                     )}
                   </VStack>
                   <Badge
@@ -173,24 +173,24 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
 
                 <HStack justify="space-between">
                   <VStack align="flex-start" spacing={0}>
-                    <Text fontSize="xs" color="gray.500">Netto</Text>
-                    <Text fontSize="sm" fontWeight="medium">{formatCurrency(costEstimate.totalNet)}</Text>
+                    <Text fontSize="xs" color="neutral.500">Netto</Text>
+                    <Text fontSize="sm" fontWeight="medium">{formatCurrency(costEstimate.totalNet, costEstimate.currencySymbol ?? costEstimate.currencyCode)}</Text>
                   </VStack>
                   <VStack align="flex-end" spacing={0}>
-                    <Text fontSize="xs" color="gray.500">Brutto</Text>
-                    <Text fontSize="sm" fontWeight="bold" color="green.600">{formatCurrency(costEstimate.totalGross)}</Text>
+                    <Text fontSize="xs" color="neutral.500">Brutto</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="green.600">{formatCurrency(costEstimate.totalGross, costEstimate.currencySymbol ?? costEstimate.currencyCode)}</Text>
                   </VStack>
                 </HStack>
 
                 <HStack justify="space-between">
-                  <Text fontSize="xs" color="gray.500">{formatDate(costEstimate.createdAt)}</Text>
+                  <Text fontSize="xs" color="neutral.500">{formatDate(costEstimate.createdAt)}</Text>
                   <HStack spacing={1} onClick={(e) => e.stopPropagation()}>
                     {canShare && (
                       <IconButton
                         aria-label="Udostępnij kosztorys"
                         icon={<Share2 size={14} />}
                         size="xs"
-                        colorScheme="action"
+                        colorScheme="gray"
                         variant="ghost"
                         onClick={() => handleShareCostEstimate(costEstimate)}
                       />
@@ -234,7 +234,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
           description="Brak kosztorysów do wyświetlenia"
         />
       ) : (
-        <Box overflowX="auto" bg={cardBg} p={4} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+        <Box overflowX="auto" bg="white" p={4} rounded="lg" borderWidth="1px" borderColor="neutral.200">
           <Table size="sm" variant="simple">
             <Thead>
               <Tr>
@@ -250,7 +250,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
             </Thead>
             <Tbody>
               {costEstimates.map((costEstimate) => (
-                <Tr key={costEstimate.id} _hover={{ bg: hoverBg }} cursor="pointer" onClick={() => handleViewCostEstimate(costEstimate.id)}>
+                <Tr key={costEstimate.id} _hover={{ bg: 'neutral.50' }} cursor="pointer" onClick={() => handleViewCostEstimate(costEstimate.id)}>
                   <Td fontWeight="medium">
                     <VStack align="flex-start" spacing={0}>
                       <HStack spacing={2}>
@@ -268,7 +268,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                         )}
                       </HStack>
                       {costEstimate.description && (
-                        <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                        <Text fontSize="xs" color="neutral.500" noOfLines={1}>
                           {costEstimate.description}
                         </Text>
                       )}
@@ -283,10 +283,10 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                     <Text fontSize="sm">{costEstimate.templateName}</Text>
                   </Td>
                   <Td isNumeric>
-                    {formatCurrency(costEstimate.totalNet)}
+                    {formatCurrency(costEstimate.totalNet, costEstimate.currencySymbol ?? costEstimate.currencyCode)}
                   </Td>
                   <Td isNumeric fontWeight="bold" color="green.600">
-                    {formatCurrency(costEstimate.totalGross)}
+                    {formatCurrency(costEstimate.totalGross, costEstimate.currencySymbol ?? costEstimate.currencyCode)}
                   </Td>
                   <Td>
                     <Text fontSize="xs">{formatDate(costEstimate.createdAt)}</Text>
@@ -304,7 +304,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                             aria-label="Udostępnij"
                             icon={<Share2 size={14} />}
                             size="xs"
-                            colorScheme="action"
+                            colorScheme="gray"
                             variant="ghost"
                             onClick={() => handleShareCostEstimate(costEstimate)}
                           />
@@ -353,7 +353,6 @@ export default function ProjectCosts() {
   const { showError, showSuccess } = useToastNotification();
 
   const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<any | null>(null);
   const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToShare, setCostEstimateToShare] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToDelete, setCostEstimateToDelete] = useState<CostEstimateListItemWeb | null>(null);
@@ -411,14 +410,10 @@ export default function ProjectCosts() {
     `cost-estimates-shared-${projectId}`
   );
 
-  // Globalny cache dla project details (współdzielony między stronami projektu)
-  const projectDetailsCache = useGlobalCache(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
-    }
+  // React Query — nazwa projektu (współdzielony cache między stronami projektu)
+  const { data: project } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
 
   useEffect(() => {
@@ -444,9 +439,6 @@ export default function ProjectCosts() {
 
     setLoading(true);
     try {
-      const projectData = await projectDetailsCache.fetch();
-      setProject(projectData);
-
       // Pobierz zakładki równolegle według uprawnień
       const fetchPromises = [];
       if (resourcePerms.tabs.showAll) fetchPromises.push(allCostEstimatesCache.fetch());
@@ -454,8 +446,9 @@ export default function ProjectCosts() {
       if (resourcePerms.tabs.showShared) fetchPromises.push(sharedCostEstimatesCache.fetch());
 
       await Promise.all(fetchPromises);
-    } catch (error: any) {
-      showError('Nie udało się załadować danych', error?.message || 'Wystąpił nieoczekiwany błąd');
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setLoading(false);
     }
@@ -465,7 +458,6 @@ export default function ProjectCosts() {
     myCostEstimatesCache.clear();
     allCostEstimatesCache.clear();
     sharedCostEstimatesCache.clear();
-    projectDetailsCache.clear();
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };
@@ -484,8 +476,9 @@ export default function ProjectCosts() {
       onDeleteModalClose();
       setCostEstimateToDelete(null);
       refreshData();
-    } catch (error: any) {
-      showError('Nie udało się usunąć kosztorysu', error?.message || 'Wystąpił nieoczekiwany błąd');
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setIsDeleting(false);
     }
@@ -551,7 +544,7 @@ export default function ProjectCosts() {
             <Icon as={FileText} boxSize={8} color="primary.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Kosztorysy projektowe</Heading>
-              {project && <Text fontSize="sm" color="gray.600">{project.name}</Text>}
+              {project && <Text fontSize="sm" color="neutral.600">{project.name}</Text>}
             </VStack>
           </HStack>
           {(resourcePerms.mine.canCreate || resourcePerms.all.canCreate) && (

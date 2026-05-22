@@ -1,27 +1,31 @@
-﻿using Business.Interfaces.Constants;
+using Business.Implementation.Services.Files;
+using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Files;
-using Entities.Models;
+using Entities.Models.Files;
 using MediatR;
 
 namespace CQRS.Files.GetPackageFiles;
 
-public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery, List<ProjectFileWeb>>
+public sealed class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery, List<ProjectFileWeb>>
 {
     private readonly IProjectFilesService projectFilesService;
     private readonly IUserService userService;
+    private readonly IFileVersionWebMapper fileVersionWebMapper;
     private readonly ICurrentUser currentUser;
 
     public GetPackageFilesQueryHandler(
         IProjectFilesService projectFilesService,
         IUserService userService,
+        IFileVersionWebMapper fileVersionWebMapper,
         ICurrentUser currentUser)
     {
         this.projectFilesService = projectFilesService;
         this.userService = userService;
+        this.fileVersionWebMapper = fileVersionWebMapper;
         this.currentUser = currentUser;
     }
 
@@ -106,26 +110,9 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
     {
         ProjectFileVersionWeb? currentVersionWeb = null;
 
-        if (currentVersionDto != null && sasUris != null)
+        if (currentVersionDto is not null && sasUris is not null)
         {
-            string createdByUserName = userDict.TryGetValue(currentVersionDto.CreatedByUserId, out ProjectMemberUserInfo? versionCreator)
-                ? versionCreator.FullName
-                : string.Empty;
-
-            currentVersionWeb = new ProjectFileVersionWeb
-            {
-                Id = currentVersionDto.Id,
-                ProjectFileId = currentVersionDto.ProjectFileId,
-                VersionNumber = currentVersionDto.VersionNumber,
-                ContentType = currentVersionDto.ContentType,
-                FileSizeBytes = currentVersionDto.FileSizeBytes,
-                CreatedAt = currentVersionDto.CreatedAt,
-                CreatedByUserId = currentVersionDto.CreatedByUserId,
-                CreatedByUserName = createdByUserName,
-                SasUrlView = sasUris.SasUriView,
-                SasUrlDownload = sasUris.SasUriDownload,
-                Comments = new List<ProjectFileVersionCommentWeb>()
-            };
+            currentVersionWeb = fileVersionWebMapper.Map(currentVersionDto, userDict, sasUris);
         }
 
         return new ProjectFileWeb
@@ -136,14 +123,12 @@ public class GetPackageFilesQueryHandler : IRequestHandler<GetPackageFilesQuery,
             PackageName = packageName,
             CreatedAt = fileDto.CreatedAt,
             OwnerId = fileDto.OwnerId,
-            OwnerName = userDict.TryGetValue(fileDto.OwnerId, out ProjectMemberUserInfo? owner)
-                ? owner.FullName
-                : string.Empty,
+            OwnerName = ProjectMemberNameResolver.ResolveUserName(userDict, fileDto.OwnerId),
             CurrentVersion = currentVersionWeb,
             Versions = new List<ProjectFileVersionWeb>(),
             TotalVersions = totalVersions,
             IsOwner = isOwnerView && fileDto.OwnerId == currentUser.Id,
-            IsShared = sharedWithUserIds.Any(),
+            IsShared = sharedWithUserIds.Count > 0,
             SharedWithUserIds = sharedWithUserIds
         };
     }

@@ -1,25 +1,27 @@
 ﻿namespace Business.Interfaces.WebModels.ProjectCosts
 {
     /// <summary>
-    /// Uproszczony model kosztu projektu dla listy
+    /// Model kosztu projektu (lista oraz odpowiedź Create/Update)
     /// </summary>
-    public record ProjectCostListItemWeb
+    public sealed record ProjectCostListItemWeb
     {
-        public Guid Id { get; init; }
-        public Guid UserId { get; init; }
-        public string UserName { get; init; } = string.Empty;
-        public string Name { get; init; } = string.Empty;
-        public string? Place { get; init; }
-        public DateTime Date { get; init; }
+        public required Guid Id { get; init; }
+        public required Guid UserId { get; init; }
+        public required string UserName { get; init; }
+        public required string Name { get; init; }
+        public Guid? ContractorId { get; init; }
+        public string? ContractorName { get; init; }
+        public string? Number { get; init; }
+        public DateTime? Date { get; init; }
         public string? Description { get; init; }
-        public decimal? NetAmount { get; init; }
-        public decimal? GrossAmount { get; init; }
-        public bool IsClosed { get; init; }
+        public decimal? Net { get; init; }
+        public decimal? Gross { get; init; }
+        public bool IsAccepted { get; init; }
         public bool HasDocument { get; init; }
         public string? DocumentFileName { get; init; }
         public string? PreviewSasUrl { get; init; }
         public string? DownloadSasUrl { get; init; }
-        public List<Guid> SharedWithUserIds { get; init; } = new();
-        public DateTime CreatedAt { get; init; }
+        public required IReadOnlyList<Guid> SharedWithUserIds { get; init; }
+        public required DateTime CreatedAt { get; init; }
     }
 }

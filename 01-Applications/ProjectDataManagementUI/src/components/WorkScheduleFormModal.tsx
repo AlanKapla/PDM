@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Modal,
@@ -988,7 +988,7 @@ export default function WorkScheduleFormModal({
           <Box cursor="grab" _active={{ cursor: "grabbing" }} display={{ base: "none", md: "block" }}>
             <GripVertical size={16} />
           </Box>
-          <Badge colorScheme="green" fontSize={{ base: "9px", md: "xs" }} flexShrink={0}>
+          <Badge colorScheme="green" fontSize={{ base: "2xs", md: "xs" }} flexShrink={0}>
             Zakres robót {workIndex + 1}
           </Badge>
           <Input
@@ -1002,7 +1002,7 @@ export default function WorkScheduleFormModal({
             isInvalid={!work.name.trim()}
             width={{ base: "100%", md: "auto" }}
           />
-          <Text fontSize={{ base: "9px", md: "xs" }} color="gray.500" minW={{ base: "45px", md: "50px" }} textAlign="right" flexShrink={0}>
+          <Text fontSize={{ base: "2xs", md: "xs" }} color="neutral.500" minW={{ base: "45px", md: "50px" }} textAlign="right" flexShrink={0}>
             {work.name.length}/200
           </Text>
           <IconButton
@@ -1142,7 +1142,7 @@ export default function WorkScheduleFormModal({
                 justifyContent="center"
                 flexShrink={0}
               >
-                <Text fontSize={{ base: "7px", md: "2xs" }} fontWeight="bold" color="white" textShadow="0 0 2px black" pointerEvents="none" position="relative" zIndex={1}>
+                <Text fontSize={{ base: "2xs", md: "2xs" }} fontWeight="bold" color="white" textShadow="0 0 2px black" pointerEvents="none" position="relative" zIndex={1}>
                   Inny
                 </Text>
                 <Input
@@ -1194,7 +1194,7 @@ export default function WorkScheduleFormModal({
                   px={2}
                   py={1}
                   borderRadius="md"
-                  fontSize={{ base: "9px", md: "xs" }}
+                  fontSize={{ base: "2xs", md: "xs" }}
                   onClick={() => toggleAssignedUser(stageTempId, work.tempId, member.userId)}
                   _hover={{ transform: "scale(1.05)" }}
                   transition="all 0.2s"
@@ -1245,7 +1245,7 @@ export default function WorkScheduleFormModal({
                       flexShrink={0}
                     />
                   </HStack>
-                  <Text fontSize={{ base: "9px", md: "xs" }} color={comment.content.length > 1900 ? "orange.500" : "gray.500"} ml={6}>
+                  <Text fontSize={{ base: "2xs", md: "xs" }} color={comment.content.length > 1900 ? "orange.500" : "gray.500"} ml={6}>
                     {comment.content.length}/2000 znaków
                   </Text>
                 </VStack>
@@ -1289,11 +1289,11 @@ export default function WorkScheduleFormModal({
                 <GripVertical size={20} />
               </Box>
             )}
-            <Badge colorScheme={depth === 0 ? "blue" : "purple"} fontSize={{ base: "10px", md: "xs" }} flexShrink={0}>
+            <Badge colorScheme={depth === 0 ? "primary" : "level2"} fontSize={{ base: "xs", md: "xs" }} flexShrink={0}>
               Etap {label}
             </Badge>
             {stage.costEstimateGroupId && (
-              <Badge colorScheme="orange" fontSize={{ base: "9px", md: "2xs" }} variant="subtle" flexShrink={0}>
+              <Badge colorScheme="orange" fontSize={{ base: "2xs", md: "2xs" }} variant="subtle" flexShrink={0}>
                 Kosztorys
               </Badge>
             )}
@@ -1311,7 +1311,7 @@ export default function WorkScheduleFormModal({
               width={{ base: "100%", md: "auto" }}
             />
             {!stage.costEstimateGroupId && (
-              <Text fontSize={{ base: "9px", md: "xs" }} color="gray.500" minW={{ base: "50px", md: "60px" }} textAlign="right" flexShrink={0}>
+              <Text fontSize={{ base: "2xs", md: "xs" }} color="neutral.500" minW={{ base: "50px", md: "60px" }} textAlign="right" flexShrink={0}>
                 {stage.name.length}/200
               </Text>
             )}
@@ -1401,7 +1401,7 @@ export default function WorkScheduleFormModal({
                 maxLength={200}
                 size={{ base: "sm", md: "md" }}
               />
-              <Text fontSize="xs" color="gray.500" mt={1}>
+              <Text fontSize="xs" color="neutral.500" mt={1}>
                 {scheduleName.length}/200 znaków
               </Text>
             </FormControl>
@@ -1484,12 +1484,12 @@ export default function WorkScheduleFormModal({
                   {stages.map((stage, stageIndex) => renderStage(stage, stageIndex))}
                 </Accordion>
                 {stages.length === 0 && scheduleMode === 'manual' && (
-                  <Box textAlign="center" py={8} color="gray.500">
+                  <Box textAlign="center" py={8} color="neutral.500">
                     <Text fontSize={{ base: "xs", md: "sm" }}>Brak etapów. Kliknij "Dodaj etap" aby rozpocząć.</Text>
                   </Box>
                 )}
                 {stages.length === 0 && scheduleMode === 'linked' && (
-                  <Box textAlign="center" py={8} color="gray.500">
+                  <Box textAlign="center" py={8} color="neutral.500">
                     <Text fontSize={{ base: "xs", md: "sm" }}>Wybierz kosztorys, aby zobaczyć etapy harmonogramu.</Text>
                   </Box>
                 )}
@@ -1508,7 +1508,7 @@ export default function WorkScheduleFormModal({
                       <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>
                         Zależności między zakresami
                       </Text>
-                      <Text fontSize="xs" color="gray.500">
+                      <Text fontSize="xs" color="neutral.500">
                         Określ, który zakres musi się zakończyć (lub rozpocząć), zanim inny może ruszyć
                       </Text>
                     </VStack>
@@ -1548,11 +1548,11 @@ export default function WorkScheduleFormModal({
                   </Box>
 
                   {allWorks.length < 2 ? (
-                    <Text fontSize="sm" color="gray.400" textAlign="center" py={2}>
+                    <Text fontSize="sm" color="neutral.400" textAlign="center" py={2}>
                       Dodaj co najmniej dwa zakresy robót, aby zdefiniować zależności.
                     </Text>
                   ) : dependencies.length === 0 ? (
-                    <Text fontSize="sm" color="gray.400" textAlign="center" py={2}>
+                    <Text fontSize="sm" color="neutral.400" textAlign="center" py={2}>
                       Brak zależności. Kliknij „Dodaj zależność", aby połączyć zakresy robót.
                     </Text>
                   ) : (
@@ -1564,11 +1564,11 @@ export default function WorkScheduleFormModal({
                         px={3}
                         display={{ base: "none", md: "grid" }}
                       >
-                        <Text fontSize="xs" color="gray.500" textAlign="center">Poprzednik (A — zakres wcześniejszy)</Text>
-                        <Text fontSize="xs" color="gray.500" textAlign="center">Typ zależności</Text>
-                        <Text fontSize="xs" color="gray.500" textAlign="center">Opóźnienie</Text>
+                        <Text fontSize="xs" color="neutral.500" textAlign="center">Poprzednik (A — zakres wcześniejszy)</Text>
+                        <Text fontSize="xs" color="neutral.500" textAlign="center">Typ zależności</Text>
+                        <Text fontSize="xs" color="neutral.500" textAlign="center">Opóźnienie</Text>
                         <Box />
-                        <Text fontSize="xs" color="gray.500" textAlign="center">Następnik (B — zakres zależny)</Text>
+                        <Text fontSize="xs" color="neutral.500" textAlign="center">Następnik (B — zakres zależny)</Text>
                         <Box />
                       </Grid>
 
@@ -1588,7 +1588,7 @@ export default function WorkScheduleFormModal({
                             <Box display={{ base: "block", md: "none" }}>
                               <VStack spacing={2} align="stretch">
                                 <Box>
-                                  <Text fontSize="xs" color="gray.500" mb={1}>Poprzednik (A — zakres wcześniejszy)</Text>
+                                  <Text fontSize="xs" color="neutral.500" mb={1}>Poprzednik (A — zakres wcześniejszy)</Text>
                                   <Select
                                     size="sm"
                                     placeholder="— wybierz zakres A —"
@@ -1603,7 +1603,7 @@ export default function WorkScheduleFormModal({
                                 </Box>
                                 <HStack spacing={2}>
                                   <Box flex={1}>
-                                    <Text fontSize="xs" color="gray.500" mb={1}>Typ ({depTypeLabel})</Text>
+                                    <Text fontSize="xs" color="neutral.500" mb={1}>Typ ({depTypeLabel})</Text>
                                     <Select
                                       size="sm"
                                       value={String(dep.dependencyType)}
@@ -1616,7 +1616,7 @@ export default function WorkScheduleFormModal({
                                     </Select>
                                   </Box>
                                   <Box>
-                                    <Text fontSize="xs" color="gray.500" mb={1}>Opóźnienie</Text>
+                                    <Text fontSize="xs" color="neutral.500" mb={1}>Opóźnienie</Text>
                                     <HStack spacing={1}>
                                       <Input
                                         type="number"
@@ -1631,12 +1631,12 @@ export default function WorkScheduleFormModal({
                                         }}
                                         w="60px"
                                       />
-                                      <Text fontSize="xs" color="gray.500">dni</Text>
+                                      <Text fontSize="xs" color="neutral.500">dni</Text>
                                     </HStack>
                                   </Box>
                                 </HStack>
                                 <Box>
-                                  <Text fontSize="xs" color="gray.500" mb={1}>Następnik (B — zakres zależny)</Text>
+                                  <Text fontSize="xs" color="neutral.500" mb={1}>Następnik (B — zakres zależny)</Text>
                                   <Select
                                     size="sm"
                                     placeholder="— wybierz zakres B —"
@@ -1720,7 +1720,7 @@ export default function WorkScheduleFormModal({
                                       w="54px"
                                       flexShrink={0}
                                     />
-                                    <Text fontSize="xs" color="gray.500" flexShrink={0}>dni</Text>
+                                    <Text fontSize="xs" color="neutral.500" flexShrink={0}>dni</Text>
                                   </HStack>
                                 </GridItem>
                                 <GridItem display="flex" alignItems="center" justifyContent="center">

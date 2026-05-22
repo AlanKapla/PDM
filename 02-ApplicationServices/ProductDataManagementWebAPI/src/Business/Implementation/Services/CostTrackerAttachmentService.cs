@@ -1,6 +1,6 @@
 ﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Services;
-using Entities.Models.CostTrackers;
+using Entities.Models.Costs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -10,7 +10,7 @@ namespace Business.Implementation.Services
     public sealed class CostTrackerAttachmentService : ICostTrackerAttachmentService
     {
         private readonly IBlobStorageService blobStorageService;
-        private readonly IRepository<TrackedCostAttachment> attachmentRepository;
+        private readonly IRepository<BaseCostAttachment> attachmentRepository;
         private readonly ILogger<CostTrackerAttachmentService> logger;
 
         private static readonly string ContainerName =
@@ -18,7 +18,7 @@ namespace Business.Implementation.Services
 
         public CostTrackerAttachmentService(
             IBlobStorageService blobStorageService,
-            IRepository<TrackedCostAttachment> attachmentRepository,
+            IRepository<BaseCostAttachment> attachmentRepository,
             ILogger<CostTrackerAttachmentService> logger)
         {
             this.blobStorageService = blobStorageService;
@@ -26,52 +26,57 @@ namespace Business.Implementation.Services
             this.logger = logger;
         }
 
-        public async Task<List<TrackedCostAttachment>> SyncAttachmentsAsync(
-            TrackedCost cost,
+        public async Task<List<BaseCostAttachment>> SyncAttachmentsAsync(
+            BaseCost cost,
             IReadOnlyList<IFormFile>? newFiles,
-            IReadOnlyList<Guid> existingAttachmentIds,
+            IReadOnlyList<Guid>? existingAttachmentIds,
             Guid tenantId,
             Guid projectId,
             CancellationToken cancellationToken = default)
         {
-            var currentAttachments = (await attachmentRepository.GetBySearch(
-                a => a.TrackedCostId == cost.Id)).ToList();
+            List<BaseCostAttachment> currentAttachments = (await attachmentRepository.GetBySearch(
+                a => a.CostId == cost.Id)).ToList();
 
-            var toDelete = currentAttachments
-                .Where(a => !existingAttachmentIds.Contains(a.Id))
-                .ToList();
-
-            foreach (var attachment in toDelete)
+            if (existingAttachmentIds is not null)
             {
-                attachment.IsDeleted = true;
-                attachment.DeletedAt = DateTime.UtcNow;
-                await attachmentRepository.Update(attachment);
+                List<BaseCostAttachment> toDelete = currentAttachments
+                    .Where(a => !existingAttachmentIds.Contains(a.Id))
+                    .ToList();
 
-                try
+                foreach (BaseCostAttachment attachment in toDelete)
                 {
-                    await blobStorageService.DeleteAsync(ContainerName, attachment.BlobName, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex,
-                        "Failed to delete blob {BlobName} for attachment {AttachmentId}. Record soft-deleted, blob may remain.",
-                        attachment.BlobName, attachment.Id);
+                    attachment.IsDeleted = true;
+                    attachment.DeletedAt = DateTime.UtcNow;
+                    await attachmentRepository.Update(attachment);
+
+                    try
+                    {
+                        await blobStorageService.DeleteAsync(ContainerName, attachment.BlobName, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex,
+                            "Failed to delete blob {BlobName} for attachment {AttachmentId}. Record soft-deleted, blob may remain.",
+                            attachment.BlobName, attachment.Id);
+                    }
                 }
             }
 
-            var now = DateTime.UtcNow;
-            var created = new List<TrackedCostAttachment>();
+            DateTime now = DateTime.UtcNow;
+            List<BaseCostAttachment> created = new List<BaseCostAttachment>();
 
-            foreach (var file in newFiles ?? [])
+            foreach (IFormFile file in newFiles ?? [])
             {
-                var blobName = BuildBlobName(cost, tenantId, projectId, file.FileName);
+                string blobName = BuildBlobName(cost, tenantId, projectId, file.FileName);
 
-                await using var stream = file.OpenReadStream();
+                await using Stream stream = file.OpenReadStream();
                 await blobStorageService.UploadAsync(ContainerName, blobName, stream, file.ContentType, cancellationToken);
 
-                var attachment = new TrackedCostAttachment
+                BaseCostAttachment attachment = new BaseCostAttachment
                 {
-                    TrackedCostId = cost.Id,
+                    CostId = cost.Id,
+                    TenantId = tenantId,
+                    ProjectId = projectId,
                     OriginalFileName = file.FileName,
                     BlobName = blobName,
                     ContentType = file.ContentType,
@@ -83,25 +88,25 @@ namespace Business.Implementation.Services
                 created.Add(attachment);
             }
 
-            var retained = currentAttachments
-                .Where(a => existingAttachmentIds.Contains(a.Id))
-                .ToList();
+            List<BaseCostAttachment> retained = existingAttachmentIds is not null
+                ? currentAttachments.Where(a => existingAttachmentIds.Contains(a.Id)).ToList()
+                : currentAttachments.ToList();
 
             retained.AddRange(created);
             return retained;
         }
 
-        public string GenerateFileUrl(TrackedCostAttachment attachment)
+        public string GenerateFileUrl(BaseCostAttachment attachment)
         {
             return blobStorageService
                 .GenerateSasUri(ContainerName, attachment.BlobName, attachment.OriginalFileName)
                 .ToString();
         }
 
-        private static string BuildBlobName(TrackedCost cost, Guid tenantId, Guid projectId, string fileName)
+        private static string BuildBlobName(BaseCost cost, Guid tenantId, Guid projectId, string fileName)
         {
-            var safeFileName = Path.GetFileName(fileName);
-            return $"{tenantId}/{projectId}/{cost.TrackerId}/{cost.Id}/{safeFileName}";
+            string safeFileName = Path.GetFileName(fileName);
+            return $"{tenantId}/{projectId}/{cost.Id}/{safeFileName}";
         }
     }
 }

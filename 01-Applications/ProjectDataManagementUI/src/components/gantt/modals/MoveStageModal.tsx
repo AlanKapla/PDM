@@ -65,7 +65,7 @@ export default function MoveStageModal({ isOpen, onClose, stageId }: MoveStageMo
         <DrawerHeader borderBottomWidth="1px">Przenieś etap</DrawerHeader>
         <DrawerBody py={4}>
           <VStack spacing={4}>
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="neutral.600">
               Przenosisz: <strong>{stage?.name ?? stageId}</strong>
             </Text>
             <FormControl>
@@ -83,7 +83,7 @@ export default function MoveStageModal({ isOpen, onClose, stageId }: MoveStageMo
           </VStack>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
           <Button colorScheme="primary" onClick={handleSave} isLoading={isSubmitting}>Przenieś</Button>
         </DrawerFooter>
       </DrawerContent>

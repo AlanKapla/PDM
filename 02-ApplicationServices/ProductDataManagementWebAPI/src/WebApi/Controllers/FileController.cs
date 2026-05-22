@@ -19,7 +19,7 @@ namespace WebApi.Controllers
     /// <summary>
     /// Dedicated controller for managing project files
     /// </summary>
-    [Route("api/tenants/{tenantId}/project/{projectId}/file")]
+    [Route("api/tenants/{tenantId}/projects/{projectId}/file")]
     [ApiController]
     public class FileController(IMediator mediator) : BaseApiController(mediator)
     {
@@ -55,7 +55,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] ResourceScope scope)
         {
-            var query = new GetProjectFilePackagesQuery(tenantId, projectId, scope);
+            var query = new GetProjectFilePackagesQuery { TenantId = tenantId, ProjectId = projectId, Scope = scope };
             var result = await Send(query);
             return Ok(result);
         }
@@ -76,7 +76,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid packageId,
             [FromRoute] ResourceScope scope)
         {
-            var query = new GetPackageFilesQuery(tenantId, projectId, packageId, scope);
+            var query = new GetPackageFilesQuery { TenantId = tenantId, ProjectId = projectId, PackageId = packageId, Scope = scope };
             var result = await Send(query);
             return Ok(result);
         }
@@ -97,7 +97,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid fileId,
             [FromRoute] ResourceScope scope)
         {
-            var query = new GetFileVersionsQuery(tenantId, projectId, fileId, scope);
+            var query = new GetFileVersionsQuery { TenantId = tenantId, ProjectId = projectId, FileId = fileId, Scope = scope };
             var result = await Send(query);
             return Ok(result);
         }
@@ -120,7 +120,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid versionId,
             [FromRoute] ResourceScope scope)
         {
-            var query = new GetVersionCommentsQuery(tenantId, projectId, fileId, versionId, scope);
+            var query = new GetVersionCommentsQuery { TenantId = tenantId, ProjectId = projectId, FileId = fileId, VersionId = versionId, Scope = scope };
             var result = await Send(query);
             return Ok(result);
         }
@@ -189,7 +189,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid fileId)
         {
-            var command = new DeleteProjectFileCommand(tenantId, projectId, fileId);
+            var command = new DeleteProjectFileCommand { TenantId = tenantId, ProjectId = projectId, FileId = fileId };
             await Send(command);
             return NoContent();
         }

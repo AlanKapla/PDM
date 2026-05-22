@@ -1,4 +1,12 @@
-﻿using Entities.Models;
+﻿using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -22,10 +30,8 @@ namespace Entities.Configurations
                 .HasPrincipalKey(t => new { t.TenantId, t.UserId })
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasOne(p => p.CostTracker)
-                .WithOne()
-                .HasForeignKey<Project>(p => p.CostTrackerId)
-                .OnDelete(DeleteBehavior.Restrict);
+            builder.Property(p => p.BudgetNet).HasPrecision(18, 4);
+            builder.Property(p => p.BudgetGross).HasPrecision(18, 4);
         }
     }
 
@@ -49,39 +55,6 @@ namespace Entities.Configurations
                    .WithMany()
                    .HasForeignKey(pm => pm.RoleId)
                    .OnDelete(DeleteBehavior.SetNull);
-        }
-    }
-
-    public class ProjectGroupConfig : IEntityTypeConfiguration<ProjectGroup>
-    {
-        public void Configure(EntityTypeBuilder<ProjectGroup> builder)
-        {
-            builder.HasKey(x => x.Id);
-            builder.Property(x => x.Name).IsRequired().HasMaxLength(200);
-
-            builder.HasOne(x => x.Project)
-                .WithMany(p => p.Groups)
-                .HasForeignKey(x => x.ProjectId)
-                .OnDelete(DeleteBehavior.Cascade);
-        }
-    }
-
-    public class ProjectGroupMemberConfig : IEntityTypeConfiguration<ProjectGroupMember>
-    {
-        public void Configure(EntityTypeBuilder<ProjectGroupMember> builder)
-        {
-            builder.HasKey(x => new { x.ProjectGroupId, x.ProjectId, x.TenantId, x.UserId });
-
-            builder.HasOne(x => x.ProjectGroup)
-                .WithMany(g => g.Members)
-                .HasForeignKey(a => a.ProjectGroupId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            builder.HasOne(x => x.ProjectMember)
-                .WithMany(m => m.ProjectGroupMembers)
-                .HasForeignKey(x => new { x.ProjectId, x.TenantId, x.UserId })
-                .HasPrincipalKey(m => new { m.ProjectId, m.TenantId, m.UserId })
-                .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }

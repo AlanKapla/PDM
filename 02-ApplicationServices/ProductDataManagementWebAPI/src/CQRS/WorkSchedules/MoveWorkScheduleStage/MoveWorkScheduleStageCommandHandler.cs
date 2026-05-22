@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -28,13 +28,12 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStage
 
             IEnumerable<WorkScheduleStage> allRaw = await stageRepo.GetBySearch(
                 s => s.WorkScheduleId == request.WorkScheduleId
-                  && s.TenantId == request.TenantId
-                  && !s.IsDeleted);
+                  && s.TenantId == request.TenantId);
 
             List<WorkScheduleStage> allStages = allRaw.ToList();
 
-            WorkScheduleStage stage = allStages.FirstOrDefault(s => s.Id == request.StageId)
-                ?? throw new NotFoundApiException(nameof(WorkScheduleStage), request.StageId.ToString());
+            WorkScheduleStage stage = allStages.FirstOrDefault(s => s.Id == request.WorkScheduleStageId)
+                ?? throw new NotFoundApiException(nameof(WorkScheduleStage), request.WorkScheduleStageId.ToString());
 
             if (request.ParentStageId.HasValue)
             {
@@ -42,7 +41,7 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStage
                 if (!parentExists)
                     throw new ValidationApiException($"Parent stage {request.ParentStageId} does not belong to work schedule {request.WorkScheduleId}.");
 
-                HashSet<Guid> descendants = CollectDescendantIds(allStages, request.StageId);
+                HashSet<Guid> descendants = CollectDescendantIds(allStages, request.WorkScheduleStageId);
                 if (descendants.Contains(request.ParentStageId.Value))
                     throw new ValidationApiException("Moving a stage under its own descendant would create a cycle in the hierarchy.");
             }

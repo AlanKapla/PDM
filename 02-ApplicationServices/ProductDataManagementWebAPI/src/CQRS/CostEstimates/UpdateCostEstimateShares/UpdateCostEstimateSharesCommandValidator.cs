@@ -1,12 +1,13 @@
-﻿using CQRS.Helpers;
-using Entities.Models;
+﻿using CQRS.Extensions;
+using CQRS.Helpers;
 using Entities.Models.CostEstimates;
+using Entities.Models.Projects;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.UpdateCostEstimateShares
 {
-    public class UpdateCostEstimateSharesCommandValidator : AbstractValidator<UpdateCostEstimateSharesCommand>
+    public sealed class UpdateCostEstimateSharesCommandValidator : AbstractValidator<UpdateCostEstimateSharesCommand>
     {
         private readonly IReadRepository<CostEstimate> costEstimateRepository;
         private readonly IRepository<ProjectMember> projectMemberRepository;
@@ -18,13 +19,12 @@ namespace CQRS.CostEstimates.UpdateCostEstimateShares
             this.costEstimateRepository = costEstimateRepository;
             this.projectMemberRepository = projectMemberRepository;
 
-            RuleFor(x => x.TenantId).NotEmpty().WithMessage("TenantId is required");
-            RuleFor(x => x.ProjectId).NotEmpty().WithMessage("ProjectId is required");
-            RuleFor(x => x.CostEstimateId).NotEmpty().WithMessage("CostEstimateId is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
 
             RuleFor(x => x.UserIds)
-                .Must(ids => ids.Distinct().Count() == ids.Count)
-                .WithMessage("User IDs must be unique")
+                .UniqueIds()
                 .When(x => x.UserIds.Count > 0);
 
             RuleFor(x => x.CostEstimateId)

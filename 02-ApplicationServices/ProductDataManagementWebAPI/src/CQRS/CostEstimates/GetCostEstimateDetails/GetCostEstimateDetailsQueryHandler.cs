@@ -4,11 +4,19 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimates;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
-using MediatR;
 using Business.Implementation.Helpers;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
@@ -27,6 +35,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
         private readonly ICostEstimateAccessService ceAccessService;
         private readonly IReadRepository<SharedCostEstimate> sharedCeRepository;
         private readonly IReadRepository<WorkSchedule> workScheduleRepository;
+        private readonly IReadRepository<ProjectCurrency> projectCurrencyRepository;
         private readonly ICurrentUser currentUser;
 
         private const int SasExpirationMinutes = 60;
@@ -40,6 +49,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             ICostEstimateAccessService ceAccessService,
             IReadRepository<SharedCostEstimate> sharedCeRepository,
             IReadRepository<WorkSchedule> workScheduleRepository,
+            IReadRepository<ProjectCurrency> projectCurrencyRepository,
             ICurrentUser currentUser)
         {
             this.ceCacheService = ceCacheService;
@@ -49,6 +59,7 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             this.ceAccessService = ceAccessService;
             this.sharedCeRepository = sharedCeRepository;
             this.workScheduleRepository = workScheduleRepository;
+            this.projectCurrencyRepository = projectCurrencyRepository;
             this.currentUser = currentUser;
         }
 
@@ -137,10 +148,10 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 itemFieldValuesByItemId,
                 fileSasUris);
 
-            // 9. Resolve currency from cached template
-            CostEstimateTemplateCurrency selectedCurrency = template.Currencies
-                .FirstOrDefault(c => c.Id == costEstimate.SelectedCurrencyId)
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplateCurrency), costEstimate.SelectedCurrencyId.ToString());
+            // 9. Resolve currency from ProjectCurrency
+            ProjectCurrency? projectCurrency = await projectCurrencyRepository.GetFirstBySearch(
+                c => c.ProjectId == costEstimate.ProjectId,
+                cancellationToken);
 
             // 10. Load shares — only for Full access (owner / admin), one query with nav props
             IReadOnlyList<CostEstimateShareWeb> sharedWithUsers = [];
@@ -163,13 +174,11 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                     .ToList();
             }
 
-            // 11. Resolve active work schedule linked to this cost estimate (most recently created)
-            IEnumerable<WorkSchedule> linkedSchedules = await workScheduleRepository.GetBySearch(
-                ws => ws.CostEstimateId == request.CostEstimateId &&
-                      ws.TenantId == request.TenantId &&
-                      ws.ProjectId == request.ProjectId &&
-                      !ws.IsDeleted);
-            WorkSchedule? workSchedule = linkedSchedules.OrderByDescending(ws => ws.CreatedAt).FirstOrDefault();
+            // 11. Resolve WorkScheduleId linked to this cost estimate
+            WorkSchedule? linkedWorkSchedule = await workScheduleRepository.GetFirstBySearch(
+                ws => ws.CostEstimateId == request.CostEstimateId,
+                cancellationToken);
+            Guid? workScheduleId = linkedWorkSchedule?.Id;
 
             return new CostEstimateDetailsWeb(
                 Id: costEstimate.Id,
@@ -177,13 +186,12 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                 ProjectId: costEstimate.ProjectId,
                 TemplateId: costEstimate.TemplateId,
                 TemplateName: template.Name,
-                SelectedCurrencyId: costEstimate.SelectedCurrencyId,
-                SelectedCurrencyCode: selectedCurrency.Code,
-                SelectedCurrencySymbol: selectedCurrency.Symbol,
+                SelectedCurrencyCode: projectCurrency?.Code,
+                SelectedCurrencySymbol: projectCurrency?.Symbol,
                 Name: costEstimate.Name,
                 Description: costEstimate.Description,
                 Status: costEstimate.Status,
-                WorkScheduleId: workSchedule?.Id,
+                WorkScheduleId: workScheduleId,
                 RootGroups: rootGroups,
                 TotalNet: costEstimate.TotalNet,
                 TotalGross: costEstimate.TotalGross,
@@ -209,7 +217,6 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
         {
             var allFiles = itemFieldValuesDict.Values
                 .SelectMany(fv => fv.Files)
-                .Where(f => !f.IsDeleted)
                 .ToList();
 
             if (allFiles.Count == 0)
@@ -350,7 +357,6 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
                     if (fv.FieldDefinition.FieldType == FieldType.ItemSystemFiles && fv.Files.Count > 0)
                     {
                         files = fv.Files
-                            .Where(f => !f.IsDeleted)
                             .OrderBy(f => f.Order)
                             .Select(f =>
                             {

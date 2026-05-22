@@ -32,8 +32,7 @@ namespace CQRS.CostEstimates.UpdateCostEstimate
             var costEstimate = await costEstimateRepository.GetFirstBySearch(
                 c => c.Id == request.CostEstimateId &&
                      c.TenantId == request.TenantId &&
-                     c.ProjectId == request.ProjectId &&
-                     !c.IsDeleted)
+                     c.ProjectId == request.ProjectId)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
             var accessLevel = await ceAccessService.GetAccessLevelAsync(

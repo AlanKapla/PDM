@@ -1,96 +1,80 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
-using Entities.Models;
+using Entities.Models.Projects;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.GetTenantProjects
 {
-    public class GetTenantProjectsQueryHandler : IRequestHandler<GetTenantProjectsQuery, IEnumerable<ProjectDetailsWeb>>
+    public sealed class GetTenantProjectsQueryHandler : IRequestHandler<GetTenantProjectsQuery, IEnumerable<ProjectDetailsWeb>>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly ICurrentUser currentUser;
 
         public GetTenantProjectsQueryHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IRepository<TenantMember> tenantMemberRepo,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.tenantMemberRepo = tenantMemberRepo;
             this.currentUser = currentUser;
         }
 
         public async Task<IEnumerable<ProjectDetailsWeb>> Handle(GetTenantProjectsQuery request, CancellationToken cancellationToken)
         {
-            // ─────────────────────────────────────────────────────────────────────
             // STEP 1: Determine user's role in tenant
-            // ─────────────────────────────────────────────────────────────────────
-            var tenantSnapshot = await currentUser.GetTenantSnapshotAsync(request.TenantId, cancellationToken);
+            TenantCtxSnapshot? tenantSnapshot = await currentUser.GetTenantSnapshotAsync(request.TenantId, cancellationToken);
             bool isSuperAdmin = currentUser.IsSuperAdmin;
             bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
 
-            // ─────────────────────────────────────────────────────────────────────
-            // STEP 2: Load all projects with memberships in single query
-            // ─────────────────────────────────────────────────────────────────────
-            var allProjects = await projectRepo.GetBySearch(
+            // STEP 2: Load all projects with creator info in a single query
+            IEnumerable<Project> allProjects = await projectRepo.GetBySearch(
                 p => p.TenantId == request.TenantId,
                 include => include.Include(p => p.CreatedBy)
                                  .ThenInclude(cb => cb.User));
 
-            var projectIds = allProjects.Select(p => p.Id).ToList();
+            List<Guid> projectIds = allProjects.Select(p => p.Id).ToList();
 
             // Load ALL project members in single query (for memberships + counts)
-            var allProjectMembers = await projectMemberRepo.GetBySearch(
-                pm => projectIds.Contains(pm.ProjectId),
+            IEnumerable<ProjectMember> allProjectMembers = await projectMemberRepo.GetBySearch(
+                pm => projectIds.Contains(pm.ProjectId) && pm.TenantId == request.TenantId,
                 include => include.Include(pm => pm.MemberRole));
 
-            // Filter in memory: user's project memberships
-            var userProjectMemberships = allProjectMembers
+            Dictionary<Guid, ProjectMember> membershipDict = allProjectMembers
                 .Where(pm => pm.UserId == currentUser.Id)
-                .ToList();
+                .ToDictionary(pm => pm.ProjectId);
 
-            var membershipDict = userProjectMemberships.ToDictionary(pm => pm.ProjectId);
-
-            // Calculate members count from same data
-            var membersCountDict = allProjectMembers
+            Dictionary<Guid, int> membersCountDict = allProjectMembers
                 .GroupBy(pm => pm.ProjectId)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            // ─────────────────────────────────────────────────────────────────────
             // STEP 3: Filter and build result based on user role
-            // ─────────────────────────────────────────────────────────────────────
-            var result = new List<ProjectDetailsWeb>();
+            List<ProjectDetailsWeb> result = new List<ProjectDetailsWeb>();
 
-            foreach (var project in allProjects)
+            foreach (Project project in allProjects)
             {
-                // Determine if user should see this project
-                bool hasProjectMembership = membershipDict.TryGetValue(project.Id, out var membership);
-                bool isProjectAdmin = hasProjectMembership && membership.MemberRole?.Code == RoleCodes.ProjectAdmin;
+                bool hasProjectMembership = membershipDict.TryGetValue(project.Id, out ProjectMember? membership);
+                bool isProjectAdmin = hasProjectMembership && membership!.MemberRole?.Code == RoleCodes.ProjectAdmin;
 
                 // Visibility rules:
-                // - SuperAdmin → sees all projects
-                // - Tenant Admin → sees all projects in their tenant
-                // - Project Admin → sees all projects where they are admin (including inactive)
-                // - Regular members → sees only active projects where they are members
-                bool canSeeProject = isSuperAdmin 
-                    || isTenantAdmin 
-                    || isProjectAdmin 
+                // - SuperAdmin → all projects
+                // - Tenant Admin → all projects in their tenant
+                // - Project Admin → projects where they are admin (including inactive)
+                // - Regular members → only active projects where they are members
+                bool canSeeProject = isSuperAdmin
+                    || isTenantAdmin
+                    || isProjectAdmin
                     || (hasProjectMembership && project.IsActive);
 
                 if (!canSeeProject)
+                {
                     continue;
+                }
 
-                // Determine user role code hierarchy:
-                // 1. Project membership role (if exists)
-                // 2. Tenant Admin (if no project membership)
-                // 3. System SuperAdmin (if no project membership or tenant admin)
                 string userRoleCode;
                 if (hasProjectMembership)
                 {
@@ -110,30 +94,33 @@ namespace CQRS.Projects.GetTenantProjects
                     continue;
                 }
 
-                // Get user's permissions for this project
-                var userPermissions = new HashSet<string>();
-                var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
-                if (projectSnapshot != null)
+                // NOTE: N+1 — per-project snapshot lookup. See PROJ-04 BLOKER report:
+                // batch API on ICurrentUser/IUserContextCache is required to fix.
+                HashSet<string> userPermissions = new HashSet<string>();
+                ProjectCtxSnapshot? projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
+                if (projectSnapshot is not null)
                 {
                     userPermissions = projectSnapshot.ProjectPermissionCodes;
                 }
 
                 int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
 
-                result.Add(new ProjectDetailsWeb(
-                    Id: project.Id,
-                    TenantId: project.TenantId,
-                    Name: project.Name,
-                    IsActive: project.IsActive,
-                    CreatedAt: project.CreatedAt,
-                    CreatedByUserId: project.CreatedByUserId,
-                    CreatedByUserName: project.CreatedBy?.User != null 
+                result.Add(new ProjectDetailsWeb
+                {
+                    Id = project.Id,
+                    TenantId = project.TenantId,
+                    Name = project.Name,
+                    IsActive = project.IsActive,
+                    CreatedAt = project.CreatedAt,
+                    CreatedByUserId = project.CreatedByUserId,
+                    CreatedByUserName = project.CreatedBy?.User is not null
                         ? $"{project.CreatedBy.User.FirstName} {project.CreatedBy.User.LastName}".Trim()
                         : "Unknown",
-                    UserRoleCode: userRoleCode,
-                    MembersCount: membersCount,
-                    UserPermissions: userPermissions
-                ));
+                    UserRoleCode = userRoleCode,
+                    MembersCount = membersCount,
+                    UserPermissions = userPermissions,
+                    Currency = null
+                });
             }
 
             return result.OrderByDescending(p => p.CreatedAt).ToList();

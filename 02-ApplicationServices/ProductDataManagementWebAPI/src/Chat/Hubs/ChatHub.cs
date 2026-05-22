@@ -1,7 +1,7 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using Chat.CQRS.Messages.MarkAsRead;
 using Chat.CQRS.Messages.SendMessage;
-using Entities.Models;
+using Entities.Models.Chats;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -101,16 +101,32 @@ public sealed class ChatHub : Hub<IChatClient>
     }
 
     /// <summary>Send a message via the hub. Persists to DB and broadcasts to all members.</summary>
+    /// <remarks>
+    /// The hub does not know the tenant the chat belongs to without an extra DB lookup,
+    /// so TenantId is left null. Authorization remains the chat-membership check inside
+    /// the handler. HTTP callers (TenantChatsController) provide TenantId from the route.
+    /// </remarks>
     public async Task SendMessage(Guid chatId, string content, Guid? replyToMessageId = null)
     {
-        var command = new SendMessageCommand(chatId, content, replyToMessageId);
+        SendMessageCommand command = new SendMessageCommand
+        {
+            TenantId = null,
+            ChatId = chatId,
+            Content = content,
+            ReplyToMessageId = replyToMessageId
+        };
         await mediator.Send(command);
     }
 
     /// <summary>Mark a chat as read by the current user.</summary>
+    /// <remarks>See <see cref="SendMessage"/> for the TenantId rationale.</remarks>
     public async Task MarkAsRead(Guid chatId)
     {
-        var command = new MarkAsReadCommand(chatId);
+        MarkAsReadCommand command = new MarkAsReadCommand
+        {
+            TenantId = null,
+            ChatId = chatId
+        };
         await mediator.Send(command);
     }
 

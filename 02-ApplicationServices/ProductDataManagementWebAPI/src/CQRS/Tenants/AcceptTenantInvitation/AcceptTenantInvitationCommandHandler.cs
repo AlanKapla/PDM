@@ -1,27 +1,28 @@
-﻿using Business.Implementation.Services;
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
+using Business.Interfaces.Services;
 using Entities.Enums;
-using Entities.Models;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
 using MediatR;
 using Repositories.Repository.Interfaces;
-using Business.Interfaces.Exceptions;
 
 namespace CQRS.Tenants.AcceptTenantInvitation
 {
-    public class AcceptTenantInvitationCommandHandler : IRequestHandler<AcceptTenantInvitationCommand, Unit>
+    public sealed class AcceptTenantInvitationCommandHandler : IRequestHandler<AcceptTenantInvitationCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
-        private readonly PermissionsVersionService permissionsVersionService;
+        private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
         public AcceptTenantInvitationCommandHandler(
             IRepository<TenantInvitation> invitationRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<Role> roleRepo,
-            PermissionsVersionService permissionsVersionService,
+            IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.invitationRepo = invitationRepo;
@@ -33,20 +34,20 @@ namespace CQRS.Tenants.AcceptTenantInvitation
 
         public async Task<Unit> Handle(AcceptTenantInvitationCommand request, CancellationToken cancellationToken)
         {
-            TenantInvitation? invitation = await invitationRepo.GetFirstBySearch(i => i.Token == request.Token && i.IsActive)
+            TenantInvitation invitation = await invitationRepo.GetFirstBySearch(i => i.Token == request.Token && i.IsActive)
                 ?? throw new NotFoundApiException("TenantInvitation", request.Token);
 
-            // Get TENANT.MEMBER role
-            var memberRole = await roleRepo.GetFirstBySearch(
+            Role? memberRole = await roleRepo.GetFirstBySearch(
                 r => r.Scope == RoleScope.Tenant && r.Code == RoleCodes.TenantMember,
                 cancellationToken);
 
-            if (memberRole == null)
-                throw new InvalidOperationException("TENANT.MEMBER role not found");
+            if (memberRole is null)
+            {
+                throw new NotFoundApiException(nameof(Role), RoleCodes.TenantMember);
+            }
 
-            // Create membership as Member
             TenantMember? existing = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == invitation.TenantId && m.UserId == currentUser.Id);
-            if (existing == null)
+            if (existing is null)
             {
                 TenantMember member = new TenantMember
                 {
@@ -65,7 +66,6 @@ namespace CQRS.Tenants.AcceptTenantInvitation
                 await tenantMemberRepo.Update(existing);
             }
 
-            // Bump permissions version
             await permissionsVersionService.BumpVersionAsync(currentUser.Id, cancellationToken);
 
             invitation.Status = InvitationStatus.Accepted;

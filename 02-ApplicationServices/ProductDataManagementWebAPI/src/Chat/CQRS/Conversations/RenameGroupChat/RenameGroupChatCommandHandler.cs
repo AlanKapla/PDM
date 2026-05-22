@@ -1,7 +1,7 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Entities.Models;
-using ChatModel = Entities.Models.Chat;
+using Entities.Models.Chats;
+using ChatModel = Entities.Models.Chats.Chat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -32,34 +32,15 @@ public sealed class RenameGroupChatCommandHandler : IRequestHandler<RenameGroupC
 
     public async Task<Unit> Handle(RenameGroupChatCommand request, CancellationToken cancellationToken)
     {
-        ChatModel? chat = await chatRepo.GetById(request.ChatId);
-
-        if (chat == null)
-        {
-            throw new NotFoundApiException("Chat", request.ChatId.ToString());
-        }
-
-        if (!chat.IsGroupChat)
-        {
-            throw new ValidationApiException("Cannot rename a direct chat.");
-        }
-
-        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
-            cm => cm.ChatId == request.ChatId &&
-                  cm.UserId == currentUser.Id,
-            cancellationToken);
-
-        if (membership == null)
-        {
-            throw new ForbiddenApiException("You are not a member of this chat.");
-        }
+        ChatModel chat = await GetAndValidateChatAsync(request.TenantId, request.ChatId, cancellationToken);
+        ChatMember membership = await GetAndValidateMembershipAsync(request.ChatId, currentUser.Id, cancellationToken);
 
         if (!membership.IsAdmin)
         {
             throw new ForbiddenApiException("Only admins can rename a group chat.");
         }
 
-        chat.Name = request.NewName;
+        chat.Rename(request.NewName);
         await chatWriteRepo.Update(chat);
 
         logger.LogInformation(
@@ -69,5 +50,36 @@ public sealed class RenameGroupChatCommandHandler : IRequestHandler<RenameGroupC
             currentUser.Id);
 
         return Unit.Value;
+    }
+
+    private async Task<ChatModel> GetAndValidateChatAsync(Guid tenantId, Guid chatId, CancellationToken cancellationToken)
+    {
+        ChatModel? chat = await chatRepo.GetFirstBySearch(
+            c => c.Id == chatId && c.TenantId == tenantId,
+            cancellationToken);
+
+        if (chat is null)
+        {
+            throw new NotFoundApiException(nameof(Entities.Models.Chats.Chat), chatId.ToString());
+        }
+
+        return chat;
+    }
+
+    private async Task<ChatMember> GetAndValidateMembershipAsync(
+        Guid chatId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
+            cm => cm.ChatId == chatId && cm.UserId == userId,
+            cancellationToken);
+
+        if (membership is null)
+        {
+            throw new ForbiddenApiException("You are not a member of this chat.");
+        }
+
+        return membership;
     }
 }

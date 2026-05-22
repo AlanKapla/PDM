@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Komponent do renderowania pól typu pliki (ItemSystemFiles, fieldType = 105)
  * 
  * Obsługuje:
@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import type { CostEstimateFieldFileWeb } from '../../types/costEstimate.types.new';
 import { useToastNotification } from "../../hooks/useToastNotification";
+import { handleApiError } from "../../utils/handleApiError";
 
 // Dozwolone formaty plików
 const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg'];
@@ -201,7 +202,7 @@ const FilePreviewModal: React.FC<{
               align="center"
               justify="center"
               py={12}
-              color="gray.500"
+              color="neutral.500"
             >
               <FileText size={64} />
               <Text mt={4}>
@@ -368,8 +369,9 @@ const FileManagerModal: React.FC<{
       showSuccess('Zapisano', 'Zmiany w plikach zostały zapisane');
 
       onClose();
-    } catch (error: any) {
-      showError('Błąd zapisu', error?.response?.data?.message || error?.message || 'Wystąpił błąd podczas zapisywania');
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setIsSaving(false);
       setSaveProgress(0);
@@ -438,7 +440,7 @@ const FileManagerModal: React.FC<{
                         h="48px"
                         borderRadius="md"
                         overflow="hidden"
-                        bg="gray.100"
+                        bg="neutral.50"
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
@@ -472,7 +474,7 @@ const FileManagerModal: React.FC<{
                           {file.originalFileName}
                         </Text>
                         <HStack spacing={2}>
-                          <Text fontSize="xs" color="gray.500">
+                          <Text fontSize="xs" color="neutral.500">
                             {formatFileSize(file.fileSize)}
                           </Text>
                           <Badge 
@@ -533,10 +535,10 @@ const FileManagerModal: React.FC<{
                 align="center"
                 justify="center"
                 py={8}
-                color="gray.500"
+                color="neutral.500"
                 borderRadius="md"
                 border="2px dashed"
-                borderColor="gray.200"
+                borderColor="neutral.200"
               >
                 <Paperclip size={32} />
                 <Text mt={2}>Brak załączonych plików</Text>
@@ -571,7 +573,7 @@ const FileManagerModal: React.FC<{
                   Dodaj pliki
                 </Button>
                 
-                <Text fontSize="xs" color="gray.500" mt={2} textAlign="center">
+                <Text fontSize="xs" color="neutral.500" mt={2} textAlign="center">
                   Dozwolone formaty: PDF, JPG • Maks. rozmiar: 50 MB/plik • Maks. {MAX_FILES_PER_REQUEST} plików
                 </Text>
               </>
@@ -586,7 +588,7 @@ const FileManagerModal: React.FC<{
                   colorScheme="primary"
                   borderRadius="md"
                 />
-                <Text fontSize="xs" color="gray.500" mt={1} textAlign="center">
+                <Text fontSize="xs" color="neutral.500" mt={1} textAlign="center">
                   Zapisywanie zmian... {saveProgress}%
                 </Text>
               </Box>
@@ -704,7 +706,7 @@ export const FileFieldRenderer: React.FC<FileFieldRendererProps> = ({
                   h="24px"
                   borderRadius="sm"
                   overflow="hidden"
-                  bg="gray.100"
+                  bg="neutral.50"
                   display="flex"
                   alignItems="center"
                   justifyContent="center"

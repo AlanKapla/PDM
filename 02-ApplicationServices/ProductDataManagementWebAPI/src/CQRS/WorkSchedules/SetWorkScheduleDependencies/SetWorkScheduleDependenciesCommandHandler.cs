@@ -1,8 +1,8 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
 using CQRS.WorkSchedules.Shared;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;

@@ -1,12 +1,12 @@
-﻿using Business.Interfaces.Model;
-using Entities.Models;
+using Business.Interfaces.Model;
+using Entities.Models.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Notifications.MarkAllNotificationsAsRead
 {
-    public class MarkAllNotificationsAsReadCommandHandler : IRequestHandler<MarkAllNotificationsAsReadCommand, int>
+    public sealed class MarkAllNotificationsAsReadCommandHandler : IRequestHandler<MarkAllNotificationsAsReadCommand, int>
     {
         private readonly IRepository<Notification> notificationRepo;
         private readonly ICurrentUser currentUser;
@@ -24,26 +24,19 @@ namespace CQRS.Notifications.MarkAllNotificationsAsRead
 
         public async Task<int> Handle(MarkAllNotificationsAsReadCommand request, CancellationToken cancellationToken)
         {
-            var unreadNotifications = await notificationRepo.GetBySearch(
-                n => n.UserId == currentUser.Id && !n.Readed);
+            int updated = await notificationRepo.ExecuteUpdateAsync(
+                n => n.UserId == currentUser.Id && !n.IsRead,
+                s => s.SetProperty(n => n.IsRead, true),
+                cancellationToken);
 
-            if (!unreadNotifications.Any())
+            if (updated == 0)
             {
                 logger.LogInformation("No unread notifications to mark as read for user {UserId}", currentUser.Id);
                 return 0;
             }
 
-            foreach (var notification in unreadNotifications)
-            {
-                notification.Readed = true;
-            }
-
-            await notificationRepo.UpdateRange(unreadNotifications);
-
-            logger.LogInformation("Marked {Count} notifications as read for user {UserId}", 
-                unreadNotifications.Count(), currentUser.Id);
-
-            return unreadNotifications.Count();
+            logger.LogInformation("Marked {Count} notifications as read for user {UserId}", updated, currentUser.Id);
+            return updated;
         }
     }
 }

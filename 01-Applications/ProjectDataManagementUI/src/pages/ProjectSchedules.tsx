@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from "react";
+﻿import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -38,7 +38,7 @@ import { projectApi, ResourceScope } from "../api/projectApi";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails, useProjectMembers } from "../hooks/queries";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
 
@@ -68,11 +68,11 @@ const ScheduleTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, 
   return (
     <VStack spacing={4} align="stretch">
       <HStack justify="space-between" flexWrap="wrap" gap={2}>
-        <Text fontSize="sm" color="gray.600">{description}</Text>
+        <Text fontSize="sm" color="neutral.600">{description}</Text>
         {showCreate && (
           <Button
             leftIcon={<Calendar size={18} />}
-            colorScheme="level2"
+            colorScheme="primary"
             onClick={onOpen}
           >
             Utwórz harmonogram
@@ -96,8 +96,6 @@ export default function ProjectSchedules() {
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
-  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const hasFetchedProjectData = useRef(false);
 
@@ -127,25 +125,18 @@ export default function ProjectSchedules() {
     `schedules-all-${projectId}`
   );
 
-  // Globalny cache dla project details (współdzielony między stronami projektu)
-  const projectDetailsCache = useGlobalCache(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
-    }
+  // React Query — dane projektu i członkowie (współdzielony cache między stronami projektu)
+  const { data: projectData } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
+  const project: ProjectDetailsWeb | null = projectData ?? null;
 
-  // Globalny cache dla członków projektu
-  const membersCache = useGlobalCache(
-    `project-members-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      return res.data;
-    }
+  const { data: membersData } = useProjectMembers(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
+  const members: ProjectMemberWeb[] = membersData ?? [];
 
   useEffect(() => {
     if (resourcePerms.raw.loading) return;
@@ -165,13 +156,6 @@ export default function ProjectSchedules() {
 
     setLoading(true);
     try {
-      const projectData = await projectDetailsCache.fetch();
-      setProject(projectData);
-
-      // Pobierz członków projektu
-      const membersData = await membersCache.fetch();
-      setMembers(membersData);
-
       // Pobierz wszystkie zakładki równolegle według uprawnień
       const fetchPromises = [];
       if (resourcePerms.tabs.showAll) {
@@ -213,8 +197,6 @@ export default function ProjectSchedules() {
   const refreshData = () => {
     mySchedulesCache.clear();
     allSchedulesCache.clear();
-    projectDetailsCache.clear();
-    membersCache.clear();
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };
@@ -242,10 +224,10 @@ export default function ProjectSchedules() {
           {schedules.map((schedule) => (
             <Box
               key={schedule.id}
-              bg={cardBg}
+              bg="white"
               p={3}
               borderWidth="1px"
-              borderColor={borderColor}
+              borderColor="neutral.200"
               rounded="lg"
               cursor="pointer"
               shadow="sm"
@@ -261,7 +243,7 @@ export default function ProjectSchedules() {
                       <Badge colorScheme="orange" fontSize="xs" flexShrink={0}>Kosztorys</Badge>
                     )}
                   </HStack>
-                  <HStack spacing={3} fontSize="xs" color="gray.500">
+                  <HStack spacing={3} fontSize="xs" color="neutral.500">
                     <HStack spacing={1}>
                       <Icon as={User} boxSize={3} />
                       <Text noOfLines={1}>{schedule.createdByUserName}</Text>
@@ -291,7 +273,7 @@ export default function ProjectSchedules() {
     }
 
     return (
-      <Box overflowX="auto" bg={cardBg} rounded="lg" borderWidth="1px" borderColor={borderColor}>
+      <Box overflowX="auto" bg="white" rounded="lg" borderWidth="1px" borderColor="neutral.200">
         <Table size="sm" variant="simple">
           <Thead>
             <Tr>
@@ -305,7 +287,7 @@ export default function ProjectSchedules() {
             {schedules.map((schedule) => (
               <Tr
                 key={schedule.id}
-                _hover={{ bg: hoverBg }}
+                _hover={{ bg: 'neutral.50' }}
                 cursor="pointer"
                 onClick={() => navigate(`/projects/${projectId}/schedules/${schedule.id}`)}
               >
@@ -319,13 +301,13 @@ export default function ProjectSchedules() {
                 </Td>
                 <Td>
                   <HStack spacing={1}>
-                    <Icon as={User} boxSize={3} color="gray.500" />
+                    <Icon as={User} boxSize={3} color="neutral.500" />
                     <Text fontSize="sm">{schedule.createdByUserName}</Text>
                   </HStack>
                 </Td>
                 <Td>
                   <HStack spacing={1}>
-                    <Icon as={Clock} boxSize={3} color="gray.500" />
+                    <Icon as={Clock} boxSize={3} color="neutral.500" />
                     <Text fontSize="sm">{formatDate(schedule.createdAt)}</Text>
                   </HStack>
                 </Td>
@@ -370,7 +352,7 @@ export default function ProjectSchedules() {
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Harmonogramy prac</Heading>
               {project && (
-                <Text fontSize="sm" color="gray.600" noOfLines={1}>
+                <Text fontSize="sm" color="neutral.600" noOfLines={1}>
                   {project.name}
                 </Text>
               )}

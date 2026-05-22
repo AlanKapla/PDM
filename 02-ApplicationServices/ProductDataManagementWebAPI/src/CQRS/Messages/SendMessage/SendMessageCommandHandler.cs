@@ -1,9 +1,17 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -27,13 +35,11 @@ namespace CQRS.Messages.SendMessage
 
         public async Task<Guid> Handle(SendMessageCommand request, CancellationToken cancellationToken)
         {
-            MessageHistory message = new MessageHistory
-            {
-                ChatId = request.ChatId,
-                UserId = currentUser.Id,
-                Content = request.Content,
-                CreatedAt = DateTime.UtcNow
-            };
+            MessageHistory message = MessageHistory.Create(
+                chatId: request.ChatId,
+                authorId: currentUser.Id,
+                content: request.Content,
+                replyToId: null);
 
             await messageRepo.Insert(message);
 

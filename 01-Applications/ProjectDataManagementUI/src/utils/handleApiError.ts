@@ -33,7 +33,7 @@ export const handleApiError = (error: unknown): ApiErrorResult => {
   const response = error.response;
   if (!response) {
     return {
-      title: "Błąd połączenia",
+      title: "Brak połączenia",
       description: "Nie udało się połączyć z serwerem"
     };
   }

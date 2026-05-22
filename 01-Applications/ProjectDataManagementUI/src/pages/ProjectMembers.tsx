@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+﻿import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -29,11 +29,13 @@ import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { handleApiError } from "../utils/handleApiError";
+import { useProjectDetails, useProjectMembers, projectKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
 import { roleApi, type RoleWeb } from "../api/roleApi";
-import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
+import type { ProjectMemberWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function ProjectMembers() {
@@ -41,13 +43,10 @@ export default function ProjectMembers() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const permissions = useProjectPermissions(projectId);
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
 
-  const [loading, setLoading] = useState(true);
-  const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
-  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
 
@@ -60,28 +59,21 @@ export default function ProjectMembers() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  // Globalny cache dla project details (współdzielony z innymi stronami projektu)
-  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
-    }
+  // React Query — dane projektu i członkowie (współdzielony cache między stronami projektu)
+  const { data: project, isLoading: loadingProject } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
   );
+  const { data: membersData, isLoading: loadingMembers } = useProjectMembers(
+    user?.activeTenantId ?? undefined,
+    projectId
+  );
+  const members = membersData ?? [];
+  const loading = loadingProject || loadingMembers;
 
-  // Globalny cache dla project members (współdzielony z innymi stronami projektu)
-  const projectMembersCache = useGlobalCache<ProjectMemberWeb[]>(
-    `project-members-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      return res.data;
-    }
-  );
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    fetchData();
     fetchRoles();
   }, [projectId]);
 
@@ -90,25 +82,6 @@ export default function ProjectMembers() {
       const roles = await roleApi.getAvailableRoles('project');
       setAvailableRoles(roles);
     } catch (error) {
-    }
-  };
-
-  const fetchData = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoading(true);
-    try {
-      const [projectData, membersData] = await Promise.all([
-        projectDetailsCache.fetch(),
-        projectMembersCache.fetch(),
-      ])
-
-      setProject(projectData);
-      setMembers(membersData);
-    } catch (error) {
-      showError("Nie udało się pobrać danych");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -128,11 +101,17 @@ export default function ProjectMembers() {
         memberToRemove.userId
       );
 
-      showSuccess(`Usunięto członka: ${memberToRemove.name}`);
-      setMembers((prev) => prev.filter((m) => m.userId !== memberToRemove.userId));
+      showApiSuccess('memberRemoved');
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
       onRemoveModalClose();
     } catch (error) {
-      showError("Błąd podczas usuwania członka");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
@@ -157,13 +136,17 @@ export default function ProjectMembers() {
       );
 
       // Odśwież dane po zmianie
-      projectDetailsCache.clear();
-      projectMembersCache.clear();
-      await fetchData();
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
       setEditingRoleMemberId(null);
-      showSuccess("Zaktualizowano rolę członka");
+      showApiSuccess('memberUpdated');
     } catch (error) {
-      showError("Nie udało się zmienić roli");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setUpdatingRole(false);
     }
@@ -187,7 +170,7 @@ export default function ProjectMembers() {
             <VStack spacing={4}>
               <Heading size="md" color="red.500">Brak dostępu</Heading>
               <Text>Nie masz uprawnień do przeglądania członków tego projektu.</Text>
-              <Text fontSize="sm" color="gray.600">Wymagana rola: co najmniej Przeglądający</Text>
+              <Text fontSize="sm" color="neutral.600">Wymagana rola: co najmniej Przeglądający</Text>
             </VStack>
           </Box>
         ) : (
@@ -197,7 +180,7 @@ export default function ProjectMembers() {
             <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="primary.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size={{ base: "md", md: "lg" }}>Członkowie projektu</Heading>
-              {project && <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">{project.name}</Text>}
+              {project && <Text fontSize={{ base: "xs", md: "sm" }} color="neutral.600">{project.name}</Text>}
             </VStack>
           </HStack>
           {permissions.canManageMembers && (
@@ -221,22 +204,21 @@ export default function ProjectMembers() {
           />
         ) : (
           <Box 
-            bg={cardBg} 
+            bg="white" 
             rounded="lg" 
-            shadow="md" 
             borderWidth="1px" 
-            borderColor={borderColor}
+            borderColor="neutral.200"
             overflowX="auto"
             fontSize={{ base: "xs", md: "sm" }}
           >
             <Table variant="simple" size={{ base: "sm", md: "md" }}>
               <Thead>
                 <Tr>
-                  <Th fontSize={{ base: "10px", md: "sm" }}>Imię i nazwisko</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }}>Rola</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
-                  <Th fontSize={{ base: "10px", md: "sm" }}>Akcje</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }}>Imię i nazwisko</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }}>Rola</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -278,7 +260,7 @@ export default function ProjectMembers() {
                               aria-label="Zapisz rolę"
                               icon={<Save size={14} />}
                               size="sm"
-                              colorScheme="green"
+                              colorScheme="primary"
                               onClick={() => handleUpdateMemberRole(member.userId)}
                               isLoading={updatingRole}
                             />
@@ -342,7 +324,7 @@ export default function ProjectMembers() {
           projectId={projectId || ""}
           tenantId={user?.activeTenantId || ""}
           projectName={project?.name || ""}
-          onMemberAdded={fetchData}
+          onMemberAdded={() => queryClient.invalidateQueries({ queryKey: projectKeys.members(user?.activeTenantId ?? '', projectId ?? '') })}
         />
 
         <DeleteAlertDialog

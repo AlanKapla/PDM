@@ -1,10 +1,9 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using CQRS.Files;
-using Entities.Models;
+using Entities.Models.Files;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -12,7 +11,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.UploadProjectFiles
 {
-    public class UploadProjectFilesCommandHandler : IRequestHandler<UploadProjectFilesCommand, Unit>
+    public sealed class UploadProjectFilesCommandHandler : IRequestHandler<UploadProjectFilesCommand, Unit>
     {
         private readonly IRepository<ProjectFile> projectFileRepo;
         private readonly IRepository<ProjectFileVersion> projectFileVersionRepo;
@@ -20,6 +19,7 @@ namespace CQRS.Files.UploadProjectFiles
         private readonly IRepository<ProjectFilePackage> projectFilePackageRepo;
         private readonly IBlobStorageService blobStorageService;
         private readonly IProjectFilesService projectFilesService;
+        private readonly IFileAccessGuard fileAccessGuard;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UploadProjectFilesCommandHandler> logger;
 
@@ -30,6 +30,7 @@ namespace CQRS.Files.UploadProjectFiles
             IRepository<ProjectFilePackage> projectFilePackageRepo,
             IBlobStorageService blobStorageService,
             IProjectFilesService projectFilesService,
+            IFileAccessGuard fileAccessGuard,
             ICurrentUser currentUser,
             ILogger<UploadProjectFilesCommandHandler> logger)
         {
@@ -39,139 +40,200 @@ namespace CQRS.Files.UploadProjectFiles
             this.projectFilePackageRepo = projectFilePackageRepo;
             this.blobStorageService = blobStorageService;
             this.projectFilesService = projectFilesService;
+            this.fileAccessGuard = fileAccessGuard;
             this.currentUser = currentUser;
             this.logger = logger;
         }
 
         public async Task<Unit> Handle(UploadProjectFilesCommand request, CancellationToken cancellationToken)
         {
-            // 1. Verify package exists and belongs to the correct project/tenant
-            ProjectFilePackage? package = await projectFilePackageRepo.GetFirstBySearch(
-                pfp => pfp.Id == request.ProjectFilePackageId &&
-                       pfp.ProjectId == request.ProjectId &&
-                       pfp.TenantId == request.TenantId &&
-                       !pfp.IsDeleted) ?? throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
+            await fileAccessGuard.EnsureCanAccessPackageAsync(
+                request.TenantId, request.ProjectId, request.ProjectFilePackageId, FileAccessKind.Write, cancellationToken);
 
-            // 2. Authorization check: tenant admin OR project admin OR package owner
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            bool isPackageOwner = package.OwnerId == currentUser.Id;
-            
-            if (!isAdmin && !isPackageOwner)
-            {
-                throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
-            }
+            ProjectFilePackage package = await GetAndValidatePackageAsync(request, cancellationToken);
 
             string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.Documentation);
             string packageNameForBlob = FileHelper.NormalizePackageNameForBlobPath(package.Name);
 
-            foreach (FileUploadItem fileItem in request.Files)
+            List<ProjectFile> projectFiles = new List<ProjectFile>();
+            List<ProjectFileVersion> versions = new List<ProjectFileVersion>();
+            List<ProjectFileVersionComment> comments = new List<ProjectFileVersionComment>();
+            List<string> uploadedBlobPaths = new List<string>();
+
+            try
+            {
+                foreach (FileUploadItem fileItem in request.Files)
+                {
+                    await UploadSingleFileAsync(
+                        request, package, containerName, packageNameForBlob,
+                        fileItem, projectFiles, versions, comments, uploadedBlobPaths,
+                        cancellationToken);
+                }
+
+                await projectFileRepo.InsertRange(projectFiles);
+                await projectFileVersionRepo.InsertRange(versions);
+                if (comments.Count > 0)
+                {
+                    await commentRepo.InsertRange(comments);
+                }
+
+                await InvalidateCachesAsync(request, comments.Count > 0, cancellationToken);
+
+                logger.LogInformation(
+                    "Uploaded {FileCount} files to package {PackageName} (ID: {PackageId}) in project {ProjectId} by user {UserId}",
+                    projectFiles.Count, package.Name, package.Id, request.ProjectId, currentUser.Id);
+
+                return Unit.Value;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to upload files to package {PackageId} in project {ProjectId}; compensating {BlobCount} blob(s)",
+                    request.ProjectFilePackageId, request.ProjectId, uploadedBlobPaths.Count);
+
+                await CompensateBlobsAsync(containerName, uploadedBlobPaths, cancellationToken);
+                throw;
+            }
+        }
+
+        private async Task<ProjectFilePackage> GetAndValidatePackageAsync(
+            UploadProjectFilesCommand request, CancellationToken cancellationToken)
+        {
+            ProjectFilePackage? package = await projectFilePackageRepo.GetFirstBySearch(
+                pfp => pfp.Id == request.ProjectFilePackageId &&
+                       pfp.ProjectId == request.ProjectId &&
+                       pfp.TenantId == request.TenantId);
+
+            if (package is null)
+            {
+                throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
+            }
+
+            return package;
+        }
+
+        private async Task UploadSingleFileAsync(
+            UploadProjectFilesCommand request,
+            ProjectFilePackage package,
+            string containerName,
+            string packageNameForBlob,
+            FileUploadItem fileItem,
+            List<ProjectFile> projectFiles,
+            List<ProjectFileVersion> versions,
+            List<ProjectFileVersionComment> comments,
+            List<string> uploadedBlobPaths,
+            CancellationToken cancellationToken)
+        {
+            IFormFile file = fileItem.File;
+            string displayName = !string.IsNullOrWhiteSpace(fileItem.DisplayName)
+                ? fileItem.DisplayName
+                : Path.GetFileNameWithoutExtension(file.FileName);
+
+            ProjectFile projectFile = BuildProjectFile(request, package.Id, file, displayName);
+            ProjectFileVersion version = BuildVersion(request, projectFile.Id, file);
+
+            string fileExtension = Path.GetExtension(file.FileName);
+            string blobPath = BuildBlobPath(request, packageNameForBlob, projectFile.Id, version.Id, version.VersionNumber, fileExtension);
+            version.BlobFileName = $"{version.Id}{fileExtension}";
+            version.BlobPath = blobPath;
+
+            using (Stream stream = file.OpenReadStream())
+            {
+                await blobStorageService.UploadAsync(containerName, blobPath, stream, file.ContentType, cancellationToken);
+            }
+            uploadedBlobPaths.Add(blobPath);
+
+            projectFile.CurrentVersionId = version.Id;
+
+            projectFiles.Add(projectFile);
+            versions.Add(version);
+
+            if (!string.IsNullOrWhiteSpace(fileItem.Comment))
+            {
+                comments.Add(BuildComment(request, version.Id, fileItem.Comment!));
+            }
+        }
+
+        private ProjectFile BuildProjectFile(
+            UploadProjectFilesCommand request, Guid packageId, IFormFile file, string displayName) =>
+            new ProjectFile
+            {
+                TenantId = request.TenantId,
+                ProjectId = request.ProjectId,
+                ProjectFilePackageId = packageId,
+                OwnerId = currentUser.Id,
+                FileName = file.FileName,
+                DisplayName = displayName,
+                CurrentVersionId = null,
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+
+        private ProjectFileVersion BuildVersion(
+            UploadProjectFilesCommand request, Guid fileId, IFormFile file) =>
+            new ProjectFileVersion
+            {
+                ProjectFileId = fileId,
+                TenantId = request.TenantId,
+                ProjectId = request.ProjectId,
+                VersionNumber = 1,
+                CreatedByUserId = currentUser.Id,
+                ContentType = file.ContentType,
+                FileSizeBytes = file.Length,
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+
+        private static string BuildBlobPath(
+            UploadProjectFilesCommand request,
+            string packageNameForBlob,
+            Guid fileId,
+            Guid versionId,
+            int versionNumber,
+            string fileExtension) =>
+            $"{request.TenantId}/{request.ProjectId}/{packageNameForBlob}/{fileId}/{versionNumber}/{versionId}{fileExtension}";
+
+        private ProjectFileVersionComment BuildComment(
+            UploadProjectFilesCommand request, Guid versionId, string content) =>
+            new ProjectFileVersionComment
+            {
+                ProjectFileVersionId = versionId,
+                ProjectId = request.ProjectId,
+                UserId = currentUser.Id,
+                TenantId = request.TenantId,
+                Content = content,
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+
+        private async Task CompensateBlobsAsync(
+            string containerName,
+            IReadOnlyCollection<string> uploadedBlobPaths,
+            CancellationToken cancellationToken)
+        {
+            foreach (string blobPath in uploadedBlobPaths)
             {
                 try
                 {
-                    IFormFile file = fileItem.File;
-                    
-                    string displayName = !string.IsNullOrWhiteSpace(fileItem.DisplayName)
-                        ? fileItem.DisplayName
-                        : Path.GetFileNameWithoutExtension(file.FileName);
-
-                    // Create ProjectFile - Id is generated automatically by BaseEntity
-                    ProjectFile projectFile = new ProjectFile
-                    {
-                        TenantId = request.TenantId,
-                        ProjectId = request.ProjectId,
-                        ProjectFilePackageId = package.Id,
-                        OwnerId = currentUser.Id,
-                        FileName = file.FileName,
-                        DisplayName = displayName,
-                        CurrentVersionId = null,
-                        CreatedAt = DateTime.UtcNow,
-                        IsDeleted = false
-                    };
-
-                    Guid fileId = projectFile.Id;
-
-                    string fileExtension = Path.GetExtension(file.FileName);
-                    int versionNumber = 1;
-                    
-                    // Create ProjectFileVersion - Id is generated automatically
-                    ProjectFileVersion firstVersion = new ProjectFileVersion
-                    {
-                        ProjectFileId = fileId,
-                        VersionNumber = versionNumber,
-                        CreatedByUserId = currentUser.Id,
-                        ContentType = file.ContentType,
-                        FileSizeBytes = file.Length,
-                        CreatedAt = DateTime.UtcNow,
-                        IsDeleted = false
-                    };
-
-                    Guid versionId = firstVersion.Id;
-                    string blobFileName = $"{versionId}{fileExtension}";
-                    string blobPath = $"{request.TenantId}/{request.ProjectId}/{packageNameForBlob}/{fileId}/{versionNumber}/{blobFileName}";
-
-                    firstVersion.BlobFileName = blobFileName;
-                    firstVersion.BlobPath = blobPath;
-
-                    // Upload file to blob storage before saving to database
-                    using (Stream stream = file.OpenReadStream())
-                    {
-                        await blobStorageService.UploadAsync(
-                            containerName,
-                            blobPath,
-                            stream,
-                            file.ContentType,
-                            cancellationToken);
-                    }
-
-                    await projectFileRepo.Insert(projectFile);
-                    await projectFileVersionRepo.Insert(firstVersion);
-
-                    // Save changes to ensure ProjectFile and ProjectFileVersion are saved before setting CurrentVersionId
-                    await projectFileRepo.SaveChangesAsync(cancellationToken);
-
-                    // Now set CurrentVersionId and update
-                    projectFile.CurrentVersionId = versionId;
-                    await projectFileRepo.Update(projectFile);
-
-                    if (!string.IsNullOrWhiteSpace(fileItem.Comment))
-                    {
-                        ProjectFileVersionComment comment = new ProjectFileVersionComment
-                        {
-                            ProjectFileVersionId = versionId,
-                            ProjectId = request.ProjectId,
-                            UserId = currentUser.Id,
-                            TenantId = request.TenantId,
-                            Content = fileItem.Comment,
-                            CreatedAt = DateTime.UtcNow,
-                            IsDeleted = false
-                        };
-
-                        await commentRepo.Insert(comment);
-                    }
-
-                    logger.LogInformation(
-                        "File {FileName} (ID: {FileId}) with version {VersionNumber} uploaded to package {PackageName} (ID: {PackageId}) in project {ProjectId} by user {UserId}",
-                        file.FileName, fileId, versionNumber, package.Name, package.Id, request.ProjectId, currentUser.Id);
+                    await blobStorageService.DeleteAsync(containerName, blobPath, cancellationToken);
                 }
-                catch (Exception ex)
+                catch (Exception deleteEx)
                 {
-                    logger.LogError(ex,
-                        "Error uploading file {FileName} to package {PackageId} in project {ProjectId}",
-                        fileItem.File.FileName, request.ProjectFilePackageId, request.ProjectId);
-                    throw;
+                    logger.LogWarning(deleteEx, "Failed to cleanup blob {BlobPath} after upload failure", blobPath);
                 }
             }
+        }
 
-            // Invalidate cache after successful upload
+        private async Task InvalidateCachesAsync(
+            UploadProjectFilesCommand request, bool hasComments, CancellationToken cancellationToken)
+        {
             await projectFilesService.InvalidateProjectFilesCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
             await projectFilesService.InvalidateProjectVersionsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
-            if (request.Files.Any(f => !string.IsNullOrWhiteSpace(f.Comment)))
+            if (hasComments)
             {
                 await projectFilesService.InvalidateProjectCommentsCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
             }
-
-            return Unit.Value;
         }
     }
 }

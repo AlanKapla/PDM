@@ -1,4 +1,4 @@
-import {
+﻿import {
   Box,
   VStack,
   HStack,
@@ -22,20 +22,23 @@ import {
 } from "@chakra-ui/react";
 import { Plus, Edit2, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import CostFormDrawer from "./CostFormDrawer";
 import CostListDrawer from "./CostListDrawer";
 import { DeleteCostConfirm } from "./PositionsTable";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { handleApiError } from "../../utils/handleApiError";
 import { formatDate } from "../../utils/formatters";
-import type { ProjectAdditionalCostsWeb, TrackedCostWeb } from "../../types/costTracker.types";
+import type { ProjectAdditionalCostsWeb, TrackedCostWeb, CostEstimateSummaryWeb } from "../../types/costTracker.types";
 
 interface ProjectAdditionalCostsSectionProps {
   projectAdditionalCosts: ProjectAdditionalCostsWeb;
   tenantId: string;
   projectId: string;
   onCostMutated: () => void;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 function fmt(value: number | null): string {
@@ -48,8 +51,10 @@ export default function ProjectAdditionalCostsSection({
   tenantId,
   projectId,
   onCostMutated,
+  estimates,
 }: ProjectAdditionalCostsSectionProps) {
   const { showSuccess, showError } = useToastNotification();
+  const queryClient = useQueryClient();
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure();
@@ -64,6 +69,8 @@ export default function ProjectAdditionalCostsSection({
     setIsDeleting(true);
     try {
       await costTrackerApi.deleteCost(tenantId, projectId, deletingCost.id);
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.costs(tenantId, projectId) });
       showSuccess("Koszt usunięty");
       onDeleteClose();
       setDeletingCost(null);
@@ -85,7 +92,7 @@ export default function ProjectAdditionalCostsSection({
           </Text>
           <Button
             leftIcon={<Plus size={14} />}
-            colorScheme="blue"
+            colorScheme="primary"
             variant="outline"
             size="sm"
             onClick={onAddOpen}
@@ -180,7 +187,7 @@ function CostsTable({ costs, onEdit, onDelete }: CostActionsProps) {
           <Tr>
             <Th>Nazwa</Th>
             <Th isNumeric>Netto</Th>
-            <Th isNumeric>Brutto</Th>
+            <Th>Nr faktury</Th>
             <Th>Data</Th>
             <Th>Wykonawca</Th>
             <Th>Załączniki</Th>
@@ -194,10 +201,10 @@ function CostsTable({ costs, onEdit, onDelete }: CostActionsProps) {
                 <Text noOfLines={1} fontSize="sm">{cost.name}</Text>
               </Td>
               <Td isNumeric fontSize="sm">{fmt(cost.net)}</Td>
-              <Td isNumeric fontSize="sm">{fmt(cost.gross)}</Td>
+              <Td fontSize="sm">{cost.number ?? "—"}</Td>
               <Td fontSize="sm">{cost.date ? formatDate(cost.date, false) : "—"}</Td>
               <Td fontSize="sm" maxW="120px">
-                <Text noOfLines={1}>{cost.contractor ?? "—"}</Text>
+                <Text noOfLines={1}>{cost.contractorName ?? "—"}</Text>
               </Td>
               <Td fontSize="sm">{cost.attachments.length > 0 ? cost.attachments.length : "—"}</Td>
               <Td>
@@ -244,17 +251,17 @@ function CostsCardList({ costs, onEdit, onDelete }: CostActionsProps) {
           p={3}
           borderRadius="md"
           borderWidth={1}
-          borderColor="gray.200"
-          _dark={{ borderColor: "gray.600" }}
+          borderColor="neutral.200"
+          _dark={{ borderColor: "neutral.600" }}
         >
           <HStack align="flex-start">
             <VStack align="stretch" flex={1} spacing={1}>
               <Text fontWeight="semibold" fontSize="sm">{cost.name}</Text>
               <HStack spacing={3} flexWrap="wrap">
-                <Text fontSize="xs" color="gray.600">N: {fmt(cost.net)} PLN</Text>
-                <Text fontSize="xs" color="gray.600">B: {fmt(cost.gross)} PLN</Text>
+                <Text fontSize="xs" color="neutral.600">N: {fmt(cost.net)} PLN</Text>
+                <Text fontSize="xs" color="neutral.600">B: {fmt(cost.gross)} PLN</Text>
                 {cost.date && (
-                  <Text fontSize="xs" color="gray.600">{formatDate(cost.date, false)}</Text>
+                  <Text fontSize="xs" color="neutral.600">{formatDate(cost.date, false)}</Text>
                 )}
               </HStack>
             </VStack>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -33,9 +33,13 @@ import {
   useBreakpointValue,
   Box,
 } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
 import CostForm, { validateCostForm } from "./CostForm";
 import { useToastNotification } from "../../hooks/useToastNotification";
+import { useProjectPermissions } from "../../hooks/useProjectPermissions";
+import { useTenantPermissions } from "../../hooks/useTenantPermissions";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
 import type { CostEstimateSummaryWeb, TrackerGroupWeb, CostFormValues } from "../../types/costTracker.types";
 
@@ -70,8 +74,8 @@ const EMPTY_FORM: CostFormValues = {
   name: "",
   description: "",
   net: undefined,
-  gross: undefined,
-  contractor: "",
+  number: "",
+  contractorId: null,
   date: "",
   newFiles: [],
 };
@@ -85,6 +89,10 @@ export default function CostFormModal({
   costEstimateSummaries,
 }: CostFormModalProps) {
   const { showSuccess, showError } = useToastNotification();
+  const queryClient = useQueryClient();
+  const { canEdit: isProjectAdmin } = useProjectPermissions(projectId);
+  const { canEdit: isTenantAdmin } = useTenantPermissions();
+  const canQuickAdd = isProjectAdmin || isTenantAdmin;
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const { activeStep, setActiveStep } = useSteps({ index: 0, count: STEPS.length });
@@ -180,14 +188,16 @@ export default function CostFormModal({
         name: formValues.name.trim(),
         description: formValues.description?.trim() || undefined,
         net: formValues.net !== undefined && formValues.net !== "" ? Number(formValues.net) : undefined,
-        gross: formValues.gross !== undefined && formValues.gross !== "" ? Number(formValues.gross) : undefined,
-        contractor: formValues.contractor?.trim() || undefined,
+        number: formValues.number?.trim() || undefined,
+        contractorId: formValues.contractorId?.trim() || undefined,
         date: formValues.date || undefined,
         costEstimateId,
         costEstimateItemId,
         newFiles: formValues.newFiles ?? [],
       });
 
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.costs(tenantId, projectId) });
       showSuccess("Koszt dodany");
       handleClose();
       onSuccess();
@@ -218,7 +228,7 @@ export default function CostFormModal({
   );
 
   const mobileStepLabel = isMobile ? (
-    <Text fontSize="sm" color="gray.500" mb={4}>
+    <Text fontSize="sm" color="neutral.500" mb={4}>
       Krok {activeStep + 1} z {STEPS.length} — {STEPS[activeStep].title}
     </Text>
   ) : null;
@@ -292,6 +302,8 @@ export default function CostFormModal({
             onChange={setFormValues}
             errors={formErrors}
             isSubmitting={isSubmitting}
+            tenantId={tenantId}
+            canQuickAdd={canQuickAdd}
           />
         );
 
@@ -322,7 +334,7 @@ export default function CostFormModal({
       </Button>
       {activeStep < STEPS.length - 1 ? (
         <Button
-          colorScheme="blue"
+          colorScheme="primary"
           onClick={handleNext}
           isDisabled={!canNext()}
           width={{ base: "full", md: "auto" }}
@@ -331,7 +343,7 @@ export default function CostFormModal({
         </Button>
       ) : (
         <Button
-          colorScheme="blue"
+          colorScheme="primary"
           onClick={handleSubmit}
           isLoading={isSubmitting}
           width={{ base: "full", md: "auto" }}

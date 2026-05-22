@@ -1,79 +1,94 @@
-# PDM — Instrukcje dla GitHub Copilot
+# Copilot Instructions — Project Data Management (PDM)
 
-## Kontekst projektu
-
-**PDM (Project Data Management)** — platforma do zarządzania projektami budowlanymi/inżynieryjnymi (marka: Brickly).
-
-| Warstwa | Technologia |
-|---------|-------------|
-| Frontend | React 18 SPA + TypeScript + Vite (`01-Applications/ProjectDataManagementUI`) |
-| Backend | .NET 10 Web API, CQRS + MediatR (`02-ApplicationServices/ProductDataManagementWebAPI`) |
-| Real-time | SignalR (chat, powiadomienia) |
-| Autentykacja | Microsoft Entra External ID / Azure AD B2C (MSAL) — JWT Bearer |
-| Baza danych | SQL Server + EF Core (code-first, migrations) |
-| Cache | Redis |
-| Storage | Azure Blob Storage + Queue Storage |
-| Deploy | Docker Compose + nginx reverse proxy |
-
----
-
-## Architektura systemu
+## Struktura projektu
 
 ```
-[Przeglądarka] → nginx (port 8085)
-                   ├─→ /              → React SPA (port 80 kontenera)
-                   └─→ /api/*         → .NET Web API (port 8080 kontenera)
-                        └─→ /api/hubs/* → SignalR WebSockets
+PDM/
+├── 01-Applications/
+│   └── ProjectDataManagementUI/     # React + TypeScript + Chakra UI
+│       └── src/
+│           ├── api/                 # Klienty API per domena (*Api.ts)
+│           ├── components/
+│           │   ├── ui/              # Bazowe elementy UI (AppModal, DeleteAlertDialog…)
+│           │   ├── common/          # Komponenty pomocnicze (LoadingSpinner…)
+│           │   ├── chat/            # Komponenty chatu AI
+│           │   ├── CostEstimate/    # Komponenty kosztorysu
+│           │   ├── CostTracker/     # Komponenty trackera kosztów
+│           │   ├── ProjectParameters/ # Parametry projektu
+│           │   └── gantt/           # Wykres Gantta
+│           ├── config/              # Konfiguracja aplikacji
+│           ├── constants/           # Stałe i enums
+│           ├── context/             # React Contexts
+│           ├── features/            # Moduły domenowe
+│           ├── hooks/               # Hooki globalne
+│           ├── i18n/                # Internacjonalizacja (i18next)
+│           ├── layout/              # Layout aplikacji
+│           ├── lib/                 # Biblioteki pomocnicze
+│           ├── pages/               # Strony routowane
+│           ├── routes/              # Konfiguracja routingu
+│           ├── services/            # Serwisy (SignalR itp.)
+│           ├── theme/tokens/        # Design tokens (colors.ts — jedyne źródło kolorów)
+│           ├── types/               # Typy globalne per domena
+│           └── utils/               # Funkcje pomocnicze (formatters itp.)
+│
+└── 02-ApplicationServices/
+    └── ProductDataManagementWebAPI/
+        └── src/
+            ├── WebApi/              # Controllers, Middleware, Hubs
+            ├── CQRS/                # Commands, Queries, Handlers, Behaviours
+            ├── Business/            # Serwisy, interfejsy, web modele, wyjątki
+            ├── Entities/            # EF Core — DbContext, encje, migracje
+            └── Repositories/        # IRepository<T>, IReadRepository<T>
 ```
 
-Frontend komunikuje się z backendem wyłącznie przez REST API i SignalR.  
-Token JWT (MSAL `acquireTokenSilent`) wysyłany w headerze `Authorization: Bearer <token>`.
+## Stack
 
----
+| Warstwa | Technologie |
+|---------|------------|
+| API | .NET 10, MediatR 13, FluentValidation 12, EF Core 10, SignalR |
+| UI | React 18, TypeScript 5.9, Chakra UI 2, Axios, React Router 7, TanStack React Query 5 |
+| Auth | Azure AD B2C, MSAL (@azure/msal-browser 4, @azure/msal-react 3) |
+| Infra | Azure Blob, Redis, SignalR (@microsoft/signalr 10) |
 
-## Uruchomienie lokalne
+## Zasady ogólne — API
 
-```bash
-# Z katalogu 03-Deployment
-docker-compose -f docker-compose.development.yml up
-# Aplikacja dostępna na: http://localhost:8085
-```
+- Zakaz `var` — zawsze explicit type
+- `is null` / `is not null` zamiast `== null`
+- Klamry `{}` przy każdym bloku
+- Max ~20 linii na metodę
+- `IReadRepository<T>` dla odczytu, `IRepository<T>` dla zapisu
+- Predykaty zawsze z `TenantId` i `ProjectId`
 
-Backend wymaga zmiennych środowiskowych w `03-Deployment/.env.development` — wzorzec kluczy w `appsettings.json`.
+## Zasady ogólne — UI
 
----
+- Zakaz `any` — zawsze explicit type
+- Logika w hookach, komponenty tylko renderują
+- Kolory przez Chakra tokens lub `appColors` z `theme/tokens/colors.ts`
+- Zakaz inline styles
+- `AppModal` zamiast własnych implementacji modala
 
-## Kontrakt API — konwencja typów
+## Skille — API
 
-- Backend zwraca **web modele** z sufiksem `Web` w C# (np. `ProjectDetailsWeb`, `CostEstimateGroupWeb`)
-- Frontend używa identycznych nazw interfejsów TypeScript (np. `ProjectDetailsWeb`, `CostEstimateGroupWeb`)
-- Nigdy nie eksportuj encji EF Core (`Project`, `Tenant`, `User`) bezpośrednio do JSON
-- Format odpowiedzi błędu: `{ error: string, message: string, objectType?: string, objectId?: string }`
+Przed implementacją przeczytaj odpowiedni skill:
 
----
+| Obszar | Skill |
+|--------|-------|
+| CQRS (Commands, Queries, Handlers) | `.github/skills/api/skill-api-cqrs.md` |
+| Walidatory (FluentValidation) | `.github/skills/api/skill-api-validators.md` |
+| Kontrolery (endpoints, routing) | `.github/skills/api/skill-api-controllers.md` |
+| Encje i konfiguracje EF Core | `.github/skills/api/skill-api-entities.md` |
+| Repozytoria | `.github/skills/api/skill-api-repositories.md` |
+| Serwisy domenowe | `.github/skills/api/skill-api-services.md` |
+| Testy jednostkowe | `.github/skills/api/skill-api-unit-tests.md` |
 
-## Ogólne zasady kodu
+## Skille — UI
 
-### Czytelność
-- Nazwy klas, metod i zmiennych muszą wskazywać **co to jest** i **po co istnieje**
-- Unikaj skrótów: `svc`, `mgr`, `obj` — pisz pełnymi nazwami
-- Preferuj prosty, jednoznaczny kod ponad sprytne one-linery
-
-### DRY
-- Reaguj na zduplikowaną logikę — wydzielaj do metod pomocniczych
-- Nie proponuj nadmiernej abstrakcji przy małej skali powtórzeń
-
-### Obsługa błędów
-- Nigdy nie połykaj wyjątków w pustym `catch`
-- Każdy `catch` musi albo logować albo propagować błąd
-- Nie zwracaj `200 OK` z treścią błędu
-
-### Komentarze
-- Dobre komentarze tłumaczą **dlaczego** (decyzja architektoniczna), nie **co** (kod)
-- Jeśli komentarz opisuje co kod robi — uprość kod zamiast pisać komentarz
-- Copilot pisze komentarze **po polsku**, podając powód i proponując gotową poprawkę
-
-### Bezpieczeństwo
-- Nigdy nie loguj tokenów JWT, haseł ani danych wrażliwych
-- Waliduj dane na wejściu do API (FluentValidation w backendzie, `fieldValidation.ts` na frontendzie)
-- Uprawnienia sprawdzaj przez dedykowane mechanizmy — nie hardkoduj ról w logice biznesowej
+| Obszar | Skill |
+|--------|-------|
+| Typy TypeScript | `.github/skills/ui/skill-ui-types.md` |
+| Hooki (React Query, custom) | `.github/skills/ui/skill-ui-hooks.md` |
+| Komponenty | `.github/skills/ui/skill-ui-components.md` |
+| Formularze i modale | `.github/skills/ui/skill-ui-forms-modals.md` |
+| Klienty API | `.github/skills/ui/skill-ui-api-client.md` |
+| Theme i design tokens | `.github/skills/ui/skill-ui-theme.md` |
+| Testy jednostkowe | `.github/skills/ui/skill-ui-unit-tests.md` |

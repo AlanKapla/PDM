@@ -267,9 +267,9 @@ export default function GanttStageRow({
 
             {/* Odznaki */}
             {hasCostEstimate && (
-              <Badge colorScheme="level2" fontSize="9px" variant="subtle" flexShrink={0}>KOSZTORYS</Badge>
+              <Badge colorScheme="level2" fontSize="2xs" variant="subtle" flexShrink={0}>KOSZTORYS</Badge>
             )}
-            <Badge colorScheme="gray" variant="subtle" fontSize="9px" flexShrink={0}>
+            <Badge colorScheme="gray" variant="subtle" fontSize="2xs" flexShrink={0}>
               {works.length > 0 ? `${works.length} PRACE` : "BRAK"}
             </Badge>
 

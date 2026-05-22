@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace Chat.CQRS.Messages.SendMessage;
 
@@ -6,8 +7,7 @@ public sealed class SendMessageCommandValidator : AbstractValidator<SendMessageC
 {
     public SendMessageCommandValidator()
     {
-        RuleFor(x => x.ChatId)
-            .NotEmpty().WithMessage("ChatId is required.");
+        RuleFor(x => x.ChatId).RequiredId();
 
         RuleFor(x => x.Content)
             .NotEmpty().WithMessage("Message content cannot be empty.")

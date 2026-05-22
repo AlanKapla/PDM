@@ -1,4 +1,5 @@
 ﻿using Entities.Models.Base;
+using Entities.Models.Users;
 
 namespace Entities.Models;
 

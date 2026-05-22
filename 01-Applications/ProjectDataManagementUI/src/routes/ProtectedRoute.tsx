@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
@@ -19,7 +19,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
       <Flex justify="center" align="center" minH="100vh">
         <VStack spacing={4}>
           <Spinner size="xl" color="primary.500" thickness="4px" />
-          <Text color="gray.600">Sprawdzanie sesji...</Text>
+          <Text color="neutral.600">Sprawdzanie sesji...</Text>
         </VStack>
       </Flex>
     );
@@ -31,7 +31,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
       <Flex justify="center" align="center" minH="100vh">
         <VStack spacing={4}>
           <Spinner size="xl" color="primary.500" thickness="4px" />
-          <Text color="gray.600">Ładowanie profilu użytkownika...</Text>
+          <Text color="neutral.600">Ładowanie profilu użytkownika...</Text>
         </VStack>
       </Flex>
     );

@@ -32,7 +32,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers
 {
-    [Route("api/tenants/{tenantId}/project/{projectId}/work-schedule")]
+    [Route("api/tenants/{tenantId}/projects/{projectId}/work-schedule")]
     [ApiController]
     public class WorkScheduleController(IMediator mediator) : BaseApiController(mediator)
     {
@@ -68,7 +68,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] ResourceScope scope)
         {
-            GetWorkSchedulesQuery query = new GetWorkSchedulesQuery(tenantId, projectId, scope);
+            GetWorkSchedulesQuery query = new GetWorkSchedulesQuery { TenantId = tenantId, ProjectId = projectId, Scope = scope };
             object result = await Send(query);
             return Ok(result);
         }
@@ -80,7 +80,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid workScheduleId)
         {
-            GetWorkScheduleQuery query = new GetWorkScheduleQuery(tenantId, projectId, workScheduleId);
+            GetWorkScheduleQuery query = new GetWorkScheduleQuery { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
             WorkScheduleDetailsWeb result = await Send(query);
             return Ok(result);
         }
@@ -91,7 +91,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
         {
-            GetMyWorkSchedulesQuery query = new GetMyWorkSchedulesQuery(tenantId, projectId);
+            GetMyWorkSchedulesQuery query = new GetMyWorkSchedulesQuery { TenantId = tenantId, ProjectId = projectId };
             List<MyWorkSchedulesTenantDto> result = await Send(query);
             return Ok(result);
         }
@@ -103,7 +103,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid workScheduleId)
         {
-            SyncWorkScheduleWithEstimateCommand command = new SyncWorkScheduleWithEstimateCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
+            SyncWorkScheduleWithEstimateCommand command = new SyncWorkScheduleWithEstimateCommand { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
             await Send(command);
             return NoContent();
         }
@@ -115,7 +115,7 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid workScheduleId)
         {
-            DeleteWorkScheduleCommand command = new DeleteWorkScheduleCommand(workScheduleId) with { TenantId = tenantId, ProjectId = projectId };
+            DeleteWorkScheduleCommand command = new DeleteWorkScheduleCommand { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
             await Send(command);
             return NoContent();
         }
@@ -143,11 +143,12 @@ namespace WebApi.Controllers
             [FromRoute] Guid workScheduleId,
             [FromRoute] Guid stageId)
         {
-            DeleteWorkScheduleStageCommand command = new DeleteWorkScheduleStageCommand(stageId) with
+            DeleteWorkScheduleStageCommand command = new DeleteWorkScheduleStageCommand
             {
                 TenantId = tenantId,
                 ProjectId = projectId,
-                WorkScheduleId = workScheduleId
+                WorkScheduleId = workScheduleId,
+                WorkScheduleStageId = stageId
             };
             await Send(command);
             return NoContent();
@@ -167,7 +168,7 @@ namespace WebApi.Controllers
                 TenantId = tenantId,
                 ProjectId = projectId,
                 WorkScheduleId = workScheduleId,
-                StageId = stageId
+                WorkScheduleStageId = stageId
             };
             await Send(command);
             return NoContent();
@@ -205,7 +206,7 @@ namespace WebApi.Controllers
                 TenantId = tenantId,
                 ProjectId = projectId,
                 WorkScheduleId = workScheduleId,
-                StageId = stageId
+                WorkScheduleStageId = stageId
             };
             await Send(command);
             return NoContent();
@@ -242,12 +243,13 @@ namespace WebApi.Controllers
             [FromRoute] Guid stageId,
             [FromRoute] Guid workId)
         {
-            DeleteWorkScheduleStageWorkCommand command = new DeleteWorkScheduleStageWorkCommand(workId) with
+            DeleteWorkScheduleStageWorkCommand command = new DeleteWorkScheduleStageWorkCommand
             {
                 TenantId = tenantId,
                 ProjectId = projectId,
                 WorkScheduleId = workScheduleId,
-                WorkScheduleStageId = stageId
+                WorkScheduleStageId = stageId,
+                WorkScheduleStageWorkId = workId
             };
             await Send(command);
             return NoContent();
@@ -471,11 +473,12 @@ namespace WebApi.Controllers
             [FromRoute] Guid workScheduleId,
             [FromRoute] Guid commentId)
         {
-            DeleteWorkScheduleStageWorkCommentCommand command = new DeleteWorkScheduleStageWorkCommentCommand(commentId) with
+            DeleteWorkScheduleStageWorkCommentCommand command = new DeleteWorkScheduleStageWorkCommentCommand
             {
                 TenantId = tenantId,
                 ProjectId = projectId,
-                WorkScheduleId = workScheduleId
+                WorkScheduleId = workScheduleId,
+                CommentId = commentId
             };
             await Send(command);
             return NoContent();

@@ -34,6 +34,5 @@ public interface IUserContextCache
         CancellationToken cancellationToken = default);
 
     void InvalidateUserPermissionsVersion(Guid userId);
-    void InvalidateTenantContext(Guid userId, Guid tenantId);
-    void InvalidateProjectContext(Guid userId, Guid projectId);
+    void InvalidateRolePermissions(Guid roleId);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Box,
   Heading,
@@ -15,18 +15,21 @@ import {
 import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { useAuth } from "../context/AuthContext";
-import { getUserTenants, changeActiveTenant } from "../services/tenantService";
+import { changeActiveTenant } from "../services/tenantService";
+import { useMyTenants, tenantKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { handleApiError } from "../utils/handleApiError";
 import type { UserTenant } from "../types/auth.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function CollaboratingTenants() {
   const { user, refreshUser } = useAuth();
-  const { showSuccess, showError } = useToastNotification();
-  const [tenants, setTenants] = useState<UserTenant[]>([]);
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const queryClient = useQueryClient();
+  const { data: tenants = [], isLoading: loading } = useMyTenants();
   const [activeTenantId, setActiveTenantId] = useState<string>("");
   const [changingTenant, setChangingTenant] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
@@ -34,20 +37,9 @@ export default function CollaboratingTenants() {
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
   useEffect(() => {
-    async function load() {
-      try {
-        const tenantsData = await getUserTenants();
-        setTenants(tenantsData);
-        
-        if (user?.activeTenantId) {
-          setActiveTenantId(user.activeTenantId);
-        }
-      } catch (error) {
-      } finally {
-        setLoading(false);
-      }
+    if (user?.activeTenantId) {
+      setActiveTenantId(user.activeTenantId);
     }
-    load();
   }, [user?.activeTenantId]);
 
   const handleTenantChange = async (newTenantId: string) => {
@@ -57,13 +49,12 @@ export default function CollaboratingTenants() {
     try {
       await changeActiveTenant(newTenantId);
       setActiveTenantId(newTenantId);
-      showSuccess("Organizacja przełączona", "Organizacja została pomyślnie przełączona");
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
+      await refreshUser();
+      showApiSuccess('tenantSwitched');
     } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setChangingTenant(false);
     }
@@ -94,7 +85,7 @@ export default function CollaboratingTenants() {
           <Box>
             {tenants.length === 0 ? (
               <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
-                <Text color="gray.500" textAlign="center">
+                <Text color="neutral.500" textAlign="center">
                   Nie współpracujesz jeszcze z żadną organizacją
                 </Text>
               </Box>
@@ -120,7 +111,7 @@ export default function CollaboratingTenants() {
                                   {tenant.name}
                                 </Text>
                                 <Stack direction={{ base: "column", sm: "row" }} spacing={2}>
-                                  <Text fontSize="xs" color="gray.500">
+                                  <Text fontSize="xs" color="neutral.500">
                                     Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
                                   </Text>
                                   <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
@@ -145,7 +136,7 @@ export default function CollaboratingTenants() {
                 {changingTenant && (
                   <HStack mt={4} spacing={2}>
                     <Spinner size="sm" />
-                    <Text fontSize="sm" color="gray.500">
+                    <Text fontSize="sm" color="neutral.500">
                       Przełączanie organizacji...
                     </Text>
                   </HStack>

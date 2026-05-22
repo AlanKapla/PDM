@@ -133,7 +133,7 @@ export default function BottomNavBar({
                   <Badge
                     colorScheme={item.to === "/chat" ? "primary" : "red"}
                     borderRadius="full"
-                    fontSize="9px"
+                    fontSize="2xs"
                     minW="16px"
                     h="16px"
                     display="flex"
@@ -148,7 +148,7 @@ export default function BottomNavBar({
                 )}
               </Box>
               <Text
-                fontSize="9px"
+                fontSize="2xs"
                 fontWeight={active ? "semibold" : "normal"}
                 textAlign="center"
                 lineHeight="1"

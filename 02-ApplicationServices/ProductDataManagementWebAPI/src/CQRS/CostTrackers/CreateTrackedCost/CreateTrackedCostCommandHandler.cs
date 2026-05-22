@@ -2,9 +2,17 @@
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
-using Entities.Models;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
+using Entities.Models.Costs;
+using Entities.Models.Chats;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -19,16 +27,15 @@ namespace CQRS.CostTrackers.CreateTrackedCost
         private readonly ILogger<CreateTrackedCostCommandHandler> logger;
 
         public CreateTrackedCostCommandHandler(
-            IReadRepository<CostTracker> trackerRepository,
-            IReadRepository<Project> projectRepository,
-            IReadRepository<CostEstimate> costEstimateRepository,
-            IReadRepository<CostEstimateItem> itemRepository,
             IReadRepository<TrackedCost> trackedCostRepository,
+            IReadRepository<CostEstimateItem> costEstimateItemRepository,
+            IReadRepository<WorkScheduleStageWork> stageWorkRepository,
             ICostTrackerFinancialService financialService,
             ICostTrackerAttachmentService attachmentService,
+            IContractorService contractorService,
             ICurrentUser currentUser,
             ILogger<CreateTrackedCostCommandHandler> logger)
-            : base(trackerRepository, projectRepository, costEstimateRepository, itemRepository, attachmentService, trackedCostRepository, currentUser)
+            : base(currentUser, trackedCostRepository, costEstimateItemRepository, stageWorkRepository, attachmentService, contractorService)
         {
             this.trackedCostRepository = trackedCostRepository;
             this.financialService = financialService;
@@ -39,22 +46,24 @@ namespace CQRS.CostTrackers.CreateTrackedCost
             CreateTrackedCostCommand request,
             CancellationToken cancellationToken)
         {
-            CostTracker tracker = await LoadTracker(request.TenantId, request.ProjectId, cancellationToken);
-
-            await ValidateCostEstimateAndItemAsync(request.CostEstimateId, request.ProjectId, request.CostEstimateItemId, cancellationToken);
+            await ValidateTrackedCostLinksAsync(
+                request.CostEstimateItemId, request.WorkScheduleStageWorkId,
+                request.ProjectId, request.TenantId, cancellationToken);
 
             (decimal? net, decimal? gross) = financialService.Calculate(request.Net, request.Gross);
 
             TrackedCost cost = new TrackedCost
             {
-                TrackerId = tracker.Id,
-                CostEstimateId = request.CostEstimateId,
+                TenantId = request.TenantId,
+                ProjectId = request.ProjectId,
                 CostEstimateItemId = request.CostEstimateItemId,
+                WorkScheduleStageWorkId = request.WorkScheduleStageWorkId,
                 Name = request.Name,
+                Number = request.Number,
                 Description = request.Description,
                 Net = net,
                 Gross = gross,
-                Contractor = request.Contractor,
+                ContractorId = request.ContractorId,
                 Date = request.Date,
                 CreatedAt = DateTime.UtcNow
             };
@@ -63,13 +72,15 @@ namespace CQRS.CostTrackers.CreateTrackedCost
             await trackedCostRepository.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
-                "Created TrackedCost {CostId} for tracker {TrackerId} by user {UserId}",
-                cost.Id, tracker.Id, currentUser.Id);
+                "Created TrackedCost {CostId} for project {ProjectId} by user {UserId}",
+                cost.Id, cost.ProjectId, currentUser.Id);
 
-            List<TrackedCostAttachment> attachments = await attachmentService.SyncAttachmentsAsync(
+            List<BaseCostAttachment> attachments = await attachmentService.SyncAttachmentsAsync(
                 cost, request.NewFiles, [], request.TenantId, request.ProjectId, cancellationToken);
 
-            return BuildCostWeb(cost, attachments);
+            await LoadContractorNamesAsync(new List<BaseCost> { cost }, request.TenantId, cancellationToken);
+
+            return MapTrackedCostToWeb(cost, attachments);
         }
     }
 }

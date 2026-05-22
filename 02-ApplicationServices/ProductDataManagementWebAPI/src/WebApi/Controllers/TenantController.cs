@@ -2,7 +2,6 @@
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.AcceptTenantInvitation;
 using CQRS.Tenants.ActiveInvitations;
-using CQRS.Tenants.ActiveTenant;
 using CQRS.Tenants.ChangeActiveTenant;
 using CQRS.Tenants.CreateTenant;
 using CQRS.Tenants.RemoveTenantInvitation;
@@ -21,16 +20,17 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers
 {
-    [Route("api/tenant")]
+    [Route("api/tenants")]
     [ApiController]
     public class TenantController(IMediator mediator) : BaseApiController(mediator)
     {
         [HttpPost("create")]
         [Authorize]
+        [ProducesResponseType(typeof(TenantDetailsWeb), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateTenant([FromBody] CreateTenantCommand request)
         {
             TenantDetailsWeb result = await Send(request);
-            return Ok(result);
+            return CreatedAtAction(nameof(GetTenantDetails), new { tenantId = result.Id }, result);
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.TenantEdit)]
         public async Task<IActionResult> GetTenantDetails(Guid tenantId)
         {
-            GetTenantDetailsQuery query = new(tenantId);
+            GetTenantDetailsQuery query = new GetTenantDetailsQuery { TenantId = tenantId };
             TenantDetailsWeb result = await Send(query);
             return Ok(result);
         }
@@ -86,11 +86,12 @@ namespace WebApi.Controllers
 
         [HttpPost("{tenantId}/invitations")]
         [Authorize(Policy = PermissionCodes.TenantMembersManage)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> InviteTenantMember(Guid tenantId, [FromBody] InviteTenantMemberCommand request)
         {
             request = request with { TenantId = tenantId };
             await Send(request);
-            return Ok();
+            return NoContent();
         }
 
         [HttpGet("invitations")]
@@ -103,17 +104,18 @@ namespace WebApi.Controllers
 
         [HttpPost("invitations/accept")]
         [Authorize]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> AcceptInvitation([FromBody] AcceptTenantInvitationCommand request)
         {
             await Send(request);
-            return Ok();
+            return NoContent();
         }
 
         [HttpDelete("{tenantId}/invitations/{invitationId}")]
         [Authorize(Policy = PermissionCodes.TenantMembersManage)]
         public async Task<IActionResult> RemoveInvitation(Guid tenantId, Guid invitationId)
         {
-            RemoveTenantInvitationCommand command = new(tenantId, invitationId);
+            RemoveTenantInvitationCommand command = new RemoveTenantInvitationCommand { TenantId = tenantId, InvitationId = invitationId };
             await Send(command);
             return NoContent();
         }
@@ -122,7 +124,7 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.TenantView)]
         public async Task<IActionResult> GetTenantMembers(Guid tenantId)
         {
-            GetTenantMembersQuery query = new(tenantId);
+            GetTenantMembersQuery query = new GetTenantMembersQuery { TenantId = tenantId };
             IEnumerable<TenantMemberWeb> result = await Send(query);
             return Ok(result);
         }
@@ -131,7 +133,7 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.TenantMembersManage)]
         public async Task<IActionResult> RemoveTenantMember(Guid tenantId, Guid userId)
         {
-            await Send(new RemoveTenantMemberCommand(tenantId, userId));
+            await Send(new RemoveTenantMemberCommand { TenantId = tenantId, UserId = userId });
             return NoContent();
         }
 
@@ -139,7 +141,7 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.TenantStatusManage)]
         public async Task<IActionResult> ToggleTenantStatus([FromRoute] Guid tenantId, [FromQuery] bool isActive)
         {
-            ToggleTenantStatusCommand command = new ToggleTenantStatusCommand(tenantId, isActive);
+            ToggleTenantStatusCommand command = new ToggleTenantStatusCommand { TenantId = tenantId, IsActive = isActive };
             await Send(command);
             return NoContent();
         }

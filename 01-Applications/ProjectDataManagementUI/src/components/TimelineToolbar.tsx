@@ -52,8 +52,8 @@ export default function TimelineToolbar({
   isMobile = false,
 }: TimelineToolbarProps) {
   const btnSize = isMobile ? "xs" : "sm";
-  const fontSize = isMobile ? "10px" : "sm";
-  const labelFontSize = isMobile ? "10px" : "sm";
+  const fontSize = isMobile ? "xs" : "sm";
+  const labelFontSize = isMobile ? "xs" : "sm";
 
   return (
     <VStack spacing={2} align="stretch" w="100%">
@@ -106,6 +106,7 @@ export default function TimelineToolbar({
               <Button
                 size={btnSize}
                 variant="outline"
+                colorScheme="gray"
                 onClick={onExpandAll}
                 fontSize={fontSize}
               >
@@ -114,6 +115,7 @@ export default function TimelineToolbar({
               <Button
                 size={btnSize}
                 variant="outline"
+                colorScheme="gray"
                 onClick={onCollapseAll}
                 fontSize={fontSize}
               >

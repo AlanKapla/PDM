@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCostEstimateTemplates, templateKeys } from "../hooks/queries";
 import {
   Box,
   Heading,
@@ -8,7 +10,6 @@ import {
   HStack,
   Text,
   Button,
-  useColorModeValue,
   Card,
   CardBody,
   SimpleGrid,
@@ -40,17 +41,18 @@ import MainLayout from "../layout/MainLayout";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
+import { handleApiError } from "../utils/handleApiError";
 import {
   costEstimateTemplateApi,
   type CostEstimateTemplateListItem,
 } from "../api/costEstimateTemplateApi";
 
 export default function CostEstimateTemplates() {
-  const { showSuccess, showError } = useToastNotification();
+  const { showApiSuccess, showError } = useToastNotification();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: templates = [], isLoading: loading } = useCostEstimateTemplates();
 
-  const [loading, setLoading] = useState(true);
-  const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
   const [templateToDelete, setTemplateToDelete] = useState<CostEstimateTemplateListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
@@ -62,27 +64,6 @@ export default function CostEstimateTemplates() {
   const [isDuplicating, setIsDuplicating] = useState(false);
   const { isOpen: isDuplicateOpen, onOpen: onDuplicateOpen, onClose: onDuplicateClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
-
-  const cardBg = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const hoverBg = useColorModeValue("gray.50", "gray.700");
-
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
-    setLoading(true);
-    try {
-      const data = await costEstimateTemplateApi.getTemplates();
-      setTemplates(Array.isArray(data) ? data : []);
-    } catch (error: any) {
-      showError('Nie udało się załadować szablonów', error?.message || 'Wystąpił nieoczekiwany błąd');
-      setTemplates([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEditTemplate = (templateId: string) => {
     navigate(`/cost-estimate-templates/${templateId}/edit`);
@@ -100,16 +81,13 @@ export default function CostEstimateTemplates() {
     setIsDeleting(true);
     try {
       await costEstimateTemplateApi.deleteTemplate(templateToDelete.id);
-      showSuccess('Szablon został usunięty');
+      showApiSuccess('deleted');
       onDeleteClose();
       setTemplateToDelete(null);
-      fetchTemplates();
-    } catch (error: any) {
-      if (error?.response?.status === 404) {
-        showError('Szablon nie został znaleziony', 'Szablon mógł zostać już usunięty lub nie masz uprawnień');
-      } else {
-        showError('Nie udało się usunąć szablonu', error?.message || 'Wystąpił nieoczekiwany błąd');
-      }
+      queryClient.invalidateQueries({ queryKey: templateKeys.list() });
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setIsDeleting(false);
     }
@@ -133,7 +111,7 @@ export default function CostEstimateTemplates() {
   const handleDuplicateTemplate = async () => {
     if (!templateToDuplicate) return;
     if (!duplicateName.trim()) {
-      showError('Nazwa jest wymagana', 'Wprowadź nazwę dla nowego szablonu');
+      showError('Sprawdź formularz', 'Wprowadź nazwę dla nowego szablonu');
       return;
     }
 
@@ -144,16 +122,14 @@ export default function CostEstimateTemplates() {
         description: duplicateDescription.trim() || undefined,
       });
       
-      showSuccess("Szablon został zduplikowany");
+      showApiSuccess('estimateCopied');
       handleCloseDuplicateModal();
+      queryClient.invalidateQueries({ queryKey: templateKeys.list() });
       // Przekieruj do edycji nowego szablonu
       navigate(`/cost-estimate-templates/${newTemplateId}/edit`);
-    } catch (error: any) {
-      if (error?.response?.status === 404) {
-        showError('Szablon nie został znaleziony', 'Szablon mógł zostać usunięty lub nie masz uprawnień');
-      } else {
-        showError('Nie udało się zduplikować szablonu', error?.message || 'Wystąpił nieoczekiwany błąd');
-      }
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setIsDuplicating(false);
     }
@@ -175,14 +151,14 @@ export default function CostEstimateTemplates() {
             <Heading size="lg">Szablony kosztorysów</Heading>
             <Button
               leftIcon={<Plus size={18} />}
-              colorScheme="green"
+              colorScheme="primary"
               onClick={() => navigate('/cost-estimate-templates/select')}
             >
               Nowy szablon
             </Button>
           </HStack>
 
-          <Text fontSize="sm" color="gray.600">
+          <Text fontSize="sm" color="neutral.600">
             Szablony kosztorysów pozwalają na szybkie tworzenie nowych kosztorysów z predefiniowanymi polami i strukturą
           </Text>
 
@@ -197,10 +173,10 @@ export default function CostEstimateTemplates() {
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  bg={cardBg}
+                  bg="white"
                   borderWidth="1px"
-                  borderColor={borderColor}
-                  _hover={{ bg: hoverBg, transform: "translateY(-2px)" }}
+                  borderColor="neutral.200"
+                  _hover={{ bg: "neutral.25", borderColor: "primary.300" }}
                   transition="all 0.2s"
                   cursor="pointer"
                   onClick={() => handleEditTemplate(template.id)}
@@ -238,12 +214,12 @@ export default function CostEstimateTemplates() {
                       </HStack>
 
                       {template.description && (
-                        <Text fontSize="sm" color="gray.600" noOfLines={2}>
+                        <Text fontSize="sm" color="neutral.600" noOfLines={2}>
                           {template.description}
                         </Text>
                       )}
 
-                      <VStack align="stretch" spacing={1} fontSize="xs" color="gray.500">
+                      <VStack align="stretch" spacing={1} fontSize="xs" color="neutral.500">
                         <Text>Utworzony: {formatDate(template.createdAt)}</Text>
                         {template.updatedAt && <Text>Zaktualizowano: {formatDate(template.updatedAt)}</Text>}
                       </VStack>
@@ -269,13 +245,13 @@ export default function CostEstimateTemplates() {
 
               <AlertDialogBody>
                 Czy na pewno chcesz usunąć szablon <strong>{templateToDelete?.name}</strong>?
-                <Text mt={2} fontSize="sm" color="gray.600">
+                <Text mt={2} fontSize="sm" color="neutral.600">
                   Istniejące kosztorysy korzystające z tego szablonu nadal będą działać.
                 </Text>
               </AlertDialogBody>
 
               <AlertDialogFooter>
-                <Button ref={cancelRef} onClick={onDeleteClose} isDisabled={isDeleting}>
+                <Button ref={cancelRef} onClick={onDeleteClose} isDisabled={isDeleting} variant="ghost" colorScheme="gray">
                   Anuluj
                 </Button>
                 <Button
@@ -319,17 +295,17 @@ export default function CostEstimateTemplates() {
                     rows={3}
                   />
                 </FormControl>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="neutral.600">
                   Wszystkie pola, waluty i jednostki zostaną skopiowane do nowego szablonu.
                 </Text>
               </VStack>
             </ModalBody>
             <ModalFooter>
-              <Button onClick={handleCloseDuplicateModal} mr={3} isDisabled={isDuplicating}>
+              <Button onClick={handleCloseDuplicateModal} mr={3} isDisabled={isDuplicating} variant="ghost" colorScheme="gray">
                 Anuluj
               </Button>
               <Button
-                colorScheme="green"
+                colorScheme="primary"
                 onClick={handleDuplicateTemplate}
                 isLoading={isDuplicating}
                 loadingText="Duplikowanie..."

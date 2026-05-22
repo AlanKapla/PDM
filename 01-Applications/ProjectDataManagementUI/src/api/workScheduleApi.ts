@@ -2,7 +2,7 @@ import { axiosClient } from "./axiosClient";
 import type { WorkScheduleDetailsWeb } from "../types/workSchedule.types";
 
 const base = (tenantId: string, projectId: string, wsId: string) =>
-  `/tenants/${tenantId}/project/${projectId}/work-schedule/${wsId}`;
+  `/tenants/${tenantId}/projects/${projectId}/work-schedule/${wsId}`;
 
 const stagesBase = (tenantId: string, projectId: string, wsId: string) =>
   `${base(tenantId, projectId, wsId)}/stages`;
@@ -22,7 +22,7 @@ export const workScheduleApi = {
   /** GET /details/{workScheduleId} */
   getDetails: (tenantId: string, projectId: string, wsId: string) =>
     axiosClient.get<WorkScheduleDetailsWeb>(
-      `/tenants/${tenantId}/project/${projectId}/work-schedule/details/${wsId}`
+      `/tenants/${tenantId}/projects/${projectId}/work-schedule/details/${wsId}`
     ),
 
   // ──────────────────────────────────────────────────────────────────

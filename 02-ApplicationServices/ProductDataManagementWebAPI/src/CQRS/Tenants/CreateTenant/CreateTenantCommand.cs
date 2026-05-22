@@ -2,5 +2,8 @@
 
 namespace CQRS.Tenants.CreateTenant
 {
-    public sealed record CreateTenantCommand(string Name) : IRequestCommand<TenantDetailsWeb>;
+    public sealed record CreateTenantCommand : IRequestCommand<TenantDetailsWeb>
+    {
+        public required string Name { get; init; }
+    }
 }

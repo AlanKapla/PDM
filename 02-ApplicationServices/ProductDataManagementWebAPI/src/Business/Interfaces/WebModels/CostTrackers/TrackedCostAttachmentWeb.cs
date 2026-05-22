@@ -1,6 +1,6 @@
 ﻿namespace Business.Interfaces.WebModels.CostTrackers
 {
-    public record TrackedCostAttachmentWeb
+    public sealed record TrackedCostAttachmentWeb
     {
         public required Guid Id { get; init; }
         public required string OriginalFileName { get; init; }

@@ -14,11 +14,10 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Database, User as UserIcon, RefreshCw, Building2 } from "lucide-react";
+import { User as UserIcon, RefreshCw, Building2 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
-import { tenantApi } from "../api/tenantApi";
 import NotificationBell from "./NotificationBell";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useMyTenants } from "../hooks/queries";
 
 interface HeaderProps {
   onMenuOpen?: () => void;
@@ -28,7 +27,6 @@ export default function Header({ onMenuOpen }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated } = useContext(AuthContext);
-  const [activeTenantName, setActiveTenantName] = useState<string | null>(null);
 
   const bg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -36,34 +34,9 @@ export default function Header({ onMenuOpen }: HeaderProps) {
   const mutedColor = useColorModeValue("gray.600", "gray.400");
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "U";
 
-  const tenantsCache = useGlobalCache(
-    "my-tenants",
-    async () => {
-      const res = await tenantApi.getUserTenants();
-      return res.data;
-    }
-  );
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchActiveTenant = async () => {
-      try {
-        const tenants = await tenantsCache.fetch();
-
-        if (user?.activeTenantId) {
-          const activeTenant = tenants.find((t: any) => t.id === user.activeTenantId);
-          setActiveTenantName(activeTenant?.name || null);
-        } else {
-          setActiveTenantName(null);
-        }
-      } catch (err) {
-        setActiveTenantName(null);
-      }
-    };
-
-    fetchActiveTenant();
-  }, [isAuthenticated, user?.activeTenantId]);
+  const { data: tenants } = useMyTenants(isAuthenticated);
+  const activeTenantName =
+    tenants?.find((t) => t.id === user?.activeTenantId)?.name ?? null;
 
   return (
     <Box
@@ -98,16 +71,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
           onClick={() => navigate("/dashboard")}
           flexShrink={0}
         >
-          <Icon as={Database} boxSize={{ base: 5, md: 5 }} color="primary.600" flexShrink={0} />
-
-          <Text
-            fontSize={{ base: "xs", md: "md" }}
-            fontWeight="bold"
-            color={textColor}
-            whiteSpace="nowrap"
-          >
-            Brickly
-          </Text>
+          <img src="/logo.png" alt="Brickly" style={{ height: "40px", width: "auto", display: "block" }} />
         </HStack>
 
         {/* Nazwa tenanta + imię i nazwisko - wycentrowane na mobilach */}
@@ -119,7 +83,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
             display={{ base: "flex", md: "none" }}
           >
             <Text
-              fontSize={{ base: "10px", md: "sm" }}
+              fontSize={{ base: "xs", md: "sm" }}
               fontWeight="medium"
               color={textColor}
               whiteSpace="nowrap"
@@ -129,7 +93,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
             </Text>
 
             {activeTenantName && (
-              <HStack spacing={0.5} fontSize={{ base: "8px", md: "xs" }} color={mutedColor}>
+              <HStack spacing={0.5} fontSize={{ base: "2xs", md: "xs" }} color={mutedColor}>
                 <Icon as={Building2} boxSize={{ base: 3, md: 3 }} flexShrink={0} />
                 <Text whiteSpace="nowrap" noOfLines={1}>{activeTenantName}</Text>
               </HStack>
@@ -147,7 +111,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               display={{ base: "none", md: "flex" }}
             >
               <Text
-                fontSize={{ base: "10px", md: "sm" }}
+                fontSize={{ base: "xs", md: "sm" }}
                 fontWeight="medium"
                 color={textColor}
                 whiteSpace="nowrap"
@@ -157,7 +121,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               </Text>
 
               {activeTenantName && (
-                <HStack spacing={0.5} fontSize={{ base: "8px", md: "xs" }} color={mutedColor}>
+                <HStack spacing={0.5} fontSize={{ base: "2xs", md: "xs" }} color={mutedColor}>
                   <Icon as={Building2} boxSize={{ base: 3, md: 3 }} flexShrink={0} />
                   <Text whiteSpace="nowrap" noOfLines={1}>{activeTenantName}</Text>
                 </HStack>

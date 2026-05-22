@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -24,13 +24,14 @@ import {
 } from "@chakra-ui/react";
 import { Plus, FileText } from "lucide-react";
 import { Link as RouterLink } from "react-router-dom";
-import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateStructureWeb, type CurrencyWeb } from "../api/costEstimateTemplateApi";
+import { costEstimateTemplateApi, type CostEstimateTemplateListItem, type CostEstimateTemplateStructureWeb } from "../api/costEstimateTemplateApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { handleApiError } from "../utils/handleApiError";
+import { useProjectDetails } from "../hooks/queries";
 
 interface TemplateWithStructure extends CostEstimateTemplateListItem {
   structure?: CostEstimateTemplateStructureWeb;
-  currencies?: CurrencyWeb[];
 }
 
 interface CreateCostEstimateModalProps {
@@ -52,12 +53,15 @@ export default function CreateCostEstimateModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
   const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
   const [selectedTemplateDetails, setSelectedTemplateDetails] = useState<TemplateWithStructure | null>(null);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [loadingTemplateDetails, setLoadingTemplateDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Waluta projektu — do wyświetlenia (read-only). Backend pobierze ją z ProjectCurrency.
+  const { data: projectDetails } = useProjectDetails(tenantId, projectId);
+  const projectCurrency = projectDetails?.currency;
 
   // Load template list when modal opens
   useEffect(() => {
@@ -78,11 +82,10 @@ export default function CreateCostEstimateModal({
     }
   }, [isOpen, toast]);
 
-  // Load details (currencies, structure) only for the selected template
+  // Load details (structure) only for the selected template
   useEffect(() => {
     if (!selectedTemplateId) {
       setSelectedTemplateDetails(null);
-      setSelectedCurrencyId("");
       return;
     }
 
@@ -95,18 +98,11 @@ export default function CreateCostEstimateModal({
         const withDetails: TemplateWithStructure = {
           ...templateBase,
           structure: details.structure,
-          currencies: details.structure?.currencies || [],
         };
         setSelectedTemplateDetails(withDetails);
-
-        // Auto-select default currency
-        const currencies = details.structure?.currencies || [];
-        const defaultCurrency = currencies.find((c) => c.isDefault) ?? currencies[0];
-        setSelectedCurrencyId(defaultCurrency?.id ?? "");
       } catch {
         showError("Błąd", "Nie udało się pobrać szczegółów szablonu");
         setSelectedTemplateDetails(null);
-        setSelectedCurrencyId("");
       } finally {
         setLoadingTemplateDetails(false);
       }
@@ -118,46 +114,38 @@ export default function CreateCostEstimateModal({
     setName("");
     setDescription("");
     setSelectedTemplateId("");
-    setSelectedCurrencyId("");
     setSelectedTemplateDetails(null);
     onClose();
   };
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      showError("Błąd", "Nazwa kosztorysu jest wymagana");
+      showError("Sprawdź formularz", "Nazwa kosztorysu jest wymagana");
       return;
     }
 
     if (!selectedTemplateId) {
-      showError("Błąd", "Wybierz szablon kosztorysu");
-      return;
-    }
-
-    if (!selectedCurrencyId) {
-      showError("Błąd", "Wybierz walutę kosztorysu");
+      showError("Sprawdź formularz", "Wybierz szablon kosztorysu");
       return;
     }
 
     const selectedTemplate = selectedTemplateDetails;
     if (!selectedTemplate) {
-      showError("Błąd", "Nie znaleziono wybranego szablonu");
+      showError("Sprawdź formularz", "Nie znaleziono wybranego szablonu");
       return;
     }
 
-    const selectedCurrency = selectedTemplate.currencies?.find(c => c.id === selectedCurrencyId);
-    if (!selectedCurrency) {
-      showError("Błąd", "Wybrana waluta nie jest dostępna w tym szablonie");
+    if (!projectCurrency) {
+      showError("Brak waluty projektu", "Ustaw walutę projektu w Parametrach przed utworzeniem kosztorysu");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Backend tworzy pusty kosztorys na podstawie szablonu
+      // Backend tworzy pusty kosztorys na podstawie szablonu, walutę pobiera z ProjectCurrency.
       await costEstimateApi.createCostEstimate(tenantId, projectId, {
         templateId: selectedTemplateId,
-        selectedCurrencyId: selectedCurrencyId,
         name: name.trim(),
         description: description.trim() || undefined,
       });
@@ -166,12 +154,9 @@ export default function CreateCostEstimateModal({
 
       onCostEstimateCreated();
       handleClose();
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message 
-        || error?.message 
-        || "Nie udało się utworzyć kosztorysu";
-      
-      showError("Błąd", errorMessage);
+    } catch (error: unknown) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setIsSubmitting(false);
     }
@@ -231,7 +216,7 @@ export default function CreateCostEstimateModal({
               {loadingTemplates && (
                 <HStack mt={2} spacing={2}>
                   <Spinner size="xs" />
-                  <Text fontSize="sm" color="gray.500">
+                  <Text fontSize="sm" color="neutral.500">
                     Ładowanie szablonów...
                   </Text>
                 </HStack>
@@ -244,7 +229,7 @@ export default function CreateCostEstimateModal({
                     <Text fontSize="sm" fontWeight="medium">
                       Brak dostępnych szablonów
                     </Text>
-                    <Text fontSize="xs" color="gray.600">
+                    <Text fontSize="xs" color="neutral.600">
                       Musisz najpierw utworzyć szablon kosztorysu.
                     </Text>
                     <RouterLink to="/cost-estimate-templates">
@@ -257,7 +242,7 @@ export default function CreateCostEstimateModal({
               )}
               
               {!loadingTemplates && templates.length > 0 && (
-                <Text fontSize="xs" color="gray.600" mt={1}>
+                <Text fontSize="xs" color="neutral.600" mt={1}>
                   Znaleziono {templates.length} {templates.length === 1 ? 'szablon' : 'szablonów'}
                 </Text>
               )}
@@ -266,39 +251,29 @@ export default function CreateCostEstimateModal({
               {loadingTemplateDetails && (
                 <HStack mt={2} spacing={2}>
                   <Spinner size="xs" />
-                  <Text fontSize="sm" color="gray.500">
+                  <Text fontSize="sm" color="neutral.500">
                     Ładowanie szczegółów szablonu...
                   </Text>
                 </HStack>
               )}
 
-            {selectedTemplate && selectedTemplate.currencies && selectedTemplate.currencies.length > 0 && (
-              <FormControl isRequired>
-                <FormLabel>Waluta kosztorysu</FormLabel>
-                <Select
-                  value={selectedCurrencyId}
-                  onChange={(e) => setSelectedCurrencyId(e.target.value)}
-                  placeholder="Wybierz walutę"
-                >
-                  {selectedTemplate.currencies.map((currency) => (
-                    <option key={currency.id} value={currency.id}>
-                      {currency.name} ({currency.code}){currency.symbol ? ` - ${currency.symbol}` : ''}{currency.isDefault ? ' [Domyślna]' : ''}
-                    </option>
-                  ))}
-                </Select>
-                <Text fontSize="xs" color="gray.600" mt={1}>
-                  Wybierz walutę, w której będzie prowadzony kosztorys
+            {selectedTemplate && (
+              <FormControl>
+                <FormLabel>Waluta projektu</FormLabel>
+                {projectCurrency ? (
+                  <Text fontWeight="semibold">
+                    {projectCurrency.name}
+                    {projectCurrency.symbol ? ` (${projectCurrency.symbol})` : ""}
+                  </Text>
+                ) : (
+                  <Text color="orange.500" fontSize="sm">
+                    Projekt nie ma ustawionej waluty. Ustaw ją w Parametrach projektu.
+                  </Text>
+                )}
+                <Text fontSize="xs" color="neutral.600" mt={1}>
+                  Kosztorys zostanie utworzony w walucie projektu.
                 </Text>
               </FormControl>
-            )}
-
-            {selectedTemplate && selectedTemplate.currencies && selectedTemplate.currencies.length === 0 && (
-              <Alert status="error" borderRadius="md">
-                <AlertIcon />
-                <Text fontSize="sm">
-                  Wybrany szablon nie ma zdefiniowanych walut. Skontaktuj się z administratorem.
-                </Text>
-              </Alert>
             )}
 
             {selectedTemplate && (
@@ -307,27 +282,24 @@ export default function CreateCostEstimateModal({
                   {selectedTemplate.name}
                 </Text>
                 {selectedTemplate.description && (
-                  <Text fontSize="xs" color="gray.600" mb={2}>
+                  <Text fontSize="xs" color="neutral.600" mb={2}>
                     {selectedTemplate.description}
                   </Text>
                 )}
                 {selectedTemplate.structure && (
                   <Box mt={2} pt={2} borderTopWidth="1px" borderColor="primary.300">
-                    <Text fontSize="xs" color="gray.600">
+                    <Text fontSize="xs" color="neutral.600">
                       <strong>Struktura:</strong>
                     </Text>
                     <VStack align="stretch" spacing={1} mt={1}>
-                      <Text fontSize="xs" color="gray.600">
+                      <Text fontSize="xs" color="neutral.600">
                         • Pola nagłówka etapu: {selectedTemplate.structure.groupHeaderFields?.length ?? 0}
                       </Text>
-                      <Text fontSize="xs" color="gray.600">
+                      <Text fontSize="xs" color="neutral.600">
                         • Pola kalkulowane: {selectedTemplate.structure.calculatedFields?.length ?? 0}
                       </Text>
-                      <Text fontSize="xs" color="gray.600">
+                      <Text fontSize="xs" color="neutral.600">
                         • Pola dodatkowe: {selectedTemplate.structure.genericFields?.length ?? 0}
-                      </Text>
-                      <Text fontSize="xs" color="gray.600">
-                        • Waluty: {selectedTemplate.structure.currencies?.length ?? 0}
                       </Text>
                     </VStack>
                   </Box>
@@ -336,7 +308,7 @@ export default function CreateCostEstimateModal({
             )}
 
             <Box p={3} borderWidth="1px" borderRadius="md" bg="yellow.50" borderColor="yellow.200">
-              <Text fontSize="xs" color="gray.600">
+              <Text fontSize="xs" color="neutral.600">
                 <strong>Uwaga:</strong> Kosztorys zostanie utworzony z początkową strukturą zgodną z szablonem. 
                 Będzie widoczny tylko dla Ciebie i możesz go edytować według potrzeb.
               </Text>

@@ -1,4 +1,4 @@
-import { memo } from "react";
+﻿import { memo } from "react";
 import { Box, Text, VStack, Icon } from "@chakra-ui/react";
 import type { LucideIcon } from "lucide-react";
 
@@ -18,13 +18,13 @@ const EmptyState = memo(function EmptyState({
   return (
     <Box textAlign="center" py={10}>
       <VStack spacing={4}>
-        {icon && <Icon as={icon} boxSize={12} color="gray.400" />}
+        {icon && <Icon as={icon} boxSize={12} color="neutral.400" />}
         <VStack spacing={2}>
-          <Text fontSize="lg" fontWeight="medium" color="gray.700">
+          <Text fontSize="lg" fontWeight="medium" color="neutral.700">
             {title}
           </Text>
           {description && (
-            <Text color="gray.500" fontSize="sm">
+            <Text color="neutral.500" fontSize="sm">
               {description}
             </Text>
           )}

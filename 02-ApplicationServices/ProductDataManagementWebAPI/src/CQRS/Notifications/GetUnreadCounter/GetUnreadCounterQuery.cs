@@ -2,5 +2,5 @@
 
 namespace CQRS.Notifications.GetUnreadCounter
 {
-    public record GetUnreadCounterQuery() : IRequestQuery<int>;
+    public sealed record GetUnreadCounterQuery : IRequestQuery<int>;
 }

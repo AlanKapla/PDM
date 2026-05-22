@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace Chat.CQRS.Conversations.DeleteChat;
 
@@ -6,7 +7,7 @@ public sealed class DeleteChatCommandValidator : AbstractValidator<DeleteChatCom
 {
     public DeleteChatCommandValidator()
     {
-        RuleFor(x => x.ChatId)
-            .NotEmpty().WithMessage("ChatId is required.");
+        RuleFor(x => x.TenantId).RequiredId();
+        RuleFor(x => x.ChatId).RequiredId();
     }
 }

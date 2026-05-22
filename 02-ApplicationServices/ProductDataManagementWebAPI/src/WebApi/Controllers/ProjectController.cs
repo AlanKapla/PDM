@@ -1,6 +1,8 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.Projects;
 using CQRS.Projects.AddProjectMember;
 using CQRS.Projects.CreateProject;
+using CQRS.Projects.SetProjectCurrency;
 using CQRS.Projects.GetProjectDetails;
 using CQRS.Projects.GetProjectMembers;
 using CQRS.Projects.GetProjectsDictionary;
@@ -15,7 +17,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers
 {
-    [Route("api/tenants/{tenantId}/project")]
+    [Route("api/tenants/{tenantId}/projects")]
     [ApiController]
     public class ProjectController(IMediator mediator) : BaseApiController(mediator)
     {
@@ -23,8 +25,8 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.TenantView)]
         public async Task<IActionResult> GetTenantProjects([FromRoute] Guid tenantId)
         {
-            var query = new GetTenantProjectsQuery(tenantId);
-            var result = await Send(query);
+            GetTenantProjectsQuery query = new GetTenantProjectsQuery { TenantId = tenantId };
+            IEnumerable<ProjectDetailsWeb> result = await Send(query);
             return Ok(result);
         }
 
@@ -32,8 +34,8 @@ namespace WebApi.Controllers
         [Authorize(Policy = PermissionCodes.TenantView)]
         public async Task<IActionResult> GetProjectsDictionary([FromRoute] Guid tenantId)
         {
-            var query = new GetProjectsDictionaryQuery(tenantId);
-            var result = await Send(query);
+            GetProjectsDictionaryQuery query = new GetProjectsDictionaryQuery { TenantId = tenantId };
+            Dictionary<Guid, string> result = await Send(query);
             return Ok(result);
         }
 
@@ -44,7 +46,7 @@ namespace WebApi.Controllers
             command = command with { TenantId = tenantId };
 
             var result = await Send(command);
-            return CreatedAtAction(nameof(GetTenantProjects), new { tenantId }, result);
+            return CreatedAtAction(nameof(GetProjectDetails), new { tenantId, projectId = result.Id }, result);
         }
 
         [HttpGet("{projectId}")]
@@ -53,8 +55,8 @@ namespace WebApi.Controllers
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
         {
-            var query = new GetProjectDetailsQuery(tenantId, projectId);
-            var result = await Send(query);
+            GetProjectDetailsQuery query = new GetProjectDetailsQuery { TenantId = tenantId, ProjectId = projectId };
+            ProjectDetailsWeb result = await Send(query);
             return Ok(result);
         }
 
@@ -76,8 +78,8 @@ namespace WebApi.Controllers
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
         {
-            var query = new GetProjectMembersQuery(tenantId, projectId);
-            var result = await Send(query);
+            GetProjectMembersQuery query = new GetProjectMembersQuery { TenantId = tenantId, ProjectId = projectId };
+            IEnumerable<ProjectMemberWeb> result = await Send(query);
             return Ok(result);
         }
 
@@ -100,7 +102,12 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid userId)
         {
-            var command = new RemoveProjectMemberCommand(tenantId, projectId, userId);
+            RemoveProjectMemberCommand command = new RemoveProjectMemberCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                UserId = userId
+            };
             await Send(command);
             return NoContent();
         }
@@ -112,7 +119,34 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromQuery] bool isActive)
         {
-            var command = new ToggleProjectStatusCommand(tenantId, projectId, isActive);
+            ToggleProjectStatusCommand command = new ToggleProjectStatusCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                IsActive = isActive
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPut("{projectId}/currency")]
+        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> SetProjectCurrency(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] SetProjectCurrencyRequest request)
+        {
+            SetProjectCurrencyCommand command = new SetProjectCurrencyCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Code = request.Code,
+                Name = request.Name,
+                Symbol = request.Symbol
+            };
             await Send(command);
             return NoContent();
         }

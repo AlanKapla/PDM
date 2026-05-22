@@ -1,16 +1,16 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 {
-    public class DeleteCostEstimateGroupCommandValidator : AbstractValidator<DeleteCostEstimateGroupCommand>
+    public sealed class DeleteCostEstimateGroupCommandValidator : AbstractValidator<DeleteCostEstimateGroupCommand>
     {
         public DeleteCostEstimateGroupCommandValidator()
         {
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("Cost estimate ID is required");
-
-            RuleFor(x => x.GroupId)
-                .NotEmpty().WithMessage("Group ID is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
+            RuleFor(x => x.GroupId).RequiredId();
         }
     }
 }

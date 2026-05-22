@@ -1,31 +1,13 @@
-import { CheckCircle2, Zap, Shield, Users, Lightbulb } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import './About.css'
 
-const PILLARS = [
-  {
-    icon: Zap,
-    title: 'Jedno narzędzie zamiast dziesięciu',
-    description: 'Koniec z Excel do kosztorysów, WhatsApp do komunikacji i e-mail do dokumentów. Wszystko w jednym miejscu.',
-  },
-  {
-    icon: Users,
-    title: 'Każdy uczestnik w jednym systemie',
-    description: 'Zaproś wykonawców, podwykonawców, architektów i klientów. Każdy widzi dokładnie to, do czego ma dostęp.',
-  },
-  {
-    icon: Shield,
-    title: 'Pełna kontrola i bezpieczeństwo',
-    description: 'Izolowane środowiska dla każdej organizacji. Twoje dane są tylko Twoje – z pełną kontrolą uprawnień.',
-  },
-]
-
 const BENEFITS = [
-  'Kosztorysy z szablonami i automatycznymi kalkulacjami',
-  'Harmonogramowanie prac z widokiem osi czasu',
-  'Wymiana dokumentów i plików projektowych',
-  'Komunikator i powiadomienia w czasie rzeczywistym',
-  'Wieloorganizacyjna struktura dostępu',
-  'Śledzenie postępów i przydzielonych zadań',
+  'Kosztorys vs wydatki rzeczywiste — zawsze aktualny',
+  'Dashboard finansowy projektu i organizacji',
+  'Harmonogram z alertami o opóźnieniach',
+  'Dokumenty, pliki i faktury w jednym miejscu',
+  'Komunikacja w kontekście projektu — nie na WhatsAppie',
+  'Raporty dla inwestora gotowe w minutę',
 ]
 
 export default function About() {
@@ -36,17 +18,13 @@ export default function About() {
           <div className="about__left">
             <span className="section-label">O aplikacji</span>
             <h2 className="section-title about__title">
-              Budujesz na Excelu<br />i WhatsAppie?
+              Budujesz. A kto<br />pilnuje kasy?
             </h2>
             <p className="section-subtitle about__subtitle--lead">
-              Większość nadzorców i wykonawców traci godziny tygodniowo na szukanie
-              pliku, odświeżanie arkusza i odpowiadanie na tę samą wiadomość
-              w trzech miejscach naraz.
-            </p>
-            <p className="section-subtitle about__subtitle--body">
-              Brickly rozwiązuje ten problem. Jedna platforma dla nadzorców
-              inwestycyjnych, inwestorów zastępczych, architektów i generalnych
-              wykonawców – wszystko, czego potrzebujesz do prowadzenia inwestycji.
+              Każda inwestycja ma swój moment — zwykle w środku nocy —
+              kiedy zastanawiasz się czy budżet jeszcze się zgadza.
+              Brickly eliminuje tę niepewność. Masz pełny obraz finansowy
+              projektu w każdej chwili, bez dzwonienia do kierownika.
             </p>
 
             <ul className="about__benefits">
@@ -60,28 +38,28 @@ export default function About() {
           </div>
 
           <div className="about__right">
-            {PILLARS.map(pillar => (
-              <div key={pillar.title} className="about__pillar">
-                <div className="about__pillar-icon">
-                  <pillar.icon size={22} />
-                </div>
-                <div>
-                  <h3 className="about__pillar-title">{pillar.title}</h3>
-                  <p className="about__pillar-desc">{pillar.description}</p>
-                </div>
-              </div>
-            ))}
+            <blockquote className="about__quote">
+              <p className="about__quote-text">
+                „Stworzyłem Brickly bo sam byłem tym nadzorcą,
+                który co piątek sklejał raport z trzech Exceli,
+                WhatsAppa i skrzynki mailowej.
+                Teraz robi to system — automatycznie."
+              </p>
+              <footer className="about__quote-author">— Założyciel, Brickly</footer>
+            </blockquote>
 
-            <div className="about__highlight">
-              <div className="about__highlight-inner">
-                <div className="about__highlight-icon">
-                  <Lightbulb size={20} />
-                </div>
-                <p className="about__highlight-text">
-                  W Brickly każdy dokument, kosztorys i wiadomość jest
-                  dokładnie tam gdzie powinien być – zawsze aktualny
-                  i widoczny wyłącznie dla właściwych osób.
-                </p>
+            <div className="about__pillars-new">
+              <div className="about__pillar-new">
+                <span className="about__pillar-new-title">Finanse pod kontrolą</span>
+                <p className="about__pillar-new-desc">Kosztorys zestawiony z wydatkami — zawsze aktualny, bez ręcznej pracy.</p>
+              </div>
+              <div className="about__pillar-new">
+                <span className="about__pillar-new-title">Harmonogram który ostrzega</span>
+                <p className="about__pillar-new-desc">Opóźnienie widoczne natychmiast — razem z wpływem na budżet.</p>
+              </div>
+              <div className="about__pillar-new">
+                <span className="about__pillar-new-title">Jeden ekran zamiast pięciu</span>
+                <p className="about__pillar-new-desc">Wykonawca widzi zadania. Inwestor widzi budżet. Ty widzisz wszystko.</p>
               </div>
             </div>
           </div>

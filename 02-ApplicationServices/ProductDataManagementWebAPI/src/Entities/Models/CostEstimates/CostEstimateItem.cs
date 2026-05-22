@@ -1,4 +1,12 @@
-﻿using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.Base;
 using Entities.Models.CostTrackers;
 
@@ -9,7 +17,7 @@ namespace Entities.Models.CostEstimates
     /// Może mieć kolekcję opcji (Options) jeśli w FieldValues istnieje pole typu ItemSystemOptions.
     /// Może mieć kolekcję komponentów (Components) - wtedy NIE MOŻE mieć FieldValues.
     /// </summary>
-    public class CostEstimateItem : BaseEntity
+    public class CostEstimateItem : DeletableEntity
     {
         public Guid CostEstimateId { get; set; }
         public string Name { get; set; } = default!;
@@ -50,9 +58,6 @@ namespace Entities.Models.CostEstimates
         
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
-        public bool IsDeleted { get; set; }
-        public DateTime? DeletedAt { get; set; }
-        
         // Navigation properties
         public virtual CostEstimate CostEstimate { get; set; } = default!;
         public virtual CostEstimateGroup Group { get; set; } = default!;
@@ -62,7 +67,6 @@ namespace Entities.Models.CostEstimates
         /// Pozycja nadrzędna (jeśli ta pozycja jest opcją lub komponentem)
         /// </summary>
         public virtual CostEstimateItem? ParentItem { get; set; }
-        public virtual ICollection<WorkScheduleStageWork> WorkScheduleStageWorks { get; set; } = new List<WorkScheduleStageWork>();
         public virtual ICollection<TrackedCost>? TrackedCosts { get; set; }
         
         /// <summary>

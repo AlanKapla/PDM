@@ -53,7 +53,7 @@ const TYPING_STOP_DELAY_MS = 2000;
 
 export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onDeleteFailed, onOptimisticDelete, onOptimisticRename, onMembersChange }: ChatWindowProps) {
   const { messages, loadingInitial, loadingMore, hasMore, error, typingUserIds, loadMore } =
-    useChatMessages(chat.id);
+    useChatMessages(chat.tenantId, chat.id);
 
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
@@ -88,7 +88,11 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
     onOptimisticDelete?.(chat.id); // optimistic — natychmiast usuń z listy
     closeDelete();
     try {
-      await chatApi.deleteChat(chat.id);
+      // deleteChat is group-only; chat.tenantId is always set for groups.
+      if (!chat.tenantId) {
+        throw new Error("Direct chats cannot be deleted—use leave instead.");
+      }
+      await chatApi.deleteChat(chat.tenantId, chat.id);
       onDeleted?.(); // nawigacja do /chat
     } catch {
       onDeleteFailed?.(); // reload — przywróć czat
@@ -130,7 +134,10 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
     setSavingName(true);
     onOptimisticRename?.(chat.id, trimmed); // optimistic — widoczne natychmiast
     try {
-      await chatApi.renameGroupChat(chat.id, { newName: trimmed });
+      if (!chat.tenantId) {
+        throw new Error("Direct chats cannot be renamed.");
+      }
+      await chatApi.renameGroupChat(chat.tenantId, chat.id, { newName: trimmed });
       setIsRenamingChat(false);
     } catch {
       onOptimisticRename?.(chat.id, chat.name); // cofnij zmianę
@@ -209,9 +216,9 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
 
     try {
       if (editId) {
-        await chatApi.editMessage(chat.id, editId, { content: trimmed });
+        await chatApi.editMessage(chat.tenantId, chat.id, editId, { content: trimmed });
       } else {
-        await chatApi.sendMessage(chat.id, { content: trimmed, replyToMessageId: replyId });
+        await chatApi.sendMessage(chat.tenantId, chat.id, { content: trimmed, replyToMessageId: replyId });
       }
       messagesBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch {
@@ -244,7 +251,7 @@ export default function ChatWindow({ chat, currentUserId, onBack, onDeleted, onD
 
   const handleDelete = async (message: MessageWeb) => {
     try {
-      await chatApi.deleteMessage(chat.id, message.id);
+      await chatApi.deleteMessage(chat.tenantId, chat.id, message.id);
     } catch {}
   };
 

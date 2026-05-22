@@ -1,4 +1,4 @@
-import { memo } from "react";
+﻿import { memo } from "react";
 import { Spinner, VStack, Text, Box } from "@chakra-ui/react";
 
 interface LoadingSpinnerProps {
@@ -15,7 +15,7 @@ const LoadingSpinner = memo(function LoadingSpinner({
   const content = (
     <VStack spacing={4}>
       <Spinner size={size} color="primary.500" thickness="4px" />
-      {message && <Text color="gray.600">{message}</Text>}
+      {message && <Text color="neutral.600">{message}</Text>}
     </VStack>
   );
 

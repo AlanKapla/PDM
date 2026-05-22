@@ -2,5 +2,9 @@
 
 namespace CQRS.Notifications.GetAllNotifications
 {
-    public record GetAllNotificationsQuery(int Take = 50, int Skip = 0) : IRequestQuery<IEnumerable<NotificationWeb>>;
+    public sealed record GetAllNotificationsQuery : IRequestQuery<IEnumerable<NotificationWeb>>
+    {
+        public int Take { get; init; } = 50;
+        public int Skip { get; init; } = 0;
+    }
 }

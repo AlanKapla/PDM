@@ -15,9 +15,15 @@ namespace Business.Interfaces.Services
         (decimal? Net, decimal? Gross) Calculate(decimal? net, decimal? gross);
 
         /// <summary>
-        /// Oblicza status pozycji kosztorysu na podstawie budżetu i rzeczywistych kosztów.
+        /// Oblicza status finansowy węzła na podstawie budżetu i rzeczywistych kosztów.
         /// </summary>
-        TrackedCostItemStatus ComputeItemStatus(decimal? budgetNet, decimal? costsNet, int costsCount);
+        FinancialStatus ComputeItemStatus(decimal? budgetNet, decimal? costsNet, int costsCount);
+
+        /// <summary>
+        /// Oblicza status finansowy węzła agregatowego (etap, harmonogram) na podstawie budżetu i kosztów.
+        /// Nie wymaga liczby kosztów — NoCosts gdy costsNet = null.
+        /// </summary>
+        FinancialStatus ComputeFinancialStatus(decimal? budgetNet, decimal? costsNet);
 
         /// <summary>
         /// Agreguje dane ze wszystkich CostEstimateSummaryWeb i kosztów projektowych w jeden widok projektu.

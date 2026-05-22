@@ -1,4 +1,6 @@
-﻿using Chat.DTOs;
+using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.Chats;
+using Chat.CQRS.Shared;
 using CQRS;
 
 namespace Chat.CQRS.Conversations.GetAvailableMembers;
@@ -7,4 +9,7 @@ namespace Chat.CQRS.Conversations.GetAvailableMembers;
 /// Returns users who are members of the chat's project but not yet members of the chat.
 /// Only applicable to group chats. The caller must be a member.
 /// </summary>
-public sealed record GetAvailableMembersQuery(Guid ChatId) : IRequestQuery<List<AvailableMemberWeb>>;
+public sealed record GetAvailableMembersQuery : ChatScopedRequestBase, IRequestQuery<List<AvailableMemberWeb>>
+{
+    public override string PermissionCode => PermissionCodes.ChatMembersManage;
+}

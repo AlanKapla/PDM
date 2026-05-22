@@ -1,9 +1,9 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Chat.DTOs;
-using Entities.Models;
-using ChatModel = Entities.Models.Chat;
+using Business.Interfaces.WebModels.Chats;
+using Entities.Models.Chats;
+using ChatModel = Entities.Models.Chats.Chat;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -12,13 +12,13 @@ namespace Chat.CQRS.Conversations.GetAvailableMembers;
 public sealed class GetAvailableMembersQueryHandler : IRequestHandler<GetAvailableMembersQuery, List<AvailableMemberWeb>>
 {
     private readonly IReadRepository<ChatModel> chatRepo;
-    private readonly IRepository<ChatMember> chatMemberRepo;
+    private readonly IReadRepository<ChatMember> chatMemberRepo;
     private readonly IProjectMemberService projectMemberService;
     private readonly ICurrentUser currentUser;
 
     public GetAvailableMembersQueryHandler(
         IReadRepository<ChatModel> chatRepo,
-        IRepository<ChatMember> chatMemberRepo,
+        IReadRepository<ChatMember> chatMemberRepo,
         IProjectMemberService projectMemberService,
         ICurrentUser currentUser)
     {
@@ -30,12 +30,7 @@ public sealed class GetAvailableMembersQueryHandler : IRequestHandler<GetAvailab
 
     public async Task<List<AvailableMemberWeb>> Handle(GetAvailableMembersQuery request, CancellationToken cancellationToken)
     {
-        ChatModel? chat = await chatRepo.GetById(request.ChatId);
-
-        if (chat == null)
-        {
-            throw new NotFoundApiException("Chat", request.ChatId.ToString());
-        }
+        ChatModel chat = await GetAndValidateChatAsync(request.TenantId, request.ChatId, cancellationToken);
 
         if (!chat.IsGroupChat)
         {
@@ -47,14 +42,7 @@ public sealed class GetAvailableMembersQueryHandler : IRequestHandler<GetAvailab
             throw new ValidationApiException("This group chat has no associated project.");
         }
 
-        bool isMember = await chatMemberRepo.AnyAsync(
-            cm => cm.ChatId == request.ChatId && cm.UserId == currentUser.Id,
-            cancellationToken);
-
-        if (!isMember)
-        {
-            throw new ForbiddenApiException("You are not a member of this chat.");
-        }
+        await EnsureRequesterIsMemberAsync(request.ChatId, cancellationToken);
 
         IEnumerable<ChatMember> currentMembers = await chatMemberRepo.GetBySearch(
             cm => cm.ChatId == request.ChatId);
@@ -70,5 +58,31 @@ public sealed class GetAvailableMembersQueryHandler : IRequestHandler<GetAvailab
             .OrderBy(c => c.LastName)
             .ThenBy(c => c.FirstName)
             .ToList();
+    }
+
+    private async Task<ChatModel> GetAndValidateChatAsync(Guid tenantId, Guid chatId, CancellationToken cancellationToken)
+    {
+        ChatModel? chat = await chatRepo.GetFirstBySearch(
+            c => c.Id == chatId && c.TenantId == tenantId,
+            cancellationToken);
+
+        if (chat is null)
+        {
+            throw new NotFoundApiException(nameof(Entities.Models.Chats.Chat), chatId.ToString());
+        }
+
+        return chat;
+    }
+
+    private async Task EnsureRequesterIsMemberAsync(Guid chatId, CancellationToken cancellationToken)
+    {
+        bool isMember = await chatMemberRepo.AnyAsync(
+            cm => cm.ChatId == chatId && cm.UserId == currentUser.Id,
+            cancellationToken);
+
+        if (!isMember)
+        {
+            throw new ForbiddenApiException("You are not a member of this chat.");
+        }
     }
 }

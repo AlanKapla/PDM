@@ -1,19 +1,13 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
+using CQRS.WorkSchedules.Shared;
 using MediatR;
 
 namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
 {
-    public sealed record SetWorkScheduleStageWorkAssignmentsCommand(
-        List<Guid> UserIds
-    ) : IRequestCommand<Unit>, IAuthorizableRequest
+    public sealed record SetWorkScheduleStageWorkAssignmentsCommand : WorkScheduleStageWorkCommandBase, IRequestCommand<Unit>
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
-        public Guid WorkScheduleId { get; init; }
-        public Guid WorkScheduleStageWorkId { get; init; }
+        public List<Guid> UserIds { get; init; } = new();
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
     }
 }

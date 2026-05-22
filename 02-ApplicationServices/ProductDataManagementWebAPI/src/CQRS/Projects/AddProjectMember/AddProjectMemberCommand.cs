@@ -4,14 +4,14 @@ using MediatR;
 
 namespace CQRS.Projects.AddProjectMember
 {
-    public record AddProjectMemberCommand(
-        Guid TenantId,
-        Guid ProjectId,
-        Guid UserId
-    ) : IRequestCommand<Unit>, IAuthorizableRequest
+    public sealed record AddProjectMemberCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
+        public required Guid TenantId { get; init; }
+        public required Guid ProjectId { get; init; }
+        public required Guid UserId { get; init; }
+
         public string PermissionCode => PermissionCodes.ProjectMembersManage;
-        
+
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

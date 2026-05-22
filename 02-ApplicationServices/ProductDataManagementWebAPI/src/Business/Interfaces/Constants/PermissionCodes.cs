@@ -38,6 +38,13 @@ public static class PermissionCodes
     public const string ProjectResourcesReadSingle = "PROJECT.RESOURCES.READ_SINGLE";
     public const string ProjectResourcesWriteOwn = "PROJECT.RESOURCES.WRITE_OWN";
 
+    // CHAT – GROUP/PROJECT
+    public const string ChatRead = "CHAT.READ";
+    public const string ChatWrite = "CHAT.WRITE";
+    public const string ChatMembersManage = "CHAT.MEMBERS.MANAGE";
+    public const string ChatRename = "CHAT.RENAME";
+    public const string ChatDelete = "CHAT.DELETE";
+
 
     public static readonly string[] All = new[]
     {
@@ -62,6 +69,11 @@ public static class PermissionCodes
         ProjectResourcesReadAll,
         ProjectResourcesWriteAll,
         ProjectResourcesReadSingle,
-        ProjectResourcesWriteOwn
+        ProjectResourcesWriteOwn,
+        ChatRead,
+        ChatWrite,
+        ChatMembersManage,
+        ChatRename,
+        ChatDelete
     };
 }

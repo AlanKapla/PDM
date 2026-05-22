@@ -1,8 +1,10 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Chat.DTOs;
+using Business.Interfaces.WebModels.Chats;
 using Chat.Hubs;
-using Entities.Models;
+using Chat.Mappers;
+using CQRS.PostCommit;
+using Entities.Models.Chats;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -15,6 +17,7 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
     private readonly IRepository<MessageHistory> messageRepo;
     private readonly IReadRepository<ChatMember> chatMemberRepo;
     private readonly IHubContext<ChatHub, IChatClient> hubContext;
+    private readonly IPostCommitDispatcher dispatcher;
     private readonly ICurrentUser currentUser;
     private readonly ILogger<SendMessageCommandHandler> logger;
 
@@ -22,36 +25,28 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         IRepository<MessageHistory> messageRepo,
         IReadRepository<ChatMember> chatMemberRepo,
         IHubContext<ChatHub, IChatClient> hubContext,
+        IPostCommitDispatcher dispatcher,
         ICurrentUser currentUser,
         ILogger<SendMessageCommandHandler> logger)
     {
         this.messageRepo = messageRepo;
         this.chatMemberRepo = chatMemberRepo;
         this.hubContext = hubContext;
+        this.dispatcher = dispatcher;
         this.currentUser = currentUser;
         this.logger = logger;
     }
 
     public async Task<Guid> Handle(SendMessageCommand request, CancellationToken cancellationToken)
     {
-        bool isMember = await chatMemberRepo.AnyAsync(
-             cm => cm.ChatId == request.ChatId &&
-                   cm.UserId == currentUser.Id,
-             cancellationToken);
+        await EnsureMembershipAsync(request.ChatId, cancellationToken);
+        await EnsureReplyTargetExistsAsync(request.ChatId, request.ReplyToMessageId, cancellationToken);
 
-        if (!isMember)
-        {
-            throw new ForbiddenApiException("You are not a member of this chat.");
-        }
-
-        MessageHistory message = new MessageHistory
-        {
-            ChatId = request.ChatId,
-            UserId = currentUser.Id,
-            Content = request.Content,
-            CreatedAt = DateTime.UtcNow,
-            ReplyToMessageId = request.ReplyToMessageId
-        };
+        MessageHistory message = MessageHistory.Create(
+            chatId: request.ChatId,
+            authorId: currentUser.Id,
+            content: request.Content,
+            replyToId: request.ReplyToMessageId);
 
         await messageRepo.Insert(message);
 
@@ -59,22 +54,14 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
         // SignalR clients can query it via HTTP after receiving the real-time event.
         await messageRepo.SaveChangesAsync(cancellationToken);
 
-        MessageWeb messageWeb = new MessageWeb(
-            Id: message.Id,
-            ChatId: message.ChatId,
-            SenderId: message.UserId,
-            SenderFirstName: currentUser.FirstName,
-            SenderLastName: currentUser.LastName,
-            Content: message.Content,
-            IsDeleted: false,
-            IsEdited: false,
-            SentAt: message.CreatedAt,
-            EditedAt: null,
-            ReplyToMessageId: message.ReplyToMessageId);
+        MessageWeb messageWeb = ChatMapper.MapMessage(message, currentUser.FirstName, currentUser.LastName);
 
-        await hubContext.Clients
-            .Group(ChatHubGroups.Chat(request.ChatId))
-            .ReceiveMessage(messageWeb);
+        // Broadcast deferred until after transaction commit (TransactionBehavior + IPostCommitDispatcher).
+        Guid chatIdForBroadcast = request.ChatId;
+        dispatcher.Enqueue(_ =>
+            hubContext.Clients
+                .Group(ChatHubGroups.Chat(chatIdForBroadcast))
+                .ReceiveMessage(messageWeb));
 
         logger.LogDebug(
             "Message {MessageId} sent to chat {ChatId} by user {UserId}",
@@ -83,5 +70,39 @@ public sealed class SendMessageCommandHandler : IRequestHandler<SendMessageComma
             currentUser.Id);
 
         return message.Id;
+    }
+
+    private async Task EnsureMembershipAsync(Guid chatId, CancellationToken cancellationToken)
+    {
+        bool isMember = await chatMemberRepo.AnyAsync(
+            cm => cm.ChatId == chatId && cm.UserId == currentUser.Id,
+            cancellationToken);
+
+        if (!isMember)
+        {
+            throw new ForbiddenApiException("You are not a member of this chat.");
+        }
+    }
+
+    private async Task EnsureReplyTargetExistsAsync(
+        Guid chatId,
+        Guid? replyToMessageId,
+        CancellationToken cancellationToken)
+    {
+        if (replyToMessageId is null)
+        {
+            return;
+        }
+
+        bool replyExists = await messageRepo.AnyAsync(
+            m => m.Id == replyToMessageId.Value &&
+                 m.ChatId == chatId &&
+                 m.DeletedAt == null,
+            cancellationToken);
+
+        if (!replyExists)
+        {
+            throw new NotFoundApiException(nameof(MessageHistory), replyToMessageId.Value.ToString());
+        }
     }
 }

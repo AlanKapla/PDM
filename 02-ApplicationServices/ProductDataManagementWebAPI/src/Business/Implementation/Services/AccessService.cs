@@ -1,4 +1,4 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Microsoft.Extensions.Logging;
@@ -30,11 +30,12 @@ public sealed class AccessService : IAccessService
         var scope = PermissionScopes.Get(permissionCode);
 
         // Handle Global scope permissions
+        // Global scope is granted to all authenticated users without any DB or cache check.
+        // This is intentional for system-wide read operations (e.g. TENANT.LIST.AVAILABLE, ROLE.LIST).
         if (scope == PermissionScope.Global)
         {
             logger.LogDebug(
-                "Authorization granted: User {UserId} has global permission {Permission}",
-                user.Id,
+                "Permission {PermissionCode} granted — Global scope, no DB check required",
                 permissionCode);
 
             return true;

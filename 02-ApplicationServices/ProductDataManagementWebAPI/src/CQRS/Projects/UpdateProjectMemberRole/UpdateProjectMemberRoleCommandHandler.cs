@@ -1,24 +1,31 @@
-﻿using Business.Implementation.Services;
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
 using Entities.Enums;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Projects.UpdateProjectMemberRole
 {
-    public class UpdateProjectMemberRoleCommandHandler : IRequestHandler<UpdateProjectMemberRoleCommand, Unit>
+    public sealed class UpdateProjectMemberRoleCommandHandler : IRequestHandler<UpdateProjectMemberRoleCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IReadRepository<Role> roleRepo;
         private readonly IReadRepository<Notification> notificationRepo;
-        private readonly PermissionsVersionService permissionsVersionService;
+        private readonly IPermissionsVersionService permissionsVersionService;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly IUserService userService;
@@ -28,7 +35,7 @@ namespace CQRS.Projects.UpdateProjectMemberRole
             IRepository<ProjectMember> projectMemberRepo,
             IReadRepository<Role> roleRepo,
             IReadRepository<Notification> notificationRepo,
-            PermissionsVersionService permissionsVersionService,
+            IPermissionsVersionService permissionsVersionService,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             IUserService userService)
@@ -45,16 +52,19 @@ namespace CQRS.Projects.UpdateProjectMemberRole
 
         public async Task<Unit> Handle(UpdateProjectMemberRoleCommand request, CancellationToken cancellationToken)
         {
+            // NOTE: self-edit guard is enforced by UpdateProjectMemberRoleCommandValidator (NotCurrentUser).
+
             Project project = await projectRepo.GetFirstBySearch(
                 p => p.Id == request.ProjectId && p.TenantId == request.TenantId)
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
             ProjectMember projectMember = await projectMemberRepo.GetFirstBySearch(
-                m => m.ProjectId == request.ProjectId 
+                m => m.ProjectId == request.ProjectId
+                    && m.TenantId == request.TenantId
                     && m.UserId == request.UserId)
                 ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
-            var targetUser = await userService.GetProjectMemberAsync(
+            ProjectMemberUserInfo? targetUser = await userService.GetProjectMemberAsync(
                 request.TenantId, request.ProjectId, request.UserId, cancellationToken);
 
             Role newRole = await roleRepo.GetFirstBySearch(
@@ -62,7 +72,7 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 cancellationToken)
                 ?? throw new NotFoundApiException(nameof(Role), request.RoleId.ToString());
 
-            var oldRoleId = projectMember.RoleId;
+            Guid? oldRoleId = projectMember.RoleId;
             projectMember.RoleId = newRole.Id;
 
             await projectMemberRepo.Update(projectMember);
@@ -81,8 +91,8 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 Type = NotificationType.Info,
                 Title = "Zmieniono Twoją rolę w projekcie",
                 Message = $"Twoja rola w projekcie '{project.Name}' została zmieniona na {newRole.Name}.",
-                CreatedAt = DateTimeOffset.UtcNow,
-                Readed = false,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "projectId", request.ProjectId },
@@ -95,7 +105,7 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 }
             };
 
-            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
             await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;

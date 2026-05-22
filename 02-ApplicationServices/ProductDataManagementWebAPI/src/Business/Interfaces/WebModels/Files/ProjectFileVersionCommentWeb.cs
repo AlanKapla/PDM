@@ -1,16 +1,16 @@
 ﻿namespace Business.Interfaces.WebModels.Files
 {
-    public record ProjectFileVersionCommentWeb
+    public sealed record ProjectFileVersionCommentWeb
     {
-        public Guid Id { get; init; }
-        public Guid ProjectFileVersionId { get; init; }
-        public Guid UserId { get; init; }
-        public string UserName { get; init; } = default!;
-        public string Content { get; init; } = default!;
-        public DateTime CreatedAt { get; init; }
+        public required Guid Id { get; init; }
+        public required Guid ProjectFileVersionId { get; init; }
+        public required Guid UserId { get; init; }
+        public required string UserName { get; init; }
+        public required string Content { get; init; }
+        public required DateTime CreatedAt { get; init; }
         public DateTime? EditedAt { get; init; }
-        public bool IsEdited { get; init; }
-        public bool CanEdit { get; init; }
-        public bool CanDelete { get; init; }
+        public required bool IsEdited { get; init; }
+        public required bool CanEdit { get; init; }
+        public required bool CanDelete { get; init; }
     }
 }

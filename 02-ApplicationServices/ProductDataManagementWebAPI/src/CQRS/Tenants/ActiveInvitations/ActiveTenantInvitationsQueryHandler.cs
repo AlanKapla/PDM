@@ -1,22 +1,22 @@
 ﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
-using Entities.Models;
+using Entities.Models.Tenants;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.ActiveInvitations
 {
-    public class ActiveTenantInvitationsQueryHandler : IRequestHandler<ActiveTenantInvitationsQuery, IEnumerable<TenantInvitationWeb>>
+    public sealed class ActiveTenantInvitationsQueryHandler : IRequestHandler<ActiveTenantInvitationsQuery, IEnumerable<TenantInvitationWeb>>
     {
-        private readonly IRepository<TenantInvitation> invitationRepo;
-        private readonly IRepository<Tenant> tenantRepo;
+        private readonly IReadRepository<TenantInvitation> invitationRepo;
         private readonly ICurrentUser currentUser;
 
-        public ActiveTenantInvitationsQueryHandler(IRepository<TenantInvitation> invitationRepo, IRepository<Tenant> tenantRepo, ICurrentUser currentUser)
+        public ActiveTenantInvitationsQueryHandler(
+            IReadRepository<TenantInvitation> invitationRepo,
+            ICurrentUser currentUser)
         {
             this.invitationRepo = invitationRepo;
-            this.tenantRepo = tenantRepo;
             this.currentUser = currentUser;
         }
 
@@ -25,7 +25,7 @@ namespace CQRS.Tenants.ActiveInvitations
             string email = currentUser.Email.Trim().ToLowerInvariant();
             IEnumerable<TenantInvitation> invites = await invitationRepo.GetBySearch(
                 i => i.IsActive && i.Email.ToLower() == email && i.Status == InvitationStatus.Pending && i.ExpiresAt > DateTime.UtcNow,
-                q => q.Include(x => x.InvitedByUser)
+                q => q.Include(x => x.InvitedByUser).Include(x => x.Tenant)
             );
 
             if (!invites.Any())
@@ -33,19 +33,14 @@ namespace CQRS.Tenants.ActiveInvitations
                 return Array.Empty<TenantInvitationWeb>();
             }
 
-            // Load tenants for mapping names
-            HashSet<Guid> tenantIds = invites.Select(i => i.TenantId).ToHashSet();
-            IEnumerable<Tenant> tenants = await tenantRepo.GetBySearch(t => tenantIds.Contains(t.Id));
-            Dictionary<Guid, string> nameById = tenants.ToDictionary(t => t.Id, t => t.Name);
-
             return invites.Select(i => new TenantInvitationWeb
             {
                 InvitationId = i.Id,
                 TenantId = i.TenantId,
-                TenantName = nameById.TryGetValue(i.TenantId, out var name) ? name : string.Empty,
+                TenantName = i.Tenant?.Name ?? string.Empty,
                 Email = i.Email,
                 InvitedByUserEmail = i.InvitedByUser?.Email ?? string.Empty,
-                InvitedByUserName = i.InvitedByUser == null ? string.Empty : $"{i.InvitedByUser.FirstName} {i.InvitedByUser.LastName}",
+                InvitedByUserName = i.InvitedByUser is null ? string.Empty : $"{i.InvitedByUser.FirstName} {i.InvitedByUser.LastName}",
                 CreatedAt = i.CreatedAt,
                 ExpiresAt = i.ExpiresAt,
                 Status = i.Status,

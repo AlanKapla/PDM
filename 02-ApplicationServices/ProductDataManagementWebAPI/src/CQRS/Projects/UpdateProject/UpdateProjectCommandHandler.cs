@@ -2,14 +2,15 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
-using Entities.Models;
+using Entities.Models.Projects;
+using Entities.Models.Tenants;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.UpdateProject
 {
-    public class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectCommand, ProjectDetailsWeb>
+    public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectCommand, ProjectDetailsWeb>
     {
         private readonly IRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
@@ -37,46 +38,48 @@ namespace CQRS.Projects.UpdateProject
             project.Name = request.Name.Trim();
             await projectRepo.Update(project);
 
-            // Get current user's project membership with role
+            // Current user's project membership with role
             ProjectMember? projectMember = await projectMemberRepo.GetFirstBySearch(
-                pm => pm.ProjectId == project.Id 
+                pm => pm.ProjectId == project.Id
+                    && pm.TenantId == request.TenantId
                     && pm.UserId == currentUser.Id,
-                include => include.Include(pm => pm.MemberRole)
-            );
+                include => include.Include(pm => pm.MemberRole));
 
-            // Get creator info separately
+            // Creator info
             TenantMember? creatorMember = await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == request.TenantId 
+                tm => tm.TenantId == request.TenantId
                     && tm.UserId == project.CreatedByUserId,
-                include => include.Include(tm => tm.User)
-            );
+                include => include.Include(tm => tm.User));
 
-            // Get members count
-            IEnumerable<ProjectMember> allMembers = await projectMemberRepo.GetBySearch(
-                pm => pm.ProjectId == project.Id);
+            // Members count
+            int membersCount = await projectMemberRepo.CountAsync(
+                pm => pm.ProjectId == project.Id && pm.TenantId == request.TenantId,
+                cancellationToken);
 
-            // Get user's permissions for this project
-            var userPermissions = new HashSet<string>();
-            var projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
-            if (projectSnapshot != null)
+            // User's permissions for this project
+            HashSet<string> userPermissions = new HashSet<string>();
+            ProjectCtxSnapshot? projectSnapshot = await currentUser.GetProjectSnapshotAsync(project.Id, cancellationToken);
+            if (projectSnapshot is not null)
             {
                 userPermissions = projectSnapshot.ProjectPermissionCodes;
             }
 
-            return new ProjectDetailsWeb(
-                Id: project.Id,
-                TenantId: project.TenantId,
-                Name: project.Name,
-                IsActive: project.IsActive,
-                CreatedAt: project.CreatedAt,
-                CreatedByUserId: project.CreatedByUserId,
-                CreatedByUserName: creatorMember?.User != null 
+            return new ProjectDetailsWeb
+            {
+                Id = project.Id,
+                TenantId = project.TenantId,
+                Name = project.Name,
+                IsActive = project.IsActive,
+                CreatedAt = project.CreatedAt,
+                CreatedByUserId = project.CreatedByUserId,
+                CreatedByUserName = creatorMember?.User is not null
                     ? $"{creatorMember.User.FirstName} {creatorMember.User.LastName}".Trim()
                     : "Unknown",
-                UserRoleCode: projectMember?.MemberRole?.Code ?? RoleCodes.ProjectViewer,
-                MembersCount: allMembers.Count(),
-                UserPermissions: userPermissions
-            );
+                UserRoleCode = projectMember?.MemberRole?.Code ?? RoleCodes.ProjectViewer,
+                MembersCount = membersCount,
+                UserPermissions = userPermissions,
+                Currency = null
+            };
         }
     }
 }

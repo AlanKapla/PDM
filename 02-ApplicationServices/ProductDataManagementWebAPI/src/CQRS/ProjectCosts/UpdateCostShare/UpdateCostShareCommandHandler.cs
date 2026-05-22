@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -16,7 +24,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
         private readonly IRepository<SharedProjectCost> sharedProjectCostRepo;
-        private readonly IRepository<Project> projectRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
@@ -26,7 +33,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
         public UpdateCostShareCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
             IRepository<SharedProjectCost> sharedProjectCostRepo,
-            IRepository<Project> projectRepo,
             IReadRepository<User> userRepo,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
@@ -35,7 +41,6 @@ namespace CQRS.ProjectCosts.UpdateCostShare
         {
             this.projectCostRepo = projectCostRepo;
             this.sharedProjectCostRepo = sharedProjectCostRepo;
-            this.projectRepo = projectRepo;
             this.userRepo = userRepo;
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
@@ -49,8 +54,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
             var cost = await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId 
                     && pc.TenantId == request.TenantId 
-                    && pc.ProjectId == request.ProjectId 
-                    && !pc.IsDeleted,
+                    && pc.ProjectId == request.ProjectId,
                 query => query.Include(pc => pc.SharedWith))
                 ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
 
@@ -60,7 +64,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
             
             if (!isAdmin && !isCostOwner)
             {
-                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+                throw new ForbiddenApiException("You do not have permission to manage shares for this cost.");
             }
 
             var existingUserIds = cost.SharedWith.Select(s => s.SharedWithUserId).ToHashSet();
@@ -97,8 +101,8 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         Type = NotificationType.Info,
                         Title = "Odebrano dostęp do kosztu",
                         Message = $"{currentUser.FirstName} {currentUser.LastName} odebrał Ci dostęp do kosztu: {cost.Name}",
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        Readed = false,
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false,
                         Metadata = new Dictionary<string, object?>
                         {
                             { "costId", request.CostId },
@@ -147,8 +151,8 @@ namespace CQRS.ProjectCosts.UpdateCostShare
                         Type = NotificationType.Success,
                         Title = "Udostępniono Ci koszt",
                         Message = $"{currentUser.FirstName} {currentUser.LastName} udostępnił Ci koszt: {cost.Name}",
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        Readed = false,
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false,
                         Metadata = new Dictionary<string, object?>
                         {
                             { "costId", request.CostId },

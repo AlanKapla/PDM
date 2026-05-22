@@ -20,43 +20,33 @@ export default function Hero() {
         <div className="hero__content">
           <div className="hero__badge">
             <span className="hero__badge-dot" />
-            Excel, WhatsApp, e-mail — koniec z tym.
+            Koniec z chaosem na budowie. Zacznij widzieć liczby.
           </div>
 
           <h1 className="hero__title">
-            Jeden system<br />
-            <span className="hero__title-accent">dla całego procesu</span>{' '}
-            inwestycyjnego.
+            Wiesz ile kosztuje<br />
+            <span className="hero__title-accent">ta budowa?</span>
           </h1>
 
           <p className="hero__subtitle">
-            Koniec z Excelem do kosztorysów, WhatsAppem do komunikacji
-            i mailem do dokumentów. Brickly spina cały proces inwestycyjny
-            w jednym miejscu.
+            Brickly zestawia kosztorys z rzeczywistymi wydatkami na bieżąco.
+            Widzisz odchylenia zanim przekroczysz budżet — nie tydzień później.
           </p>
-
-          <div className="hero__pain-strip">
-            <span className="hero__pain-item">Rozproszona dokumentacja</span>
-            <span className="hero__pain-arrow">→</span>
-            <span className="hero__pain-item">Nieaktualne kosztorysy</span>
-            <span className="hero__pain-arrow">→</span>
-            <span className="hero__pain-item">Brak kontroli nad projektem</span>
-          </div>
 
           <div className="hero__stats">
             <div className="hero__stat">
-              <span className="hero__stat-value">5 min</span>
-              <span className="hero__stat-label">konfiguracja</span>
+              <span className="hero__stat-value">87%</span>
+              <span className="hero__stat-label">budów przekracza budżet</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
-              <span className="hero__stat-value">1 miejsce</span>
-              <span className="hero__stat-label">zamiast 5 narzędzi</span>
+              <span className="hero__stat-value">3×</span>
+              <span className="hero__stat-label">mniej czasu na raporty</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
-              <span className="hero__stat-value">100%</span>
-              <span className="hero__stat-label">online</span>
+              <span className="hero__stat-value">1</span>
+              <span className="hero__stat-label">miejsce dla całego projektu</span>
             </div>
           </div>
 
@@ -81,11 +71,6 @@ export default function Hero() {
         </div>
       </div>
 
-      <div className="hero__wave">
-        <svg viewBox="0 0 1440 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0,20 C360,40 1080,0 1440,20 L1440,40 L0,40 Z" fill="#FFFFFF" />
-        </svg>
-      </div>
     </section>
   )
 }

@@ -1,12 +1,12 @@
 ﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.GetUserAssignedWorks
 {
-    public class GetUserAssignedWorksQueryHandler : IRequestHandler<GetUserAssignedWorksQuery, List<UserAssignedWorksByTenantWeb>>
+    public sealed class GetUserAssignedWorksQueryHandler : IRequestHandler<GetUserAssignedWorksQuery, List<UserAssignedWorksByTenantWeb>>
     {
         private readonly IRepository<WorkScheduleStageWorkAssignment> assignmentRepo;
         private readonly IRepository<WorkScheduleStageWorkPeriod> periodRepo;

@@ -1,17 +1,15 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.Files.GetPackageFiles;
 
-public class GetProjectFilePackagesQueryValidator : AbstractValidator<GetPackageFilesQuery>
+public sealed class GetPackageFilesQueryValidator : AbstractValidator<GetPackageFilesQuery>
 {
-    public GetProjectFilePackagesQueryValidator()
+    public GetPackageFilesQueryValidator()
     {
-        RuleFor(x => x.PackageId)
-            .NotEmpty()
-            .WithMessage("PackageId is required");
-
-        RuleFor(x => x.Scope)
-            .IsInEnum()
-            .WithMessage("Scope is invalid");
+        RuleFor(x => x.TenantId).RequiredId();
+        RuleFor(x => x.ProjectId).RequiredId();
+        RuleFor(x => x.PackageId).RequiredId();
+        RuleFor(x => x.Scope).ValidScope();
     }
 }

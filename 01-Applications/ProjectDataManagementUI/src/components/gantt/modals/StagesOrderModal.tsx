@@ -37,11 +37,11 @@ function SortableStageItem({ stage }: SortableStageItemProps) {
       borderColor={borderColor}
       borderRadius="md"
       p={2}
-      bg={isDragging ? useColorModeValue("primary.50", "primary.900") : useColorModeValue("white", "gray.800")}
+      bg={isDragging ? useColorModeValue("neutral.50", "neutral.800") : useColorModeValue("white", "gray.800")}
       opacity={isDragging ? 0.8 : 1}
     >
       <HStack spacing={2}>
-        <Box {...attributes} {...listeners} cursor="grab" color="gray.400">
+        <Box {...attributes} {...listeners} cursor="grab" color="neutral.400">
           <GripVertical size={16} />
         </Box>
         <Text fontSize="sm">{stage.name || "(bez nazwy)"}</Text>
@@ -98,7 +98,7 @@ export default function StagesOrderModal({ isOpen, onClose }: StagesOrderModalPr
           </DndContext>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
           <Button colorScheme="primary" onClick={handleSave} isLoading={isSubmitting}>Zapisz kolejność</Button>
         </DrawerFooter>
       </DrawerContent>

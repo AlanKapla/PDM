@@ -1,9 +1,18 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Configurations;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
+using Entities.Models.CostTrackers;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -17,7 +26,9 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
         private readonly IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository;
         private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
         private readonly IRepository<CostEstimateFieldFile> fieldFileRepository;
-        private readonly IBlobStorageService blobStorageService;
+        private readonly IRepository<WorkScheduleStage> stageRepository;
+        private readonly IRepository<WorkScheduleStageWork> stageWorkRepository;
+        private readonly IRepository<TrackedCost> trackedCostRepository;
         private readonly ICostEstimateCacheService cacheService;
         private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
@@ -29,7 +40,9 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository,
             IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
             IRepository<CostEstimateFieldFile> fieldFileRepository,
-            IBlobStorageService blobStorageService,
+            IRepository<WorkScheduleStage> stageRepository,
+            IRepository<WorkScheduleStageWork> stageWorkRepository,
+            IRepository<TrackedCost> trackedCostRepository,
             ICostEstimateCacheService cacheService,
             ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser,
@@ -40,7 +53,9 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             this.groupFieldValueRepository = groupFieldValueRepository;
             this.itemFieldValueRepository = itemFieldValueRepository;
             this.fieldFileRepository = fieldFileRepository;
-            this.blobStorageService = blobStorageService;
+            this.stageRepository = stageRepository;
+            this.stageWorkRepository = stageWorkRepository;
+            this.trackedCostRepository = trackedCostRepository;
             this.cacheService = cacheService;
             this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
@@ -99,27 +114,20 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             {
                 List<CostEstimateFieldFile> filesToDelete = (await fieldFileRepository.GetBySearch(
                     f => f.CostEstimateId == request.CostEstimateId &&
-                         allItemIds.Contains(f.FieldValue.ItemId) &&
-                         !f.IsDeleted)).ToList();
+                         allItemIds.Contains(f.FieldValue.ItemId))).ToList();
 
                 if (filesToDelete.Count > 0)
                 {
-                    string containerName = BlobStorageSettings.GetContainerName(BlobContainerNames.CostEstimates);
-
-                    foreach (var file in filesToDelete)
-                    {
-                        await blobStorageService.DeleteAsync(containerName, file.BlobName, cancellationToken);
-                    }
-
-                    // Hard-delete file records before deleting field values to prevent
-                    // SQL Server CASCADE DELETE from removing them first, which would cause
-                    // DbUpdateConcurrencyException if they were tracked as Modified.
+                    // Soft-delete przez ExecuteUpdateAsync (nie EF tracking) — unikamy CASCADE conflict
                     HashSet<Guid> fileIds = filesToDelete.Select(f => f.Id).ToHashSet();
-                    await fieldFileRepository.ExecuteDeleteAsync(
-                        f => fileIds.Contains(f.Id), cancellationToken);
+                    await fieldFileRepository.ExecuteUpdateAsync(
+                        f => fileIds.Contains(f.Id),
+                        f => f.SetProperty(p => p.IsDeleted, true)
+                              .SetProperty(p => p.DeletedAt, DateTime.UtcNow),
+                        cancellationToken);
 
                     logger.LogInformation(
-                        "Deleted {FileCount} files and removed blobs for deleted groups in cost estimate {CostEstimateId}",
+                        "Soft-deleted {FileCount} files for deleted groups in cost estimate {CostEstimateId}",
                         filesToDelete.Count, request.CostEstimateId);
                 }
 
@@ -136,7 +144,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
             if (allItemIds.Count > 0)
             {
                 List<CostEstimateItem> itemsToDelete = (await itemRepository.GetBySearch(
-                    i => allItemIds.Contains(i.Id) && !i.IsDeleted)).ToList();
+                    i => allItemIds.Contains(i.Id))).ToList();
 
                 foreach (var item in itemsToDelete)
                 {
@@ -149,7 +157,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
             // Soft-delete groups
             List<CostEstimateGroup> groupsToDelete = (await groupRepository.GetBySearch(
-                g => allGroupIds.Contains(g.Id) && !g.IsDeleted)).ToList();
+                g => allGroupIds.Contains(g.Id))).ToList();
 
             foreach (var g in groupsToDelete)
             {
@@ -159,6 +167,25 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
             await groupRepository.UpdateRange(groupsToDelete);
             await groupRepository.SaveChangesAsync(cancellationToken);
+
+            // Null out WorkScheduleStage.CostEstimateGroupId for deleted groups
+            await stageRepository.ExecuteUpdateAsync(
+                s => allGroupIds.Contains(s.CostEstimateGroupId!.Value),
+                s => s.SetProperty(st => st.CostEstimateGroupId, (Guid?)null),
+                cancellationToken);
+
+            if (allItemIds.Count > 0)
+            {
+                await stageWorkRepository.ExecuteUpdateAsync(
+                    w => allItemIds.Contains(w.CostEstimateItemId!.Value),
+                    s => s.SetProperty(w => w.CostEstimateItemId, (Guid?)null),
+                    cancellationToken);
+
+                await trackedCostRepository.ExecuteUpdateAsync(
+                    tc => allItemIds.Contains(tc.CostEstimateItemId!.Value),
+                    s => s.SetProperty(tc => tc.CostEstimateItemId, (Guid?)null),
+                    cancellationToken);
+            }
 
             // Invalidate cache
             await cacheService.InvalidateCostEstimateAsync(

@@ -1,10 +1,18 @@
-﻿using Business.Implementation.Helpers;
+using Business.Implementation.Helpers;
 using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
@@ -220,7 +228,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             }
 
             CostEstimateItem item = await itemRepository.GetFirstBySearch(
-                i => i.Id == request.ItemId && !i.IsDeleted)
+                i => i.Id == request.ItemId)
                 ?? throw new NotFoundApiException(nameof(CostEstimateItem), request.ItemId.ToString());
 
             item.Name = request.StringValue ?? string.Empty;

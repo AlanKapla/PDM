@@ -1,5 +1,13 @@
-﻿using Business.Interfaces.DTO;
-using Entities.Models;
+using Business.Interfaces.DTO;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Helpers
@@ -20,7 +28,7 @@ namespace CQRS.Helpers
         {
             // Count existing unread notifications + 1 for this new one
             int unreadCount = await notificationRepo.CountAsync(
-                n => n.UserId == notification.UserId && !n.Readed, 
+                n => n.UserId == notification.UserId && !n.IsRead, 
                 cancellationToken) + 1;
 
             return new NotificationPayloadDto(notification, unreadCount);

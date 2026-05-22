@@ -46,9 +46,9 @@ export default function CommentsModal({ isOpen, onClose, stageId, work }: Commen
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
 
-  const ownBg = useColorModeValue("primary.50", "primary.900");
-  const otherBg = useColorModeValue("gray.50", "gray.700");
-  const borderColor = useColorModeValue("gray.100", "gray.600");
+  const ownBg = useColorModeValue("neutral.50", "neutral.800");
+  const otherBg = useColorModeValue("neutral.25", "neutral.700");
+  const borderColor = useColorModeValue("neutral.100", "neutral.600");
 
   const comments = [...(work.comments ?? [])].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -90,7 +90,7 @@ export default function CommentsModal({ isOpen, onClose, stageId, work }: Commen
         <DrawerBody py={4} overflowY="auto">
           <VStack spacing={3} align="stretch">
             {comments.length === 0 && (
-              <Text fontSize="sm" color="gray.400" textAlign="center" py={4}>
+              <Text fontSize="sm" color="neutral.400" textAlign="center" py={4}>
                 Brak komentarzy
               </Text>
             )}
@@ -109,11 +109,11 @@ export default function CommentsModal({ isOpen, onClose, stageId, work }: Commen
                   borderColor={borderColor}
                 >
                   <HStack justify="space-between" mb={1}>
-                    <Text fontSize="xs" color="gray.500" fontWeight="medium">
+                    <Text fontSize="xs" color="neutral.500" fontWeight="medium">
                       {comment.createdByUserName}
                     </Text>
                     <HStack spacing={1}>
-                      <Text fontSize="xs" color="gray.400">{fmtDateTime(comment.createdAt)}</Text>
+                      <Text fontSize="xs" color="neutral.400">{fmtDateTime(comment.createdAt)}</Text>
                       {isOwn && editingId !== comment.id && (
                         <>
                           <IconButton
@@ -140,7 +140,7 @@ export default function CommentsModal({ isOpen, onClose, stageId, work }: Commen
                             aria-label="Zatwierdź"
                             icon={<Check size={12} />}
                             size="xs"
-                            colorScheme="green"
+                            colorScheme="primary"
                             variant="ghost"
                             isLoading={isUpdating}
                             onClick={handleUpdate}

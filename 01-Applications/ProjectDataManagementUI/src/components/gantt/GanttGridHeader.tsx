@@ -53,7 +53,7 @@ export default function GanttGridHeader({
             colSpan={group.count}
             bg={theadBg}
             textAlign="center"
-            fontSize="11px"
+            fontSize="xs"
             fontWeight="semibold"
             borderRightWidth="2px"
             borderRightColor={borderColor}
@@ -76,7 +76,7 @@ export default function GanttGridHeader({
           minWidth={`${treeColumnWidth}px`}
           maxWidth={`${treeColumnWidth}px`}
         >
-          <Text fontSize="11px" fontWeight="semibold" px={2}>Etap / Zakres pracy</Text>
+          <Text fontSize="xs" fontWeight="semibold" px={2}>Etap / Zakres pracy</Text>
         </Th>
         {dates.map((date, idx) => {
           const today = isToday(date);
@@ -99,7 +99,7 @@ export default function GanttGridHeader({
               position="relative"
             >
               <Text
-                fontSize="9px"
+                fontSize="2xs"
                 fontWeight={today ? "bold" : "normal"}
                 color={today ? todayColor : "inherit"}
                 whiteSpace="pre"

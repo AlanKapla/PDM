@@ -6,7 +6,7 @@ const STATUS_CONFIG: Record<
   { label: string; colorScheme: string }
 > = {
   [TrackedCostItemStatus.NoCosts]:    { label: "Brak kosztów",   colorScheme: "gray"   },
-  [TrackedCostItemStatus.NoBudget]:   { label: "Brak budżetu",   colorScheme: "purple" },
+  [TrackedCostItemStatus.NoBudget]:   { label: "Brak budżetu",   colorScheme: "level2" },
   [TrackedCostItemStatus.InProgress]: { label: "W realizacji",   colorScheme: "green"  },
   [TrackedCostItemStatus.NearLimit]:  { label: "Blisko limitu",  colorScheme: "orange" },
   [TrackedCostItemStatus.OverBudget]: { label: "Przekroczono",   colorScheme: "red"    },

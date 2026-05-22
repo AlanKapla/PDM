@@ -1,8 +1,9 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Chat.Hubs;
-using Entities.Models;
-using ChatModel = Entities.Models.Chat;
+using CQRS.PostCommit;
+using Entities.Models.Chats;
+using ChatModel = Entities.Models.Chats.Chat;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public sealed class DeleteChatCommandHandler : IRequestHandler<DeleteChatCommand
     private readonly IRepository<ChatModel> chatWriteRepo;
     private readonly IReadRepository<ChatMember> chatMemberRepo;
     private readonly IHubContext<ChatHub, IChatClient> hubContext;
+    private readonly IPostCommitDispatcher dispatcher;
     private readonly ICurrentUser currentUser;
     private readonly ILogger<DeleteChatCommandHandler> logger;
 
@@ -24,6 +26,7 @@ public sealed class DeleteChatCommandHandler : IRequestHandler<DeleteChatCommand
         IRepository<ChatModel> chatWriteRepo,
         IReadRepository<ChatMember> chatMemberRepo,
         IHubContext<ChatHub, IChatClient> hubContext,
+        IPostCommitDispatcher dispatcher,
         ICurrentUser currentUser,
         ILogger<DeleteChatCommandHandler> logger)
     {
@@ -31,27 +34,15 @@ public sealed class DeleteChatCommandHandler : IRequestHandler<DeleteChatCommand
         this.chatWriteRepo = chatWriteRepo;
         this.chatMemberRepo = chatMemberRepo;
         this.hubContext = hubContext;
+        this.dispatcher = dispatcher;
         this.currentUser = currentUser;
         this.logger = logger;
     }
 
     public async Task<Unit> Handle(DeleteChatCommand request, CancellationToken cancellationToken)
     {
-        ChatModel? chat = await chatRepo.GetFirstBySearch(c => c.Id == request.ChatId, cancellationToken);
-
-        if (chat == null)
-        {
-            throw new NotFoundApiException("Chat", request.ChatId.ToString());
-        }
-
-        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
-            cm => cm.ChatId == request.ChatId && cm.UserId == currentUser.Id,
-            cancellationToken);
-
-        if (membership == null)
-        {
-            throw new ForbiddenApiException("You are not a member of this chat.");
-        }
+        ChatModel chat = await GetAndValidateChatAsync(request.TenantId, request.ChatId, cancellationToken);
+        ChatMember membership = await GetAndValidateMembershipAsync(request.ChatId, currentUser.Id, cancellationToken);
 
         if (chat.IsGroupChat && !membership.IsAdmin)
         {
@@ -63,20 +54,54 @@ public sealed class DeleteChatCommandHandler : IRequestHandler<DeleteChatCommand
             cm => cm.UserId,
             cancellationToken);
 
-        foreach (Guid userId in memberIds)
-        {
-            await hubContext.Clients
-                .Group(ChatHubGroups.User(userId))
-                .ChatDeleted(chat.Id);
-        }
-
         // DB cascade deletes ChatMembers and MessageHistories
         await chatWriteRepo.ExecuteDeleteAsync(c => c.Id == request.ChatId, cancellationToken);
+
+        Guid chatIdForBroadcast = chat.Id;
+        foreach (Guid userId in memberIds)
+        {
+            Guid capturedUserId = userId;
+            dispatcher.Enqueue(_ =>
+                hubContext.Clients
+                    .Group(ChatHubGroups.User(capturedUserId))
+                    .ChatDeleted(chatIdForBroadcast));
+        }
 
         logger.LogInformation(
             "Chat {ChatId} deleted by user {UserId}",
             request.ChatId, currentUser.Id);
 
         return Unit.Value;
+    }
+
+    private async Task<ChatModel> GetAndValidateChatAsync(Guid tenantId, Guid chatId, CancellationToken cancellationToken)
+    {
+        ChatModel? chat = await chatRepo.GetFirstBySearch(
+            c => c.Id == chatId && c.TenantId == tenantId,
+            cancellationToken);
+
+        if (chat is null)
+        {
+            throw new NotFoundApiException(nameof(Entities.Models.Chats.Chat), chatId.ToString());
+        }
+
+        return chat;
+    }
+
+    private async Task<ChatMember> GetAndValidateMembershipAsync(
+        Guid chatId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
+            cm => cm.ChatId == chatId && cm.UserId == userId,
+            cancellationToken);
+
+        if (membership is null)
+        {
+            throw new ForbiddenApiException("You are not a member of this chat.");
+        }
+
+        return membership;
     }
 }

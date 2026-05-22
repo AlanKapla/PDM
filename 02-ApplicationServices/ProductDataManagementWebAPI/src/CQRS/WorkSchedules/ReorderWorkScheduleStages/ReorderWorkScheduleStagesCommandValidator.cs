@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.ReorderWorkScheduleStages
 {
@@ -6,15 +7,12 @@ namespace CQRS.WorkSchedules.ReorderWorkScheduleStages
     {
         public ReorderWorkScheduleStagesCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
             RuleFor(x => x.OrderedStageIds)
                 .NotEmpty().WithMessage("OrderedStageIds must not be empty")
-                .Must(HaveNoDuplicates).WithMessage("OrderedStageIds must not contain duplicates");
+                .UniqueIds();
         }
-
-        private static bool HaveNoDuplicates(List<Guid> ids) =>
-            ids == null || ids.Count == ids.Distinct().Count();
     }
 }

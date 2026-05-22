@@ -1,4 +1,6 @@
-﻿using CQRS;
+﻿using Business.Interfaces.Constants;
+using Chat.CQRS.Shared;
+using CQRS;
 using MediatR;
 
 namespace Chat.CQRS.Conversations.DeleteChat;
@@ -8,4 +10,7 @@ namespace Chat.CQRS.Conversations.DeleteChat;
 /// Group chat: admin only.
 /// Direct chat: any member.
 /// </summary>
-public sealed record DeleteChatCommand(Guid ChatId) : IRequestCommand<Unit>;
+public sealed record DeleteChatCommand : ChatScopedRequestBase, IRequestCommand<Unit>
+{
+    public override string PermissionCode => PermissionCodes.ChatDelete;
+}

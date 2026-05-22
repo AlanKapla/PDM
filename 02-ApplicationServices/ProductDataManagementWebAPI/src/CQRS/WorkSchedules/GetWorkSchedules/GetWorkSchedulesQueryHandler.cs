@@ -1,9 +1,9 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -33,7 +33,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
             // Shared work schedules are not implemented yet
             if (request.Scope == ResourceScope.Shared)
             {
-                return new List<WorkScheduleSummaryWeb>();
+                throw new NotImplementedApiException("Shared work schedules are not yet supported.");
             }
 
             IEnumerable<WorkSchedule> workSchedules;
@@ -43,27 +43,25 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
                 case ResourceScope.All:
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
-                              ws.TenantId == request.TenantId &&
-                              !ws.IsDeleted);
+                              ws.TenantId == request.TenantId);
                     break;
 
                 case ResourceScope.Mine:
                     workSchedules = await workScheduleRepo.GetBySearch(
                         ws => ws.ProjectId == request.ProjectId &&
                               ws.TenantId == request.TenantId &&
-                              ws.CreatedByUserId == currentUser.Id &&
-                              !ws.IsDeleted);
+                              ws.CreatedByUserId == currentUser.Id);
                     break;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request.Scope));
             }
 
-            var membersDict = (await userService.GetProjectMembersAsync(
+            Dictionary<Guid, ProjectMemberUserInfo> membersDict = (await userService.GetProjectMembersAsync(
                 request.TenantId, request.ProjectId, cancellationToken))
                 .ToDictionary(m => m.UserId);
 
-            var result = workSchedules
+            List<WorkScheduleSummaryWeb> result = workSchedules
                 .OrderByDescending(ws => ws.CreatedAt)
                 .Select(ws => new WorkScheduleSummaryWeb(
                     Id: ws.Id,
@@ -71,7 +69,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
                     Name: ws.Name,
                     CreatedAt: ws.CreatedAt,
                     CreatedByUserId: ws.CreatedByUserId,
-                    CreatedByUserName: membersDict.TryGetValue(ws.CreatedByUserId, out var creator)
+                    CreatedByUserName: membersDict.TryGetValue(ws.CreatedByUserId, out ProjectMemberUserInfo? creator)
                         ? creator.FullName
                         : "Unknown"
                 ))

@@ -22,11 +22,13 @@ import CostEstimateTemplateSelector from "../pages/CostEstimateTemplateSelector"
 import ProjectMembers from "../pages/ProjectMembers";
 import ProjectSchedules from "../pages/ProjectSchedules";
 import ProjectFiles from "../pages/ProjectFiles";
+import ProjectParameters from "../pages/ProjectParameters";
 import ProjectCosts from "../pages/ProjectCosts";
 import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
 import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
+import ContractorsPage from "../pages/ContractorsPage";
 
 export default function AppRouter() {
   return (
@@ -227,6 +229,15 @@ export default function AppRouter() {
       />
 
       <Route
+        path="/projects/:projectId/parameters"
+        element={
+          <ProtectedRoute>
+            <ProjectParameters />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/projects/:projectId/cost-estimates/:estimateId"
         element={
           <ProtectedRoute>
@@ -236,7 +247,7 @@ export default function AppRouter() {
       />
 
       <Route
-        path="/projects/:projectId/budget"
+        path="/projects/:projectId/dashboard"
         element={
           <ProtectedRoute>
             <ProjectBudgetPage />
@@ -267,6 +278,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/contractors"
+        element={
+          <ProtectedRoute>
+            <ContractorsPage />
           </ProtectedRoute>
         }
       />

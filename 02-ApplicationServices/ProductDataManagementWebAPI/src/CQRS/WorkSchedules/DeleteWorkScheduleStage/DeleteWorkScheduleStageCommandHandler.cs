@@ -1,6 +1,7 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
+using Entities.Models.CostTrackers;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -11,6 +12,7 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IRepository<WorkScheduleStageWork> workRepo;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
+        private readonly IRepository<TrackedCost> trackedCostRepository;
         private readonly IWorkScheduleCacheService scheduleCache;
         private readonly IWorkScheduleAccessService accessService;
 
@@ -18,12 +20,14 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
             IRepository<WorkScheduleStage> stageRepo,
             IRepository<WorkScheduleStageWork> workRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
+            IRepository<TrackedCost> trackedCostRepository,
             IWorkScheduleCacheService scheduleCache,
             IWorkScheduleAccessService accessService)
         {
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
             this.dependencyRepo = dependencyRepo;
+            this.trackedCostRepository = trackedCostRepository;
             this.scheduleCache = scheduleCache;
             this.accessService = accessService;
         }
@@ -32,21 +36,20 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
         {
             IEnumerable<WorkScheduleStage> allScheduleStages = await stageRepo.GetBySearch(
                 s => s.WorkScheduleId == request.WorkScheduleId
-                  && s.TenantId == request.TenantId
-                  && !s.IsDeleted);
+                  && s.TenantId == request.TenantId);
 
             List<WorkScheduleStage> allStagesList = allScheduleStages.ToList();
 
-            WorkScheduleStage? targetStage = allStagesList.FirstOrDefault(s => s.Id == request.StageId);
+            WorkScheduleStage? targetStage = allStagesList.FirstOrDefault(s => s.Id == request.WorkScheduleStageId);
 
             if (targetStage == null)
             {
-                throw new NotFoundApiException(nameof(WorkScheduleStage), request.StageId.ToString());
+                throw new NotFoundApiException(nameof(WorkScheduleStage), request.WorkScheduleStageId.ToString());
             }
 
             await accessService.RequireAdminOrOwnerAsync(request.TenantId, request.ProjectId, request.WorkScheduleId, cancellationToken);
 
-            List<Guid> stageIdsInSubtree = CollectSubtreeIds(allStagesList, request.StageId);
+            List<Guid> stageIdsInSubtree = CollectSubtreeIds(allStagesList, request.WorkScheduleStageId);
 
             List<Guid> workIds = await workRepo.SelectAsync(
                 w => stageIdsInSubtree.Contains(w.WorkScheduleStageId),
@@ -55,12 +58,36 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStage
 
             if (workIds.Count > 0)
             {
+                // Nulluj TrackedCost.WorkScheduleStageWorkId przed soft-delete
+                await trackedCostRepository.ExecuteUpdateAsync(
+                    x => workIds.Contains(x.WorkScheduleStageWorkId!.Value),
+                    x => x.SetProperty(p => p.WorkScheduleStageWorkId, (Guid?)null),
+                    cancellationToken);
+
+                // Nulluj WorkScheduleStageWork.CostEstimateItemId
+                await workRepo.ExecuteUpdateAsync(
+                    x => workIds.Contains(x.Id),
+                    x => x.SetProperty(p => p.CostEstimateItemId, (Guid?)null),
+                    cancellationToken);
+            }
+
+            // Nulluj WorkScheduleStage.CostEstimateGroupId
+            await stageRepo.ExecuteUpdateAsync(
+                x => stageIdsInSubtree.Contains(x.Id),
+                x => x.SetProperty(p => p.CostEstimateGroupId, (Guid?)null),
+                cancellationToken);
+
+            if (workIds.Count > 0)
+            {
                 await dependencyRepo.ExecuteDeleteAsync(
                     d => workIds.Contains(d.PredecessorWorkId) || workIds.Contains(d.SuccessorWorkId),
                     cancellationToken);
 
-                await workRepo.ExecuteDeleteAsync(
-                    w => stageIdsInSubtree.Contains(w.WorkScheduleStageId),
+                // Soft-delete WorkScheduleStageWorks
+                await workRepo.ExecuteUpdateAsync(
+                    x => workIds.Contains(x.Id),
+                    x => x.SetProperty(p => p.IsDeleted, true)
+                          .SetProperty(p => p.DeletedAt, DateTime.UtcNow),
                     cancellationToken);
             }
 

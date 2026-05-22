@@ -15,7 +15,6 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
         bool AutoNumberGroups,
         string? GroupNumberFormat,
         bool UpdateStructure,
-        List<CurrencyDto>? Currencies,
         List<UnitDto>? Units,
         List<CategoryDto>? Categories,
         List<FieldDefinitionDto>? GroupHeaderFields,

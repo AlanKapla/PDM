@@ -1,11 +1,12 @@
-﻿using Entities.Models.CostEstimates;
+﻿using CQRS.Extensions;
+using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
 {
-    public class UploadCostEstimateFieldFilesCommandValidator : AbstractValidator<UploadCostEstimateFieldFilesCommand>
+    public sealed class UploadCostEstimateFieldFilesCommandValidator : AbstractValidator<UploadCostEstimateFieldFilesCommand>
     {
         private const long MaxFileSizeBytes = 50L * 1024 * 1024; // 50 MB
         private static readonly string[] AllowedExtensions = [".pdf", ".jpg", ".jpeg"];
@@ -16,14 +17,11 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             IReadRepository<CostEstimateItem> itemRepo,
             IRepository<CostEstimateTemplateItemSystemFieldDefinition> fieldDefRepo)
         {
-            RuleFor(x => x.CostEstimateId)
-                .NotEmpty().WithMessage("Cost estimate ID is required");
-
-            RuleFor(x => x.ItemId)
-                .NotEmpty().WithMessage("Item ID is required");
-
-            RuleFor(x => x.FieldDefinitionId)
-                .NotEmpty().WithMessage("Field definition ID is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostEstimateId).RequiredId();
+            RuleFor(x => x.ItemId).RequiredId();
+            RuleFor(x => x.FieldDefinitionId).RequiredId();
 
             When(x => x.Files.Count > 0, () =>
             {
@@ -63,8 +61,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
                     return await costEstimateRepo.AnyAsync(
                         c => c.Id == command.CostEstimateId &&
                              c.TenantId == command.TenantId &&
-                             c.ProjectId == command.ProjectId &&
-                             !c.IsDeleted,
+                             c.ProjectId == command.ProjectId,
                         cancellation);
                 })
                 .WithMessage("Cost estimate not found");
@@ -75,8 +72,7 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
                 {
                     return await itemRepo.AnyAsync(
                         i => i.Id == command.ItemId &&
-                             i.CostEstimateId == command.CostEstimateId &&
-                             !i.IsDeleted,
+                             i.CostEstimateId == command.CostEstimateId,
                         cancellation);
                 })
                 .WithMessage("Item not found or does not belong to the specified cost estimate");

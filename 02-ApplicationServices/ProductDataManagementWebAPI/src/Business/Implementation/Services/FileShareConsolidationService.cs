@@ -1,5 +1,13 @@
-﻿using Business.Interfaces.Model;
-using Entities.Models;
+using Business.Interfaces.Model;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -119,7 +127,7 @@ namespace Business.Implementation.Services
 
                     // Pobierz wszystkie pliki w paczce
                     var allFilesInPackage = await projectFileRepo.GetBySearch(
-                        pf => pf.ProjectFilePackageId == packageId && !pf.IsDeleted);
+                        pf => pf.ProjectFilePackageId == packageId);
 
                     var totalFilesCount = allFilesInPackage.Count();
                     var sharedFilesCount = shares.Count;

@@ -1,7 +1,7 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.Shared
@@ -47,17 +47,16 @@ namespace CQRS.WorkSchedules.Shared
             ScheduleRow? schedule = (await workScheduleRepo.SelectAsync(
                 ws => ws.Id == workScheduleId
                    && ws.TenantId == tenantId
-                   && ws.ProjectId == projectId
-                   && !ws.IsDeleted,
-                ws => new ScheduleRow(ws.Id, ws.TenantId, ws.ProjectId, ws.CostEstimateId, ws.Name, ws.CreatedAt, ws.CreatedByUserId),
+                   && ws.ProjectId == projectId,
+                ws => new ScheduleRow(ws.Id, ws.TenantId, ws.ProjectId,
+                    ws.Name, ws.CreatedAt, ws.CreatedByUserId, ws.CostEstimateId),
                 ct)).FirstOrDefault()
                 ?? throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
 
             // Step 2: load stages
             List<StageRow> stages = await stageRepo.SelectAsync(
                 s => s.WorkScheduleId == workScheduleId
-                  && s.TenantId == tenantId
-                  && !s.IsDeleted,
+                  && s.TenantId == tenantId,
                 s => new StageRow(s.Id, s.Name, s.Order, s.ParentStageId, s.CostEstimateGroupId),
                 ct);
 
@@ -67,7 +66,7 @@ namespace CQRS.WorkSchedules.Shared
             List<WorkRow> works = stageIds.Count > 0
                 ? await workRepo.SelectAsync(
                     w => stageIds.Contains(w.WorkScheduleStageId),
-                    w => new WorkRow(w.Id, w.WorkScheduleStageId, w.Name, w.Order, w.ColorRgb, w.PlannedStartDate, w.PlannedEndDate),
+                    w => new WorkRow(w.Id, w.WorkScheduleStageId, w.CostEstimateItemId, w.Name, w.Order, w.ColorRgb, w.PlannedStartDate, w.PlannedEndDate),
                     ct)
                 : new List<WorkRow>();
 
@@ -180,6 +179,7 @@ namespace CQRS.WorkSchedules.Shared
 
             return new WorkScheduleStageWorkWeb(
                 Id: w.Id,
+                CostEstimateItemId: w.CostEstimateItemId,
                 Name: w.Name,
                 Order: w.Order,
                 ColorRgb: w.ColorRgb,
@@ -202,9 +202,9 @@ namespace CQRS.WorkSchedules.Shared
                     CreatedAt: cm.CreatedAt)).ToList());
         }
 
-        private sealed record ScheduleRow(Guid Id, Guid TenantId, Guid ProjectId, Guid? CostEstimateId, string Name, DateTime CreatedAt, Guid CreatedByUserId);
+        private sealed record ScheduleRow(Guid Id, Guid TenantId, Guid ProjectId, string Name, DateTime CreatedAt, Guid CreatedByUserId, Guid? CostEstimateId);
         private sealed record StageRow(Guid Id, string Name, int Order, Guid? ParentStageId, Guid? CostEstimateGroupId);
-        private sealed record WorkRow(Guid Id, Guid WorkScheduleStageId, string Name, int Order, string ColorRgb, DateTime? PlannedStartDate, DateTime? PlannedEndDate);
+        private sealed record WorkRow(Guid Id, Guid WorkScheduleStageId, Guid? CostEstimateItemId, string Name, int Order, string ColorRgb, DateTime? PlannedStartDate, DateTime? PlannedEndDate);
         private sealed record PeriodRow(Guid Id, Guid WorkScheduleStageWorkId, DateTime StartDate, DateTime EndDate, bool IsClosed);
         private sealed record AssigneeRow(Guid WorkScheduleStageWorkId, Guid UserId);
         private sealed record CommentRow(Guid Id, Guid WorkScheduleStageWorkId, string Content, Guid CreatedByUserId, DateTime CreatedAt);

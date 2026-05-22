@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -119,7 +119,7 @@ export const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
           <ModalHeader pb={2}>
             <HStack justify="space-between" align="start">
               <VStack align="start" spacing="0">
-                <Text fontSize="xs" color="gray.500">Komponent</Text>
+                <Text fontSize="xs" color="neutral.500">Komponent</Text>
                 <Text fontWeight="bold" fontSize="lg" noOfLines={2}>{displayName}</Text>
               </VStack>
               <IconButton
@@ -136,7 +136,7 @@ export const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
           <ModalBody pt={1} overflowY="auto" overflowX="hidden" flex="1" px={4}>
 
             {/* Sekcja: Podsumowanie */}
-            <Box borderBottomWidth="1px" borderColor="gray.100">
+            <Box borderBottomWidth="1px" borderColor="neutral.100">
               <HStack
                 px={0}
                 py={3}
@@ -145,7 +145,7 @@ export const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                 justify="space-between"
                 userSelect="none"
               >
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700">Podsumowanie</Text>
+                <Text fontSize="sm" fontWeight="semibold" color="neutral.700">Podsumowanie</Text>
                 <ChevronDown
                   size={16}
                   style={{
@@ -158,7 +158,7 @@ export const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
               <Collapse in={openSections['summary'] ?? false} animateOpacity>
                 <Box pb={4}>
                   <HStack bg="green.50" borderRadius="md" px={3} py={2}>
-                    <Text fontSize="xs" color="gray.500">Wartość:</Text>
+                    <Text fontSize="xs" color="neutral.500">Wartość:</Text>
                     <Text fontSize="sm" fontWeight="bold" color="green.700">{displayValue}</Text>
                   </HStack>
                 </Box>
@@ -175,7 +175,7 @@ export const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                 justify="space-between"
                 userSelect="none"
               >
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700">Pola komponentu</Text>
+                <Text fontSize="sm" fontWeight="semibold" color="neutral.700">Pola komponentu</Text>
                 <ChevronDown
                   size={16}
                   style={{
@@ -207,7 +207,7 @@ export const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                       if (!rendered) return null;
                       return (
                         <FormControl key={field.id}>
-                          <FormLabel fontSize="sm" color="gray.600" mb={1}>
+                          <FormLabel fontSize="sm" color="neutral.600" mb={1}>
                             {field.label || field.customLabel || field.fieldName}
                           </FormLabel>
                           {rendered}
@@ -221,7 +221,7 @@ export const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
 
           </ModalBody>
 
-          <ModalFooter borderTopWidth="1px" borderTopColor="gray.100">
+          <ModalFooter borderTopWidth="1px" borderTopColor="neutral.100">
             {editable && onDeleteItem && (
               <Button
                 colorScheme="red"

@@ -1,4 +1,4 @@
-import { useEffect, useContext } from "react";
+﻿import { useEffect, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button, Container, Heading, Text, VStack, Flex, Spinner } from "@chakra-ui/react";
 import { CheckCircle, LogIn, Home } from "lucide-react";
@@ -74,7 +74,7 @@ export default function LoggedOut() {
       <VStack spacing={6} textAlign="center">
         <CheckCircle size={64} color="green" />
         <Heading size="lg">Wylogowano pomyślnie</Heading>
-        <Text color="gray.600">
+        <Text color="neutral.600">
           Zostałeś wylogowany z systemu. Twoja sesja została zamknięta.
         </Text>
         <Button

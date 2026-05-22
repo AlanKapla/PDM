@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -32,7 +32,7 @@ import {
   Tooltip,
   Icon,
 } from "@chakra-ui/react";
-import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power } from "lucide-react";
+import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power, Users } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getTenantDetails, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberRole } from "../services/tenantService";
 import type { TenantDetails as TenantDetailsType } from "../types/auth.types";
@@ -47,7 +47,7 @@ import { useToastNotification } from "../hooks/useToastNotification";
 export default function TenantDetails() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
   const { user } = useAuth();
 
   const [tenant, setTenant] = useState<TenantDetailsType | null>(null);
@@ -79,12 +79,7 @@ export default function TenantDetails() {
   const { isOpen: isToggleStatusOpen, onOpen: onToggleStatusOpen, onClose: onToggleStatusClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
-  const cardBg = useColorModeValue("white", "gray.800");
-  const pageBg = useColorModeValue("gray.50", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.600");
   const labelColor = useColorModeValue("gray.700", "gray.300");
-  const inviteBg = useColorModeValue("primary.50", "primary.900");
-  const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   useEffect(() => {
     async function loadTenant() {
@@ -139,12 +134,13 @@ export default function TenantDetails() {
         // Aktualizuj tylko nazwę w istniejącym stanie (nie zastępuj całego obiektu)
         setTenant(prev => prev ? { ...prev, name: updated.name } : null);
         setIsEditingName(false);
-        showSuccess("Zaktualizowano", "Nazwa organizacji została zmieniona");
+        showApiSuccess('tenantUpdated');
       } else {
         showError("Błąd", "Nie udało się zaktualizować nazwy");
       }
     } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setUpdatingName(false);
     }
@@ -177,12 +173,13 @@ export default function TenantDetails() {
 
         setIsInviting(false);
         setInviteEmail("");
-        showSuccess("Zaproszenie wysłane", `Zaproszenie zostało wysłane na adres ${inviteEmail}`);
+        showApiSuccess('inviteSent');
       } else {
         showError("Błąd", "Nie udało się wysłać zaproszenia");
       }
     } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setSendingInvite(false);
     }
@@ -203,12 +200,13 @@ export default function TenantDetails() {
             }
             : null
         );
-        showSuccess("Usunięto członka", "Członek został usunięty z organizacji");
+        showApiSuccess('memberRemoved');
       } else {
         showError("Błąd", "Nie udało się usunąć członka");
       }
     } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setDeletingMemberId(null);
       onMemberDeleteClose();
@@ -230,12 +228,13 @@ export default function TenantDetails() {
             }
             : null
         );
-        showSuccess("Usunięto zaproszenie", "Zaproszenie zostało anulowane");
+        showApiSuccess('inviteCancelled');
       } else {
         showError("Błąd", "Nie udało się usunąć zaproszenia");
       }
     } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setDeletingInvitationId(null);
       onInvitationDeleteClose();
@@ -256,14 +255,15 @@ export default function TenantDetails() {
 
       if (success) {
         setEditingRoleMemberId(null);
-        showSuccess("Zaktualizowano rolę", "Rola członka została zmieniona");
+        showApiSuccess('roleUpdated');
         // Przeładuj dane
         window.location.reload();
       } else {
         showError("Błąd", "Nie udało się zmienić roli");
       }
     } catch (error) {
-      showError("Błąd", "Wystąpił problem z połączeniem");
+      const { title, description } = handleApiError(error);
+      showError(title, description);
     } finally {
       setUpdatingRole(false);
     }
@@ -278,12 +278,7 @@ export default function TenantDetails() {
     try {
       await tenantApi.toggleTenantStatus(tenantId, newStatus);
 
-      showSuccess(
-        newStatus ? "Organizacja aktywowana" : "Organizacja zdezaktywowana",
-        newStatus
-          ? "Organizacja została pomyślnie aktywowana"
-          : "Organizacja została pomyślnie zdezaktywowana"
-      );
+      showApiSuccess(newStatus ? 'activated' : 'deactivated');
 
       onToggleStatusClose();
 
@@ -324,7 +319,7 @@ export default function TenantDetails() {
 
   return (
     <MainLayout>
-      <Box bg={pageBg} minH="100vh" p={{ base: 3, sm: 4, md: 10 }}>
+      <Box bg="white" minH="100vh" p={{ base: 3, sm: 4, md: 10 }}>
         <VStack spacing={6} maxW="1200px" mx="auto" align="stretch">
           {/* Header */}
           <HStack justify="space-between">
@@ -341,12 +336,11 @@ export default function TenantDetails() {
 
           {/* Informacje podstawowe */}
           <Box
-            bg={cardBg}
+            bg="white"
             p={{ base: 3, md: 6 }}
             rounded="lg"
-            shadow="md"
             borderWidth="1px"
-            borderColor={borderColor}
+            borderColor="neutral.200"
           >
             <VStack align="stretch" spacing={4}>
               <HStack
@@ -380,7 +374,7 @@ export default function TenantDetails() {
                           leftIcon={<Power size={16} />}
                           colorScheme={tenant.isActive ? "red" : "green"}
                           onClick={onToggleStatusOpen}
-                          fontSize={{ base: "10px", md: "sm" }}
+                          fontSize={{ base: "xs", md: "sm" }}
                         >
                           {tenant.isActive ? "Dezaktywuj" : "Aktywuj"}
                         </Button>
@@ -390,7 +384,7 @@ export default function TenantDetails() {
                         variant="ghost"
                         leftIcon={<Edit2 size={16} />}
                         onClick={() => setIsEditingName(true)}
-                        fontSize={{ base: "10px", md: "sm" }}
+                        fontSize={{ base: "xs", md: "sm" }}
                       >
                         Edytuj
                       </Button>
@@ -426,7 +420,8 @@ export default function TenantDetails() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
+                      colorScheme="gray"
                       leftIcon={<X size={16} />}
                       onClick={() => {
                         setIsEditingName(false);
@@ -449,7 +444,7 @@ export default function TenantDetails() {
                       {tenant.isActive ? "Aktywna" : "Nieaktywna"}
                     </Badge>
                   </HStack>
-                  <Text fontSize="sm" color="gray.500">
+                  <Text fontSize="sm" color="neutral.500">
                     Utworzono:{" "}
                     {new Date(tenant.createdAt).toLocaleDateString("pl-PL")}
                   </Text>
@@ -463,11 +458,10 @@ export default function TenantDetails() {
 
           {/* Członkowie + zaproszenia + dialogi */}
           <Box
-            bg={cardBg}
+            bg="white"
             rounded="lg"
-            shadow="md"
             borderWidth="1px"
-            borderColor={borderColor}
+            borderColor="neutral.200"
           >
             {/* Członkowie */}
             <HStack
@@ -493,7 +487,7 @@ export default function TenantDetails() {
                     colorScheme="primary"
                     variant="ghost"
                     onClick={() => setIsInviting(true)}
-                    fontSize={{ base: "10px", md: "sm" }}
+                    fontSize={{ base: "xs", md: "sm" }}
                   >
                     Zaproś
                   </Button>
@@ -515,13 +509,13 @@ export default function TenantDetails() {
             </HStack>
 
             <Collapse in={membersExpanded} animateOpacity>
-              <Box borderTop="1px solid" borderColor={borderColor}>
+              <Box borderTop="1px solid" borderColor="neutral.200">
                 {isInviting && (
                   <Box
                     p={{ base: 3, md: 4 }}
-                    bg={inviteBg}
+                    bg="neutral.50"
                     borderBottom="1px solid"
-                    borderColor={borderColor}
+                    borderColor="neutral.200"
                   >
                     <VStack spacing={3} align="stretch">
                       <FormControl>
@@ -533,7 +527,7 @@ export default function TenantDetails() {
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
                           placeholder="jan.kowalski@example.com"
-                          bg={cardBg}
+                          bg="white"
                           onKeyPress={(e) => {
                             if (e.key === "Enter" && !sendingInvite) {
                               handleInviteMember();
@@ -557,7 +551,8 @@ export default function TenantDetails() {
                         </Button>
                         <Button
                           size={{ base: "sm", md: "md" }}
-                          variant="outline"
+                          variant="ghost"
+                          colorScheme="gray"
                           onClick={() => {
                             setIsInviting(false);
                             setInviteEmail("");
@@ -575,7 +570,7 @@ export default function TenantDetails() {
 
                 {tenant.members.length === 0 ? (
                   <Box p={{ base: 3, md: 4 }}>
-                    <Text color="gray.500" textAlign="center">
+                    <Text color="neutral.500" textAlign="center">
                       Brak członków w tej organizacji
                     </Text>
                   </Box>
@@ -623,7 +618,7 @@ export default function TenantDetails() {
                             <Td fontSize={{ base: "xs", md: "sm" }}>
                               <Badge
                                 colorScheme={getRoleColor(member.roleCode)}
-                                fontSize={{ base: "8px", md: "xs" }}
+                                fontSize={{ base: "2xs", md: "xs" }}
                               >
                                 {getRoleName(member.roleCode)}
                               </Badge>
@@ -658,7 +653,7 @@ export default function TenantDetails() {
                                     aria-label="Zapisz rolę"
                                     icon={<Save size={14} />}
                                     size="sm"
-                                    colorScheme="green"
+                                    colorScheme="primary"
                                     onClick={() =>
                                       handleUpdateMemberRole(member.userId)
                                     }
@@ -725,18 +720,17 @@ export default function TenantDetails() {
 
             {/* Zaproszenia */}
             <Box
-              bg={cardBg}
+              bg="white"
               rounded="lg"
-              shadow="md"
               borderTopWidth="1px"
-              borderColor={borderColor}
+              borderColor="neutral.200"
             >
               <HStack
                 p={{ base: 3, md: 4 }}
                 justify="space-between"
                 cursor="pointer"
                 onClick={() => setInvitationsExpanded(!invitationsExpanded)}
-                _hover={{ bg: hoverBg }}
+                _hover={{ bg: "neutral.50" }}
               >
                 <HStack spacing={3}>
                   <Heading size="md">Zaproszenia</Heading>
@@ -757,10 +751,10 @@ export default function TenantDetails() {
               </HStack>
 
               <Collapse in={invitationsExpanded} animateOpacity>
-                <Box borderTop="1px solid" borderColor={borderColor}>
+                <Box borderTop="1px solid" borderColor="neutral.200">
                   {tenant.invitations.length === 0 ? (
                     <Box p={{ base: 3, md: 4 }}>
-                      <Text color="gray.500" textAlign="center">
+                      <Text color="neutral.500" textAlign="center">
                         Brak aktywnych zaproszeń
                       </Text>
                     </Box>
@@ -830,7 +824,7 @@ export default function TenantDetails() {
                                   colorScheme={getInvitationStatusColor(
                                     invitation.status
                                   )}
-                                  fontSize={{ base: "8px", md: "xs" }}
+                                  fontSize={{ base: "2xs", md: "xs" }}
                                 >
                                   {getInvitationStatusName(invitation.status)}
                                 </Badge>
@@ -859,7 +853,38 @@ export default function TenantDetails() {
                 </Box>
               </Collapse>
             </Box>
+          </Box>
 
+          {/* Kontrahenci */}
+          <Box
+            as={RouterLink}
+            to="/contractors"
+            bg="white"
+            p={{ base: 3, md: 4 }}
+            rounded="lg"
+            borderWidth="1px"
+            borderColor="neutral.200"
+            _hover={{ borderColor: "primary.400", textDecoration: "none" }}
+            display="block"
+          >
+            <HStack justify="space-between">
+              <HStack spacing={3}>
+                <Users size={20} />
+                <Heading size="md">Kontrahenci</Heading>
+              </HStack>
+              <Button
+                size="sm"
+                colorScheme="primary"
+                variant="ghost"
+                pointerEvents="none"
+              >
+                Zarządzaj
+              </Button>
+            </HStack>
+          </Box>
+
+          {/* Dialogi */}
+          <Box>
             {/* Dialog potwierdzenia usunięcia członka */}
             <AlertDialog
               isOpen={isMemberDeleteOpen}
@@ -957,13 +982,10 @@ export default function TenantDetails() {
                       {tenant?.isActive ? (
                         <Box
                           p={4}
-                          bg={useColorModeValue("orange.50", "orange.900")}
+                          bg="orange.50"
                           borderRadius="md"
                           borderWidth="1px"
-                          borderColor={useColorModeValue(
-                            "orange.200",
-                            "orange.700"
-                          )}
+                          borderColor="orange.200"
                           width="100%"
                         >
                           <VStack align="flex-start" spacing={3}>
@@ -974,7 +996,7 @@ export default function TenantDetails() {
                                 color="orange.600"
                                 fontSize="sm"
                               >
-                                ⚠️ Ważne informacje:
+                                Ważne informacje:
                               </Text>
                             </HStack>
                             <Text fontSize="sm">
@@ -1009,13 +1031,10 @@ export default function TenantDetails() {
                       ) : (
                         <Box
                           p={4}
-                          bg={useColorModeValue("green.50", "green.900")}
+                          bg="level1.50"
                           borderRadius="md"
                           borderWidth="1px"
-                          borderColor={useColorModeValue(
-                            "green.200",
-                            "green.700"
-                          )}
+                          borderColor="level1.200"
                           width="100%"
                         >
                           <VStack align="flex-start" spacing={3}>
@@ -1026,7 +1045,7 @@ export default function TenantDetails() {
                                 color="green.600"
                                 fontSize="sm"
                               >
-                                ℹ️ Informacje:
+                                Informacje:
                               </Text>
                             </HStack>
                             <Text fontSize="sm">

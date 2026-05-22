@@ -1,34 +1,33 @@
-﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.ProjectCosts.Shared;
-using Entities.Models;
-using Entities.Models.CostTrackers;
+using Entities.Models.Costs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.DeleteProjectCost
 {
-    public class DeleteProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<DeleteProjectCostCommand, Unit>
+    public sealed class DeleteProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<DeleteProjectCostCommand, Unit>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
+        private readonly IProjectCostAccessService accessService;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<DeleteProjectCostCommandHandler> logger;
 
         public DeleteProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
-            IReadRepository<CostTracker> costTrackerRepository,
-            IRepository<TrackedCost> trackedCostRepository,
-            IRepository<ProjectCostTrackedCostLink> projectCostLinkRepository,
-            IRepository<TrackedCostAttachment> attachmentRepository,
+            IProjectCostAccessService accessService,
             IBlobStorageService blobStorageService,
+            IRepository<BaseCostAttachment> attachmentRepository,
             ICurrentUser currentUser,
-            ILogger<DeleteProjectCostCommandHandler> logger)
-            : base(costTrackerRepository, trackedCostRepository, projectCostLinkRepository, blobStorageService, attachmentRepository)
+            ILogger<DeleteProjectCostCommandHandler> logger,
+            ILogger<ProjectCostHandlerBase> baseLogger)
+            : base(blobStorageService, attachmentRepository, baseLogger)
         {
             this.projectCostRepo = projectCostRepo;
+            this.accessService = accessService;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -39,12 +38,13 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
 
             await ValidateDeleteAccessAsync(projectCost, request, cancellationToken);
 
-            await RemoveTrackerLinkAsync(projectCost.Id, cancellationToken);
+            await RemoveAttachmentsAsync(projectCost.Id, cancellationToken);
 
             projectCost.IsDeleted = true;
             projectCost.DeletedAt = DateTime.UtcNow;
 
             await projectCostRepo.Update(projectCost);
+            await projectCostRepo.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
                 "Cost {CostId} deleted from project {ProjectId} by user {UserId}",
@@ -60,8 +60,7 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
             return await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId
                     && pc.TenantId == request.TenantId
-                    && pc.ProjectId == request.ProjectId
-                    && !pc.IsDeleted)
+                    && pc.ProjectId == request.ProjectId)
                 ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
         }
 
@@ -70,12 +69,12 @@ namespace CQRS.ProjectCosts.DeleteProjectCost
             DeleteProjectCostCommand request,
             CancellationToken cancellationToken)
         {
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            bool isCostOwner = projectCost.UserId == currentUser.Id;
+            bool hasWriteAccess = await accessService.HasWriteAccessAsync(
+                projectCost, currentUser.Id, cancellationToken);
 
-            if (!isAdmin && !isCostOwner)
+            if (!hasWriteAccess)
             {
-                throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
+                throw new ForbiddenApiException("You do not have permission to delete this cost.");
             }
         }
     }

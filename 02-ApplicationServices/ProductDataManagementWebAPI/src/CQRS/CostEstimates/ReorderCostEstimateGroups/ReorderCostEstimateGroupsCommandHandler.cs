@@ -1,7 +1,8 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using Business.Interfaces.WebModels.CostEstimates;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
@@ -9,7 +10,7 @@ using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.ReorderCostEstimateGroups
 {
-    public class ReorderCostEstimateGroupsCommandHandler : IRequestHandler<ReorderCostEstimateGroupsCommand, Unit>
+    public sealed class ReorderCostEstimateGroupsCommandHandler : IRequestHandler<ReorderCostEstimateGroupsCommand, Unit>
     {
         private readonly IRepository<CostEstimateGroup> groupRepository;
         private readonly ICostEstimateCacheService cacheService;
@@ -30,32 +31,25 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
 
         public async Task<Unit> Handle(ReorderCostEstimateGroupsCommand request, CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
 
-            var accessLevel = await ceAccessService.GetAccessLevelAsync(
+            CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
-            if (accessLevel == CostEstimateAccessLevel.None)
-                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
+            accessLevel.EnsureCanModifyStructure();
 
-            if (accessLevel == CostEstimateAccessLevel.Restricted)
-                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
-
-            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
-                throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
-
-            var template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
+            CostEstimateTemplate template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
 
             // Load all non-deleted groups from cache for validation
-            var allGroupsDict = await cacheService.GetGroupsDictionaryAsync(
+            Dictionary<Guid, CostEstimateGroup> allGroupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             // Validate all requested groups exist in the cost estimate
-            foreach (var dto in request.Groups)
+            foreach (ReorderGroupDto dto in request.Groups)
             {
                 if (!allGroupsDict.ContainsKey(dto.GroupId))
                 {
@@ -64,15 +58,15 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
             }
 
             // Validate parent references and template constraints
-            var hasParentChanges = request.Groups.Any(dto =>
+            bool hasParentChanges = request.Groups.Any(dto =>
             {
-                var group = allGroupsDict[dto.GroupId];
+                CostEstimateGroup group = allGroupsDict[dto.GroupId];
                 return group.ParentGroupId != dto.ParentGroupId;
             });
 
             if (hasParentChanges)
             {
-                foreach (var dto in request.Groups.Where(d => d.ParentGroupId.HasValue))
+                foreach (ReorderGroupDto dto in request.Groups.Where(d => d.ParentGroupId.HasValue))
                 {
                     if (!allGroupsDict.ContainsKey(dto.ParentGroupId!.Value))
                     {
@@ -88,18 +82,17 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
             }
 
             // Load tracked entities from DB for update
-            var requestedGroupIds = request.Groups.Select(g => g.GroupId).ToHashSet();
-            var groups = await groupRepository.GetBySearch(
+            HashSet<Guid> requestedGroupIds = request.Groups.Select(g => g.GroupId).ToHashSet();
+            IEnumerable<CostEstimateGroup> groups = await groupRepository.GetBySearch(
                 g => g.CostEstimateId == request.CostEstimateId &&
-                     requestedGroupIds.Contains(g.Id) &&
-                     !g.IsDeleted);
+                     requestedGroupIds.Contains(g.Id));
 
-            var trackedGroupsById = groups.ToDictionary(g => g.Id);
-            var now = DateTime.UtcNow;
+            Dictionary<Guid, CostEstimateGroup> trackedGroupsById = groups.ToDictionary(g => g.Id);
+            DateTime now = DateTime.UtcNow;
 
-            foreach (var dto in request.Groups)
+            foreach (ReorderGroupDto dto in request.Groups)
             {
-                var group = trackedGroupsById[dto.GroupId];
+                CostEstimateGroup group = trackedGroupsById[dto.GroupId];
                 group.Order = dto.Order;
                 group.ParentGroupId = dto.ParentGroupId;
                 group.UpdatedAt = now;
@@ -107,7 +100,8 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
                 // Recalculate level
                 int level = 0;
                 if (dto.ParentGroupId.HasValue &&
-                    allGroupsDict.TryGetValue(dto.ParentGroupId.Value, out var parent))
+                    allGroupsDict.TryGetValue(dto.ParentGroupId.Value, out CostEstimateGroup? parent) &&
+                    parent is not null)
                 {
                     level = parent.Level + 1;
                 }

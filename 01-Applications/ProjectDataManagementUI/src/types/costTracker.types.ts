@@ -35,18 +35,32 @@ export interface TrackedCostWeb {
   trackerId: string;
   costEstimateId: string | null;
   costEstimateItemId: string | null;
+  workScheduleStageWorkId: string | null;
   isAdditional: boolean;
   name: string;
+  number: string | null;
   description: string | null;
   net: number | null;
   gross: number | null;
   vatAmount: number | null;
   vatRate: number | null;
-  contractor: string | null;
+  contractorId: string | null;
+  contractorName: string | null;
   date: string | null;
   createdAt: string;
   updatedAt: string | null;
   attachments: TrackedCostAttachmentWeb[];
+  // Kontekst powiązania
+  estimateName: string | null;
+  estimateGroupName: string | null;
+  estimateItemName: string | null;
+  /** Pełna ścieżka pozycji kosztorysu np. "KosztorysA > Folder > Pozycja". */
+  costEstimateItemPath: string | null;
+  /** Pełna ścieżka zakresu pracy np. "HarmonogramA > Etap > Praca". */
+  workScheduleWorkPath: string | null;
+  scheduleName: string | null;
+  stageName: string | null;
+  workItemName: string | null;
 }
 
 // Wspólna baza dla grupy i pozycji
@@ -155,8 +169,8 @@ export interface CostFormValues {
   name: string;
   description?: string;
   net?: number | string;
-  gross?: number | string;
-  contractor?: string;
+  number?: string;
+  contractorId?: string | null;
   date?: string;
   newFiles?: File[];
   existingAttachmentIds?: string[];
@@ -166,8 +180,8 @@ export interface CreateCostRequest {
   name: string;
   description?: string;
   net?: number;
-  gross?: number;
-  contractor?: string;
+  number?: string;
+  contractorId?: string | null;
   date?: string;
   costEstimateId?: string | null;
   costEstimateItemId?: string | null;
@@ -175,43 +189,28 @@ export interface CreateCostRequest {
 }
 
 export interface UpdateCostRequest extends CreateCostRequest {
+  workScheduleStageWorkId?: string | null;
   existingAttachmentIds?: string[];
 }
 
-// ===== DTO dla starszych komponentów (PascalCase) =====
+// ===== Cost link options =====
 
-export interface TrackedCostFormValues {
-  name: string;
-  description: string;
-  net: string;
-  gross: string;
-  contractor: string;
-  date: string;
-  costEstimateId: string | null;
-  costEstimateItemId: string | null;
+export interface EstimateItemLinkOptionWeb {
+  itemId: string;
+  path: string;
+  /** ID zakresu pracy spiętego z tą pozycją. Null gdy brak spięcia. */
+  linkedWorkId: string | null;
 }
 
-export interface CreateTrackedCostRequest {
-  CostEstimateId?: string;
-  CostEstimateItemId?: string;
-  Name: string;
-  Description?: string;
-  Net?: number;
-  Gross?: number;
-  Contractor?: string;
-  Date?: string;
-  NewFiles?: File[];
+export interface WorkLinkOptionWeb {
+  workId: string;
+  path: string;
+  /** ID pozycji kosztorysu spiętej z tym zakresem. Null gdy brak spięcia. */
+  linkedItemId: string | null;
 }
 
-export interface UpdateTrackedCostRequest {
-  CostEstimateId?: string;
-  CostEstimateItemId?: string;
-  Name: string;
-  Description?: string;
-  Net?: number;
-  Gross?: number;
-  Contractor?: string;
-  Date?: string;
-  ExistingAttachmentIds?: string[];
-  NewFiles?: File[];
+export interface CostLinkOptionsWeb {
+  estimateItems: EstimateItemLinkOptionWeb[];
+  workItems: WorkLinkOptionWeb[];
 }
+

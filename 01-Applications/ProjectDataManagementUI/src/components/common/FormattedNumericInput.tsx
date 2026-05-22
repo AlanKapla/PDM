@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Input } from '@chakra-ui/react';
 
 // ---------------------------------------------------------------------------
@@ -94,7 +94,7 @@ export const FormattedNumericInput: React.FC<FormattedNumericInputProps> = ({
       textAlign="right"
       variant="outline"
       bg="white"
-      borderColor="gray.300"
+      borderColor="neutral.300"
         _hover={{ borderColor: 'primary.400' }}
       _focus={{
         borderColor: 'primary.500',

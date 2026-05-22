@@ -73,6 +73,10 @@ export interface CreateChatRequest {
   name?: string | null;
 }
 
+export interface CreateDirectChatRequest {
+  targetUserId: string;
+}
+
 export interface CreateChatResultWeb {
   id: string;
   isGroupChat: boolean;

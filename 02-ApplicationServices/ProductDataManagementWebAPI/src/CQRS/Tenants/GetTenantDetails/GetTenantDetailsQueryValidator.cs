@@ -1,20 +1,13 @@
-﻿using Business.Interfaces.Model;
-using CQRS.Extensions;
-using Entities.Models;
+﻿using CQRS.Extensions;
 using FluentValidation;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.GetTenantDetails
 {
-    public class GetTenantDetailsQueryValidator : AbstractValidator<GetTenantDetailsQuery>
+    public sealed class GetTenantDetailsQueryValidator : AbstractValidator<GetTenantDetailsQuery>
     {
-        public GetTenantDetailsQueryValidator(
-            ICurrentUser currentUser,
-            IRepository<TenantMember> tenantMemberRepo)
+        public GetTenantDetailsQueryValidator()
         {
-            RuleFor(x => x.TenantId)
-                .NotEqual(Guid.Empty)
-                .WithMessage("Invalid tenant ID");
+            RuleFor(x => x.TenantId).RequiredId();
         }
     }
 }

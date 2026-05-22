@@ -1,13 +1,13 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
-using Entities.Models;
+using Entities.Models.Tenants;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.RemoveTenantInvitation
 {
-    public class RemoveTenantInvitationCommandHandler : IRequestHandler<RemoveTenantInvitationCommand, Unit>
+    public sealed class RemoveTenantInvitationCommandHandler : IRequestHandler<RemoveTenantInvitationCommand, Unit>
     {
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantInvitation> invitationRepo;

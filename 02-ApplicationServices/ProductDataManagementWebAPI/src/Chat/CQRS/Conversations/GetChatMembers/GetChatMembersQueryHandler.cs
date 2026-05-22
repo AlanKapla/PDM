@@ -1,8 +1,9 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Chat.DTOs;
-using Entities.Models;
+using Business.Interfaces.WebModels.Chats;
+using Chat.Mappers;
+using Entities.Models.Chats;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -47,13 +48,7 @@ public sealed class GetChatMembersQueryHandler : IRequestHandler<GetChatMembersQ
             .Select(m =>
             {
                 userNames.TryGetValue(m.UserId, out (string FirstName, string LastName) name);
-                return new ChatMemberWeb(
-                    UserId: m.UserId,
-                    FirstName: name.FirstName ?? string.Empty,
-                    LastName: name.LastName ?? string.Empty,
-                    JoinedAt: m.JoinedAt,
-                    IsAdmin: m.IsAdmin,
-                    LastReadAt: m.LastReadAt);
+                return ChatMapper.MapMember(m, name.FirstName, name.LastName);
             })
             .ToList();
     }

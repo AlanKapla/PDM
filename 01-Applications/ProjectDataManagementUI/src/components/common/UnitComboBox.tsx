@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import ReactDOM from 'react-dom';
 import { Box, Input, Text } from '@chakra-ui/react';
 
@@ -123,7 +123,7 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
             style={dropdownStyle}
             bg="white"
             border="1px solid"
-            borderColor="gray.200"
+            borderColor="neutral.200"
             borderRadius="md"
             boxShadow="lg"
             maxH="180px"
@@ -151,7 +151,7 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
               >
                 <Text fontWeight="medium">{unit.code}</Text>
                 {unit.name !== unit.code && (
-                  <Text fontSize="xs" color="gray.500">
+                  <Text fontSize="xs" color="neutral.500">
                     {unit.name}
                     {unit.symbol ? ` (${unit.symbol})` : ''}
                   </Text>
@@ -224,7 +224,7 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
         variant="outline"
         placeholder="Jednostka..."
         bg="white"
-        borderColor="gray.300"
+        borderColor="neutral.300"
         _hover={{ borderColor: 'primary.400' }}
         _focus={{
           borderColor: 'primary.500',

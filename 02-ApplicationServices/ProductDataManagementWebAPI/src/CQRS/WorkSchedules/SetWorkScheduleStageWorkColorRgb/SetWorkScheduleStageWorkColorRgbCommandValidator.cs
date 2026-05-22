@@ -1,3 +1,4 @@
+﻿using CQRS.Extensions;
 using FluentValidation;
 
 namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
@@ -6,15 +7,15 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
     {
         public SetWorkScheduleStageWorkColorRgbCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageWorkId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageWorkId).RequiredId();
             RuleFor(x => x.ColorRgb)
-                .NotEmpty().WithMessage("Pole ColorRgb jest wymagane")
-                .MaximumLength(20).WithMessage("Pole ColorRgb nie może mieć więcej niż 20 znaków")
-                .Matches(@"^#[0-9A-Fa-f]{6}$").WithMessage("Pole ColorRgb musi być poprawnym kolorem HEX w formacie #RRGGBB");
+                .NotEmpty().WithMessage("'ColorRgb' is required.")
+                .MaximumLength(20).WithMessage("'ColorRgb' must not exceed 20 characters.")
+                .ValidColorRgb();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Entities.Models.CostTrackers;
+﻿using Entities.Models.Costs;
 using Microsoft.AspNetCore.Http;
 
 namespace Business.Interfaces.Services
@@ -8,13 +8,14 @@ namespace Business.Interfaces.Services
         /// <summary>
         /// Synchronizuje załączniki kosztu.
         /// Usuwa (soft-delete + blob) załączniki których Id nie ma w existingAttachmentIds.
-        /// Uploaduje nowe pliki i tworzy rekordy TrackedCostAttachment.
+        /// Gdy existingAttachmentIds jest null, istniejące załączniki nie są usuwane.
+        /// Uploaduje nowe pliki i tworzy rekordy BaseCostAttachment.
         /// Zwraca aktualną listę aktywnych załączników.
         /// </summary>
-        Task<List<TrackedCostAttachment>> SyncAttachmentsAsync(
-            TrackedCost cost,
+        Task<List<BaseCostAttachment>> SyncAttachmentsAsync(
+            BaseCost cost,
             IReadOnlyList<IFormFile>? newFiles,
-            IReadOnlyList<Guid> existingAttachmentIds,
+            IReadOnlyList<Guid>? existingAttachmentIds,
             Guid tenantId,
             Guid projectId,
             CancellationToken cancellationToken = default);
@@ -22,6 +23,6 @@ namespace Business.Interfaces.Services
         /// <summary>
         /// Generuje SAS URL dla załącznika.
         /// </summary>
-        string GenerateFileUrl(TrackedCostAttachment attachment);
+        string GenerateFileUrl(BaseCostAttachment attachment);
     }
 }

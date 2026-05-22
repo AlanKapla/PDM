@@ -5,10 +5,13 @@ using MediatR;
 
 namespace CQRS.Projects.GetProjectDetails
 {
-    public record GetProjectDetailsQuery(Guid TenantId, Guid ProjectId) : IRequestQuery<ProjectDetailsWeb>, IAuthorizableRequest
+    public sealed record GetProjectDetailsQuery : IRequestQuery<ProjectDetailsWeb>, IAuthorizableRequest
     {
+        public required Guid TenantId { get; init; }
+        public required Guid ProjectId { get; init; }
+
         public string PermissionCode => PermissionCodes.ProjectView;
-        
+
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

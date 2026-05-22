@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -26,7 +26,7 @@ import {
   Input,
   Tooltip,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp, Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import { handleApiError } from "../utils/handleApiError";
@@ -40,7 +40,8 @@ import { projectApi, ResourceScope } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useProjectDetails, useProjectMembers, projectKeys } from '../hooks/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ProjectDetailsWeb } from "../types/project.types";
 import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { DeleteAlertDialog } from "../components/ui";
@@ -58,19 +59,32 @@ export default function ProjectDetails() {
   const { isOpen: isUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
-  const { showSuccess, showError, showWarning } = useToastNotification();
+  const { showSuccess, showError, showWarning, showApiSuccess } = useToastNotification();
 
-  const [project, setProject] = useState<ProjectDetailsWeb | null>(null);
-  const [members, setMembers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [, setLoadingMembers] = useState(false);
+  const {
+    data: projectData,
+    isLoading: isLoadingProject,
+    error: projectError,
+    refetch: refetchProject,
+  } = useProjectDetails(user?.activeTenantId ?? undefined, projectId);
+
+  const {
+    data: membersData,
+    isLoading: isLoadingMembers,
+    refetch: refetchMembers,
+  } = useProjectMembers(user?.activeTenantId ?? undefined, projectId);
+
+  const queryClient = useQueryClient();
+
+  const project = projectData ?? null;
+  const members = membersData ?? [];
+  const loading = isLoadingProject;
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [, setMyFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [, setSharedFiles] = useState<ProjectFilePackageWeb[]>([]);
   const [, setExpandedFileIds] = useState<Set<string>>(new Set());
@@ -95,18 +109,17 @@ export default function ProjectDetails() {
   const [, setDeletingCostId] = useState<string | null>(null);
   const [newCostData, setNewCostData] = useState<any>({
     name: '',
-    place: '',
+    number: '',
+    contractorId: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
-    netAmount: '',
-    vatRate: '',
-    grossAmount: '',
+    net: '',
+    gross: '',
   });
   const [, setAddingNewCost] = useState(false);
   const [, setShowNewCostRow] = useState(false);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [, setSubmittingComment] = useState<string | null>(null);
-  const hasFetchedData = useRef(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
@@ -114,56 +127,14 @@ export default function ProjectDetails() {
   const labelColor = useColorModeValue("gray.700", "gray.300");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  // Globalny cache dla project details (współdzielony z innymi stronami projektu)
-  const projectDetailsCache = useGlobalCache<ProjectDetailsWeb>(
-    `project-details-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, projectId);
-      return res.data;
+  useEffect(() => {
+    if (projectData?.name) {
+      setEditedName(projectData.name);
     }
-  );
+  }, [projectData?.name]);
 
-  // Globalny cache dla project members (współdzielony z innymi stronami projektu)
-  const projectMembersCache = useGlobalCache(
-    `project-members-${projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectMembers(user.activeTenantId, projectId);
-      return res.data;
-    }
-  );
-
-  const fetchProjectDetails = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await projectDetailsCache.fetch();
-      setProject(data);
-      setEditedName(data.name);
-    } catch (err) {
-      setError("Błąd podczas pobierania szczegółów projektu");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMembers = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoadingMembers(true);
-
-    try {
-      const data = await projectMembersCache.fetch();
-      setMembers(data);
-    } catch (err) {
-    } finally {
-      setLoadingMembers(false);
-    }
-  };
+  const fetchProjectDetails = () => refetchProject();
+  const fetchMembers = () => refetchMembers();
 
   const fetchMyFiles = async () => {
     if (!user?.activeTenantId || !projectId) return;
@@ -244,12 +215,12 @@ export default function ProjectDetails() {
       return;
     }
 
-    // Walidacja: albo netto+VAT albo gross
-    const hasNet = newCostData.netAmount && newCostData.vatRate;
-    const hasGross = newCostData.grossAmount;
+    // Walidacja: albo netto albo brutto
+    const hasNet = newCostData.net;
+    const hasGross = newCostData.gross;
 
     if (!hasNet && !hasGross) {
-      showError("Błąd", "Podaj kwotę netto i stawkę VAT lub kwotę brutto");
+      showError("Błąd", "Podaj kwotę netto lub brutto");
       return;
     }
 
@@ -260,27 +231,27 @@ export default function ProjectDetails() {
         projectId,
         {
           name: newCostData.name,
-          place: newCostData.place || undefined,
+          number: newCostData.number || undefined,
+          contractorId: newCostData.contractorId || undefined,
           date: new Date(newCostData.date),
           description: newCostData.description || undefined,
-          netAmount: newCostData.netAmount ? parseFloat(newCostData.netAmount) : undefined,
-          vatRate: newCostData.vatRate ? parseFloat(newCostData.vatRate) : undefined,
-          grossAmount: newCostData.grossAmount ? parseFloat(newCostData.grossAmount) : undefined,
+          net: newCostData.net ? parseFloat(newCostData.net) : undefined,
+          gross: newCostData.gross ? parseFloat(newCostData.gross) : undefined,
           document: documentFile || undefined,
         }
       );
 
-      showSuccess("Sukces", "Koszt został dodany");
+      showApiSuccess('costAdded');
 
       // Reset formularza
       setNewCostData({
         name: '',
-        place: '',
+        number: '',
+        contractorId: '',
         date: new Date().toISOString().split('T')[0],
         description: '',
-        netAmount: '',
-        vatRate: '',
-        grossAmount: '',
+        net: '',
+        gross: '',
       });
       setDocumentFile(null);
       setShowNewCostRow(false);
@@ -298,12 +269,13 @@ export default function ProjectDetails() {
     setEditingCostId(cost.id);
     setEditingCostData({
       name: cost.name,
-      place: cost.place || '',
+      number: cost.number ?? '',
+      contractorId: cost.contractorId ?? '',
       date: new Date(cost.date).toISOString().split('T')[0],
       description: cost.description || '',
-      netAmount: cost.netAmount?.toString() || '',
-      grossAmount: cost.grossAmount.toString(),
-      isClosed: cost.isClosed,
+      net: cost.net?.toString() || '',
+      gross: (cost.gross ?? '').toString(),
+      isAccepted: cost.isAccepted,
       removeDocument: false,
     });
     setDocumentFile(null);
@@ -327,12 +299,12 @@ export default function ProjectDetails() {
       return;
     }
 
-    // Walidacja: albo netto+VAT albo gross
-    const hasNet = editingCostData.netAmount && editingCostData.vatRate;
-    const hasGross = editingCostData.grossAmount;
+    // Walidacja: albo netto albo brutto
+    const hasNet = editingCostData.net;
+    const hasGross = editingCostData.gross;
 
     if (!hasNet && !hasGross) {
-      showError("Błąd", "Podaj kwotę netto i stawkę VAT lub kwotę brutto");
+      showError("Błąd", "Podaj kwotę netto lub brutto");
       return;
     }
 
@@ -344,18 +316,19 @@ export default function ProjectDetails() {
         editingCostId,
         {
           name: editingCostData.name,
-          place: editingCostData.place || undefined,
+          number: editingCostData.number || undefined,
+          contractorId: editingCostData.contractorId || undefined,
           date: new Date(editingCostData.date),
           description: editingCostData.description || undefined,
-          netAmount: editingCostData.netAmount ? parseFloat(editingCostData.netAmount) : undefined,
-          grossAmount: editingCostData.grossAmount ? parseFloat(editingCostData.grossAmount) : undefined,
-          isClosed: editingCostData.isClosed ?? false,
+          net: editingCostData.net ? parseFloat(editingCostData.net) : undefined,
+          gross: editingCostData.gross ? parseFloat(editingCostData.gross) : undefined,
+          isAccepted: editingCostData.isAccepted ?? false,
           document: documentFile || undefined,
           removeDocument: editingCostData.removeDocument,
         }
       );
 
-      showSuccess("Sukces", "Koszt został zaktualizowany");
+      showApiSuccess('costUpdated');
 
       setEditingCostId(null);
       setEditingCostData(null);
@@ -391,7 +364,7 @@ export default function ProjectDetails() {
 
       await projectApi.deleteProjectCost(user.activeTenantId, projectId, costId);
 
-      showSuccess("Sukces", "Koszt został usunięty");
+      showApiSuccess('costDeleted');
 
       await fetchProjectCosts();
     } catch (error) {
@@ -507,7 +480,7 @@ export default function ProjectDetails() {
         comment.trim()
       );
 
-      showSuccess("Sukces", "Komentarz został dodany");
+      showApiSuccess('commentAdded');
 
       // Wyczyść pole komentarza
       setNewComments((prev) => {
@@ -526,14 +499,6 @@ export default function ProjectDetails() {
     }
   };
 
-  useEffect(() => {
-    if (hasFetchedData.current) return;
-
-    hasFetchedData.current = true;
-    fetchProjectDetails();
-    fetchMembers();
-  }, [projectId, user?.activeTenantId]);
-
   const _handleRemoveMemberClick = (userId: string, memberName: string) => {
     setMemberToRemove({ userId, name: memberName });
     onRemoveModalOpen();
@@ -546,11 +511,16 @@ export default function ProjectDetails() {
     try {
       await projectApi.removeProjectMember(user.activeTenantId, projectId, memberToRemove.userId);
 
-      showSuccess("Sukces", `Użytkownik ${memberToRemove.name} został usunięty z projektu`);
+      showApiSuccess('memberRemoved');
+
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
 
       // Odśwież listę
-      projectDetailsCache.clear();
-      projectMembersCache.clear();
       await fetchProjectDetails();
       await fetchMembers();
     } catch (error) {
@@ -571,17 +541,15 @@ export default function ProjectDetails() {
     try {
       await projectApi.toggleProjectStatus(user.activeTenantId, projectId, newStatus);
 
-      showSuccess(
-        newStatus ? "Projekt aktywowany" : "Projekt zdezaktywowany",
-        newStatus
-          ? "Projekt został pomyślnie aktywowany"
-          : "Projekt został pomyślnie zdezaktywowany"
-      );
+      showApiSuccess(newStatus ? 'activated' : 'deactivated');
 
       onToggleStatusClose();
 
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
+
       // Odśwież dane projektu
-      projectDetailsCache.clear();
       await fetchProjectDetails();
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -603,10 +571,15 @@ export default function ProjectDetails() {
     try {
       await projectApi.updateProject(user.activeTenantId, projectId, { Name: editedName });
 
-      showSuccess("Zaktualizowano", "Nazwa projektu została zmieniona");
+      showApiSuccess('nameUpdated');
 
       setIsEditingName(false);
-      projectDetailsCache.clear();
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
+      });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.list(user.activeTenantId!)
+      });
       await fetchProjectDetails();
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -626,10 +599,10 @@ export default function ProjectDetails() {
               <Spinner size="xl" color="primary.500" />
               <Text>Ładowanie szczegółów projektu...</Text>
             </VStack>
-          ) : error ? (
+          ) : projectError ? (
             <Alert status="error" rounded="md">
               <AlertIcon />
-              {error}
+              {projectError.message ?? "Błąd podczas pobierania szczegółów projektu"}
             </Alert>
           ) : !project ? (
             <VStack spacing={4} align="center" justify="center" minH="50vh">
@@ -657,7 +630,7 @@ export default function ProjectDetails() {
                                 leftIcon={<Power size={16} />}
                                 colorScheme={project.isActive ? "red" : "green"}
                                 onClick={onToggleStatusOpen}
-                                fontSize={{ base: "10px", md: "sm" }}
+                                fontSize={{ base: "xs", md: "sm" }}
                               >
                                 {project.isActive ? "Dezaktywuj" : "Aktywuj"}
                               </Button>
@@ -669,7 +642,7 @@ export default function ProjectDetails() {
                               variant="ghost"
                               leftIcon={<Edit2 size={16} />}
                               onClick={() => setIsEditingName(true)}
-                              fontSize={{ base: "10px", md: "sm" }}
+                              fontSize={{ base: "xs", md: "sm" }}
                             >
                               Edytuj
                             </Button>
@@ -729,7 +702,7 @@ export default function ProjectDetails() {
                           {project.isActive ? "Aktywny" : "Nieaktywny"}
                         </Badge>
                       </HStack>
-                      <Text fontSize="sm" color="gray.500">
+                      <Text fontSize="sm" color="neutral.500">
                         Utworzono: {formatDate(project.createdAt)}
                       </Text>
                       <Badge colorScheme={getRoleColor(project.userRoleCode)}>
@@ -853,11 +826,31 @@ export default function ProjectDetails() {
                     shadow="sm"
                     _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
                     transition="all 0.2s"
-                    onClick={() => navigate(`/projects/${projectId}/budget`)}
+                    onClick={() => navigate(`/projects/${projectId}/dashboard`)}
                   >
                     <VStack spacing={3}>
                       <Icon as={TrendingUp} boxSize={8} color="green.600" />
-                      <Text fontWeight="bold" fontSize="md">Realizacja budżetu</Text>
+                      <Text fontWeight="bold" fontSize="md">Dashboard</Text>
+                    </VStack>
+                  </Box>
+                )}
+
+                {permissions.canView && (
+                  <Box
+                    as="button"
+                    bg={cardBg}
+                    p={6}
+                    rounded="lg"
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                    shadow="sm"
+                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                    transition="all 0.2s"
+                    onClick={() => navigate(`/projects/${projectId}/parameters`)}
+                  >
+                    <VStack spacing={3}>
+                      <Icon as={Settings} boxSize={8} color="action.600" />
+                      <Text fontWeight="bold" fontSize="md">Parametry</Text>
                     </VStack>
                   </Box>
                 )}

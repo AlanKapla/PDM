@@ -1,0 +1,88 @@
+using CQRS.Projects.GetProjectDetails;
+using FluentValidation.TestHelper;
+
+namespace CQRS.Tests.Projects;
+
+public sealed class GetProjectDetailsQueryValidatorTests
+{
+    private readonly GetProjectDetailsQueryValidator _validator = new();
+
+    // === TenantId ===
+
+    [Fact]
+    public void Validate_WhenTenantIdIsEmpty_HasValidationError()
+    {
+        // Arrange
+        GetProjectDetailsQuery query = ValidQuery() with { TenantId = Guid.Empty };
+
+        // Act
+        TestValidationResult<GetProjectDetailsQuery> result = _validator.TestValidate(query);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.TenantId);
+    }
+
+    [Fact]
+    public void Validate_WhenTenantIdIsValid_HasNoValidationError()
+    {
+        // Arrange
+        GetProjectDetailsQuery query = ValidQuery();
+
+        // Act
+        TestValidationResult<GetProjectDetailsQuery> result = _validator.TestValidate(query);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.TenantId);
+    }
+
+    // === ProjectId ===
+
+    [Fact]
+    public void Validate_WhenProjectIdIsEmpty_HasValidationError()
+    {
+        // Arrange
+        GetProjectDetailsQuery query = ValidQuery() with { ProjectId = Guid.Empty };
+
+        // Act
+        TestValidationResult<GetProjectDetailsQuery> result = _validator.TestValidate(query);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.ProjectId);
+    }
+
+    [Fact]
+    public void Validate_WhenProjectIdIsValid_HasNoValidationError()
+    {
+        // Arrange
+        GetProjectDetailsQuery query = ValidQuery();
+
+        // Act
+        TestValidationResult<GetProjectDetailsQuery> result = _validator.TestValidate(query);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.ProjectId);
+    }
+
+    // === Happy path ===
+
+    [Fact]
+    public void Validate_WhenQueryIsValid_HasNoValidationErrors()
+    {
+        // Arrange
+        GetProjectDetailsQuery query = ValidQuery();
+
+        // Act
+        TestValidationResult<GetProjectDetailsQuery> result = _validator.TestValidate(query);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    // === Helper ===
+
+    private static GetProjectDetailsQuery ValidQuery() => new GetProjectDetailsQuery
+    {
+        TenantId = Guid.NewGuid(),
+        ProjectId = Guid.NewGuid(),
+    };
+}

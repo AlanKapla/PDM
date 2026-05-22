@@ -1,4 +1,12 @@
-﻿using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,64 +16,23 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<ProjectCost> builder)
         {
-            builder.HasKey(pc => pc.Id);
-
-            builder.Property(pc => pc.TenantId).IsRequired();
-            builder.Property(pc => pc.ProjectId).IsRequired();
             builder.Property(pc => pc.UserId).IsRequired();
-            
-            builder.Property(pc => pc.Name)
-                .IsRequired()
-                .HasMaxLength(200);
 
-            builder.Property(pc => pc.Place)
-                .HasMaxLength(200);
-
-            builder.Property(pc => pc.Date).IsRequired();
-
-            builder.Property(pc => pc.Description)
-                .HasMaxLength(2000);
-
-            builder.Property(pc => pc.NetAmount)
-                .HasPrecision(18, 2);
-
-            builder.Property(pc => pc.GrossAmount)
-                .HasPrecision(18, 2);
-
-            builder.Property(pc => pc.IsClosed)
+            builder.Property(pc => pc.IsAccepted)
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            builder.Property(pc => pc.HasDocument).IsRequired();
+            builder.Property(pc => pc.AcceptedByUserId);
+            builder.Property(pc => pc.AcceptedAt);
 
-            builder.Property(pc => pc.DocumentFileName)
-                .HasMaxLength(255);
+            builder.HasOne(pc => pc.ProjectMember)
+                .WithMany()
+                .HasForeignKey(pc => new { pc.TenantId, pc.ProjectId, pc.UserId })
+                .HasPrincipalKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId })
+                .OnDelete(DeleteBehavior.Restrict);
 
-            builder.Property(pc => pc.DocumentBlobPath)
-                .HasMaxLength(500);
-
-            builder.Property(pc => pc.DocumentContentType)
-                .HasMaxLength(100);
-
-            builder.Property(pc => pc.CreatedAt).IsRequired();
-            builder.Property(pc => pc.IsDeleted).IsRequired();
-
-            // Indexes
-            builder.HasIndex(pc => new { pc.TenantId, pc.ProjectId, pc.IsDeleted });
-            builder.HasIndex(pc => new { pc.TenantId, pc.UserId, pc.IsDeleted });
+            builder.HasIndex(pc => new { pc.TenantId, pc.ProjectId, pc.IsAccepted });
             builder.HasIndex(pc => pc.Date);
-
-            // Relationships
-            builder.HasOne(pc => pc.Project)
-                .WithMany()
-                .HasForeignKey(pc => pc.ProjectId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.HasOne(pc => pc.TenantMember)
-                .WithMany()
-                .HasForeignKey(pc => new { pc.TenantId, pc.UserId })
-                .HasPrincipalKey(tm => new { tm.TenantId, tm.UserId })
-                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

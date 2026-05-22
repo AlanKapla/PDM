@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace Chat.CQRS.Conversations.RenameGroupChat;
 
@@ -6,8 +7,8 @@ public sealed class RenameGroupChatCommandValidator : AbstractValidator<RenameGr
 {
     public RenameGroupChatCommandValidator()
     {
-        RuleFor(x => x.ChatId)
-            .NotEmpty().WithMessage("ChatId is required.");
+        RuleFor(x => x.TenantId).RequiredId();
+        RuleFor(x => x.ChatId).RequiredId();
 
         RuleFor(x => x.NewName)
             .NotEmpty().WithMessage("New name is required.")

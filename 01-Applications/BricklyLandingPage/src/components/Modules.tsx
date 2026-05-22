@@ -1,81 +1,41 @@
-import {
-  FolderKanban, FileText, CalendarDays, FolderOpen,
-  MessageSquare, Building2, Mail, Briefcase, Calculator
-} from 'lucide-react'
 import './Modules.css'
 
-const MODULES = [
+const FEATURES = [
   {
-    icon: FolderKanban,
-    title: 'Projekty',
-    description: 'Centralny rejestr wszystkich projektów. Twórz, przeglądaj i zarządzaj projektami budowlanymi oraz remontowymi w jednym miejscu.',
-    color: '#1A5CD8',
-    bg: '#EEF3FF',
-    tag: 'Podstawowy',
+    number: '01',
+    tag: 'Finanse',
+    title: 'Kosztorys kontra rzeczywistość',
+    description: 'Każda faktura zestawiana z planem na bieżąco. Widzisz odchylenie od budżetu zanim przekroczysz limit — nie na koniec miesiąca.',
+    highlights: [
+      'Budżet vs wydatki w czasie rzeczywistym',
+      'Szablonowe kosztorysy z automatycznym VAT',
+      'Dashboard finansowy projektu i organizacji',
+      'Eksport raportów jednym kliknięciem',
+    ],
   },
   {
-    icon: Calculator,
-    title: 'Kosztorysy',
-    description: 'Twórz szczegółowe kosztorysy z szablonów. Automatyczne kalkulacje, waluty, stawki VAT i udostępnianie klientom.',
-    color: '#0047AB',
-    bg: '#EEF3FF',
-    tag: 'Finansowy',
+    number: '02',
+    tag: 'Harmonogram',
+    title: 'Opóźnienia widoczne zanim staną się kosztowne',
+    description: 'Harmonogram połączony z budżetem. Każde przesunięcie etapu przelicza skutki finansowe automatycznie.',
+    highlights: [
+      'Oś czasu z etapami i wykonawcami',
+      'Alerty o opóźnieniach i przekroczeniach budżetu',
+      'Dedykowany widok zadań dla wykonawcy',
+      'Wpływ opóźnień na koszty widoczny od razu',
+    ],
   },
   {
-    icon: CalendarDays,
-    title: 'Harmonogram',
-    description: 'Planuj prace w osi czasu. Przydzielaj zadania do wykonawców, śledź postępy i terminy realizacji.',
-    color: '#00A8E8',
-    bg: '#E0F7FA',
-    tag: 'Planowanie',
-  },
-  {
-    icon: FolderOpen,
-    title: 'Pliki projektowe',
-    description: 'Bezpieczne repozytorium dokumentów. Plany, umowy, faktury – z kontrolą wersji i dzieleniem z zewnętrznymi stronami.',
-    color: '#0047AB',
-    bg: '#EEF3FF',
-    tag: 'Dokumenty',
-  },
-  {
-    icon: MessageSquare,
-    title: 'Wiadomości',
-    description: 'Wbudowany komunikator do rozmów z członkami zespołu i organizacji. Komunikacja w kontekście projektu.',
-    color: '#1A5CD8',
-    bg: '#EEF3FF',
-    tag: 'Komunikacja',
-  },
-  {
-    icon: Building2,
-    title: 'Organizacje',
-    description: 'Zarządzaj wieloma firmami lub oddziałami. Pełna izolacja danych i zindywidualizowane uprawnienia dostępu.',
-    color: '#003A8C',
-    bg: '#EEF3FF',
-    tag: 'Zarządzanie',
-  },
-  {
-    icon: Briefcase,
-    title: 'Zaplanowane prace',
-    description: 'Dedykowany widok przydzielonych zadań. Każdy wykonawca widzi swoje prace, terminy i priorytety.',
-    color: '#00B8D9',
-    bg: '#E0F7FA',
-    tag: 'Zadania',
-  },
-  {
-    icon: FileText,
-    title: 'Szablony kosztorysów',
-    description: 'Twórz i zarządzaj biblioteką szablonów. Standaryzuj wyceny i przyspieszaj tworzenie nowych kosztorysów.',
-    color: '#0047AB',
-    bg: '#EEF3FF',
-    tag: 'Szablony',
-  },
-  {
-    icon: Mail,
-    title: 'Zaproszenia',
-    description: 'Zapraszaj wykonawców i klientów do projektów lub organizacji. Kontroluj kto ma dostęp i do czego.',
-    color: '#1A5CD8',
-    bg: '#EEF3FF',
-    tag: 'Dostęp',
+    number: '03',
+    tag: 'Dokumentacja',
+    title: 'Jeden adres dla każdego dokumentu',
+    description: 'Umowy, faktury, plany, zdjęcia — wszystko w projekcie, nie w skrzynce mailowej. Każdy widzi dokładnie to co powinien.',
+    highlights: [
+      'Bezpieczne repozytorium z kontrolą dostępu',
+      'Wersjonowanie dokumentacji i plików',
+      'Komunikator w kontekście projektu',
+      'Zaproszenia dla wykonawców z ograniczonym dostępem',
+    ],
   },
 ]
 
@@ -83,29 +43,30 @@ export default function Modules() {
   return (
     <section id="modules" className="section section--alt">
       <div className="container">
-        <div className="modules__header">
-          <span className="section-label">Moduły</span>
+        <div className="features__header">
+          <span className="section-label">Jak to działa</span>
           <h2 className="section-title">
-            Wszystko czego potrzebujesz<br />w jednej platformie
+            Trzy problemy.<br />Jedno narzędzie.
           </h2>
-          <p className="section-subtitle">
-            Kompletny zestaw narzędzi dla nadzorców, inwestorów zastępczych
-            i architektów – wszystko, czego potrzebujesz, żeby spinać wiele ekip
-            bez chaosu.
-          </p>
         </div>
 
-        <div className="modules__grid">
-          {MODULES.map(mod => (
-            <div key={mod.title} className="module-card">
-              <div className="module-card__icon" style={{ background: mod.bg, color: mod.color }}>
-                <mod.icon size={24} />
+        <div className="features__list">
+          {FEATURES.map((feature) => (
+            <div key={feature.number} className="feature-row">
+              <div className="feature-row__number">{feature.number}</div>
+              <div className="feature-row__left">
+                <span className="feature-row__tag">{feature.tag}</span>
+                <h3 className="feature-row__title">{feature.title}</h3>
+                <p className="feature-row__desc">{feature.description}</p>
               </div>
-              <span className="module-card__tag" style={{ color: mod.color, background: mod.bg }}>
-                {mod.tag}
-              </span>
-              <h3 className="module-card__title">{mod.title}</h3>
-              <p className="module-card__desc">{mod.description}</p>
+              <ul className="feature-row__highlights">
+                {feature.highlights.map(h => (
+                  <li key={h} className="feature-row__highlight">
+                    <span className="feature-row__dot" />
+                    {h}
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>

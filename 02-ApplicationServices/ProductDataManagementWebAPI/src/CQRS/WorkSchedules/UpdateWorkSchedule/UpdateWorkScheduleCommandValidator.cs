@@ -1,14 +1,15 @@
+﻿using CQRS.Extensions;
 using FluentValidation;
 
 namespace CQRS.WorkSchedules.UpdateWorkSchedule
 {
-    public class UpdateWorkScheduleCommandValidator : AbstractValidator<UpdateWorkScheduleCommand>
+    public sealed class UpdateWorkScheduleCommandValidator : AbstractValidator<UpdateWorkScheduleCommand>
     {
         public UpdateWorkScheduleCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
             RuleFor(x => x.Name).NotEmpty().MaximumLength(255);
         }
     }

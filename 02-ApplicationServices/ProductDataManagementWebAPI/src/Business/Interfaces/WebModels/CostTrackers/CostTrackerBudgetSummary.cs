@@ -1,6 +1,6 @@
 ﻿namespace Business.Interfaces.WebModels.CostTrackers
 {
-    public record CostTrackerBudgetSummary : CostTrackerSummaryBaseWeb
+    public sealed record CostTrackerBudgetSummary : CostTrackerSummaryBaseWeb
     {
     }
 }

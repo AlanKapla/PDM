@@ -5,6 +5,7 @@ import type {
   TrackedCostWeb,
   CreateCostRequest,
   UpdateCostRequest,
+  CostLinkOptionsWeb,
 } from '../types/costTracker.types';
 
 export interface UpdateTrackerBudgetRequest {
@@ -18,16 +19,16 @@ const buildCostFormData = (data: CreateCostRequest | UpdateCostRequest): FormDat
   form.append('name', data.name);
   if (data.description) form.append('description', data.description);
   if (data.net !== undefined && data.net !== null) form.append('net', String(data.net));
-  if (data.gross !== undefined && data.gross !== null) form.append('gross', String(data.gross));
-  if (data.contractor) form.append('contractor', data.contractor);
+  if (data.number) form.append('number', data.number);
+  if (data.contractorId) form.append('contractorId', data.contractorId);
   if (data.date) form.append('date', data.date);
-  if (data.costEstimateId) form.append('costEstimateId', data.costEstimateId);
   if (data.costEstimateItemId) form.append('costEstimateItemId', data.costEstimateItemId);
+  const updateData = data as UpdateCostRequest;
+  if (updateData.workScheduleStageWorkId) form.append('workScheduleStageWorkId', updateData.workScheduleStageWorkId);
   if (data.newFiles) {
     data.newFiles.forEach((file) => form.append('newFiles', file));
   }
 
-  const updateData = data as UpdateCostRequest;
   if (updateData.existingAttachmentIds) {
     updateData.existingAttachmentIds.forEach((id) =>
       form.append('existingAttachmentIds', id)
@@ -148,5 +149,16 @@ export const costTrackerApi = {
       `/tenants/${tenantId}/projects/${projectId}/cost-trackers/${costTrackerId}/budget`,
       data
     );
+  },
+
+  /** GET /api/.../cost-trackers/link-options */
+  getLinkOptions: async (
+    tenantId: string,
+    projectId: string
+  ): Promise<CostLinkOptionsWeb> => {
+    const res = await axiosClient.get<CostLinkOptionsWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-trackers/link-options`
+    );
+    return res.data;
   },
 };

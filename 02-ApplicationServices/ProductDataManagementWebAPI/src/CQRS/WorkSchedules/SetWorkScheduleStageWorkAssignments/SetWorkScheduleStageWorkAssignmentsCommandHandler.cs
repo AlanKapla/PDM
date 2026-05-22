@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -94,7 +94,7 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
             if (removedUserIds.Count > 0 || addedUserIds.Count > 0)
             {
                 WorkSchedule? workSchedule = await workScheduleRepo.GetFirstBySearch(
-                    ws => ws.Id == request.WorkScheduleId && !ws.IsDeleted);
+                    ws => ws.Id == request.WorkScheduleId);
 
                 if (workSchedule is not null)
                 {

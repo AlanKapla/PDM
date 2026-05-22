@@ -1,4 +1,6 @@
-﻿using CQRS;
+﻿using Business.Interfaces.Constants;
+using Chat.CQRS.Shared;
+using CQRS;
 using MediatR;
 
 namespace Chat.CQRS.Conversations.AddChatMember;
@@ -9,4 +11,9 @@ namespace Chat.CQRS.Conversations.AddChatMember;
 /// For direct chats (converting to group): ProjectId is required; new member must be in that project.
 /// IsGroupChat is recalculated after the addition (memberCount > 2).
 /// </summary>
-public sealed record AddChatMemberCommand(Guid ChatId, Guid UserId, Guid? ProjectId = null) : IRequestCommand<Unit>;
+public sealed record AddChatMemberCommand : ChatScopedRequestBase, IRequestCommand<Unit>
+{
+    public required Guid UserId { get; init; }
+
+    public override string PermissionCode => PermissionCodes.ChatMembersManage;
+}

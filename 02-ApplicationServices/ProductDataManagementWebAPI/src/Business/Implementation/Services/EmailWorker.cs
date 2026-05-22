@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Business.Interfaces.Constants;
@@ -25,6 +25,8 @@ namespace Business.Implementation.Services
             this.logger = logger;
         }
 
+        private const int MaxDequeueCount = 5;
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await queueStorageService.EnsureQueueAsync(QueueNames.EmailSend, stoppingToken);
@@ -39,6 +41,15 @@ namespace Business.Implementation.Services
                     if (msg is null)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                        continue;
+                    }
+
+                    if (msg.DequeueCount > MaxDequeueCount)
+                    {
+                        logger.LogError(
+                            "Poison message detected after {Count} attempts. MessageId: {MessageId}. Deleting.",
+                            msg.DequeueCount, msg.MessageId);
+                        await queueStorageService.DeleteMessageAsync(QueueNames.EmailSend, msg.MessageId, msg.PopReceipt, stoppingToken);
                         continue;
                     }
 
@@ -69,6 +80,7 @@ namespace Business.Implementation.Services
                     catch (Exception ex)
                     {
                         logger.LogError(ex, "Failed to send email. Message will be re-queued. Queue={Queue}, DequeueCount={DequeueCount}", QueueNames.EmailSend, msg.DequeueCount);
+                        throw;
                     }
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

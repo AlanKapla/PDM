@@ -1,17 +1,16 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
-using Entities.Models;
+using Business.Interfaces.Constants;
+using CQRS.Extensions;
 using FluentValidation;
-using Repositories.Repository.Interfaces;
 
 namespace CQRS.Files.UploadProjectFiles
 {
-    public class UploadProjectFilesCommandValidator : AbstractValidator<UploadProjectFilesCommand>
+    public sealed class UploadProjectFilesCommandValidator : AbstractValidator<UploadProjectFilesCommand>
     {
         public UploadProjectFilesCommandValidator()
         {
-            RuleFor(x => x.ProjectFilePackageId)
-                .NotEmpty().WithMessage("ProjectFilePackageId is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.ProjectFilePackageId).RequiredId();
 
             RuleFor(x => x.Files)
                 .NotNull().WithMessage("Files list cannot be null")
@@ -26,20 +25,16 @@ namespace CQRS.Files.UploadProjectFiles
                         .NotNull().WithMessage("File is required");
 
                     fileItem.RuleFor(fi => fi.File.Length)
-                        .GreaterThan(0).WithMessage("File cannot be empty")
-                        .LessThanOrEqualTo(FileConstants.MaxFileSizeBytes)
-                        .WithMessage($"File cannot be larger than {FileConstants.MaxFileSizeBytes / 1024 / 1024} MB")
+                        .MaxFileSize(FileConstants.MaxFileSizeBytes)
                         .When(fi => fi.File != null);
 
                     fileItem.RuleFor(fi => fi.File.FileName)
                         .NotEmpty().WithMessage("File name is required")
-                        .Must(BeValidExtension)
-                        .WithMessage($"Allowed file formats are: {FileConstants.GetAllowedExtensionsMessage()}")
+                        .AllowedFileExtension(FileConstants.AllowedExtensions)
                         .When(fi => fi.File != null);
 
                     fileItem.RuleFor(fi => fi.File.ContentType)
-                        .Must(BeValidContentType)
-                        .WithMessage($"Allowed MIME types are: {FileConstants.GetAllowedContentTypesMessage()}")
+                        .AllowedContentType(FileConstants.AllowedContentTypes)
                         .When(fi => fi.File != null);
 
                     fileItem.RuleFor(fi => fi.DisplayName)
@@ -47,23 +42,6 @@ namespace CQRS.Files.UploadProjectFiles
                         .WithMessage($"Display name cannot exceed {FileConstants.MaxDisplayNameLength} characters")
                         .When(fi => !string.IsNullOrWhiteSpace(fi.DisplayName));
                 });
-        }
-
-        private bool BeValidExtension(string fileName)
-        {
-            if (string.IsNullOrWhiteSpace(fileName))
-                return false;
-
-            var extension = Path.GetExtension(fileName).ToLowerInvariant();
-            return FileConstants.AllowedExtensions.Contains(extension);
-        }
-
-        private bool BeValidContentType(string contentType)
-        {
-            if (string.IsNullOrWhiteSpace(contentType))
-                return false;
-
-            return FileConstants.AllowedContentTypes.Contains(contentType.ToLowerInvariant());
         }
     }
 }

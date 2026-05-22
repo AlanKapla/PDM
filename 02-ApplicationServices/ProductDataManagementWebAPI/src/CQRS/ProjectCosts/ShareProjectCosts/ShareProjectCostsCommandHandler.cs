@@ -1,9 +1,17 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -42,63 +50,65 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
         public async Task<Unit> Handle(ShareProjectCostsCommand request, CancellationToken cancellationToken)
         {
             // 1. Verify costs exist and belong to the correct project/tenant
-            var projectCosts = await projectCostRepo.GetBySearch(
-                pc => request.ProjectCostIds.Contains(pc.Id) 
+            IEnumerable<ProjectCost> projectCostsEnumerable = await projectCostRepo.GetBySearch(
+                pc => request.ProjectCostIds.Contains(pc.Id)
                     && pc.ProjectId == request.ProjectId
-                    && pc.TenantId == request.TenantId
-                    && !pc.IsDeleted);
+                    && pc.TenantId == request.TenantId);
 
-            if (projectCosts.Count() != request.ProjectCostIds.Count())
+            List<ProjectCost> projectCosts = projectCostsEnumerable.ToList();
+
+            if (projectCosts.Count != request.ProjectCostIds.Count())
             {
                 throw new NotFoundApiException(nameof(ProjectCost), "One or more costs not found");
             }
 
             // 2. Authorization check: tenant admin OR project admin OR owner of ALL costs
             bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken);
-            
+
             if (!isAdmin)
             {
-                var notOwnedCosts = projectCosts.Where(pc => pc.UserId != currentUser.Id).ToList();
-                if (notOwnedCosts.Any())
+                List<ProjectCost> notOwnedCosts = projectCosts.Where(pc => pc.UserId != currentUser.Id).ToList();
+                if (notOwnedCosts.Count > 0)
                 {
-                    throw new NotFoundApiException(nameof(ProjectCost), "One or more costs not found");
+                    throw new ForbiddenApiException("You do not have permission to share one or more of the selected costs.");
                 }
             }
 
             // 3. Get all existing shares for all users and costs in one query
-            var existingShares = await sharedProjectCostRepo.GetBySearch(
+            IEnumerable<SharedProjectCost> existingShares = await sharedProjectCostRepo.GetBySearch(
                 spc => request.SharedWithUserIds.Contains(spc.SharedWithUserId) &&
                        request.ProjectCostIds.Contains(spc.ProjectCostId));
 
-            var existingSharesDict = existingShares
+            Dictionary<Guid, HashSet<Guid>> existingSharesDict = existingShares
                 .GroupBy(spc => spc.SharedWithUserId)
                 .ToDictionary(
                     g => g.Key,
                     g => g.Select(spc => spc.ProjectCostId).ToHashSet()
                 );
 
-            var costNamesDict = projectCosts.ToDictionary(pc => pc.Id, pc => pc.Name);
+            Dictionary<Guid, string> costNamesDict = projectCosts.ToDictionary(pc => pc.Id, pc => pc.Name);
 
-            var allSharedCostsToInsert = new List<SharedProjectCost>();
+            List<SharedProjectCost> allSharedCostsToInsert = new List<SharedProjectCost>();
+            List<(Guid UserId, int CostCount)> pendingNotifications = new List<(Guid, int)>();
 
             // 4. For each user, determine costs to share
-            foreach (var userId in request.SharedWithUserIds)
+            foreach (Guid userId in request.SharedWithUserIds)
             {
-                var existingCostIds = existingSharesDict.ContainsKey(userId) 
-                    ? existingSharesDict[userId] 
+                HashSet<Guid> existingCostIds = existingSharesDict.ContainsKey(userId)
+                    ? existingSharesDict[userId]
                     : new HashSet<Guid>();
 
-                var costsToShare = request.ProjectCostIds.Where(id => !existingCostIds.Contains(id)).ToList();
+                List<Guid> costsToShare = request.ProjectCostIds.Where(id => !existingCostIds.Contains(id)).ToList();
 
-                if (!costsToShare.Any())
+                if (costsToShare.Count == 0)
                 {
                     continue;
                 }
 
                 // Prepare shares for this user
-                foreach (var costId in costsToShare)
+                foreach (Guid costId in costsToShare)
                 {
-                    var sharedCost = new SharedProjectCost
+                    SharedProjectCost sharedCost = new SharedProjectCost
                     {
                         TenantId = request.TenantId,
                         ProjectId = request.ProjectId,
@@ -115,14 +125,20 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                     "User {UserId} will share {CostCount} costs with user {SharedWithUserId} in project {ProjectId}",
                     currentUser.Id, costsToShare.Count, userId, request.ProjectId);
 
-                // Send notification to this user
-                await SendNotificationAsync(request, userId, costsToShare.Count, costNamesDict, cancellationToken);
+                pendingNotifications.Add((userId, costsToShare.Count));
             }
 
-            // 5. Insert all shared costs in one batch
-            if (allSharedCostsToInsert.Any())
+            // 5. Insert all shared costs and commit BEFORE sending notifications
+            if (allSharedCostsToInsert.Count > 0)
             {
                 await sharedProjectCostRepo.InsertRange(allSharedCostsToInsert);
+                await sharedProjectCostRepo.SaveChangesAsync(cancellationToken);
+            }
+
+            // 6. Send notifications only after shares are persisted
+            foreach ((Guid userId, int costCount) in pendingNotifications)
+            {
+                await SendNotificationAsync(request, userId, costCount, costNamesDict, cancellationToken);
             }
 
             return Unit.Value;
@@ -178,8 +194,8 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
                 Title = title,
                 Message = message,
                 Metadata = metadata,
-                CreatedAt = DateTimeOffset.UtcNow,
-                Readed = false
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
             };
 
             var payload = await NotificationPayloadHelper.CreatePayloadAsync(notificationDto, notificationRepo, cancellationToken);

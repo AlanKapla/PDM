@@ -57,9 +57,16 @@ export default function ChatMembersDrawer({
     const load = async () => {
       setLoading(true);
       try {
+        if (!chat.tenantId) {
+          // Direct chats have a fixed two-member roster; nothing to refresh.
+          setMembers(chat.members);
+          setAvailableMembers([]);
+          return;
+        }
+        const tenantId = chat.tenantId;
         const [freshMembers, available] = await Promise.all([
-          chatApi.getMembers(chat.id),
-          currentUserIsAdmin ? chatApi.getAvailableMembers(chat.id) : Promise.resolve([]),
+          chatApi.getMembers(tenantId, chat.id),
+          currentUserIsAdmin ? chatApi.getAvailableMembers(tenantId, chat.id) : Promise.resolve([]),
         ]);
         setMembers(freshMembers);
         setAvailableMembers(available);
@@ -71,12 +78,15 @@ export default function ChatMembersDrawer({
     };
 
     load();
-  }, [isOpen, chat.id, currentUserIsAdmin]);
+  }, [isOpen, chat.id, chat.tenantId, chat.members, currentUserIsAdmin]);
 
   const handleRemove = async (userId: string) => {
+    if (!chat.tenantId) {
+      return;
+    }
     setActionUserId(userId);
     try {
-      await chatApi.removeMember(chat.id, userId);
+      await chatApi.removeMember(chat.tenantId, chat.id, userId);
       const removed = members.find((m) => m.userId === userId);
       const newMembers = members.filter((m) => m.userId !== userId);
       setMembers(newMembers);
@@ -96,11 +106,15 @@ export default function ChatMembersDrawer({
   };
 
   const handleAdd = async (userId: string) => {
+    if (!chat.tenantId) {
+      return;
+    }
+    const tenantId = chat.tenantId;
     setActionUserId(userId);
     try {
-      await chatApi.addMember(chat.id, { userId });
+      await chatApi.addMember(tenantId, chat.id, { userId });
       // Pobierz świeżą listę — backend uzupełni pola (joinedAt, isAdmin itp.)
-      const freshMembers = await chatApi.getMembers(chat.id);
+      const freshMembers = await chatApi.getMembers(tenantId, chat.id);
       setMembers(freshMembers);
       onMembersChange?.(freshMembers);
       setAvailableMembers((prev) => prev.filter((m) => m.userId !== userId));
@@ -140,12 +154,12 @@ export default function ChatMembersDrawer({
                         {member.firstName} {member.lastName}
                       </Text>
                       {member.isAdmin && (
-                        <Badge colorScheme="primary" fontSize="10px" flexShrink={0}>
+                        <Badge colorScheme="primary" fontSize="xs" flexShrink={0}>
                           Admin
                         </Badge>
                       )}
                       {member.userId === currentUserId && (
-                        <Badge colorScheme="gray" fontSize="10px" flexShrink={0}>
+                        <Badge colorScheme="gray" fontSize="xs" flexShrink={0}>
                           Ty
                         </Badge>
                       )}

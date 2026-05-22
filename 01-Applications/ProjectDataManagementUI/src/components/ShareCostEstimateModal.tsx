@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -146,7 +146,7 @@ export default function ShareCostEstimateModal({
           <VStack align="stretch" spacing={4}>
             {/* Nazwa kosztorysu */}
             <Box>
-              <Text fontSize="sm" color="gray.500" mb={1}>
+              <Text fontSize="sm" color="neutral.500" mb={1}>
                 Kosztorys:
               </Text>
               <Badge colorScheme="primary" fontSize="sm" px={3} py={1} borderRadius="md">
@@ -160,7 +160,7 @@ export default function ShareCostEstimateModal({
             {loadingMembers ? (
               <HStack justify="center" py={4}>
                 <Spinner size="md" />
-                <Text fontSize="sm" color="gray.500">
+                <Text fontSize="sm" color="neutral.500">
                   Ładowanie członków...
                 </Text>
               </HStack>
@@ -172,7 +172,7 @@ export default function ShareCostEstimateModal({
             ) : (
               <Box>
                 <HStack mb={2} justify="space-between">
-                  <Text fontSize="sm" fontWeight="semibold" color="gray.700">
+                  <Text fontSize="sm" fontWeight="semibold" color="neutral.700">
                     <HStack spacing={1}>
                       <Users size={14} />
                       <span>Wybierz użytkowników ({members.length})</span>
@@ -192,7 +192,7 @@ export default function ShareCostEstimateModal({
                   overflowY="auto"
                   borderWidth="1px"
                   borderRadius="md"
-                  borderColor="gray.200"
+                  borderColor="neutral.200"
                   p={2}
                 >
                   {members.map((member) => {
@@ -204,7 +204,7 @@ export default function ShareCostEstimateModal({
                         borderRadius="md"
                         cursor="pointer"
                         bg={isSelected ? "primary.50" : "transparent"}
-                        _hover={{ bg: isSelected ? "primary.100" : "gray.50" }}
+                        _hover={{ bg: isSelected ? "primary.100" : "neutral.25" }}
                         onClick={() => toggleUser(member.userId)}
                         spacing={3}
                       >
@@ -222,7 +222,7 @@ export default function ShareCostEstimateModal({
                           <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
                             {member.firstName} {member.lastName}
                           </Text>
-                          <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                          <Text fontSize="xs" color="neutral.500" noOfLines={1}>
                             {member.email}
                           </Text>
                         </VStack>

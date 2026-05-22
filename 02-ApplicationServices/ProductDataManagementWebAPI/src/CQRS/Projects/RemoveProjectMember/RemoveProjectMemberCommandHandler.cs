@@ -3,14 +3,22 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Projects.RemoveProjectMember
 {
-    public class RemoveProjectMemberCommandHandler : IRequestHandler<RemoveProjectMemberCommand, Unit>
+    public sealed class RemoveProjectMemberCommandHandler : IRequestHandler<RemoveProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
@@ -47,7 +55,7 @@ namespace CQRS.Projects.RemoveProjectMember
                     && pm.UserId == request.UserId)
                 ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
-            var targetUser = await userService.GetProjectMemberAsync(
+            ProjectMemberUserInfo? targetUser = await userService.GetProjectMemberAsync(
                 request.TenantId, request.ProjectId, request.UserId, cancellationToken);
 
             await projectMemberRepo.Delete(projectMember);
@@ -63,8 +71,8 @@ namespace CQRS.Projects.RemoveProjectMember
                 Type = NotificationType.Warning,
                 Title = "Usunięto z projektu",
                 Message = $"Zostałeś usunięty z projektu: {project.Name}",
-                CreatedAt = DateTimeOffset.UtcNow,
-                Readed = false,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "projectId", request.ProjectId },
@@ -73,7 +81,7 @@ namespace CQRS.Projects.RemoveProjectMember
                 }
             };
 
-            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
             await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;

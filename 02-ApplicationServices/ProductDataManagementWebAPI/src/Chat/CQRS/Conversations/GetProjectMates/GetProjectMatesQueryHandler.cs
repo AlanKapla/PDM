@@ -1,7 +1,7 @@
-﻿using Business.Interfaces.DTO;
+using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Chat.DTOs;
+using Business.Interfaces.WebModels.Chats;
 using MediatR;
 
 namespace Chat.CQRS.Conversations.GetProjectMates;
@@ -24,6 +24,11 @@ public sealed class GetProjectMatesQueryHandler : IRequestHandler<GetProjectMate
         List<ProjectMembersGroupDto> groups = await projectMemberService.GetUserProjectGroupsAsync(
             currentUser.Id,
             cancellationToken);
+
+        if (request.TenantId is not null)
+        {
+            groups = groups.Where(g => g.TenantId == request.TenantId.Value).ToList();
+        }
 
         if (groups.Count == 0)
         {

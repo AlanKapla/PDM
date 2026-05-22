@@ -70,7 +70,7 @@ export default function MoveWorkModal({ isOpen, onClose, stageId, workId }: Move
         <DrawerHeader borderBottomWidth="1px">Przenieś zakres pracy</DrawerHeader>
         <DrawerBody py={4}>
           <VStack spacing={4}>
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="neutral.600">
               Przenosisz: <strong>{workName}</strong>
             </Text>
             <FormControl isRequired>
@@ -101,7 +101,7 @@ export default function MoveWorkModal({ isOpen, onClose, stageId, workId }: Move
           </VStack>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
           <Button colorScheme="primary" onClick={handleSave} isLoading={isSubmitting}>Przenieś</Button>
         </DrawerFooter>
       </DrawerContent>

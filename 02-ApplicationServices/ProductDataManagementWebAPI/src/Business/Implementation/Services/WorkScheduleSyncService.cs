@@ -1,7 +1,16 @@
 ﻿using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.CostTrackers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -15,6 +24,7 @@ namespace Business.Implementation.Services
         private readonly IRepository<WorkScheduleStage> stageRepo;
         private readonly IRepository<WorkScheduleStageWork> workRepo;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
+        private readonly IRepository<TrackedCost> trackedCostRepo;
         private readonly ILogger<WorkScheduleSyncService> logger;
 
         private const string DefaultWorkColorRgb = "#3B82F6";
@@ -25,6 +35,7 @@ namespace Business.Implementation.Services
             IRepository<WorkScheduleStage> stageRepo,
             IRepository<WorkScheduleStageWork> workRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
+            IRepository<TrackedCost> trackedCostRepo,
             ILogger<WorkScheduleSyncService> logger)
         {
             this.costEstimateGroupRepo = costEstimateGroupRepo;
@@ -32,6 +43,7 @@ namespace Business.Implementation.Services
             this.stageRepo = stageRepo;
             this.workRepo = workRepo;
             this.dependencyRepo = dependencyRepo;
+            this.trackedCostRepo = trackedCostRepo;
             this.logger = logger;
         }
 
@@ -40,69 +52,36 @@ namespace Business.Implementation.Services
             CancellationToken cancellationToken)
         {
             if (!workSchedule.CostEstimateId.HasValue)
+            {
                 throw new InvalidOperationException(
                     $"WorkSchedule {workSchedule.Id} is not linked to a cost estimate.");
+            }
 
-            var costEstimateId = workSchedule.CostEstimateId.Value;
+            Guid costEstimateId = workSchedule.CostEstimateId.Value;
 
-            // Load all non-deleted groups from the cost estimate with their GroupName field values
-            var allGroups = (await costEstimateGroupRepo.GetBySearch(
+            List<CostEstimateGroup> allGroups = (await costEstimateGroupRepo.GetBySearch(
                 g => g.CostEstimateId == costEstimateId && !g.IsDeleted,
                 include => include
                     .Include(g => g.FieldValues)
                     .ThenInclude(fv => fv.FieldDefinition)))
                 .ToList();
 
-            // Load existing stages linked to this cost estimate (not soft-deleted)
-            var existingLinkedStages = (await stageRepo.GetBySearch(
-                s => s.WorkScheduleId == workSchedule.Id
-                     && !s.IsDeleted
-                     && s.CostEstimateGroupId != null))
+            List<WorkScheduleStage> allStages = (await stageRepo.GetBySearch(
+                s => s.WorkScheduleId == workSchedule.Id && !s.IsDeleted))
                 .ToList();
 
-            var activeGroupIds = allGroups.Select(g => g.Id).ToHashSet();
+            HashSet<Guid> activeGroupIds = allGroups.Select(g => g.Id).ToHashSet();
+            HashSet<Guid> softDeletedStageIds = await SoftDeleteObsoleteStagesAsync(
+                allStages, activeGroupIds, workSchedule, cancellationToken);
 
-            // Soft-delete stages whose cost estimate groups have been deleted
-            List<WorkScheduleStage> stagesToSoftDelete = existingLinkedStages
-                .Where(s => !activeGroupIds.Contains(s.CostEstimateGroupId!.Value))
-                .ToList();
-
-            foreach (var stage in stagesToSoftDelete)
-            {
-                stage.IsDeleted = true;
-                stage.DeletedAt = DateTime.UtcNow;
-                await stageRepo.Update(stage);
-                logger.LogInformation(
-                    "Soft-deleted work schedule stage {StageId} — linked cost estimate group {GroupId} is no longer active",
-                    stage.Id, stage.CostEstimateGroupId);
-            }
-
-            if (stagesToSoftDelete.Count > 0)
-            {
-                var softDeletedStageIds = stagesToSoftDelete.Select(s => s.Id).ToHashSet();
-                var worksInSoftDeletedStages = (await workRepo.GetBySearch(
-                    w => softDeletedStageIds.Contains(w.WorkScheduleStageId)))
-                    .ToList();
-
-                await DeleteObsoleteWorkScopesAsync(worksInSoftDeletedStages, workSchedule.Id, cancellationToken);
-            }
-
-            var existingStagesByGroupId = existingLinkedStages
-                .Where(s => !s.IsDeleted)
+            Dictionary<Guid, WorkScheduleStage> existingStagesByGroupId = allStages
+                .Where(s => s.CostEstimateGroupId.HasValue && !softDeletedStageIds.Contains(s.Id))
                 .ToDictionary(s => s.CostEstimateGroupId!.Value);
 
-            // Build group parent-child lookup
-            var childGroupsByParent = allGroups
-                .Where(g => g.ParentGroupId.HasValue)
-                .GroupBy(g => g.ParentGroupId!.Value)
-                .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Order).ToList());
+            (List<CostEstimateGroup> rootGroups, Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParent) =
+                BuildGroupHierarchy(allGroups);
 
-            var rootGroups = allGroups
-                .Where(g => g.ParentGroupId == null)
-                .OrderBy(g => g.Order)
-                .ToList();
-
-            var resultStages = new List<WorkScheduleStage>();
+            List<WorkScheduleStage> resultStages = new List<WorkScheduleStage>();
 
             await ProcessGroupsAsync(
                 rootGroups, null, workSchedule,
@@ -111,11 +90,64 @@ namespace Business.Implementation.Services
 
             await stageRepo.SaveChangesAsync(cancellationToken);
 
-            await SyncWorksFromItemsAsync(workSchedule, resultStages, costEstimateId, cancellationToken);
+            Dictionary<Guid, WorkScheduleStage> stageByGroupId = resultStages
+                .Where(s => s.CostEstimateGroupId.HasValue)
+                .ToDictionary(s => s.CostEstimateGroupId!.Value);
 
+            await SyncWorksFromItemsAsync(workSchedule, stageByGroupId, costEstimateId, cancellationToken);
             await workRepo.SaveChangesAsync(cancellationToken);
 
             return resultStages;
+        }
+
+        private async Task<HashSet<Guid>> SoftDeleteObsoleteStagesAsync(
+            List<WorkScheduleStage> allStages,
+            HashSet<Guid> activeGroupIds,
+            WorkSchedule workSchedule,
+            CancellationToken cancellationToken)
+        {
+            List<WorkScheduleStage> stagesToSoftDelete = allStages
+                .Where(s => s.CostEstimateGroupId.HasValue && !activeGroupIds.Contains(s.CostEstimateGroupId!.Value))
+                .ToList();
+
+            DateTime now = DateTime.UtcNow;
+            foreach (WorkScheduleStage stage in stagesToSoftDelete)
+            {
+                stage.IsDeleted = true;
+                stage.DeletedAt = now;
+                await stageRepo.Update(stage);
+                logger.LogInformation(
+                    "Soft-deleted work schedule stage {StageId} — linked cost estimate group {GroupId} is no longer active",
+                    stage.Id, stage.CostEstimateGroupId);
+            }
+
+            if (stagesToSoftDelete.Count > 0)
+            {
+                List<Guid> softDeletedStageIds = stagesToSoftDelete.Select(s => s.Id).ToList();
+                List<WorkScheduleStageWork> worksInSoftDeletedStages = (await workRepo.GetBySearch(
+                    w => softDeletedStageIds.Contains(w.WorkScheduleStageId)))
+                    .ToList();
+
+                await DeleteObsoleteWorkScopesAsync(worksInSoftDeletedStages, workSchedule.Id, cancellationToken);
+            }
+
+            return stagesToSoftDelete.Select(s => s.Id).ToHashSet();
+        }
+
+        private static (List<CostEstimateGroup> RootGroups, Dictionary<Guid, List<CostEstimateGroup>> ChildGroupsByParent) BuildGroupHierarchy(
+            List<CostEstimateGroup> allGroups)
+        {
+            Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParent = allGroups
+                .Where(g => g.ParentGroupId.HasValue)
+                .GroupBy(g => g.ParentGroupId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Order).ToList());
+
+            List<CostEstimateGroup> rootGroups = allGroups
+                .Where(g => g.ParentGroupId == null)
+                .OrderBy(g => g.Order)
+                .ToList();
+
+            return (rootGroups, childGroupsByParent);
         }
 
         private async Task ProcessGroupsAsync(
@@ -129,11 +161,11 @@ namespace Business.Implementation.Services
         {
             for (int i = 0; i < groups.Count; i++)
             {
-                var group = groups[i];
-                var name = ResolveGroupName(group, i + 1);
+                CostEstimateGroup group = groups[i];
+                string name = ResolveGroupName(group, i + 1);
                 WorkScheduleStage stage;
 
-                if (existingStagesByGroupId.TryGetValue(group.Id, out var existingStage))
+                if (existingStagesByGroupId.TryGetValue(group.Id, out WorkScheduleStage? existingStage))
                 {
                     existingStage.Name = name;
                     existingStage.Order = i;
@@ -148,14 +180,12 @@ namespace Business.Implementation.Services
                         TenantId = workSchedule.TenantId,
                         ProjectId = workSchedule.ProjectId,
                         WorkScheduleId = workSchedule.Id,
-                        CostEstimateGroupId = group.Id,
                         ParentStageId = parentStageId,
+                        CostEstimateGroupId = group.Id,
                         Name = name,
                         Order = i
                     };
                     await stageRepo.Insert(stage);
-                    // SaveChangesAsync required here: child stages need this stage's Id as ParentStageId
-                    await stageRepo.SaveChangesAsync(cancellationToken);
 
                     logger.LogInformation(
                         "Created work schedule stage {StageId} for cost estimate group {GroupId} in work schedule {WorkScheduleId}",
@@ -164,7 +194,7 @@ namespace Business.Implementation.Services
 
                 resultStages.Add(stage);
 
-                if (childGroupsByParent.TryGetValue(group.Id, out var childGroups))
+                if (childGroupsByParent.TryGetValue(group.Id, out List<CostEstimateGroup>? childGroups))
                 {
                     await ProcessGroupsAsync(
                         childGroups, stage.Id, workSchedule,
@@ -176,7 +206,7 @@ namespace Business.Implementation.Services
 
         private static string ResolveGroupName(CostEstimateGroup group, int order)
         {
-            var nameValue = group.FieldValues
+            string? nameValue = group.FieldValues
                 .FirstOrDefault(fv => fv.FieldDefinition.FieldType == FieldType.GroupName)
                 ?.StringValue;
 
@@ -185,45 +215,43 @@ namespace Business.Implementation.Services
 
         private async Task SyncWorksFromItemsAsync(
             WorkSchedule workSchedule,
-            List<WorkScheduleStage> stages,
+            Dictionary<Guid, WorkScheduleStage> stageByGroupId,
             Guid costEstimateId,
             CancellationToken cancellationToken)
         {
-            var allItems = (await costEstimateItemRepo.GetBySearch(
+            List<CostEstimateItem> allItems = (await costEstimateItemRepo.GetBySearch(
                 i => i.CostEstimateId == costEstimateId && !i.IsDeleted,
                 include => include
                     .Include(i => i.FieldValues)
                     .ThenInclude(fv => fv.FieldDefinition)))
                 .ToList();
 
-            var stageByGroupId = stages
-                .Where(s => s.CostEstimateGroupId.HasValue)
-                .ToDictionary(s => s.CostEstimateGroupId!.Value);
-
-            var stageIds = stages.Select(s => s.Id).ToHashSet();
-            var existingLinkedWorks = (await workRepo.GetBySearch(
+            HashSet<Guid> stageIds = stageByGroupId.Values.Select(s => s.Id).ToHashSet();
+            List<WorkScheduleStageWork> existingLinkedWorks = (await workRepo.GetBySearch(
                 w => stageIds.Contains(w.WorkScheduleStageId) && w.CostEstimateItemId.HasValue))
                 .ToList();
 
-            var existingWorkByItemId = existingLinkedWorks
+            Dictionary<Guid, WorkScheduleStageWork> existingWorkByItemId = existingLinkedWorks
                 .ToDictionary(w => w.CostEstimateItemId!.Value);
 
-            var activeItemIds = new HashSet<Guid>();
+            HashSet<Guid> activeItemIds = new HashSet<Guid>();
 
-            var itemsByGroupId = allItems
+            Dictionary<Guid, List<CostEstimateItem>> itemsByGroupId = allItems
                 .GroupBy(i => i.GroupId)
                 .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Order).ToList());
 
-            foreach (var (groupId, groupItems) in itemsByGroupId)
+            foreach ((Guid groupId, List<CostEstimateItem> groupItems) in itemsByGroupId)
             {
-                if (!stageByGroupId.TryGetValue(groupId, out var stage))
+                if (!stageByGroupId.TryGetValue(groupId, out WorkScheduleStage? stage))
+                {
                     continue;
+                }
 
-                var workScopeItems = groupItems.Where(IsWorkScopeItem).ToList();
-                await UpsertWorkScopesForStageAsync(workSchedule, stage, workScopeItems, existingWorkByItemId, activeItemIds);
+                List<CostEstimateItem> workScopeItems = groupItems.Where(IsWorkScopeItem).ToList();
+                await UpsertWorkScopesForStageAsync(workSchedule, stage, workScopeItems, existingWorkByItemId, activeItemIds, cancellationToken);
             }
 
-            var worksToDelete = existingLinkedWorks
+            List<WorkScheduleStageWork> worksToDelete = existingLinkedWorks
                 .Where(w => !activeItemIds.Contains(w.CostEstimateItemId!.Value))
                 .ToList();
 
@@ -235,15 +263,16 @@ namespace Business.Implementation.Services
             WorkScheduleStage stage,
             List<CostEstimateItem> workScopeItems,
             Dictionary<Guid, WorkScheduleStageWork> existingWorkByItemId,
-            HashSet<Guid> activeItemIds)
+            HashSet<Guid> activeItemIds,
+            CancellationToken cancellationToken)
         {
             for (int i = 0; i < workScopeItems.Count; i++)
             {
-                var item = workScopeItems[i];
+                CostEstimateItem item = workScopeItems[i];
                 activeItemIds.Add(item.Id);
-                var name = ResolveItemName(item, i + 1);
+                string name = ResolveItemName(item, i + 1);
 
-                if (existingWorkByItemId.TryGetValue(item.Id, out var existingWork))
+                if (existingWorkByItemId.TryGetValue(item.Id, out WorkScheduleStageWork? existingWork))
                 {
                     existingWork.Name = name;
                     existingWork.Order = i;
@@ -251,7 +280,7 @@ namespace Business.Implementation.Services
                 }
                 else
                 {
-                    var newWork = new WorkScheduleStageWork
+                    WorkScheduleStageWork newWork = new WorkScheduleStageWork
                     {
                         TenantId = workSchedule.TenantId,
                         ProjectId = workSchedule.ProjectId,
@@ -262,6 +291,14 @@ namespace Business.Implementation.Services
                         ColorRgb = DefaultWorkColorRgb
                     };
                     await workRepo.Insert(newWork);
+                    await workRepo.SaveChangesAsync(cancellationToken);
+
+                    await trackedCostRepo.ExecuteUpdateAsync(
+                        tc => tc.CostEstimateItemId == item.Id
+                              && tc.WorkScheduleStageWorkId == null,
+                        tc => tc.SetProperty(p => p.WorkScheduleStageWorkId, newWork.Id),
+                        cancellationToken);
+
                     logger.LogInformation(
                         "Created work scope {WorkId} for cost estimate item {ItemId} in stage {StageId}",
                         newWork.Id, item.Id, stage.Id);
@@ -275,18 +312,43 @@ namespace Business.Implementation.Services
             CancellationToken cancellationToken)
         {
             if (worksToDelete.Count == 0)
-                return;
-
-            var deletedWorkIds = worksToDelete.Select(w => w.Id).ToHashSet();
-            await DeleteDependenciesForWorksAsync(deletedWorkIds, workScheduleId, cancellationToken);
-            await workRepo.DeleteRange(worksToDelete);
-
-            foreach (var w in worksToDelete)
             {
-                logger.LogInformation(
-                    "Deleted work scope {WorkId} — linked cost estimate item {ItemId} is no longer a work scope",
-                    w.Id, w.CostEstimateItemId);
+                return;
             }
+
+            List<Guid> deletedWorkIds = worksToDelete.Select(w => w.Id).ToList();
+            await DeleteDependenciesForWorksAsync(deletedWorkIds.ToHashSet(), workScheduleId, cancellationToken);
+
+            await trackedCostRepo.ExecuteUpdateAsync(
+                tc => deletedWorkIds.Contains(tc.WorkScheduleStageWorkId!.Value),
+                tc => tc.SetProperty(p => p.WorkScheduleStageWorkId, (Guid?)null),
+                cancellationToken);
+
+            List<Guid> deletedItemIds = worksToDelete
+                .Where(w => w.CostEstimateItemId.HasValue)
+                .Select(w => w.CostEstimateItemId!.Value)
+                .ToList();
+
+            if (deletedItemIds.Count > 0)
+            {
+                await trackedCostRepo.ExecuteUpdateAsync(
+                    tc => deletedItemIds.Contains(tc.CostEstimateItemId!.Value)
+                          && tc.WorkScheduleStageWorkId == null,
+                    tc => tc.SetProperty(p => p.CostEstimateItemId, (Guid?)null),
+                    cancellationToken);
+            }
+
+            DateTime now = DateTime.UtcNow;
+            foreach (WorkScheduleStageWork work in worksToDelete)
+            {
+                work.IsDeleted = true;
+                work.DeletedAt = now;
+                logger.LogInformation(
+                    "Soft-deleted work scope {WorkId} — linked cost estimate item {ItemId} is no longer a work scope",
+                    work.Id, work.CostEstimateItemId);
+            }
+            await workRepo.UpdateRange(worksToDelete);
+            await workRepo.SaveChangesAsync(cancellationToken);
         }
 
         private static bool IsWorkScopeItem(CostEstimateItem item)
@@ -298,7 +360,7 @@ namespace Business.Implementation.Services
 
         private static string ResolveItemName(CostEstimateItem item, int order)
         {
-            var nameValue = item.FieldValues
+            string? nameValue = item.FieldValues
                 .FirstOrDefault(fv => fv.FieldDefinition.FieldType == FieldType.ItemSystemName)
                 ?.StringValue;
 
@@ -311,15 +373,19 @@ namespace Business.Implementation.Services
             CancellationToken cancellationToken)
         {
             if (workIds.Count == 0)
+            {
                 return;
+            }
 
-            List<WorkScheduleStageWorkDependency> affected = (await dependencyRepo.GetBySearch(
+            List<WorkScheduleStageWorkDependency> affectedDependencies = (await dependencyRepo.GetBySearch(
                 d => d.WorkScheduleId == workScheduleId
                      && (workIds.Contains(d.PredecessorWorkId) || workIds.Contains(d.SuccessorWorkId))))
                 .ToList();
 
-            if (affected.Count > 0)
-                await dependencyRepo.DeleteRange(affected);
+            if (affectedDependencies.Count > 0)
+            {
+                await dependencyRepo.DeleteRange(affectedDependencies);
+            }
         }
     }
 }

@@ -27,43 +27,21 @@ import {
 } from "lucide-react";
 
 import { useLocation, Link as RouterLink } from "react-router-dom";
-import { useState, useEffect, useContext } from "react";
-import { getActiveInvitations } from "../services/tenantService";
+import { useContext } from "react";
 import { InvitationStatus } from "../types/auth.types";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import { useActiveInvitations } from "../hooks/queries";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
 export function SidebarContent() {
   const location = useLocation();
   const { totalUnread } = useContext(ChatUnreadContext);
-
-  const [invitationsCount, setInvitationsCount] = useState(0);
-
-  // Globalny cache dla invitations (współdzielony z ActiveInvitations page)
-  const invitationsCache = useGlobalCache(
-    'invitations',
-    async () => {
-      return await getActiveInvitations();
-    }
-  );
-
-  // Pobierz liczbę aktywnych zaproszeń
-  useEffect(() => {
-    const fetchInvitations = async () => {
-      try {
-        const invitations = await invitationsCache.fetch();
-        const pending = invitations.filter((inv: { status: number }) => inv.status === InvitationStatus.Pending);
-        setInvitationsCount(pending.length);
-      } catch (error) {
-      }
-    };
-
-    fetchInvitations();
-    // Odświeżaj co 30 sekund
-    const interval = setInterval(fetchInvitations, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const { data: invitations = [] } = useActiveInvitations({
+    refetchInterval: 30000,
+  });
+  const invitationsCount = invitations.filter(
+    (inv) => inv.status === InvitationStatus.Pending
+  ).length;
 
   const activeBg = useColorModeValue("primary.100", "primary.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");

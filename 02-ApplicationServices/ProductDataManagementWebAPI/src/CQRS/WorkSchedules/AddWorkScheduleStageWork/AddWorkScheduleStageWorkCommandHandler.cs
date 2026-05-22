@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -30,8 +30,7 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWork
             bool stageExists = await stageRepository.AnyAsync(
                 s => s.Id == request.WorkScheduleStageId
                   && s.WorkScheduleId == request.WorkScheduleId
-                  && s.TenantId == request.TenantId
-                  && !s.IsDeleted,
+                  && s.TenantId == request.TenantId,
                 cancellationToken);
 
             if (!stageExists)
@@ -54,6 +53,7 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWork
 
             await workRepository.Insert(work);
             await workRepository.SaveChangesAsync(cancellationToken);
+
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return work.Id;
         }

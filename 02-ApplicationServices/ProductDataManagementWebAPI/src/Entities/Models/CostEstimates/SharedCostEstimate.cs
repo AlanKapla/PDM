@@ -1,4 +1,7 @@
 ﻿using Entities.Models.Base;
+using Entities.Models.Projects;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
 
 namespace Entities.Models.CostEstimates
 {

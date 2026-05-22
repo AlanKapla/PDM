@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Drawer,
   DrawerOverlay,
@@ -17,14 +17,16 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react";
 import { Edit2, Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "../../utils/formatters";
 import AttachmentList from "./AttachmentList";
 import CostFormDrawer from "./CostFormDrawer";
 import { DeleteCostConfirm } from "./PositionsTable";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { handleApiError } from "../../utils/handleApiError";
-import type { TrackedCostWeb } from "../../types/costTracker.types";
+import type { CostEstimateSummaryWeb, TrackedCostWeb } from "../../types/costTracker.types";
 
 interface CostListDrawerProps {
   isOpen: boolean;
@@ -34,6 +36,7 @@ interface CostListDrawerProps {
   projectId: string;
   costs: TrackedCostWeb[];
   title: string;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 function formatNet(value: number | null): string {
@@ -49,8 +52,10 @@ export default function CostListDrawer({
   projectId,
   costs,
   title,
+  estimates,
 }: CostListDrawerProps) {
   const { showSuccess, showError } = useToastNotification();
+  const queryClient = useQueryClient();
   const size = useBreakpointValue({ base: "full", md: "lg" }) as string;
 
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
@@ -64,6 +69,8 @@ export default function CostListDrawer({
     setIsDeleting(true);
     try {
       await costTrackerApi.deleteCost(tenantId, projectId, deletingCost.id);
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.costs(tenantId, projectId) });
       showSuccess("Koszt usunięty");
       onDeleteClose();
       setDeletingCost(null);
@@ -85,7 +92,7 @@ export default function CostListDrawer({
           <DrawerHeader>{title}</DrawerHeader>
           <DrawerBody>
             {costs.length === 0 ? (
-              <Text color="gray.500" fontSize="sm">
+              <Text color="neutral.500" fontSize="sm">
                 Brak kosztów.
               </Text>
             ) : (
@@ -98,25 +105,27 @@ export default function CostListDrawer({
                           {cost.name}
                         </Text>
                         <HStack spacing={4} flexWrap="wrap">
-                          <Text fontSize="xs" color="gray.600">
+                          <Text fontSize="xs" color="neutral.600">
                             Netto: {formatNet(cost.net)}
                           </Text>
-                          <Text fontSize="xs" color="gray.600">
-                            Brutto: {formatNet(cost.gross)}
-                          </Text>
+                          {cost.number && (
+                            <Text fontSize="xs" color="neutral.600">
+                              Nr faktury: {cost.number}
+                            </Text>
+                          )}
                           {cost.date && (
-                            <Text fontSize="xs" color="gray.600">
+                            <Text fontSize="xs" color="neutral.600">
                               Data: {formatDate(cost.date, false)}
                             </Text>
                           )}
-                          {cost.contractor && (
-                            <Text fontSize="xs" color="gray.600">
-                              Wykonawca: {cost.contractor}
+                          {cost.contractorName && (
+                            <Text fontSize="xs" color="neutral.600">
+                              Wykonawca: {cost.contractorName}
                             </Text>
                           )}
                         </HStack>
                         {cost.description && (
-                          <Text fontSize="xs" color="gray.500" noOfLines={2}>
+                          <Text fontSize="xs" color="neutral.500" noOfLines={2}>
                             {cost.description}
                           </Text>
                         )}

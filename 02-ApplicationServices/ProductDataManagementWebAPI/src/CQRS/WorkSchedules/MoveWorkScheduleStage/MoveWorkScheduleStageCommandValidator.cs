@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.MoveWorkScheduleStage
 {
@@ -6,12 +7,12 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStage
     {
         public MoveWorkScheduleStageCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.StageId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageId).RequiredId();
             RuleFor(x => x)
-                .Must(c => c.ParentStageId == null || c.ParentStageId != c.StageId)
+                .Must(c => c.ParentStageId == null || c.ParentStageId != c.WorkScheduleStageId)
                 .WithName("ParentStageId")
                 .WithMessage("A stage cannot be its own parent.");
         }

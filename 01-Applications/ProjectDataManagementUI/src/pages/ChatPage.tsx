@@ -1,4 +1,4 @@
-import { Box, Text, Center, useColorModeValue, VStack, Icon } from "@chakra-ui/react";
+﻿import { Box, Text, Center, useColorModeValue, VStack, Icon } from "@chakra-ui/react";
 import { MessageSquare } from "lucide-react";
 import { useState, useEffect, useContext, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -151,7 +151,7 @@ export default function ChatPage() {
             />
           ) : (
             <Center flex={1}>
-              <VStack spacing={3} color="gray.400">
+              <VStack spacing={3} color="neutral.400">
                 <Icon as={MessageSquare} boxSize={12} />
                 <Text fontSize="md">Wybierz rozmowę lub rozpocznij nową</Text>
               </VStack>

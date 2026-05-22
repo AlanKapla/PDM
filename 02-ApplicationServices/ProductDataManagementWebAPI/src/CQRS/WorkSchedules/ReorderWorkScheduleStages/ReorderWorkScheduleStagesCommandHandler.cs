@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.Exceptions;
-using Business.Interfaces.Services;
-using Entities.Models;
+﻿using Business.Interfaces.Services;
+using CQRS.WorkSchedules.Shared;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -28,27 +28,15 @@ namespace CQRS.WorkSchedules.ReorderWorkScheduleStages
 
             IEnumerable<WorkScheduleStage> stagesRaw = await stageRepo.GetBySearch(
                 s => s.WorkScheduleId == request.WorkScheduleId
-                  && s.TenantId == request.TenantId
-                  && !s.IsDeleted);
+                  && s.TenantId == request.TenantId);
 
             Dictionary<Guid, WorkScheduleStage> stageMap = stagesRaw.ToDictionary(s => s.Id);
-            HashSet<Guid> orderedStageIds = request.OrderedStageIds.ToHashSet();
 
-            if (request.OrderedStageIds.Count != stageMap.Count
-                || orderedStageIds.Count != stageMap.Count
-                || !orderedStageIds.SetEquals(stageMap.Keys))
-            {
-                throw new ValidationApiException("OrderedStageIds must contain exactly all stages from the work schedule.");
-            }
-
-            for (int i = 0; i < request.OrderedStageIds.Count; i++)
-            {
-                stageMap[request.OrderedStageIds[i]].Order = i;
-            }
-
-            List<WorkScheduleStage> stagesToUpdate = request.OrderedStageIds
-                .Select(id => stageMap[id])
-                .ToList();
+            List<WorkScheduleStage> stagesToUpdate = WorkScheduleOrderHelper.ReassignSequentialOrders(
+                request.OrderedStageIds,
+                stageMap,
+                static (s, i) => s.Order = i,
+                "OrderedStageIds must contain exactly all stages from the work schedule.");
 
             await stageRepo.UpdateRange(stagesToUpdate);
             await stageRepo.SaveChangesAsync(cancellationToken);

@@ -138,12 +138,12 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
           flexDirection="column"
         >
           {/* Drag handle */}
-          <Box w="40px" h="4px" bg="gray.300" borderRadius="full" mx="auto" mt={2} mb={1} cursor="grab" />
+          <Box w="40px" h="4px" bg="neutral.200" borderRadius="full" mx="auto" mt={2} mb={1} cursor="grab" />
 
           <ModalHeader pb={2}>
             <HStack justify="space-between" align="start">
               <VStack align="start" spacing="0">
-                <Text fontSize="xs" color="gray.500">{typeLabel}</Text>
+                <Text fontSize="xs" color="neutral.400">{typeLabel}</Text>
                 <Text fontWeight="bold" fontSize="lg" noOfLines={2}>{displayName}</Text>
               </VStack>
               <IconButton
@@ -160,7 +160,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
           <ModalBody pt={1} overflowY="auto" overflowX="hidden" flex="1" px={4}>
 
             {/* Sekcja: Podsumowanie */}
-            <Box borderBottomWidth="1px" borderColor="gray.100">
+            <Box borderBottomWidth="1px" borderColor="neutral.100">
               <HStack
                 px={0}
                 py={3}
@@ -169,20 +169,20 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
                 justify="space-between"
                 userSelect="none"
               >
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700">Podsumowanie</Text>
+                <Text fontSize="sm" fontWeight="semibold" color="neutral.700">Podsumowanie</Text>
                 <ChevronDown
                   size={16}
                   style={{
                     transform: openSections['summary'] ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.2s',
-                    color: 'var(--chakra-colors-gray-500)',
+                    color: 'var(--chakra-colors-neutral-400)',
                   }}
                 />
               </HStack>
               <Collapse in={openSections['summary'] ?? false} animateOpacity>
                 <Box pb={4}>
                   <HStack
-                    bg={level === 0 ? 'primary.50' : 'action.50'}
+                    bg="neutral.50"
                     borderRadius="md"
                     px={3}
                     py={2}
@@ -190,13 +190,13 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
                   >
                     <VStack align="start" spacing={0}>
                       <Text fontSize="xs" color="gray.500">Pozycji</Text>
-                      <Badge colorScheme={level === 0 ? 'primary' : 'action'}>{totalItems}</Badge>
+                      <Badge colorScheme="neutral">{totalItems}</Badge>
                     </VStack>
                     <Divider orientation="vertical" h="32px" />
                     {fallbackValue !== null ? (
                       <VStack align="start" spacing={0}>
                         <Text fontSize="xs" color="gray.500">Łączna wartość</Text>
-                        <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'primary.700' : 'action.700'}>
+                        <Text fontSize="sm" fontWeight="bold" color="neutral.700">
                           {fallbackValue}
                         </Text>
                       </VStack>
@@ -206,7 +206,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
                           {i > 0 && <Divider orientation="vertical" h="32px" />}
                           <VStack align="start" spacing={0}>
                             <Text fontSize="xs" color="gray.500">{sv.label}</Text>
-                            <Text fontSize="sm" fontWeight="bold" color={level === 0 ? 'primary.700' : 'action.700'}>
+                            <Text fontSize="sm" fontWeight="bold" color="neutral.700">
                               {formatCurrencyValue(sv.value, currencySymbol)}
                             </Text>
                           </VStack>
@@ -228,13 +228,13 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
                 justify="space-between"
                 userSelect="none"
               >
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700">Pola etapu</Text>
+                <Text fontSize="sm" fontWeight="semibold" color="neutral.700">Pola etapu</Text>
                 <ChevronDown
                   size={16}
                   style={{
                     transform: openSections['fields'] ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.2s',
-                    color: 'var(--chakra-colors-gray-500)',
+                    color: 'var(--chakra-colors-neutral-400)',
                   }}
                 />
               </HStack>
@@ -256,7 +256,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
                         if (!rendered) return null;
                         return (
                           <FormControl key={field.id}>
-                            <FormLabel fontSize="sm" color="gray.600" mb={1}>
+                            <FormLabel fontSize="sm" color="neutral.600" mb={1}>
                               {field.label || field.customLabel || field.fieldName}
                             </FormLabel>
                             {rendered}
@@ -271,7 +271,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
 
           </ModalBody>
 
-          <ModalFooter borderTopWidth="1px" borderTopColor="gray.100">
+          <ModalFooter borderTopWidth="1px" borderTopColor="neutral.100">
             {editable && onDeleteGroup && (
               <Button
                 colorScheme="red"
@@ -284,7 +284,7 @@ export const GroupEditModal: React.FC<GroupEditModalProps> = ({
               </Button>
             )}
             <Spacer />
-            <Button variant="outline" onClick={onClose} size="sm">
+            <Button variant="ghost" colorScheme="gray" onClick={onClose} size="sm">
               Zamknij
             </Button>
           </ModalFooter>

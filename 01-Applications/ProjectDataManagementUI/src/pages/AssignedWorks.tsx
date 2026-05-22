@@ -10,6 +10,7 @@ import {
   FormControl,
   HStack,
   Heading,
+  Icon,
   SimpleGrid,
   Spinner,
   Switch,
@@ -17,7 +18,6 @@ import {
   Textarea,
   Tooltip,
   VStack,
-  useColorModeValue,
 } from "@chakra-ui/react";
 import {
   Briefcase,
@@ -25,6 +25,7 @@ import {
   ChevronRight,
   ChevronsDown,
   ChevronsUp,
+  ClipboardList,
   FolderKanban,
   MessageSquare,
   RefreshCw,
@@ -53,8 +54,8 @@ interface PeriodRowProps {
 }
 
 const PeriodRow = memo(function PeriodRow({ period, isMutating, onToggle }: PeriodRowProps) {
-  const borderColor = useColorModeValue("gray.100", "gray.700");
-  const bgClosed = useColorModeValue("gray.50", "gray.750");
+  const borderColor = "neutral.100";
+  const bgClosed = "neutral.50";
 
   return (
     <HStack
@@ -71,13 +72,13 @@ const PeriodRow = memo(function PeriodRow({ period, isMutating, onToggle }: Peri
         isChecked={period.isClosed}
         onChange={e => onToggle(e.target.checked)}
         isDisabled={isMutating}
-        colorScheme="green"
+        colorScheme="primary"
       />
       <Text fontSize="xs" fontFamily="mono" whiteSpace="nowrap">
         {formatDateShort(period.startDate)} - {formatDateShort(period.endDate)}
       </Text>
       {period.isClosed && (
-        <Badge colorScheme="green" fontSize="2xs">Zamkniety</Badge>
+        <Badge colorScheme="level1" fontSize="2xs">Zamkniety</Badge>
       )}
     </HStack>
   );
@@ -93,9 +94,9 @@ interface CommentsSectionProps {
 
 const CommentsSection = memo(function CommentsSection({ comments, isMutating, onAddComment }: CommentsSectionProps) {
   const [inputValue, setInputValue] = useState("");
-  const borderColor = useColorModeValue("gray.200", "gray.600");
-  const commentBg = useColorModeValue("gray.50", "gray.750");
-  const metaColor = useColorModeValue("gray.500", "gray.400");
+  const borderColor = "neutral.200";
+  const commentBg = "neutral.25";
+  const metaColor = "neutral.500";
 
   const handleSubmit = () => {
     const trimmed = inputValue.trim();
@@ -166,10 +167,10 @@ const WorkItem = memo(function WorkItem({
   work, stageName, isExpanded, isMutating,
   onToggleExpand, onToggleWork, onTogglePeriod, onAddComment,
 }: WorkItemProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const expandedBg = useColorModeValue("gray.50", "gray.800");
-  const hoverBg = useColorModeValue("gray.50", "gray.750");
-  const closedBg = useColorModeValue("gray.50", "gray.800");
+  const borderColor = "neutral.200";
+  const expandedBg = "neutral.25";
+  const hoverBg = "neutral.50";
+  const closedBg = "neutral.50";
 
   const closedPeriods = work.periods.filter(p => p.isClosed).length;
   const totalPeriods = work.periods.length;
@@ -197,12 +198,12 @@ const WorkItem = memo(function WorkItem({
           <Text
             fontSize="sm" fontWeight="medium" noOfLines={1}
             textDecoration={work.isClosed ? "line-through" : undefined}
-            color={work.isClosed ? "gray.500" : undefined}
+            color={work.isClosed ? "neutral.500" : undefined}
           >
             {work.workName}
           </Text>
           {stageName && (
-            <Text fontSize="xs" color="gray.400" noOfLines={1}>{stageName}</Text>
+            <Text fontSize="xs" color="neutral.400" noOfLines={1}>{stageName}</Text>
           )}
         </Box>
         {isOverdue && (
@@ -227,7 +228,7 @@ const WorkItem = memo(function WorkItem({
         <Tooltip label={work.isClosed ? "Otwórz zakres pracy" : "Zamknij zakres pracy"} openDelay={400}>
           <Box as="span" display="inline-flex" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <Switch
-              size="sm" colorScheme="green"
+              size="sm" colorScheme="primary"
               isChecked={work.isClosed}
               isDisabled={isMutating}
               onChange={e => onToggleWork(e.target.checked)}
@@ -241,7 +242,7 @@ const WorkItem = memo(function WorkItem({
         <Box px={4} py={3} bg={expandedBg} borderTopWidth="1px" borderColor={borderColor}>
           {totalPeriods > 0 && (
             <Box mb={3}>
-              <Text fontSize="xs" fontWeight="semibold" mb={2} color="gray.500">
+              <Text fontSize="xs" fontWeight="semibold" mb={2} color="neutral.500">
                 Okresy ({totalPeriods})
               </Text>
               <VStack align="stretch" spacing={1}>
@@ -259,7 +260,7 @@ const WorkItem = memo(function WorkItem({
           <Box>
             <HStack spacing={1} mb={2}>
               <MessageSquare size={13} />
-              <Text fontSize="xs" fontWeight="semibold" color="gray.500">Komentarze</Text>
+              <Text fontSize="xs" fontWeight="semibold" color="neutral.500">Komentarze</Text>
             </HStack>
             <CommentsSection
               comments={work.comments}
@@ -423,8 +424,8 @@ export default function AssignedWorks() {
 
   // --- Kolory ---
 
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = "neutral.200";
+  const cardBg = "white";
 
   // --- Render ---
 
@@ -449,10 +450,10 @@ export default function AssignedWorks() {
   }
 
   const statTiles: { key: FilterType; label: string; value: number; color: string }[] = [
-    { key: "today",    label: "Co robie dzisiaj",  value: stats.active,   color: "blue"   },
-    { key: "upcoming", label: "Nadchodzace",        value: stats.upcoming, color: "orange" },
+    { key: "today",    label: "Co robię dzisiaj",  value: stats.active,   color: "primary" },
+    { key: "upcoming", label: "Nadchodzące",        value: stats.upcoming, color: "orange" },
     { key: "overdue",  label: "Przeterminowane",    value: stats.overdue,  color: "red"    },
-    { key: "done",     label: "Ukonczone",          value: stats.done,     color: "green"  },
+    { key: "done",     label: "Ukończone",          value: stats.done,     color: "green"  },
     { key: "all",      label: "Wszystkie",          value: stats.all,      color: "gray"   },
   ];
 
@@ -462,7 +463,7 @@ export default function AssignedWorks() {
         {/* Toolbar */}
         <Flex justify="space-between" align="center" mb={6} wrap="wrap" gap={3}>
           <HStack spacing={2}>
-            <Briefcase size={24} color="orange" />
+            <Briefcase size={24} color="var(--chakra-colors-orange-400)" />
             <Heading size={{ base: "md", md: "lg" }}>Zaplanowane prace</Heading>
           </HStack>
           <HStack spacing={2}>
@@ -507,11 +508,11 @@ export default function AssignedWorks() {
         {/* Empty state */}
         {groupedByProject.length === 0 && !loading && (
           <Box textAlign="center" py={16}>
-            <Text fontSize="4xl" mb={3}>📋</Text>
-            <Text fontWeight="semibold" color="gray.600" mb={1}>
+            <Icon as={ClipboardList} boxSize={12} color="neutral.300" mb={3} />
+            <Text fontWeight="semibold" color="neutral.600" mb={1}>
               {activeFilter === "all" ? "Brak przypisanych prac" : "Brak prac w tej kategorii"}
             </Text>
-            <Text fontSize="sm" color="gray.400">
+            <Text fontSize="sm" color="neutral.400">
               {activeFilter === "all"
                 ? "Zostaniesz tu przypisany przez kierownika projektu"
                 : "Zmien filtr aby zobaczyc inne prace"}
@@ -535,7 +536,7 @@ export default function AssignedWorks() {
                 {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                 <FolderKanban size={16} />
                 <Text fontWeight="bold" fontSize="md">{group.projectName}</Text>
-                <Text fontSize="sm" color="gray.500">— {group.tenantName}</Text>
+                <Text fontSize="sm" color="neutral.500">— {group.tenantName}</Text>
                 <Badge colorScheme="gray" borderRadius="full">{group.works.length}</Badge>
               </HStack>
 

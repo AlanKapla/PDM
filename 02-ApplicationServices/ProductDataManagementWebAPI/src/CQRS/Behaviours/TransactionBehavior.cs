@@ -1,33 +1,54 @@
-﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
+﻿using CQRS.PostCommit;
 using Entities.Context;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 
 namespace CQRS.Behaviours
 {
     public class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
     {
         private readonly AppDbContext appDbContext;
+        private readonly IPostCommitDispatcher postCommitDispatcher;
+        private readonly ILogger<TransactionBehavior<TRequest, TResponse>> logger;
 
-        public TransactionBehavior(AppDbContext appDbContext)
+        public TransactionBehavior(
+            AppDbContext appDbContext,
+            IPostCommitDispatcher postCommitDispatcher,
+            ILogger<TransactionBehavior<TRequest, TResponse>> logger)
         {
             this.appDbContext = appDbContext;
+            this.postCommitDispatcher = postCommitDispatcher;
+            this.logger = logger;
         }
 
         public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
         {
             if (request is IRequestCommand<TResponse>)
             {
-                var strategy = appDbContext.Database.CreateExecutionStrategy();
+                IExecutionStrategy strategy = appDbContext.Database.CreateExecutionStrategy();
 
-                return await strategy.ExecuteAsync(async () =>
+                TResponse response = await strategy.ExecuteAsync(async () =>
                 {
-                    await using var transaction = await appDbContext.Database.BeginTransactionAsync(ct);
-                    var response = await next();
+                    await using IDbContextTransaction transaction = await appDbContext.Database.BeginTransactionAsync(ct);
+                    TResponse innerResponse = await next();
                     await appDbContext.SaveChangesAsync(ct);
                     await transaction.CommitAsync(ct);
 
-                    return response;
+                    return innerResponse;
                 });
+
+                try
+                {
+                    await postCommitDispatcher.DispatchAsync(ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Post-commit dispatcher failed for {RequestType}.", typeof(TRequest).Name);
+                }
+
+                return response;
             }
 
             return await next(ct);

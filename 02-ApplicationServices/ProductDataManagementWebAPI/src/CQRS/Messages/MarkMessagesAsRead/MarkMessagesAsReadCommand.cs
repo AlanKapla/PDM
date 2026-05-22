@@ -9,7 +9,7 @@ namespace CQRS.Messages.MarkMessagesAsRead
         Guid ChatId
     ) : IRequestCommand<int>, IAuthorizableRequest
     {
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public string PermissionCode => PermissionCodes.ProjectView;
         
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

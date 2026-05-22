@@ -1,13 +1,14 @@
 ﻿using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.Notifications;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Notifications.MarkNotificationAsRead
 {
-    public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotificationAsReadCommand, Unit>
+    public sealed class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotificationAsReadCommand, Unit>
     {
         private readonly IRepository<Notification> notificationRepo;
         private readonly ICurrentUser currentUser;
@@ -25,19 +26,22 @@ namespace CQRS.Notifications.MarkNotificationAsRead
 
         public async Task<Unit> Handle(MarkNotificationAsReadCommand request, CancellationToken cancellationToken)
         {
-            // Walidacja wykonana w validatorze - notyfikacja istnieje i należy do użytkownika
-            Notification notification = (await notificationRepo
-                .GetFirstBySearch(n => n.Id == request.NotificationId && n.UserId == currentUser.Id))!;
+            Notification? notification = await notificationRepo
+                .GetFirstBySearch(n => n.Id == request.NotificationId && n.UserId == currentUser.Id);
 
-            // Jeśli już przeczytana, nie rób nic
-            if (notification.Readed)
+            if (notification is null)
+            {
+                throw new NotFoundApiException(nameof(Notification), request.NotificationId.ToString());
+            }
+
+            if (notification.IsRead)
             {
                 return Unit.Value;
             }
 
-            // Oznacz jako przeczytaną
-            notification.Readed = true;
+            notification.IsRead = true;
             await notificationRepo.Update(notification);
+            await notificationRepo.SaveChangesAsync(cancellationToken);
 
             await notificationMarkAsReadSender.EnqueueAsync(new NotificationMarkAsReadDto
             {

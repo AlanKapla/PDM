@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.MoveWorkScheduleStageWork
 {
@@ -6,12 +7,12 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStageWork
     {
         public MoveWorkScheduleStageWorkCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageWorkId).NotEmpty();
-            RuleFor(x => x.TargetStageId).NotEmpty();
-            RuleFor(x => x.TargetOrder).GreaterThanOrEqualTo(0);
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageWorkId).RequiredId();
+            RuleFor(x => x.TargetStageId).RequiredId();
+            RuleFor(x => x.TargetOrder).NonNegativeOrder();
         }
     }
 }

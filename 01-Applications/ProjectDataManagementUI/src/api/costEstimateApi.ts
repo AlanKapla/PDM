@@ -87,19 +87,18 @@ export const costEstimateApi = {
   },
 
   /**
-   * Create empty cost estimate (shortcut)
+   * Create empty cost estimate (shortcut).
+   * Waluta jest brana z ProjectCurrency projektu (backend).
    */
   createEmptyCostEstimate: async (
     tenantId: string,
     projectId: string,
     templateId: string,
-    selectedCurrencyId: string,
     name: string,
     description?: string
   ): Promise<string> => {
     return costEstimateApi.createCostEstimate(tenantId, projectId, {
       templateId,
-      selectedCurrencyId,
       name,
       description,
       rootGroups: undefined,
@@ -107,20 +106,19 @@ export const costEstimateApi = {
   },
 
   /**
-   * Create cost estimate with data
+   * Create cost estimate with data.
+   * Waluta jest brana z ProjectCurrency projektu (backend).
    */
   createCostEstimateWithData: async (
     tenantId: string,
     projectId: string,
     templateId: string,
-    selectedCurrencyId: string,
     name: string,
     rootGroups: CostEstimateGroupDto[],
     description?: string
   ): Promise<string> => {
     return costEstimateApi.createCostEstimate(tenantId, projectId, {
       templateId,
-      selectedCurrencyId,
       name,
       description,
       rootGroups,

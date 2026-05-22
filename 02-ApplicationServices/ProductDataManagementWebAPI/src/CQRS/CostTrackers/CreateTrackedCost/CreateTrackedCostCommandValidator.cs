@@ -1,34 +1,26 @@
-﻿using FluentValidation;
+﻿using CQRS.CostTrackers.Shared;
+using FluentValidation;
 
 namespace CQRS.CostTrackers.CreateTrackedCost
 {
-    public sealed class CreateTrackedCostCommandValidator : AbstractValidator<CreateTrackedCostCommand>
+    public sealed class CreateTrackedCostCommandValidator
+        : TrackedCostCommandBaseValidator<CreateTrackedCostCommand>
     {
         public CreateTrackedCostCommandValidator()
         {
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("Tracker ID is required.");
+            RuleFor(x => x.CostEstimateItemId)
+                .NotEqual(Guid.Empty)
+                .When(x => x.CostEstimateItemId.HasValue)
+                .WithMessage("'CostEstimateItemId' must not be an empty Guid.");
 
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("Tenant ID is required.");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("Project ID is required.");
-
-            RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Name is required.")
-                .MaximumLength(300).WithMessage("Name cannot exceed 300 characters.");
-
-            RuleFor(x => x.Description)
-                .MaximumLength(2000).WithMessage("Description cannot exceed 2000 characters.");
-
-            RuleFor(x => x.Contractor)
-                .MaximumLength(300).WithMessage("Contractor cannot exceed 300 characters.");
+            RuleFor(x => x.WorkScheduleStageWorkId)
+                .NotEqual(Guid.Empty)
+                .When(x => x.WorkScheduleStageWorkId.HasValue)
+                .WithMessage("'WorkScheduleStageWorkId' must not be an empty Guid.");
 
             RuleFor(x => x)
                 .Must(x => x.Net.HasValue || x.Gross.HasValue)
-                .WithMessage("At least net or gross value must be provided.")
-                .When(x => x.Net.HasValue || x.Gross.HasValue);
+                .WithMessage("At least one of 'Net' or 'Gross' must be provided.");
         }
     }
 }

@@ -7,7 +7,6 @@ import {
   VStack,
   HStack,
   Icon,
-  useColorModeValue,
   Button,
   Modal,
   ModalOverlay,
@@ -36,77 +35,47 @@ import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import { useAuth as useAuthContext } from "../context/AuthContext";
 import { useModal } from "../hooks/useModal";
 import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
-import { getUserTenants, changeActiveTenant } from "../services/tenantService";
+import { changeActiveTenant } from "../services/tenantService";
+import { useProjects, useMyTenants, projectKeys } from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Projects() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, refreshUser } = useAuthContext();
-  const [projects, setProjects] = useState<ProjectDetailsWeb[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTenantId, setActiveTenantId] = useState<string | null | undefined>(undefined);
+  const queryClient = useQueryClient();
+
+  // Sprawdź czy aktywny tenant jest poprawny
+  const rawTenantId = user?.activeTenantId;
+  const isValidTenant = Boolean(
+    rawTenantId &&
+    rawTenantId !== "00000000-0000-0000-0000-000000000000" &&
+    rawTenantId.trim() !== ""
+  );
+  const activeTenantId = isValidTenant ? rawTenantId : null;
+
+  const {
+    data: projects = [],
+    isLoading: loading,
+    error: projectsError,
+  } = useProjects(activeTenantId ?? undefined);
+
+  const {
+    data: tenants = [],
+    isLoading: tenantsLoading,
+  } = useMyTenants();
+
+  const error = projectsError
+    ? "Nie udało się pobrać projektów"
+    : null;
+
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
-
-  // Przełączanie organizacji
-  const [tenants, setTenants] = useState<UserTenant[]>([]);
-  const [tenantsLoading, setTenantsLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
   
   const createModal = useModal();
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess } = useToastNotification();
   const permissions = useTenantPermissions();
-
-  const cardBg = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-
-  // Pobierz aktywnego tenanta i projekty
-  useEffect(() => {
-    const activeTenantId = user?.activeTenantId;
-    
-    // Jeśli nie ma aktywnego tenanta - wyświetl info i zatrzymaj
-    if (!activeTenantId || activeTenantId === "00000000-0000-0000-0000-000000000000" || activeTenantId.trim() === "") {
-      setActiveTenantId(null);
-      setProjects([]);
-      setLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        setActiveTenantId(activeTenantId);
-        const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
-        setProjects(projectsResponse.data);
-      } catch (err) {
-        setError("Nie udało się pobrać projektów");
-        setProjects([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user?.activeTenantId]);
-
-  // Pobierz listę organizacji użytkownika
-  useEffect(() => {
-    const fetchTenants = async () => {
-      try {
-        const data = await getUserTenants();
-        setTenants(data);
-      } catch (err) {
-        showError("Nie udało się pobrać listy organizacji");
-        setTenants([]);
-      } finally {
-        setTenantsLoading(false);
-      }
-    };
-    fetchTenants();
-  }, []);
 
   const handleTenantSwitch = async (newTenantId: string) => {
     if (!newTenantId || newTenantId === activeTenantId) return;
@@ -115,7 +84,7 @@ export default function Projects() {
     try {
       await changeActiveTenant(newTenantId);
       await refreshUser();
-      showSuccess("Organizacja przełączona");
+      showApiSuccess('tenantSwitched');
     } catch (err) {
       const { title, description } = handleApiError(err);
       showError(title, description);
@@ -134,12 +103,12 @@ export default function Projects() {
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) {
-      showError("Nazwa projektu wymagana");
+      showError("Sprawdź formularz", "Nazwa projektu jest wymagana");
       return;
     }
 
     if (!activeTenantId) {
-      showError("Brak aktywnego tenanta");
+      showError("Sprawdź formularz", "Brak aktywnej organizacji");
       return;
     }
 
@@ -147,13 +116,14 @@ export default function Projects() {
     try {
       await projectApi.createProject(activeTenantId, newProjectName.trim());
 
-      showSuccess("Projekt utworzony");
+      showApiSuccess('projectCreated');
       setNewProjectName("");
       createModal.onClose();
       
       // Odśwież listę projektów
-      const projectsResponse = await projectApi.getTenantProjects(activeTenantId);
-      setProjects(projectsResponse.data);
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.list(activeTenantId!)
+      });
     } catch (error) {
       const { title, description } = handleApiError(error);
       showError(title, description);
@@ -169,9 +139,9 @@ export default function Projects() {
         <Box
           mb={{ base: 4, md: 6 }}
           p={{ base: 3, md: 4 }}
-          bg={cardBg}
+          bg="white"
           borderWidth="1px"
-          borderColor={borderColor}
+          borderColor="neutral.200"
           borderRadius="lg"
         >
           <HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" gap={{ base: 2, md: 3 }}>
@@ -201,9 +171,9 @@ export default function Projects() {
                   maxW={{ base: "100%", md: "360px" }}
                   size={{ base: "sm", md: "md" }}
                   fontWeight="semibold"
-                  borderColor="level2.300"
-                  _hover={{ borderColor: "level2.400" }}
-                  _focus={{ borderColor: "level2.500", boxShadow: "0 0 0 1px var(--chakra-colors-level2-500)" }}
+                  borderColor="neutral.200"
+                  _hover={{ borderColor: "primary.300" }}
+                  _focus={{ borderColor: "primary.400", boxShadow: "0 0 0 1px var(--chakra-colors-primary-400)" }}
                   icon={switching ? <></> : undefined}
                 >
                   {tenants.map((tenant) => (
@@ -267,17 +237,16 @@ export default function Projects() {
             {projects.map((project) => (
               <Box
                 key={project.id}
-                bg={cardBg}
+                bg="white"
                 rounded="lg"
-                shadow="md"
                 borderWidth="1px"
-                borderColor={borderColor}
+                borderColor="neutral.200"
                 overflow="hidden"
                 cursor="pointer"
                 onClick={() => navigate(`/projects/${project.id}`)}
                 _hover={{
-                  shadow: "lg",
-                  borderColor: "primary.500",
+                  borderColor: "primary.300",
+                  bg: "neutral.25",
                 }}
                 transition="all 0.2s"
               >
@@ -290,14 +259,14 @@ export default function Projects() {
                           <Text fontWeight="bold" fontSize={{ base: "sm", md: "lg" }} noOfLines={1}>
                             {project.name}
                           </Text>
-                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "10px", md: "xs" }}>
+                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "xs", md: "xs" }}>
                             {project.isActive ? "Aktywny" : "Nieaktywny"}
                           </Badge>
-                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize={{ base: "10px", md: "xs" }}>
+                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize={{ base: "xs", md: "xs" }}>
                             {getRoleName(project.userRoleCode)}
                           </Badge>
                         </HStack>
-                        <HStack spacing={{ base: 2, md: 4 }} fontSize={{ base: "10px", md: "sm" }} color="gray.600" flexWrap="wrap">
+                          <HStack spacing={{ base: 2, md: 4 }} fontSize={{ base: "xs", md: "sm" }} color="neutral.600" flexWrap="wrap">
                           <HStack spacing={1}>
                             <Icon as={User} boxSize={3} />
                             <Text noOfLines={1}>{project.createdByUserName}</Text>

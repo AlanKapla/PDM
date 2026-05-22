@@ -1,11 +1,12 @@
-﻿using Entities.Models;
+﻿using Business.Interfaces.Model;
+using CQRS.Extensions;
+using Entities.Models.Tenants;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
-using Business.Interfaces.Model;
 
 namespace CQRS.Tenants.ChangeActiveTenant
 {
-    public class ChangeActiveTenantCommandValidator : AbstractValidator<ChangeActiveTenantCommand>
+    public sealed class ChangeActiveTenantCommandValidator : AbstractValidator<ChangeActiveTenantCommand>
     {
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly ICurrentUser currentUser;
@@ -20,7 +21,7 @@ namespace CQRS.Tenants.ChangeActiveTenant
                 .WithMessage("User must be authenticated.");
 
             RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required")
+                .RequiredId()
                 .MustAsync(async (tenantId, ct) => await IsMemberAsync(tenantId) || currentUser.IsSuperAdmin)
                 .WithMessage("User is not a member of specified tenant or membership inactive");
         }
@@ -32,7 +33,7 @@ namespace CQRS.Tenants.ChangeActiveTenant
                 return false;
             }
 
-            var member = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == tenantId && m.UserId == currentUser.Id && m.IsActive);
+            TenantMember? member = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == tenantId && m.UserId == currentUser.Id && m.IsActive);
             return member != null;
         }
     }

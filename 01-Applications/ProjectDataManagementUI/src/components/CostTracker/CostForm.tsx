@@ -1,4 +1,4 @@
-import { useRef } from "react";
+﻿import { useRef } from "react";
 import {
   VStack,
   HStack,
@@ -16,12 +16,15 @@ import {
 } from "@chakra-ui/react";
 import { Plus, X } from "lucide-react";
 import AttachmentList from "./AttachmentList";
+import ContractorPicker from "../ContractorPicker";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import type { TrackedCostAttachmentWeb, CostFormValues } from "../../types/costTracker.types";
 
 interface CostFormProps {
   values: CostFormValues;
   onChange: (values: CostFormValues) => void;
+  tenantId: string;
+  canQuickAdd?: boolean;
   existingAttachments?: TrackedCostAttachmentWeb[];
   errors?: Partial<Record<keyof CostFormValues, string>>;
   isSubmitting?: boolean;
@@ -32,6 +35,8 @@ const MAX_FILE_SIZE = 52 * 1024 * 1024; // 52 MB
 export default function CostForm({
   values,
   onChange,
+  tenantId,
+  canQuickAdd = false,
   existingAttachments = [],
   errors = {},
   isSubmitting = false,
@@ -82,7 +87,7 @@ export default function CostForm({
         <FormErrorMessage>{errors.name}</FormErrorMessage>
       </FormControl>
 
-      {/* Kwoty */}
+      {/* Kwoty + numer faktury */}
       <HStack spacing={4} align="flex-start" flexDir={{ base: "column", sm: "row" }}>
         <FormControl isInvalid={!!errors.net} flex={1}>
           <FormLabel>Kwota netto (PLN)</FormLabel>
@@ -98,31 +103,34 @@ export default function CostForm({
           <FormErrorMessage>{errors.net}</FormErrorMessage>
         </FormControl>
 
-        <FormControl isInvalid={!!errors.gross} flex={1}>
-          <FormLabel>Kwota brutto (PLN)</FormLabel>
-          <NumberInput
-            value={values.gross ?? ""}
-            onChange={(_, num) => set({ gross: isNaN(num) ? undefined : num })}
-            min={0}
-            precision={2}
+        <FormControl flex={1}>
+          <FormLabel>Numer faktury</FormLabel>
+          <Input
+            value={values.number ?? ""}
+            onChange={(e) => set({ number: e.target.value })}
+            placeholder="np. FV/2024/001"
+            maxLength={100}
             isDisabled={isSubmitting}
-          >
-            <NumberInputField placeholder="0,00" />
-          </NumberInput>
-          <FormErrorMessage>{errors.gross}</FormErrorMessage>
+          />
         </FormControl>
       </HStack>
 
       {/* Wykonawca */}
-      <FormControl>
+      <FormControl isInvalid={!!errors.contractorId}>
         <FormLabel>Wykonawca</FormLabel>
-        <Input
-          value={values.contractor ?? ""}
-          onChange={(e) => set({ contractor: e.target.value })}
-          placeholder="Nazwa wykonawcy"
-          maxLength={300}
+        <ContractorPicker
+          tenantId={tenantId}
+          value={values.contractorId ?? null}
+          onChange={(id) => set({ contractorId: id })}
+          canQuickAdd={canQuickAdd}
           isDisabled={isSubmitting}
+          isInvalid={!!errors.contractorId}
         />
+        {!canQuickAdd && (
+          <Text fontSize="xs" color="gray.500" mt={1}>
+            Aby dodać nowego kontrahenta, zgłoś się do administratora.
+          </Text>
+        )}
       </FormControl>
 
       {/* Data */}
@@ -212,7 +220,7 @@ export default function CostForm({
             ))}
           </VStack>
         )}
-        <Text fontSize="xs" color="gray.500" mt={1}>
+        <Text fontSize="xs" color="neutral.500" mt={1}>
           Maksymalny rozmiar pliku: 52 MB
         </Text>
       </Box>
@@ -229,10 +237,9 @@ export function validateCostForm(values: CostFormValues): Partial<Record<keyof C
   }
 
   const hasNet = values.net !== undefined && values.net !== "" && !isNaN(Number(values.net));
-  const hasGross = values.gross !== undefined && values.gross !== "" && !isNaN(Number(values.gross));
 
-  if (!hasNet && !hasGross) {
-    errors.net = "Podaj kwotę netto lub brutto";
+  if (!hasNet) {
+    errors.net = "Podaj kwotę netto";
   }
 
   return errors;

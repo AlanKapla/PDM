@@ -160,6 +160,7 @@ export interface WorkScheduleStageWorkCommentWeb {
 
 export interface WorkScheduleStageWorkWeb {
   id: string;
+  costEstimateItemId?: string | null;
   name: string;
   order: number;
   colorRgb: string;

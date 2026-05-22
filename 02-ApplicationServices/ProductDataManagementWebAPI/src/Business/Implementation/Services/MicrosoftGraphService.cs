@@ -1,6 +1,7 @@
 ﻿using Business.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
+using Microsoft.Graph.Models.ODataErrors;
 
 namespace Business.Implementation.Services;
 
@@ -38,10 +39,20 @@ public class MicrosoftGraphService : IMicrosoftGraphService
                 user.Surname ?? string.Empty
             );
         }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 404)
+        {
+            logger.LogWarning("User with Object ID {ObjectId} not found in Azure AD B2C: {Message}", azureAdB2CObjectId, ex.Message);
+            return null;
+        }
+        catch (ODataError ex)
+        {
+            logger.LogError(ex, "Graph API error fetching user data for Object ID {ObjectId}", azureAdB2CObjectId);
+            throw new InvalidOperationException("Błąd podczas pobierania danych użytkownika z Azure AD.", ex);
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error retrieving user data from Graph API for Object ID {ObjectId}", azureAdB2CObjectId);
-            return null;
+            logger.LogError(ex, "Unexpected error fetching user data from Graph API for Object ID {ObjectId}", azureAdB2CObjectId);
+            throw;
         }
     }
 }

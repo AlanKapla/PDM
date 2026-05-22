@@ -50,7 +50,12 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] ResourceScope scope)
         {
-            var query = new GetCostEstimatesQuery(tenantId, projectId, scope);
+            var query = new GetCostEstimatesQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Scope = scope
+            };
             return Ok(await Send(query));
         }
 
@@ -72,12 +77,13 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId, 
             [FromRoute] Guid id)
         {
-            var query = new GetCostEstimateDetailsQuery(id) with
+            var query = new GetCostEstimateDetailsQuery
             {
                 TenantId = tenantId,
-                ProjectId = projectId
+                ProjectId = projectId,
+                CostEstimateId = id
             };
-            
+
             return Ok(await Send(query));
         }
 
@@ -157,12 +163,13 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId, 
             [FromRoute] Guid id)
         {
-            var command = new DeleteCostEstimateCommand(id) with
+            var command = new DeleteCostEstimateCommand
             {
                 TenantId = tenantId,
-                ProjectId = projectId
+                ProjectId = projectId,
+                CostEstimateId = id
             };
-            
+
             await Send(command);
             return NoContent();
         }
@@ -275,7 +282,7 @@ namespace WebApi.Controllers
             };
 
             var result = await Send(command);
-            return Created($"api/tenants/{tenantId}/projects/{projectId}/cost-estimate/details/{id}", result);
+            return CreatedAtAction(nameof(GetCostEstimateDetails), new { tenantId, projectId, id }, result);
         }
 
         /// <summary>
@@ -298,10 +305,12 @@ namespace WebApi.Controllers
             [FromRoute] Guid id,
             [FromRoute] Guid groupId)
         {
-            var command = new DeleteCostEstimateGroupCommand(id, groupId) with
+            var command = new DeleteCostEstimateGroupCommand
             {
                 TenantId = tenantId,
-                ProjectId = projectId
+                ProjectId = projectId,
+                CostEstimateId = id,
+                GroupId = groupId
             };
 
             await Send(command);
@@ -373,7 +382,7 @@ namespace WebApi.Controllers
             };
 
             var result = await Send(command);
-            return Created($"api/tenants/{tenantId}/projects/{projectId}/cost-estimate/details/{id}", result);
+            return CreatedAtAction(nameof(GetCostEstimateDetails), new { tenantId, projectId, id }, result);
         }
 
         /// <summary>
@@ -396,10 +405,12 @@ namespace WebApi.Controllers
             [FromRoute] Guid id,
             [FromRoute] Guid itemId)
         {
-            var command = new DeleteCostEstimateItemCommand(id, itemId) with
+            var command = new DeleteCostEstimateItemCommand
             {
                 TenantId = tenantId,
-                ProjectId = projectId
+                ProjectId = projectId,
+                CostEstimateId = id,
+                ItemId = itemId
             };
 
             await Send(command);
@@ -499,10 +510,11 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid id)
         {
-            var command = new RecalculateCostEstimateCommand(id) with
+            var command = new RecalculateCostEstimateCommand
             {
                 TenantId = tenantId,
-                ProjectId = projectId
+                ProjectId = projectId,
+                CostEstimateId = id
             };
 
             await Send(command);

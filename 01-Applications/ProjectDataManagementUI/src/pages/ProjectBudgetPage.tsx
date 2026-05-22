@@ -1,11 +1,12 @@
-import { useContext } from "react";
+﻿import { useContext } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertIcon, Box, Spinner, Text } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
-import ProjectBudgetDashboard from "../components/CostTracker/ProjectBudgetDashboard";
+import { ProjectDashboard } from "../features/dashboard/components/ProjectDashboard";
 import { AuthContext } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { RoleCodes } from "../constants/roleCodes";
+import { useProjectDetails } from "../hooks/queries";
 
 const ADMIN_ROLE_CODES = [
   RoleCodes.PROJECT_ADMIN,
@@ -20,11 +21,14 @@ export default function ProjectBudgetPage() {
 
   const tenantId = user?.activeTenantId;
 
+  const { data: projectData } = useProjectDetails(tenantId ?? undefined, projectId);
+  const projectName = projectData?.name ?? '';
+
   if (!tenantId || !projectId) {
     return (
       <MainLayout>
         <Box p={8}>
-          <Text color="gray.500">Brak wymaganego kontekstu (tenant lub projekt).</Text>
+          <Text color="neutral.500">Brak wymaganego kontekstu (tenant lub projekt).</Text>
         </Box>
       </MainLayout>
     );
@@ -58,7 +62,7 @@ export default function ProjectBudgetPage() {
   return (
     <MainLayout>
       <Box>
-        <ProjectBudgetDashboard tenantId={tenantId} projectId={projectId} />
+        <ProjectDashboard tenantId={tenantId} projectId={projectId} projectName={projectName} />
       </Box>
     </MainLayout>
   );

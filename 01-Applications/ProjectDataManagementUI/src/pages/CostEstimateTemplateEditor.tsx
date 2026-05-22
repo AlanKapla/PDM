@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Modal,
@@ -84,6 +84,8 @@ import {
   ArrowLeft,
   Save,
   CheckCircle,
+  Coins,
+  Ruler,
 } from "lucide-react";
 import type {
   CalculatedFieldDefinition,
@@ -713,20 +715,9 @@ export default function CostEstimateTemplateEditor() {
 
         // Konfiguracja UI
         setColumns(struct.uiConfiguration?.columns ?? []);
-        
-        // Załaduj waluty i jednostki — upewnij się, że PLN jest zawsze obecny
-        const loadedCurrencies = struct.currencies.map(c => ({
-          code: c.code,
-          name: c.name,
-          symbol: c.symbol,
-          isDefault: c.isDefault,
-          order: c.order,
-        }));
-        if (!loadedCurrencies.some(c => c.code === 'PLN')) {
-          loadedCurrencies.push({ ...DEFAULT_PLN_CURRENCY, isDefault: loadedCurrencies.length === 0, order: loadedCurrencies.length });
-        }
-        setCurrencies(loadedCurrencies);
-        setUnits(struct.units.map(u => ({
+
+        // Waluty nie są już częścią szablonu kosztorysu — pozostaje domyślna PLN ze stanu lokalnego.
+        setUnits((struct.units ?? []).map(u => ({
           code: u.code,
           name: u.name,
           symbol: u.symbol,
@@ -740,7 +731,8 @@ export default function CostEstimateTemplateEditor() {
           order: c.order,
         })));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      console.error("[CostEstimateTemplateEditor] fetchTemplateDetails failed:", error);
       showError("Błąd", "Nie udało się załadować szablonu");
       navigate("/cost-estimate-templates");
     } finally {
@@ -1708,7 +1700,7 @@ export default function CostEstimateTemplateEditor() {
               Układ kolumn w tabeli
             </Text>
           </HStack>
-          <Text fontSize="sm" color="gray.700">
+          <Text fontSize="sm" color="neutral.700">
             Przeciągnij i upuść pola, aby zmienić kolejność wyświetlania kolumn w tabeli. Kolejność tutaj określa
             kolejność kolumn w edytorze i podglądzie kosztorysu.
           </Text>
@@ -1720,7 +1712,7 @@ export default function CostEstimateTemplateEditor() {
           </Text>
 
           {sortedFields.length === 0 ? (
-            <Text fontSize="sm" color="gray.500">
+            <Text fontSize="sm" color="neutral.500">
               Brak pól w szablonie
             </Text>
           ) : (
@@ -1749,7 +1741,7 @@ export default function CostEstimateTemplateEditor() {
                   })}
                   transition="all 0.2s"
                 >
-                  <Icon as={GripVertical} color="gray.500" />
+                  <Icon as={GripVertical} color="neutral.500" />
                   <Badge colorScheme={field.colorScheme} minW="90px">
                     {field.type}
                   </Badge>
@@ -1784,22 +1776,21 @@ export default function CostEstimateTemplateEditor() {
               {templateId ? "Edytuj szablon kosztorysu" : "Nowy szablon kosztorysu"}
             </Heading>
             {hasChanges && (
-              <Badge colorScheme="orange" fontSize="xs" px={2} py={1} borderRadius="md">
+              <Badge colorScheme="orange" variant="subtle">
                 Niezapisane zmiany
               </Badge>
             )}
           </HStack>
           <HStack spacing={2}>
-            <Tooltip label="Podgląd szablonu" hasArrow>
-              <IconButton
-                aria-label="Podgląd szablonu"
-                icon={<Eye size={18} />}
-                colorScheme="primary"
-                variant="outline"
-                size={{ base: "sm", md: "md" }}
-                onClick={handlePreview}
-              />
-            </Tooltip>
+            <Button
+              leftIcon={<Eye size={18} />}
+              colorScheme="gray"
+              variant="outline"
+              size={{ base: "sm", md: "md" }}
+              onClick={handlePreview}
+            >
+              Podgląd
+            </Button>
           </HStack>
         </HStack>
 
@@ -1807,7 +1798,7 @@ export default function CostEstimateTemplateEditor() {
         <VStack spacing={4} align="stretch">
           {/* Informacje podstawowe – zwinięty accordion */}
           <Accordion allowToggle defaultIndex={templateId ? undefined : [0]}>
-            <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" overflow="hidden">
+            <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" overflow="hidden">
               <AccordionButton
                 bg={templateName ? "white" : "primary.50"}
                 _expanded={{ bg: "white" }}
@@ -1822,7 +1813,7 @@ export default function CostEstimateTemplateEditor() {
                   {templateName && (
                     <Text
                       fontSize="sm"
-                      color="gray.500"
+                      color="neutral.500"
                       fontWeight="normal"
                       isTruncated
                       maxW={{ base: "120px", md: "300px" }}
@@ -1841,7 +1832,7 @@ export default function CostEstimateTemplateEditor() {
                         Nazwa szablonu
                       </FormLabel>
                       <Tooltip label="To pole jest wymagane" hasArrow>
-                        <Box as="span" cursor="help" color="gray.400">
+                        <Box as="span" cursor="help" color="neutral.400">
                           <HelpCircle size={14} />
                         </Box>
                       </Tooltip>
@@ -1915,7 +1906,7 @@ export default function CostEstimateTemplateEditor() {
                   <HStack spacing={2}>
                     <Tag size={16} />
                     <Text>Pola etapów</Text>
-                    <Badge colorScheme="blue" ml={1}>{headerFields.length}</Badge>
+                    <Badge colorScheme="primary" ml={1}>{headerFields.length}</Badge>
                   </HStack>
                 </Tab>
               </Tooltip>
@@ -1924,7 +1915,7 @@ export default function CostEstimateTemplateEditor() {
                   <HStack spacing={2}>
                     <List size={16} />
                     <Text>Pola pozycji</Text>
-                    <Badge colorScheme="blue" ml={1}>
+                    <Badge colorScheme="primary" ml={1}>
                       {systemFields.length + calculatedFields.length + genericFields.length}
                     </Badge>
                   </HStack>
@@ -2022,23 +2013,23 @@ export default function CostEstimateTemplateEditor() {
                 <TabPanel>
                   <Accordion allowMultiple defaultIndex={[]}>
                     {/* Pola systemowe */}
-                    <AccordionItem border="1px" borderColor="primary.200" borderRadius="lg" mb={3} overflow="hidden">
+                    <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                       <AccordionButton
-                        bg="primary.50"
+                        bg="white"
                         borderLeft="3px solid"
                         borderLeftColor="primary.400"
-                        _expanded={{ bg: "primary.50" }}
+                        _expanded={{ bg: "neutral.25" }}
                         px={4}
                         py={3}
                       >
                         <HStack flex={1} spacing={2}>
-                          <Icon as={FileText} color="primary.700" boxSize={5} />
-                          <Text fontSize="md" fontWeight="bold" color="primary.700">
+                          <Icon as={FileText} color="primary.500" boxSize={5} />
+                          <Text fontSize="md" fontWeight="bold" color="neutral.700">
                             Pola systemowe
                           </Text>
-                          <Badge colorScheme="blue" ml={1}>{systemFields.length}</Badge>
+                          <Badge colorScheme="primary" ml={1}>{systemFields.length}</Badge>
                         </HStack>
-                        <AccordionIcon color="primary.700" />
+                        <AccordionIcon color="neutral.500" />
                       </AccordionButton>
                       <AccordionPanel bg="white" pb={4} px={6}>
                         <SystemFieldsEditor
@@ -2052,23 +2043,23 @@ export default function CostEstimateTemplateEditor() {
                     </AccordionItem>
 
                     {/* Pola obliczeniowe */}
-                    <AccordionItem border="1px" borderColor="level1.200" borderRadius="lg" mb={3} overflow="hidden">
+                    <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                       <AccordionButton
-                        bg="level1.50"
+                        bg="white"
                         borderLeft="3px solid"
                         borderLeftColor="level1.500"
-                        _expanded={{ bg: "level1.50" }}
+                        _expanded={{ bg: "neutral.25" }}
                         px={4}
                         py={3}
                       >
                         <HStack flex={1} spacing={2}>
-                          <Icon as={Calculator} color="level1.700" boxSize={5} />
-                          <Text fontSize="md" fontWeight="bold" color="level1.700">
+                          <Icon as={Calculator} color="level1.500" boxSize={5} />
+                          <Text fontSize="md" fontWeight="bold" color="neutral.700">
                             Pola obliczeniowe
                           </Text>
-                          <Badge colorScheme="green" ml={1}>{calculatedFields.length}</Badge>
+                          <Badge colorScheme="level1" ml={1}>{calculatedFields.length}</Badge>
                         </HStack>
-                        <AccordionIcon color="level1.700" />
+                        <AccordionIcon color="neutral.500" />
                       </AccordionButton>
                       <AccordionPanel bg="white" pb={4} px={6}>
                         <CalculatedFieldsEditor
@@ -2077,29 +2068,28 @@ export default function CostEstimateTemplateEditor() {
                           onRemove={handleRemoveCalculatedField}
                           onUpdate={handleUpdateCalculatedField}
                           fieldTypeConfigs={fieldTypeConfigs}
-                          units={units}
                         />
                       </AccordionPanel>
                     </AccordionItem>
 
                     {/* Pola generyczne */}
-                    <AccordionItem border="1px" borderColor="level2.200" borderRadius="lg" overflow="hidden">
+                    <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" overflow="hidden">
                       <AccordionButton
-                        bg="level2.50"
+                        bg="white"
                         borderLeft="3px solid"
                         borderLeftColor="level2.500"
-                        _expanded={{ bg: "level2.50" }}
+                        _expanded={{ bg: "neutral.25" }}
                         px={4}
                         py={3}
                       >
                         <HStack flex={1} spacing={2}>
-                          <Icon as={Tag} color="level2.700" boxSize={5} />
-                          <Text fontSize="md" fontWeight="bold" color="level2.700">
+                          <Icon as={Tag} color="level2.500" boxSize={5} />
+                          <Text fontSize="md" fontWeight="bold" color="neutral.700">
                             Pola generyczne
                           </Text>
-                          <Badge colorScheme="purple" ml={1}>{genericFields.length}</Badge>
+                          <Badge colorScheme="level2" ml={1}>{genericFields.length}</Badge>
                         </HStack>
-                        <AccordionIcon color="level2.700" />
+                        <AccordionIcon color="neutral.500" />
                       </AccordionButton>
                       <AccordionPanel bg="white" pb={4} px={6}>
                         <GenericFieldsEditor
@@ -2117,10 +2107,10 @@ export default function CostEstimateTemplateEditor() {
                 <TabPanel>
                   <Accordion allowMultiple defaultIndex={[]}>
                     {/* Waluty */}
-                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                    <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                       <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                         <HStack flex={1} spacing={2}>
-                          <Text fontSize="lg" lineHeight={1}>💰</Text>
+                          <Icon as={Coins} color="amber.400" boxSize={5} />
                           <Text fontSize="md" fontWeight="bold">Waluty</Text>
                           <Badge colorScheme="primary">{currencies.length}</Badge>
                         </HStack>
@@ -2147,13 +2137,13 @@ export default function CostEstimateTemplateEditor() {
                       </HStack>
 
                       {currencies.length === 0 ? (
-                        <Box p={4} bg="gray.50" borderRadius="md" textAlign="center">
-                          <Text color="gray.600">Brak walut. Dodaj walutę używając przycisku powyżej.</Text>
+                        <Box p={4} bg="neutral.25" borderRadius="md" textAlign="center">
+                          <Text color="neutral.600">Brak walut. Dodaj walutę używając przycisku powyżej.</Text>
                         </Box>
                       ) : (
                         <VStack spacing={3} align="stretch">
                           {currencies.map((curr, index) => (
-                            <Box key={index} p={4} bg="gray.50" borderRadius="md" borderWidth="1px">
+                            <Box key={index} p={4} bg="neutral.25" borderRadius="md" borderWidth="1px">
                               <HStack spacing={3} align="start">
                                 <VStack flex={1} spacing={3}>
                                   <HStack w="full" spacing={3}>
@@ -2231,10 +2221,10 @@ export default function CostEstimateTemplateEditor() {
                     </AccordionItem>
 
                     {/* Jednostki */}
-                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                    <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                       <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                         <HStack flex={1} spacing={2}>
-                          <Text fontSize="lg" lineHeight={1}>📏</Text>
+                          <Icon as={Ruler} color="neutral.400" boxSize={5} />
                           <Text fontSize="md" fontWeight="bold">Jednostki miar</Text>
                           <Badge colorScheme="green">{units.length}</Badge>
                         </HStack>
@@ -2262,13 +2252,13 @@ export default function CostEstimateTemplateEditor() {
                       </HStack>
 
                       {units.length === 0 ? (
-                        <Box p={4} bg="gray.50" borderRadius="md" textAlign="center">
-                          <Text color="gray.600">Brak jednostek. Dodaj jednostkę używając przycisku powyżej.</Text>
+                        <Box p={4} bg="neutral.25" borderRadius="md" textAlign="center">
+                          <Text color="neutral.600">Brak jednostek. Dodaj jednostkę używając przycisku powyżej.</Text>
                         </Box>
                       ) : (
                         <VStack spacing={3} align="stretch">
                           {units.map((unit, index) => (
-                            <Box key={index} p={4} bg="gray.50" borderRadius="md" borderWidth="1px">
+                            <Box key={index} p={4} bg="neutral.25" borderRadius="md" borderWidth="1px">
                               <HStack spacing={3} align="start">
                                 <VStack flex={1} spacing={3}>
                                   <HStack w="full" spacing={3}>
@@ -2364,10 +2354,10 @@ export default function CostEstimateTemplateEditor() {
                     </AccordionItem>
 
                     {/* Kategorie */}
-                    <AccordionItem border="1px" borderColor="gray.200" borderRadius="lg" mb={3} overflow="hidden">
+                    <AccordionItem border="1px" borderColor="neutral.200" borderRadius="lg" mb={3} overflow="hidden">
                       <AccordionButton bg="white" _expanded={{ bg: "white" }} px={4} py={3}>
                         <HStack flex={1} spacing={2}>
-                          <Text fontSize="lg" lineHeight={1}>🏷️</Text>
+                          <Icon as={Tag} color="level2.400" boxSize={5} />
                           <Text fontSize="md" fontWeight="bold">Kategorie</Text>
                           <Badge colorScheme="level2">{categories.length}</Badge>
                         </HStack>
@@ -2391,13 +2381,13 @@ export default function CostEstimateTemplateEditor() {
                       </HStack>
 
                       {categories.length === 0 ? (
-                        <Box p={4} bg="gray.50" borderRadius="md" textAlign="center">
-                          <Text color="gray.600">Brak kategorii. Dodaj kategorię używając przycisku powyżej.</Text>
+                        <Box p={4} bg="neutral.25" borderRadius="md" textAlign="center">
+                          <Text color="neutral.600">Brak kategorii. Dodaj kategorię używając przycisku powyżej.</Text>
                         </Box>
                       ) : (
                         <VStack spacing={3} align="stretch">
                           {categories.map((cat, index) => (
-                            <Box key={index} p={4} bg="gray.50" borderRadius="md" borderWidth="1px">
+                            <Box key={index} p={4} bg="neutral.25" borderRadius="md" borderWidth="1px">
                               <HStack spacing={3} align="start">
                                 <HStack flex={1} spacing={3}>
                                   <FormControl flex={2}>
@@ -2455,16 +2445,6 @@ export default function CostEstimateTemplateEditor() {
             </TabPanels>
           </Tabs>
 
-        {/* Back button – desktop inline, mobile hidden (sticky bar has it) */}
-        <Box display={{ base: "none", md: "block" }} pt={2}>
-          <Button
-            leftIcon={<ArrowLeft size={18} />}
-            variant="ghost"
-            onClick={() => safeNavigate("/cost-estimate-templates")}
-          >
-            Powrót
-          </Button>
-        </Box>
         </VStack>
       </Box>
 
@@ -2473,12 +2453,12 @@ export default function CostEstimateTemplateEditor() {
         position="sticky"
         bottom={0}
         bg="white"
-        borderTop="1px solid"
-        borderColor="gray.200"
+        borderTopWidth="1px"
+        borderColor="neutral.200"
         px={{ base: 4, md: 8 }}
         py={3}
         zIndex={10}
-        shadow="0 -2px 8px rgba(0,0,0,0.06)"
+        shadow="none"
       >
         <HStack justify="space-between" maxW="1400px" mx="auto" spacing={3}>
           <Button
@@ -2514,13 +2494,13 @@ export default function CostEstimateTemplateEditor() {
       >
         <ModalOverlay />
         <ModalContent maxH="100vh" m={0}>
-          <ModalHeader borderBottom="1px" borderColor="gray.200">
+          <ModalHeader borderBottom="1px" borderColor="neutral.200">
             <HStack spacing={3}>
               <Eye size={24} />
               <Text>Podgląd szablonu - Przykładowy kosztorys</Text>
             </HStack>
           </ModalHeader>
-          <ModalBody p={6} bg="gray.50">
+          <ModalBody p={6} bg="neutral.25">
             {previewData && (
               <Box maxW="1600px" mx="auto">
                 <VStack spacing={4} align="stretch" mb={4}>
@@ -2539,7 +2519,7 @@ export default function CostEstimateTemplateEditor() {
                         <Text fontSize="lg">{templateName || "Nowy szablon"}</Text>
                       </HStack>
                       {templateDescription && (
-                        <Text fontSize="sm" color="gray.600">{templateDescription}</Text>
+                        <Text fontSize="sm" color="neutral.600">{templateDescription}</Text>
                       )}
                     </VStack>
                   </Box>
@@ -2552,7 +2532,7 @@ export default function CostEstimateTemplateEditor() {
               </Box>
             )}
           </ModalBody>
-          <ModalFooter borderTop="1px" borderColor="gray.200">
+          <ModalFooter borderTop="1px" borderColor="neutral.200">
             <Button onClick={onPreviewClose}>Zamknij</Button>
           </ModalFooter>
         </ModalContent>
@@ -2578,7 +2558,7 @@ export default function CostEstimateTemplateEditor() {
               <Text>
                 Masz niezapisane zmiany w szablonie kosztorysu. Czy na pewno chcesz opuścić tę stronę?
               </Text>
-              <Text mt={2} color="gray.600" fontSize="sm">
+              <Text mt={2} color="neutral.600" fontSize="sm">
                 Wszystkie niezapisane zmiany zostaną utracone.
               </Text>
             </AlertDialogBody>
@@ -2643,7 +2623,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                     key={config.fieldType}
                     size="sm"
                     leftIcon={<Plus size={14} />}
-                    colorScheme="blue"
+                    colorScheme="primary"
                     variant="outline"
                     onClick={() => onAdd(typeNum)}
                     isDisabled={isAdded}
@@ -2663,7 +2643,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                     key={type}
                     size="sm"
                     leftIcon={<Plus size={14} />}
-                    colorScheme="blue"
+                    colorScheme="primary"
                     variant="outline"
                     onClick={() => onAdd(typeNum)}
                     isDisabled={isAdded}
@@ -2680,7 +2660,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
 
       {headerFields.length === 0 ? (
         <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
-          <Text color="gray.500">Brak pól w nagłówku</Text>
+          <Text color="neutral.500">Brak pól w nagłówku</Text>
         </Box>
       ) : (
         <Box overflowX="auto">
@@ -2723,7 +2703,7 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                 return (
                   <Tr key={index}>
                     <Td>
-                      <Badge colorScheme="blue">
+                      <Badge colorScheme="primary">
                         {field.fieldTypeConfig?.namePl || groupHeaderFieldTypeLabels[field.type]}
                       </Badge>
                     </Td>
@@ -2737,28 +2717,28 @@ function HeaderFieldsEditor({ headerFields, onAdd, onRemove, onUpdate, onReorder
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.sortable || false}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.filterable || false}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
@@ -3023,7 +3003,7 @@ function SystemFieldsEditor({
                       key={config.fieldType}
                       size="sm"
                       leftIcon={<Plus size={14} />}
-                      colorScheme="blue"
+                      colorScheme="primary"
                       variant="outline"
                       onClick={() => onAdd(systemFieldType)}
                       isDisabled={shouldDisable}
@@ -3044,7 +3024,7 @@ function SystemFieldsEditor({
                       key={type}
                       size="sm"
                       leftIcon={<Plus size={14} />}
-                      colorScheme="blue"
+                      colorScheme="primary"
                       variant="outline"
                       onClick={() => onAdd(typeNum)}
                       isDisabled={shouldDisable}
@@ -3062,7 +3042,7 @@ function SystemFieldsEditor({
 
       {fields.length === 0 ? (
         <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
-          <Text color="gray.500">Brak pól systemowych</Text>
+          <Text color="neutral.500">Brak pól systemowych</Text>
         </Box>
       ) : (
         <Box overflowX="auto">
@@ -3093,7 +3073,7 @@ function SystemFieldsEditor({
                 <React.Fragment key={index}>
                   <Tr>
                     <Td>
-                      <Badge colorScheme="blue">
+                      <Badge colorScheme="primary">
                         {field.fieldTypeConfig?.namePl || systemFieldTypeLabels[field.type]}
                       </Badge>
                     </Td>
@@ -3106,28 +3086,28 @@ function SystemFieldsEditor({
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.sortable}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
@@ -3163,9 +3143,9 @@ function SystemFieldsEditor({
               {field.type === SystemFieldType.Options && expandedField === index && (
                 <Tr>
                   <Td colSpan={7} p={0}>
-                    <Box p={4} bg="gray.50">
+                    <Box p={4} bg="neutral.25">
                       <VStack spacing={4} align="stretch">
-                        <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                        <Text fontSize="sm" fontWeight="bold" color="neutral.700">
                           Pola w opcjach (systemowe bez Opcji, kalkulowane, generyczne)
                         </Text>
 
@@ -3284,13 +3264,13 @@ function SystemFieldsEditor({
                               // Ustal colorScheme na podstawie fieldScope
                               const scope = childField.fieldTypeConfig.fieldScope;
                               if (scope === 1) colorScheme = "cyan";
-                              else if (scope === 2) colorScheme = "purple";
+                              else if (scope === 2) colorScheme = "level2";
                               else if (scope === 3) colorScheme = "green";
                             } else if (isSystemField(childField)) {
                               colorScheme = "cyan";
                               typeLabel = systemFieldTypeLabels[childField.type];
                             } else if (isCalculatedField(childField)) {
-                              colorScheme = "purple";
+                              colorScheme = "level2";
                               typeLabel = calculatedFieldTypeLabels[childField.type];
                             } else if (isGenericField(childField)) {
                               colorScheme = "green";
@@ -3323,7 +3303,7 @@ function SystemFieldsEditor({
                                 data-touch-draggable-child
                               >
                                 <Td w="40px" px={2}>
-                                  <Icon as={GripVertical} color="gray.400" boxSize={4} />
+                                  <Icon as={GripVertical} color="neutral.400" boxSize={4} />
                                 </Td>
                                 <Td>
                                   <Badge colorScheme={colorScheme} fontSize="xs">
@@ -3415,7 +3395,6 @@ interface CalculatedFieldsEditorProps {
   onRemove: (index: number) => void;
   onUpdate: (index: number, updates: Partial<CalculatedFieldDefinition>) => void;
   fieldTypeConfigs: Record<string, import('../types/costEstimate.types.new').CostEstimateFieldTypeConfigWeb[]>;
-  units: Array<{ code: string; name: string; symbol: string; }>;
 }
 
 function CalculatedFieldsEditor({
@@ -3424,7 +3403,6 @@ function CalculatedFieldsEditor({
   onRemove,
   onUpdate,
   fieldTypeConfigs,
-  units,
 }: CalculatedFieldsEditorProps) {
   // Pobierz dostępne typy pól kalkulowanych z BE (scope 2 = calculated)
   const availableCalculatedFields = fieldTypeConfigs[2] || [];
@@ -3501,7 +3479,7 @@ function CalculatedFieldsEditor({
 
       {fields.length === 0 ? (
         <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
-          <Text color="gray.500">Brak pól obliczeniowych</Text>
+          <Text color="neutral.500">Brak pól obliczeniowych</Text>
         </Box>
       ) : (
         <Box overflowX="auto">
@@ -3512,7 +3490,6 @@ function CalculatedFieldsEditor({
                   <Tooltip label="Typ pola obliczeniowego" hasArrow><span>Typ pola</span></Tooltip>
                 </Th>
                 <Th>Etykieta</Th>
-                <Th w="120px">Jednostka</Th>
                 <Th w="80px">
                   <Tooltip label="Czy kolumna jest widoczna w widoku kosztorysu" hasArrow><span>Widoczne</span></Tooltip>
                 </Th>
@@ -3552,45 +3529,29 @@ function CalculatedFieldsEditor({
                       />
                     </Td>
                     <Td>
-                      <Input
-                        size="sm"
-                        list={`units-list-${index}`}
-                        value={field.unit || ''}
-                        onChange={(e) => onUpdate(index, { unit: e.target.value })}
-                        placeholder="Wybierz lub wpisz"
-                      />
-                      <datalist id={`units-list-${index}`}>
-                        {units.map((u) => (
-                          <option key={u.code} value={u.symbol || u.code}>
-                            {u.name} ({u.symbol || u.code})
-                          </option>
-                        ))}
-                      </datalist>
-                    </Td>
-                    <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.sortable}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
@@ -3599,7 +3560,7 @@ function CalculatedFieldsEditor({
                       <Tooltip label={isSummable ? "Sumuj w podsumowaniu etapu" : "Ta opcja nie jest dostępna dla tego typu pola"} hasArrow>
                         <Box>
                           <Checkbox
-                            colorScheme="blue"
+                            colorScheme="primary"
                             isChecked={field.sumInGroup || false}
                             onChange={(e) => onUpdate(index, { sumInGroup: e.target.checked })}
                             isDisabled={!isSummable}
@@ -3612,7 +3573,7 @@ function CalculatedFieldsEditor({
                       <Tooltip label={isSummable ? "Sumuj w podsumowaniu całkowitym" : "Ta opcja nie jest dostępna dla tego typu pola"} hasArrow>
                         <Box>
                           <Checkbox
-                            colorScheme="blue"
+                            colorScheme="primary"
                             isChecked={field.sumInTotal || false}
                             onChange={(e) => onUpdate(index, { sumInTotal: e.target.checked })}
                             isDisabled={!isSummable}
@@ -3689,7 +3650,7 @@ function GenericFieldsEditor({
                   key={config.fieldType}
                   size="sm"
                   leftIcon={<Plus size={14} />}
-                  colorScheme="purple"
+                  colorScheme="level2"
                   variant="outline"
                   onClick={() => onAdd(genFieldType)}
                 >
@@ -3704,7 +3665,7 @@ function GenericFieldsEditor({
                 key={type}
                 size="sm"
                 leftIcon={<Plus size={14} />}
-                colorScheme="purple"
+                colorScheme="level2"
                 variant="outline"
                 onClick={() => onAdd(parseInt(type) as GenericFieldType)}
               >
@@ -3717,7 +3678,7 @@ function GenericFieldsEditor({
 
       {fields.length === 0 ? (
         <Box p={8} textAlign="center" borderWidth="2px" borderRadius="md" borderStyle="dashed">
-          <Text color="gray.500">Brak pól generycznych</Text>
+          <Text color="neutral.500">Brak pól generycznych</Text>
         </Box>
       ) : (
         <Box overflowX="auto">
@@ -3748,7 +3709,7 @@ function GenericFieldsEditor({
                 return (
                   <Tr key={index}>
                     <Td>
-                      <Badge colorScheme="purple">
+                      <Badge colorScheme="level2">
                         {field.fieldTypeConfig?.namePl || genericFieldTypeLabels[field.type]}
                       </Badge>
                     </Td>
@@ -3761,28 +3722,28 @@ function GenericFieldsEditor({
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.visible !== false}
                         onChange={(e) => onUpdate(index, { visible: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.sortable}
                         onChange={(e) => onUpdate(index, { sortable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.filterable}
                         onChange={(e) => onUpdate(index, { filterable: e.target.checked })}
                       />
                     </Td>
                     <Td>
                       <Checkbox
-                        colorScheme="blue"
+                        colorScheme="primary"
                         isChecked={field.readOnly || false}
                         onChange={(e) => onUpdate(index, { readOnly: e.target.checked })}
                       />
@@ -3879,11 +3840,11 @@ function SummaryConfigurationEditor({
         <Text fontSize="md" fontWeight="bold" mb={4}>
           Pola do sumowania w etapach
         </Text>
-        <Text fontSize="sm" color="gray.600" mb={4}>
+        <Text fontSize="sm" color="neutral.600" mb={4}>
           Wybierz pola które mają być sumowane w podsumowaniu etapów. Pozostaw puste aby nie sumować żadnych pól.
         </Text>
         {summableFields.length === 0 ? (
-          <Text fontSize="sm" color="gray.500">
+          <Text fontSize="sm" color="neutral.500">
             Brak pól dostępnych do sumowania (dodaj pola typu ValueNet, ValueGross lub TotalVat z Summable=true)
           </Text>
         ) : (
@@ -3910,11 +3871,11 @@ function SummaryConfigurationEditor({
         <Text fontSize="md" fontWeight="bold" mb={4}>
           Pola do sumowania w całkowitym podsumowaniu
         </Text>
-        <Text fontSize="sm" color="gray.600" mb={4}>
+        <Text fontSize="sm" color="neutral.600" mb={4}>
           Wybierz pola które mają być sumowane w całkowitym podsumowaniu (grand total). Pozostaw puste aby nie sumować żadnych pól.
         </Text>
         {summableFields.length === 0 ? (
-          <Text fontSize="sm" color="gray.500">
+          <Text fontSize="sm" color="neutral.500">
             Brak pól dostępnych do sumowania (dodaj pola typu ValueNet, ValueGross lub TotalVat z Summable=true)
           </Text>
         ) : (

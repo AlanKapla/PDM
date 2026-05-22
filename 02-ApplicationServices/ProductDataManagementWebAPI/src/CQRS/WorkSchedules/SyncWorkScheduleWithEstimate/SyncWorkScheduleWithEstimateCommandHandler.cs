@@ -2,32 +2,35 @@
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
 {
-    public class SyncWorkScheduleWithEstimateCommandHandler : IRequestHandler<SyncWorkScheduleWithEstimateCommand, Unit>
+    public sealed class SyncWorkScheduleWithEstimateCommandHandler : IRequestHandler<SyncWorkScheduleWithEstimateCommand, Unit>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
         private readonly IWorkScheduleSyncService workScheduleSyncService;
         private readonly ICostEstimateAccessService costEstimateAccessService;
         private readonly ICurrentUser currentUser;
         private readonly IWorkScheduleCacheService scheduleCache;
+        private readonly IWorkScheduleAccessService accessService;
 
         public SyncWorkScheduleWithEstimateCommandHandler(
             IRepository<WorkSchedule> workScheduleRepo,
             IWorkScheduleSyncService workScheduleSyncService,
             ICostEstimateAccessService costEstimateAccessService,
             ICurrentUser currentUser,
-            IWorkScheduleCacheService scheduleCache)
+            IWorkScheduleCacheService scheduleCache,
+            IWorkScheduleAccessService accessService)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.workScheduleSyncService = workScheduleSyncService;
             this.costEstimateAccessService = costEstimateAccessService;
             this.currentUser = currentUser;
             this.scheduleCache = scheduleCache;
+            this.accessService = accessService;
         }
 
         public async Task<Unit> Handle(SyncWorkScheduleWithEstimateCommand request, CancellationToken cancellationToken)
@@ -35,7 +38,11 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
             Guid tenantId = request.TenantId;
             Guid projectId = request.ProjectId;
 
-            WorkSchedule workSchedule = await LoadAndAuthorizeAsync(tenantId, projectId, request.WorkScheduleId, cancellationToken);
+            await accessService.RequireAdminOrOwnerAsync(tenantId, projectId, request.WorkScheduleId, cancellationToken);
+
+            WorkSchedule workSchedule = await workScheduleRepo.GetFirstBySearch(
+                ws => ws.Id == request.WorkScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId)
+                ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
 
             if (!workSchedule.CostEstimateId.HasValue)
             {
@@ -54,24 +61,6 @@ namespace CQRS.WorkSchedules.SyncWorkScheduleWithEstimate
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
 
             return Unit.Value;
-        }
-
-        private async Task<WorkSchedule> LoadAndAuthorizeAsync(
-            Guid tenantId, Guid projectId, Guid workScheduleId,
-            CancellationToken cancellationToken)
-        {
-            WorkSchedule? workSchedule = await workScheduleRepo.GetFirstBySearch(
-                ws => ws.Id == workScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId && !ws.IsDeleted)
-                ?? throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
-
-            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken);
-
-            if (!isAdmin && workSchedule.CreatedByUserId != currentUser.Id)
-            {
-                throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
-            }
-
-            return workSchedule;
         }
     }
 }

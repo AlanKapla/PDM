@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.CreateProjectCost;
 using CQRS.ProjectCosts.DeleteProjectCost;
 using CQRS.ProjectCosts.GetProjectCosts;
@@ -14,7 +15,7 @@ namespace WebApi.Controllers
     /// <summary>
     /// Controller do zarządzania kosztami projektu
     /// </summary>
-    [Route("api/tenants/{tenantId}/project/{projectId}/cost")]
+    [Route("api/tenants/{tenantId}/projects/{projectId}/cost")]
     [ApiController]
     public class ProjectCostController(IMediator mediator) : BaseApiController(mediator)
     {
@@ -32,8 +33,13 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] ResourceScope scope)
         {
-            var query = new GetProjectCostsQuery(tenantId, projectId, scope);
-            var result = await Send(query);
+            GetProjectCostsQuery query = new GetProjectCostsQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Scope = scope
+            };
+            IEnumerable<Business.Interfaces.WebModels.ProjectCosts.ProjectCostListItemWeb> result = await Send(query);
             return Ok(result);
         }
 
@@ -53,8 +59,8 @@ namespace WebApi.Controllers
                 ProjectId = projectId
             };
 
-            var costId = await Send(command);
-            return Created(string.Empty, new { id = costId });
+            ProjectCostListItemWeb result = await Send(command);
+            return Created(string.Empty, result);
         }
 
         /// <summary>
@@ -75,8 +81,8 @@ namespace WebApi.Controllers
                 CostId = costId
             };
 
-            await Send(command);
-            return NoContent();
+            ProjectCostListItemWeb result = await Send(command);
+            return Ok(result);
         }
 
         /// <summary>
@@ -89,7 +95,12 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid costId)
         {
-            var command = new DeleteProjectCostCommand(tenantId, projectId, costId);
+            DeleteProjectCostCommand command = new DeleteProjectCostCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostId = costId
+            };
             await Send(command);
             return NoContent();
         }

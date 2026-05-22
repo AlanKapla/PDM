@@ -1,5 +1,5 @@
 ﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
+using CQRS.Files._Shared;
 using MediatR;
 
 namespace CQRS.Files.SharePackages
@@ -8,25 +8,19 @@ namespace CQRS.Files.SharePackages
     /// Command do udostępnienia paczek członkom projektu
     /// Udostępnia CAŁE paczki (bez wykluczeń plików)
     /// </summary>
-    public record SharePackagesCommand : IRequestCommand<Unit>, IAuthorizableRequest
+    public sealed record SharePackagesCommand : ProjectScopedFilesRequestBase, IRequestCommand<Unit>
     {
-        public Guid TenantId { get; init; }
-        public Guid ProjectId { get; init; }
-        
         /// <summary>
         /// Lista ID paczek do udostępnienia
         /// </summary>
-        public List<Guid> PackageIds { get; init; } = new();
-        
+        public required List<Guid> PackageIds { get; init; }
+
         /// <summary>
         /// Lista ID użytkowników (członków projektu), którym zostaną udostępnione paczki
         /// </summary>
-        public List<Guid> SharedWithUserIds { get; init; } = new();
+        public required List<Guid> SharedWithUserIds { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
-        
-        public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
+        public override string PermissionCode => PermissionCodes.ProjectResourcesShare;
     }
 }
-
 

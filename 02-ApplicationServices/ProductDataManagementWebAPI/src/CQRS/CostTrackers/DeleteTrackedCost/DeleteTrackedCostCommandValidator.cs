@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.CostTrackers.DeleteTrackedCost
 {
@@ -6,14 +7,9 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
     {
         public DeleteTrackedCostCommandValidator()
         {
-            RuleFor(x => x.CostId)
-                .NotEmpty().WithMessage("Cost ID is required.");
-
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("Tenant ID is required.");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("Project ID is required.");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.CostId).RequiredId();
         }
     }
 }

@@ -1,7 +1,7 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using CQRS.WorkSchedules.Shared;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -74,6 +74,8 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
 
             await workRepository.Update(work);
             await workRepository.SaveChangesAsync(cancellationToken);
+
+            bool isWorkClosed = newPeriods.Count > 0 && newPeriods.All(p => p.IsClosed);
             await scheduleCache.InvalidateScheduleAsync(request.WorkScheduleId, cancellationToken);
             return Unit.Value;
         }

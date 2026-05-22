@@ -1,4 +1,12 @@
-﻿using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,7 +17,13 @@ namespace Entities.Configurations
         public void Configure(EntityTypeBuilder<ProjectFileVersion> builder)
         {
             builder.HasKey(pfv => pfv.Id);
-            
+
+            builder.Property(pfv => pfv.TenantId)
+                .IsRequired();
+
+            builder.Property(pfv => pfv.ProjectId)
+                .IsRequired();
+
             builder.Property(pfv => pfv.VersionNumber)
                 .IsRequired();
             
@@ -35,6 +49,8 @@ namespace Entities.Configurations
                 .IsRequired()
                 .HasDefaultValue(false);
 
+            builder.HasQueryFilter(pfv => !pfv.IsDeleted);
+
             // Relacja z ProjectFile
             builder.HasOne(pfv => pfv.ProjectFile)
                 .WithMany(pf => pf.Versions)
@@ -56,7 +72,10 @@ namespace Entities.Configurations
             
             // Indeks dla wyszukiwania po autorze wersji
             builder.HasIndex(pfv => pfv.CreatedByUserId);
-            
+
+            // Indeks dla wyszukiwania wersji per tenant/projekt
+            builder.HasIndex(pfv => new { pfv.TenantId, pfv.ProjectId });
+
             // Indeks dla sortowania po dacie
             builder.HasIndex(pfv => pfv.CreatedAt);
         }

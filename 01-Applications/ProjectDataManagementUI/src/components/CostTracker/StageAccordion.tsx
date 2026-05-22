@@ -1,4 +1,4 @@
-import {
+﻿import {
   Accordion,
   AccordionItem,
   AccordionButton,
@@ -15,7 +15,7 @@ import CostTrackerStatusBadge from "./CostTrackerStatusBadge";
 import CostCountBadge from "./CostCountBadge";
 import PositionsTable from "./PositionsTable";
 import { TrackedCostItemStatus } from "../../types/costTracker.types";
-import type { TrackerGroupWeb } from "../../types/costTracker.types";
+import type { CostEstimateSummaryWeb, TrackerGroupWeb } from "../../types/costTracker.types";
 
 interface StageAccordionProps {
   groups: TrackerGroupWeb[];
@@ -24,6 +24,7 @@ interface StageAccordionProps {
   costEstimateId: string;
   onCostMutated: () => void;
   depth?: number;
+  estimates?: CostEstimateSummaryWeb[];
 }
 
 function groupLeftBorder(group: TrackerGroupWeb): string {
@@ -39,6 +40,7 @@ export default function StageAccordion({
   costEstimateId,
   onCostMutated,
   depth = 0,
+  estimates,
 }: StageAccordionProps) {
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -60,7 +62,7 @@ export default function StageAccordion({
           <AccordionItem
             key={group.groupId}
             borderWidth="1px"
-            borderColor="gray.200"
+            borderColor="neutral.200"
             borderRadius="md"
             mb={2}
             overflow="hidden"
@@ -70,9 +72,9 @@ export default function StageAccordion({
               px={depth > 0 ? 3 : 4}
               py={2}
               minH="44px"
-              bg="gray.50"
-              _hover={{ bg: "gray.100" }}
-              _expanded={{ bg: "gray.100" }}
+              bg="neutral.25"
+              _hover={{ bg: "neutral.50" }}
+              _expanded={{ bg: "neutral.50" }}
             >
               <HStack flex={1} spacing={2} textAlign="left" overflow="hidden">
                 <Text
@@ -90,9 +92,9 @@ export default function StageAccordion({
                   colorScheme={progressColor}
                   flex={1}
                   borderRadius="full"
-                  bg="gray.200"
+                  bg="neutral.100"
                 />
-                <Text fontSize="xs" color="gray.500" flexShrink={0}>
+                <Text fontSize="xs" color="neutral.500" flexShrink={0}>
                   {group.itemsWithCostsCount}/{group.totalItemsCount}
                 </Text>
                 <CostCountBadge count={group.costCount} />
@@ -110,6 +112,7 @@ export default function StageAccordion({
                     projectId={projectId}
                     costEstimateId={costEstimateId}
                     onCostMutated={onCostMutated}
+                    estimates={estimates}
                   />
                 )}
 
@@ -118,7 +121,7 @@ export default function StageAccordion({
                   <Box
                     pl={6}
                     borderLeft="2px solid"
-                    borderLeftColor="gray.200"
+                    borderLeftColor="neutral.200"
                   >
                     <StageAccordion
                       groups={group.childGroups}
@@ -127,6 +130,7 @@ export default function StageAccordion({
                       costEstimateId={costEstimateId}
                       onCostMutated={onCostMutated}
                       depth={depth + 1}
+                      estimates={estimates}
                     />
                   </Box>
                 )}

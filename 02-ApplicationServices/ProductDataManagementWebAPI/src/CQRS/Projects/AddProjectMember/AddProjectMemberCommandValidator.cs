@@ -1,11 +1,12 @@
-﻿using Business.Interfaces.Model;
-using Entities.Models;
+﻿using CQRS.Extensions;
+using Entities.Models.Projects;
+using Entities.Models.Tenants;
 using FluentValidation;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Projects.AddProjectMember
 {
-    public class AddProjectMemberCommandValidator : AbstractValidator<AddProjectMemberCommand>
+    public sealed class AddProjectMemberCommandValidator : AbstractValidator<AddProjectMemberCommand>
     {
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
@@ -17,14 +18,9 @@ namespace CQRS.Projects.AddProjectMember
             this.projectMemberRepo = projectMemberRepo;
             this.tenantMemberRepo = tenantMemberRepo;
 
-            RuleFor(x => x.TenantId)
-                .NotEmpty().WithMessage("TenantId is required");
-
-            RuleFor(x => x.ProjectId)
-                .NotEmpty().WithMessage("ProjectId is required");
-
-            RuleFor(x => x.UserId)
-                .NotEmpty().WithMessage("UserId is required");
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.UserId).RequiredId();
 
             // Validate user must be active tenant member
             RuleFor(x => x)

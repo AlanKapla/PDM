@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
 {
@@ -6,11 +7,11 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
     {
         public SetWorkScheduleStageWorkAssignmentsCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageWorkId).NotEmpty();
-            RuleFor(x => x.UserIds).NotNull();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageWorkId).RequiredId();
+            RuleFor(x => x.UserIds).NotNull().UniqueIds();
             RuleForEach(x => x.UserIds).NotEmpty();
         }
     }

@@ -1,14 +1,13 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.Tenants.UpdateTenant
 {
-    public class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantCommand>
+    public sealed class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantCommand>
     {
         public UpdateTenantCommandValidator()
         {
-            RuleFor(c => c.TenantId)
-                .NotEmpty()
-                .WithMessage("TenantId is required");
+            RuleFor(c => c.TenantId).RequiredId();
 
             RuleFor(c => c.Name)
                 .NotEmpty()

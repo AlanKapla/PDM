@@ -5,14 +5,22 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
 using Entities.Enums;
-using Entities.Models;
+using Entities.Models.Chats;
+using Entities.Models.Costs;
+using Entities.Models.Files;
+using Entities.Models.Notifications;
+using Entities.Models.Projects;
+using Entities.Models.Roles;
+using Entities.Models.Tenants;
+using Entities.Models.Users;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
 namespace CQRS.Projects.AddProjectMember
 {
-    public class AddProjectMemberCommandHandler : IRequestHandler<AddProjectMemberCommand, Unit>
+    public sealed class AddProjectMemberCommandHandler : IRequestHandler<AddProjectMemberCommand, Unit>
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
@@ -47,12 +55,12 @@ namespace CQRS.Projects.AddProjectMember
                 cancellationToken)
                 ?? throw new NotFoundApiException(nameof(Project), request.ProjectId.ToString());
 
-            var viewerRole = await roleRepo.GetFirstBySearch(
+            Role viewerRole = await roleRepo.GetFirstBySearch(
                 r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectViewer && r.IsActive,
                 cancellationToken)
                 ?? throw new InvalidOperationException($"{RoleCodes.ProjectViewer} role not found");
 
-            var targetUser = await userService.GetTenantMemberInfoAsync(
+            ProjectMemberUserInfo? targetUser = await userService.GetTenantMemberInfoAsync(
                 request.TenantId, request.UserId, cancellationToken);
 
             ProjectMember newMember = new ProjectMember
@@ -77,8 +85,8 @@ namespace CQRS.Projects.AddProjectMember
                 Type = NotificationType.Info,
                 Title = "Dodano do projektu",
                 Message = $"Zostałeś dodany do projektu: {project.Name}",
-                CreatedAt = DateTimeOffset.UtcNow,
-                Readed = false,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "projectId", request.ProjectId },
@@ -87,7 +95,7 @@ namespace CQRS.Projects.AddProjectMember
                 }
             };
 
-            var payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
             await notificationSender.EnqueueAsync(payload, cancellationToken);
 
             return Unit.Value;

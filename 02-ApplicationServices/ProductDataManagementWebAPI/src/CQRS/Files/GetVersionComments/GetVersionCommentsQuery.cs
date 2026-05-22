@@ -1,6 +1,7 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Files;
+using CQRS.Files._Shared;
 
 namespace CQRS.Files.GetVersionComments;
 
@@ -8,17 +9,12 @@ namespace CQRS.Files.GetVersionComments;
 /// Query to get all comments for a specific file version based on scope (All, Mine, Shared)
 /// Validates user access to the file based on ResourceScope
 /// </summary>
-public sealed record GetVersionCommentsQuery(
-    Guid TenantId,
-    Guid ProjectId,
-    Guid FileId,
-    Guid VersionId,
-    ResourceScope Scope
-) : IRequestQuery<List<ProjectFileVersionCommentWeb>>, IAuthorizableRequest
+public sealed record GetVersionCommentsQuery : FileScopedRequestBase, IRequestQuery<List<ProjectFileVersionCommentWeb>>
 {
-    public string PermissionCode => PermissionCodes.ProjectView;
-    
-    public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
-    
+    public required Guid VersionId { get; init; }
+    public required ResourceScope Scope { get; init; }
+
+    public override string PermissionCode => PermissionCodes.ProjectView;
+
     public ResourceScope? GetResourceScope() => Scope;
 }

@@ -46,7 +46,7 @@ export function ChatUnreadProvider({ children }: { children: ReactNode }) {
         await chatHubService.startConnection();
         if (cancelled) return;
 
-        const chats = await chatApi.getChats();
+        const chats = await chatApi.getChats(user.activeTenantId ?? null);
         if (cancelled) return;
 
         const counts: Record<string, number> = {};

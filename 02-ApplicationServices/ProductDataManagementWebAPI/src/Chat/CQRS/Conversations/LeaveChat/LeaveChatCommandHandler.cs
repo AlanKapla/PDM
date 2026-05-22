@@ -1,8 +1,9 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Chat.Hubs;
-using Entities.Models;
-using ChatModel = Entities.Models.Chat;
+using CQRS.PostCommit;
+using Entities.Models.Chats;
+using ChatModel = Entities.Models.Chats.Chat;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
     private readonly IRepository<ChatModel> chatWriteRepo;
     private readonly IRepository<ChatMember> chatMemberRepo;
     private readonly IHubContext<ChatHub, IChatClient> hubContext;
+    private readonly IPostCommitDispatcher dispatcher;
     private readonly ICurrentUser currentUser;
     private readonly ILogger<LeaveChatCommandHandler> logger;
 
@@ -24,6 +26,7 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
         IRepository<ChatModel> chatWriteRepo,
         IRepository<ChatMember> chatMemberRepo,
         IHubContext<ChatHub, IChatClient> hubContext,
+        IPostCommitDispatcher dispatcher,
         ICurrentUser currentUser,
         ILogger<LeaveChatCommandHandler> logger)
     {
@@ -31,26 +34,15 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
         this.chatWriteRepo = chatWriteRepo;
         this.chatMemberRepo = chatMemberRepo;
         this.hubContext = hubContext;
+        this.dispatcher = dispatcher;
         this.currentUser = currentUser;
         this.logger = logger;
     }
 
     public async Task<Unit> Handle(LeaveChatCommand request, CancellationToken cancellationToken)
     {
-        ChatModel? chat = await chatRepo.GetFirstBySearch(c => c.Id == request.ChatId, cancellationToken);
-
-        if (chat == null)
-        {
-            throw new NotFoundApiException("Chat", request.ChatId.ToString());
-        }
-
-        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
-            cm => cm.ChatId == request.ChatId && cm.UserId == currentUser.Id);
-
-        if (membership == null)
-        {
-            throw new NotFoundApiException("ChatMember", currentUser.Id.ToString());
-        }
+        ChatModel chat = await GetAndValidateChatAsync(request.ChatId, cancellationToken);
+        ChatMember membership = await GetAndValidateMembershipAsync(request.ChatId, currentUser.Id, cancellationToken);
 
         if (membership.IsAdmin)
         {
@@ -64,6 +56,34 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
         return Unit.Value;
     }
 
+    private async Task<ChatModel> GetAndValidateChatAsync(Guid chatId, CancellationToken cancellationToken)
+    {
+        ChatModel? chat = await chatRepo.GetFirstBySearch(c => c.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            throw new NotFoundApiException(nameof(Entities.Models.Chats.Chat), chatId.ToString());
+        }
+
+        return chat;
+    }
+
+    private async Task<ChatMember> GetAndValidateMembershipAsync(
+        Guid chatId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        ChatMember? membership = await chatMemberRepo.GetFirstBySearch(
+            cm => cm.ChatId == chatId && cm.UserId == userId);
+
+        if (membership is null)
+        {
+            throw new NotFoundApiException(nameof(ChatMember), userId.ToString());
+        }
+
+        return membership;
+    }
+
     private async Task DissolveGroupAsync(ChatModel chat, CancellationToken cancellationToken)
     {
         List<Guid> memberIds = await chatMemberRepo.SelectAsync(
@@ -71,15 +91,18 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
             cm => cm.UserId,
             cancellationToken);
 
-        foreach (Guid userId in memberIds)
-        {
-            await hubContext.Clients
-                .Group(ChatHubGroups.User(userId))
-                .ChatDeleted(chat.Id);
-        }
-
         // DB cascade deletes ChatMembers and MessageHistories
         await chatWriteRepo.ExecuteDeleteAsync(c => c.Id == chat.Id, cancellationToken);
+
+        Guid chatIdForBroadcast = chat.Id;
+        foreach (Guid userId in memberIds)
+        {
+            Guid capturedUserId = userId;
+            dispatcher.Enqueue(_ =>
+                hubContext.Clients
+                    .Group(ChatHubGroups.User(capturedUserId))
+                    .ChatDeleted(chatIdForBroadcast));
+        }
 
         logger.LogInformation(
             "Group chat {ChatId} dissolved by admin {UserId}",
@@ -90,12 +113,15 @@ public sealed class LeaveChatCommandHandler : IRequestHandler<LeaveChatCommand, 
     {
         await chatMemberRepo.Delete(membership);
 
-        await hubContext.Clients
-            .Group(ChatHubGroups.User(currentUser.Id))
-            .RemovedFromChat(new RemovedFromChatPayload(chat.Id, null));
+        Guid chatIdForBroadcast = chat.Id;
+        Guid removedUserId = currentUser.Id;
+        dispatcher.Enqueue(_ =>
+            hubContext.Clients
+                .Group(ChatHubGroups.User(removedUserId))
+                .RemovedFromChat(new RemovedFromChatPayload(chatIdForBroadcast, null)));
 
         logger.LogInformation(
             "User {UserId} left chat {ChatId}",
-            currentUser.Id, chat.Id);
+            removedUserId, chatIdForBroadcast);
     }
 }

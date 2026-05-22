@@ -2,11 +2,12 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, Box, useColorModeValue, use
 import { ChevronRight } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { projectApi } from "../api/projectApi";
-import { costEstimateTemplateApi } from "../api/costEstimateTemplateApi";
-import { costEstimateApi } from "../api/costEstimateApi";
 import { useAuth } from "../context/AuthContext";
-import { useGlobalCache } from "../hooks/useGlobalCache";
+import {
+  useProjectDetails,
+  useCostEstimateTemplateDetails,
+  useCostEstimateDetails,
+} from "../hooks/queries";
 
 interface BreadcrumbSegment {
   label: string;
@@ -19,103 +20,31 @@ export default function Breadcrumbs() {
   const params = useParams();
   const { user } = useAuth();
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbSegment[]>([]);
-  const [projectName, setProjectName] = useState<string>("");
-  const [templateName, setTemplateName] = useState<string>("");
-  const [costEstimateName, setCostEstimateName] = useState<string>("");
 
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const bgColor = useColorModeValue("white", "gray.800");
   // Na mobile pokazuj maksymalnie 2 ostatnie pozycje (rodzic + bieżąca)
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  // Globalny cache dla project details (współdzielony z innymi komponentami)
-  const projectDetailsCache = useGlobalCache(
-    `project-details-${params.projectId}`,
-    async () => {
-      if (!user?.activeTenantId || !params.projectId) throw new Error('Missing tenant or project ID');
-      const res = await projectApi.getProjectDetails(user.activeTenantId, params.projectId);
-      return res.data;
-    }
+  // React Query — nazwa projektu (współdzielony cache między stronami projektu)
+  const { data: projectData } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    params.projectId
+  );
+  const projectName = projectData?.name ?? "";
+
+  // React Query — szczegóły szablonu i kosztorysu (lazy via `enabled`)
+  const { data: templateDetails, isLoading: templateLoading } =
+    useCostEstimateTemplateDetails(params.templateId);
+
+  const { data: costEstimateDetails } = useCostEstimateDetails(
+    user?.activeTenantId ?? undefined,
+    params.projectId,
+    params.estimateId
   );
 
-  // Globalny cache dla template details
-  const templateDetailsCache = useGlobalCache(
-    `template-details-${params.templateId}`,
-    async () => {
-      if (!params.templateId) throw new Error('Missing template ID');
-      return await costEstimateTemplateApi.getTemplateDetails(params.templateId);
-    }
-  );
-
-  // Globalny cache dla cost estimate details
-  const costEstimateDetailsCache = useGlobalCache(
-    `cost-estimate-details-${params.estimateId}`,
-    async () => {
-      if (!user?.activeTenantId || !params.projectId || !params.estimateId) {
-        throw new Error('Missing tenant, project or estimate ID');
-      }
-      return await costEstimateApi.getCostEstimateDetails(
-        user.activeTenantId,
-        params.projectId,
-        params.estimateId
-      );
-    }
-  );
-
-  // Pobierz nazwę projektu jeśli jest w URL
-  // useGlobalCache zapobiega duplikacji requestów - jeśli cache istnieje, zwraca z cache
-  useEffect(() => {
-    const fetchProjectName = async () => {
-      if (params.projectId && user?.activeTenantId) {
-        try {
-          const projectDetails = await projectDetailsCache.fetch();
-          setProjectName(projectDetails.name);
-        } catch (error) {
-          setProjectName("");
-        }
-      } else {
-        setProjectName("");
-      }
-    };
-
-    fetchProjectName();
-  }, [params.projectId, user?.activeTenantId]);
-
-  // Pobierz nazwę szablonu jeśli jest w URL
-  useEffect(() => {
-    const fetchTemplateName = async () => {
-      if (params.templateId) {
-        try {
-          const templateDetails = await templateDetailsCache.fetch();
-          setTemplateName(templateDetails.name);
-        } catch (error) {
-          setTemplateName("");
-        }
-      } else {
-        setTemplateName("");
-      }
-    };
-
-    fetchTemplateName();
-  }, [params.templateId]);
-
-  // Pobierz nazwę kosztorysu jeśli jest w URL
-  useEffect(() => {
-    const fetchCostEstimateName = async () => {
-      if (params.estimateId && params.projectId && user?.activeTenantId) {
-        try {
-          const costEstimateDetails = await costEstimateDetailsCache.fetch();
-          setCostEstimateName(costEstimateDetails.name);
-        } catch (error) {
-          setCostEstimateName("");
-        }
-      } else {
-        setCostEstimateName("");
-      }
-    };
-
-    fetchCostEstimateName();
-  }, [params.estimateId, params.projectId, user?.activeTenantId]);
+  const templateName = templateDetails?.name ?? "";
+  const costEstimateName = costEstimateDetails?.name ?? "";
 
   // Generuj breadcrumbs po załadowaniu nazwy projektu
   useEffect(() => {
@@ -156,6 +85,8 @@ export default function Breadcrumbs() {
             segments.push({ label: "Pliki", path: `/projects/${params.projectId}/files`, isCurrentPage: true });
           } else if (pathSegments[2] === "costs") {
             segments.push({ label: "Wydatki", path: `/projects/${params.projectId}/costs`, isCurrentPage: true });
+          } else if (pathSegments[2] === "dashboard") {
+            segments.push({ label: "Dashboard", path: `/projects/${params.projectId}/dashboard`, isCurrentPage: true });
           } else if (pathSegments[2] === "cost-estimates") {
             if (params.estimateId) {
               segments.push({ label: "Kosztorysy", path: `/projects/${params.projectId}/cost-estimates` });
@@ -210,11 +141,11 @@ export default function Breadcrumbs() {
   }
 
   // Nie renderuj breadcrumbs dopóki nazwa projektu/szablonu się nie załaduje
-  if (params.projectId && !projectName && projectDetailsCache.loading) {
+  if (params.projectId && !projectName) {
     return null;
   }
   
-  if (params.templateId && !templateName && templateDetailsCache.loading) {
+  if (params.templateId && !templateName && templateLoading) {
     return null;
   }
 

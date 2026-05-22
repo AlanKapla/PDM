@@ -46,11 +46,11 @@ function SortableWorkItem({ work }: SortableWorkItemProps) {
       borderColor={borderColor}
       borderRadius="md"
       p={2}
-      bg={isDragging ? useColorModeValue("green.50", "green.900") : useColorModeValue("white", "gray.800")}
+      bg={isDragging ? useColorModeValue("neutral.50", "neutral.800") : useColorModeValue("white", "gray.800")}
       opacity={isDragging ? 0.8 : 1}
     >
       <HStack spacing={2}>
-        <Box {...attributes} {...listeners} cursor="grab" color="gray.400">
+        <Box {...attributes} {...listeners} cursor="grab" color="neutral.400">
           <GripVertical size={16} />
         </Box>
         <Box w="10px" h="10px" borderRadius="full" bg={work.colorRgb} />
@@ -110,7 +110,7 @@ export default function WorksOrderModal({ isOpen, onClose, stageId }: WorksOrder
           </DndContext>
         </DrawerBody>
         <DrawerFooter borderTopWidth="1px" gap={2}>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="ghost" colorScheme="gray" onClick={onClose}>Anuluj</Button>
           <Button colorScheme="primary" onClick={handleSave} isLoading={isSubmitting}>Zapisz kolejność</Button>
         </DrawerFooter>
       </DrawerContent>

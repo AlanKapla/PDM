@@ -98,9 +98,9 @@ export default function GanttCommentPopover({ workId, stageId, isReadOnly = fals
             <HStack justify="space-between" mb={1}>
               <HStack spacing={1}>
                 <Avatar size="2xs" name={comment.createdByUserName} />
-                <Text fontWeight="semibold" fontSize="10px">{comment.createdByUserName}</Text>
+                <Text fontWeight="semibold" fontSize="xs">{comment.createdByUserName}</Text>
               </HStack>
-              <Text color="gray.500" fontSize="10px">{fmtDate(comment.createdAt)}</Text>
+              <Text color="gray.500" fontSize="xs">{fmtDate(comment.createdAt)}</Text>
             </HStack>
 
             {editingId === comment.id ? (

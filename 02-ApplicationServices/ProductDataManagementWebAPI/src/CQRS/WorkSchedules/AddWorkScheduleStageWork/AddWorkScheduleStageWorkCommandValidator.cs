@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.WorkSchedules.AddWorkScheduleStageWork
 {
@@ -6,16 +7,13 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWork
     {
         public AddWorkScheduleStageWorkCommandValidator()
         {
-            RuleFor(x => x.TenantId).NotEmpty();
-            RuleFor(x => x.ProjectId).NotEmpty();
-            RuleFor(x => x.WorkScheduleId).NotEmpty();
-            RuleFor(x => x.WorkScheduleStageId).NotEmpty();
+            RuleFor(x => x.TenantId).RequiredId();
+            RuleFor(x => x.ProjectId).RequiredId();
+            RuleFor(x => x.WorkScheduleId).RequiredId();
+            RuleFor(x => x.WorkScheduleStageId).RequiredId();
             RuleFor(x => x.Name).NotEmpty().MaximumLength(255);
-            RuleFor(x => x.Order).GreaterThanOrEqualTo(0);
-            RuleFor(x => x.ColorRgb)
-                .NotEmpty()
-                .Matches(@"^#[0-9A-Fa-f]{6}$")
-                .WithMessage("ColorRgb must be a valid hex color in format #RRGGBB.");
+            RuleFor(x => x.Order).NonNegativeOrder();
+            RuleFor(x => x.ColorRgb).NotEmpty().ValidColorRgb();
         }
     }
 }

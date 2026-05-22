@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import {
   Box,
   VStack,
@@ -18,18 +18,19 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react";
 import { Edit2, Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import CostFormDrawer from "./CostFormDrawer";
 import { DeleteCostConfirm } from "./PositionsTable";
 import { costTrackerApi } from "../../api/costTrackerApi";
+import { costTrackerKeys } from "../../hooks/queries";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { handleApiError } from "../../utils/handleApiError";
 import { formatDate } from "../../utils/formatters";
 import type {
   CostTrackerDetailsWeb,
   TrackedCostWeb,
-  CostEstimateSummaryWeb,
   TrackerGroupWeb,
-  TrackerItemWeb,
+  CostEstimateSummaryWeb,
 } from "../../types/costTracker.types";
 
 type CostSource = "item" | "estimate-additional" | "project-additional";
@@ -114,6 +115,7 @@ export default function AllCostsSection({
   onCostMutated,
 }: AllCostsSectionProps) {
   const { showSuccess, showError } = useToastNotification();
+  const queryClient = useQueryClient();
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const allCosts = useMemo(() => aggregateAllCosts(data), [data]);
@@ -140,6 +142,8 @@ export default function AllCostsSection({
     setIsDeleting(true);
     try {
       await costTrackerApi.deleteCost(tenantId, projectId, deletingCost.id);
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.byProject(tenantId, projectId) });
+      queryClient.invalidateQueries({ queryKey: costTrackerKeys.costs(tenantId, projectId) });
       showSuccess("Koszt usunięty");
       onDeleteClose();
       setDeletingCost(null);
@@ -186,13 +190,13 @@ export default function AllCostsSection({
               <option value="project-additional">Dodatkowy projektu</option>
             </Select>
 
-            <Text fontSize="sm" color="gray.500">
+            <Text fontSize="sm" color="neutral.500">
               {filtered.length} kosztów
             </Text>
           </HStack>
 
           {filtered.length === 0 ? (
-            <Text color="gray.500" fontSize="sm" textAlign="center" py={8}>
+            <Text color="neutral.500" fontSize="sm" textAlign="center" py={8}>
               Brak kosztów spełniających kryteria filtrowania.
             </Text>
           ) : isMobile ? (
@@ -252,7 +256,7 @@ function AllCostsDesktopTable({ costs, onEdit, onDelete }: TableListProps) {
             <Th>Kosztorys</Th>
             <Th>Nazwa</Th>
             <Th isNumeric>Netto</Th>
-            <Th isNumeric>Brutto</Th>
+            <Th>Nr faktury</Th>
             <Th>Data</Th>
             <Th>Załączniki</Th>
             <Th>Akcje</Th>
@@ -273,7 +277,7 @@ function AllCostsDesktopTable({ costs, onEdit, onDelete }: TableListProps) {
                 <Text noOfLines={1}>{cost.name}</Text>
               </Td>
               <Td isNumeric fontSize="sm">{fmt(cost.net)}</Td>
-              <Td isNumeric fontSize="sm">{fmt(cost.gross)}</Td>
+              <Td fontSize="sm">{cost.number ?? "—"}</Td>
               <Td fontSize="sm">{cost.date ? formatDate(cost.date, false) : "—"}</Td>
               <Td fontSize="sm">{cost.attachments.length > 0 ? cost.attachments.length : "—"}</Td>
               <Td>
@@ -320,8 +324,8 @@ function AllCostsMobileList({ costs, onEdit, onDelete }: TableListProps) {
           p={3}
           borderRadius="md"
           borderWidth={1}
-          borderColor="gray.200"
-          _dark={{ borderColor: "gray.600" }}
+          borderColor="neutral.200"
+          _dark={{ borderColor: "neutral.600" }}
         >
           <HStack align="flex-start">
             <VStack align="stretch" flex={1} spacing={1}>
@@ -330,17 +334,19 @@ function AllCostsMobileList({ costs, onEdit, onDelete }: TableListProps) {
                   {SOURCE_LABELS[fc.source]}
                 </Badge>
                 {fc.estimateName && (
-                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                  <Text fontSize="xs" color="neutral.500" noOfLines={1}>
                     {fc.estimateName}
                   </Text>
                 )}
               </HStack>
               <Text fontWeight="semibold" fontSize="sm">{fc.cost.name}</Text>
               <HStack spacing={3} flexWrap="wrap">
-                <Text fontSize="xs" color="gray.600">N: {fmt(fc.cost.net)} PLN</Text>
-                <Text fontSize="xs" color="gray.600">B: {fmt(fc.cost.gross)} PLN</Text>
+                <Text fontSize="xs" color="neutral.600">N: {fmt(fc.cost.net)} PLN</Text>
+                {fc.cost.number && (
+                  <Text fontSize="xs" color="neutral.600">Nr: {fc.cost.number}</Text>
+                )}
                 {fc.cost.date && (
-                  <Text fontSize="xs" color="gray.600">{formatDate(fc.cost.date, false)}</Text>
+                  <Text fontSize="xs" color="neutral.600">{formatDate(fc.cost.date, false)}</Text>
                 )}
               </HStack>
             </VStack>

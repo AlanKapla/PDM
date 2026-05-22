@@ -1,17 +1,15 @@
-﻿using FluentValidation;
+﻿using CQRS.Extensions;
+using FluentValidation;
 
 namespace CQRS.Files.GetFileVersions;
 
-public class GetFileVersionsQueryValidator : AbstractValidator<GetFileVersionsQuery>
+public sealed class GetFileVersionsQueryValidator : AbstractValidator<GetFileVersionsQuery>
 {
     public GetFileVersionsQueryValidator()
-    {           
-        RuleFor(x => x.FileId)
-            .NotEmpty()
-            .WithMessage("FileId is required");
-
-        RuleFor(x => x.Scope)
-            .IsInEnum()
-            .WithMessage("Scope is invalid");
+    {
+        RuleFor(x => x.TenantId).RequiredId();
+        RuleFor(x => x.ProjectId).RequiredId();
+        RuleFor(x => x.FileId).RequiredId();
+        RuleFor(x => x.Scope).ValidScope();
     }
 }

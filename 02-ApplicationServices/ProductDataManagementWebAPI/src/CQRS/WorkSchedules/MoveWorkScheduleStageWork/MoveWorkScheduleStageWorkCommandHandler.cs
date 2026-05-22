@@ -1,6 +1,6 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -32,8 +32,7 @@ namespace CQRS.WorkSchedules.MoveWorkScheduleStageWork
             bool targetStageExists = await stageRepo.AnyAsync(
                 s => s.Id == request.TargetStageId
                   && s.WorkScheduleId == request.WorkScheduleId
-                  && s.TenantId == request.TenantId
-                  && !s.IsDeleted,
+                  && s.TenantId == request.TenantId,
                 cancellationToken);
 
             if (!targetStageExists)

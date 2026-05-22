@@ -24,26 +24,37 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { Bell, Info, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
-import { notificationApi } from "../api/notificationApi";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useUnreadCounter,
+  useNotificationsInfinite,
+  useMarkAsRead,
+  useMarkAllAsRead,
+  notificationKeys,
+} from "../hooks/queries";
 import { notificationHubService } from "../services/notificationHubService";
-import { handleApiError } from "../utils/handleApiError";
 import { type NotificationWeb, NotificationType } from "../types/notification.types";
 
 export default function NotificationBell() {
-  const [allNotifications, setAllNotifications] = useState<NotificationWeb[]>([]);
-  const [unreadNotifications, setUnreadNotifications] = useState<NotificationWeb[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
-  const [allOffset, setAllOffset] = useState(0);
-  const [unreadOffset, setUnreadOffset] = useState(0);
-  const [hasMoreAll, setHasMoreAll] = useState(true);
-  const [hasMoreUnread, setHasMoreUnread] = useState(true);
   const toast = useToast();
+  const queryClient = useQueryClient();
 
-  const LIMIT = 20;
+  const { data: unreadCount = 0 } = useUnreadCounter();
+
+  const allQuery = useNotificationsInfinite('all', isOpen);
+  const unreadQuery = useNotificationsInfinite('unread', isOpen && activeTab === 1);
+
+  const currentQuery = activeTab === 0 ? allQuery : unreadQuery;
+  const allNotifications = allQuery.data?.pages.flat() ?? [];
+  const unreadNotifications = unreadQuery.data?.pages.flat() ?? [];
+  const loading = currentQuery.isLoading;
+  const loadingMore = currentQuery.isFetchingNextPage;
+  const hasMore = currentQuery.hasNextPage ?? false;
+
+  const markAsReadMutation = useMarkAsRead();
+  const markAllAsReadMutation = useMarkAllAsRead();
 
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -51,27 +62,17 @@ export default function NotificationBell() {
   const unreadBg = useColorModeValue("primary.50", "primary.900");
   const messageTextColor = useColorModeValue("gray.700", "gray.300");
 
-  const fetchUnreadCounter = async () => {
-    try {
-      const count = await notificationApi.getUnreadCounter();
-      setUnreadCount(count);
-    } catch (error) {
-    }
-  };
-
-  // Inicjalizacja - pobierz licznik nieprzeczytanych
-  useEffect(() => {
-    fetchUnreadCounter();
-  }, []);
-
   // SignalR - nasłuchuj na nowe powiadomienia
   useEffect(() => {
     const unsubscribeNew = notificationHubService.onNotificationReceived((payload) => {
-      
-      // Zaktualizuj licznik z backendu (snapshot)
-      setUnreadCount(payload.unreadNotificationCounter);
-      
-      // Pokaż toast
+      // Aktualizuj licznik bezpośrednio ze snapshotu
+      queryClient.setQueryData(
+        notificationKeys.unreadCounter(),
+        payload.unreadNotificationCounter
+      );
+      // Invaliduj listy żeby nowe powiadomienie pojawiło się
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+
       toast({
         title: payload.notification.title,
         description: payload.notification.message,
@@ -82,154 +83,34 @@ export default function NotificationBell() {
       });
     });
 
-    const unsubscribeSync = notificationHubService.onNotificationSynced(async () => {
-      await fetchUnreadCounter();
+    const unsubscribeSync = notificationHubService.onNotificationSynced(() => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     });
 
     return () => {
       unsubscribeNew();
       unsubscribeSync();
     };
-  }, []);
+  }, [queryClient, toast]);
 
-  // Załaduj powiadomienia przy otwarciu popover i zmianie taba
-  useEffect(() => {
-    if (isOpen) {
-      // Pobierz aktualny licznik nieprzeczytanych
-      fetchUnreadCounter();
-      // Załaduj listę powiadomień (resetuj offset)
-      setAllOffset(0);
-      setUnreadOffset(0);
-      setHasMoreAll(true);
-      setHasMoreUnread(true);
-      loadNotifications(true);
-    }
-  }, [isOpen, activeTab]);
+  const handleMarkAsRead = (notificationId: string) => {
+    markAsReadMutation.mutate(notificationId);
+  };
 
-  const loadNotifications = async (reset: boolean = false) => {
-    setLoading(true);
-    try {
-      const currentOffset = reset ? 0 : (activeTab === 0 ? allOffset : unreadOffset);
-      
-      if (activeTab === 0) {
-        // Tab "Wszystkie"
-        const notifications = await notificationApi.getAll(LIMIT, currentOffset);
-        
-        if (reset) {
-          setAllNotifications(notifications);
-          setAllOffset(LIMIT);
-        } else {
-          setAllNotifications(prev => [...prev, ...notifications]);
-          setAllOffset(prev => prev + LIMIT);
+  const handleMarkAllAsRead = () => {
+    markAllAsReadMutation.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.markedCount > 0) {
+          toast({
+            title: "Oznaczono wszystkie jako przeczytane",
+            description: `Oznaczono ${result.markedCount} powiadomień`,
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
         }
-        
-        setHasMoreAll(notifications.length === LIMIT);
-      } else {
-        // Tab "Nieprzeczytane"
-        const notifications = await notificationApi.getUnread(LIMIT, currentOffset);
-        
-        if (reset) {
-          setUnreadNotifications(notifications);
-          setUnreadOffset(LIMIT);
-        } else {
-          setUnreadNotifications(prev => [...prev, ...notifications]);
-          setUnreadOffset(prev => prev + LIMIT);
-        }
-        
-        setHasMoreUnread(notifications.length === LIMIT);
-      }
-    } catch (error) {
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMoreNotifications = async () => {
-    setLoadingMore(true);
-    try {
-      if (activeTab === 0) {
-        const notifications = await notificationApi.getAll(LIMIT, allOffset);
-        setAllNotifications(prev => [...prev, ...notifications]);
-        setAllOffset(prev => prev + LIMIT);
-        setHasMoreAll(notifications.length === LIMIT);
-      } else {
-        const notifications = await notificationApi.getUnread(LIMIT, unreadOffset);
-        setUnreadNotifications(prev => [...prev, ...notifications]);
-        setUnreadOffset(prev => prev + LIMIT);
-        setHasMoreUnread(notifications.length === LIMIT);
-      }
-    } catch (error) {
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  const handleMarkAsRead = async (notificationId: string) => {
-    try {
-      await notificationApi.markAsRead(notificationId);
-      
-      // Odśwież licznik z API
-      await fetchUnreadCounter();
-      
-      // Przeładuj aktualne powiadomienia od początku
-      await loadNotifications(true);
-    } catch (error) {
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    try {
-      const result = await notificationApi.markAllAsRead();
-      
-      if (result.markedCount > 0) {
-        // Refresh notifications and counter
-        await Promise.all([
-          loadNotifications(true),
-          fetchUnreadCounter(),
-        ]);
-        
-        toast({
-          title: "Oznaczono wszystkie jako przeczytane",
-          description: `Oznaczono ${result.markedCount} powiadomień`,
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-      }
-    } catch (error) {
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-    }
+      },
+    });
   };
 
   const getNotificationIcon = (type: NotificationType) => {
@@ -297,13 +178,13 @@ export default function NotificationBell() {
           <Box
             key={notification.id}
             p={3}
-            bg={!notification.readed ? unreadBg : "transparent"}
+            bg={!notification.isRead ? unreadBg : "transparent"}
             borderBottom="1px"
             borderColor={borderColor}
             _hover={{ bg: hoverBg }}
             transition="background 0.2s"
             cursor="pointer"
-            onClick={() => !notification.readed && handleMarkAsRead(notification.id)}
+            onClick={() => !notification.isRead && handleMarkAsRead(notification.id)}
           >
             <HStack align="flex-start" spacing={3}>
               <Icon
@@ -317,7 +198,7 @@ export default function NotificationBell() {
                   <Text fontWeight="600" fontSize="sm" noOfLines={2} flex={1}>
                     {notification.title}
                   </Text>
-                  {!notification.readed && (
+                  {!notification.isRead && (
                     <Badge colorScheme="primary" fontSize="xs" flexShrink={0}>
                       Nowe
                     </Badge>
@@ -347,13 +228,13 @@ export default function NotificationBell() {
         ))}
         
         {/* Przycisk "Załaduj więcej" */}
-        {!loading && notifications.length > 0 && (activeTab === 0 ? hasMoreAll : hasMoreUnread) && (
+        {!loading && notifications.length > 0 && hasMore && (
           <Box p={3} borderTop="1px" borderColor={borderColor}>
             <Button
               size="sm"
               variant="ghost"
               colorScheme="primary"
-              onClick={loadMoreNotifications}
+              onClick={() => currentQuery.fetchNextPage()}
               isLoading={loadingMore}
               w="full"
             >

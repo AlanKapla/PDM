@@ -1,7 +1,8 @@
-﻿using Business.Interfaces.Exceptions;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.WorkSchedules;
-using Entities.Models;
+using Entities.Models.Projects;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;

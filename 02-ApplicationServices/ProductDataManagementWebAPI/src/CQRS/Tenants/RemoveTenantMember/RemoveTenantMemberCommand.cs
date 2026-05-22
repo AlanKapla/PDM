@@ -4,10 +4,13 @@ using MediatR;
 
 namespace CQRS.Tenants.RemoveTenantMember
 {
-    public record RemoveTenantMemberCommand(Guid TenantId, Guid UserId) : IRequestCommand<Unit>, IAuthorizableRequest
+    public sealed record RemoveTenantMemberCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
+        public required Guid TenantId { get; init; }
+        public required Guid UserId { get; init; }
+
         public string PermissionCode => PermissionCodes.TenantMembersManage;
-        
+
         public ResourceRef GetResource() => new(TenantId: TenantId);
     }
 }

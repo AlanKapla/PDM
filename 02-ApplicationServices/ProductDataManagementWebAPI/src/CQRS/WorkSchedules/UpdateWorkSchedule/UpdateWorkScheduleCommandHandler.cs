@@ -1,12 +1,12 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
-using Entities.Models;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.WorkSchedules.UpdateWorkSchedule
 {
-    public class UpdateWorkScheduleCommandHandler : IRequestHandler<UpdateWorkScheduleCommand, Unit>
+    public sealed class UpdateWorkScheduleCommandHandler : IRequestHandler<UpdateWorkScheduleCommand, Unit>
     {
         private readonly IRepository<WorkSchedule> workScheduleRepo;
         private readonly IWorkScheduleCacheService scheduleCache;
@@ -29,8 +29,7 @@ namespace CQRS.WorkSchedules.UpdateWorkSchedule
             WorkSchedule workSchedule = (await workScheduleRepo.GetFirstBySearch(
                 ws => ws.Id == request.WorkScheduleId
                    && ws.TenantId == request.TenantId
-                   && ws.ProjectId == request.ProjectId
-                   && !ws.IsDeleted))
+                   && ws.ProjectId == request.ProjectId))
                 ?? throw new NotFoundApiException(nameof(WorkSchedule), request.WorkScheduleId.ToString());
 
             workSchedule.Name = request.Name;

@@ -30,7 +30,7 @@ export default function Navbar() {
     <header className={`navbar${scrolled ? ' navbar--scrolled' : ''}`}>
       <div className="container navbar__inner">
         <a className="navbar__logo" href="#" onClick={() => scrollTo('#')}>
-          <span className="navbar__logo-text">Brickly</span>
+          <img src="/logo.png" alt="Brickly" className="navbar__logo-img" />
         </a>
 
         <nav className="navbar__links">
@@ -82,8 +82,7 @@ export default function Navbar() {
           ))}
           <a
             href="#cta"
-            className="btn btn-primary"
-            style={{ marginTop: '8px', justifyContent: 'center' }}
+            className="btn btn-primary navbar__mobile-cta"
             onClick={e => { e.preventDefault(); handleNavClick('#cta') }}
           >
             Wypróbuj za darmo
