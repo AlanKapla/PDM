@@ -38,7 +38,7 @@ export default function TargetUsers() {
             Platforma dla profesjonalistów<br />zarządzających inwestycjami
           </h2>
           <p className="section-subtitle">
-            Brickly został zaprojektowany dla uczestników procesu inwestycyjnego,
+            Brickly zostało zaprojektowane dla uczestników procesu inwestycyjnego,
             którzy potrzebują pełnego wglądu w finanse, harmonogram i dokumentację
             prowadzonych projektów.
           </p>

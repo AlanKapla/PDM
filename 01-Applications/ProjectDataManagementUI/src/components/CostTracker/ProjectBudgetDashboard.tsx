@@ -1,4 +1,5 @@
-﻿import {
+﻿import { useState } from "react";
+import {
   Box,
   VStack,
   HStack,
@@ -17,10 +18,12 @@
   AlertIcon,
   AlertTitle,
   AlertDescription,
+  Tooltip,
   useDisclosure,
   useBreakpointValue,
 } from "@chakra-ui/react";
 import { Plus, RefreshCw } from "lucide-react";
+import { formatCurrency } from "../../utils/formatters";
 import ProjectSummaryHeader from "./ProjectSummaryHeader";
 import EstimateCard from "./EstimateCard";
 import ProjectAdditionalCostsSection from "./ProjectAdditionalCostsSection";
@@ -61,6 +64,12 @@ export default function ProjectBudgetDashboard({
   const { data, isLoading, error, refetch } = useProjectCostTracker(tenantId, projectId);
   const { isOpen: isModalOpen, onOpen: onModalOpen, onClose: onModalClose } = useDisclosure();
   const isMobile = useBreakpointValue({ base: true, md: false });
+  const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
+
+  const handleRefetch = () => {
+    void refetch();
+    setLastRefreshed(new Date());
+  };
 
   if (isLoading) {
     return (
@@ -79,7 +88,7 @@ export default function ProjectBudgetDashboard({
             <AlertTitle>Błąd ładowania danych</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Box>
-          <Button size="sm" ml="auto" onClick={() => { refetch(); }} leftIcon={<RefreshCw size={14} />}>
+          <Button size="sm" ml="auto" onClick={handleRefetch} leftIcon={<RefreshCw size={14} />}>
             Ponów
           </Button>
         </Alert>
@@ -98,15 +107,22 @@ export default function ProjectBudgetDashboard({
             Realizacja budżetu
           </Text>
           <HStack spacing={2}>
-            <Button
-              size="sm"
-              variant="ghost"
-              leftIcon={<RefreshCw size={14} />}
-              onClick={() => { refetch(); }}
-              minH="44px"
-            >
-              {isMobile ? undefined : "Odśwież"}
-            </Button>
+            <HStack spacing={1} align="center">
+              {!isMobile && (
+                <Text fontSize="xs" color="neutral.400">
+                  {lastRefreshed.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                leftIcon={<RefreshCw size={14} />}
+                onClick={handleRefetch}
+                minH="44px"
+              >
+                {isMobile ? undefined : "Odśwież"}
+              </Button>
+            </HStack>
             {!isMobile && (
               <Button
                 colorScheme="primary"
@@ -138,37 +154,58 @@ export default function ProjectBudgetDashboard({
 
         <Divider />
 
-        {/* Tabs: Kosztorysy / Koszty dodatkowe projektu / Wszystkie koszty */}
+        {/* Tabs: Wszystkie koszty / Kosztorysy / Koszty dodatkowe projektu */}
         <Tabs variant="enclosed" isLazy>
           <TabList overflowX="auto">
             <Tab fontSize={{ base: "xs", md: "sm" }} minH="44px">
+              Wszystkie koszty
+              <Tooltip label={formatCurrency(data.summary.totalCostsNet)} hasArrow placement="top">
+                <Badge ml={2} colorScheme="gray" borderRadius="full" fontSize="xs">
+                  {data.summary.costCount}
+                </Badge>
+              </Tooltip>
+            </Tab>
+            <Tab fontSize={{ base: "xs", md: "sm" }} minH="44px">
               Kosztorysy
-              <Badge ml={2} colorScheme="primary" borderRadius="full" fontSize="xs">
-                {data.costEstimateSummaries.length}
-              </Badge>
+              <Tooltip label={formatCurrency(data.costEstimateSummaries.reduce((s, e) => s + (e.totalCostsNet ?? 0), 0))} hasArrow placement="top">
+                <Badge ml={2} colorScheme="primary" borderRadius="full" fontSize="xs">
+                  {data.costEstimateSummaries.length}
+                </Badge>
+              </Tooltip>
             </Tab>
             <Tab fontSize={{ base: "xs", md: "sm" }} minH="44px">
               Koszty dodatkowe
-              <Badge ml={2} colorScheme="gray" borderRadius="full" fontSize="xs">
-                {data.projectAdditionalCosts.costsCount}
-              </Badge>
-            </Tab>
-            <Tab fontSize={{ base: "xs", md: "sm" }} minH="44px">
-              Wszystkie koszty
-              <Badge ml={2} colorScheme="gray" borderRadius="full" fontSize="xs">
-                {data.summary.costCount}
-              </Badge>
+              <Tooltip label={formatCurrency(data.projectAdditionalCosts.totalNet)} hasArrow placement="top">
+                <Badge ml={2} colorScheme="gray" borderRadius="full" fontSize="xs">
+                  {data.projectAdditionalCosts.costsCount}
+                </Badge>
+              </Tooltip>
             </Tab>
           </TabList>
 
           <TabPanels>
+            {/* Wszystkie koszty */}
+            <TabPanel px={0}>
+              <AllCostsSection
+                data={data}
+                tenantId={tenantId}
+                projectId={projectId}
+                onCostMutated={handleRefetch}
+              />
+            </TabPanel>
+
             {/* Kosztorysy */}
             <TabPanel px={0}>
               <VStack spacing={4} align="stretch">
                 {data.costEstimateSummaries.length === 0 ? (
-                  <Text color="neutral.500" fontSize="sm" textAlign="center" py={8}>
-                    Brak kosztorysów powiązanych z tym projektem.
-                  </Text>
+                  <VStack spacing={3} py={8}>
+                    <Text color="neutral.500" fontSize="sm" textAlign="center">
+                      Brak kosztorysów powiązanych z tym projektem.
+                    </Text>
+                    <Text color="neutral.400" fontSize="xs" textAlign="center">
+                      Utwórz kosztorys w module Kosztorysy, aby śledzić koszty pozycji.
+                    </Text>
+                  </VStack>
                 ) : (
                   data.costEstimateSummaries.map((est) => (
                     <EstimateCard
@@ -176,7 +213,7 @@ export default function ProjectBudgetDashboard({
                       estimate={est}
                       tenantId={tenantId}
                       projectId={projectId}
-                      onCostMutated={refetch}
+                      onCostMutated={handleRefetch}
                       allEstimates={data.costEstimateSummaries}
                     />
                   ))
@@ -190,18 +227,8 @@ export default function ProjectBudgetDashboard({
                 projectAdditionalCosts={data.projectAdditionalCosts}
                 tenantId={tenantId}
                 projectId={projectId}
-                onCostMutated={refetch}
+                onCostMutated={handleRefetch}
                 estimates={data.costEstimateSummaries}
-              />
-            </TabPanel>
-
-            {/* Wszystkie koszty */}
-            <TabPanel px={0}>
-              <AllCostsSection
-                data={data}
-                tenantId={tenantId}
-                projectId={projectId}
-                onCostMutated={refetch}
               />
             </TabPanel>
           </TabPanels>
@@ -210,27 +237,30 @@ export default function ProjectBudgetDashboard({
 
       {/* Floating button — mobile */}
       {isMobile && (
-        <Button
-          position="fixed"
-          bottom={4}
-          right={4}
-          colorScheme="primary"
-          borderRadius="full"
-          shadow="lg"
-          onClick={onModalOpen}
-          zIndex={10}
-          minH="44px"
-          minW="44px"
-        >
-          <Plus size={20} />
-        </Button>
+        <Tooltip label="Dodaj koszt" hasArrow placement="left">
+          <Button
+            position="fixed"
+            bottom={4}
+            right={4}
+            colorScheme="primary"
+            borderRadius="full"
+            shadow="lg"
+            onClick={onModalOpen}
+            zIndex={10}
+            minH="44px"
+            minW="44px"
+            aria-label="Dodaj koszt"
+          >
+            <Plus size={20} />
+          </Button>
+        </Tooltip>
       )}
 
       {/* Modal dodawania kosztu */}
       <CostFormModal
         isOpen={isModalOpen}
         onClose={onModalClose}
-        onSuccess={() => { onModalClose(); refetch(); }}
+        onSuccess={() => { onModalClose(); handleRefetch(); }}
         tenantId={tenantId}
         projectId={projectId}
         costEstimateSummaries={data.costEstimateSummaries}

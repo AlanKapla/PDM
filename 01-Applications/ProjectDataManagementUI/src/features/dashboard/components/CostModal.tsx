@@ -90,8 +90,8 @@ export function CostModal(props: CostModalProps): React.ReactElement {
   const { canEdit: isTenantAdmin } = useTenantPermissions();
   const canQuickAdd = isProjectAdmin || isTenantAdmin;
 
-  // Powiązania kosztu (tylko dla type=tracked, mode=edit)
-  const isTrackedEdit = props.type === 'tracked' && mode === 'edit';
+  // Powiązania kosztu (dla type=tracked w edit i create bez workItemType)
+  const isTrackedWithLink = props.type === 'tracked' && (mode === 'edit' || !props.workItemType);
   const [linkItemId, setLinkItemId] = useState<string | null>(
     () => (props.type === 'tracked' && mode === 'edit' ? (props.cost?.costEstimateItemId ?? null) : null)
   );
@@ -240,7 +240,8 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 ? { workScheduleStageWorkId: trackedProps.workScheduleStageWorkId ?? null }
                 : trackedProps.workItemType === WorkItemType.EstimateItem
                   ? { costEstimateItemId: trackedProps.costEstimateItemId ?? null }
-                  : {}),
+                  : { costEstimateItemId: linkItemId, workScheduleStageWorkId: linkWorkId }),
+
           };
           result = await trackedMutations.createCost(data);
         } else {
@@ -502,8 +503,8 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             </>
           )}
 
-          {/* Sekcja powiązania — tylko tracked edit */}
-          {isTrackedEdit && (
+          {/* Sekcja powiązania — tracked edit i create bez kontekstu */}
+          {isTrackedWithLink && (
             <CostLinkSection
               currentEstimatePath={currentEstimatePath}
               currentWorkPath={currentWorkPath}

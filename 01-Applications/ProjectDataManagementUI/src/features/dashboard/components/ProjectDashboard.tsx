@@ -3,6 +3,7 @@ import { Spinner, Alert, AlertIcon, Box } from '@chakra-ui/react';
 import { useProjectDashboard } from '../hooks/useProjectDashboard';
 import '../dashboard.css';
 import { OverviewSection } from './OverviewSection';
+import { DashboardHeader } from './DashboardHeader';
 import { DashboardTabs } from './DashboardTabs';
 import type { DashboardTab } from './DashboardTabs';
 import { EstimatesTab } from './tabs/EstimatesTab';
@@ -27,7 +28,7 @@ export function ProjectDashboard({
   projectName,
 }: ProjectDashboardProps): React.ReactElement {
   const { data, isLoading, error, refetch } = useProjectDashboard(tenantId, projectId);
-  const [activeTab, setActiveTab] = useState<DashboardTab>('estimates');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('all');
 
   if (isLoading) {
     return (
@@ -51,6 +52,7 @@ export function ProjectDashboard({
   return (
     <DashboardCurrencyProvider currencySymbol={data.selectedCurrencySymbol ?? 'zł'}>
       <Box px={{ base: 3, md: 5 }} py={4} maxW={1400}>
+        <DashboardHeader data={data} projectName={projectName} />
         <OverviewSection
           financialData={data.financialSummary}
           timelineData={data.timelineSummary}

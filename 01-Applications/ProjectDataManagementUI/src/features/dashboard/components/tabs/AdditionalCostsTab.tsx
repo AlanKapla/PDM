@@ -98,6 +98,23 @@ export function AdditionalCostsTab({
           marginBottom: 12,
         }}
       >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Lista kosztów</span>
+          <button
+            onClick={() => setCreateModal(true)}
+            style={{
+              fontSize: '0.75rem',
+              padding: '6px 12px',
+              background: action50,
+              color: level1700,
+              border: `0.5px solid ${level1500}`,
+              borderRadius: 6,
+              cursor: 'pointer',
+            }}
+          >
+            + Dodaj koszt główny
+          </button>
+        </div>
         <div className="dashboard-table-wrap">
           <CostTable
             costs={data.costs}
@@ -106,21 +123,6 @@ export function AdditionalCostsTab({
           />
         </div>
       </div>
-
-      <button
-        onClick={() => setCreateModal(true)}
-        style={{
-          fontSize: "xs",
-          padding: '7px 14px',
-          background: action50,
-          color: level1700,
-          border: `0.5px solid ${level1500}`,
-          borderRadius: 6,
-          cursor: 'pointer',
-        }}
-      >
-        + Dodaj koszt główny
-      </button>
 
       {createModal && (
         <CostModal

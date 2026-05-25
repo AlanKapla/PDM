@@ -48,7 +48,7 @@ export function FinancialOverview({
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: "sm", fontWeight: "medium" }}>Finanse projektu</span>
+        <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Finanse projektu</span>
         <FinancialStatusBadge status={data.financialStatus} small />
       </div>
 
@@ -70,20 +70,20 @@ export function FinancialOverview({
         exceeded={data.isBudgetExceeded}
         height={8}
       />
-      <div style={{ fontSize: "xs", color: neutral400, marginTop: 3, marginBottom: 12 }}>
+      <div style={{ fontSize: '0.75rem', color: neutral400, marginTop: 3, marginBottom: 12 }}>
         {PROG(data.coveredPercent)} pokrycia budżetu
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
         <div style={{ background: action50, borderRadius: 8, padding: '10px 12px' }}>
-          <div style={{ fontSize: "xs", color: neutral400, marginBottom: 2 }}>Budżet kosztorysów</div>
-          <div style={{ fontSize: "md", fontWeight: "medium", color: action600 }}>
+          <div style={{ fontSize: '0.75rem', color: neutral400, marginBottom: 2 }}>Budżet kosztorysów</div>
+          <div style={{ fontSize: '1rem', fontWeight: 500, color: action600 }}>
             {PLN(data.estimateBudgetNet, currencySymbol)}
           </div>
         </div>
         <div style={{ background: level250, borderRadius: 8, padding: '10px 12px' }}>
-          <div style={{ fontSize: "xs", color: neutral400, marginBottom: 2 }}>Budżet główny</div>
-          <div style={{ fontSize: "md", fontWeight: "medium", color: level2600 }}>
+          <div style={{ fontSize: '0.75rem', color: neutral400, marginBottom: 2 }}>Budżet główny</div>
+          <div style={{ fontSize: '1rem', fontWeight: 500, color: level2600 }}>
             {PLN(data.projectReserveBudgetNet, currencySymbol)}
           </div>
         </div>
@@ -92,7 +92,7 @@ export function FinancialOverview({
       <button
         onClick={() => setShowBudgetModal(true)}
         style={{
-          fontSize: "xs",
+          fontSize: '0.75rem',
           padding: '6px 12px',
           background: level250,
           color: level2600,
@@ -105,7 +105,7 @@ export function FinancialOverview({
         Edytuj budżet główny
       </button>
 
-      <div style={{ fontSize: "xs", color: neutral400, marginTop: 4 }}>
+      <div style={{ fontSize: '0.75rem', color: neutral400, marginTop: 4 }}>
         Kosztorysów: {data.costEstimatesCount}
         {data.costEstimatesOverBudgetCount > 0 && (
           <span style={{ color: red400, marginLeft: 6 }}>

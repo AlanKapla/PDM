@@ -25,17 +25,18 @@ export function AllCostsTab({
   onRefetch,
 }: AllCostsTabProps): React.ReactElement {
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
+  const [createModal, setCreateModal] = useState(false);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const currencySymbol = useDashboardCurrency();
   const [
     neutral200, neutral400, neutral50, neutral600,
-    level250, level2600, action50, level1700,
+    level250, level2600, action50, level1700, level1500,
     primary50, primary600, orange600,
     red50, red600, red400,
   ] = useToken('colors', [
     'neutral.200', 'neutral.400', 'neutral.50', 'neutral.600',
-    'level2.50', 'level2.600', 'action.50', 'level1.700',
+    'level2.50', 'level2.600', 'action.50', 'level1.700', 'level1.500',
     'primary.50', 'primary.600', 'orange.600',
     'red.50', 'red.600', 'red.400',
   ]);
@@ -49,6 +50,9 @@ export function AllCostsTab({
     (c) => c.sourceType === 'EstimateItem' || c.sourceType === 'LinkedWorkItem'
   ).length;
   const countAdditional = costs.filter((c) => c.sourceType === 'ProjectAdditional' || !c.sourceType).length;
+  const totalAdditionalNet = costs
+    .filter((c) => c.sourceType === 'ProjectAdditional' || !c.sourceType)
+    .reduce((sum, c) => sum + (c.net ?? 0), 0);
 
   const handleDeleteConfirmed = async () => {
     if (!confirmDeleteCost) return;
@@ -79,7 +83,7 @@ export function AllCostsTab({
         <KpiCard label="Liczba pozycji" value={String(costs.length)} />
         <KpiCard label="Z harmonogramu" value={String(countSchedule)} />
         <KpiCard label="Z kosztorysu" value={String(countEstimate)} />
-        <KpiCard label="Koszty główne" value={String(countAdditional)} />
+        <KpiCard label="Koszty główne" value={PLN(totalAdditionalNet, currencySymbol)} />
       </div>
 
       <div
@@ -90,10 +94,32 @@ export function AllCostsTab({
           padding: 16,
         }}
       >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Lista kosztów</span>
+          <button
+            onClick={() => setCreateModal(true)}
+            style={{
+              fontSize: '0.75rem',
+              padding: '6px 12px',
+              background: action50,
+              color: level1700,
+              border: `0.5px solid ${level1500}`,
+              borderRadius: 6,
+              cursor: 'pointer',
+            }}
+          >
+            + Dodaj koszt
+          </button>
+        </div>
         <div className="dashboard-table-wrap">
         {costs.length === 0 ? (
-          <div style={{ fontSize: "xs", color: neutral400, fontStyle: 'italic' }}>
-            Brak kosztów
+          <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.875rem', color: neutral400, marginBottom: 6 }}>
+              Brak kosztów w tym projekcie.
+            </div>
+            <div style={{ fontSize: '0.75rem', color: neutral400, fontStyle: 'italic' }}>
+              Dodaj koszty przez zakładkę „Koszty główne” lub przez pozycje kosztorysu.
+            </div>
           </div>
         ) : (
           <Table size="sm" variant="simple">
@@ -258,6 +284,17 @@ export function AllCostsTab({
         )}
         </div>
       </div>
+
+      {createModal && (
+        <CostModal
+          type="tracked"
+          tenantId={tenantId}
+          projectId={projectId}
+          mode="create"
+          onSuccess={() => { onRefetch(); setCreateModal(false); }}
+          onClose={() => setCreateModal(false)}
+        />
+      )}
 
       {editingCost && (
         <CostModal

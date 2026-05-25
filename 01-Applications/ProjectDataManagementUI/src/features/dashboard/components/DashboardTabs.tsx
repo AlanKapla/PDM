@@ -13,10 +13,10 @@ export interface DashboardTabsProps {
 }
 
 const tabs: Array<{ key: DashboardTab; label: string; countKey: keyof DashboardTabsProps }> = [
+  { key: 'all', label: 'Wszystkie koszty', countKey: 'allCostsCount' },
   { key: 'estimates', label: 'Kosztorysy', countKey: 'estimatesCount' },
   { key: 'schedules', label: 'Harmonogramy', countKey: 'schedulesCount' },
   { key: 'additional', label: 'Koszty główne', countKey: 'additionalCount' },
-  { key: 'all', label: 'Wszystkie koszty', countKey: 'allCostsCount' },
 ];
 
 /** Pasek zakładek dashboardu z licznikami. */

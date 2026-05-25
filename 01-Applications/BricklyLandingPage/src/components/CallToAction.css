@@ -194,7 +194,7 @@
 
 .cta-section__integration-text {
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--gray-600);
   max-width: 560px;
   margin: 0 auto;
   line-height: 1.7;
