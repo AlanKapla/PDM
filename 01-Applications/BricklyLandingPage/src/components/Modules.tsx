@@ -149,6 +149,7 @@ export default function Modules() {
                     src={`/screenshots/${feature.screen}`}
                     alt={feature.screenAlt}
                     className="feature-row__screen-img"
+                    loading="lazy"
                   />
                 </div>
               </div>
