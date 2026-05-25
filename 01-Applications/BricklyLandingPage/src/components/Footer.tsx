@@ -1,4 +1,4 @@
-import { Mail, Globe, Phone, MapPin, Building, Receipt } from 'lucide-react'
+import { Mail, Globe, Phone, Building, Receipt } from 'lucide-react'
 import { useScrollTo } from '../hooks/useScrollTo'
 import './Footer.css'
 
