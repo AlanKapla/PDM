@@ -7,6 +7,6 @@ namespace CQRS.Files._Shared
     /// </summary>
     public abstract record FileScopedRequestBase : ProjectScopedFilesRequestBase
     {
-        public required Guid FileId { get; init; }
+        public Guid FileId { get; init; }
     }
 }

@@ -50,6 +50,7 @@ namespace CQRS.Users.UserDetails
                 currentUser.Email, 
                 currentUser.ActiveTenantId,
                 activeTenantPermissions,
+                currentUser.IsSuperAdmin,
                 user?.PhoneNumber,
                 user?.CompanyName,
                 user?.TaxId,

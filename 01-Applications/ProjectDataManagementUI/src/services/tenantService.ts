@@ -1,5 +1,5 @@
 import { tenantApi } from "../api/tenantApi";
-import type { UserTenant, TenantBasic, TenantDetails, ActiveTenant } from "../types/auth.types";
+import type { UserTenant, TenantBasic, TenantDetails, ActiveTenant, ActiveTenantResponse } from "../types/auth.types";
 
 /**
  * Service layer for tenant operations
@@ -33,8 +33,9 @@ export const getTenantDetails = async (tenantId: string): Promise<TenantDetails 
   }
 };
 
-export const changeActiveTenant = async (tenantId: string): Promise<void> => {
-  await tenantApi.changeActiveTenant(tenantId);
+export const changeActiveTenant = async (tenantId: string): Promise<ActiveTenantResponse> => {
+  const response = await tenantApi.changeActiveTenant(tenantId);
+  return response.data;
 };
 
 export const createTenant = async (name: string): Promise<UserTenant | null> => {

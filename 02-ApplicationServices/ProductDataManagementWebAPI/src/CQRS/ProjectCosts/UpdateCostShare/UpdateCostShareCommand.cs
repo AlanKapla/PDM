@@ -9,9 +9,9 @@ namespace CQRS.ProjectCosts.UpdateCostShare
     /// </summary>
     public sealed record UpdateCostShareCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
-        public required Guid TenantId { get; init; }
-        public required Guid ProjectId { get; init; }
-        public required Guid CostId { get; init; }
+        public Guid TenantId { get; init; }
+        public Guid ProjectId { get; init; }
+        public Guid CostId { get; init; }
 
         /// <summary>
         /// Lista ID użytkowników, którzy powinni mieć dostęp do kosztu

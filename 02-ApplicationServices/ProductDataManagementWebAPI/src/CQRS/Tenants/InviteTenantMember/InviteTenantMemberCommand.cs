@@ -1,12 +1,13 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
+using CQRS.Behaviours;
 using MediatR;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
-    public sealed record InviteTenantMemberCommand : IRequestCommand<Unit>, IAuthorizableRequest
+    public sealed record InviteTenantMemberCommand : IRequestCommand<Unit>, IAuthorizableRequest, IRequiresUserSlot
     {
-        public required Guid TenantId { get; init; }
+        public Guid TenantId { get; init; }
         public required string Email { get; init; }
 
         public string PermissionCode => PermissionCodes.TenantMembersManage;

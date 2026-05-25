@@ -14,6 +14,7 @@ using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
+using Entities.Models.Subscriptions;
 
 namespace Entities.Context
 {
@@ -69,6 +70,11 @@ namespace Entities.Context
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+        public DbSet<SubscriptionPlanDefinition> SubscriptionPlanDefinitions => Set<SubscriptionPlanDefinition>();
+        public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+        public DbSet<SubscriptionOverride> SubscriptionOverrides => Set<SubscriptionOverride>();
+        public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
+        public DbSet<SubscriptionNotification> SubscriptionNotifications => Set<SubscriptionNotification>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

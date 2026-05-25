@@ -1,4 +1,6 @@
-﻿namespace Business.Interfaces.WebModels.Tenants
+﻿using Entities.Enums;
+
+namespace Business.Interfaces.WebModels.Tenants
 {
     public sealed record UserTenantWeb
     {
@@ -8,5 +10,10 @@
         public required bool IsActive { get; init; }
         public required string RoleCode { get; init; }
         public required bool IsActiveTenant { get; init; }
+        /// <summary>
+        /// Status subskrypcji tenanta. NULL dla planu Free (brak ograniczeń).
+        /// Używany przez UI do wyświetlenia badge statusu i blokady przełączania.
+        /// </summary>
+        public SubscriptionStatus? SubscriptionStatus { get; init; }
     }
 }

@@ -9,8 +9,8 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
     /// </summary>
     public sealed record UpdateTenantMemberRoleCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
-        public required Guid TenantId { get; init; }
-        public required Guid UserId { get; init; }
+        public Guid TenantId { get; init; }
+        public Guid UserId { get; init; }
         public required Guid RoleId { get; init; }
 
         public string PermissionCode => PermissionCodes.TenantMembersManage;

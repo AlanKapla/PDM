@@ -6,6 +6,7 @@ export const apiExceptionReasonMessages: Record<string, string> = {
   Forbidden:       "Brak uprawnień",
   Conflict:        "Konflikt danych",
   InvalidOperation: "Błąd operacji",
+  SubscriptionSuspended: 'Subskrypcja nieaktywna',
 };
 
 export const defaultErrorMessage =
@@ -15,6 +16,7 @@ export const defaultErrorMessage =
 export const httpStatusMessages: Record<number, string> = {
   400: "Nieprawidłowe żądanie",
   401: "Brak autoryzacji",
+  402: 'Subskrypcja nieaktywna — opłać abonament aby kontynuować',
   403: "Brak uprawnień",
   404: "Nie znaleziono",
   409: "Konflikt danych",

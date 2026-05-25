@@ -1,4 +1,5 @@
 import { axiosClient } from "./axiosClient";
+import type { ActiveTenantResponse } from "../types/auth.types";
 
 export const tenantApi = {
   getUserTenants: async () => {
@@ -14,7 +15,7 @@ export const tenantApi = {
   },
 
   changeActiveTenant: async (tenantId: string) => {
-    return axiosClient.put("/tenants/active", { tenantId });
+    return axiosClient.put<ActiveTenantResponse>("/tenants/active", { tenantId });
   },
 
   createTenant: async (name: string) => {

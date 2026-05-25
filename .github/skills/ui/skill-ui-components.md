@@ -110,6 +110,31 @@ const content = isLoading
 return <Box>{content}</Box>;
 ```
 
+## Tabele z klikalnymi wierszami
+
+Wiersze tabeli ZAWSZE są klikalne — nie dodawaj przycisku/ołówka na końcu wiersza.
+Kliknięcie wiersza otwiera szczegóły/modal.
+
+```tsx
+{items.map((item) => (
+  <Tr
+    key={item.id}
+    onClick={() => onViewDetails(item)}
+    cursor="pointer"
+    _hover={{ bg: "neutral.50" }}
+  >
+    <Td>...</Td>
+    {/* BEZ ostatniej kolumny z IconButton */}
+  </Tr>
+))}
+```
+
+Przypadki użycia:
+- `onClick={() => onViewDetails(item.id)}` — otwiera szczegóły
+- `onClick={() => onEdit(item)}` — otwiera modal edycji
+- Zawsze `cursor="pointer"` i `_hover={{ bg: "neutral.50" }}` na `<Tr>`
+- Nigdy `IconButton` z ołówkiem/lunetą na końcu wiersza
+
 ## Zasady
 
 - Jeden plik = jeden komponent

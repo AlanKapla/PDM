@@ -25,6 +25,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { Building2, Mail, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import {
   acceptTenantInvitation,
@@ -35,7 +36,18 @@ import {
 } from "../services/tenantService";
 import type { TenantInvitationWeb, UserTenant } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
+import { RoleCodes } from "../constants/roleCodes";
+import { SubscriptionStatus } from "../types/subscription";
 import { useToastNotification } from "../hooks/useToastNotification";
+
+function isSubscriptionBlocked(status: SubscriptionStatus | undefined | null): boolean {
+  if (status == null) return false;
+  return (
+    status === SubscriptionStatus.PastDue ||
+    status === SubscriptionStatus.Canceled ||
+    status === SubscriptionStatus.GracePeriod
+  );
+}
 
 type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access";
 
@@ -397,6 +409,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
  */
 export default function TenantAccessGuard({ children }: { children: ReactNode }) {
   const { user, refreshUser } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [screen, setScreen] = useState<AccessScreen>("loading");
   const [pendingInvitations, setPendingInvitations] = useState<TenantInvitationWeb[]>([]);
 
@@ -430,9 +443,19 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
         const activeTenants = tenants.filter((t: UserTenant) => t.isActive);
 
         if (activeTenants.length > 0) {
-          // User is a member but has no active tenant selected — auto-select the first one
-          await changeActiveTenant(activeTenants[0].id);
+          // Prefer tenant with active subscription; fall back to admin (can enter blocked);
+          // last resort: first tenant in list
+          const selectedTenant: UserTenant =
+            activeTenants.find((t: UserTenant) => !isSubscriptionBlocked(t.subscriptionStatus)) ??
+            activeTenants.find((t: UserTenant) => t.roleCode === RoleCodes.TENANT_ADMIN) ??
+            activeTenants[0];
+
+          const result = await changeActiveTenant(selectedTenant.id);
           await refreshUserRef.current();
+
+          if (result.isSubscriptionBlocked && selectedTenant.roleCode === RoleCodes.TENANT_ADMIN) {
+            navigate(`/tenants/${selectedTenant.id}/subscription`);
+          }
           // After refreshUser, user.activeTenantId will be set → effect re-runs → "allowed"
         } else {
           const pending = invitations.filter(

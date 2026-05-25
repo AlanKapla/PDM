@@ -18,6 +18,8 @@ namespace Business.Interfaces.WebModels.Users
         /// </summary>
         HashSet<string> ActiveTenantPermissions,
 
+        bool IsSuperAdmin,
+
         string? PhoneNumber,
         string? CompanyName,
         string? TaxId,

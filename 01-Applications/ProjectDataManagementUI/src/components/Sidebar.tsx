@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Mail,
   MessageSquare,
+  ShieldAlert,
 } from "lucide-react";
 
 import { useLocation, Link as RouterLink } from "react-router-dom";
@@ -31,11 +32,13 @@ import { useContext } from "react";
 import { InvitationStatus } from "../types/auth.types";
 import { useActiveInvitations } from "../hooks/queries";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
+import { AuthContext } from "../context/AuthContext";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
 export function SidebarContent() {
   const location = useLocation();
   const { totalUnread } = useContext(ChatUnreadContext);
+  const { user } = useContext(AuthContext);
   const { data: invitations = [] } = useActiveInvitations({
     refetchInterval: 30000,
   });
@@ -45,9 +48,11 @@ export function SidebarContent() {
 
   const activeBg = useColorModeValue("primary.100", "primary.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
+  const adminActiveBg = useColorModeValue("red.100", "red.800");
+  const adminHoverBg = useColorModeValue("red.50", "red.700");
 
   return (
-    <VStack align="stretch" w="100%" spacing={2}>
+    <VStack align="stretch" w="100%" spacing={2} h="100%">
       {/* Przełącz organizację — przeniesione do strony Projekty (Select) */}
       {/* <Button
         as={RouterLink}
@@ -195,6 +200,26 @@ export function SidebarContent() {
       >
         Ustawienia
       </Button>
+
+      {/* Admin — tylko dla SuperAdmin, przyklejony do dołu */}
+      {user?.isSuperAdmin && (
+        <Box mt="auto" pt={2}>
+          <Button
+            as={RouterLink}
+            to="/admin"
+            variant="ghost"
+            justifyContent="flex-start"
+            leftIcon={<ShieldAlert size={20} />}
+            w="100%"
+            bg={location.pathname.startsWith("/admin") ? adminActiveBg : "transparent"}
+            color={location.pathname.startsWith("/admin") ? "red.600" : "red.500"}
+            _hover={{ bg: adminHoverBg, textDecoration: "none", color: "red.600" }}
+            textDecoration="none"
+          >
+            Admin
+          </Button>
+        </Box>
+      )}
     </VStack>
   );
 }
@@ -244,7 +269,8 @@ export default function Sidebar() {
         borderRight="1px solid"
         borderColor={border}
         p={5}
-        display={{ base: "none", md: "block" }}
+        display={{ base: "none", md: "flex" }}
+        flexDirection="column"
       >
         <SidebarContent />
       </Box>

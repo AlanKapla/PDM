@@ -9,8 +9,8 @@ namespace CQRS.ProjectCosts.ShareProjectCosts
     /// </summary>
     public sealed record ShareProjectCostsCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
-        public required Guid TenantId { get; init; }
-        public required Guid ProjectId { get; init; }
+        public Guid TenantId { get; init; }
+        public Guid ProjectId { get; init; }
         public required List<Guid> ProjectCostIds { get; init; }
 
         /// <summary>

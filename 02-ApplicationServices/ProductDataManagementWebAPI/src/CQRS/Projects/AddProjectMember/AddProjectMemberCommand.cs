@@ -6,8 +6,8 @@ namespace CQRS.Projects.AddProjectMember
 {
     public sealed record AddProjectMemberCommand : IRequestCommand<Unit>, IAuthorizableRequest
     {
-        public required Guid TenantId { get; init; }
-        public required Guid ProjectId { get; init; }
+        public Guid TenantId { get; init; }
+        public Guid ProjectId { get; init; }
         public required Guid UserId { get; init; }
 
         public string PermissionCode => PermissionCodes.ProjectMembersManage;

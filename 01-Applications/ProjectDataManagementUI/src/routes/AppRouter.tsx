@@ -29,6 +29,11 @@ import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
 import ContractorsPage from "../pages/ContractorsPage";
+import AdminPage from "../pages/AdminPage";
+import SuperAdminRoute from "./SuperAdminRoute";
+import PlansPage from "../pages/admin/subscriptions/PlansPage";
+import TenantSubscriptionPage from "../pages/admin/subscriptions/TenantSubscriptionPage";
+import TenantSubscriptionManagePage from "../pages/TenantSubscriptionPage";
 
 export default function AppRouter() {
   return (
@@ -87,6 +92,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <TenantDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tenants/:tenantId/subscription"
+        element={
+          <ProtectedRoute>
+            <TenantSubscriptionManagePage />
           </ProtectedRoute>
         }
       />
@@ -288,6 +302,33 @@ export default function AppRouter() {
           <ProtectedRoute>
             <ContractorsPage />
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          <SuperAdminRoute>
+            <AdminPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/subscriptions/plans"
+        element={
+          <SuperAdminRoute>
+            <PlansPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/subscriptions/tenants/:tenantId"
+        element={
+          <SuperAdminRoute>
+            <TenantSubscriptionPage />
+          </SuperAdminRoute>
         }
       />
 

@@ -1,4 +1,5 @@
 ﻿// Typy dla API User/Auth
+import type { SubscriptionStatus } from './subscription';
 
 export interface LoginRequest {
   email: string;
@@ -31,6 +32,8 @@ export interface UserProfile {
    * Permissions in the active tenant (empty if no active tenant)
    */
   activeTenantPermissions: string[];
+
+  isSuperAdmin: boolean;
 
   // Kontaktowe
   phoneNumber?: string | null;
@@ -112,6 +115,12 @@ export interface UserTenant {
   isActive: boolean;
   roleCode: string;
   isActiveTenant: boolean;
+  subscriptionStatus?: SubscriptionStatus;
+}
+
+export interface ActiveTenantResponse {
+  activeTenantId: string;
+  isSubscriptionBlocked: boolean;
 }
 
 /**

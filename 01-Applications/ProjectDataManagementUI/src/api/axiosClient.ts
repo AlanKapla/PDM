@@ -2,6 +2,7 @@ import axios from "axios";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
+import { subscriptionEventEmitter } from "../services/subscriptionEventEmitter";
 
 // Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
 function requireEnvVar(key: string): string {
@@ -67,6 +68,13 @@ axiosClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // If 402 Payment Required — subscription blocked
+    if (error.response?.status === 402) {
+      const tenantId: string = error.response.data?.objectId ?? '';
+      subscriptionEventEmitter.emitBlocked({ tenantId, isAdmin: false });
+      return Promise.reject(error);
+    }
 
     // If 401 Unauthorized
     if (error.response?.status === 401) {

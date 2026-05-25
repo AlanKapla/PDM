@@ -2,6 +2,7 @@
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Models;
+using Entities.Models.Subscriptions;
 using Entities.Models.Tenants;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -14,17 +15,20 @@ namespace CQRS.Tenants.GetUserTenants
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<TenantPreferencesProfile> preferencesRepo;
+        private readonly IReadRepository<TenantSubscription> subscriptionRepo;
         private readonly ICurrentUser currentUser;
 
         public GetUserTenantsQueryHandler(
             IReadRepository<Tenant> tenantRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<TenantPreferencesProfile> preferencesRepo,
+            IReadRepository<TenantSubscription> subscriptionRepo,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.preferencesRepo = preferencesRepo;
+            this.subscriptionRepo = subscriptionRepo;
             this.currentUser = currentUser;
         }
 
@@ -46,6 +50,11 @@ namespace CQRS.Tenants.GetUserTenants
 
                 Dictionary<Guid, TenantMember> membershipDict = memberships.ToDictionary(m => m.TenantId);
 
+                List<Guid> tenantIds = allTenants.Select(t => t.Id).ToList();
+                IEnumerable<TenantSubscription> subscriptions = await subscriptionRepo.GetBySearch(
+                    s => tenantIds.Contains(s.TenantId));
+                Dictionary<Guid, TenantSubscription> subscriptionByTenantId = subscriptions.ToDictionary(s => s.TenantId);
+
                 return allTenants
                     .Select(t =>
                     {
@@ -60,7 +69,8 @@ namespace CQRS.Tenants.GetUserTenants
                             CreatedAt = t.CreatedAt,
                             IsActive = t.IsActive,
                             RoleCode = roleCode,
-                            IsActiveTenant = t.Id == activeTenantId
+                            IsActiveTenant = t.Id == activeTenantId,
+                            SubscriptionStatus = subscriptionByTenantId.TryGetValue(t.Id, out TenantSubscription? sub) ? sub.Status : null
                         };
                     })
                     .OrderBy(t => t.Name)
@@ -74,6 +84,11 @@ namespace CQRS.Tenants.GetUserTenants
                 q => q.Include(m => m.Tenant).Include(m => m.MemberRole)
             );
 
+            List<Guid> regularTenantIds = regularMemberships.Select(m => m.TenantId).ToList();
+            IEnumerable<TenantSubscription> regularSubscriptions = await subscriptionRepo.GetBySearch(
+                s => regularTenantIds.Contains(s.TenantId));
+            Dictionary<Guid, TenantSubscription> regularSubscriptionByTenantId = regularSubscriptions.ToDictionary(s => s.TenantId);
+
             return regularMemberships
                 .Select(m => new UserTenantWeb
                 {
@@ -82,7 +97,8 @@ namespace CQRS.Tenants.GetUserTenants
                     CreatedAt = m.Tenant.CreatedAt,
                     IsActive = m.Tenant.IsActive,
                     RoleCode = m.MemberRole?.Code ?? RoleCodes.TenantMember,
-                    IsActiveTenant = m.TenantId == activeTenantId
+                    IsActiveTenant = m.TenantId == activeTenantId,
+                    SubscriptionStatus = regularSubscriptionByTenantId.TryGetValue(m.TenantId, out TenantSubscription? sub) ? sub.Status : null
                 })
                 .OrderBy(t => t.Name)
                 .ToList();

@@ -25,6 +25,7 @@ using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
+using Entities.Models.Subscriptions;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -205,8 +206,11 @@ namespace WebApi.Extensions
             services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(SuperAdminBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(SubscriptionEnforcementBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AssignedAuthorizationBehavior<,>));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(SubscriptionLimitsBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
             services.AddScoped<IPostCommitDispatcher, PostCommitDispatcher>();
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(AppDomain.CurrentDomain.GetAssemblies()));
@@ -290,6 +294,13 @@ namespace WebApi.Extensions
                 .AddRepository<Contractor>();
 
             services
+                .AddRepository<TenantSubscription>()
+                .AddRepository<SubscriptionOverride>()
+                .AddRepository<SubscriptionPlanDefinition>()
+                .AddRepository<SubscriptionPayment>()
+                .AddRepository<SubscriptionNotification>();
+
+            services
                 .AddRepository<Project>()
                 .AddWriteRepository<ProjectMember>()
                 .AddRepository<ProjectParams>()
@@ -344,6 +355,11 @@ namespace WebApi.Extensions
                 .AddRepository<Role>()
                 .AddRepository<Permission>()
                 .AddWriteRepository<RolePermission>();
+
+            services
+                .AddRepository<SubscriptionPlanDefinition>()
+                .AddRepository<TenantSubscription>()
+                .AddWriteRepository<SubscriptionOverride>();
 
             return services;
         }
@@ -409,6 +425,9 @@ namespace WebApi.Extensions
 
             services.AddHostedService<StartupSeederService>();
             services.AddHostedService<RolePermissionSeederService>();
+
+            services.AddScoped<ISubscriptionLimitsResolver, SubscriptionLimitsResolver>();
+            services.AddScoped<ISubscriptionBillingService, SubscriptionBillingService>();
 
             return services;
         }
@@ -499,10 +518,17 @@ namespace WebApi.Extensions
                     options.AddPolicy(permissionCode, policy =>
                         policy.Requirements.Add(new PermissionRequirement(permissionCode, scope)));
                 }
+
+                // Admin-only policy — requires SuperAdmin system role
+                options.AddPolicy(PolicyNames.Admin, policy =>
+                    policy.Requirements.Add(new SuperAdminRequirement()));
             });
 
             // Permission-based handler
             services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+            // SuperAdmin-based handler
+            services.AddScoped<IAuthorizationHandler, SuperAdminAuthorizationHandler>();
 
             return services;
         }

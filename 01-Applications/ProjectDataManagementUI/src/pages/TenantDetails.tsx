@@ -20,7 +20,6 @@ import {
   Th,
   Td,
   IconButton,
-  Collapse,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
@@ -31,8 +30,13 @@ import {
   Select,
   Tooltip,
   Icon,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
 } from "@chakra-ui/react";
-import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power, Users } from "lucide-react";
+import { Building2, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power, Users } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { getTenantDetails, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberRole } from "../services/tenantService";
 import type { TenantDetails as TenantDetailsType } from "../types/auth.types";
@@ -56,9 +60,6 @@ export default function TenantDetails() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
-
-  const [membersExpanded, setMembersExpanded] = useState(true);
-  const [invitationsExpanded, setInvitationsExpanded] = useState(true);
 
   const [isInviting, setIsInviting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -388,6 +389,15 @@ export default function TenantDetails() {
                       >
                         Edytuj
                       </Button>
+                      <Button
+                        size={{ base: "xs", md: "sm" }}
+                        variant="ghost"
+                        colorScheme="blue"
+                        onClick={() => navigate(`/tenants/${tenantId}/subscription`)}
+                        fontSize={{ base: "xs", md: "sm" }}
+                      >
+                        Subskrypcja
+                      </Button>
                     </>
                   )}
                 </HStack>
@@ -456,60 +466,52 @@ export default function TenantDetails() {
             </VStack>
           </Box>
 
-          {/* Członkowie + zaproszenia + dialogi */}
-          <Box
-            bg="white"
-            rounded="lg"
-            borderWidth="1px"
-            borderColor="neutral.200"
-          >
-            {/* Członkowie */}
-            <HStack
-              p={{ base: 3, md: 4 }}
-              justify="space-between"
-              flexWrap={{ base: "wrap", md: "nowrap" }}
-              gap={{ base: 2, md: 0 }}
-            >
-              <HStack
-                spacing={3}
-                cursor="pointer"
-                onClick={() => setMembersExpanded(!membersExpanded)}
-                flex={1}
-              >
-                <Heading size="md">Członkowie</Heading>
-                <Badge>{tenant.members.length}</Badge>
-              </HStack>
-              <HStack spacing={{ base: 1, md: 2 }} flexWrap="wrap">
-                {!isInviting && (
-                  <Button
-                    size={{ base: "xs", md: "sm" }}
-                    leftIcon={<UserPlus size={14} />}
-                    colorScheme="primary"
-                    variant="ghost"
-                    onClick={() => setIsInviting(true)}
-                    fontSize={{ base: "xs", md: "sm" }}
-                  >
-                    Zaproś
-                  </Button>
-                )}
-                <IconButton
-                  aria-label="Rozwiń/Zwiń"
-                  icon={
-                    membersExpanded ? (
-                      <ChevronUp size={20} />
-                    ) : (
-                      <ChevronDown size={20} />
-                    )
-                  }
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setMembersExpanded(!membersExpanded)}
-                />
-              </HStack>
-            </HStack>
+          {/* Taby: Członkowie / Zaproszenia / Kontrahenci */}
+          <Tabs colorScheme="primary" isLazy>
+            <TabList>
+              <Tab>
+                <HStack spacing={2}>
+                  <Text>Członkowie</Text>
+                  <Badge colorScheme="primary" borderRadius="full">{tenant.members.length}</Badge>
+                </HStack>
+              </Tab>
+              <Tab>
+                <HStack spacing={2}>
+                  <Text>Zaproszenia</Text>
+                  <Badge colorScheme="primary" borderRadius="full">{tenant.invitations.length}</Badge>
+                </HStack>
+              </Tab>
+              <Tab>Kontrahenci</Tab>
+            </TabList>
 
-            <Collapse in={membersExpanded} animateOpacity>
-              <Box borderTop="1px solid" borderColor="neutral.200">
+            <TabPanels>
+              {/* ── Tab: Członkowie ── */}
+              <TabPanel px={0}>
+                <Box
+                  bg="white"
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor="neutral.200"
+                >
+                  <HStack
+                    p={{ base: 3, md: 4 }}
+                    justify="flex-end"
+                  >
+                    {!isInviting && (
+                      <Button
+                        size={{ base: "xs", md: "sm" }}
+                        leftIcon={<UserPlus size={14} />}
+                        colorScheme="primary"
+                        variant="ghost"
+                        onClick={() => setIsInviting(true)}
+                        fontSize={{ base: "xs", md: "sm" }}
+                      >
+                        Zaproś
+                      </Button>
+                    )}
+                  </HStack>
+
+                  <Box borderTop="1px solid" borderColor="neutral.200">
                 {isInviting && (
                   <Box
                     p={{ base: 3, md: 4 }}
@@ -715,43 +717,19 @@ export default function TenantDetails() {
                     </Table>
                   </Box>
                 )}
-              </Box>
-            </Collapse>
+                </Box>
+                </Box>
+              </TabPanel>
 
-            {/* Zaproszenia */}
-            <Box
-              bg="white"
-              rounded="lg"
-              borderTopWidth="1px"
-              borderColor="neutral.200"
-            >
-              <HStack
-                p={{ base: 3, md: 4 }}
-                justify="space-between"
-                cursor="pointer"
-                onClick={() => setInvitationsExpanded(!invitationsExpanded)}
-                _hover={{ bg: "neutral.50" }}
-              >
-                <HStack spacing={3}>
-                  <Heading size="md">Zaproszenia</Heading>
-                  <Badge>{tenant.invitations.length}</Badge>
-                </HStack>
-                <IconButton
-                  aria-label="Rozwiń/Zwiń"
-                  icon={
-                    invitationsExpanded ? (
-                      <ChevronUp size={20} />
-                    ) : (
-                      <ChevronDown size={20} />
-                    )
-                  }
-                  variant="ghost"
-                  size="sm"
-                />
-              </HStack>
-
-              <Collapse in={invitationsExpanded} animateOpacity>
-                <Box borderTop="1px solid" borderColor="neutral.200">
+              {/* ── Tab: Zaproszenia ── */}
+              <TabPanel px={0}>
+                <Box
+                  bg="white"
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor="neutral.200"
+                >
+                  <Box>
                   {tenant.invitations.length === 0 ? (
                     <Box p={{ base: 3, md: 4 }}>
                       <Text color="neutral.500" textAlign="center">
@@ -851,37 +829,41 @@ export default function TenantDetails() {
                     </Box>
                   )}
                 </Box>
-              </Collapse>
-            </Box>
-          </Box>
+                </Box>
+              </TabPanel>
 
-          {/* Kontrahenci */}
-          <Box
-            as={RouterLink}
-            to="/contractors"
-            bg="white"
-            p={{ base: 3, md: 4 }}
-            rounded="lg"
-            borderWidth="1px"
-            borderColor="neutral.200"
-            _hover={{ borderColor: "primary.400", textDecoration: "none" }}
-            display="block"
-          >
-            <HStack justify="space-between">
-              <HStack spacing={3}>
-                <Users size={20} />
-                <Heading size="md">Kontrahenci</Heading>
-              </HStack>
-              <Button
-                size="sm"
-                colorScheme="primary"
-                variant="ghost"
-                pointerEvents="none"
-              >
-                Zarządzaj
-              </Button>
-            </HStack>
-          </Box>
+              {/* ── Tab: Kontrahenci ── */}
+              <TabPanel px={0}>
+                <Box
+                  as={RouterLink}
+                  to="/contractors"
+                  bg="white"
+                  p={{ base: 3, md: 4 }}
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor="neutral.200"
+                  _hover={{ borderColor: "primary.400", textDecoration: "none" }}
+                  display="block"
+                >
+                  <HStack justify="space-between">
+                    <HStack spacing={3}>
+                      <Users size={20} />
+                      <Heading size="md">Kontrahenci</Heading>
+                    </HStack>
+                    <Button
+                      size="sm"
+                      colorScheme="primary"
+                      variant="ghost"
+                      pointerEvents="none"
+                    >
+                      Zarządzaj
+                    </Button>
+                  </HStack>
+                </Box>
+              </TabPanel>
+
+            </TabPanels>
+          </Tabs>
 
           {/* Dialogi */}
           <Box>

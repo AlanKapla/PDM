@@ -6,7 +6,7 @@ namespace CQRS.Tenants.UpdateTenant
 {
     public sealed record UpdateTenantCommand : IRequestCommand<TenantDetailsWeb>, IAuthorizableRequest
     {
-        public required Guid TenantId { get; init; }
+        public Guid TenantId { get; init; }
         public required string Name { get; init; }
 
         public string PermissionCode => PermissionCodes.TenantEdit;

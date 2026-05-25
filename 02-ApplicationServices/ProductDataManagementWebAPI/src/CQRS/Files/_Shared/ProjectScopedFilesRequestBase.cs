@@ -9,8 +9,8 @@ namespace CQRS.Files._Shared
     /// </summary>
     public abstract record ProjectScopedFilesRequestBase : IAuthorizableRequest
     {
-        public required Guid TenantId { get; init; }
-        public required Guid ProjectId { get; init; }
+        public Guid TenantId { get; init; }
+        public Guid ProjectId { get; init; }
 
         public abstract string PermissionCode { get; }
 

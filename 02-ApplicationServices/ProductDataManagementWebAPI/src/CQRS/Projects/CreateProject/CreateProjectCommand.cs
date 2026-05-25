@@ -1,12 +1,13 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
+using CQRS.Behaviours;
 
 namespace CQRS.Projects.CreateProject
 {
-    public sealed record CreateProjectCommand : IRequestCommand<ProjectDetailsWeb>, IAuthorizableRequest
+    public sealed record CreateProjectCommand : IRequestCommand<ProjectDetailsWeb>, IAuthorizableRequest, IRequiresProjectSlot
     {
-        public required Guid TenantId { get; init; }
+        public Guid TenantId { get; init; }
         public required string Name { get; init; }
 
         public string PermissionCode => PermissionCodes.TenantProjectCreate;

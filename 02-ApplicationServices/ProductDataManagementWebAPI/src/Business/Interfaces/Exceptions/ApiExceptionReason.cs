@@ -7,6 +7,7 @@
         Unauthorized,
         Forbidden,
         Conflict,
-        InvalidOperation
+        InvalidOperation,
+        SubscriptionSuspended
     }
 }

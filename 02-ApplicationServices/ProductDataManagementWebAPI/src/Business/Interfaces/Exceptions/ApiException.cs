@@ -16,6 +16,7 @@ namespace Business.Interfaces.Exceptions
                 ApiExceptionReason.Unauthorized => HttpStatusCode.Unauthorized,
                 ApiExceptionReason.Forbidden => HttpStatusCode.Forbidden,
                 ApiExceptionReason.Conflict => HttpStatusCode.Conflict,
+                ApiExceptionReason.SubscriptionSuspended => HttpStatusCode.PaymentRequired,
                 _ => HttpStatusCode.InternalServerError
             };
     }

@@ -11,9 +11,9 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
     /// </summary>
     public sealed record UpdateProjectCostCommand : IRequestCommand<ProjectCostListItemWeb>, IAuthorizableRequest
     {
-        public required Guid TenantId { get; init; }
-        public required Guid ProjectId { get; init; }
-        public required Guid CostId { get; init; }
+        public Guid TenantId { get; init; }
+        public Guid ProjectId { get; init; }
+        public Guid CostId { get; init; }
         public required string Name { get; init; }
         public Guid? ContractorId { get; init; }
         public string? Number { get; init; }

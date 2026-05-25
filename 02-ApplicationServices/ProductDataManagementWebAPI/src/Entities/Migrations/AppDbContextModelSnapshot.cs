@@ -1514,6 +1514,317 @@ namespace Entities.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("Entities.Models.Subscriptions.SubscriptionNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Type", "SentAt");
+
+                    b.ToTable("SubscriptionNotifications", (string)null);
+                });
+
+            modelBuilder.Entity("Entities.Models.Subscriptions.SubscriptionOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<Guid>("SetByAdminId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantSubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantSubscriptionId", "Key", "IsActive");
+
+                    b.ToTable("SubscriptionOverrides", (string)null);
+                });
+
+            modelBuilder.Entity("Entities.Models.Subscriptions.SubscriptionPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("varchar(8)");
+
+                    b.Property<string>("ExternalTransactionId")
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("varchar(1024)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Plan")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantSubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantSubscriptionId", "Status");
+
+                    b.ToTable("SubscriptionPayments", (string)null);
+                });
+
+            modelBuilder.Entity("Entities.Models.Subscriptions.SubscriptionPlanDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)")
+                        .HasDefaultValue("PLN");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("MaxProjects")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxUsers")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("Plan")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Plan")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlanDefinitions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000001-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "PLN",
+                            IsActive = true,
+                            MaxProjects = 1,
+                            MaxUsers = 1,
+                            Name = "Free",
+                            Plan = 0,
+                            Price = 0.00m
+                        },
+                        new
+                        {
+                            Id = new Guid("00000001-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "PLN",
+                            IsActive = true,
+                            MaxProjects = 5,
+                            MaxUsers = 10,
+                            Name = "Standard",
+                            Plan = 1,
+                            Price = 0.00m
+                        },
+                        new
+                        {
+                            Id = new Guid("00000001-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "PLN",
+                            IsActive = true,
+                            MaxProjects = -1,
+                            MaxUsers = 50,
+                            Name = "Premium",
+                            Plan = 2,
+                            Price = 0.00m
+                        },
+                        new
+                        {
+                            Id = new Guid("00000001-0000-0000-0000-000000000004"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "PLN",
+                            IsActive = true,
+                            MaxProjects = -1,
+                            MaxUsers = -1,
+                            Name = "Enterprise",
+                            Plan = 3,
+                            Price = 0.00m
+                        });
+                });
+
+            modelBuilder.Entity("Entities.Models.Subscriptions.TenantSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CurrentPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CurrentPeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FullAccessGrantedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("FullAccessGrantedByAdminId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("GracePeriodDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(7);
+
+                    b.Property<DateTime?>("GracePeriodEndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsFullAccess")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<decimal?>("LastPaidAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("LastPaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MaxProjects")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxUsers")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("NextPaymentDue")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Plan")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("TrialEndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("TenantSubscriptions", (string)null);
+                });
+
             modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2901,6 +3212,39 @@ namespace Entities.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Entities.Models.Subscriptions.SubscriptionOverride", b =>
+                {
+                    b.HasOne("Entities.Models.Subscriptions.TenantSubscription", "TenantSubscription")
+                        .WithMany("Overrides")
+                        .HasForeignKey("TenantSubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TenantSubscription");
+                });
+
+            modelBuilder.Entity("Entities.Models.Subscriptions.SubscriptionPayment", b =>
+                {
+                    b.HasOne("Entities.Models.Subscriptions.TenantSubscription", "TenantSubscription")
+                        .WithMany("Payments")
+                        .HasForeignKey("TenantSubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TenantSubscription");
+                });
+
+            modelBuilder.Entity("Entities.Models.Subscriptions.TenantSubscription", b =>
+                {
+                    b.HasOne("Entities.Models.Tenants.Tenant", "Tenant")
+                        .WithOne()
+                        .HasForeignKey("Entities.Models.Subscriptions.TenantSubscription", "TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>
                 {
                     b.HasOne("Entities.Models.Tenants.Tenant", "Tenant")
@@ -3306,6 +3650,13 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.Roles.Role", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("Entities.Models.Subscriptions.TenantSubscription", b =>
+                {
+                    b.Navigation("Overrides");
+
+                    b.Navigation("Payments");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>

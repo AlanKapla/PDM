@@ -21,11 +21,23 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
 import type { UserTenant } from "../types/auth.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
+import { getRoleName, getRoleColor, RoleCodes } from "../constants/roleCodes";
+import { useNavigate } from "react-router-dom";
+import { SubscriptionStatus } from "../types/subscription";
+
+function isSubscriptionBlocked(status: SubscriptionStatus | undefined | null): boolean {
+  if (status == null) return false;
+  return (
+    status === SubscriptionStatus.PastDue ||
+    status === SubscriptionStatus.Canceled ||
+    status === SubscriptionStatus.GracePeriod
+  );
+}
 
 export default function CollaboratingTenants() {
   const { user, refreshUser } = useAuth();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess, showWarning } = useToastNotification();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: tenants = [], isLoading: loading } = useMyTenants();
   const [activeTenantId, setActiveTenantId] = useState<string>("");
@@ -47,10 +59,14 @@ export default function CollaboratingTenants() {
 
     setChangingTenant(true);
     try {
-      await changeActiveTenant(newTenantId);
+      const result = await changeActiveTenant(newTenantId);
       setActiveTenantId(newTenantId);
       queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
       await refreshUser();
+      if (result.isSubscriptionBlocked) {
+        navigate(`/tenants/${newTenantId}/subscription`);
+        return;
+      }
       showApiSuccess('tenantSwitched');
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -105,7 +121,7 @@ export default function CollaboratingTenants() {
                       >
                         <Stack direction={{ base: "column", md: "row" }} justify="space-between" spacing={3}>
                           <HStack spacing={3} flex={1} align="flex-start">
-                            <Radio value={tenant.id} isDisabled={changingTenant} mt={1}>
+                            <Radio value={tenant.id} isDisabled={changingTenant || (isSubscriptionBlocked(tenant.subscriptionStatus) && tenant.roleCode !== RoleCodes.TENANT_ADMIN)} mt={1}>
                               <VStack align="flex-start" spacing={1}>
                                 <Text fontWeight={tenant.id === activeTenantId ? "bold" : "normal"}>
                                   {tenant.name}
@@ -117,6 +133,11 @@ export default function CollaboratingTenants() {
                                   <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
                                     {getRoleName(tenant.roleCode)}
                                   </Badge>
+                                  {isSubscriptionBlocked(tenant.subscriptionStatus) && (
+                                    <Badge colorScheme="red" fontSize="xs">
+                                      Nieaktywna subskrypcja
+                                    </Badge>
+                                  )}
                                 </Stack>
                               </VStack>
                             </Radio>

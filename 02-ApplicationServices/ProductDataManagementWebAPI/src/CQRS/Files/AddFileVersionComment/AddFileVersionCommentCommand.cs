@@ -12,7 +12,7 @@ namespace CQRS.Files.AddFileVersionComment
         /// <summary>
         /// ID wersji pliku (z route)
         /// </summary>
-        public required Guid VersionId { get; init; }
+        public Guid VersionId { get; init; }
 
         /// <summary>
         /// Treść komentarza
