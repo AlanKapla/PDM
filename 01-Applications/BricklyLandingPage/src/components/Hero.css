@@ -72,9 +72,13 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 56px;
-  padding-top: 96px;
+  align-items: center;
+  text-align: center;
+  gap: 32px;
+  padding-top: 48px;
   padding-bottom: 96px;
+  max-width: 760px;
+  margin-inline: auto;
 }
 
 /* ---- Headline (full-width row) ---- */
@@ -112,17 +116,18 @@
 }
 
 .hero__subtitle {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.75;
   color: var(--gray-600);
-  margin-bottom: 40px;
+  max-width: 640px;
 }
 
 .hero__stats {
   display: flex;
   align-items: center;
   gap: 28px;
-  margin-bottom: 44px;
+  justify-content: center;
+  margin-bottom: 0;
 }
 
 .hero__stat {
@@ -156,6 +161,7 @@
 .hero__actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -196,6 +202,8 @@
   list-style: none;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 520px;
 }
 
 .hero__benefit {
@@ -208,9 +216,7 @@
   line-height: 1.4;
   padding: 11px 0;
   border-bottom: 1px solid var(--cobalt-50);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: left;
 }
 
 .hero__benefit:last-child {
