@@ -1,7 +1,8 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.ChangeActiveTenant;
 using Entities.Models;
+using Entities.Models.Subscriptions;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
 using Moq;
@@ -13,6 +14,7 @@ namespace CQRS.Tests.Tenants;
 public sealed class ChangeActiveTenantCommandHandlerTests
 {
     private readonly Mock<IRepository<TenantPreferencesProfile>> _tenantPrefsRepoMock = new();
+    private readonly Mock<IReadRepository<TenantSubscription>> _subscriptionReadRepoMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly ChangeActiveTenantCommandHandler _handler;
 
@@ -24,6 +26,7 @@ public sealed class ChangeActiveTenantCommandHandlerTests
 
         _handler = new ChangeActiveTenantCommandHandler(
             _tenantPrefsRepoMock.Object,
+            _subscriptionReadRepoMock.Object,
             _currentUserMock.Object);
     }
 

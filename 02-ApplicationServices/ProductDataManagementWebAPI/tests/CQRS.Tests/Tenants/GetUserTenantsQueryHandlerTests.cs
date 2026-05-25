@@ -1,9 +1,10 @@
-using Business.Interfaces.Constants;
+﻿using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.GetUserTenants;
 using Entities.Models;
 using Entities.Models.Roles;
+using Entities.Models.Subscriptions;
 using Entities.Models.Tenants;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
@@ -18,6 +19,7 @@ public sealed class GetUserTenantsQueryHandlerTests
     private readonly Mock<IReadRepository<Tenant>> _tenantRepoMock = new();
     private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
     private readonly Mock<IReadRepository<TenantPreferencesProfile>> _preferencesRepoMock = new();
+    private readonly Mock<IReadRepository<TenantSubscription>> _subscriptionRepoMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly GetUserTenantsQueryHandler _handler;
 
@@ -32,6 +34,7 @@ public sealed class GetUserTenantsQueryHandlerTests
             _tenantRepoMock.Object,
             _tenantMemberRepoMock.Object,
             _preferencesRepoMock.Object,
+            _subscriptionRepoMock.Object,
             _currentUserMock.Object);
     }
 
