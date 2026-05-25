@@ -1,5 +1,6 @@
 .features__header {
   margin-bottom: 64px;
+  text-align: center;
 }
 
 .features__list {
@@ -106,4 +107,28 @@
   .feature-row__number {
     font-size: 32px;
   }
+}
+
+.feature-row__right {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.feature-row__screen {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #EAE0D5;
+  background: #F9F4EF;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-row__screen-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
 }

@@ -4,29 +4,28 @@ import './TargetUsers.css'
 const USERS = [
   {
     icon: ClipboardCheck,
-    title: 'Nadzorca inwestycyjny',
-    description: 'Prowadzisz kilka budów naraz. Pamiętasz wszystko — ale nie powinieneś musieć. Miej pełny obraz finansowy każdego projektu bez ciągłego sprawdzania.',
-    perks: ['Dashboard finansowy wielu projektów', 'Alerty gdy etap przekracza budżet', 'Historia zmian i decyzji'],
+    title: 'Deweloper',
+    description: 'Zarządzanie wieloma inwestycjami jednocześnie wymaga spójnego wglądu w finanse, harmonogramy i dokumentację każdego projektu. Brickly zapewnia centralny punkt kontroli bez konieczności przełączania się między narzędziami.',
+    perks: ['Dashboard finansowy wielu projektów', 'Analiza porównawcza inwestycji', 'Zarządzanie zespołami i kontrahentami'],
   },
   {
     icon: UserCheck,
     title: 'Inwestor zastępczy',
-    description: 'Działasz w imieniu inwestora. On musi Ci ufać. Brickly sprawia że masz czym udowodnić że to zaufanie jest zasłużone.',
-    perks: ['Raporty jednym kliknięciem', 'Pełna dokumentacja decyzyjna', 'Kosztorys vs wydatki w czasie rzeczywistym'],
+    description: 'Działanie w imieniu inwestora wymaga pełnej dokumentacji decyzyjnej i przejrzystości finansowej. Brickly dostarcza kompletny ślad audytowy kosztów, akceptacji i postępu realizacji.',
+    perks: ['Pełna dokumentacja decyzyjna z historią zmian', 'Raporty finansowe generowane automatycznie', 'Zestawienie kosztorysu z wydatkami rzeczywistymi'],
   },
   {
     icon: PenLine,
     title: 'Architekt',
-    description: 'Twoja praca to nie tylko projekt — to też koordynacja ludzi, terminów i dokumentów. Miej wszystko w jednym miejscu zamiast w trzech skrzynkach mailowych.',
-    perks: ['Wersjonowane repozytorium dokumentacji', 'Nadzór autorski zintegrowany z harmonogramem', 'Bezpośredni wgląd w postęp prac'],
+    description: 'Prowadzenie nadzoru autorskiego nad wieloma inwestycjami wymaga sprawnego zarządzania dokumentacją techniczną i koordynacji z wykonawcami. Brickly integruje te procesy w jednym środowisku.',
+    perks: ['Wersjonowane repozytorium dokumentacji technicznej', 'Nadzór autorski zintegrowany z harmonogramem', 'Komunikacja z uczestnikami projektu w jednym miejscu'],
   },
   {
     icon: TrendingUp,
-    title: 'Deweloper i inwestor prywatny',
-    description: 'Wkładasz pieniądze i chcesz wiedzieć na co idą. Bez cotygodniowych telefonów do wykonawcy. Brickly daje Ci wgląd bez angażowania całego zespołu.',
-    perks: ['Raport stanu projektu zawsze pod ręką', 'Kosztorys vs faktury rzeczywiste', 'Dokumenty i umowy w jednym miejscu'],
+    title: 'Inwestor prywatny',
+    description: 'Niezależny dostęp do aktualnego stanu finansowego i postępu realizacji inwestycji — bez konieczności angażowania zespołu projektowego przy każdym zapytaniu.',
+    perks: ['Raport stanu projektu dostępny w każdej chwili', 'Zestawienie kosztorysu z fakturami rzeczywistymi', 'Centralne repozytorium dokumentów i umów'],
   },
-
 ]
 
 export default function TargetUsers() {
@@ -36,12 +35,12 @@ export default function TargetUsers() {
         <div className="target__header">
           <span className="section-label">Dla kogo</span>
           <h2 className="section-title">
-            Dla każdego kto odpowiada<br />za pieniądze i terminy
+            Platforma dla profesjonalistów<br />zarządzających inwestycjami
           </h2>
           <p className="section-subtitle">
-            Nieważne jak się nazywa Twoja rola na budowie.
-            Jeśli ktoś pyta Cię „jak idzie?" i „ile zostało w budżecie?" —
-            Brickly jest dla Ciebie.
+            Brickly został zaprojektowany dla uczestników procesu inwestycyjnego,
+            którzy potrzebują pełnego wglądu w finanse, harmonogram i dokumentację
+            prowadzonych projektów.
           </p>
         </div>
 

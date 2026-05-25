@@ -1,6 +1,5 @@
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
-import About from './components/About'
 import Modules from './components/Modules'
 import TargetUsers from './components/TargetUsers'
 import CallToAction from './components/CallToAction'
@@ -12,7 +11,6 @@ export default function App() {
       <Navbar />
       <main>
         <Hero />
-        <About />
         <Modules />
         <TargetUsers />
         <CallToAction />

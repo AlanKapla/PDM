@@ -1,8 +1,5 @@
-.about__layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 80px;
-  align-items: start;
+.about__content {
+  max-width: 760px;
 }
 
 .about__benefits {
@@ -85,12 +82,7 @@
   line-height: 1.6;
 }
 
-@media (max-width: 900px) {
-  .about__layout {
-    grid-template-columns: 1fr;
-    gap: 48px;
-  }
-}
+
 
 .about__title {
   margin-bottom: 16px;

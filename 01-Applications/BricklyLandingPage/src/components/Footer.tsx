@@ -71,7 +71,6 @@ export default function Footer() {
             <h4 className="footer__info-title">Dane firmy</h4>
             <div className="footer__info-row"><Building size={13} /> Alan Kapla Usługi Informatyczne</div>
             <div className="footer__info-row"><Receipt size={13} /> NIP: 762-201-08-39</div>
-            <div className="footer__info-row"><MapPin size={13} /> ul. Klonowa 27, 07-200 Rybienko Nowe</div>
           </div>
 
           <div className="footer__info-divider" />
