@@ -48,8 +48,8 @@ export default function TargetUsers() {
           {USERS.map(user => (
             <div key={user.title} className="target-card">
               <div className="target-card__top">
-                <div className="target-card__icon">
-                  <user.icon size={26} />
+                <div className="target-card__icon" aria-hidden="true">
+                  <user.icon size={26} aria-hidden="true" />
                 </div>
                 <h3 className="target-card__title">{user.title}</h3>
               </div>
@@ -57,7 +57,7 @@ export default function TargetUsers() {
               <ul className="target-card__perks">
                 {user.perks.map(perk => (
                   <li key={perk}>
-                    <span className="target-card__perk-dot" />
+                    <span className="target-card__perk-dot" aria-hidden="true" />
                     {perk}
                   </li>
                 ))}

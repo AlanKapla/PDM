@@ -170,3 +170,40 @@ const handleSubmit = async (): Promise<void> => {
 - Walidacja lokalna dla prostych przypadków, walidacja API dla reguł biznesowych
 - `FormControl` z `isRequired` i `isInvalid` dla czytelności
 - Zakaz `form` elementów — używaj przycisków z `onClick`
+
+## Dostępność formularzy — WCAG AA (obowiązkowe)
+
+```tsx
+// Każdy input musi być sparowany z FormLabel przez Chakra FormControl:
+<FormControl isRequired isInvalid={!!error}>
+    <FormLabel>Nazwa projektu</FormLabel>  {/* Chakra auto-łączy label z inputem */}
+    <Input ... />
+    {error && <FormErrorMessage role="alert">{error}</FormErrorMessage>}
+</FormControl>
+
+// Jeśli używasz standalone input poza FormControl — dodaj aria-label lub aria-labelledby:
+<Input aria-label="Szukaj projektów" ... />
+
+// Przycisk submit — opisowy tekst, nie tylko ikona:
+<Button type="button" onClick={handleSubmit}>Zapisz projekt</Button>
+
+// Przycisk-ikona w formularzu — zawsze aria-label:
+<IconButton aria-label="Wyczyść wyszukiwanie" icon={<X />} onClick={handleClear} />
+```
+
+### Modal z formularzem — focus management
+AppModal (Chakra Modal) automatycznie:
+- Ustawia fokus na pierwszym fokusowanym elemencie po otwarciu
+- Przechwytuje Tab wewnątrz modala (focus trap)
+- Przywraca fokus do triggera po zamknięciu
+- Obsługuje Escape
+
+Jeśli chcesz wskazać konkretny input jako initial focus:
+```tsx
+const firstInputRef = useRef<HTMLInputElement>(null);
+<AppModal initialFocusRef={firstInputRef} ...>
+    <Input ref={firstInputRef} ... />
+</AppModal>
+```
+
+Dodaj `initialFocusRef` do `AppModalProps` jeśli potrzebny.

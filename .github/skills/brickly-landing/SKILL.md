@@ -104,3 +104,53 @@ Screenshoty umieszczane są w: `public/screenshots/`
 5. Użyj tokenów kolorów z tabeli powyżej (zmienne CSS)
 6. Nie dodawaj inline styles
 7. Zweryfikuj brak błędów TypeScript
+8. Spełnij wymagania dostępności (patrz sekcja poniżej)
+
+## Wymagania dostępności (WCAG AA / AXE)
+
+**Obowiązkowe przy każdej zmianie komponentu:**
+
+### Ikony dekoracyjne
+- Każda ikona Lucide w roli dekoracyjnej (obok tekstu, wewnątrz przycisku z etykietą) musi mieć `aria-hidden="true"`:
+  ```tsx
+  <ArrowRight size={18} aria-hidden="true" />
+  ```
+- Ikony stanowiące jedyną treść elementu interaktywnego muszą mieć `aria-label` na rodzicu.
+
+### Elementy dekoracyjne (spany z CSS dot, divider itp.)
+```tsx
+<span className="feature-row__dot" aria-hidden="true" />
+```
+
+### Przyciski i linki
+- Każdy `<button>` bez widocznego tekstu musi mieć `aria-label`.
+- `aria-expanded` na hamburgerze i podobnych toggleach.
+- Przyciski nawigacyjne w sliderach: `aria-label="Poprzedni zrzut ekranu"` (nie tylko "Poprzedni").
+
+### Fokus i klawiatura
+- Nie usuwaj `:focus-visible` z `index.css` — jedyne źródło stylów fokusowych w projekcie.
+- `div` z `onClick` musi mieć `role="button"`, `tabIndex={0}` i `onKeyDown` obsługujący `Enter`/`Space`.
+- Modale (lightbox) wymagają:
+  - `role="dialog"`, `aria-modal="true"`, `aria-label`
+  - focus na pierwszym fokusowanym elemencie po otwarciu
+  - powrót focusu do triggera po zamknięciu
+  - obsługę `Escape`
+
+### Nawigacja
+- `<nav>` musi mieć `aria-label` gdy jest więcej niż jeden `<nav>` na stronie.
+- Skip link (`<a href="#main-content" className="skip-link">`) jest zdefiniowany w `App.tsx` — nie usuwaj.
+- `<main id="main-content" tabIndex={-1}>` — wymagany cel skip linka.
+
+### Obrazy
+- Logo w linkach: `alt=""` + `aria-label` na `<a>` (logo jest dekoracyjne gdy link ma własną etykietę).
+- Screenshoty funkcjonalności: `alt` musi opisywać co widać na ekranie.
+
+### Kontrast (WCAG AA minimalne wymagania)
+- Tekst ≥ 18px normalny lub ≥ 14px bold: min. **3:1**
+- Pozostały tekst: min. **4.5:1**
+- Zatwierdzone pary (zweryfikowane): `#111111` / `#FFF5EE`, `#1B4FD8` / `#FFF5EE`, `#FFFFFF` / `#1B4FD8`
+- **Nie używaj** `--color-text-muted` (`#555555`) na jasnym tle dla małego tekstu bez weryfikacji kontrastu.
+
+### Testy
+- Uruchom AXE w DevTools (zakładka Accessibility) po każdej zmianie.
+- Zero naruszeń krytycznych i poważnych przed commitem.

@@ -6,7 +6,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
 
-    "types": ["react", "react-dom", "vite/client"],
+    "types": ["react", "react-dom", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "skipLibCheck": true,
 
     "moduleResolution": "bundler",

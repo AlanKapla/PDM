@@ -121,3 +121,14 @@ return <Box>{content}</Box>;
 - Zakaz inline styles — zawsze Chakra UI props
 - Zakaz hardkodowanych kolorów — używaj tokenów (`primary.600`, `level1.500`)
 - Eventy przez callbacki w props (`onEdit`, `onDelete`, `onChange`)
+
+## Dostępność — WCAG AA (obowiązkowe)
+
+Czytaj `skill-ui-accessibility.md` dla pełnych zasad. Skrót:
+
+- Każdy `IconButton` musi mieć `aria-label`
+- Ikony obok tekstu muszą mieć `aria-hidden="true"`
+- `div`/`span` z `onClick` musi mieć `role="button"`, `tabIndex={0}` i `onKeyDown` (Enter + Space)
+- Tekst treści: kontrast ≥ 4.5:1 (używaj `neutral.600+`, nie `neutral.500` dla treści)
+- Komunikaty błędów: `role="alert"` lub Chakra `Alert status="error"`
+- Każdy komponent musi przechodzić test AXE (patrz `skill-ui-unit-tests.md`)

@@ -38,7 +38,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               className="footer__contact-link"
             >
-              <Globe size={15} />
+              <Globe size={15} aria-hidden="true" />
               brickly.pro
             </a>
           </div>
@@ -69,8 +69,8 @@ export default function Footer() {
 
           <div className="footer__info-block">
             <h4 className="footer__info-title">Dane firmy</h4>
-            <div className="footer__info-row"><Building size={13} /> Alan Kapla Usługi Informatyczne</div>
-            <div className="footer__info-row"><Receipt size={13} /> NIP: 762-201-08-39</div>
+            <div className="footer__info-row"><Building size={13} aria-hidden="true" /> Alan Kapla Usługi Informatyczne</div>
+            <div className="footer__info-row"><Receipt size={13} aria-hidden="true" /> NIP: 762-201-08-39</div>
           </div>
 
           <div className="footer__info-divider" />
@@ -78,10 +78,10 @@ export default function Footer() {
           <div className="footer__info-block">
             <h4 className="footer__info-title">Kontakt</h4>
             <a href="tel:+48798517893" className="footer__info-row footer__info-link">
-              <Phone size={13} /> 798 517 893
+              <Phone size={13} aria-hidden="true" /> 798 517 893
             </a>
             <a href="mailto:kontakt@brickly.pro" className="footer__info-row footer__info-link">
-              <Mail size={13} /> kontakt@brickly.pro
+              <Mail size={13} aria-hidden="true" /> kontakt@brickly.pro
             </a>
           </div>
 

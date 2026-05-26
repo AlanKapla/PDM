@@ -92,3 +92,4 @@ Przed implementacją przeczytaj odpowiedni skill:
 | Klienty API | `.github/skills/ui/skill-ui-api-client.md` |
 | Theme i design tokens | `.github/skills/ui/skill-ui-theme.md` |
 | Testy jednostkowe | `.github/skills/ui/skill-ui-unit-tests.md` |
+| **Dostępność WCAG AA / AXE** | `.github/skills/ui/skill-ui-accessibility.md` |

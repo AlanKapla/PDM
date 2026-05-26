@@ -30,7 +30,7 @@ export default function About() {
           <ul className="about__benefits">
             {BENEFITS.map(benefit => (
               <li key={benefit} className="about__benefit">
-                <CheckCircle2 size={18} className="about__benefit-icon" />
+                <CheckCircle2 size={18} className="about__benefit-icon" aria-hidden="true" />
                 <span>{benefit}</span>
               </li>
             ))}

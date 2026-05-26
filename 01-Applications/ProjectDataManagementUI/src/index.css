@@ -18,3 +18,45 @@
     font-size: 16px !important;
   }
 }
+
+/*
+  Focus-visible — WCAG AA 2.4.7 / 2.4.11
+  Wyraźny fokus tylko dla użytkowników klawiatury (nie myszy).
+  Nie usuwać ani nie nadpisywać outline dla :focus-visible.
+*/
+:focus-visible {
+  outline: 3px solid #3182CE !important;
+  outline-offset: 2px !important;
+}
+
+/*
+  Skip link — WCAG 2.4.1 "Bypass Blocks"
+  Ukryty poza ekranem, widoczny po sfokusowaniu klawiaturą.
+*/
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.skip-link:focus-visible {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  padding: 8px 16px;
+  background: #2B6CB0;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 4px;
+  text-decoration: none;
+  outline: 3px solid #ffffff !important;
+  outline-offset: 2px !important;
+}

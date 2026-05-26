@@ -50,7 +50,7 @@ export default function Hero() {
             className="btn hero__cta"
           >
             Rozpocznij bezpłatnie
-            <ArrowRight size={18} />
+            <ArrowRight size={18} aria-hidden="true" />
           </a>
           <a href="#modules" className="btn hero__cta-secondary" onClick={e => { e.preventDefault(); scrollTo('#modules') }}>
             Poznaj możliwości

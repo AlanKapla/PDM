@@ -98,7 +98,45 @@ Sprawdź czy feature jest spójny z istniejącymi wzorcami UI:
 | Wzorzec | Istniejąca implementacja | Czy feature musi się dostosować |
 |---------|------------------------|--------------------------------|
 
-### BLOK 9 — Problemy i ryzyka
+### BLOK 9 — Dostępność (WCAG AA / AXE) — OBOWIĄZKOWY
+
+Sprawdź istniejące komponenty powiązane z feature pod kątem WCAG AA.
+
+#### Kontrast kolorów
+| Element | Kolor tekstu | Kolor tła | Kontrast (szac.) | Status |
+|---------|-------------|-----------|-----------------|--------|
+| tekst główny | `neutral.700` | white | ~11.6:1 | ✓ |
+| tekst pomocniczy | `neutral.500` | white | ~4.5:1 | ⚠ sprawdź |
+
+Flagi do sprawdzenia:
+- `color="neutral.500"` lub `color="gray.400"` przy treści (nie placeholder) — zbyt niski kontrast
+- `color="neutral.400"` lub jaśniejszy — na pewno za niski dla treści
+
+#### Atrybuty ARIA
+| Komponent | Problem | Rekomendacja |
+|-----------|---------|-------------|
+| `<IconButton icon={<X />} />` bez `aria-label` | brak etykiety | dodaj `aria-label` |
+| `<div onClick={...}>` bez `role` i `tabIndex` | niedostępne klawiaturą | dodaj `role="button" tabIndex={0} onKeyDown` |
+| `<Icon />` obok tekstu bez `aria-hidden` | duplikacja dla czytników | dodaj `aria-hidden="true"` |
+
+#### Zarządzanie fokusem
+- Czy modale używają Chakra `Modal`/`AlertDialog`? (automatyczny focus trap)
+- Czy custom overlays/dropdowns mają focus management?
+- Czy focus-visible jest zachowany (nie ma `outline: none` bez zamiennika)?
+
+#### Testy AXE
+- Czy komponenty feature mają testy AXE? (`vitest-axe`)
+- Jeśli nie — wymień które należy dodać
+
+#### Podsumowanie dostępności
+| Kategoria | Status | Uwagi |
+|----------|--------|-------|
+| Kontrast kolorów | ✓/⚠/✗ | ... |
+| Atrybuty ARIA | ✓/⚠/✗ | ... |
+| Klawiatura / fokus | ✓/⚠/✗ | ... |
+| Testy AXE | ✓/⚠/✗ | ... |
+
+### BLOK 10 — Problemy i ryzyka
 
 | # | Problem | Komponent/Plik | Ryzyko | Rekomendacja |
 |---|---------|---------------|--------|-------------|
@@ -112,6 +150,7 @@ Sprawdź czy feature jest spójny z istniejącymi wzorcami UI:
 | Nowe hooki | ... |
 | Nowe typy TypeScript | ... |
 | Nowe wywołania API | ... |
+| Naruszenia WCAG AA | N |
 | Pytania domenowe | N |
 
 ### Pytania domenowe wymagające decyzji

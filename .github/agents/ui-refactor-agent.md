@@ -113,12 +113,48 @@ Używaj Chakra UI props zamiast inline styles:
 Nie używaj `any` jako typu. Jeśli typ jest nieznany użyj `unknown`
 i odpowiednio zawęź przez type guard.
 
+### Dostępność — WCAG AA (obowiązkowe przy każdej zmianie)
+
+Przy każdej modyfikacji komponentu sprawdź i napraw:
+
+1. **ARIA na IconButton** — każdy `<IconButton>` musi mieć `aria-label`:
+   ```tsx
+   // DOBRZE:
+   <IconButton aria-label="Usuń element" icon={<Trash2 />} />
+   // ŹLE:
+   <IconButton icon={<Trash2 />} />
+   ```
+
+2. **Ikony obok tekstu** — muszą mieć `aria-hidden="true"`:
+   ```tsx
+   <Icon as={Calendar} aria-hidden="true" />
+   ```
+
+3. **Interaktywne divy/spany** — muszą mieć pełne wsparcie klawiatury:
+   ```tsx
+   <Box role="button" tabIndex={0} onClick={fn}
+       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } }}
+   >
+   ```
+
+4. **Kontrast** — tekst treści: `neutral.600+` lub `gray.600+`, NIE `neutral.500` dla czytelnej treści.
+
+5. **Komunikaty błędów** — `role="alert"` lub Chakra `Alert`:
+   ```tsx
+   {error && <Alert status="error" role="alert"><AlertIcon />{error}</Alert>}
+   ```
+
+6. **Test AXE** — jeśli tworzysz lub istotnie modyfikujesz komponent, dodaj test AXE (patrz `skill-ui-accessibility.md`).
+
 ### Build TypeScript po każdej grupie zmian
 
 Po każdej logicznej grupie zmian sprawdź czy TypeScript kompiluje:
 `tsc --noEmit`
 
 Jeśli są błędy — napraw zanim przejdziesz dalej.
+
+Po zakończeniu uruchom testy AXE:
+`npx vitest run --reporter=verbose`
 
 ## Format raportu końcowego
 
@@ -128,6 +164,11 @@ Jeśli są błędy — napraw zanim przejdziesz dalej.
 ### Build TypeScript
 | Status | Liczba błędów |
 |--------|--------------|
+| ✅ / ❌ | 0 / N |
+
+### Testy AXE
+| Status | Naruszenia |
+|--------|-----------|
 | ✅ / ❌ | 0 / N |
 
 ### Nowe pliki

@@ -18,7 +18,7 @@ export default function CallToAction() {
 
       <div className="container cta-section__content">
         <div className="cta-section__badge">
-          <span className="cta-section__badge-dot" />
+          <span className="cta-section__badge-dot" aria-hidden="true" />
           Platforma dostępna bezpłatnie
         </div>
         <h2 className="cta-section__title">
@@ -33,7 +33,7 @@ export default function CallToAction() {
         <div className="cta-section__micro-benefits">
           {MICRO_BENEFITS.map(b => (
             <span key={b} className="cta-section__micro-benefit">
-              <CheckCircle2 size={15} />
+              <CheckCircle2 size={15} aria-hidden="true" />
               {b}
             </span>
           ))}
@@ -55,21 +55,21 @@ export default function CallToAction() {
             rel="noopener noreferrer"
             className="btn cta-section__btn-main"
           >
-            <ExternalLink size={18} />
+            <ExternalLink size={18} aria-hidden="true" />
             Przejdź do platformy
           </a>
           <a href="mailto:kontakt@brickly.pro" className="btn cta-section__btn-secondary">
-            <Mail size={16} />
+            <Mail size={16} aria-hidden="true" />
             Skontaktuj się z nami
           </a>
         </div>
 
-        <div className="cta-section__trust">
-          <span><ShieldCheck size={15} /> Bezpieczna platforma</span>
-          <span className="cta-section__trust-divider" />
-          <span><Plug2 size={15} /> Otwarte na integracje</span>
-          <span className="cta-section__trust-divider" />
-          <span><MapPin size={15} /> Produkt polski</span>
+        <div className="cta-section__trust" aria-label="Cechy platformy">
+          <span><ShieldCheck size={15} aria-hidden="true" /> Bezpieczna platforma</span>
+          <span className="cta-section__trust-divider" aria-hidden="true" />
+          <span><Plug2 size={15} aria-hidden="true" /> Otwarte na integracje</span>
+          <span className="cta-section__trust-divider" aria-hidden="true" />
+          <span><MapPin size={15} aria-hidden="true" /> Produkt polski</span>
         </div>
       </div>
     </section>

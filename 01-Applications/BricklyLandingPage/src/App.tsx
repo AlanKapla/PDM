@@ -8,8 +8,9 @@ import Footer from './components/Footer'
 export default function App() {
   return (
     <>
+      <a href="#main-content" className="skip-link">Przejdź do treści głównej</a>
       <Navbar />
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <Hero />
         <Modules />
         <TargetUsers />

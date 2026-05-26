@@ -13,6 +13,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <Box>
+      {/* Skip link — WCAG 2.4.1 */}
+      <a href="#main-content" className="skip-link">
+        Przejdź do treści głównej
+      </a>
+
       <Header onMenuOpen={onOpen} />
       <Sidebar />
 
@@ -29,6 +34,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* Treść strony — padding-bottom na mobile dla dolnego paska nav */}
       <Box
+        as="main"
+        id="main-content"
         ml={{ base: 0, md: "250px" }}
         pt={{ base: "60px", md: "60px" }}
         pb={{ base: "64px", md: 0 }}

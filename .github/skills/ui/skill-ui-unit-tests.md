@@ -144,6 +144,40 @@ it('useProjects_sukcesApi_zwracaDane', async () => {
 });
 ```
 
+## Test AXE — dostępność komponentów (obowiązkowy)
+
+Każdy komponent renderujący HTML musi mieć test AXE sprawdzający naruszenia WCAG AA.
+`toHaveNoViolations` jest zarejestrowany globalnie przez `src/test/setup.ts`.
+
+```typescript
+// src/components/ui/__tests__/AppModal.axe.test.tsx
+import { axe } from 'vitest-axe';
+import { renderWithChakra } from '../../../test/render-with-chakra';
+import AppModal from '../AppModal';
+
+describe('AppModal — AXE', () => {
+    it('brakNaruszen_otwartyModal', async () => {
+        const { container } = renderWithChakra(
+            <AppModal isOpen onClose={() => undefined} title="Testowy modal">
+                <p>Treść</p>
+            </AppModal>
+        );
+        const results = await axe(container);
+        expect(results).toHaveNoViolations();
+    });
+});
+```
+
+Wrapper dla komponentów Chakra UI (`src/test/render-with-chakra.tsx`):
+```typescript
+export function renderWithChakra(ui: ReactElement, options?: RenderOptions) {
+    return render(ui, {
+        wrapper: ({ children }) => <ChakraProvider>{children}</ChakraProvider>,
+        ...options,
+    });
+}
+```
+
 ## Zasady
 
 - AAA — Arrange/Act/Assert z komentarzami
@@ -153,4 +187,5 @@ it('useProjects_sukcesApi_zwracaDane', async () => {
 - Nazwy testów opisowe: `co_warunek_wynik`
 - Nie testuj szczegółów implementacji (np. nazwy zmiennych wewnętrznych)
 - Testuj: hooki, utility functions, extension methods, proste komponenty
+- Każdy komponent z renderowaniem HTML → obowiązkowy test AXE
 - Nie testuj: komponenty Chakra UI, style CSS

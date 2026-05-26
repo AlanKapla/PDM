@@ -139,7 +139,7 @@ export default function Modules() {
                 <ul className="feature-row__highlights">
                   {feature.highlights.map(h => (
                     <li key={h} className="feature-row__highlight">
-                      <span className="feature-row__dot" />
+                      <span className="feature-row__dot" aria-hidden="true" />
                       {h}
                     </li>
                   ))}
