@@ -40,6 +40,8 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
             DeleteTrackedCostCommand request,
             CancellationToken cancellationToken)
         {
+            await ValidateAccessAsync(request.TenantId, request.ProjectId, cancellationToken);
+
             TrackedCost cost = await GetAndValidateTrackedCostAsync(request.CostId, request.TenantId, request.ProjectId, cancellationToken);
 
             DateTime now = DateTime.UtcNow;

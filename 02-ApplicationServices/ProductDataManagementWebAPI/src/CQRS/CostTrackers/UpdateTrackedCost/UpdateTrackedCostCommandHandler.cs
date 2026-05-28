@@ -46,6 +46,8 @@ namespace CQRS.CostTrackers.UpdateTrackedCost
             UpdateTrackedCostCommand request,
             CancellationToken cancellationToken)
         {
+            await ValidateAccessAsync(request.TenantId, request.ProjectId, cancellationToken);
+
             TrackedCost cost = await GetAndValidateTrackedCostAsync(request.CostId, request.TenantId, request.ProjectId, cancellationToken);
 
             (decimal? net, decimal? gross) = financialService.Calculate(request.Net, request.Gross);

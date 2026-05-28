@@ -62,6 +62,15 @@ namespace CQRS.CostTrackers.Shared
             this.contractorService = contractorService;
         }
 
+        protected async Task ValidateAccessAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken)
+        {
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken);
+            if (!isAdmin)
+            {
+                throw new ForbiddenApiException("You do not have access to this resource.");
+            }
+        }
+
         protected async Task<TrackedCost> GetAndValidateTrackedCostAsync(
             Guid costId, Guid tenantId, Guid projectId, CancellationToken cancellationToken)
         {
