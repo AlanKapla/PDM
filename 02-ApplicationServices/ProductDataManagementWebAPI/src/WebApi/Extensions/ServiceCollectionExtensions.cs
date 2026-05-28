@@ -21,7 +21,6 @@ using Entities.Models.CostTrackers;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -341,10 +340,6 @@ namespace WebApi.Extensions
                 .AddRepository<TrackedCost>()
                 .AddRepository<BaseCostAttachment>();
 
-            services
-                .AddRepository<Role>()
-                .AddRepository<Permission>()
-                .AddWriteRepository<RolePermission>();
 
             return services;
         }
@@ -409,7 +404,6 @@ namespace WebApi.Extensions
             services.AddScoped<IProjectDashboardAssembler, ProjectDashboardAssembler>();
 
             services.AddHostedService<StartupSeederService>();
-            services.AddHostedService<RolePermissionSeederService>();
 
             return services;
         }

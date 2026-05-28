@@ -1,8 +1,7 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using CQRS.Extensions;
 using Entities.Models.CostEstimates;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;

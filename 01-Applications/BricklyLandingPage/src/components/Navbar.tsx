@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { label: 'O aplikacji', href: '#about' },
   { label: 'Moduły', href: '#modules' },
   { label: 'Dla kogo', href: '#target' },
+  { label: 'FAQ', href: '#faq' },
   { label: 'Kontakt', href: '#footer-contact' },
 ]
 

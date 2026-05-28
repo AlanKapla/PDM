@@ -5,7 +5,7 @@
 /// </summary>
 public static class PermissionScopes
 {
-    private static readonly IReadOnlyDictionary<string, PermissionScope> Map = new Dictionary<string, PermissionScope>
+    private static readonly Dictionary<string, PermissionScope> Map = new()
     {
         // ==================== GLOBAL SCOPE ====================
         // Route requirements: NONE
@@ -13,7 +13,6 @@ public static class PermissionScopes
         
         [PermissionCodes.TenantContextList] = PermissionScope.Global,
         [PermissionCodes.TenantContextAdminList] = PermissionScope.Global,
-        [PermissionCodes.RoleList] = PermissionScope.Global,
         
         
         // ==================== TENANT SCOPE ====================
@@ -45,12 +44,6 @@ public static class PermissionScopes
         [PermissionCodes.ProjectCosts] = PermissionScope.Project,
         [PermissionCodes.ProjectSchedule] = PermissionScope.Project,
         [PermissionCodes.ProjectDashboardTracker] = PermissionScope.Project,
-        
-        
-        // ==================== RESOURCE SCOPE ====================
-        // Route requirements: tenantId, projectId, resourceId
-        // These permissions require tenantId, projectId AND specific resourceId (fileId, costId, etc.)
-        // Currently no permissions use Resource scope - all resource operations use Project scope
     };
 
     /// <summary>
@@ -67,32 +60,5 @@ public static class PermissionScopes
         
         // Default to Tenant scope for unknown permissions (safer than Global)
         return PermissionScope.Tenant;
-    }
-    
-    /// <summary>
-    /// Checks if a permission requires tenantId in the route
-    /// </summary>
-    public static bool RequiresTenantId(string permissionCode)
-    {
-        var scope = Get(permissionCode);
-        return scope == PermissionScope.Tenant || scope == PermissionScope.Project || scope == PermissionScope.Resource;
-    }
-    
-    /// <summary>
-    /// Checks if a permission requires projectId in the route
-    /// </summary>
-    public static bool RequiresProjectId(string permissionCode)
-    {
-        var scope = Get(permissionCode);
-        return scope == PermissionScope.Project || scope == PermissionScope.Resource;
-    }
-    
-    /// <summary>
-    /// Checks if a permission requires resourceId in the route
-    /// </summary>
-    public static bool RequiresResourceId(string permissionCode)
-    {
-        var scope = Get(permissionCode);
-        return scope == PermissionScope.Resource;
     }
 }

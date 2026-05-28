@@ -6,9 +6,6 @@ public static class PermissionCodes
     public const string TenantContextList = "TENANT.CONTEXT.LIST";
     public const string TenantContextAdminList = "TENANT.CONTEXT.ADMIN_LIST";
 
-    // ROLE
-    public const string RoleList = "ROLE.LIST";
-
     // TENANT – BASE ACCESS
     public const string TenantView = "TENANT.VIEW";
 
@@ -32,7 +29,7 @@ public static class PermissionCodes
 
     public static readonly string[] All = new[]
     {
-        TenantContextList, TenantContextAdminList, RoleList,
+        TenantContextList, TenantContextAdminList,
         TenantView,
         TenantSettingsView, TenantSettingsEdit, TenantMembersManage, TenantProjectsCreate,
         ProjectView,

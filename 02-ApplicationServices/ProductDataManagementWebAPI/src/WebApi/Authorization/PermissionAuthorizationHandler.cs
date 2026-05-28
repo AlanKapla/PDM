@@ -43,7 +43,6 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         
         Guid tenantId = Guid.Empty;
         Guid? projectId = null;
-        Guid? resourceId = null;
         ResourceScope? resourceScope = null;
 
         // Try to extract ResourceScope from route
@@ -97,42 +96,9 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
                 }
                 projectId = pId;
                 break;
-                
-            case PermissionScope.Resource:
-                // Resource permissions require tenantId, projectId AND resourceId
-                if (!TryGetGuid(routeData, "tenantId", out var tIdForResource))
-                {
-                    logger.LogWarning(
-                        "TenantId not found or invalid in route for resource-scoped permission {Permission}",
-                        requirement.PermissionCode);
-                    context.Fail();
-                    return;
-                }
-                tenantId = tIdForResource;
-                
-                if (!TryGetGuid(routeData, "projectId", out var pIdForResource))
-                {
-                    logger.LogWarning(
-                        "ProjectId not found or invalid in route for resource-scoped permission {Permission}",
-                        requirement.PermissionCode);
-                    context.Fail();
-                    return;
-                }
-                projectId = pIdForResource;
-                
-                resourceId = ExtractResourceId(routeData);
-                if (resourceId == null)
-                {
-                    logger.LogWarning(
-                        "ResourceId not found in route for resource-scoped permission {Permission}",
-                        requirement.PermissionCode);
-                    context.Fail();
-                    return;
-                }
-                break;
         }
 
-        var resource = new ResourceRef(tenantId, projectId, resourceId);
+        var resource = new ResourceRef(tenantId, projectId);
 
         try
         {
@@ -147,26 +113,24 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
             {
                 context.Succeed(requirement);
                 logger.LogDebug(
-                    "Authorization succeeded for user {UserId} with permission {Permission} (scope: {Scope}, resourceScope: {ResourceScope}) on tenant {TenantId}, project {ProjectId}, resource {ResourceId}",
+                    "Authorization succeeded for user {UserId} with permission {Permission} (scope: {Scope}, resourceScope: {ResourceScope}) on tenant {TenantId}, project {ProjectId}",
                     currentUser.Id,
                     requirement.PermissionCode,
                     requirement.Scope,
                     resourceScope,
                     tenantId,
-                    projectId,
-                    resourceId);
+                    projectId);
             }
             else
             {
                 logger.LogWarning(
-                    "Authorization failed for user {UserId} with permission {Permission} (scope: {Scope}, resourceScope: {ResourceScope}) on tenant {TenantId}, project {ProjectId}, resource {ResourceId}",
+                    "Authorization failed for user {UserId} with permission {Permission} (scope: {Scope}, resourceScope: {ResourceScope}) on tenant {TenantId}, project {ProjectId}",
                     currentUser.Id,
                     requirement.PermissionCode,
                     requirement.Scope,
                     resourceScope,
                     tenantId,
-                    projectId,
-                    resourceId);
+                    projectId);
                 context.Fail();
             }
         }
@@ -191,42 +155,4 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
                Guid.TryParse(obj?.ToString(), out value);
     }
 
-    /// <summary>
-    /// Extracts resource ID from various possible route parameters
-    /// </summary>
-    private static Guid? ExtractResourceId(RouteData routeData)
-    {
-        // Common resource ID parameter names in routes
-        var resourceIdKeys = new[]
-        {
-            "fileId",           // Pliki
-            "estimateId",       // Kosztorysy
-            "scheduleId",       // Harmonogramy
-            "workScheduleId",   // Harmonogramy (alternatywna nazwa)
-            "workId",           // Prace w harmonogramie
-            "stageId",          // Etapy harmonogramu
-            "costId",           // Koszty projektu
-            "packageId",        // Paczki plików
-            "versionId",        // Wersje plików
-            "groupId",          // Grupy projektowe
-            "notificationId",   // Powiadomienia
-            "invitationId",     // Zaproszenia
-            "chatId",           // Czaty
-            "messageId",        // Wiadomości
-            "templateId",       // Szablony kosztorysów
-            "resourceId",       // Ogólny resource ID
-            "id"                // Fallback - ogólny ID
-        };
-
-        foreach (var key in resourceIdKeys)
-        {
-            if (routeData.Values.TryGetValue(key, out var value) && 
-                Guid.TryParse(value?.ToString(), out var parsedId))
-            {
-                return parsedId;
-            }
-        }
-
-        return null;
-    }
 }

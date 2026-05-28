@@ -1,7 +1,6 @@
 using Business.Implementation.Services;
 using Business.Interfaces.Services;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using FluentAssertions;

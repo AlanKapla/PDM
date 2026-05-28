@@ -164,6 +164,32 @@
   font-size: 13px;
 }
 
+.footer__legal-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer__legal-link {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+  font-family: inherit;
+}
+
+.footer__legal-link:hover {
+  color: var(--cobalt-300);
+}
+
+.footer__legal-sep {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 13px;
+}
+
 @media (max-width: 900px) {
   .footer__inner {
     grid-template-columns: 1fr 1fr;

@@ -6,7 +6,6 @@ public static class SuperAdminFallbackPermissions
     {
         PermissionCodes.TenantContextList,
         PermissionCodes.TenantContextAdminList,
-        PermissionCodes.RoleList,
         PermissionCodes.TenantView,
         PermissionCodes.TenantSettingsView
     };

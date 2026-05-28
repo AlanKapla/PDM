@@ -5,7 +5,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models;
@@ -67,9 +66,6 @@ namespace Entities.Context
         public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<BaseCostAttachment> CostAttachments => Set<BaseCostAttachment>();
-        public DbSet<Role> Roles => Set<Role>();
-        public DbSet<Permission> Permissions => Set<Permission>();
-        public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

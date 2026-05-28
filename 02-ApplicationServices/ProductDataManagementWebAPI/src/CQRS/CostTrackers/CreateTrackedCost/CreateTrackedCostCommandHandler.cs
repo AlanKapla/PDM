@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
@@ -9,7 +9,6 @@ using Entities.Models.Chats;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;

@@ -57,7 +57,6 @@ public class AccessServiceTests
     [Theory]
     [InlineData(PermissionCodes.TenantContextList)]
     [InlineData(PermissionCodes.TenantContextAdminList)]
-    [InlineData(PermissionCodes.RoleList)]
     public async Task AuthorizeAsync_GlobalScopePermission_AuthenticatedUser_ReturnsTrue(string permissionCode)
     {
         // Arrange
