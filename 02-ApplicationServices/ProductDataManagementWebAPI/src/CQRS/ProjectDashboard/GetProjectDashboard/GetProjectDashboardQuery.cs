@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.ProjectDashboard;
 
@@ -13,7 +13,7 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
 
         public required Guid ProjectId { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectEdit;
+        public string PermissionCode => PermissionCodes.ProjectDashboardTracker;
 
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

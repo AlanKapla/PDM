@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostEstimates;
 using MediatR;
 
@@ -11,6 +11,6 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
     {
         public List<ReorderGroupDto> Groups { get; init; } = new();
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

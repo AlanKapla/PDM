@@ -11,16 +11,15 @@ using Chat.CQRS.Messages.SendMessage;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Controllers;
-
 namespace WebApi.Tests.Controllers
 {
     public class DirectChatsControllerTests : ControllerTestBase
     {
-        private readonly DirectChatsController sut;
+        private readonly ChatsController sut;
 
         public DirectChatsControllerTests()
         {
-            sut = new DirectChatsController(MediatorMock.Object);
+            sut = new ChatsController(MediatorMock.Object);
         }
 
         [Fact]
@@ -62,7 +61,7 @@ namespace WebApi.Tests.Controllers
         {
             Guid chatId = Guid.NewGuid();
 
-            IActionResult result = await sut.GetChatMessages(chatId);
+            IActionResult result = await sut.GetDirectChatMessages(chatId);
 
             result.Should().BeOfType<OkObjectResult>();
             VerifyMediatorCalledOnce<GetChatMessagesQuery>(q => q.ChatId == chatId && q.TenantId == null);
@@ -74,7 +73,7 @@ namespace WebApi.Tests.Controllers
             Guid chatId = Guid.NewGuid();
             SendMessageRequest body = new SendMessageRequest("hello");
 
-            IActionResult result = await sut.SendMessage(chatId, body);
+            IActionResult result = await sut.SendDirectMessage(chatId, body);
 
             result.Should().BeOfType<CreatedAtActionResult>();
             VerifyMediatorCalledOnce<SendMessageCommand>(c => c.ChatId == chatId && c.TenantId == null && c.Content == "hello");
@@ -87,7 +86,7 @@ namespace WebApi.Tests.Controllers
             Guid messageId = Guid.NewGuid();
             EditMessageRequest body = new EditMessageRequest("updated");
 
-            IActionResult result = await sut.EditMessage(chatId, messageId, body);
+            IActionResult result = await sut.EditDirectMessage(chatId, messageId, body);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<EditMessageCommand>(c => c.ChatId == chatId && c.MessageId == messageId && c.TenantId == null);
@@ -99,7 +98,7 @@ namespace WebApi.Tests.Controllers
             Guid chatId = Guid.NewGuid();
             Guid messageId = Guid.NewGuid();
 
-            IActionResult result = await sut.DeleteMessage(chatId, messageId);
+            IActionResult result = await sut.DeleteDirectMessage(chatId, messageId);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<DeleteMessageCommand>(c => c.ChatId == chatId && c.MessageId == messageId && c.TenantId == null);
@@ -110,7 +109,7 @@ namespace WebApi.Tests.Controllers
         {
             Guid chatId = Guid.NewGuid();
 
-            IActionResult result = await sut.MarkAsRead(chatId);
+            IActionResult result = await sut.MarkDirectChatAsRead(chatId);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<MarkAsReadCommand>(c => c.ChatId == chatId && c.TenantId == null);
@@ -121,7 +120,7 @@ namespace WebApi.Tests.Controllers
         {
             Guid chatId = Guid.NewGuid();
 
-            IActionResult result = await sut.LeaveChat(chatId);
+            IActionResult result = await sut.LeaveDirectChat(chatId);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<LeaveChatCommand>(c => c.ChatId == chatId && c.TenantId == null);

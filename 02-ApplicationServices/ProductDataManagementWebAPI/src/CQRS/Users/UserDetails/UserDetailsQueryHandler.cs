@@ -1,17 +1,7 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Users;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
 using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Users.UserDetails
@@ -29,16 +19,12 @@ namespace CQRS.Users.UserDetails
 
         public async Task<UserDetailsWeb> Handle(UserDetailsQuery request, CancellationToken cancellationToken)
         {
-            var activeTenantPermissions = new HashSet<string>();
+            bool isActiveTenantAdmin = false;
 
             if (currentUser.IsAuthenticated && currentUser.ActiveTenantId.HasValue)
             {
-                // Get active tenant permissions only
-                var tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
-                if (tenantSnapshot != null)
-                {
-                    activeTenantPermissions = tenantSnapshot.TenantPermissionCodes;
-                }
+                TenantCtxSnapshot? tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
+                isActiveTenantAdmin = tenantSnapshot?.IsAdmin ?? false;
             }
 
             User? user = await userRepo.GetById(currentUser.Id);
@@ -49,7 +35,7 @@ namespace CQRS.Users.UserDetails
                 currentUser.LastName, 
                 currentUser.Email, 
                 currentUser.ActiveTenantId,
-                activeTenantPermissions,
+                isActiveTenantAdmin,
                 user?.PhoneNumber,
                 user?.CompanyName,
                 user?.TaxId,

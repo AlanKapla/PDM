@@ -11,8 +11,8 @@ public static class PermissionScopes
         // Route requirements: NONE
         // These permissions do not require tenantId or projectId in route
         
-        [PermissionCodes.TenantListAvailable] = PermissionScope.Global,
-        [PermissionCodes.TenantAdminListAvailable] = PermissionScope.Global,
+        [PermissionCodes.TenantContextList] = PermissionScope.Global,
+        [PermissionCodes.TenantContextAdminList] = PermissionScope.Global,
         [PermissionCodes.RoleList] = PermissionScope.Global,
         
         
@@ -20,58 +20,31 @@ public static class PermissionScopes
         // Route requirements: tenantId
         // These permissions require tenantId in route
         
-        // TENANT - OPERACJE
+        // TENANT - BASE ACCESS
         [PermissionCodes.TenantView] = PermissionScope.Tenant,
-        [PermissionCodes.TenantEdit] = PermissionScope.Tenant,
+
+        // TENANT - SETTINGS
+        [PermissionCodes.TenantSettingsView] = PermissionScope.Tenant,
+        [PermissionCodes.TenantSettingsEdit] = PermissionScope.Tenant,
         [PermissionCodes.TenantMembersManage] = PermissionScope.Tenant,
-        [PermissionCodes.TenantStatusManage] = PermissionScope.Tenant,
-        [PermissionCodes.TenantProjectCreate] = PermissionScope.Tenant,
+        [PermissionCodes.TenantProjectsCreate] = PermissionScope.Tenant,
         
         
         // ==================== PROJECT SCOPE ====================
         // Route requirements: tenantId, projectId
         // These permissions require BOTH tenantId and projectId in route
         
-        // PROJECT - PODSTAWOWE
+        // PROJECT - BASE ACCESS
         [PermissionCodes.ProjectView] = PermissionScope.Project,
-        [PermissionCodes.ProjectEdit] = PermissionScope.Project,
-        
-        // PROJECT - CZŁONKOWIE
-        [PermissionCodes.ProjectMembersView] = PermissionScope.Project,
-        [PermissionCodes.ProjectMembersManage] = PermissionScope.Project,
-        
-        // PROJECT - STATUS
-        [PermissionCodes.ProjectStatusManage] = PermissionScope.Project,
-        
-        // PROJECT - ZASOBY (własne i udostępnione)
-        [PermissionCodes.ProjectResourcesRead] = PermissionScope.Project,
-        [PermissionCodes.ProjectResourcesWrite] = PermissionScope.Project,
-        [PermissionCodes.ProjectResourcesShare] = PermissionScope.Project,
-        [PermissionCodes.ProjectResourcesReadShared] = PermissionScope.Project,
-        [PermissionCodes.ProjectResourcesWriteShared] = PermissionScope.Project,
-        
-        // PROJECT - ZASOBY (wszystkie - tylko dla ProjectAdmin)
-        [PermissionCodes.ProjectResourcesReadAll] = PermissionScope.Project,
-        [PermissionCodes.ProjectResourcesWriteAll] = PermissionScope.Project,
-        
-        // PROJECT - ZASOBY (pojedynczy obiekt - dla SuperAdmin i wszyscy)
-        [PermissionCodes.ProjectResourcesReadSingle] = PermissionScope.Project,
 
-        // PROJECT - ZASOBY (własne - dla przypisanych memberów)
-        [PermissionCodes.ProjectResourcesWriteOwn] = PermissionScope.Project,
-
-
-        // ==================== CHAT (TENANT SCOPE) ====================
-        // Chat permissions are validated at tenant level. Per-chat membership
-        // is verified separately in handlers (defense in depth). Project-scoped
-        // chats also use tenant scope here because chat members are always
-        // tenant members; project membership is checked through chat membership.
-
-        [PermissionCodes.ChatRead] = PermissionScope.Tenant,
-        [PermissionCodes.ChatWrite] = PermissionScope.Tenant,
-        [PermissionCodes.ChatMembersManage] = PermissionScope.Tenant,
-        [PermissionCodes.ChatRename] = PermissionScope.Tenant,
-        [PermissionCodes.ChatDelete] = PermissionScope.Tenant,
+        // PROJECT - MODULES
+        [PermissionCodes.ProjectSettings] = PermissionScope.Project,
+        [PermissionCodes.ProjectMembers] = PermissionScope.Project,
+        [PermissionCodes.ProjectFiles] = PermissionScope.Project,
+        [PermissionCodes.ProjectEstimates] = PermissionScope.Project,
+        [PermissionCodes.ProjectCosts] = PermissionScope.Project,
+        [PermissionCodes.ProjectSchedule] = PermissionScope.Project,
+        [PermissionCodes.ProjectDashboardTracker] = PermissionScope.Project,
         
         
         // ==================== RESOURCE SCOPE ====================

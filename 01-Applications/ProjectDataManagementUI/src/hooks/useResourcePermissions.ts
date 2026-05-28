@@ -53,59 +53,59 @@ export const useResourcePermissions = (projectId: string | undefined): ResourceP
   return {
     // ==================== ZAKŁADKI ====================
     tabs: {
-      /** Zakładka "Wszystkie" - widoczna gdy user ma READ_ALL */
-      showAll: permissions.canReadAllResources,
+      /** Zakładka "Wszystkie" - widoczna tylko dla admina projektu, TenantAdmin i SuperAdmin */
+      showAll: permissions.canViewAllResources,
       
-      /** Zakładka "Moje" - widoczna gdy user ma READ */
-      showMine: permissions.canReadResources,
+      /** Zakładka "Moje" - widoczna gdy user ma dostęp do plików */
+      showMine: permissions.canViewFiles,
       
-      /** Zakładka "Udostępnione" - widoczna gdy user ma READ_SHARED */
-      showShared: permissions.canReadSharedResources,
+      /** Zakładka "Udostępnione" - widoczna gdy user ma dostęp do plików */
+      showShared: permissions.canViewFiles,
     },
 
     // ==================== AKCJE W "MOJE" ====================
     mine: {
-      /** Czy user może dodawać nowe zasoby w zakładce "Moje" - wymaga WRITE */
-      canCreate: permissions.canWriteResources,
+      /** Czy user może dodawać nowe zasoby w zakładce "Moje" */
+      canCreate: permissions.canViewFiles,
       
-      /** Czy user może edytować zasoby w zakładce "Moje" - wymaga WRITE */
-      canEdit: permissions.canWriteResources,
+      /** Czy user może edytować zasoby w zakładce "Moje" */
+      canEdit: permissions.canViewFiles,
       
-      /** Czy user może usuwać zasoby w zakładce "Moje" - wymaga WRITE */
-      canDelete: permissions.canWriteResources,
+      /** Czy user może usuwać zasoby w zakładce "Moje" */
+      canDelete: permissions.canViewFiles,
       
-      /** Czy user może udostępniać zasoby (grupowo i pojedynczo) - wymaga SHARE */
-      canShare: permissions.canShareResources,
+      /** Czy user może udostępniać zasoby */
+      canShare: permissions.canViewFiles,
       
-      /** Czy user może zarządzać udostępnieniem (pojedynczy zasób) - wymaga SHARE */
-      canManageShare: permissions.canShareResources,
+      /** Czy user może zarządzać udostępnieniem */
+      canManageShare: permissions.canViewFiles,
     },
 
     // ==================== AKCJE W "WSZYSTKIE" ====================
     all: {
-      /** Czy user może dodawać nowe zasoby w zakładce "Wszystkie" - wymaga WRITE_ALL */
-      canCreate: permissions.canWriteAllResources,
+      /** Czy user może dodawać nowe zasoby w zakładce "Wszystkie" */
+      canCreate: permissions.canViewAllResources,
       
-      /** Czy user może edytować zasoby w zakładce "Wszystkie" - wymaga WRITE_ALL */
-      canEdit: permissions.canWriteAllResources,
+      /** Czy user może edytować zasoby w zakładce "Wszystkie" */
+      canEdit: permissions.canViewAllResources,
       
-      /** Czy user może usuwać zasoby w zakładce "Wszystkie" - wymaga WRITE_ALL */
-      canDelete: permissions.canWriteAllResources,
+      /** Czy user może usuwać zasoby w zakładce "Wszystkie" */
+      canDelete: permissions.canViewAllResources,
       
-      /** Czy user może udostępniać zasoby w zakładce "Wszystkie" - wymaga SHARE */
-      canShare: permissions.canShareResources,
+      /** Czy user może udostępniać zasoby w zakładce "Wszystkie" */
+      canShare: permissions.canViewAllResources,
       
-      /** Czy user może zarządzać udostępnieniem w zakładce "Wszystkie" - wymaga SHARE */
-      canManageShare: permissions.canShareResources,
+      /** Czy user może zarządzać udostępnieniem w zakładce "Wszystkie" */
+      canManageShare: permissions.canViewAllResources,
     },
 
     // ==================== AKCJE W "UDOSTĘPNIONE" ====================
     shared: {
-      /** Czy user może edytować udostępnione zasoby - wymaga WRITE_SHARED */
-      canEdit: permissions.canWriteSharedResources,
+      /** Czy user może edytować udostępnione zasoby */
+      canEdit: permissions.canViewFiles,
       
       /** Czy user może tylko czytać udostępnione zasoby */
-      canReadOnly: permissions.canReadSharedResources && !permissions.canWriteSharedResources,
+      canReadOnly: permissions.canViewFiles,
     },
 
     // ==================== OGÓLNE ====================

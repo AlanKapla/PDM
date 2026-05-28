@@ -10,7 +10,6 @@ using CQRS.Tenants.GetUserTenants;
 using CQRS.Tenants.InviteTenantMember;
 using CQRS.Tenants.RemoveTenantInvitation;
 using CQRS.Tenants.RemoveTenantMember;
-using CQRS.Tenants.ToggleTenantStatus;
 using CQRS.Tenants.UpdateTenant;
 using CQRS.Tenants.UpdateTenantMemberRole;
 using FluentAssertions;
@@ -173,38 +172,23 @@ namespace WebApi.Tests.Controllers
                 c.TenantId == tenantId && c.UserId == userId);
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task ToggleTenantStatus_BuildsCommand_FromRouteAndQuery(bool isActive)
-        {
-            Guid tenantId = Guid.NewGuid();
-
-            IActionResult result = await sut.ToggleTenantStatus(tenantId, isActive);
-
-            result.Should().BeOfType<NoContentResult>();
-            VerifyMediatorCalledOnce<ToggleTenantStatusCommand>(c =>
-                c.TenantId == tenantId && c.IsActive == isActive);
-        }
-
         [Fact]
-        public async Task UpdateTenantMemberRole_OverridesIds_AndReturnsNoContent()
+        public async Task UpdateTenantMemberAdmin_OverridesIds_AndReturnsNoContent()
         {
             Guid tenantId = Guid.NewGuid();
             Guid userId = Guid.NewGuid();
-            Guid roleId = Guid.NewGuid();
             UpdateTenantMemberRoleCommand request = new UpdateTenantMemberRoleCommand
             {
                 TenantId = Guid.Empty,
                 UserId = Guid.Empty,
-                RoleId = roleId
+                IsAdmin = true
             };
 
-            IActionResult result = await sut.UpdateTenantMemberRole(tenantId, userId, request);
+            IActionResult result = await sut.UpdateTenantMemberAdmin(tenantId, userId, request);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<UpdateTenantMemberRoleCommand>(c =>
-                c.TenantId == tenantId && c.UserId == userId && c.RoleId == roleId);
+                c.TenantId == tenantId && c.UserId == userId && c.IsAdmin == true);
         }
     }
 }

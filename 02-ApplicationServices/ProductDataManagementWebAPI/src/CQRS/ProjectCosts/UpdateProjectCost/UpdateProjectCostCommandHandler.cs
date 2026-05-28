@@ -1,3 +1,4 @@
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -93,18 +94,25 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
 
             if (hasWriteAccess)
             {
-                return false;
+                return false; // full edit allowed
             }
+
+            // Check if user can accept/reject: needs COSTS.ACCEPT permission + share access to this specific cost
+            ProjectCtxSnapshot? projectSnapshot = await currentUser.GetProjectSnapshotAsync(
+                projectCost.ProjectId, cancellationToken);
+
+            bool hasAcceptPermission = projectSnapshot is not null
+                && projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectCosts);
 
             bool hasShareAccess = await accessService.HasShareAccessAsync(
                 projectCost, currentUser.Id, cancellationToken);
 
-            if (!hasShareAccess)
+            if (hasAcceptPermission && hasShareAccess)
             {
-                throw new ForbiddenApiException("You do not have permission to update this cost.");
+                return true; // limited edit: only IsAccepted
             }
 
-            return true;
+            throw new ForbiddenApiException("You do not have permission to update this cost.");
         }
 
         private async Task HandleSharedUserUpdateAsync(

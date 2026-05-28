@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using MediatR;
 
@@ -10,7 +10,7 @@ namespace CQRS.Projects.RemoveProjectMember
         public required Guid ProjectId { get; init; }
         public required Guid UserId { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectMembersManage;
+        public string PermissionCode => PermissionCodes.ProjectMembers;
 
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

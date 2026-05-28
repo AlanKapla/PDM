@@ -193,13 +193,12 @@ namespace WebApi.Tests.Controllers
             Guid tenantId = Guid.NewGuid();
             Guid projectId = Guid.NewGuid();
             Guid userId = Guid.NewGuid();
-            Guid roleId = Guid.NewGuid();
             UpdateProjectMemberRoleCommand request = new UpdateProjectMemberRoleCommand
             {
                 TenantId = Guid.Empty,
                 ProjectId = Guid.Empty,
                 UserId = Guid.Empty,
-                RoleId = roleId
+                IsAdmin = true
             };
 
             IActionResult result = await sut.UpdateProjectMemberRole(tenantId, projectId, userId, request);
@@ -209,7 +208,7 @@ namespace WebApi.Tests.Controllers
                 c.TenantId == tenantId
                 && c.ProjectId == projectId
                 && c.UserId == userId
-                && c.RoleId == roleId);
+                && c.IsAdmin == true);
         }
     }
 }

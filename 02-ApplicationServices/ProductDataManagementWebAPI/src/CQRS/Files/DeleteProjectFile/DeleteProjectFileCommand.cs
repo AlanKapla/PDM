@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.Files._Shared;
 using MediatR;
 
@@ -9,6 +9,6 @@ namespace CQRS.Files.DeleteProjectFile
     /// </summary>
     public sealed record DeleteProjectFileCommand : FileScopedRequestBase, IRequestCommand<Unit>
     {
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectFiles;
     }
 }

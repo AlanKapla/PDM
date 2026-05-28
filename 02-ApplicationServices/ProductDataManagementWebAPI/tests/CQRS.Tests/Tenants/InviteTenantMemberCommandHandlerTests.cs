@@ -20,6 +20,7 @@ namespace CQRS.Tests.Tenants;
 public sealed class InviteTenantMemberCommandHandlerTests
 {
     private readonly Mock<IRepository<TenantInvitation>> _invitationRepoMock = new();
+    private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
     private readonly Mock<IReadRepository<User>> _userRepoMock = new();
     private readonly Mock<IReadRepository<Tenant>> _tenantRepoMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
@@ -62,6 +63,7 @@ public sealed class InviteTenantMemberCommandHandlerTests
 
         _handler = new InviteTenantMemberCommandHandler(
             _invitationRepoMock.Object,
+            _tenantMemberRepoMock.Object,
             _userRepoMock.Object,
             _tenantRepoMock.Object,
             _currentUserMock.Object,

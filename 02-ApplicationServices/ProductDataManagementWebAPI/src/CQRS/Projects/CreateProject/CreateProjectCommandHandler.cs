@@ -1,11 +1,8 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Projects;
-using Entities.Enums;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -16,7 +13,6 @@ namespace CQRS.Projects.CreateProject
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IReadRepository<Role> roleRepo;
         private readonly IRepository<ProjectCurrency> currencyRepo;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
@@ -24,14 +20,12 @@ namespace CQRS.Projects.CreateProject
         public CreateProjectCommandHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IReadRepository<Role> roleRepo,
             IRepository<ProjectCurrency> currencyRepo,
             IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.roleRepo = roleRepo;
             this.currencyRepo = currencyRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
@@ -63,18 +57,12 @@ namespace CQRS.Projects.CreateProject
             await currencyRepo.Insert(defaultCurrency);
             await currencyRepo.SaveChangesAsync(cancellationToken);
 
-            // Get PROJECT.ADMIN role
-            Role adminRole = await roleRepo.GetFirstBySearch(
-                r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectAdmin,
-                cancellationToken)
-                ?? throw new NotFoundApiException(nameof(Role), RoleCodes.ProjectAdmin);
-
             ProjectMember projectMember = new ProjectMember
             {
                 TenantId = tenantId,
                 ProjectId = project.Id,
                 UserId = currentUser.Id,
-                RoleId = adminRole.Id,
+                IsAdmin = true,
                 JoinedAt = DateTime.UtcNow
             };
 
@@ -103,7 +91,8 @@ namespace CQRS.Projects.CreateProject
                 CreatedAt = project.CreatedAt,
                 CreatedByUserId = project.CreatedByUserId,
                 CreatedByUserName = createdByUserName,
-                UserRoleCode = RoleCodes.ProjectAdmin,
+                IsAdmin = true,
+                CanViewAllResources = true,
                 MembersCount = 1,
                 UserPermissions = userPermissions,
                 Currency = new ProjectCurrencyWeb { Code = "PLN", Name = "Polski złoty", Symbol = "zł" }

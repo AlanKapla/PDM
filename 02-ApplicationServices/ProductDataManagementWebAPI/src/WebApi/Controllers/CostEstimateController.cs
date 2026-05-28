@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostEstimates;
 using CQRS.CostEstimates.AddCostEstimateGroup;
 using CQRS.CostEstimates.AddCostEstimateItem;
@@ -42,7 +42,7 @@ namespace WebApi.Controllers
         /// <param name="scope">Resource scope (All, Mine, Shared)</param>
         /// <returns>List of cost estimates</returns>
         [HttpGet("{scope}")]
-        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(List<CostEstimateListItemWeb>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetCostEstimates(
@@ -68,7 +68,7 @@ namespace WebApi.Controllers
         /// <param name="id">Cost estimate ID</param>
         /// <returns>Cost estimate details with full data</returns>
         [HttpGet("details/{id:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesReadSingle)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(CostEstimateDetailsWeb), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -95,7 +95,7 @@ namespace WebApi.Controllers
         /// <param name="command">Template, currency, name and optional description</param>
         /// <returns>Created cost estimate ID</returns>
         [HttpPost]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -124,7 +124,7 @@ namespace WebApi.Controllers
         /// <param name="command">Updated name and description</param>
         /// <returns>No content</returns>
         [HttpPut("{id:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -154,7 +154,7 @@ namespace WebApi.Controllers
         /// <param name="id">Cost estimate ID</param>
         /// <returns>No content</returns>
         [HttpDelete("{id:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -184,7 +184,7 @@ namespace WebApi.Controllers
         /// <param name="command">Target project IDs</param>
         /// <returns>List of created cost estimate IDs</returns>
         [HttpPost("{id:guid}/copy")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(List<Guid>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -221,7 +221,7 @@ namespace WebApi.Controllers
         /// <param name="files">New files to upload (replaces all existing)</param>
         /// <returns>List of created file IDs</returns>
         [HttpPost("{id:guid}/items/{itemId:guid}/files")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(List<Guid>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -263,7 +263,7 @@ namespace WebApi.Controllers
         /// <param name="command">Group data (parent group, order)</param>
         /// <returns>Created group ID and field values with empty defaults</returns>
         [HttpPost("{id:guid}/groups")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -295,7 +295,7 @@ namespace WebApi.Controllers
         /// <param name="groupId">Group ID to delete</param>
         /// <returns>No content</returns>
         [HttpDelete("{id:guid}/groups/{groupId:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -327,7 +327,7 @@ namespace WebApi.Controllers
         /// <param name="command">List of group IDs with new order values</param>
         /// <returns>No content</returns>
         [HttpPut("{id:guid}/groups/reorder")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -363,7 +363,7 @@ namespace WebApi.Controllers
         /// <param name="command">Item data (group, parent item, relation type, order)</param>
         /// <returns>Created item ID and field values with empty defaults</returns>
         [HttpPost("{id:guid}/items")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -395,7 +395,7 @@ namespace WebApi.Controllers
         /// <param name="itemId">Item ID to delete</param>
         /// <returns>No content</returns>
         [HttpDelete("{id:guid}/items/{itemId:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -428,7 +428,7 @@ namespace WebApi.Controllers
         /// <param name="command">List of item IDs with new order values</param>
         /// <returns>No content</returns>
         [HttpPut("{id:guid}/groups/{groupId:guid}/items/reorder")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -464,7 +464,7 @@ namespace WebApi.Controllers
         /// <param name="command">Target group ID</param>
         /// <returns>No content</returns>
         [HttpPatch("{id:guid}/items/{itemId:guid}/move")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -501,7 +501,7 @@ namespace WebApi.Controllers
         /// <param name="id">Cost estimate ID</param>
         /// <returns>No content</returns>
         [HttpPost("{id:guid}/recalculate")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -537,7 +537,7 @@ namespace WebApi.Controllers
         /// <param name="command">Field value data (FieldValueId null = add, non-null = update)</param>
         /// <returns>Field value ID</returns>
         [HttpPatch("{id:guid}/groups/{groupId:guid}/fields")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -576,7 +576,7 @@ namespace WebApi.Controllers
         /// <param name="command">Field value data (FieldValueId null = add, non-null = update)</param>
         /// <returns>Field value ID</returns>
         [HttpPatch("{id:guid}/items/{itemId:guid}/fields")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteShared)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -609,7 +609,7 @@ namespace WebApi.Controllers
         /// Share a cost estimate with project members
         /// </summary>
         [HttpPost("{id:guid}/shares")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> ShareCostEstimate(
@@ -636,7 +636,7 @@ namespace WebApi.Controllers
         /// Sends notifications to affected users.
         /// </summary>
         [HttpPut("{id:guid}/shares")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]

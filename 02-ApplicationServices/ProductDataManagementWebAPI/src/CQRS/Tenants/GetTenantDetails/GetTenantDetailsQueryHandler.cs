@@ -1,8 +1,6 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using MediatR;
@@ -16,7 +14,6 @@ namespace CQRS.Tenants.GetTenantDetails
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<TenantInvitation> invitationRepo;
         private readonly IReadRepository<User> userRepo;
-        private readonly IReadRepository<Role> roleRepo;
         private readonly ICurrentUser currentUser;
 
         public GetTenantDetailsQueryHandler(
@@ -24,14 +21,12 @@ namespace CQRS.Tenants.GetTenantDetails
             IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<TenantInvitation> invitationRepo,
             IReadRepository<User> userRepo,
-            IReadRepository<Role> roleRepo,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.invitationRepo = invitationRepo;
             this.userRepo = userRepo;
-            this.roleRepo = roleRepo;
             this.currentUser = currentUser;
         }
 
@@ -51,10 +46,6 @@ namespace CQRS.Tenants.GetTenantDetails
             IEnumerable<User> users = await userRepo.GetBySearch(u => memberUserIds.Contains(u.Id));
             Dictionary<Guid, User> userDict = users.ToDictionary(u => u.Id);
 
-            List<Guid> memberRoleIds = members.Where(m => m.RoleId.HasValue).Select(m => m.RoleId!.Value).Distinct().ToList();
-            IEnumerable<Role> roles = await roleRepo.GetBySearch(r => memberRoleIds.Contains(r.Id));
-            Dictionary<Guid, Role> roleDict = roles.ToDictionary(r => r.Id);
-
             IEnumerable<TenantInvitation> invitations = await invitationRepo.GetBySearch(
                 i => i.TenantId == request.TenantId
                      && i.IsActive
@@ -70,18 +61,12 @@ namespace CQRS.Tenants.GetTenantDetails
                 {
                     userDict.TryGetValue(m.UserId, out User? user);
 
-                    string roleCode = RoleCodes.TenantMember;
-                    if (m.RoleId.HasValue && roleDict.TryGetValue(m.RoleId.Value, out Role? role))
-                    {
-                        roleCode = role.Code;
-                    }
-
                     return new TenantMemberWeb(
                         UserId: m.UserId,
                         Email: user?.Email ?? string.Empty,
                         FirstName: user?.FirstName ?? string.Empty,
                         LastName: user?.LastName ?? string.Empty,
-                        RoleCode: roleCode,
+                        IsAdmin: m.IsAdmin,
                         IsActive: m.IsActive,
                         JoinedAt: m.CreatedAt
                     );
@@ -114,21 +99,13 @@ namespace CQRS.Tenants.GetTenantDetails
                 .OrderByDescending(i => i.CreatedAt)
                 .ToList();
 
-            string currentUserRoleCode = RoleCodes.TenantMember;
-
-            if (currentUserMembership is not null && currentUserMembership.RoleId.HasValue
-                && roleDict.TryGetValue(currentUserMembership.RoleId.Value, out Role? currentRole))
-            {
-                currentUserRoleCode = currentRole.Code;
-            }
-
             return new TenantDetailsWeb
             {
                 Id = tenant.Id,
                 Name = tenant.Name,
                 CreatedAt = tenant.CreatedAt,
                 IsActive = tenant.IsActive,
-                RoleCode = currentUserRoleCode,
+                IsAdmin = currentUserMembership?.IsAdmin ?? false,
                 Members = memberDtos,
                 Invitations = invitationDtos
             };

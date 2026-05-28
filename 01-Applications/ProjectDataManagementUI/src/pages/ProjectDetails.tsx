@@ -43,7 +43,6 @@ import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { useProjectDetails, useProjectMembers, projectKeys } from '../hooks/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ProjectDetailsWeb } from "../types/project.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
@@ -622,20 +621,7 @@ export default function ProjectDetails() {
                     <HStack spacing={{ base: 1, md: 2 }} flexWrap="wrap" justifyContent={{ base: "flex-start", md: "flex-end" }}>
                       {!isEditingName && (
                         <>
-                          {permissions.canManageStatus && (
-                            <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
-                              <Button
-                                size={{ base: "xs", md: "sm" }}
-                                variant="ghost"
-                                leftIcon={<Power size={16} />}
-                                colorScheme={project.isActive ? "red" : "green"}
-                                onClick={onToggleStatusOpen}
-                                fontSize={{ base: "xs", md: "sm" }}
-                              >
-                                {project.isActive ? "Dezaktywuj" : "Aktywuj"}
-                              </Button>
-                            </Tooltip>
-                          )}
+
                           {permissions.canEdit && (
                             <Button
                               size={{ base: "xs", md: "sm" }}
@@ -705,8 +691,8 @@ export default function ProjectDetails() {
                       <Text fontSize="sm" color="neutral.500">
                         Utworzono: {formatDate(project.createdAt)}
                       </Text>
-                      <Badge colorScheme={getRoleColor(project.userRoleCode)}>
-                        {getRoleName(project.userRoleCode)}
+                      <Badge colorScheme={project.isAdmin ? "purple" : "blue"}>
+                        {project.isAdmin ? "Admin" : "Członek"}
                       </Badge>
                     </VStack>
                   )}
@@ -715,7 +701,7 @@ export default function ProjectDetails() {
 
               {/* ====================== SZYBKI DOSTĘP ======================= */}
               <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-                {(permissions.canViewMembers || permissions.canManageMembers) && (
+                {permissions.isAdmin && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -735,7 +721,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {(permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
+                {permissions.canViewSchedule && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -755,7 +741,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {permissions.hasAnyResourceAccess && (
+                {permissions.canViewFiles && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -775,7 +761,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {permissions.hasAnyResourceAccess && (
+                {permissions.canViewCosts && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -795,7 +781,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources || permissions.canReadSharedResources) && (
+                {permissions.canViewEstimates && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -815,7 +801,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {permissions.hasAnyResourceAccess && (
+                {permissions.canDashboardTracker && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -871,7 +857,7 @@ export default function ProjectDetails() {
             tenantId={project.tenantId}
             projectId={project.id}
             projectName={project.name}
-            isAdmin={permissions.canManageMembers}
+            isAdmin={permissions.isAdmin}
             onMemberAdded={() => {
               fetchMembers();
               fetchProjectDetails();

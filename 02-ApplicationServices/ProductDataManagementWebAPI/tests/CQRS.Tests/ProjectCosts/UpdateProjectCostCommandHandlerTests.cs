@@ -1,3 +1,4 @@
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -182,6 +183,15 @@ public sealed class UpdateProjectCostCommandHandlerTests
         _accessServiceMock
             .Setup(s => s.HasShareAccessAsync(projectCost, UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+
+        _currentUserMock
+            .Setup(u => u.GetProjectSnapshotAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProjectCtxSnapshot(
+                ProjectId: ProjectId,
+                TenantId: TenantId,
+                ProjectPermissionCodes: new HashSet<string> { PermissionCodes.ProjectCosts },
+                IsProjectAdmin: false,
+                IsActive: true));
 
         // Act
         ProjectCostListItemWeb result = await _handler.Handle(command, CancellationToken.None);

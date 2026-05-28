@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.ProjectCosts;
 using MediatR;
@@ -26,7 +26,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
         public IFormFile? UpdatedDocument { get; init; }
         public bool RemoveDocument { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public string PermissionCode => PermissionCodes.ProjectCosts;
 
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

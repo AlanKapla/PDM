@@ -41,7 +41,7 @@ export const successMessages = {
   // Domenowe
   memberAdded:     { title: "Dodano członka",      description: undefined },
   memberRemoved:   { title: "Usunięto członka",    description: undefined },
-  memberUpdated:   { title: "Zaktualizowano rolę", description: undefined },
+  memberUpdated:   { title: "Zaktualizowano uprawnienia", description: undefined },
   inviteSent:      { title: "Wysłano zaproszenie", description: undefined },
   inviteCancelled: { title: "Anulowano zaproszenie", description: undefined },
   inviteAccepted:  { title: "Zaproszenie zaakceptowane", description: undefined },

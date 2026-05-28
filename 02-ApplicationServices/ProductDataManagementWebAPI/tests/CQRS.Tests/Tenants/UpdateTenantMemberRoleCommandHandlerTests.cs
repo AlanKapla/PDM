@@ -1,18 +1,14 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Tenants.UpdateTenantMemberRole;
-using Entities.Enums;
 using Entities.Models;
 using Entities.Models.Notifications;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using FluentAssertions;
 using MediatR;
-using Microsoft.EntityFrameworkCore.Query;
 using Moq;
 using Repositories.Repository.Interfaces;
 using System.Linq.Expressions;
@@ -24,8 +20,6 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
     private readonly Mock<IReadRepository<Tenant>> _tenantRepoMock = new();
     private readonly Mock<IReadRepository<User>> _userRepoMock = new();
     private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
-    private readonly Mock<IRepository<TenantPreferencesProfile>> _tenantPrefsRepoMock = new();
-    private readonly Mock<IReadRepository<Role>> _roleRepoMock = new();
     private readonly Mock<IReadRepository<Notification>> _notificationRepoMock = new();
     private readonly Mock<IPermissionsVersionService> _permissionsVersionServiceMock = new();
     private readonly Mock<INotificationSender> _notificationSenderMock = new();
@@ -61,8 +55,6 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
             _tenantRepoMock.Object,
             _userRepoMock.Object,
             _tenantMemberRepoMock.Object,
-            _tenantPrefsRepoMock.Object,
-            _roleRepoMock.Object,
             _notificationRepoMock.Object,
             _permissionsVersionServiceMock.Object,
             _notificationSenderMock.Object,
@@ -71,12 +63,12 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private static UpdateTenantMemberRoleCommand ValidCommand(Guid tenantId, Guid userId, Guid roleId) =>
+    private static UpdateTenantMemberRoleCommand ValidCommand(Guid tenantId, Guid userId, bool isAdmin) =>
         new UpdateTenantMemberRoleCommand
         {
             TenantId = tenantId,
             UserId = userId,
-            RoleId = roleId
+            IsAdmin = isAdmin
         };
 
     private static Tenant BuildTenant(Guid id) => new Tenant
@@ -86,22 +78,12 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
         IsActive = true
     };
 
-    private static TenantMember BuildMember(Guid tenantId, Guid userId, Role? role = null) => new TenantMember
+    private static TenantMember BuildMember(Guid tenantId, Guid userId, bool isAdmin = false) => new TenantMember
     {
         TenantId = tenantId,
         UserId = userId,
         IsActive = true,
-        RoleId = role?.Id,
-        MemberRole = role
-    };
-
-    private static Role BuildRole(Guid id, string code) => new Role
-    {
-        Id = id,
-        Code = code,
-        Name = code,
-        Scope = RoleScope.Tenant,
-        IsActive = true
+        IsAdmin = isAdmin
     };
 
     // ─── Handle ───────────────────────────────────────────────────────────────
@@ -115,7 +97,7 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
                 It.IsAny<Expression<Func<Tenant, bool>>>()))
             .ReturnsAsync((Tenant?)null);
 
-        UpdateTenantMemberRoleCommand command = ValidCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        UpdateTenantMemberRoleCommand command = ValidCommand(Guid.NewGuid(), Guid.NewGuid(), isAdmin: true);
 
         // Act
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
@@ -138,46 +120,10 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
 
         _tenantMemberRepoMock
             .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantMember, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantMember>, IIncludableQueryable<TenantMember, object>>[]>()))
+                It.IsAny<Expression<Func<TenantMember, bool>>>()))
             .ReturnsAsync((TenantMember?)null);
 
-        UpdateTenantMemberRoleCommand command = ValidCommand(tenantId, Guid.NewGuid(), Guid.NewGuid());
-
-        // Act
-        Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<NotFoundApiException>();
-    }
-
-    [Fact]
-    public async Task Handle_WhenRoleNotFound_ThrowsNotFoundApiException()
-    {
-        // Arrange
-        Guid tenantId = Guid.NewGuid();
-        Guid targetUserId = Guid.NewGuid();
-        Tenant tenant = BuildTenant(tenantId);
-        TenantMember member = BuildMember(tenantId, targetUserId);
-
-        _tenantRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Tenant, bool>>>()))
-            .ReturnsAsync(tenant);
-
-        _tenantMemberRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantMember, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantMember>, IIncludableQueryable<TenantMember, object>>[]>()))
-            .ReturnsAsync(member);
-
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Role?)null);
-
-        UpdateTenantMemberRoleCommand command = ValidCommand(tenantId, targetUserId, Guid.NewGuid());
+        UpdateTenantMemberRoleCommand command = ValidCommand(tenantId, Guid.NewGuid(), isAdmin: true);
 
         // Act
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
@@ -192,11 +138,8 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
         // Arrange
         Guid tenantId = Guid.NewGuid();
         Guid targetUserId = Guid.NewGuid();
-        Guid newRoleId = Guid.NewGuid();
         Tenant tenant = BuildTenant(tenantId);
-        Role adminRole = BuildRole(Guid.NewGuid(), RoleCodes.TenantAdmin);
-        Role memberRole = BuildRole(newRoleId, RoleCodes.TenantMember);
-        TenantMember member = BuildMember(tenantId, targetUserId, adminRole);
+        TenantMember member = BuildMember(tenantId, targetUserId, isAdmin: true);
 
         _tenantRepoMock
             .Setup(r => r.GetFirstBySearch(
@@ -205,15 +148,8 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
 
         _tenantMemberRepoMock
             .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantMember, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantMember>, IIncludableQueryable<TenantMember, object>>[]>()))
+                It.IsAny<Expression<Func<TenantMember, bool>>>()))
             .ReturnsAsync(member);
-
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(memberRole);
 
         _tenantMemberRepoMock
             .Setup(r => r.CountAsync(
@@ -221,7 +157,7 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(1); // Only one admin
 
-        UpdateTenantMemberRoleCommand command = ValidCommand(tenantId, targetUserId, newRoleId);
+        UpdateTenantMemberRoleCommand command = ValidCommand(tenantId, targetUserId, isAdmin: false);
 
         // Act
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
@@ -236,11 +172,8 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
         // Arrange
         Guid tenantId = Guid.NewGuid();
         Guid targetUserId = Guid.NewGuid();
-        Guid newRoleId = Guid.NewGuid();
         Tenant tenant = BuildTenant(tenantId);
-        Role currentRole = BuildRole(Guid.NewGuid(), RoleCodes.TenantMember);
-        Role newRole = BuildRole(newRoleId, RoleCodes.TenantAdmin);
-        TenantMember member = BuildMember(tenantId, targetUserId, currentRole);
+        TenantMember member = BuildMember(tenantId, targetUserId, isAdmin: false);
 
         _tenantRepoMock
             .Setup(r => r.GetFirstBySearch(
@@ -249,30 +182,17 @@ public sealed class UpdateTenantMemberRoleCommandHandlerTests
 
         _tenantMemberRepoMock
             .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantMember, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantMember>, IIncludableQueryable<TenantMember, object>>[]>()))
+                It.IsAny<Expression<Func<TenantMember, bool>>>()))
             .ReturnsAsync(member);
 
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(newRole);
-
-        _tenantPrefsRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantPreferencesProfile, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantPreferencesProfile>, IIncludableQueryable<TenantPreferencesProfile, object>>[]>()))
-            .ReturnsAsync((TenantPreferencesProfile?)null);
-
-        UpdateTenantMemberRoleCommand command = ValidCommand(tenantId, targetUserId, newRoleId);
+        UpdateTenantMemberRoleCommand command = ValidCommand(tenantId, targetUserId, isAdmin: true);
 
         // Act
         Unit result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         result.Should().Be(Unit.Value);
-        member.RoleId.Should().Be(newRoleId);
+        member.IsAdmin.Should().BeTrue();
         _tenantMemberRepoMock.Verify(r => r.Update(member), Times.Once);
         _permissionsVersionServiceMock.Verify(s => s.BumpVersionAsync(targetUserId, It.IsAny<CancellationToken>()), Times.Once);
         _notificationSenderMock.Verify(s => s.EnqueueAsync(It.IsAny<NotificationPayloadDto>(), It.IsAny<CancellationToken>()), Times.Once);

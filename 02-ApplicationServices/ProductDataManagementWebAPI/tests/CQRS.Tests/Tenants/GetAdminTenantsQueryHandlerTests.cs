@@ -1,8 +1,6 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.GetAdminTenants;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
@@ -37,7 +35,7 @@ public sealed class GetAdminTenantsQueryHandlerTests
     {
         UserId = userId,
         IsActive = true,
-        MemberRole = new Role { Code = RoleCodes.TenantAdmin },
+        IsAdmin = true,
         Tenant = new Tenant
         {
             Id = Guid.NewGuid(),
@@ -91,6 +89,6 @@ public sealed class GetAdminTenantsQueryHandlerTests
         list.Should().HaveCount(2);
         list[0].Name.Should().Be("Alpha Corp");
         list[1].Name.Should().Be("Beta Corp");
-        list[0].RoleCode.Should().Be(RoleCodes.TenantAdmin);
+        list[0].IsAdmin.Should().BeTrue();
     }
 }

@@ -58,7 +58,7 @@ public sealed class GetAvailableRolesQueryHandlerTests
                 It.IsAny<Func<IQueryable<Role>, IIncludableQueryable<Role, object>>[]>()))
             .ReturnsAsync(new List<Role>());
 
-        GetAvailableRolesQuery query = new(RoleScope.Project);
+        GetAvailableRolesQuery query = new(RoleScope.Tenant);
 
         // Act
         IEnumerable<RoleWeb> result = await _handler.Handle(query, CancellationToken.None);
@@ -77,10 +77,10 @@ public sealed class GetAvailableRolesQueryHandlerTests
             new Role
             {
                 Id = roleId,
-                Code = "PROJECT.VIEWER",
-                Name = "Viewer",
-                Description = "Read-only access",
-                Scope = RoleScope.Project,
+                Code = "TENANT.ADMIN",
+                Name = "Admin",
+                Description = "Full access",
+                Scope = RoleScope.Tenant,
                 IsActive = true
             }
         };
@@ -91,7 +91,7 @@ public sealed class GetAvailableRolesQueryHandlerTests
                 It.IsAny<Func<IQueryable<Role>, IIncludableQueryable<Role, object>>[]>()))
             .ReturnsAsync(roles);
 
-        GetAvailableRolesQuery query = new(RoleScope.Project);
+        GetAvailableRolesQuery query = new(RoleScope.Tenant);
 
         // Act
         IEnumerable<RoleWeb> result = await _handler.Handle(query, CancellationToken.None);
@@ -99,9 +99,9 @@ public sealed class GetAvailableRolesQueryHandlerTests
         // Assert
         RoleWeb roleWeb = result.Single();
         roleWeb.Id.Should().Be(roleId);
-        roleWeb.Code.Should().Be("PROJECT.VIEWER");
-        roleWeb.Name.Should().Be("Viewer");
-        roleWeb.Description.Should().Be("Read-only access");
-        roleWeb.Scope.Should().Be(RoleScope.Project);
+        roleWeb.Code.Should().Be("TENANT.ADMIN");
+        roleWeb.Name.Should().Be("Admin");
+        roleWeb.Description.Should().Be("Full access");
+        roleWeb.Scope.Should().Be(RoleScope.Tenant);
     }
 }

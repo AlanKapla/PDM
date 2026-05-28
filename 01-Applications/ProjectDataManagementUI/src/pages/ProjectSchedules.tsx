@@ -370,7 +370,7 @@ export default function ProjectSchedules() {
           </Box>
         ) : (
           <Tabs colorScheme="level2" variant="enclosed" onChange={setActiveTabIndex} isLazy>
-            <TabList overflowX="auto">
+            <TabList>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 
 namespace CQRS.Messages.MarkMessagesAsRead
@@ -9,7 +9,7 @@ namespace CQRS.Messages.MarkMessagesAsRead
         Guid ChatId
     ) : IRequestCommand<int>, IAuthorizableRequest
     {
-        public string PermissionCode => PermissionCodes.ProjectView;
+        public string PermissionCode => PermissionCodes.ProjectSettings;
         
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

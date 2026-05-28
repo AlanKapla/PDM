@@ -10,21 +10,25 @@ import {
   HStack,
   Text,
   Button,
-  Badge,
+  Checkbox,
+  Stack,
+  Divider,
   useColorModeValue,
   Box,
   Icon,
 } from "@chakra-ui/react";
 import { UserPlus, Check } from "lucide-react";
+import { ProjectModule, PROJECT_MODULE_LABELS } from "../types/projectModulePermissions";
 import { tenantApi } from "../api/tenantApi";
 import { projectApi } from "../api/projectApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { projectKeys } from "../hooks/queries";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from '../utils/handleApiError';
 import { LoadingSpinner, EmptyState, UserAvatar, DataCard } from "./common";
 import type { TenantMemberWeb, ProjectMemberWeb } from "../types/project.types";
+
+const ALL_MODULES = (Object.values(ProjectModule) as number[]).filter(m => m !== ProjectModule.Settings);
 
 interface AddProjectMemberModalProps {
   isOpen: boolean;
@@ -44,12 +48,14 @@ export default function AddProjectMemberModal({
   projectName,
   onMemberAdded
 }: AddProjectMemberModalProps) {
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const { showError, showApiSuccess } = useToastNotification();
   const queryClient = useQueryClient();
   const [tenantMembers, setTenantMembers] = useState<TenantMemberWeb[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberWeb[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
+  const [configuringUserId, setConfiguringUserId] = useState<string | null>(null);
+  const [selectedModules, setSelectedModules] = useState<Set<number>>(new Set());
 
   const bgColor = useColorModeValue("white", "gray.800");
 
@@ -83,9 +89,13 @@ export default function AddProjectMemberModal({
   const handleAddMember = async (userId: string) => {
     setAdding(userId);
     try {
-      await projectApi.addProjectMember(tenantId, projectId, userId);
+      const modules = Array.from(selectedModules);
+
+      await projectApi.addProjectMember(tenantId, projectId, userId, modules);
       
       showApiSuccess('memberAdded');
+      setConfiguringUserId(null);
+      setSelectedModules(new Set());
       
       // Invalidate project caches — permissions and members might have changed
       queryClient.invalidateQueries({
@@ -104,6 +114,16 @@ export default function AddProjectMemberModal({
     } finally {
       setAdding(null);
     }
+  };
+
+  const openConfig = (userId: string) => {
+    setConfiguringUserId(userId);
+    setSelectedModules(new Set());
+  };
+
+  const cancelConfig = () => {
+    setConfiguringUserId(null);
+    setSelectedModules(new Set());
   };
 
   const isMemberInProject = (userId: String) => {
@@ -159,7 +179,6 @@ export default function AddProjectMemberModal({
             >
               <VStack spacing={2} align="stretch">
                 {availableMembers.map((member) => {
-                  const isAdding = adding === member.userId;
 
                   return (
                     <DataCard
@@ -182,18 +201,63 @@ export default function AddProjectMemberModal({
                             </Text>
                           </VStack>
                         </HStack>
-                        <Button
-                          size="sm"
-                          colorScheme="primary"
-                          leftIcon={isAdding ? undefined : <Icon as={UserPlus} />}
-                          onClick={() => handleAddMember(member.userId)}
-                          isLoading={isAdding}
-                          loadingText="Dodawanie..."
-                          isDisabled={adding !== null}
-                        >
-                          Dodaj
-                        </Button>
+                        {configuringUserId !== member.userId && (
+                          <Button
+                            size="sm"
+                            colorScheme="primary"
+                            onClick={() => openConfig(member.userId)}
+                            isDisabled={adding !== null}
+                          >
+                            Konfiguruj dostęp
+                          </Button>
+                        )}
                       </HStack>
+
+                      {configuringUserId === member.userId && (
+                        <Box mt={3}>
+                          <Divider mb={3} />
+                          <Text fontSize="xs" fontWeight="semibold" color="neutral.500" mb={2}>
+                            UPRAWNIENIA DO MODUŁÓW
+                          </Text>
+                          <Stack spacing={2} mb={3}>
+                            {ALL_MODULES.map((mod) => (
+                              <Checkbox
+                                key={mod}
+                                isChecked={selectedModules.has(mod)}
+                                onChange={(e) => {
+                                  setSelectedModules((prev) => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) {
+                                      next.add(mod);
+                                    } else {
+                                      next.delete(mod);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {PROJECT_MODULE_LABELS[mod as ProjectModule]}
+                              </Checkbox>
+                            ))}
+                          </Stack>
+                          <HStack spacing={2} justify="flex-end">
+                            <Button size="sm" variant="ghost" onClick={cancelConfig} isDisabled={adding !== null}>
+                              Anuluj
+                            </Button>
+                            <Button
+                              size="sm"
+                              colorScheme="primary"
+                              leftIcon={adding === member.userId ? undefined : <Icon as={UserPlus} />}
+                              onClick={() => handleAddMember(member.userId)}
+                              isLoading={adding === member.userId}
+                              loadingText="Dodawanie..."
+                              isDisabled={adding !== null}
+                            >
+                              Dodaj
+                            </Button>
+                          </HStack>
+                        </Box>
+                      )}
                     </DataCard>
                   );
                 })}
@@ -246,9 +310,6 @@ export default function AddProjectMemberModal({
                                 <Text fontWeight="medium" fontSize="sm">
                                   {member.firstName} {member.lastName}
                                 </Text>
-                                <Badge colorScheme={getRoleColor(member.roleCode)} fontSize="xs">
-                                  {getRoleName(member.roleCode)}
-                                </Badge>
                               </HStack>
                               <Text fontSize="xs" color="neutral.500">
                                 {member.email}

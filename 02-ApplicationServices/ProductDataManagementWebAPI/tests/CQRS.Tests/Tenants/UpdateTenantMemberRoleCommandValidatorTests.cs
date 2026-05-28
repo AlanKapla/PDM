@@ -87,33 +87,9 @@ public sealed class UpdateTenantMemberRoleCommandValidatorTests
         result.ShouldNotHaveValidationErrorFor(x => x.UserId);
     }
 
-    // === RoleId ===
+    // === IsAdmin ===
 
-    [Fact]
-    public void Validate_WhenRoleIdIsEmpty_HasValidationError()
-    {
-        // Arrange
-        UpdateTenantMemberRoleCommand command = ValidCommand() with { RoleId = Guid.Empty };
-
-        // Act
-        TestValidationResult<UpdateTenantMemberRoleCommand> result = _validator.TestValidate(command);
-
-        // Assert
-        result.ShouldHaveValidationErrorFor(x => x.RoleId);
-    }
-
-    [Fact]
-    public void Validate_WhenRoleIdIsValid_HasNoValidationError()
-    {
-        // Arrange
-        UpdateTenantMemberRoleCommand command = ValidCommand();
-
-        // Act
-        TestValidationResult<UpdateTenantMemberRoleCommand> result = _validator.TestValidate(command);
-
-        // Assert
-        result.ShouldNotHaveValidationErrorFor(x => x.RoleId);
-    }
+    // IsAdmin is a bool — no additional validation rules needed
 
     // === Happy path ===
 
@@ -136,6 +112,6 @@ public sealed class UpdateTenantMemberRoleCommandValidatorTests
     {
         TenantId = Guid.NewGuid(),
         UserId = Guid.NewGuid(),
-        RoleId = Guid.NewGuid()
+        IsAdmin = true
     };
 }

@@ -48,7 +48,7 @@ public sealed class UserDetailsQueryHandlerTests
         result.FirstName.Should().Be("John");
         result.LastName.Should().Be("Doe");
         result.Email.Should().Be("john@example.com");
-        result.ActiveTenantPermissions.Should().BeEmpty();
+        result.IsActiveTenantAdmin.Should().BeFalse();
     }
 
     [Fact]
@@ -89,7 +89,6 @@ public sealed class UserDetailsQueryHandlerTests
     {
         // Arrange
         Guid tenantId = Guid.NewGuid();
-        HashSet<string> permissions = new() { "projects.read", "projects.write" };
 
         _currentUserMock.Setup(u => u.IsAuthenticated).Returns(true);
         _currentUserMock.Setup(u => u.ActiveTenantId).Returns(tenantId);
@@ -97,9 +96,7 @@ public sealed class UserDetailsQueryHandlerTests
             .Setup(u => u.GetActiveTenantSnapshotAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TenantCtxSnapshot(
                 TenantId: tenantId,
-                TenantRoleId: Guid.NewGuid(),
-                TenantPermissionCodes: permissions,
-                IsTenantAdmin: false,
+                IsAdmin: true,
                 IsActive: true));
 
         UserDetailsQuery query = new();
@@ -108,6 +105,6 @@ public sealed class UserDetailsQueryHandlerTests
         UserDetailsWeb result = await _handler.Handle(query, CancellationToken.None);
 
         // Assert
-        result.ActiveTenantPermissions.Should().BeEquivalentTo(permissions);
+        result.IsActiveTenantAdmin.Should().BeTrue();
     }
 }

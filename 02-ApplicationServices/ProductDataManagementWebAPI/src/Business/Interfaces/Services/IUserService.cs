@@ -7,7 +7,6 @@
         public string LastName { get; init; } = string.Empty;
         public string Email { get; init; } = string.Empty;
         public string AzureAdB2CObjectId { get; init; } = string.Empty;
-        public string? RoleCode { get; init; }
         public DateTime JoinedAt { get; init; }
         public string FullName => $"{FirstName} {LastName}".Trim();
     }

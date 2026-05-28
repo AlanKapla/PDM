@@ -37,6 +37,7 @@ export interface CostEstimateToolbarProps {
   hasChanges: boolean;
   canEdit: boolean;
   canShare: boolean;
+  canSchedule: boolean;
   hasSchedule: boolean;
   isSyncing: boolean;
   isRecalculating: boolean;
@@ -94,6 +95,7 @@ export default function CostEstimateToolbar({
   hasChanges,
   canEdit,
   canShare,
+  canSchedule,
   hasSchedule,
   isSyncing,
   isRecalculating,
@@ -260,7 +262,7 @@ export default function CostEstimateToolbar({
 
   // ─── Dropdown Harmonogram ─────────────────────────────────────────────────
 
-  const scheduleDropdownFull = canEdit ? (
+  const scheduleDropdownFull = canSchedule ? (
     <Menu>
       <Tooltip label="Operacje na powiązanym harmonogramie" hasArrow placement="bottom" openDelay={400}>
         <MenuButton
@@ -298,7 +300,7 @@ export default function CostEstimateToolbar({
     </Menu>
   ) : null;
 
-  const scheduleDropdownCompact = canEdit ? (
+  const scheduleDropdownCompact = canSchedule ? (
     <Menu>
       <Tooltip label="Harmonogram" hasArrow placement="bottom">
         <MenuButton
@@ -395,7 +397,7 @@ export default function CostEstimateToolbar({
         <HStack spacing={2} flexWrap="wrap">
           {/* Na mobile zawsze tryb edycji — brak przełącznika */}
 
-          {canEdit && (
+          {canSchedule && (
             <Box position="relative" display="inline-flex">
               <Menu>
                 <MenuButton

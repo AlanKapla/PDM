@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.AcceptTenantInvitation;
 using CQRS.Tenants.ActiveInvitations;
@@ -8,7 +8,6 @@ using CQRS.Tenants.RemoveTenantInvitation;
 using CQRS.Tenants.GetTenantMembers;
 using CQRS.Tenants.InviteTenantMember;
 using CQRS.Tenants.RemoveTenantMember;
-using CQRS.Tenants.ToggleTenantStatus;
 using CQRS.Tenants.UpdateTenant;
 using CQRS.Tenants.GetUserTenants;
 using CQRS.Tenants.GetAdminTenants;
@@ -37,7 +36,7 @@ namespace WebApi.Controllers
         /// Get all tenants where current user is a member (admins see inactive, members see only active)
         /// </summary>
         [HttpGet("my-tenants")]
-        [Authorize(Policy = PermissionCodes.TenantListAvailable)]
+        [Authorize(Policy = PermissionCodes.TenantContextList)]
         public async Task<IActionResult> GetMyTenants()
         {
             IEnumerable<UserTenantWeb> result = await Send(new GetUserTenantsQuery());
@@ -48,7 +47,7 @@ namespace WebApi.Controllers
         /// Get all tenants where current user is admin (includes active and inactive)
         /// </summary>
         [HttpGet("admin-tenants")]
-        [Authorize(Policy = PermissionCodes.TenantAdminListAvailable)]
+        [Authorize(Policy = PermissionCodes.TenantContextAdminList)]
         public async Task<IActionResult> GetAdminTenants()
         {
             IEnumerable<TenantBasicWeb> result = await Send(new GetAdminTenantsQuery());
@@ -59,7 +58,7 @@ namespace WebApi.Controllers
         /// Get detailed tenant information including members and invitations (admin only)
         /// </summary>
         [HttpGet("{tenantId}/details")]
-        [Authorize(Policy = PermissionCodes.TenantEdit)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsEdit)]
         public async Task<IActionResult> GetTenantDetails(Guid tenantId)
         {
             GetTenantDetailsQuery query = new GetTenantDetailsQuery { TenantId = tenantId };
@@ -76,7 +75,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{tenantId}")]
-        [Authorize(Policy = PermissionCodes.TenantEdit)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsEdit)]
         public async Task<IActionResult> UpdateTenant(Guid tenantId, [FromBody] UpdateTenantCommand request)
         {
             request = request with { TenantId = tenantId };
@@ -121,7 +120,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{tenantId}/members")]
-        [Authorize(Policy = PermissionCodes.TenantView)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsView)]
         public async Task<IActionResult> GetTenantMembers(Guid tenantId)
         {
             GetTenantMembersQuery query = new GetTenantMembersQuery { TenantId = tenantId };
@@ -137,18 +136,9 @@ namespace WebApi.Controllers
             return NoContent();
         }
 
-        [HttpPatch("{tenantId}/status")]
-        [Authorize(Policy = PermissionCodes.TenantStatusManage)]
-        public async Task<IActionResult> ToggleTenantStatus([FromRoute] Guid tenantId, [FromQuery] bool isActive)
-        {
-            ToggleTenantStatusCommand command = new ToggleTenantStatusCommand { TenantId = tenantId, IsActive = isActive };
-            await Send(command);
-            return NoContent();
-        }
-
-        [HttpPatch("{tenantId}/members/{userId}/role")]
+        [HttpPatch("{tenantId}/members/{userId}/admin")]
         [Authorize(Policy = PermissionCodes.TenantMembersManage)]
-        public async Task<IActionResult> UpdateTenantMemberRole(
+        public async Task<IActionResult> UpdateTenantMemberAdmin(
             Guid tenantId,
             Guid userId,
             [FromBody] UpdateTenantMemberRoleCommand request)

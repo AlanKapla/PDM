@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostTrackers;
 using Microsoft.AspNetCore.Http;
 
@@ -18,6 +18,6 @@ namespace CQRS.CostTrackers.Shared
         public DateTime? Date { get; init; }
         public IReadOnlyList<IFormFile>? NewFiles { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectEdit;
+        public override string PermissionCode => PermissionCodes.ProjectDashboardTracker;
     }
 }

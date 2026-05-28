@@ -9,7 +9,7 @@ namespace CQRS.Contractors.GetContractors
         public required Guid TenantId { get; init; }
         public string? Search { get; init; }
 
-        public string PermissionCode => PermissionCodes.TenantView;
+        public string PermissionCode => PermissionCodes.TenantSettingsView;
         public ResourceRef GetResource() => new(TenantId: TenantId);
     }
 }

@@ -52,6 +52,23 @@ namespace CQRS.Tenants.RemoveTenantMember
                     && m.IsActive)
                 ?? throw new NotFoundApiException(nameof(TenantMember), $"Tenant: {request.TenantId}, User: {request.UserId}");
 
+            if (tenantMember.IsAdmin)
+            {
+                int adminCount = await tenantMemberRepo.CountAsync(
+                    m => m.TenantId == request.TenantId
+                         && m.IsActive
+                         && m.IsAdmin,
+                    cancellationToken);
+
+                if (adminCount <= 1)
+                {
+                    throw new ConflictApiException(
+                        nameof(TenantMember),
+                        request.UserId.ToString(),
+                        "Nie można usunąć ostatniego administratora tenanta.");
+                }
+            }
+
             tenantMember.IsActive = false;
             await tenantMemberRepo.Update(tenantMember);
 

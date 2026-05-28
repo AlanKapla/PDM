@@ -22,9 +22,10 @@ namespace WebApi.Tests
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = Guid.NewGuid(),
             CreatedByUserName = string.Empty,
-            UserRoleCode = string.Empty,
+            IsAdmin = false,
             MembersCount = 0,
-            UserPermissions = new HashSet<string>()
+            UserPermissions = new HashSet<string>(),
+            CanViewAllResources = false
         };
 
         public static TenantDetailsWeb Tenant(Guid id) => new()
@@ -33,7 +34,7 @@ namespace WebApi.Tests
             Name = "t",
             CreatedAt = DateTime.UtcNow,
             IsActive = true,
-            RoleCode = string.Empty
+            IsAdmin = false
         };
 
         public static ActiveTenantWeb ActiveTenant(Guid id) => new()

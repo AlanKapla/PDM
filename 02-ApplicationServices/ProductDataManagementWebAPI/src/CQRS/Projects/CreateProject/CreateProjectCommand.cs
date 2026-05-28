@@ -9,7 +9,7 @@ namespace CQRS.Projects.CreateProject
         public required Guid TenantId { get; init; }
         public required string Name { get; init; }
 
-        public string PermissionCode => PermissionCodes.TenantProjectCreate;
+        public string PermissionCode => PermissionCodes.TenantProjectsCreate;
 
         public ResourceRef GetResource()
         {

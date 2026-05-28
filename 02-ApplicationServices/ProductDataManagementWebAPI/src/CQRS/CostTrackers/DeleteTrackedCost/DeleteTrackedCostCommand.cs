@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.CostTrackers.Shared;
 using MediatR;
 
@@ -11,6 +11,6 @@ namespace CQRS.CostTrackers.DeleteTrackedCost
     {
         public required Guid CostId { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectEdit;
+        public override string PermissionCode => PermissionCodes.ProjectDashboardTracker;
     }
 }

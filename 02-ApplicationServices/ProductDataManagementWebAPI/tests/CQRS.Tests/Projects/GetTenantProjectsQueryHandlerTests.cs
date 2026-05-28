@@ -3,7 +3,6 @@ using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using CQRS.Projects.GetTenantProjects;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
 using Moq;
@@ -63,9 +62,7 @@ public sealed class GetTenantProjectsQueryHandlerTests
 
         TenantCtxSnapshot tenantSnapshot = new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string>(),
-            IsTenantAdmin: true,
+            IsAdmin: true,
             IsActive: true);
 
         _currentUserMock
@@ -97,6 +94,46 @@ public sealed class GetTenantProjectsQueryHandlerTests
 
         // Assert
         result.Should().HaveCount(2);
+        result.Should().OnlyContain(p => p.IsAdmin, "tenant admin should have IsAdmin=true on all projects");
+    }
+
+    [Fact]
+    public async Task Handle_WhenUserIsTenantAdmin_ProjectHasIsAdminTrue_EvenWithoutExplicitProjectMembership()
+    {
+        // Arrange — tenant admin with NO project membership
+        Guid tenantId = Guid.NewGuid();
+        Guid userId = Guid.NewGuid();
+        _currentUserMock.Setup(u => u.Id).Returns(userId);
+
+        TenantCtxSnapshot tenantSnapshot = new TenantCtxSnapshot(
+            TenantId: tenantId,
+            IsAdmin: true,
+            IsActive: true);
+
+        _currentUserMock
+            .Setup(u => u.GetTenantSnapshotAsync(tenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(tenantSnapshot);
+
+        List<Project> projects = [BuildProject(tenantId, "Alpha")];
+
+        _projectRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<Expression<Func<Project, bool>>>(),
+                It.IsAny<Func<IQueryable<Project>, IIncludableQueryable<Project, object>>>()))
+            .ReturnsAsync(projects);
+
+        _projectMemberRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<Expression<Func<ProjectMember, bool>>>(),
+                It.IsAny<Func<IQueryable<ProjectMember>, IIncludableQueryable<ProjectMember, object>>>()))
+            .ReturnsAsync(new List<ProjectMember>()); // no project membership
+
+        // Act
+        IEnumerable<ProjectDetailsWeb> result = await _handler.Handle(ValidQuery(tenantId), CancellationToken.None);
+
+        // Assert
+        ProjectDetailsWeb project = result.Should().ContainSingle().Subject;
+        project.IsAdmin.Should().BeTrue("tenant admin should have IsAdmin=true even without explicit project membership");
     }
 
     [Fact]
@@ -143,12 +180,10 @@ public sealed class GetTenantProjectsQueryHandlerTests
                 It.IsAny<Func<IQueryable<Project>, IIncludableQueryable<Project, object>>>()))
             .ReturnsAsync(new List<Project> { activeProject, inactiveProject });
 
-        Role viewerRole = new Role { Id = Guid.NewGuid(), Code = RoleCodes.ProjectViewer };
-
         List<ProjectMember> members =
         [
-            new ProjectMember { ProjectId = activeProject.Id, TenantId = tenantId, UserId = userId, MemberRole = viewerRole },
-            new ProjectMember { ProjectId = inactiveProject.Id, TenantId = tenantId, UserId = userId, MemberRole = viewerRole },
+            new ProjectMember { ProjectId = activeProject.Id, TenantId = tenantId, UserId = userId, IsAdmin = false },
+            new ProjectMember { ProjectId = inactiveProject.Id, TenantId = tenantId, UserId = userId, IsAdmin = false },
         ];
 
         _projectMemberRepoMock

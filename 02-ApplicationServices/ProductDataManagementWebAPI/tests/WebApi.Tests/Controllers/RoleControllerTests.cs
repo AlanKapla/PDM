@@ -1,4 +1,4 @@
-using CQRS.Roles.GetAvailableRoles;
+﻿using CQRS.Roles.GetAvailableRoles;
 using Entities.Enums;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +17,6 @@ namespace WebApi.Tests.Controllers
 
         [Theory]
         [InlineData(RoleScope.Tenant)]
-        [InlineData(RoleScope.Project)]
         public async Task GetAvailableRoles_ReturnsOk_AndForwardsScope(RoleScope scope)
         {
             IActionResult result = await sut.GetAvailableRoles(scope);
@@ -33,15 +32,6 @@ namespace WebApi.Tests.Controllers
 
             result.Should().BeOfType<OkObjectResult>();
             VerifyMediatorCalledOnce<GetAvailableRolesQuery>(q => q.Scope == RoleScope.Tenant);
-        }
-
-        [Fact]
-        public async Task GetProjectRoles_ReturnsOk_WithProjectScope()
-        {
-            IActionResult result = await sut.GetProjectRoles();
-
-            result.Should().BeOfType<OkObjectResult>();
-            VerifyMediatorCalledOnce<GetAvailableRolesQuery>(q => q.Scope == RoleScope.Project);
         }
     }
 }

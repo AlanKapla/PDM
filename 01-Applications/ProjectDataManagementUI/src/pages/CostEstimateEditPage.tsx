@@ -1307,6 +1307,7 @@ export const CostEstimateEditPage: React.FC = () => {
   const canAnyEdit = canFullEdit || canRestrictedEdit;
   const canShareResource =
     canFullEdit && (resourcePerms.mine.canShare || resourcePerms.all.canShare);
+  const canSchedule = resourcePerms.raw.canViewSchedule;
 
   // ========== SHARED TOOLBAR (normalny + fullscreen) ==========
 
@@ -1417,6 +1418,7 @@ export const CostEstimateEditPage: React.FC = () => {
           hasChanges={hasChanges}
           canEdit={canAnyEdit}
           canShare={canShareResource}
+          canSchedule={canSchedule}
           hasSchedule={!!details.workScheduleId}
           isSyncing={isSyncing}
           isRecalculating={isRecalculating}

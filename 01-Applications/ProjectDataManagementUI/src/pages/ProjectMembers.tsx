@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useContext } from "react";
+﻿import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -12,7 +12,6 @@ import {
   useColorModeValue,
   useDisclosure,
   IconButton,
-  Select,
   Tooltip,
   Table,
   Thead,
@@ -21,9 +20,10 @@ import {
   Th,
   Td,
 } from "@chakra-ui/react";
-import { ArrowLeft, Users, UserPlus, Trash2, Shield, Save, X } from "lucide-react";
+import { ArrowLeft, Users, UserPlus, Trash2, Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
+import EditProjectMemberModal from "../components/EditProjectMemberModal";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { LoadingSpinner, EmptyState } from "../components/common";
@@ -34,9 +34,7 @@ import { useProjectDetails, useProjectMembers, projectKeys } from "../hooks/quer
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
-import { roleApi, type RoleWeb } from "../api/roleApi";
 import type { ProjectMemberWeb } from "../types/project.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
 
 export default function ProjectMembers() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -49,11 +47,8 @@ export default function ProjectMembers() {
 
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
-
-  const [editingRoleMemberId, setEditingRoleMemberId] = useState<string | null>(null);
-  const [editedRoleId, setEditedRoleId] = useState<string>("");
-  const [updatingRole, setUpdatingRole] = useState(false);
-  const [availableRoles, setAvailableRoles] = useState<RoleWeb[]>([]);
+  const [memberToEdit, setMemberToEdit] = useState<ProjectMemberWeb | null>(null);
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -73,16 +68,14 @@ export default function ProjectMembers() {
 
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchRoles();
-  }, [projectId]);
+  const handleEditMember = (member: ProjectMemberWeb) => {
+    setMemberToEdit(member);
+    onEditOpen();
+  };
 
-  const fetchRoles = async () => {
-    try {
-      const roles = await roleApi.getAvailableRoles('project');
-      setAvailableRoles(roles);
-    } catch (error) {
-    }
+  const handleEditClose = () => {
+    setMemberToEdit(null);
+    onEditClose();
   };
 
   const handleRemoveMemberClick = (userId: string, name: string) => {
@@ -118,40 +111,6 @@ export default function ProjectMembers() {
     }
   };
 
-  const handleUpdateMemberRole = async (userId: string) => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    if (user.id === userId) {
-      showError("Nie możesz zmienić własnej roli");
-      return;
-    }
-
-    setUpdatingRole(true);
-    try {
-      await projectApi.updateProjectMemberRole(
-        user.activeTenantId,
-        projectId,
-        userId,
-        editedRoleId
-      );
-
-      // Odśwież dane po zmianie
-      queryClient.invalidateQueries({
-        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
-      });
-      queryClient.invalidateQueries({
-        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
-      });
-      setEditingRoleMemberId(null);
-      showApiSuccess('memberUpdated');
-    } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-    } finally {
-      setUpdatingRole(false);
-    }
-  };
-
   if (loading) {
     return (
       <MainLayout>
@@ -165,7 +124,7 @@ export default function ProjectMembers() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
-        {!permissions.canViewMembers ? (
+        {!permissions.isAdmin ? (
           <Box bg={cardBg} p={8} rounded="lg" borderWidth="1px" borderColor={borderColor}>
             <VStack spacing={4}>
               <Heading size="md" color="red.500">Brak dostępu</Heading>
@@ -183,7 +142,7 @@ export default function ProjectMembers() {
               {project && <Text fontSize={{ base: "xs", md: "sm" }} color="neutral.600">{project.name}</Text>}
             </VStack>
           </HStack>
-          {permissions.canManageMembers && (
+          {permissions.isAdmin && (
             <Button
               leftIcon={<UserPlus size={16} />}
               colorScheme="primary"
@@ -215,8 +174,8 @@ export default function ProjectMembers() {
               <Thead>
                 <Tr>
                   <Th fontSize={{ base: "xs", md: "sm" }}>Imię i nazwisko</Th>
-                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
                   <Th fontSize={{ base: "xs", md: "sm" }}>Rola</Th>
+                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
                   <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
                   <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
                 </Tr>
@@ -232,69 +191,28 @@ export default function ProjectMembers() {
                         </Badge>
                       )}
                     </Td>
-                    <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>{member.email}</Td>
                     <Td fontSize={{ base: "xs", md: "sm" }}>
-                      <Badge colorScheme={getRoleColor(member.roleCode)}>
-                        {getRoleName(member.roleCode)}
+                      <Badge colorScheme={member.isAdmin ? "purple" : "gray"} fontSize="xs">
+                        {member.isAdmin ? "Admin" : "Członek"}
                       </Badge>
                     </Td>
+                    <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>{member.email}</Td>
                     <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>{formatDate(member.joinedAt)}</Td>
                     <Td fontSize={{ base: "xs", md: "sm" }}>
-                      {editingRoleMemberId === member.userId ? (
-                        <HStack spacing={2}>
-                          <Select
-                            size="sm"
-                            value={editedRoleId}
-                            onChange={(e) => setEditedRoleId(e.target.value)}
-                            isDisabled={updatingRole}
-                            width="150px"
-                          >
-                            {availableRoles.map((role) => (
-                              <option key={role.id} value={role.id}>
-                                {getRoleName(role.code)}
-                              </option>
-                            ))}
-                          </Select>
-                          <Tooltip label="Zapisz rolę">
+                      {permissions.isAdmin && (
+                        <HStack spacing={1}>
+                          <Tooltip label={user?.id === member.userId ? "Nie możesz edytować własnych uprawnień" : member.isAdmin && !permissions.isAdmin ? "Nie możesz edytować uprawnień admina" : "Edytuj uprawnienia"}>
                             <IconButton
-                              aria-label="Zapisz rolę"
-                              icon={<Save size={14} />}
+                              aria-label="Edytuj uprawnienia"
+                              icon={<Settings size={16} />}
                               size="sm"
                               colorScheme="primary"
-                              onClick={() => handleUpdateMemberRole(member.userId)}
-                              isLoading={updatingRole}
-                            />
-                          </Tooltip>
-                          <Tooltip label="Anuluj">
-                            <IconButton
-                              aria-label="Anuluj"
-                              icon={<X size={14} />}
-                              size="sm"
                               variant="ghost"
-                              onClick={() => setEditingRoleMemberId(null)}
-                              isDisabled={updatingRole}
+                              isDisabled={user?.id === member.userId || (member.isAdmin && !permissions.isAdmin)}
+                              onClick={() => handleEditMember(member)}
                             />
                           </Tooltip>
-                        </HStack>
-                      ) : (
-                        <HStack spacing={2}>
-                          {permissions.canManageMembers && member.email.toLowerCase() !== user?.email.toLowerCase() && (
-                            <Tooltip label="Zmień rolę">
-                              <IconButton
-                                aria-label="Edytuj rolę"
-                                icon={<Shield size={14} />}
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setEditingRoleMemberId(member.userId);
-                                  // Znajdź role ID na podstawie roleCode
-                                  const role = availableRoles.find(r => r.code === member.roleCode);
-                                  setEditedRoleId(role?.id || "");
-                                }}
-                              />
-                            </Tooltip>
-                          )}
-                          {permissions.canManageMembers && member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                          {member.email.toLowerCase() !== user?.email.toLowerCase() && (
                             <Tooltip label="Usuń członka">
                               <IconButton
                                 aria-label="Usuń członka"
@@ -334,6 +252,16 @@ export default function ProjectMembers() {
           itemName={memberToRemove?.name}
           isLoading={removingMember !== null}
         />
+
+        {memberToEdit && (
+          <EditProjectMemberModal
+            isOpen={isEditOpen}
+            onClose={handleEditClose}
+            tenantId={user?.activeTenantId || ""}
+            projectId={projectId || ""}
+            member={memberToEdit}
+          />
+        )}
       </Box>
     </MainLayout>
   );

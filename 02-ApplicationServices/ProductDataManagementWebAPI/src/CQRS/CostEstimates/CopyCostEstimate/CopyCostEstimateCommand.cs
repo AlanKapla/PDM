@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 
 namespace CQRS.CostEstimates.CopyCostEstimate
 {
@@ -6,6 +6,6 @@ namespace CQRS.CostEstimates.CopyCostEstimate
     {
         public List<Guid> TargetProjectIds { get; init; } = new();
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

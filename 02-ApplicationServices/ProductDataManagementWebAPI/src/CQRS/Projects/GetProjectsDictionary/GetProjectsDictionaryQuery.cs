@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 
 namespace CQRS.Projects.GetProjectsDictionary

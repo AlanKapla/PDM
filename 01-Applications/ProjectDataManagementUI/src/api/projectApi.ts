@@ -58,9 +58,14 @@ export const projectApi = {
   },
 
   // Dodaj członka do projektu
-  addProjectMember: async (tenantId: string, projectId: string, userId: string) => {
-    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/members`, { 
-      tenantId, projectId, userId 
+  addProjectMember: async (
+    tenantId: string,
+    projectId: string,
+    userId: string,
+    modules: number[]
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/members`, {
+      tenantId, projectId, userId, modules
     });
   },
 
@@ -480,9 +485,18 @@ export const projectApi = {
     });
   },
 
-  // Zmień rolę członka projektu
-  updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, roleId: string) => {
-      return axiosClient.patch(`/tenants/${tenantId}/projects/${projectId}/members/${userId}/role`, { roleId });
+  // Zmień rolę i uprawnienia modułów członka projektu
+  updateProjectMemberPermissions: async (
+    tenantId: string,
+    projectId: string,
+    userId: string,
+    isAdmin: boolean,
+    modules: number[]
+  ) => {
+    return axiosClient.patch(`/tenants/${tenantId}/projects/${projectId}/members/${userId}/role`, {
+      isAdmin,
+      modules,
+    });
   },
 
   // Ustaw walutę projektu

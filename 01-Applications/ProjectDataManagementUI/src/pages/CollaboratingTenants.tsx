@@ -21,7 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
 import type { UserTenant } from "../types/auth.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
+import { getTenantRoleName, getTenantRoleColor } from "../constants/roleCodes";
 
 export default function CollaboratingTenants() {
   const { user, refreshUser } = useAuth();
@@ -114,8 +114,8 @@ export default function CollaboratingTenants() {
                                   <Text fontSize="xs" color="neutral.500">
                                     Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
                                   </Text>
-                                  <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
-                                    {getRoleName(tenant.roleCode)}
+                                  <Badge colorScheme={getTenantRoleColor(tenant.isAdmin)} fontSize="xs">
+                                    {getTenantRoleName(tenant.isAdmin)}
                                   </Badge>
                                 </Stack>
                               </VStack>

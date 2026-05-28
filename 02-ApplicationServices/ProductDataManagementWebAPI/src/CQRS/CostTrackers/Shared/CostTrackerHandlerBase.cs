@@ -62,22 +62,9 @@ namespace CQRS.CostTrackers.Shared
             this.contractorService = contractorService;
         }
 
-        protected async Task ValidateAccessAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken)
-        {
-            if (!await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken))
-            {
-                throw new ForbiddenApiException("User does not have access to this resource.");
-            }
-        }
-
         protected async Task<TrackedCost> GetAndValidateTrackedCostAsync(
             Guid costId, Guid tenantId, Guid projectId, CancellationToken cancellationToken)
         {
-            if (!await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken))
-            {
-                throw new ForbiddenApiException("User does not have access to this resource.");
-            }
-
             return await trackedCostRepository.GetFirstBySearch(
                 tc => tc.Id == costId && tc.TenantId == tenantId && tc.ProjectId == projectId)
                 ?? throw new NotFoundApiException(nameof(TrackedCost), costId.ToString());
@@ -145,7 +132,7 @@ namespace CQRS.CostTrackers.Shared
         }
 
         protected WorkItemLinkWeb BuildWorkItemLinkWebFromStageWork(
-            Entities.Models.WorkSchedules.WorkScheduleStageWork work,
+            WorkScheduleStageWork work,
             List<TrackedCost> costs,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             CostEstimateItem? linkedItem,

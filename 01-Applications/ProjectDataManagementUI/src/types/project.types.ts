@@ -50,7 +50,8 @@ export interface ProjectDetailsWeb {
   createdAt: string;
   createdByUserId: string;
   createdByUserName: string;
-  userRoleCode: string;
+  isAdmin: boolean;
+  canViewAllResources: boolean;
   membersCount: number;
   userPermissions: string[];  // User's permissions for this specific project
   currency?: ProjectCurrencyWeb;
@@ -83,8 +84,9 @@ export interface ProjectMemberWeb {
   email: string;
   firstName: string;
   lastName: string;
-  roleCode: string;
   joinedAt: string;
+  isAdmin: boolean;
+  modules: number[];
 }
 
 export interface ProjectFilePackageWeb {

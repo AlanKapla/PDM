@@ -18,7 +18,7 @@ describe('EmptyState — AXE', () => {
 describe('ErrorState — AXE', () => {
     it('brakNaruszen_render_zKomunikatemBledu', async () => {
         const { container } = renderWithChakra(
-            <ErrorState message="Nie udało się załadować danych." />
+            <ErrorState description="Nie udało się załadować danych." />
         );
         const results = await axe(container);
         expect(results).toHaveNoViolations();

@@ -29,7 +29,6 @@ import { handleApiError } from "../utils/handleApiError";
 import { projectApi } from "../api/projectApi";
 import type { ProjectDetailsWeb } from "../types/project.types";
 import type { UserTenant } from "../types/auth.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import { useAuth as useAuthContext } from "../context/AuthContext";
@@ -262,8 +261,8 @@ export default function Projects() {
                           <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "xs", md: "xs" }}>
                             {project.isActive ? "Aktywny" : "Nieaktywny"}
                           </Badge>
-                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize={{ base: "xs", md: "xs" }}>
-                            {getRoleName(project.userRoleCode)}
+                          <Badge colorScheme={project.isAdmin ? "purple" : "blue"} fontSize={{ base: "xs", md: "xs" }}>
+                            {project.isAdmin ? "Admin" : "Cz\u0142onek"}
                           </Badge>
                         </HStack>
                           <HStack spacing={{ base: 2, md: 4 }} fontSize={{ base: "xs", md: "sm" }} color="neutral.600" flexWrap="wrap">

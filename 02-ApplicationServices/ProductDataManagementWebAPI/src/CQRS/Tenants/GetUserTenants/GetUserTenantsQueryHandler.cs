@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Models;
 using Entities.Models.Tenants;
@@ -40,8 +39,7 @@ namespace CQRS.Tenants.GetUserTenants
                 IEnumerable<Tenant> allTenants = await tenantRepo.GetBySearch(_ => true);
 
                 IEnumerable<TenantMember> memberships = await tenantMemberRepo.GetBySearch(
-                    m => m.UserId == currentUser.Id && m.IsActive,
-                    q => q.Include(m => m.MemberRole)
+                    m => m.UserId == currentUser.Id && m.IsActive
                 );
 
                 Dictionary<Guid, TenantMember> membershipDict = memberships.ToDictionary(m => m.TenantId);
@@ -49,9 +47,9 @@ namespace CQRS.Tenants.GetUserTenants
                 return allTenants
                     .Select(t =>
                     {
-                        string roleCode = membershipDict.TryGetValue(t.Id, out TenantMember? membership)
-                            ? (membership.MemberRole?.Code ?? RoleCodes.TenantMember)
-                            : RoleCodes.SystemSuperAdmin;
+                        bool isAdmin = membershipDict.TryGetValue(t.Id, out TenantMember? membership)
+                            ? membership.IsAdmin
+                            : false;
 
                         return new UserTenantWeb
                         {
@@ -59,7 +57,7 @@ namespace CQRS.Tenants.GetUserTenants
                             Name = t.Name,
                             CreatedAt = t.CreatedAt,
                             IsActive = t.IsActive,
-                            RoleCode = roleCode,
+                            IsAdmin = isAdmin,
                             IsActiveTenant = t.Id == activeTenantId
                         };
                     })
@@ -70,8 +68,8 @@ namespace CQRS.Tenants.GetUserTenants
             IEnumerable<TenantMember> regularMemberships = await tenantMemberRepo.GetBySearch(
                 m => m.UserId == currentUser.Id
                      && m.IsActive
-                     && (m.MemberRole!.Code == RoleCodes.TenantAdmin || m.Tenant.IsActive),
-                q => q.Include(m => m.Tenant).Include(m => m.MemberRole)
+                     && (m.IsAdmin || m.Tenant.IsActive),
+                q => q.Include(m => m.Tenant)
             );
 
             return regularMemberships
@@ -81,7 +79,7 @@ namespace CQRS.Tenants.GetUserTenants
                     Name = m.Tenant.Name,
                     CreatedAt = m.Tenant.CreatedAt,
                     IsActive = m.Tenant.IsActive,
-                    RoleCode = m.MemberRole?.Code ?? RoleCodes.TenantMember,
+                    IsAdmin = m.IsAdmin,
                     IsActiveTenant = m.TenantId == activeTenantId
                 })
                 .OrderBy(t => t.Name)

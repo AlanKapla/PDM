@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 
 namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
 {
@@ -17,6 +17,6 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
         public bool? BoolValue { get; init; }
         public DateTime? DateTimeValue { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

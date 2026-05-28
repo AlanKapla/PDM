@@ -5,7 +5,6 @@ using Business.Interfaces.Services;
 using Entities.Enums;
 using Entities.Models;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Microsoft.AspNetCore.Http;
@@ -24,9 +23,6 @@ namespace Business.Implementation.Model
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IReadRepository<Project> projectRepo;
-        private readonly IReadRepository<Tenant> tenantRepo;
-        private readonly IReadRepository<Role> roleRepo;
-        private readonly IRepository<RolePermission> rolePermissionRepo;
         private readonly IUserContextCache cache;
 
         private bool _loaded;
@@ -44,9 +40,6 @@ namespace Business.Implementation.Model
             IRepository<TenantMember> tenantMemberRepo,
             IRepository<ProjectMember> projectMemberRepo,
             IReadRepository<Project> projectRepo,
-            IReadRepository<Tenant> tenantRepo,
-            IReadRepository<Role> roleRepo,
-            IRepository<RolePermission> rolePermissionRepo,
             IUserContextCache cache)
         {
             this.httpContextAccessor = httpContextAccessor;
@@ -56,9 +49,6 @@ namespace Business.Implementation.Model
             this.tenantMemberRepo = tenantMemberRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.projectRepo = projectRepo;
-            this.tenantRepo = tenantRepo;
-            this.roleRepo = roleRepo;
-            this.rolePermissionRepo = rolePermissionRepo;
             this.cache = cache;
         }
 
@@ -218,58 +208,22 @@ namespace Business.Implementation.Model
 
         private async Task<TenantCtxSnapshot> BuildTenantSnapshotAsync(Guid tenantId, CancellationToken cancellationToken)
         {
-            // Load tenant to get IsActive
-            var tenantEntity = await tenantRepo.GetFirstBySearch(
-                t => t.Id == tenantId,
-                cancellationToken);
+            TenantMember? membership = await tenantMemberRepo.GetFirstBySearch(
+                tm => tm.TenantId == tenantId && tm.UserId == _id && tm.IsActive);
 
-            if (tenantEntity == null)
-            {
-                throw new InvalidOperationException($"Tenant {tenantId} not found");
-            }
-
-            var membership = await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == tenantId && tm.UserId == _id,
-                q => q.Include(tm => tm.MemberRole!));
-
-            // No membership - check if SuperAdmin for fallback access
-            if (membership?.RoleId == null)
+            if (membership is null)
             {
                 if (_systemRole == SystemRole.SuperAdmin)
                 {
-                    return new TenantCtxSnapshot(
-                        tenantId,
-                        Guid.Empty, // No role ID for non-member SuperAdmin
-                        SuperAdminFallbackPermissions.TenantReadOnly,
-                        false, // Not a tenant admin (no membership)
-                        tenantEntity.IsActive // Include IsActive from tenant
-                    );
+                    return new TenantCtxSnapshot(tenantId, IsAdmin: false, IsActive: true);
                 }
 
                 throw new InvalidOperationException("User is not a member of the tenant");
             }
 
-            // Step 1: Start with permissions from tenant role
-            var permissions = await GetRolePermissionsAsync(membership.RoleId.Value, cancellationToken);
+            bool isAdmin = membership.IsAdmin || _systemRole == SystemRole.SuperAdmin;
 
-            // Step 2: If SuperAdmin, ALWAYS add fallback permissions (independent of other roles)
-            if (_systemRole == SystemRole.SuperAdmin)
-            {
-                foreach (var fallbackPermission in SuperAdminFallbackPermissions.TenantReadOnly)
-                {
-                    permissions.Add(fallbackPermission);
-                }
-            }
-
-            var isTenantAdmin = membership.MemberRole?.Code == RoleCodes.TenantAdmin;
-
-            return new TenantCtxSnapshot(
-                tenantId,
-                membership.RoleId.Value,
-                permissions,
-                isTenantAdmin,
-                tenantEntity.IsActive // Include IsActive from tenant
-            );
+            return new TenantCtxSnapshot(tenantId, IsAdmin: isAdmin, IsActive: true);
         }
 
         private async Task<ProjectCtxSnapshot> BuildProjectSnapshotAsync(Guid projectId, CancellationToken cancellationToken)
@@ -284,26 +238,18 @@ namespace Business.Implementation.Model
                 throw new InvalidOperationException($"Project {projectId} not found");
             }
 
-            // Check project membership
+            // Check if user is Tenant Admin (has admin rights in project's tenant)
+            TenantMember? tenantMembership = await tenantMemberRepo.GetFirstBySearch(
+                tm => tm.TenantId == projectEntity.TenantId && tm.UserId == _id && tm.IsActive);
+
+            bool isTenantAdmin = tenantMembership?.IsAdmin ?? false;
+
+            // Check project membership with ModulePermissions
             var membership = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == projectId && pm.UserId == _id,
-                q => q.Include(pm => pm.MemberRole!));
-
-            // Check if user is Tenant Admin (has admin rights in project's tenant)
-            var tenantMembership = await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == projectEntity.TenantId && tm.UserId == _id,
-                q => q.Include(tm => tm.MemberRole!));
-
-            bool isTenantAdmin = tenantMembership?.MemberRole?.Code == RoleCodes.TenantAdmin;
-
-            // ========================================================================
-            // DECISION TREE: Build permissions based on user's roles
-            // Order: SuperAdmin fallback → Tenant Admin → Project Role
-            // All are additive (Union), not mutually exclusive
-            // ========================================================================
+                q => q.Include(pm => pm.ModulePermissions));
 
             var permissions = new HashSet<string>();
-            Guid? projectRoleId = membership?.RoleId;
             bool isProjectAdmin = false;
 
             // ────────────────────────────────────────────────────────────────────────
@@ -311,97 +257,74 @@ namespace Business.Implementation.Model
             // ────────────────────────────────────────────────────────────────────────
             if (_systemRole == SystemRole.SuperAdmin)
             {
-                // SuperAdmin gets read-only fallback permissions
-                // These are ALWAYS added, regardless of Tenant Admin or Project membership
-                foreach (var fallbackPermission in SuperAdminFallbackPermissions.ProjectReadOnly)
+                foreach (string fallbackPermission in SuperAdminFallbackPermissions.ProjectReadOnly)
                 {
                     permissions.Add(fallbackPermission);
                 }
             }
 
             // ────────────────────────────────────────────────────────────────────────
-            // STEP 2: Tenant Admin - Add full PROJECT.ADMIN permissions for tenant's projects
+            // STEP 2: Tenant Admin - Add all admin-level module permissions
             // ────────────────────────────────────────────────────────────────────────
             if (isTenantAdmin)
             {
-                // Tenant Admin gets full PROJECT.ADMIN permissions in their tenant's projects
-                var adminRole = await roleRepo.GetFirstBySearch(
-                    r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectAdmin,
-                    cancellationToken);
-
-                if (adminRole == null)
-                {
-                    throw new InvalidOperationException($"{RoleCodes.ProjectAdmin} role not found");
-                }
-
-                var adminPermissions = await GetRolePermissionsAsync(adminRole.Id, cancellationToken);
-                
-                // Merge admin permissions
-                foreach (var adminPermission in adminPermissions)
+                foreach (string adminPermission in ModulePermissionTranslator.GetAllModulePermissions())
                 {
                     permissions.Add(adminPermission);
                 }
 
-                // Tenant Admin is treated as Project Admin
+                permissions.Add(PermissionCodes.ProjectMembers); // admin-only, not a configurable module
                 isProjectAdmin = true;
             }
 
             // ────────────────────────────────────────────────────────────────────────
-            // STEP 3: Project Membership - Add permissions from project role
+            // STEP 3: Project Membership - Translate ModulePermissions to codes
             // ────────────────────────────────────────────────────────────────────────
-            if (membership?.RoleId.HasValue == true)
+            if (membership is not null)
             {
-                // User has project membership - add role permissions
-                var rolePermissions = await GetRolePermissionsAsync(membership.RoleId.Value, cancellationToken);
-                
-                foreach (var rolePermission in rolePermissions)
+                // Every project member can fetch basic project details regardless of module config
+                permissions.Add(PermissionCodes.ProjectView);
+
+                if (membership.IsAdmin)
                 {
-                    permissions.Add(rolePermission);
+                    // IsAdmin flag grants full access to all modules (overrides ModulePermissions)
+                    foreach (string adminPermission in ModulePermissionTranslator.GetAllModulePermissions())
+                    {
+                        permissions.Add(adminPermission);
+                    }
+
+                    permissions.Add(PermissionCodes.ProjectMembers); // admin-only, not a configurable module
+                }
+                else
+                {
+                    foreach (var mp in membership.ModulePermissions)
+                    {
+                        foreach (string code in ModulePermissionTranslator.Translate(mp.Module))
+                        {
+                            permissions.Add(code);
+                        }
+                    }
                 }
 
-                // Check if user is Project Admin through project role
-                isProjectAdmin = membership.MemberRole?.Code == RoleCodes.ProjectAdmin;
+                isProjectAdmin = isProjectAdmin || membership.IsAdmin;
             }
 
             // ────────────────────────────────────────────────────────────────────────
-            // VALIDATION: User must have at least one source of permissions
+            // VALIDATION: User must have some source of permissions
+            // (catches users who are not member, not tenant admin, and not superadmin)
             // ────────────────────────────────────────────────────────────────────────
             if (permissions.Count == 0)
             {
-                // No permissions from any source - user has no access
                 throw new InvalidOperationException("User is not a member of the project");
             }
 
-            // ────────────────────────────────────────────────────────────────────────
-            // RETURN: ProjectCtxSnapshot with merged permissions from all sources
-            // ────────────────────────────────────────────────────────────────────────
             return new ProjectCtxSnapshot(
                 projectId,
                 projectEntity.TenantId,
-                projectRoleId, // Null if no project membership
-                permissions,   // Union of all permissions
-                isProjectAdmin, // True if Tenant Admin OR Project Admin role
-                projectEntity.IsActive // Include IsActive from project
+                permissions,
+                isProjectAdmin,
+                projectEntity.IsActive
             );
-        }
-
-        private async Task<HashSet<string>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken)
-        {
-            return await cache.GetOrCreateRolePermissionsAsync(
-                roleId,
-                async () =>
-                {
-                    var rolePermissions = await rolePermissionRepo.GetBySearch(
-                        rp => rp.RoleId == roleId,
-                        q => q.Include(rp => rp.Permission));
-
-                    return rolePermissions
-                        .Where(rp => rp.Permission.IsActive)
-                        .Select(rp => rp.Permission.Code)
-                        .ToHashSet();
-                },
-                TimeSpan.FromMinutes(10),
-                cancellationToken);
         }
 
         private void EnsureLoaded()
@@ -441,8 +364,8 @@ namespace Business.Implementation.Model
 
         public async Task<bool> IsTenantAdminAsync(Guid tenantId, CancellationToken cancellationToken = default)
         {
-            var tenantSnapshot = await GetTenantSnapshotAsync(tenantId, cancellationToken);
-            return tenantSnapshot?.IsTenantAdmin ?? false;
+            TenantCtxSnapshot? snapshot = await GetTenantSnapshotAsync(tenantId, cancellationToken);
+            return snapshot?.IsAdmin ?? false;
         }
 
         public async Task<bool> IsProjectAdminAsync(Guid projectId, CancellationToken cancellationToken = default)

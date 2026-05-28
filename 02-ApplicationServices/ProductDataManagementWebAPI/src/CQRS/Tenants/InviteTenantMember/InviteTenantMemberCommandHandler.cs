@@ -18,6 +18,7 @@ namespace CQRS.Tenants.InviteTenantMember
     public sealed class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
+        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly ICurrentUser currentUser;
@@ -29,6 +30,7 @@ namespace CQRS.Tenants.InviteTenantMember
 
         public InviteTenantMemberCommandHandler(
             IRepository<TenantInvitation> invitationRepo,
+            IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<User> userRepo,
             IReadRepository<Tenant> tenantRepo,
             ICurrentUser currentUser,
@@ -39,6 +41,7 @@ namespace CQRS.Tenants.InviteTenantMember
             IReadRepository<Notification> notificationRepo)
         {
             this.invitationRepo = invitationRepo;
+            this.tenantMemberRepo = tenantMemberRepo;
             this.userRepo = userRepo;
             this.tenantRepo = tenantRepo;
             this.currentUser = currentUser;
@@ -56,7 +59,39 @@ namespace CQRS.Tenants.InviteTenantMember
 
             string normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
+            TenantInvitation? existingInvitation = await invitationRepo.GetFirstBySearch(
+                i => i.TenantId == request.TenantId
+                     && i.Email == normalizedEmail
+                     && i.IsActive
+                     && i.Status == InvitationStatus.Pending
+                     && i.ExpiresAt > DateTime.UtcNow);
+
+            if (existingInvitation is not null)
+            {
+                throw new ConflictApiException(
+                    nameof(TenantInvitation),
+                    normalizedEmail,
+                    "Aktywne zaproszenie dla tego adresu email już istnieje.");
+            }
+
             User? existingUser = await userRepo.GetFirstBySearch(u => u.Email == normalizedEmail && u.IsActive);
+
+            if (existingUser is not null)
+            {
+                bool alreadyMember = await tenantMemberRepo.AnyAsync(
+                    m => m.TenantId == request.TenantId
+                         && m.UserId == existingUser.Id
+                         && m.IsActive,
+                    cancellationToken);
+
+                if (alreadyMember)
+                {
+                    throw new ConflictApiException(
+                        nameof(TenantMember),
+                        normalizedEmail,
+                        "Użytkownik jest już aktywnym członkiem tej organizacji.");
+                }
+            }
 
             string token = tokenGenerator.GenerateToken();
             TenantInvitation invitation = new TenantInvitation

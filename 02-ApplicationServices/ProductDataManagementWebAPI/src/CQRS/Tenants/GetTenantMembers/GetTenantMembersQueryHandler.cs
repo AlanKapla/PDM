@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.WebModels.Tenants;
+﻿using Business.Interfaces.WebModels.Tenants;
 using Entities.Models.Tenants;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +19,7 @@ namespace CQRS.Tenants.GetTenantMembers
         {
             IEnumerable<TenantMember> tenantMembers = await tenantMemberRepo.GetBySearch(
                 tm => tm.TenantId == request.TenantId && tm.IsActive,
-                include => include.Include(tm => tm.User).Include(tm => tm.MemberRole)
+                include => include.Include(tm => tm.User)
             );
 
             IEnumerable<TenantMemberWeb> result = tenantMembers
@@ -29,7 +28,7 @@ namespace CQRS.Tenants.GetTenantMembers
                     Email: tm.User.Email,
                     FirstName: tm.User.FirstName,
                     LastName: tm.User.LastName,
-                    RoleCode: tm.MemberRole?.Code ?? RoleCodes.TenantMember,
+                    IsAdmin: tm.IsAdmin,
                     IsActive: tm.IsActive,
                     JoinedAt: tm.CreatedAt
                 ))

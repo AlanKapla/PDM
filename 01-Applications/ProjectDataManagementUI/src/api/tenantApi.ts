@@ -25,10 +25,6 @@ export const tenantApi = {
     return axiosClient.put(`/tenants/${tenantId}`, { name });
   },
 
-  toggleTenantStatus: async (tenantId: string, isActive: boolean) => {
-    return axiosClient.patch(`/tenants/${tenantId}/status?isActive=${isActive}`);
-  },
-
   inviteMember: async (tenantId: string, email: string) => {
     return axiosClient.post(`/tenants/${tenantId}/invitations`, { email });
   },
@@ -53,7 +49,7 @@ export const tenantApi = {
     return axiosClient.get(`/tenants/${tenantId}/members`);
   },
 
-  updateTenantMemberRole: async (tenantId: string, userId: string, roleId: string) => {
-    return axiosClient.patch(`/tenants/${tenantId}/members/${userId}/role`, { roleId });
+  updateTenantMemberAdmin: async (tenantId: string, userId: string, isAdmin: boolean) => {
+    return axiosClient.patch(`/tenants/${tenantId}/members/${userId}/admin`, { isAdmin });
   }
 };

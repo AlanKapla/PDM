@@ -1,10 +1,8 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Tenants.AcceptTenantInvitation;
 using Entities.Enums;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using FluentAssertions;
 using MediatR;
@@ -19,7 +17,6 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
 {
     private readonly Mock<IRepository<TenantInvitation>> _invitationRepoMock = new();
     private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
-    private readonly Mock<IReadRepository<Role>> _roleRepoMock = new();
     private readonly Mock<IPermissionsVersionService> _permissionsVersionServiceMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly AcceptTenantInvitationCommandHandler _handler;
@@ -35,7 +32,6 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
         _handler = new AcceptTenantInvitationCommandHandler(
             _invitationRepoMock.Object,
             _tenantMemberRepoMock.Object,
-            _roleRepoMock.Object,
             _permissionsVersionServiceMock.Object,
             _currentUserMock.Object);
     }
@@ -60,14 +56,6 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
         ExpiresAt = DateTime.UtcNow.AddDays(7)
     };
 
-    private static Role BuildMemberRole() => new Role
-    {
-        Id = Guid.NewGuid(),
-        Code = RoleCodes.TenantMember,
-        Scope = RoleScope.Tenant,
-        IsActive = true
-    };
-
     // ─── Handle ───────────────────────────────────────────────────────────────
 
     [Fact]
@@ -90,50 +78,16 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenRoleNotFound_ThrowsNotFoundApiException()
-    {
-        // Arrange
-        TenantInvitation invitation = BuildInvitation("valid-token");
-
-        _invitationRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantInvitation, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
-            .ReturnsAsync(invitation);
-
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Role?)null);
-
-        AcceptTenantInvitationCommand command = ValidCommand();
-
-        // Act
-        Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<NotFoundApiException>();
-    }
-
-    [Fact]
     public async Task Handle_WhenMemberDoesNotExist_InsertsNewMemberAndReturnsUnit()
     {
         // Arrange
         TenantInvitation invitation = BuildInvitation("valid-token");
-        Role memberRole = BuildMemberRole();
 
         _invitationRepoMock
             .Setup(r => r.GetFirstBySearch(
                 It.IsAny<Expression<Func<TenantInvitation, bool>>>(),
                 It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
             .ReturnsAsync(invitation);
-
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(memberRole);
 
         _tenantMemberRepoMock
             .Setup(r => r.GetFirstBySearch(
@@ -157,7 +111,6 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
     {
         // Arrange
         TenantInvitation invitation = BuildInvitation("valid-token");
-        Role memberRole = BuildMemberRole();
         TenantMember inactiveMember = new TenantMember
         {
             TenantId = invitation.TenantId,
@@ -170,12 +123,6 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
                 It.IsAny<Expression<Func<TenantInvitation, bool>>>(),
                 It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
             .ReturnsAsync(invitation);
-
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(memberRole);
 
         _tenantMemberRepoMock
             .Setup(r => r.GetFirstBySearch(
@@ -195,3 +142,4 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
         _tenantMemberRepoMock.Verify(r => r.Insert(It.IsAny<TenantMember>()), Times.Never);
     }
 }
+

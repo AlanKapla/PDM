@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 
 namespace CQRS.Messages.SendMessage
@@ -10,7 +10,7 @@ namespace CQRS.Messages.SendMessage
         string Content
     ) : IRequestCommand<Guid>, IAuthorizableRequest
     {
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public string PermissionCode => PermissionCodes.ProjectSettings;
         
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

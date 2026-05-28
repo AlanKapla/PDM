@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Microsoft.AspNetCore.Http;
 
 namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
@@ -30,6 +30,6 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
         /// </summary>
         public List<IFormFile> Files { get; init; } = new();
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

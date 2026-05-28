@@ -2,10 +2,8 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Projects.UpdateProjectMemberRole;
-using Entities.Enums;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using FluentAssertions;
 using MediatR;
 using Moq;
@@ -18,7 +16,7 @@ public sealed class UpdateProjectMemberRoleCommandHandlerTests
 {
     private readonly Mock<IReadRepository<Project>> _projectRepoMock = new();
     private readonly Mock<IRepository<ProjectMember>> _projectMemberRepoMock = new();
-    private readonly Mock<IReadRepository<Role>> _roleRepoMock = new();
+    private readonly Mock<IRepository<ProjectMemberModulePermission>> _modulePermissionRepoMock = new();
     private readonly Mock<IReadRepository<Notification>> _notificationRepoMock = new();
     private readonly Mock<IPermissionsVersionService> _permissionsVersionServiceMock = new();
     private readonly Mock<INotificationSender> _notificationSenderMock = new();
@@ -49,7 +47,7 @@ public sealed class UpdateProjectMemberRoleCommandHandlerTests
         _handler = new UpdateProjectMemberRoleCommandHandler(
             _projectRepoMock.Object,
             _projectMemberRepoMock.Object,
-            _roleRepoMock.Object,
+            _modulePermissionRepoMock.Object,
             _notificationRepoMock.Object,
             _permissionsVersionServiceMock.Object,
             _notificationSenderMock.Object,
@@ -64,7 +62,7 @@ public sealed class UpdateProjectMemberRoleCommandHandlerTests
         TenantId = Guid.NewGuid(),
         ProjectId = Guid.NewGuid(),
         UserId = Guid.NewGuid(),
-        RoleId = Guid.NewGuid(),
+        IsAdmin = false,
     };
 
     private static Project BuildProject(Guid id, Guid tenantId) => new Project
@@ -77,15 +75,6 @@ public sealed class UpdateProjectMemberRoleCommandHandlerTests
     private static ProjectMember BuildMember(Guid projectId, Guid tenantId, Guid userId) =>
         new ProjectMember { ProjectId = projectId, TenantId = tenantId, UserId = userId };
 
-    private static Role BuildRole(Guid id) => new Role
-    {
-        Id = id,
-        Code = "PROJECT.EDITOR",
-        Name = "Project Editor",
-        Scope = RoleScope.Project,
-        IsActive = true,
-    };
-
     // ─── Handle ───────────────────────────────────────────────────────────────
 
     [Fact]
@@ -95,7 +84,6 @@ public sealed class UpdateProjectMemberRoleCommandHandlerTests
         UpdateProjectMemberRoleCommand command = ValidCommand();
         Project project = BuildProject(command.ProjectId, command.TenantId);
         ProjectMember member = BuildMember(command.ProjectId, command.TenantId, command.UserId);
-        Role newRole = BuildRole(command.RoleId);
 
         _projectRepoMock
             .Setup(r => r.GetFirstBySearch(It.IsAny<Expression<Func<Project, bool>>>()))
@@ -105,18 +93,12 @@ public sealed class UpdateProjectMemberRoleCommandHandlerTests
             .Setup(r => r.GetFirstBySearch(It.IsAny<Expression<Func<ProjectMember, bool>>>()))
             .ReturnsAsync(member);
 
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(newRole);
-
         // Act
         Unit result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         result.Should().Be(Unit.Value);
-        member.RoleId.Should().Be(newRole.Id);
+        member.IsAdmin.Should().BeFalse();
         _projectMemberRepoMock.Verify(r => r.Update(member), Times.Once);
         _permissionsVersionServiceMock.Verify(
             s => s.BumpVersionAsync(command.UserId, It.IsAny<CancellationToken>()),
@@ -162,32 +144,4 @@ public sealed class UpdateProjectMemberRoleCommandHandlerTests
         await act.Should().ThrowAsync<NotFoundApiException>();
     }
 
-    [Fact]
-    public async Task Handle_WhenNewRoleNotFound_ThrowsNotFoundApiException()
-    {
-        // Arrange
-        UpdateProjectMemberRoleCommand command = ValidCommand();
-        Project project = BuildProject(command.ProjectId, command.TenantId);
-        ProjectMember member = BuildMember(command.ProjectId, command.TenantId, command.UserId);
-
-        _projectRepoMock
-            .Setup(r => r.GetFirstBySearch(It.IsAny<Expression<Func<Project, bool>>>()))
-            .ReturnsAsync(project);
-
-        _projectMemberRepoMock
-            .Setup(r => r.GetFirstBySearch(It.IsAny<Expression<Func<ProjectMember, bool>>>()))
-            .ReturnsAsync(member);
-
-        _roleRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Role?)null);
-
-        // Act
-        Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<NotFoundApiException>();
-    }
 }

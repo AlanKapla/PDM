@@ -40,7 +40,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = PermissionCodes.TenantProjectCreate)]
+        [Authorize(Policy = PermissionCodes.TenantProjectsCreate)]
         public async Task<IActionResult> CreateProject([FromRoute] Guid tenantId, [FromBody] CreateProjectCommand command)
         {
             command = command with { TenantId = tenantId };
@@ -61,7 +61,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{projectId}")]
-        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
         public async Task<IActionResult> UpdateProject(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -73,7 +73,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{projectId}/members")]
-        [Authorize(Policy = PermissionCodes.ProjectMembersView)]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
         public async Task<IActionResult> GetProjectMembers(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -84,7 +84,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost("{projectId}/members")]
-        [Authorize(Policy = PermissionCodes.ProjectMembersManage)]
+        [Authorize(Policy = PermissionCodes.ProjectMembers)]
         public async Task<IActionResult> AddProjectMember(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -96,7 +96,7 @@ namespace WebApi.Controllers
         }
 
         [HttpDelete("{projectId}/members/{userId}")]
-        [Authorize(Policy = PermissionCodes.ProjectMembersManage)]
+        [Authorize(Policy = PermissionCodes.ProjectMembers)]
         public async Task<IActionResult> RemoveProjectMember(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -113,7 +113,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{projectId}/status")]
-        [Authorize(Policy = PermissionCodes.ProjectStatusManage)]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
         public async Task<IActionResult> ToggleProjectStatus(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -130,7 +130,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{projectId}/currency")]
-        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -152,7 +152,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{projectId}/members/{userId}/role")]
-        [Authorize(Policy = PermissionCodes.ProjectMembersManage)]
+        [Authorize(Policy = PermissionCodes.ProjectMembers)]
         public async Task<IActionResult> UpdateProjectMemberRole(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

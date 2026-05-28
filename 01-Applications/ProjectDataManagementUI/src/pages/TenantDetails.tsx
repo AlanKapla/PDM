@@ -20,7 +20,11 @@ import {
   Th,
   Td,
   IconButton,
-  Collapse,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
@@ -31,18 +35,260 @@ import {
   Select,
   Tooltip,
   Icon,
+  Textarea,
 } from "@chakra-ui/react";
-import { Building2, ChevronDown, ChevronUp, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Shield, Power, Users } from "lucide-react";
+import { Building2, Trash2, ArrowLeft, Edit2, Save, X, UserPlus, Users, Plus } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { getTenantDetails, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberRole } from "../services/tenantService";
+import { getTenantDetails, updateTenant, removeTenantMember, removeTenantInvitation, inviteTenantMember, updateTenantMemberAdmin } from "../services/tenantService";
 import type { TenantDetails as TenantDetailsType } from "../types/auth.types";
 import { getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
+import { getTenantRoleName, getTenantRoleColor } from "../constants/roleCodes";
 import { useAuth } from "../context/AuthContext";
-import { tenantApi } from "../api/tenantApi";
-import { roleApi, type RoleWeb } from "../api/roleApi";
+
 import { handleApiError } from "../utils/handleApiError";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { useContractors, useCreateContractor, useUpdateContractor, useDeleteContractor } from "../hooks/queries";
+import { useModal } from "../hooks/useModal";
+import { useTenantPermissions } from "../hooks/useTenantPermissions";
+import AppModal from "../components/ui/AppModal";
+import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
+import type { ContractorWeb, CreateContractorRequest } from "../types/contractor.types";
+
+interface ContractorFormValues {
+  name: string;
+  taxId: string;
+  email: string;
+  phoneNumber: string;
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
+  notes: string;
+}
+
+const emptyContractorForm: ContractorFormValues = {
+  name: "",
+  taxId: "",
+  email: "",
+  phoneNumber: "",
+  street: "",
+  city: "",
+  postalCode: "",
+  country: "",
+  notes: "",
+};
+
+function ContractorsTabPanel({ tenantId }: { tenantId: string }) {
+  const { canEdit } = useTenantPermissions();
+  const { showSuccess, showError } = useToastNotification();
+  const { data: contractors = [], isLoading } = useContractors(tenantId || undefined);
+  const createMutation = useCreateContractor(tenantId);
+  const updateMutation = useUpdateContractor(tenantId);
+  const deleteMutation = useDeleteContractor(tenantId);
+  const formModal = useModal();
+  const deleteDialog = useModal();
+  const [editingContractor, setEditingContractor] = useState<ContractorWeb | null>(null);
+  const [deletingContractor, setDeletingContractor] = useState<ContractorWeb | null>(null);
+  const [form, setForm] = useState<ContractorFormValues>(emptyContractorForm);
+
+  const handleOpenCreate = () => {
+    setEditingContractor(null);
+    setForm(emptyContractorForm);
+    formModal.onOpen();
+  };
+
+  const handleOpenEdit = (c: ContractorWeb) => {
+    setEditingContractor(c);
+    setForm({
+      name: c.name,
+      taxId: c.taxId ?? "",
+      email: c.email ?? "",
+      phoneNumber: c.phoneNumber ?? "",
+      street: c.street ?? "",
+      city: c.city ?? "",
+      postalCode: c.postalCode ?? "",
+      country: c.country ?? "",
+      notes: c.notes ?? "",
+    });
+    formModal.onOpen();
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      showError("Błąd", "Nazwa kontrahenta jest wymagana");
+      return;
+    }
+    const payload: CreateContractorRequest = {
+      name: form.name.trim(),
+      taxId: form.taxId || null,
+      email: form.email || null,
+      phoneNumber: form.phoneNumber || null,
+      street: form.street || null,
+      city: form.city || null,
+      postalCode: form.postalCode || null,
+      country: form.country || null,
+      notes: form.notes || null,
+    };
+    try {
+      if (editingContractor) {
+        await updateMutation.mutateAsync({ contractorId: editingContractor.id, data: { ...payload, id: editingContractor.id } });
+        showSuccess("Sukces", "Kontrahent zaktualizowany");
+      } else {
+        await createMutation.mutateAsync(payload);
+        showSuccess("Sukces", "Kontrahent dodany");
+      }
+      formModal.onClose();
+    } catch {
+      showError("Błąd", "Nie udało się zapisać kontrahenta");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingContractor) return;
+    try {
+      await deleteMutation.mutateAsync(deletingContractor.id);
+      showSuccess("Sukces", "Kontrahent usunięty");
+      deleteDialog.onClose();
+    } catch {
+      showError("Błąd", "Nie udało się usunąć kontrahenta");
+    }
+  };
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <>
+      {canEdit && (
+        <Box p={{ base: 3, md: 4 }} borderBottom="1px solid" borderColor="neutral.200">
+          <Button
+            size={{ base: "xs", md: "sm" }}
+            leftIcon={<Plus size={14} />}
+            colorScheme="primary"
+            variant="ghost"
+            onClick={handleOpenCreate}
+            fontSize={{ base: "xs", md: "sm" }}
+          >
+            Dodaj kontrahenta
+          </Button>
+        </Box>
+      )}
+      {isLoading ? (
+        <Box p={4} textAlign="center">
+          <Spinner size="sm" color="primary.500" />
+        </Box>
+      ) : contractors.length === 0 ? (
+        <Box p={{ base: 3, md: 4 }}>
+          <Text color="neutral.500" textAlign="center">
+            Brak kontrahentów w tej organizacji
+          </Text>
+        </Box>
+      ) : (
+        <Box overflowX={{ base: "auto", md: "visible" }}>
+          <Table variant="simple" size={{ base: "xs", md: "sm" }}>
+            <Thead>
+              <Tr>
+                <Th fontSize={{ base: "xs", md: "sm" }}>Nazwa</Th>
+                <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>NIP</Th>
+                <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Email</Th>
+                <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Miasto</Th>
+                {canEdit && <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>}
+              </Tr>
+            </Thead>
+            <Tbody>
+              {contractors.map((c) => (
+                <Tr key={c.id} cursor="pointer" _hover={{ bg: "neutral.50" }} onClick={() => handleOpenEdit(c)}>
+                  <Td fontSize={{ base: "xs", md: "sm" }}>{c.name}</Td>
+                  <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>{c.taxId ?? "—"}</Td>
+                  <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>{c.email ?? "—"}</Td>
+                  <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>{c.city ?? "—"}</Td>
+                  {canEdit && (
+                    <Td>
+                      <HStack spacing={1}>
+                        <Tooltip label="Usuń">
+                          <IconButton
+                            aria-label="Usuń kontrahenta"
+                            icon={<Trash2 size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={(e) => { e.stopPropagation(); setDeletingContractor(c); deleteDialog.onOpen(); }}
+                          />
+                        </Tooltip>
+                      </HStack>
+                    </Td>
+                  )}
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+
+      <AppModal
+        isOpen={formModal.isOpen}
+        onClose={formModal.onClose}
+        title={editingContractor ? "Edytuj kontrahenta" : "Dodaj kontrahenta"}
+        actionLabel={editingContractor ? "Zapisz" : "Dodaj"}
+        actionColorScheme="green"
+        onAction={handleSave}
+        isActionLoading={isSaving}
+        isActionDisabled={!form.name.trim()}
+        desktopSize="xl"
+      >
+        <VStack spacing={3}>
+          <FormControl isRequired>
+            <FormLabel>Nazwa</FormLabel>
+            <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Nazwa kontrahenta" />
+          </FormControl>
+          <FormControl>
+            <FormLabel>NIP</FormLabel>
+            <Input value={form.taxId} onChange={(e) => setForm((p) => ({ ...p, taxId: e.target.value }))} placeholder="NIP" />
+          </FormControl>
+          <FormControl>
+            <FormLabel>Email</FormLabel>
+            <Input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="adres@email.pl" />
+          </FormControl>
+          <FormControl>
+            <FormLabel>Telefon</FormLabel>
+            <Input value={form.phoneNumber} onChange={(e) => setForm((p) => ({ ...p, phoneNumber: e.target.value }))} placeholder="Numer telefonu" />
+          </FormControl>
+          <HStack w="100%" spacing={3} align="flex-start">
+            <FormControl>
+              <FormLabel>Ulica</FormLabel>
+              <Input value={form.street} onChange={(e) => setForm((p) => ({ ...p, street: e.target.value }))} placeholder="Ulica i numer" />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Miasto</FormLabel>
+              <Input value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} placeholder="Miasto" />
+            </FormControl>
+          </HStack>
+          <HStack w="100%" spacing={3} align="flex-start">
+            <FormControl>
+              <FormLabel>Kod pocztowy</FormLabel>
+              <Input value={form.postalCode} onChange={(e) => setForm((p) => ({ ...p, postalCode: e.target.value }))} placeholder="00-000" />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Kraj</FormLabel>
+              <Input value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} placeholder="Kraj" />
+            </FormControl>
+          </HStack>
+          <FormControl>
+            <FormLabel>Notatki</FormLabel>
+            <Textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Opcjonalne notatki..." rows={3} />
+          </FormControl>
+        </VStack>
+      </AppModal>
+
+      <DeleteAlertDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={deleteDialog.onClose}
+        onConfirm={handleDelete}
+        itemName={deletingContractor?.name}
+        isLoading={deleteMutation.isPending}
+      />
+    </>
+  );
+}
 
 export default function TenantDetails() {
   const { tenantId } = useParams<{ tenantId: string }>();
@@ -57,9 +303,6 @@ export default function TenantDetails() {
   const [editedName, setEditedName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
 
-  const [membersExpanded, setMembersExpanded] = useState(true);
-  const [invitationsExpanded, setInvitationsExpanded] = useState(true);
-
   const [isInviting, setIsInviting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [sendingInvite, setSendingInvite] = useState(false);
@@ -67,16 +310,8 @@ export default function TenantDetails() {
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [deletingInvitationId, setDeletingInvitationId] = useState<string | null>(null);
 
-  const [togglingStatus, setTogglingStatus] = useState(false);
-
-  const [editingRoleMemberId, setEditingRoleMemberId] = useState<string | null>(null);
-  const [editedRoleId, setEditedRoleId] = useState<string>("");
-  const [updatingRole, setUpdatingRole] = useState(false);
-  const [availableRoles, setAvailableRoles] = useState<RoleWeb[]>([]);
-
   const { isOpen: isMemberDeleteOpen, onOpen: onMemberDeleteOpen, onClose: onMemberDeleteClose } = useDisclosure();
   const { isOpen: isInvitationDeleteOpen, onOpen: onInvitationDeleteOpen, onClose: onInvitationDeleteClose } = useDisclosure();
-  const { isOpen: isToggleStatusOpen, onOpen: onToggleStatusOpen, onClose: onToggleStatusClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   const labelColor = useColorModeValue("gray.700", "gray.300");
@@ -106,16 +341,7 @@ export default function TenantDetails() {
       }
     }
 
-    async function loadRoles() {
-      try {
-        const roles = await roleApi.getAvailableRoles('tenant');
-        setAvailableRoles(roles);
-      } catch (error) {
-      }
-    }
-
     loadTenant();
-    loadRoles();
   }, [tenantId, navigate]);
 
   const handleUpdateName = async () => {
@@ -241,7 +467,7 @@ export default function TenantDetails() {
     }
   };
 
-  const handleUpdateMemberRole = async (userId: string) => {
+  const handleToggleAdmin = async (userId: string, isAdmin: boolean) => {
     if (!tenantId) return;
 
     if (user?.id === userId) {
@@ -249,49 +475,22 @@ export default function TenantDetails() {
       return;
     }
 
-    setUpdatingRole(true);
     try {
-      const success = await updateTenantMemberRole(tenantId, userId, editedRoleId);
-
-      if (success) {
-        setEditingRoleMemberId(null);
-        showApiSuccess('roleUpdated');
-        // Przeładuj dane
-        window.location.reload();
-      } else {
-        showError("Błąd", "Nie udało się zmienić roli");
-      }
+      await updateTenantMemberAdmin(tenantId, userId, isAdmin);
+      setTenant((prev) =>
+        prev
+          ? {
+              ...prev,
+              members: prev.members.map((m) =>
+                m.userId === userId ? { ...m, isAdmin } : m
+              ),
+            }
+          : null
+      );
+      showApiSuccess('roleUpdated');
     } catch (error) {
       const { title, description } = handleApiError(error);
       showError(title, description);
-    } finally {
-      setUpdatingRole(false);
-    }
-  };
-
-  const handleToggleTenantStatus = async () => {
-    if (!tenant || !tenantId) return;
-
-    const newStatus = !tenant.isActive;
-    setTogglingStatus(true);
-
-    try {
-      await tenantApi.toggleTenantStatus(tenantId, newStatus);
-
-      showApiSuccess(newStatus ? 'activated' : 'deactivated');
-
-      onToggleStatusClose();
-
-      // Odśwież dane tenanta
-      const updated = await getTenantDetails(tenantId);
-      if (updated) {
-        setTenant(updated);
-      }
-    } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-    } finally {
-      setTogglingStatus(false);
     }
   };
 
@@ -361,24 +560,6 @@ export default function TenantDetails() {
                 >
                   {!isEditingName && (
                     <>
-                      <Tooltip
-                        label={
-                          tenant.isActive
-                            ? "Dezaktywuj organizację"
-                            : "Aktywuj organizację"
-                        }
-                      >
-                        <Button
-                          size={{ base: "xs", md: "sm" }}
-                          variant="ghost"
-                          leftIcon={<Power size={16} />}
-                          colorScheme={tenant.isActive ? "red" : "green"}
-                          onClick={onToggleStatusOpen}
-                          fontSize={{ base: "xs", md: "sm" }}
-                        >
-                          {tenant.isActive ? "Dezaktywuj" : "Aktywuj"}
-                        </Button>
-                      </Tooltip>
                       <Button
                         size={{ base: "xs", md: "sm" }}
                         variant="ghost"
@@ -448,248 +629,121 @@ export default function TenantDetails() {
                     Utworzono:{" "}
                     {new Date(tenant.createdAt).toLocaleDateString("pl-PL")}
                   </Text>
-                  <Badge colorScheme={getRoleColor(tenant.roleCode)}>
-                    {getRoleName(tenant.roleCode)}
+                  <Badge colorScheme={getTenantRoleColor(tenant.isAdmin)}>
+                    {getTenantRoleName(tenant.isAdmin)}
                   </Badge>
                 </VStack>
               )}
             </VStack>
           </Box>
 
-          {/* Członkowie + zaproszenia + dialogi */}
+          {/* Tabs: Członkowie / Zaproszenia / Kontrahenci */}
           <Box
             bg="white"
             rounded="lg"
             borderWidth="1px"
             borderColor="neutral.200"
           >
-            {/* Członkowie */}
-            <HStack
-              p={{ base: 3, md: 4 }}
-              justify="space-between"
-              flexWrap={{ base: "wrap", md: "nowrap" }}
-              gap={{ base: 2, md: 0 }}
-            >
-              <HStack
-                spacing={3}
-                cursor="pointer"
-                onClick={() => setMembersExpanded(!membersExpanded)}
-                flex={1}
-              >
-                <Heading size="md">Członkowie</Heading>
-                <Badge>{tenant.members.length}</Badge>
-              </HStack>
-              <HStack spacing={{ base: 1, md: 2 }} flexWrap="wrap">
-                {!isInviting && (
-                  <Button
-                    size={{ base: "xs", md: "sm" }}
-                    leftIcon={<UserPlus size={14} />}
-                    colorScheme="primary"
-                    variant="ghost"
-                    onClick={() => setIsInviting(true)}
-                    fontSize={{ base: "xs", md: "sm" }}
-                  >
-                    Zaproś
-                  </Button>
-                )}
-                <IconButton
-                  aria-label="Rozwiń/Zwiń"
-                  icon={
-                    membersExpanded ? (
-                      <ChevronUp size={20} />
-                    ) : (
-                      <ChevronDown size={20} />
-                    )
-                  }
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setMembersExpanded(!membersExpanded)}
-                />
-              </HStack>
-            </HStack>
+            <Tabs>
+              <TabList px={{ base: 3, md: 4 }} pt={2}>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Text>Członkowie</Text>
+                    <Badge>{tenant.members.length}</Badge>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Text>Zaproszenia</Text>
+                    <Badge>{tenant.invitations.length}</Badge>
+                  </HStack>
+                </Tab>
+                <Tab>
+                  <HStack spacing={2}>
+                    <Users size={14} />
+                    <Text>Kontrahenci</Text>
+                  </HStack>
+                </Tab>
+              </TabList>
 
-            <Collapse in={membersExpanded} animateOpacity>
-              <Box borderTop="1px solid" borderColor="neutral.200">
-                {isInviting && (
-                  <Box
-                    p={{ base: 3, md: 4 }}
-                    bg="neutral.50"
-                    borderBottom="1px solid"
-                    borderColor="neutral.200"
-                  >
-                    <VStack spacing={3} align="stretch">
-                      <FormControl>
-                        <FormLabel fontSize="sm">
-                          Adres email osoby zapraszanej
-                        </FormLabel>
-                        <Input
-                          type="email"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                          placeholder="jan.kowalski@example.com"
-                          bg="white"
-                          onKeyPress={(e) => {
-                            if (e.key === "Enter" && !sendingInvite) {
-                              handleInviteMember();
-                            }
-                          }}
-                        />
-                      </FormControl>
-                      <HStack
-                        spacing={2}
-                        flexWrap={{ base: "wrap", md: "nowrap" }}
-                      >
-                        <Button
-                          size={{ base: "sm", md: "md" }}
-                          colorScheme="primary"
-                          onClick={handleInviteMember}
-                          isLoading={sendingInvite}
-                          flex={{ base: "1 1 100%", md: "1" }}
-                          fontSize={{ base: "xs", md: "sm" }}
-                        >
-                          Wyślij zaproszenie
-                        </Button>
-                        <Button
-                          size={{ base: "sm", md: "md" }}
-                          variant="ghost"
-                          colorScheme="gray"
-                          onClick={() => {
-                            setIsInviting(false);
-                            setInviteEmail("");
-                          }}
-                          isDisabled={sendingInvite}
-                          flex={{ base: "1 1 100%", md: "1" }}
-                          fontSize={{ base: "xs", md: "sm" }}
-                        >
-                          Anuluj
-                        </Button>
-                      </HStack>
-                    </VStack>
-                  </Box>
-                )}
-
-                {tenant.members.length === 0 ? (
-                  <Box p={{ base: 3, md: 4 }}>
-                    <Text color="neutral.500" textAlign="center">
-                      Brak członków w tej organizacji
-                    </Text>
-                  </Box>
-                ) : (
-                  <Box overflowX={{ base: "auto", md: "visible" }}>
-                    <Table variant="simple" size={{ base: "xs", md: "sm" }}>
-                      <Thead>
-                        <Tr>
-                          <Th fontSize={{ base: "xs", md: "sm" }}>
-                            Imię i nazwisko
-                          </Th>
-                          <Th
-                            fontSize={{ base: "xs", md: "sm" }}
-                            display={{ base: "none", lg: "table-cell" }}
-                          >
-                            Email
-                          </Th>
-                          <Th fontSize={{ base: "xs", md: "sm" }}>Rola</Th>
-                          <Th
-                            fontSize={{ base: "xs", md: "sm" }}
-                            display={{ base: "none", md: "table-cell" }}
-                          >
-                            Data dołączenia
-                          </Th>
-                          <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {tenant.members.map((member) => (
-                          <Tr key={member.userId}>
-                            <Td fontSize={{ base: "xs", md: "sm" }}>
-                              {member.firstName} {member.lastName}
-                              {user?.id === member.userId && (
-                                <Badge ml={2} colorScheme="green" fontSize="xs">
-                                  Ty
-                                </Badge>
-                              )}
-                            </Td>
-                            <Td
+              <TabPanels>
+                {/* Tab: Członkowie */}
+                <TabPanel p={0}>
+                  {tenant.members.length === 0 ? (
+                    <Box p={{ base: 3, md: 4 }}>
+                      <Text color="neutral.500" textAlign="center">
+                        Brak członków w tej organizacji
+                      </Text>
+                    </Box>
+                  ) : (
+                    <Box overflowX={{ base: "auto", md: "visible" }}>
+                      <Table variant="simple" size={{ base: "xs", md: "sm" }}>
+                        <Thead>
+                          <Tr>
+                            <Th fontSize={{ base: "xs", md: "sm" }}>
+                              Imię i nazwisko
+                            </Th>
+                            <Th
                               fontSize={{ base: "xs", md: "sm" }}
                               display={{ base: "none", lg: "table-cell" }}
                             >
-                              {member.email}
-                            </Td>
-                            <Td fontSize={{ base: "xs", md: "sm" }}>
-                              <Badge
-                                colorScheme={getRoleColor(member.roleCode)}
-                                fontSize={{ base: "2xs", md: "xs" }}
-                              >
-                                {getRoleName(member.roleCode)}
-                              </Badge>
-                            </Td>
-                            <Td
+                              Email
+                            </Th>
+                            <Th fontSize={{ base: "xs", md: "sm" }}>Rola</Th>
+                            <Th
                               fontSize={{ base: "xs", md: "sm" }}
                               display={{ base: "none", md: "table-cell" }}
                             >
-                              {new Date(
-                                member.joinedAt
-                              ).toLocaleDateString("pl-PL")}
-                            </Td>
-                            <Td>
-                              {editingRoleMemberId === member.userId ? (
-                                <HStack spacing={2}>
-                                  <Select
-                                    size="sm"
-                                    value={editedRoleId}
-                                    onChange={(e) => setEditedRoleId(e.target.value)}
-                                    isDisabled={updatingRole}
-                                    width="150px"
-                                  >
-                                    {availableRoles.map((role) => (
-                                      <option key={role.id} value={role.id}>
-                                        {getRoleName(role.code)}
-                                      </option>
-                                    ))}
-                                  </Select>
-
-
-                                  <IconButton
-                                    aria-label="Zapisz rolę"
-                                    icon={<Save size={14} />}
-                                    size="sm"
-                                    colorScheme="primary"
-                                    onClick={() =>
-                                      handleUpdateMemberRole(member.userId)
-                                    }
-                                    isLoading={updatingRole}
-                                  />
-                                  <IconButton
-                                    aria-label="Anuluj"
-                                    icon={<X size={14} />}
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() =>
-                                      setEditingRoleMemberId(null)
-                                    }
-                                    isDisabled={updatingRole}
-                                  />
-                                </HStack>
-                              ) : (
+                              Data dołączenia
+                            </Th>
+                            <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {tenant.members.map((member) => (
+                            <Tr key={member.userId}>
+                              <Td fontSize={{ base: "xs", md: "sm" }}>
+                                {member.firstName} {member.lastName}
+                                {user?.id === member.userId && (
+                                  <Badge ml={2} colorScheme="green" fontSize="xs">
+                                    Ty
+                                  </Badge>
+                                )}
+                              </Td>
+                              <Td
+                                fontSize={{ base: "xs", md: "sm" }}
+                                display={{ base: "none", lg: "table-cell" }}
+                              >
+                                {member.email}
+                              </Td>
+                              <Td fontSize={{ base: "xs", md: "sm" }}>
+                                <Badge
+                                  colorScheme={getTenantRoleColor(member.isAdmin)}
+                                  fontSize={{ base: "2xs", md: "xs" }}
+                                >
+                                  {getTenantRoleName(member.isAdmin)}
+                                </Badge>
+                              </Td>
+                              <Td
+                                fontSize={{ base: "xs", md: "sm" }}
+                                display={{ base: "none", md: "table-cell" }}
+                              >
+                                {new Date(
+                                  member.joinedAt
+                                ).toLocaleDateString("pl-PL")}
+                              </Td>
+                              <Td>
                                 <HStack spacing={2}>
                                   {user?.id !== member.userId && (
-                                    <Tooltip label="Zmień rolę">
-                                      <IconButton
-                                        aria-label="Edytuj rolę"
-                                        icon={<Shield size={14} />}
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          const role = availableRoles.find(
-                                            (r) => r.code === member.roleCode
-                                          );
-                                          setEditingRoleMemberId(member.userId);
-                                          setEditedRoleId(
-                                            role?.id || member.roleCode
-                                          );
-                                        }}
-                                      />
-                                    </Tooltip>
+                                    <Select
+                                      size="sm"
+                                      value={member.isAdmin ? "admin" : "member"}
+                                      onChange={(e) => handleToggleAdmin(member.userId, e.target.value === "admin")}
+                                      width="130px"
+                                    >
+                                      <option value="member">Członek</option>
+                                      <option value="admin">Administrator</option>
+                                    </Select>
                                   )}
                                   {user?.id !== member.userId && (
                                     <Tooltip label="Usuń członka">
@@ -707,51 +761,91 @@ export default function TenantDetails() {
                                     </Tooltip>
                                   )}
                                 </HStack>
-                              )}
-                            </Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </Box>
-                )}
-              </Box>
-            </Collapse>
+                              </Td>
+                            </Tr>
+                          ))}
+                        </Tbody>
+                      </Table>
+                    </Box>
+                  )}
+                </TabPanel>
 
-            {/* Zaproszenia */}
-            <Box
-              bg="white"
-              rounded="lg"
-              borderTopWidth="1px"
-              borderColor="neutral.200"
-            >
-              <HStack
-                p={{ base: 3, md: 4 }}
-                justify="space-between"
-                cursor="pointer"
-                onClick={() => setInvitationsExpanded(!invitationsExpanded)}
-                _hover={{ bg: "neutral.50" }}
-              >
-                <HStack spacing={3}>
-                  <Heading size="md">Zaproszenia</Heading>
-                  <Badge>{tenant.invitations.length}</Badge>
-                </HStack>
-                <IconButton
-                  aria-label="Rozwiń/Zwiń"
-                  icon={
-                    invitationsExpanded ? (
-                      <ChevronUp size={20} />
-                    ) : (
-                      <ChevronDown size={20} />
-                    )
-                  }
-                  variant="ghost"
-                  size="sm"
-                />
-              </HStack>
-
-              <Collapse in={invitationsExpanded} animateOpacity>
-                <Box borderTop="1px solid" borderColor="neutral.200">
+                {/* Tab: Zaproszenia */}
+                <TabPanel p={0}>
+                  {isInviting ? (
+                    <Box
+                      p={{ base: 3, md: 4 }}
+                      bg="neutral.50"
+                      borderBottom="1px solid"
+                      borderColor="neutral.200"
+                    >
+                      <VStack spacing={3} align="stretch">
+                        <FormControl>
+                          <FormLabel fontSize="sm">
+                            Adres email osoby zapraszanej
+                          </FormLabel>
+                          <Input
+                            type="email"
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                            placeholder="jan.kowalski@example.com"
+                            bg="white"
+                            onKeyPress={(e) => {
+                              if (e.key === "Enter" && !sendingInvite) {
+                                handleInviteMember();
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <HStack
+                          spacing={2}
+                          flexWrap={{ base: "wrap", md: "nowrap" }}
+                        >
+                          <Button
+                            size={{ base: "sm", md: "md" }}
+                            colorScheme="primary"
+                            onClick={handleInviteMember}
+                            isLoading={sendingInvite}
+                            flex={{ base: "1 1 100%", md: "1" }}
+                            fontSize={{ base: "xs", md: "sm" }}
+                          >
+                            Wyślij zaproszenie
+                          </Button>
+                          <Button
+                            size={{ base: "sm", md: "md" }}
+                            variant="ghost"
+                            colorScheme="gray"
+                            onClick={() => {
+                              setIsInviting(false);
+                              setInviteEmail("");
+                            }}
+                            isDisabled={sendingInvite}
+                            flex={{ base: "1 1 100%", md: "1" }}
+                            fontSize={{ base: "xs", md: "sm" }}
+                          >
+                            Anuluj
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  ) : (
+                    <Box
+                      p={{ base: 3, md: 4 }}
+                      borderBottom="1px solid"
+                      borderColor="neutral.200"
+                    >
+                      <Button
+                        size={{ base: "xs", md: "sm" }}
+                        leftIcon={<UserPlus size={14} />}
+                        colorScheme="primary"
+                        variant="ghost"
+                        onClick={() => setIsInviting(true)}
+                        fontSize={{ base: "xs", md: "sm" }}
+                      >
+                        Zaproś
+                      </Button>
+                    </Box>
+                  )}
                   {tenant.invitations.length === 0 ? (
                     <Box p={{ base: 3, md: 4 }}>
                       <Text color="neutral.500" textAlign="center">
@@ -850,37 +944,14 @@ export default function TenantDetails() {
                       </Table>
                     </Box>
                   )}
-                </Box>
-              </Collapse>
-            </Box>
-          </Box>
+                </TabPanel>
 
-          {/* Kontrahenci */}
-          <Box
-            as={RouterLink}
-            to="/contractors"
-            bg="white"
-            p={{ base: 3, md: 4 }}
-            rounded="lg"
-            borderWidth="1px"
-            borderColor="neutral.200"
-            _hover={{ borderColor: "primary.400", textDecoration: "none" }}
-            display="block"
-          >
-            <HStack justify="space-between">
-              <HStack spacing={3}>
-                <Users size={20} />
-                <Heading size="md">Kontrahenci</Heading>
-              </HStack>
-              <Button
-                size="sm"
-                colorScheme="primary"
-                variant="ghost"
-                pointerEvents="none"
-              >
-                Zarządzaj
-              </Button>
-            </HStack>
+                {/* Tab: Kontrahenci */}
+                <TabPanel p={0}>
+                  <ContractorsTabPanel tenantId={tenantId ?? ""} />
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
           </Box>
 
           {/* Dialogi */}
@@ -941,152 +1012,6 @@ export default function TenantDetails() {
                       ml={3}
                     >
                       Usuń
-                    </Button>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialogOverlay>
-            </AlertDialog>
-
-            {/* Dialog potwierdzenia zmiany statusu organizacji */}
-            <AlertDialog
-              isOpen={isToggleStatusOpen}
-              leastDestructiveRef={cancelRef}
-              onClose={onToggleStatusClose}
-            >
-              <AlertDialogOverlay>
-                <AlertDialogContent
-                  maxW={{ base: "90vw", md: "600px" }}
-                  mx={{ base: 4, md: 0 }}
-                >
-                  <AlertDialogHeader fontSize="lg" fontWeight="bold">
-                    {tenant?.isActive
-                      ? "Dezaktywuj organizację"
-                      : "Aktywuj organizację"}
-                  </AlertDialogHeader>
-
-                  <AlertDialogBody>
-                    <VStack align="flex-start" spacing={4}>
-                      <Text>
-                        Czy na pewno chcesz{" "}
-                        {tenant?.isActive ? "zdezaktywować" : "aktywować"}{" "}
-                        organizację{" "}
-                        <Text
-                          as="span"
-                          fontWeight="bold"
-                          color="primary.500"
-                        >
-                          {tenant?.name}
-                        </Text>
-                        ?
-                      </Text>
-                      {tenant?.isActive ? (
-                        <Box
-                          p={4}
-                          bg="orange.50"
-                          borderRadius="md"
-                          borderWidth="1px"
-                          borderColor="orange.200"
-                          width="100%"
-                        >
-                          <VStack align="flex-start" spacing={3}>
-                            <HStack spacing={2}>
-                              <Icon as={Power} color="orange.500" />
-                              <Text
-                                fontWeight="bold"
-                                color="orange.600"
-                                fontSize="sm"
-                              >
-                                Ważne informacje:
-                              </Text>
-                            </HStack>
-                            <Text fontSize="sm">
-                              • Zdezaktywowana organizacja będzie{" "}
-                              <Text as="span" fontWeight="bold">
-                                niedostępna
-                              </Text>{" "}
-                              dla wszystkich użytkowników
-                            </Text>
-                            <Text fontSize="sm">
-                              • Nie będzie można edytować ani zapraszać nowych
-                              członków
-                            </Text>
-                            <Text fontSize="sm">
-                              • Wszystkie dane organizacji zostaną zachowane
-                            </Text>
-                            <Text fontSize="sm">
-                              • Możesz ponownie aktywować organizację w każdej
-                              chwili
-                            </Text>
-                            <Text
-                              fontSize="sm"
-                              fontWeight="medium"
-                              color="orange.700"
-                              mt={2}
-                            >
-                              Operacja nie usuwa organizacji, tylko zawiesza jej
-                              działanie.
-                            </Text>
-                          </VStack>
-                        </Box>
-                      ) : (
-                        <Box
-                          p={4}
-                          bg="level1.50"
-                          borderRadius="md"
-                          borderWidth="1px"
-                          borderColor="level1.200"
-                          width="100%"
-                        >
-                          <VStack align="flex-start" spacing={3}>
-                            <HStack spacing={2}>
-                              <Icon as={Power} color="green.500" />
-                              <Text
-                                fontWeight="bold"
-                                color="green.600"
-                                fontSize="sm"
-                              >
-                                Informacje:
-                              </Text>
-                            </HStack>
-                            <Text fontSize="sm">
-                              • Organizacja stanie się{" "}
-                              <Text as="span" fontWeight="bold">
-                                dostępna
-                              </Text>{" "}
-                              dla wszystkich członków
-                            </Text>
-                            <Text fontSize="sm">
-                              • Będzie można edytować i zapraszać nowych członków
-                            </Text>
-                            <Text fontSize="sm">
-                              • Wszystkie dane organizacji są zachowane
-                            </Text>
-                          </VStack>
-                        </Box>
-                      )}
-                    </VStack>
-                  </AlertDialogBody>
-
-                  <AlertDialogFooter>
-                    <Button
-                      ref={cancelRef}
-                      onClick={onToggleStatusClose}
-                      isDisabled={togglingStatus}
-                    >
-                      Anuluj
-                    </Button>
-                    <Button
-                      colorScheme={tenant?.isActive ? "red" : "green"}
-                      onClick={handleToggleTenantStatus}
-                      isLoading={togglingStatus}
-                      loadingText={
-                        tenant?.isActive ? "Dezaktywuję..." : "Aktywuję..."
-                      }
-                      ml={3}
-                    >
-                      {tenant?.isActive
-                        ? "Dezaktywuj organizację"
-                        : "Aktywuj organizację"}
                     </Button>
                   </AlertDialogFooter>
                 </AlertDialogContent>

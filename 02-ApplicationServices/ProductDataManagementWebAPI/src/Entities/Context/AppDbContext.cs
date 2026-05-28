@@ -25,6 +25,7 @@ namespace Entities.Context
         public DbSet<TenantMember> TenantMembers=> Set<TenantMember>();
         public DbSet<Project> Projects => Set<Project>();
         public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+        public DbSet<ProjectMemberModulePermission> ProjectMemberModulePermissions => Set<ProjectMemberModulePermission>();
         public DbSet<ProjectParams> ProjectParams => Set<ProjectParams>();
         public DbSet<ProjectCurrency> ProjectCurrencies => Set<ProjectCurrency>();
         public DbSet<ProjectFilePackage> ProjectFilePackages => Set<ProjectFilePackage>();

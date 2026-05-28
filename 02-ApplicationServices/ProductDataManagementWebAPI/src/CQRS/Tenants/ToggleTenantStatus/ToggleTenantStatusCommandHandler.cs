@@ -1,12 +1,10 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
 using Entities.Models;
 using Entities.Models.Notifications;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using MediatR;
@@ -21,7 +19,6 @@ namespace CQRS.Tenants.ToggleTenantStatus
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
-        private readonly IReadRepository<Role> roleRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
@@ -31,7 +28,6 @@ namespace CQRS.Tenants.ToggleTenantStatus
             IReadRepository<User> userRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IRepository<TenantPreferencesProfile> tenantPrefsRepo,
-            IReadRepository<Role> roleRepo,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
             ICurrentUser currentUser)
@@ -40,7 +36,6 @@ namespace CQRS.Tenants.ToggleTenantStatus
             this.userRepo = userRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.tenantPrefsRepo = tenantPrefsRepo;
-            this.roleRepo = roleRepo;
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
@@ -59,10 +54,6 @@ namespace CQRS.Tenants.ToggleTenantStatus
                 IEnumerable<TenantMember> allMembers = await tenantMemberRepo.GetBySearch(
                     tm => tm.TenantId == request.TenantId && tm.IsActive);
 
-                List<Guid> memberRoleIds = allMembers.Where(m => m.RoleId.HasValue).Select(m => m.RoleId!.Value).Distinct().ToList();
-                IEnumerable<Role> roles = await roleRepo.GetBySearch(r => memberRoleIds.Contains(r.Id));
-                Dictionary<Guid, Role> roleDict = roles.ToDictionary(r => r.Id);
-
                 IEnumerable<TenantPreferencesProfile> profilesWithActiveTenant = await tenantPrefsRepo.GetBySearch(
                     p => p.ActiveTenantId == request.TenantId);
 
@@ -70,15 +61,10 @@ namespace CQRS.Tenants.ToggleTenantStatus
                 {
                     TenantMember? membership = allMembers.FirstOrDefault(m => m.UserId == profile.UserId);
 
-                    if (membership is not null && membership.RoleId.HasValue && roleDict.TryGetValue(membership.RoleId.Value, out Role? role))
+                    if (membership is not null && !membership.IsAdmin)
                     {
-                        bool isAdmin = role.Code == RoleCodes.TenantAdmin;
-
-                        if (!isAdmin)
-                        {
-                            profile.ActiveTenantId = null;
-                            await tenantPrefsRepo.Update(profile);
-                        }
+                        profile.ActiveTenantId = null;
+                        await tenantPrefsRepo.Update(profile);
                     }
                 }
             }

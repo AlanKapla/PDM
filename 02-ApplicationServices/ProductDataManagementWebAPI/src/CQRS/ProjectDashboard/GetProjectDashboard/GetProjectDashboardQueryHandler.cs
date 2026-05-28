@@ -32,11 +32,6 @@ namespace CQRS.ProjectDashboard.GetProjectDashboard
             GetProjectDashboardQuery request,
             CancellationToken cancellationToken)
         {
-            if (!await currentUser.IsTenantOrProjectAdminAsync(request.TenantId, request.ProjectId, cancellationToken))
-            {
-                throw new ForbiddenApiException("User does not have access to this resource.");
-            }
-
             Project project = await projectRepository.GetFirstBySearch(
                 p => p.Id == request.ProjectId && p.TenantId == request.TenantId,
                 cancellationToken)

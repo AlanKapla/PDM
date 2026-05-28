@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.Files._Shared;
 using MediatR;
 
@@ -16,6 +16,6 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
         /// </summary>
         public List<FileUploadItem> Files { get; init; } = new();
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectFiles;
     }
 }

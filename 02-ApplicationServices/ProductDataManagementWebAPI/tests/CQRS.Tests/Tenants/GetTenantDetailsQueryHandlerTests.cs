@@ -2,7 +2,6 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.GetTenantDetails;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using FluentAssertions;
@@ -19,7 +18,6 @@ public sealed class GetTenantDetailsQueryHandlerTests
     private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
     private readonly Mock<IReadRepository<TenantInvitation>> _invitationRepoMock = new();
     private readonly Mock<IReadRepository<User>> _userRepoMock = new();
-    private readonly Mock<IReadRepository<Role>> _roleRepoMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly GetTenantDetailsQueryHandler _handler;
 
@@ -34,7 +32,6 @@ public sealed class GetTenantDetailsQueryHandlerTests
             _tenantMemberRepoMock.Object,
             _invitationRepoMock.Object,
             _userRepoMock.Object,
-            _roleRepoMock.Object,
             _currentUserMock.Object);
     }
 
@@ -66,12 +63,6 @@ public sealed class GetTenantDetailsQueryHandlerTests
                 It.IsAny<Expression<Func<User, bool>>>(),
                 It.IsAny<Func<IQueryable<User>, IIncludableQueryable<User, object>>[]>()))
             .ReturnsAsync(new List<User>());
-
-        _roleRepoMock
-            .Setup(r => r.GetBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<Func<IQueryable<Role>, IIncludableQueryable<Role, object>>[]>()))
-            .ReturnsAsync(new List<Role>());
 
         _invitationRepoMock
             .Setup(r => r.GetBySearch(

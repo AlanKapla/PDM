@@ -12,7 +12,7 @@ namespace CQRS.Tenants.ToggleTenantStatus
         public required Guid TenantId { get; init; }
         public required bool IsActive { get; init; }
 
-        public string PermissionCode => PermissionCodes.TenantStatusManage;
+        public string PermissionCode => "TENANT.STATUS.TOGGLE";
 
         public ResourceRef GetResource() => new(TenantId: TenantId);
     }

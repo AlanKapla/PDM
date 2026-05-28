@@ -5,7 +5,6 @@ using Business.Interfaces.Services;
 using CQRS.Tenants.ToggleTenantStatus;
 using Entities.Models;
 using Entities.Models.Notifications;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using FluentAssertions;
@@ -23,7 +22,6 @@ public sealed class ToggleTenantStatusCommandHandlerTests
     private readonly Mock<IReadRepository<User>> _userRepoMock = new();
     private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
     private readonly Mock<IRepository<TenantPreferencesProfile>> _tenantPrefsRepoMock = new();
-    private readonly Mock<IReadRepository<Role>> _roleRepoMock = new();
     private readonly Mock<IReadRepository<Notification>> _notificationRepoMock = new();
     private readonly Mock<INotificationSender> _notificationSenderMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
@@ -56,7 +54,6 @@ public sealed class ToggleTenantStatusCommandHandlerTests
             _userRepoMock.Object,
             _tenantMemberRepoMock.Object,
             _tenantPrefsRepoMock.Object,
-            _roleRepoMock.Object,
             _notificationRepoMock.Object,
             _notificationSenderMock.Object,
             _currentUserMock.Object);
@@ -147,12 +144,6 @@ public sealed class ToggleTenantStatusCommandHandlerTests
                 It.IsAny<Expression<Func<TenantMember, bool>>>(),
                 It.IsAny<Func<IQueryable<TenantMember>, IIncludableQueryable<TenantMember, object>>[]>()))
             .ReturnsAsync(new List<TenantMember>());
-
-        _roleRepoMock
-            .Setup(r => r.GetBySearch(
-                It.IsAny<Expression<Func<Role, bool>>>(),
-                It.IsAny<Func<IQueryable<Role>, IIncludableQueryable<Role, object>>[]>()))
-            .ReturnsAsync(new List<Role>());
 
         _tenantPrefsRepoMock
             .Setup(r => r.GetBySearch(

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 
 namespace CQRS.CostEstimates.CreateCostEstimate
 {
@@ -11,6 +11,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
         public string Name { get; init; } = string.Empty;
         public string? Description { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

@@ -1344,21 +1344,38 @@ namespace Entities.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("RoleId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("TenantId", "ProjectId", "UserId");
 
                     b.HasIndex("ProjectId");
 
-                    b.HasIndex("RoleId");
-
                     b.HasIndex("TenantId", "UserId");
 
                     b.ToTable("ProjectMembers");
+                });
+
+            modelBuilder.Entity("Entities.Models.Projects.ProjectMemberModulePermission", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Module")
+                        .HasColumnType("int");
+
+                    b.HasKey("TenantId", "ProjectId", "UserId", "Module");
+
+                    b.ToTable("ProjectMemberModulePermissions");
                 });
 
             modelBuilder.Entity("Entities.Models.Projects.ProjectParams", b =>
@@ -1674,12 +1691,10 @@ namespace Entities.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<Guid?>("RoleId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("bit");
 
                     b.HasKey("TenantId", "UserId");
-
-                    b.HasIndex("RoleId");
 
                     b.HasIndex("UserId");
 
@@ -2853,22 +2868,26 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Entities.Models.Roles.Role", "MemberRole")
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Entities.Models.Tenants.TenantMember", "TenantMember")
                         .WithMany("ProjectMembers")
                         .HasForeignKey("TenantId", "UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("MemberRole");
-
                     b.Navigation("Project");
 
                     b.Navigation("TenantMember");
+                });
+
+            modelBuilder.Entity("Entities.Models.Projects.ProjectMemberModulePermission", b =>
+                {
+                    b.HasOne("Entities.Models.Projects.ProjectMember", "ProjectMember")
+                        .WithMany("ModulePermissions")
+                        .HasForeignKey("TenantId", "ProjectId", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProjectMember");
                 });
 
             modelBuilder.Entity("Entities.Models.Projects.ProjectParams", b =>
@@ -2933,11 +2952,6 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.Tenants.TenantMember", b =>
                 {
-                    b.HasOne("Entities.Models.Roles.Role", "MemberRole")
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Entities.Models.Tenants.Tenant", "Tenant")
                         .WithMany("Members")
                         .HasForeignKey("TenantId")
@@ -2949,8 +2963,6 @@ namespace Entities.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("MemberRole");
 
                     b.Navigation("Tenant");
 
@@ -3296,6 +3308,11 @@ namespace Entities.Migrations
                     b.Navigation("Members");
 
                     b.Navigation("Params");
+                });
+
+            modelBuilder.Entity("Entities.Models.Projects.ProjectMember", b =>
+                {
+                    b.Navigation("ModulePermissions");
                 });
 
             modelBuilder.Entity("Entities.Models.Roles.Permission", b =>

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.WorkSchedules;
 using CQRS.WorkSchedules.AddWorkScheduleStage;
 using CQRS.WorkSchedules.AddWorkScheduleStageWork;
@@ -37,7 +37,7 @@ namespace WebApi.Controllers
     public class WorkScheduleController(IMediator mediator) : BaseApiController(mediator)
     {
         [HttpPost]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> CreateWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -49,7 +49,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{workScheduleId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> UpdateWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -62,7 +62,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{scope}")]
-        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> GetWorkSchedules(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -74,7 +74,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("details/{workScheduleId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesReadSingle)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> GetWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -86,7 +86,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("my")]
-        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> GetMyWorkSchedules(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId)
@@ -97,7 +97,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost("{workScheduleId}/sync-with-estimate")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> SyncWorkScheduleWithEstimate(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -109,7 +109,7 @@ namespace WebApi.Controllers
         }
 
         [HttpDelete("{workScheduleId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> DeleteWorkSchedule(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -123,7 +123,7 @@ namespace WebApi.Controllers
         // ─── Stages ──────────────────────────────────────────────────────────────
 
         [HttpPost("{workScheduleId}/stages")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> AddStage(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -136,7 +136,7 @@ namespace WebApi.Controllers
         }
 
         [HttpDelete("{workScheduleId}/stages/{stageId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> DeleteStage(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -155,7 +155,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{workScheduleId}/stages/{stageId}/name")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> RenameStage(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -175,7 +175,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{workScheduleId}/stages/order")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> ReorderStages(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -193,7 +193,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{workScheduleId}/stages/{stageId}/parent")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> MoveStage(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -215,7 +215,7 @@ namespace WebApi.Controllers
         // ─── Works ───────────────────────────────────────────────────────────────
 
         [HttpPost("{workScheduleId}/stages/{stageId}/works")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> AddWork(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -235,7 +235,7 @@ namespace WebApi.Controllers
         }
 
         [HttpDelete("{workScheduleId}/stages/{stageId}/works/{workId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> DeleteWork(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -256,7 +256,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/name")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> RenameWork(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -278,7 +278,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/color-rgb")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> SetWorkColorRgb(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -300,7 +300,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{workScheduleId}/stages/{stageId}/works/order")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> ReorderWorks(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -320,7 +320,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/stage")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> MoveWork(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -342,7 +342,7 @@ namespace WebApi.Controllers
         // ─── Periods ─────────────────────────────────────────────────────────────
 
         [HttpPut("{workScheduleId}/stages/{stageId}/works/{workId}/periods")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> SetPeriods(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -362,7 +362,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{workScheduleId}/stages/{stageId}/works/{workId}/assignments")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> SetAssignments(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -382,7 +382,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/is-closed")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteOwn)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> SetWorkIsClosed(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -402,7 +402,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("{workScheduleId}/stages/{stageId}/works/{workId}/periods/{periodId}/is-closed")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteOwn)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> SetPeriodIsClosed(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -426,7 +426,7 @@ namespace WebApi.Controllers
         // ─── Comments ────────────────────────────────────────────────────────────
 
         [HttpPost("{workScheduleId}/stages/{stageId}/works/{workId}/comments")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWriteOwn)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> AddComment(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -446,7 +446,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{workScheduleId}/stages/{stageId}/works/{workId}/comments/{commentId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> UpdateComment(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -466,7 +466,7 @@ namespace WebApi.Controllers
         }
 
         [HttpDelete("{workScheduleId}/stages/{stageId}/works/{workId}/comments/{commentId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> DeleteComment(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -487,7 +487,7 @@ namespace WebApi.Controllers
         // ─── Dependencies ─────────────────────────────────────────────────────────
 
         [HttpPut("{workScheduleId}/dependencies")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
         public async Task<IActionResult> SetDependencies(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

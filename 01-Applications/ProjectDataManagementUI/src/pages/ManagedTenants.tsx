@@ -26,7 +26,7 @@ import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
 import type { TenantBasic, TenantDetails } from "../types/auth.types";
 import { InvitationStatus, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
-import { getRoleName, getRoleColor, RoleCodes } from "../constants/roleCodes";
+
 
 export default function ManagedTenants() {
   const navigate = useNavigate();
@@ -227,8 +227,8 @@ export default function ManagedTenants() {
                           <Badge colorScheme={tenant.isActive ? "green" : "gray"} fontSize="xs">
                             {tenant.isActive ? "Aktywna" : "Nieaktywna"}
                           </Badge>
-                          <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
-                            {getRoleName(tenant.roleCode)}
+                          <Badge colorScheme={tenant.isAdmin ? "level2" : "neutral"} fontSize="xs">
+                            {tenant.isAdmin ? "Administrator" : "Członek"}
                           </Badge>
                         </HStack>
                         <Text fontSize="xs" color="gray.500">

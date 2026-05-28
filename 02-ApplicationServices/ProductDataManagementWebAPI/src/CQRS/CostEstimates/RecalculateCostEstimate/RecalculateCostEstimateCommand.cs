@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using MediatR;
 
 namespace CQRS.CostEstimates.RecalculateCostEstimate
@@ -9,6 +9,6 @@ namespace CQRS.CostEstimates.RecalculateCostEstimate
     /// </summary>
     public sealed record RecalculateCostEstimateCommand : CostEstimateCommandBase, IRequestCommand<Unit>
     {
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWriteShared;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

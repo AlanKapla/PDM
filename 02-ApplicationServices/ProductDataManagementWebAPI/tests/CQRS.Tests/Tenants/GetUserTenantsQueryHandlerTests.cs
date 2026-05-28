@@ -1,9 +1,7 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.GetUserTenants;
 using Entities.Models;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
@@ -39,15 +37,15 @@ public sealed class GetUserTenantsQueryHandlerTests
 
     private static GetUserTenantsQuery ValidQuery() => new GetUserTenantsQuery();
 
-    private static TenantMember BuildActiveMembership(Guid userId, Guid tenantId, string tenantName, string roleCode) =>
+    private static TenantMember BuildActiveMembership(Guid userId, Guid tenantId, string tenantName, bool isAdmin) =>
         new TenantMember
         {
             TenantId = tenantId,
             UserId = userId,
             IsActive = true,
+            IsAdmin = isAdmin,
             CreatedAt = DateTime.UtcNow,
-            Tenant = new Tenant { Id = tenantId, Name = tenantName, IsActive = true, CreatedAt = DateTime.UtcNow },
-            MemberRole = new Role { Code = roleCode }
+            Tenant = new Tenant { Id = tenantId, Name = tenantName, IsActive = true, CreatedAt = DateTime.UtcNow }
         };
 
     // ─── Handle ───────────────────────────────────────────────────────────────
@@ -57,7 +55,7 @@ public sealed class GetUserTenantsQueryHandlerTests
     {
         // Arrange
         Guid tenantId = Guid.NewGuid();
-        TenantMember membership = BuildActiveMembership(_userId, tenantId, "My Tenant", RoleCodes.TenantMember);
+        TenantMember membership = BuildActiveMembership(_userId, tenantId, "My Tenant", isAdmin: false);
 
         _preferencesRepoMock
             .Setup(r => r.GetFirstBySearch(
@@ -81,7 +79,7 @@ public sealed class GetUserTenantsQueryHandlerTests
         list.Should().HaveCount(1);
         list[0].Id.Should().Be(tenantId);
         list[0].Name.Should().Be("My Tenant");
-        list[0].RoleCode.Should().Be(RoleCodes.TenantMember);
+        list[0].IsAdmin.Should().BeFalse();
         list[0].IsActiveTenant.Should().BeFalse();
     }
 
@@ -121,6 +119,6 @@ public sealed class GetUserTenantsQueryHandlerTests
         List<UserTenantWeb> list = result.ToList();
         list.Should().HaveCount(1);
         list[0].Id.Should().Be(tenantId);
-        list[0].RoleCode.Should().Be(RoleCodes.SystemSuperAdmin);
+        list[0].IsAdmin.Should().BeFalse();
     }
 }

@@ -29,7 +29,7 @@ namespace CQRS.Projects.GetProjectsDictionary
 
             // Check if user is tenant admin
             TenantCtxSnapshot? tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
-            bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
+            bool isTenantAdmin = tenantSnapshot?.IsAdmin ?? false;
 
             IEnumerable<Project> projects;
 
@@ -41,15 +41,12 @@ namespace CQRS.Projects.GetProjectsDictionary
             }
             else
             {
-                // Filter combined in SQL predicate:
-                //  - Project Admin: any project (active or inactive)
-                //  - Project Editor: only active projects
+                // Non-admin members: admin sees all projects, others see only active
                 IEnumerable<ProjectMember> userProjectMemberships = await projectMemberRepo.GetBySearch(
                     pm => pm.TenantId == tenantId
                         && pm.UserId == currentUser.Id
-                        && (pm.MemberRole.Code == RoleCodes.ProjectAdmin
-                            || (pm.MemberRole.Code == RoleCodes.ProjectEditor && pm.Project.IsActive)),
-                    q => q.Include(pm => pm.Project).Include(pm => pm.MemberRole));
+                        && (pm.IsAdmin || pm.Project.IsActive),
+                    q => q.Include(pm => pm.Project));
 
                 projects = userProjectMemberships
                     .Select(pm => pm.Project)

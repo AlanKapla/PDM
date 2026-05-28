@@ -4,16 +4,10 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
 using Entities.Enums;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -23,7 +17,7 @@ namespace CQRS.Projects.UpdateProjectMemberRole
     {
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IReadRepository<Role> roleRepo;
+        private readonly IRepository<ProjectMemberModulePermission> modulePermissionRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly INotificationSender notificationSender;
@@ -33,7 +27,7 @@ namespace CQRS.Projects.UpdateProjectMemberRole
         public UpdateProjectMemberRoleCommandHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IReadRepository<Role> roleRepo,
+            IRepository<ProjectMemberModulePermission> modulePermissionRepo,
             IReadRepository<Notification> notificationRepo,
             IPermissionsVersionService permissionsVersionService,
             INotificationSender notificationSender,
@@ -42,7 +36,7 @@ namespace CQRS.Projects.UpdateProjectMemberRole
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.roleRepo = roleRepo;
+            this.modulePermissionRepo = modulePermissionRepo;
             this.notificationRepo = notificationRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.notificationSender = notificationSender;
@@ -67,15 +61,37 @@ namespace CQRS.Projects.UpdateProjectMemberRole
             ProjectMemberUserInfo? targetUser = await userService.GetProjectMemberAsync(
                 request.TenantId, request.ProjectId, request.UserId, cancellationToken);
 
-            Role newRole = await roleRepo.GetFirstBySearch(
-                r => r.Id == request.RoleId && r.Scope == RoleScope.Project && r.IsActive,
-                cancellationToken)
-                ?? throw new NotFoundApiException(nameof(Role), request.RoleId.ToString());
-
-            Guid? oldRoleId = projectMember.RoleId;
-            projectMember.RoleId = newRole.Id;
+            bool wasAdmin = projectMember.IsAdmin;
+            projectMember.IsAdmin = request.IsAdmin;
 
             await projectMemberRepo.Update(projectMember);
+
+            // Replace module permissions (clear existing, insert new non-None entries)
+            IEnumerable<ProjectMemberModulePermission> existingPermissions = await modulePermissionRepo.GetBySearch(
+                mp => mp.TenantId == request.TenantId
+                    && mp.ProjectId == request.ProjectId
+                    && mp.UserId == request.UserId);
+
+            foreach (ProjectMemberModulePermission existing in existingPermissions)
+            {
+                await modulePermissionRepo.Delete(existing);
+            }
+
+            IEnumerable<ProjectModule> effectiveModules = request.IsAdmin
+                ? request.Modules
+                : request.Modules.Where(m => m != ProjectModule.Settings);
+
+            foreach (ProjectModule module in effectiveModules)
+            {
+                await modulePermissionRepo.Insert(new ProjectMemberModulePermission
+                {
+                    TenantId = request.TenantId,
+                    ProjectId = request.ProjectId,
+                    UserId = request.UserId,
+                    Module = module
+                });
+            }
+
             await userService.InvalidateProjectMembersCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
 
             // Bump permissions version for the user whose role changed
@@ -89,18 +105,16 @@ namespace CQRS.Projects.UpdateProjectMemberRole
                 UserId = request.UserId,
                 AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.Info,
-                Title = "Zmieniono Twoją rolę w projekcie",
-                Message = $"Twoja rola w projekcie '{project.Name}' została zmieniona na {newRole.Name}.",
+                Title = "Zmieniono Twoje uprawnienia w projekcie",
+                Message = $"Twoje uprawnienia w projekcie '{project.Name}' zostały zmienione.",
                 CreatedAt = DateTime.UtcNow,
                 IsRead = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "projectId", request.ProjectId },
                     { "projectName", project.Name },
-                    { "oldRoleId", oldRoleId },
-                    { "newRoleId", newRole.Id },
-                    { "newRoleCode", newRole.Code },
-                    { "newRoleName", newRole.Name },
+                    { "wasAdmin", wasAdmin },
+                    { "isAdmin", request.IsAdmin },
                     { "changedByUserId", currentUser.Id }
                 }
             };

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.WorkSchedules.Shared;
 using MediatR;
 
@@ -8,6 +8,6 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
     {
         public List<Guid> UserIds { get; init; } = new();
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectSchedule;
     }
 }

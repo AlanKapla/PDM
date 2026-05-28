@@ -110,6 +110,52 @@ const content = isLoading
 return <Box>{content}</Box>;
 ```
 
+## Klikalny wiersz tabeli otwierający modal szczegółów
+
+Wzorzec obowiązujący w całej aplikacji. Kliknięcie wiersza otwiera modal edycji/szczegółów. Przyciski akcji w wierszu zatrzymują propagację (`e.stopPropagation()`), żeby nie wywoływać obu handlerów jednocześnie.
+
+```tsx
+// Wiersz klikalny
+<Tr
+  key={item.id}
+  cursor="pointer"
+  _hover={{ bg: "neutral.50" }}
+  onClick={() => handleOpenEdit(item)}
+>
+  <Td>{item.name}</Td>
+  {canEdit && (
+    <Td>
+      <HStack spacing={1}>
+        <Tooltip label="Edytuj">
+          <IconButton
+            aria-label="Edytuj"
+            icon={<Edit2 size={14} />}
+            size="xs"
+            variant="ghost"
+            onClick={(e) => { e.stopPropagation(); handleOpenEdit(item); }}
+          />
+        </Tooltip>
+        <Tooltip label="Usuń">
+          <IconButton
+            aria-label="Usuń"
+            icon={<Trash2 size={14} />}
+            size="xs"
+            variant="ghost"
+            colorScheme="red"
+            onClick={(e) => { e.stopPropagation(); handleOpenDelete(item); }}
+          />
+        </Tooltip>
+      </HStack>
+    </Td>
+  )}
+</Tr>
+```
+
+**Zasady:**
+- `cursor="pointer"` + `_hover={{ bg: "neutral.50" }}` na `<Tr>`
+- `onClick` na `<Tr>` otwiera modal szczegółów / edycji
+- Każdy `onClick` w przyciskach akcji wewnątrz wiersza musi wywołać `e.stopPropagation()`
+
 ## Zasady
 
 - Jeden plik = jeden komponent

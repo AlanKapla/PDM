@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.CreateProjectCost;
 using CQRS.ProjectCosts.DeleteProjectCost;
@@ -27,7 +27,7 @@ namespace WebApi.Controllers
         /// <param name="scope">Resource scope (All, Mine, Shared)</param>
         /// <returns>List of project costs</returns>
         [HttpGet("{scope}")]
-        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> GetProjectCosts(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -47,7 +47,7 @@ namespace WebApi.Controllers
         /// Tworzy nowy koszt projektu
         /// </summary>
         [HttpPost]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> CreateProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -67,7 +67,7 @@ namespace WebApi.Controllers
         /// Aktualizuje istniejący koszt projektu
         /// </summary>
         [HttpPut("{costId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> UpdateProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -89,7 +89,7 @@ namespace WebApi.Controllers
         /// Usuwa koszt projektu (soft delete)
         /// </summary>
         [HttpDelete("{costId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> DeleteProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -109,7 +109,7 @@ namespace WebApi.Controllers
         /// Udostępnia wiele kosztów wybranym członkom projektu (grupowe udostępnianie)
         /// </summary>
         [HttpPost("share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> ShareProjectCosts(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -129,7 +129,7 @@ namespace WebApi.Controllers
         /// Aktualizuje udostępnienie pojedynczego kosztu - dodaje lub usuwa dostęp dla konkretnych użytkowników
         /// </summary>
         [HttpPut("{costId}/share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> UpdateCostShare(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,

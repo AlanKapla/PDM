@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Files;
 using CQRS.Files._Shared;
@@ -13,7 +13,7 @@ public sealed record GetFileVersionsQuery : FileScopedRequestBase, IRequestQuery
 {
     public required ResourceScope Scope { get; init; }
 
-    public override string PermissionCode => PermissionCodes.ProjectView;
+    public override string PermissionCode => PermissionCodes.ProjectFiles;
 
     public ResourceScope? GetResourceScope() => Scope;
 }

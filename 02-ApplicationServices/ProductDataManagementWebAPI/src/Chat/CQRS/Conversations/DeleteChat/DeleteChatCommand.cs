@@ -1,4 +1,3 @@
-﻿using Business.Interfaces.Constants;
 using Chat.CQRS.Shared;
 using CQRS;
 using MediatR;
@@ -12,5 +11,4 @@ namespace Chat.CQRS.Conversations.DeleteChat;
 /// </summary>
 public sealed record DeleteChatCommand : ChatScopedRequestBase, IRequestCommand<Unit>
 {
-    public override string PermissionCode => PermissionCodes.ChatDelete;
 }

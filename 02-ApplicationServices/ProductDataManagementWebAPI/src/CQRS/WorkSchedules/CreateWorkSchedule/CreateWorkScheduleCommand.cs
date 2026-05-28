@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.WorkSchedules.Shared;
 
 namespace CQRS.WorkSchedules.CreateWorkSchedule
@@ -8,6 +8,6 @@ namespace CQRS.WorkSchedules.CreateWorkSchedule
         public string Name { get; init; } = string.Empty;
         public Guid? CostEstimateId { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectSchedule;
     }
 }

@@ -1,5 +1,6 @@
 import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import {
+  Avatar,
   Box,
   Button,
   Divider,
@@ -10,6 +11,11 @@ import {
   Heading,
   HStack,
   Input,
+  Menu,
+  MenuButton,
+  MenuDivider,
+  MenuItem,
+  MenuList,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -24,7 +30,7 @@ import {
   useDisclosure,
   VStack,
 } from "@chakra-ui/react";
-import { Building2, Mail, Plus } from "lucide-react";
+import { Building2, LogOut, Mail, Plus, User as UserIcon } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import {
   acceptTenantInvitation,
@@ -191,6 +197,7 @@ interface NoTenantAccessScreenProps {
 }
 
 function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenProps) {
+  const { logout, user } = useContext(AuthContext);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -206,6 +213,10 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
   const hintTextHeading = useColorModeValue("primary.700", "primary.200");
   const hintTextBody = useColorModeValue("primary.600", "primary.300");
   const iconBg = useColorModeValue("gray.100", "gray.700");
+  const headerBg = useColorModeValue("white", "gray.800");
+  const headerBorder = useColorModeValue("gray.200", "gray.700");
+
+  const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "U";
 
   const handleCreate = async () => {
     const trimmed = orgName.trim();
@@ -268,7 +279,52 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
   };
 
   return (
-    <Flex minH="100vh" bg={pageBg} align="center" justify="center" p={4}>
+    <Flex minH="100vh" bg={pageBg} direction="column">
+      {/* Header */}
+      <Box
+        bg={headerBg}
+        borderBottom="1px solid"
+        borderColor={headerBorder}
+        px={{ base: 3, md: 4 }}
+        py={2}
+        position="sticky"
+        top={0}
+        zIndex={1000}
+        minH="56px"
+        display="flex"
+        alignItems="center"
+      >
+        <HStack w="full" justify="space-between">
+          <img src="/logo.png" alt="Brickly" style={{ height: "40px", width: "auto", display: "block" }} />
+
+          {user && (
+            <HStack spacing={2}>
+              <Text fontSize="sm" fontWeight="medium" color={mutedText} display={{ base: "none", md: "block" }}>
+                {user.firstName} {user.lastName}
+              </Text>
+              <Menu placement="bottom-end" strategy="fixed">
+                <MenuButton cursor="pointer">
+                  <Avatar size="sm" bg="primary.600" color="white" ignoreFallback css={{ "& svg": { display: "none" } }}>
+                    {initials}
+                  </Avatar>
+                </MenuButton>
+                <MenuList zIndex={1001}>
+                  <MenuItem icon={<UserIcon size={16} />} isDisabled>
+                    {user.firstName} {user.lastName}
+                  </MenuItem>
+                  <MenuDivider />
+                  <MenuItem icon={<LogOut size={16} />} color="red.500" onClick={() => logout()}>
+                    Wyloguj się
+                  </MenuItem>
+                </MenuList>
+              </Menu>
+            </HStack>
+          )}
+        </HStack>
+      </Box>
+
+      {/* Content */}
+      <Flex flex={1} align="center" justify="center" p={4}>
       <Box
         bg={cardBg}
         rounded="2xl"
@@ -340,9 +396,12 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
                 </VStack>
               </HStack>
             </Box>
+
           </VStack>
         </VStack>
       </Box>
+
+      </Flex>
 
       {/* Create organisation modal */}
       <Modal isOpen={isOpen} onClose={handleModalClose} isCentered size={{ base: "full", md: "md" }}>

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using MediatR;
 
@@ -19,7 +19,7 @@ namespace CQRS.ProjectCosts.UpdateCostShare
         /// </summary>
         public required List<Guid> SharedWithUserIds { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public string PermissionCode => PermissionCodes.ProjectCosts;
 
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

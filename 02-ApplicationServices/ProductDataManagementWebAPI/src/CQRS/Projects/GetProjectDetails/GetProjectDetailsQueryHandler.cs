@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Models.Projects;
@@ -41,7 +40,7 @@ namespace CQRS.Projects.GetProjectDetails
             // STEP 2: Determine user's role in tenant and project
             TenantCtxSnapshot? tenantSnapshot = await currentUser.GetTenantSnapshotAsync(request.TenantId, cancellationToken);
             bool isSuperAdmin = currentUser.IsSuperAdmin;
-            bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
+            bool isTenantAdmin = tenantSnapshot?.IsAdmin ?? false;
 
             // STEP 3: Members count + current user's membership in two targeted queries (no full member load)
             int membersCount = await projectMemberRepo.CountAsync(
@@ -52,37 +51,29 @@ namespace CQRS.Projects.GetProjectDetails
                 pm => pm.ProjectId == request.ProjectId
                     && pm.TenantId == request.TenantId
                     && pm.UserId == currentUser.Id,
-                include => include.Include(pm => pm.MemberRole));
+                include => include.Include(pm => pm.ModulePermissions));
 
-            // STEP 4: Determine user role code hierarchy
-            // 1. Project membership role (if exists)
-            // 2. Tenant Admin (if no project membership)
-            // 3. System SuperAdmin (if no project membership or tenant admin)
-            string userRoleCode;
-            if (projectMembership is not null)
-            {
-                userRoleCode = projectMembership.MemberRole?.Code ?? RoleCodes.ProjectViewer;
-            }
-            else if (isTenantAdmin)
-            {
-                userRoleCode = RoleCodes.TenantAdmin;
-            }
-            else if (isSuperAdmin)
-            {
-                userRoleCode = RoleCodes.SystemSuperAdmin;
-            }
-            else
-            {
-                // Fallback (shouldn't happen due to authorization)
-                userRoleCode = RoleCodes.ProjectViewer;
-            }
-
-            // STEP 5: Get user's permissions for this project
+            // STEP 4/5: Get user's permissions
             HashSet<string> userPermissions = new HashSet<string>();
             ProjectCtxSnapshot? projectSnapshot = await currentUser.GetProjectSnapshotAsync(request.ProjectId, cancellationToken);
             if (projectSnapshot is not null)
             {
                 userPermissions = projectSnapshot.ProjectPermissionCodes;
+            }
+
+            bool isAdmin;
+            if (isTenantAdmin || isSuperAdmin)
+            {
+                isAdmin = true;
+            }
+            else if (projectMembership is not null)
+            {
+                isAdmin = projectMembership.IsAdmin;
+            }
+            else
+            {
+                // Fallback (shouldn't happen due to authorization)
+                isAdmin = false;
             }
 
             // STEP 6: Get project currency
@@ -101,7 +92,8 @@ namespace CQRS.Projects.GetProjectDetails
                 CreatedByUserName = project.CreatedBy?.User is not null
                     ? $"{project.CreatedBy.User.FirstName} {project.CreatedBy.User.LastName}".Trim()
                     : "Unknown",
-                UserRoleCode = userRoleCode,
+                IsAdmin = isAdmin,
+                CanViewAllResources = isAdmin || isTenantAdmin || isSuperAdmin,
                 MembersCount = membersCount,
                 UserPermissions = userPermissions,
                 Currency = currency is null

@@ -1199,10 +1199,10 @@ public sealed class ProjectFilesService : IProjectFilesService
 
         string permissionCode = resourceScope switch
         {
-            ResourceScope.All => PermissionCodes.ProjectResourcesReadAll,
-            ResourceScope.Mine => PermissionCodes.ProjectResourcesRead,
-            ResourceScope.Shared => PermissionCodes.ProjectResourcesReadShared,
-            _ => PermissionCodes.ProjectResourcesRead
+            ResourceScope.All => PermissionCodes.ProjectFiles,
+            ResourceScope.Mine => PermissionCodes.ProjectFiles,
+            ResourceScope.Shared => PermissionCodes.ProjectFiles,
+            _ => PermissionCodes.ProjectFiles
         };
 
         bool hasAccess = await accessService.AuthorizeAsync(

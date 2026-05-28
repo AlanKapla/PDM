@@ -100,9 +100,9 @@ export const getActiveInvitations = async () => {
   }
 };
 
-export const updateTenantMemberRole = async (tenantId: string, userId: string, roleId: string): Promise<boolean> => {
+export const updateTenantMemberAdmin = async (tenantId: string, userId: string, isAdmin: boolean): Promise<boolean> => {
   try {
-    await tenantApi.updateTenantMemberRole(tenantId, userId, roleId);
+    await tenantApi.updateTenantMemberAdmin(tenantId, userId, isAdmin);
     return true;
   } catch (error) {
     return false;

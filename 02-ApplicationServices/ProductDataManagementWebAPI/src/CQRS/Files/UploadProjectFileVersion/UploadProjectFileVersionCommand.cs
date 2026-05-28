@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.Files._Shared;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -20,6 +20,6 @@ namespace CQRS.Files.UploadProjectFileVersion
         /// </summary>
         public string? Comment { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWriteShared;
+        public override string PermissionCode => PermissionCodes.ProjectFiles;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using MediatR;
 
@@ -12,7 +12,7 @@ namespace CQRS.Projects.SetProjectCurrency
         public required string Name { get; init; }
         public string? Symbol { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectEdit;
+        public string PermissionCode => PermissionCodes.ProjectSettings;
 
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

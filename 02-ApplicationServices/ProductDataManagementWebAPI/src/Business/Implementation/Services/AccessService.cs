@@ -9,6 +9,14 @@ public sealed class AccessService : IAccessService
 {
     private readonly ILogger<AccessService> logger;
 
+    // Permissions accessible to all tenant members (non-admin).
+    // Everything else in tenant scope requires IsAdmin == true.
+    private static readonly HashSet<string> MemberLevelTenantPermissions = new()
+    {
+        PermissionCodes.TenantView,
+        PermissionCodes.TenantSettingsView,
+    };
+
     public AccessService(ILogger<AccessService> logger)
     {
         this.logger = logger;
@@ -54,8 +62,10 @@ public sealed class AccessService : IAccessService
         // Exception: Some permissions allow cross-tenant access (admin operations)
         if (!IsCrossTenantEnabled(permissionCode))
         {
-            // Standard flow - enforce ActiveTenantId match
-            if (!user.ActiveTenantId.HasValue || resource.TenantId != user.ActiveTenantId.Value)
+            // Standard flow - enforce ActiveTenantId match only when a different tenant is active.
+            // Null ActiveTenantId means the user has no active tenant selected (e.g. after tenant switch
+            // or on first login) — fall through to snapshot check which validates membership.
+            if (user.ActiveTenantId.HasValue && resource.TenantId != user.ActiveTenantId.Value)
             {
                 logger.LogWarning(
                     "Authorization failed: Resource TenantId {ResourceTenantId} does not match ActiveTenantId {ActiveTenantId} for permission {Permission}",
@@ -87,10 +97,8 @@ public sealed class AccessService : IAccessService
     /// </summary>
     private static bool IsCrossTenantEnabled(string permissionCode)
     {
-        return permissionCode == PermissionCodes.TenantEdit
-            || permissionCode == PermissionCodes.TenantMembersManage
-            || permissionCode == PermissionCodes.TenantStatusManage
-            || permissionCode == PermissionCodes.ProjectResourcesWriteOwn;
+        return permissionCode == PermissionCodes.TenantSettingsEdit
+            || permissionCode == PermissionCodes.TenantMembersManage;
     }
 
     private async Task<bool> AuthorizeTenantPermissionAsync(
@@ -104,7 +112,7 @@ public sealed class AccessService : IAccessService
         // - SuperAdmin fallback permissions
         // - Tenant Admin permissions
         // - Cross-tenant access validation
-        var tenantSnapshot = await user.GetTenantSnapshotAsync(resource.TenantId, cancellationToken);
+        TenantCtxSnapshot? tenantSnapshot = await user.GetTenantSnapshotAsync(resource.TenantId, cancellationToken);
         
         if (tenantSnapshot == null)
         {
@@ -115,8 +123,9 @@ public sealed class AccessService : IAccessService
             return false;
         }
 
-        // Check if user has permission
-        if (!tenantSnapshot.TenantPermissionCodes.Contains(permissionCode))
+        // Check if user has permission: admins have all tenant permissions,
+        // non-admins only have member-level permissions.
+        if (!tenantSnapshot.IsAdmin && !MemberLevelTenantPermissions.Contains(permissionCode))
         {
             logger.LogWarning(
                 "Authorization failed: User {UserId} lacks permission {Permission} in tenant {TenantId}",
@@ -128,7 +137,7 @@ public sealed class AccessService : IAccessService
 
         // Check Tenant.IsActive (only for non-admin members)
         // SuperAdmin without membership (fallback permissions) can access inactive tenants if they have the permission
-        if (!tenantSnapshot.IsTenantAdmin && !tenantSnapshot.IsActive && !user.IsSuperAdmin)
+        if (!tenantSnapshot.IsAdmin && !tenantSnapshot.IsActive && !user.IsSuperAdmin)
         {
             logger.LogWarning(
                 "Authorization failed: Tenant {TenantId} is inactive and user is not admin or SuperAdmin",
@@ -178,9 +187,10 @@ public sealed class AccessService : IAccessService
         {
             bool hasRequiredPermission = resourceScope.Value switch
             {
-                ResourceScope.All => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesReadAll),
-                ResourceScope.Mine => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesRead),
-                ResourceScope.Shared => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectResourcesReadShared),
+                ResourceScope.All => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles)
+                                     && (projectSnapshot.IsProjectAdmin || user.IsSuperAdmin),
+                ResourceScope.Mine => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles),
+                ResourceScope.Shared => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles),
                 _ => false
             };
 

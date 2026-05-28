@@ -292,6 +292,7 @@ namespace WebApi.Extensions
             services
                 .AddRepository<Project>()
                 .AddWriteRepository<ProjectMember>()
+                .AddWriteRepository<ProjectMemberModulePermission>()
                 .AddRepository<ProjectParams>()
                 .AddRepository<ProjectCurrency>();
 
