@@ -8,9 +8,9 @@ import {
   SimpleGrid,
   Alert,
   AlertIcon,
-  Checkbox,
   Text,
   Button,
+  Checkbox,
   HStack,
   IconButton,
   AlertDialog,
@@ -75,7 +75,6 @@ interface CostFormState {
   number: string;
   newFiles: File[];
   existingAttachmentIds: string[];
-  isAccepted: boolean;
   document: File | null;
   removeDocument: boolean;
 }
@@ -130,7 +129,6 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         number: c.number ?? '',
         newFiles: [],
         existingAttachmentIds: c.attachments?.map((a) => a.id) ?? [],
-        isAccepted: false,
         document: null,
         removeDocument: false,
       };
@@ -147,7 +145,6 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         number: c.number ?? '',
         newFiles: [],
         existingAttachmentIds: [],
-        isAccepted: c.isAccepted,
         document: null,
         removeDocument: false,
       };
@@ -162,7 +159,6 @@ export function CostModal(props: CostModalProps): React.ReactElement {
       number: '',
       newFiles: [],
       existingAttachmentIds: [],
-      isAccepted: false,
       document: null,
       removeDocument: false,
     };
@@ -279,7 +275,6 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             description: form.description || undefined,
             net: form.net !== '' ? parseFloat(form.net) : null,
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
-            isAccepted: form.isAccepted,
             document: form.document || undefined,
           });
         } else {
@@ -292,7 +287,6 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             description: form.description || undefined,
             net: form.net !== '' ? parseFloat(form.net) : null,
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
-            isAccepted: form.isAccepted,
             document:
               form.document && !existingCost.hasDocument ? form.document : undefined,
             updatedDocument:
@@ -491,15 +485,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 </Text>
               </FormControl>
 
-              <FormControl>
-                <Checkbox
-                  isChecked={form.isAccepted}
-                  onChange={(e) => setForm((p) => ({ ...p, isAccepted: e.target.checked }))}
-                  colorScheme="green"
-                >
-                  Zaakceptowane
-                </Checkbox>
-              </FormControl>
+
             </>
           )}
 

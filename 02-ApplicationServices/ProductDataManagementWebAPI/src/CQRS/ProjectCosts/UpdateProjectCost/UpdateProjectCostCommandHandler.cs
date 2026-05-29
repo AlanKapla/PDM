@@ -1,4 +1,3 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
@@ -7,7 +6,6 @@ using CQRS.ProjectCosts.Shared;
 using Entities.Models.Costs;
 using MediatR;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
@@ -42,24 +40,24 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
         public async Task<ProjectCostListItemWeb> Handle(UpdateProjectCostCommand request, CancellationToken cancellationToken)
         {
             ProjectCost projectCost = await GetAndValidateProjectCostAsync(request, cancellationToken);
-            bool canEditOnlyIsClosed = await ValidateAccessAndGetPermissionsAsync(request, projectCost, cancellationToken);
 
-            if (canEditOnlyIsClosed)
+            bool hasWriteAccess = await accessService.HasWriteAccessAsync(
+                projectCost, currentUser.Id, cancellationToken);
+
+            if (!hasWriteAccess)
             {
-                await HandleSharedUserUpdateAsync(request, projectCost, cancellationToken);
+                throw new ForbiddenApiException("You do not have permission to update this cost.");
             }
-            else
-            {
-                ApplyFieldUpdates(request, projectCost);
-                await HandleDocumentOperationsAsync(request, projectCost, cancellationToken);
 
-                await projectCostRepo.Update(projectCost);
-                await projectCostRepo.SaveChangesAsync(cancellationToken);
+            ApplyFieldUpdates(request, projectCost);
+            await HandleDocumentOperationsAsync(request, projectCost, cancellationToken);
 
-                logger.LogInformation(
-                    "Cost {CostId} fully updated in project {ProjectId} by user {UserId}",
-                    request.CostId, request.ProjectId, currentUser.Id);
-            }
+            await projectCostRepo.Update(projectCost);
+            await projectCostRepo.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(
+                "Cost {CostId} updated in project {ProjectId} by user {UserId}",
+                request.CostId, request.ProjectId, currentUser.Id);
 
             string? contractorName = null;
             if (projectCost.ContractorId.HasValue)
@@ -79,56 +77,8 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             return await projectCostRepo.GetFirstBySearch(
                 pc => pc.Id == request.CostId
                     && pc.TenantId == request.TenantId
-                    && pc.ProjectId == request.ProjectId,
-                q => q.Include(pc => pc.SharedWith))
+                    && pc.ProjectId == request.ProjectId)
                 ?? throw new NotFoundApiException(nameof(ProjectCost), request.CostId.ToString());
-        }
-
-        private async Task<bool> ValidateAccessAndGetPermissionsAsync(
-            UpdateProjectCostCommand request,
-            ProjectCost projectCost,
-            CancellationToken cancellationToken)
-        {
-            bool hasWriteAccess = await accessService.HasWriteAccessAsync(
-                projectCost, currentUser.Id, cancellationToken);
-
-            if (hasWriteAccess)
-            {
-                return false; // full edit allowed
-            }
-
-            // Check if user can accept/reject: needs COSTS.ACCEPT permission + share access to this specific cost
-            ProjectCtxSnapshot? projectSnapshot = await currentUser.GetProjectSnapshotAsync(
-                projectCost.ProjectId, cancellationToken);
-
-            bool hasAcceptPermission = projectSnapshot is not null
-                && projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectCosts);
-
-            bool hasShareAccess = await accessService.HasShareAccessAsync(
-                projectCost, currentUser.Id, cancellationToken);
-
-            if (hasAcceptPermission && hasShareAccess)
-            {
-                return true; // limited edit: only IsAccepted
-            }
-
-            throw new ForbiddenApiException("You do not have permission to update this cost.");
-        }
-
-        private async Task HandleSharedUserUpdateAsync(
-            UpdateProjectCostCommand request,
-            ProjectCost projectCost,
-            CancellationToken cancellationToken)
-        {
-            projectCost.IsAccepted = request.IsAccepted;
-            projectCost.UpdatedAt = DateTime.UtcNow;
-
-            await projectCostRepo.Update(projectCost);
-            await projectCostRepo.SaveChangesAsync(cancellationToken);
-
-            logger.LogInformation(
-                "Cost {CostId} IsAccepted updated to {IsAccepted} in project {ProjectId} by shared user {UserId}",
-                request.CostId, request.IsAccepted, request.ProjectId, currentUser.Id);
         }
 
         private void ApplyFieldUpdates(UpdateProjectCostCommand request, ProjectCost projectCost)
@@ -140,16 +90,11 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             projectCost.Description = request.Description;
             projectCost.Net = request.Net;
             projectCost.Gross = request.Gross ?? request.Net;
-            projectCost.IsAccepted = request.IsAccepted;
             projectCost.UpdatedAt = DateTime.UtcNow;
         }
 
         private ProjectCostListItemWeb MapToWeb(ProjectCost projectCost, string? contractorName)
         {
-            List<Guid> sharedWithUserIds = projectCost.SharedWith
-                ?.Select(spc => spc.SharedWithUserId)
-                .ToList() ?? new List<Guid>();
-
             return new ProjectCostListItemWeb
             {
                 Id = projectCost.Id,
@@ -163,12 +108,13 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                 Description = projectCost.Description,
                 Net = projectCost.Net,
                 Gross = projectCost.Gross,
-                IsAccepted = projectCost.IsAccepted,
+                ApprovalStatus = projectCost.ApprovalStatus,
+                ApprovedByUserId = projectCost.ApprovedByUserId,
+                ApprovedAt = projectCost.ApprovedAt,
                 HasDocument = false,
                 DocumentFileName = null,
                 PreviewSasUrl = null,
                 DownloadSasUrl = null,
-                SharedWithUserIds = sharedWithUserIds,
                 CreatedAt = projectCost.CreatedAt
             };
         }
@@ -196,22 +142,14 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                     await RemoveAttachmentsAsync(projectCost.Id, cancellationToken);
                 }
 
-                try
-                {
-                    await UploadDocumentToCostAsync(projectCost, fileToUpload, cancellationToken);
+                BaseCostAttachment attachment = await UploadBlobAndBuildAttachmentAsync(
+                    projectCost, fileToUpload, cancellationToken);
 
-                    logger.LogInformation(
-                        "Document uploaded for cost {CostId} in project {ProjectId}",
-                        request.CostId, request.ProjectId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex,
-                        "Failed to upload document for cost {CostId}",
-                        request.CostId);
+                await PersistAttachmentAsync(attachment, cancellationToken);
 
-                    throw new ValidationApiException("Cost updated but document upload failed");
-                }
+                logger.LogInformation(
+                    "Document uploaded for cost {CostId} in project {ProjectId}",
+                    request.CostId, request.ProjectId);
             }
         }
     }

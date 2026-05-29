@@ -1,4 +1,6 @@
-﻿namespace Business.Interfaces.WebModels.ProjectCosts
+﻿using Entities.Models.Costs;
+
+namespace Business.Interfaces.WebModels.ProjectCosts
 {
     /// <summary>
     /// Model kosztu projektu (lista oraz odpowiedź Create/Update)
@@ -16,12 +18,13 @@
         public string? Description { get; init; }
         public decimal? Net { get; init; }
         public decimal? Gross { get; init; }
-        public bool IsAccepted { get; init; }
+        public required CostApprovalStatus ApprovalStatus { get; init; }
+        public Guid? ApprovedByUserId { get; init; }
+        public DateTime? ApprovedAt { get; init; }
         public bool HasDocument { get; init; }
         public string? DocumentFileName { get; init; }
         public string? PreviewSasUrl { get; init; }
         public string? DownloadSasUrl { get; init; }
-        public required IReadOnlyList<Guid> SharedWithUserIds { get; init; }
         public required DateTime CreatedAt { get; init; }
     }
 }

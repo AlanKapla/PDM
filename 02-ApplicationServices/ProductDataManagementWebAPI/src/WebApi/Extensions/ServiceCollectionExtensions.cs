@@ -315,8 +315,7 @@ namespace WebApi.Extensions
                 .AddWriteRepository<WorkScheduleStageWorkDependency>();
 
             services
-                .AddRepository<ProjectCost>()
-                .AddRepository<SharedProjectCost>();
+                .AddRepository<ProjectCost>();
 
             services
                 .AddRepository<CostEstimateTemplate>()

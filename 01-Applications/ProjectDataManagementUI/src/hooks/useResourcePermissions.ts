@@ -24,6 +24,7 @@ export interface ResourcePermissions {
     showAll: boolean;
     showMine: boolean;
     showShared: boolean;
+    showPendingApproval: boolean;
   };
   mine: {
     canCreate: boolean;
@@ -61,6 +62,9 @@ export const useResourcePermissions = (projectId: string | undefined): ResourceP
       
       /** Zakładka "Udostępnione" - widoczna gdy user ma dostęp do plików */
       showShared: permissions.canViewFiles,
+
+      /** Zakładka "Do akceptacji" - widoczna tylko dla adminów projektu */
+      showPendingApproval: permissions.canViewAllResources,
     },
 
     // ==================== AKCJE W "MOJE" ====================

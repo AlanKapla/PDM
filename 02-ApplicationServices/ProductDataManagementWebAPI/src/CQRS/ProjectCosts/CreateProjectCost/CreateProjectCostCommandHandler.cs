@@ -82,7 +82,6 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 Description = request.Description,
                 Net = request.Net,
                 Gross = request.Gross ?? request.Net,
-                IsAccepted = request.IsAccepted,
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
             };
@@ -103,12 +102,13 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 Description = projectCost.Description,
                 Net = projectCost.Net,
                 Gross = projectCost.Gross,
-                IsAccepted = projectCost.IsAccepted,
+                ApprovalStatus = projectCost.ApprovalStatus,
+                ApprovedByUserId = projectCost.ApprovedByUserId,
+                ApprovedAt = projectCost.ApprovedAt,
                 HasDocument = attachment is not null,
                 DocumentFileName = attachment?.OriginalFileName,
                 PreviewSasUrl = null,
                 DownloadSasUrl = null,
-                SharedWithUserIds = new List<Guid>(),
                 CreatedAt = projectCost.CreatedAt
             };
         }

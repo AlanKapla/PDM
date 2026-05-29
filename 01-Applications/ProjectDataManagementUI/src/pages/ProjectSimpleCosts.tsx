@@ -29,12 +29,14 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import {
+  Check,
+  Clock,
   DollarSign,
   Download,
   Eye,
   Plus,
-  Share2,
   Trash2,
+  X,
 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { projectApi, ResourceScope } from "../api/projectApi";
@@ -42,14 +44,12 @@ import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatCurrency, formatDate } from "../utils/formatters";
-import ShareCostModal from "../components/ShareCostModal";
-import { ManageCostShareModal } from "../components/ManageCostShareModal";
-import ShareCostsModal from "../components/ShareCostsModal";
 import { CostModal } from "../features/dashboard/components/CostModal";
 import ExpenseCard from "../components/ExpenseCard";
 import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
-import type { ProjectCostListItemWeb } from "../types/project.types";
+import type { ProjectCostListItemWeb, CostApprovalStatus } from "../types/project.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
+import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
 import { useProjectDetails } from "../hooks/queries";
 import { useProjectCostMutations } from "../hooks/useProjectCostMutations";
@@ -59,8 +59,8 @@ import { useProjectCostMutations } from "../hooks/useProjectCostMutations";
 function CostSummaryBar({ costs }: { costs: ProjectCostListItemWeb[] }) {
   const summaryBg = useColorModeValue("primary.50", "primary.900");
   const total = costs.reduce((s, c) => s + (c.gross ?? 0), 0);
-  const open = costs.filter(c => !c.isAccepted).reduce((s, c) => s + (c.gross ?? 0), 0);
-  const accepted = costs.filter(c => c.isAccepted).reduce((s, c) => s + (c.gross ?? 0), 0);
+  const open = costs.filter(c => c.approvalStatus !== 'Approved').reduce((s, c) => s + (c.gross ?? 0), 0);
+  const accepted = costs.filter(c => c.approvalStatus === 'Approved').reduce((s, c) => s + (c.gross ?? 0), 0);
 
   return (
     <SimpleGrid columns={{ base: 2, md: 3 }} spacing={3} p={3} bg={summaryBg} rounded="md">
@@ -78,6 +78,20 @@ function CostSummaryBar({ costs }: { costs: ProjectCostListItemWeb[] }) {
       </Box>
     </SimpleGrid>
   );
+}
+
+function ApprovalStatusBadge({ status }: { status: CostApprovalStatus }) {
+  const schemes: Record<CostApprovalStatus, string> = {
+    Draft: 'gray',
+    PendingApproval: 'orange',
+    Approved: 'green',
+  };
+  const labels: Record<CostApprovalStatus, string> = {
+    Draft: 'Szkic',
+    PendingApproval: 'Oczekuje',
+    Approved: 'Zaakceptowane',
+  };
+  return <Badge colorScheme={schemes[status]} fontSize="xs">{labels[status]}</Badge>;
 }
 
 interface ClosedBadgeProps {
@@ -144,14 +158,9 @@ interface AllCostsTabProps {
   loading: boolean;
   resourcePerms: any;
   deletingCostId: string | null;
-  editingClosedCostId: string | null;
-  savingClosedCost: boolean;
-  onShareCostsModalOpen: () => void;
   onAddCost: () => void;
-  onManageShare: (cost: ProjectCostListItemWeb) => void;
   onEditCost: (cost: ProjectCostListItemWeb) => void;
   onDeleteCost: (id: string) => void;
-  onToggleCostClosed: (costId: string, currentIsClosed: boolean) => void;
 }
 
 function AllCostsTab({
@@ -159,20 +168,14 @@ function AllCostsTab({
   loading,
   resourcePerms,
   deletingCostId,
-  editingClosedCostId,
-  savingClosedCost,
-  onShareCostsModalOpen,
   onAddCost,
-  onManageShare,
   onEditCost,
   onDeleteCost,
-  onToggleCostClosed,
 }: AllCostsTabProps) {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
-  const canToggleClosed = resourcePerms.all.canEdit;
 
   if (loading) return <LoadingSpinner />;
 
@@ -183,17 +186,6 @@ function AllCostsTab({
           Wszystkie wydatki w projekcie (admin)
         </Text>
         <HStack spacing={2}>
-          {resourcePerms.all.canShare && (
-            <Button
-              leftIcon={<Share2 size={18} />}
-              colorScheme="gray"
-              variant="outline"
-              size="sm"
-              onClick={onShareCostsModalOpen}
-            >
-              Udostępnij grupowo
-            </Button>
-          )}
           {resourcePerms.all.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
@@ -224,14 +216,9 @@ function AllCostsTab({
               showOwner
               canEdit={resourcePerms.all.canEdit}
               canDelete={resourcePerms.all.canDelete}
-              canManageShare={resourcePerms.all.canManageShare}
-              canToggleAccepted={canToggleClosed}
-              isTogglingAccepted={editingClosedCostId === cost.id && savingClosedCost}
               isDeleting={deletingCostId === cost.id}
               onEdit={() => onEditCost(cost)}
               onDelete={() => onDeleteCost(cost.id)}
-              onManageShare={() => onManageShare(cost)}
-              onToggleAccepted={() => onToggleCostClosed(cost.id, cost.isAccepted)}
             />
           ))}
         </VStack>
@@ -246,9 +233,9 @@ function AllCostsTab({
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
-                <Th textAlign="center">Zaakceptowane</Th>
+                <Th textAlign="center">Status</Th>
                 <Th textAlign="center">Dokument</Th>
-                {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
+                {(resourcePerms.all.canEdit || resourcePerms.all.canDelete) && (
                   <Th textAlign="center">Akcje</Th>
                 )}
               </Tr>
@@ -262,32 +249,15 @@ function AllCostsTab({
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td isNumeric>{formatCurrency(cost.net ?? 0)}</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.gross ?? 0)}</Td>
-                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      isChecked={cost.isAccepted}
-                      onChange={() => onToggleCostClosed(cost.id, cost.isAccepted)}
-                      colorScheme="green"
-                      isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
-                    />
+                  <Td textAlign="center">
+                    <ApprovalStatusBadge status={cost.approvalStatus} />
                   </Td>
                   <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <DocumentCell cost={cost} />
                   </Td>
-                  {(resourcePerms.all.canEdit || resourcePerms.all.canDelete || resourcePerms.all.canManageShare) && (
+                  {(resourcePerms.all.canEdit || resourcePerms.all.canDelete) && (
                     <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                       <HStack spacing={1} justify="center">
-                        {resourcePerms.all.canManageShare && (
-                          <Tooltip label="Udostępnij">
-                            <IconButton
-                              aria-label="Zarządzaj udostępnieniem kosztu"
-                              icon={<Share2 size={14} />}
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="gray"
-                              onClick={() => onManageShare(cost)}
-                            />
-                          </Tooltip>
-                        )}
                         {resourcePerms.all.canDelete && (
                           <Tooltip label="Usuń">
                             <IconButton
@@ -319,14 +289,13 @@ interface MyCostsTabProps {
   loading: boolean;
   resourcePerms: any;
   deletingCostId: string | null;
-  editingClosedCostId: string | null;
-  savingClosedCost: boolean;
-  onShareCostsModalOpen: () => void;
+  submittingCostId: string | null;
+  withdrawingCostId: string | null;
   onAddCost: () => void;
   onEditCost: (cost: ProjectCostListItemWeb) => void;
-  onShareCost: (cost: ProjectCostListItemWeb) => void;
   onDeleteCost: (costId: string) => void;
-  onToggleCostClosed: (costId: string, currentIsClosed: boolean) => void;
+  onSubmitForApproval: (costId: string) => void;
+  onWithdrawFromApproval: (costId: string) => void;
 }
 
 function MyCostsTab({
@@ -334,20 +303,18 @@ function MyCostsTab({
   loading,
   resourcePerms,
   deletingCostId,
-  editingClosedCostId,
-  savingClosedCost,
-  onShareCostsModalOpen,
+  submittingCostId,
+  withdrawingCostId,
   onAddCost,
   onEditCost,
-  onShareCost,
   onDeleteCost,
-  onToggleCostClosed,
+  onSubmitForApproval,
+  onWithdrawFromApproval,
 }: MyCostsTabProps) {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
   const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
-  const canToggleClosed = resourcePerms.mine.canEdit;
 
   if (loading) return <LoadingSpinner />;
 
@@ -358,17 +325,6 @@ function MyCostsTab({
           Twoje wydatki w projekcie
         </Text>
         <HStack spacing={2}>
-          {resourcePerms.mine.canShare && (
-            <Button
-              leftIcon={<Share2 size={18} />}
-              colorScheme="gray"
-              variant="outline"
-              size="sm"
-              onClick={onShareCostsModalOpen}
-            >
-              Udostępnij grupowo
-            </Button>
-          )}
           {resourcePerms.mine.canCreate && (
             <Button
               leftIcon={<Plus size={18} />}
@@ -393,20 +349,40 @@ function MyCostsTab({
       ) : viewMode === "mobile" ? (
         <VStack spacing={3} align="stretch">
           {costs.map((cost) => (
-            <ExpenseCard
-              key={cost.id}
-              cost={cost}
-              canEdit={resourcePerms.mine.canEdit}
-              canDelete={resourcePerms.mine.canDelete}
-              canManageShare={resourcePerms.mine.canManageShare}
-              canToggleAccepted={canToggleClosed}
-              isTogglingAccepted={editingClosedCostId === cost.id && savingClosedCost}
-              isDeleting={deletingCostId === cost.id}
-              onEdit={() => onEditCost(cost)}
-              onDelete={() => onDeleteCost(cost.id)}
-              onManageShare={() => onShareCost(cost)}
-              onToggleAccepted={() => onToggleCostClosed(cost.id, cost.isAccepted)}
-            />
+            <Box key={cost.id}>
+              <ExpenseCard
+                cost={cost}
+                canEdit={resourcePerms.mine.canEdit}
+                canDelete={resourcePerms.mine.canDelete}
+                isDeleting={deletingCostId === cost.id}
+                onEdit={() => onEditCost(cost)}
+                onDelete={() => onDeleteCost(cost.id)}
+              />
+              {cost.approvalStatus === 'Draft' && (
+                <Button
+                  size="xs"
+                  colorScheme="orange"
+                  leftIcon={<Check size={12} />}
+                  onClick={() => onSubmitForApproval(cost.id)}
+                  isLoading={submittingCostId === cost.id}
+                  mt={1}
+                >
+                  Skieruj do akceptacji
+                </Button>
+              )}
+              {cost.approvalStatus === 'PendingApproval' && (
+                <Button
+                  size="xs"
+                  colorScheme="gray"
+                  leftIcon={<X size={12} />}
+                  onClick={() => onWithdrawFromApproval(cost.id)}
+                  isLoading={withdrawingCostId === cost.id}
+                  mt={1}
+                >
+                  Wycofaj
+                </Button>
+              )}
+            </Box>
           ))}
         </VStack>
       ) : (
@@ -419,7 +395,7 @@ function MyCostsTab({
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
-                <Th textAlign="center">Zaakceptowane</Th>
+                <Th textAlign="center">Status</Th>
                 <Th textAlign="center">Dokument</Th>
                 <Th textAlign="center">Akcje</Th>
               </Tr>
@@ -432,28 +408,37 @@ function MyCostsTab({
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td isNumeric>{formatCurrency(cost.net ?? 0)}</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.gross ?? 0)}</Td>
-                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      isChecked={cost.isAccepted}
-                      onChange={() => onToggleCostClosed(cost.id, cost.isAccepted)}
-                      colorScheme="green"
-                      isDisabled={!canToggleClosed || (editingClosedCostId === cost.id && savingClosedCost)}
-                    />
+                  <Td textAlign="center">
+                    <ApprovalStatusBadge status={cost.approvalStatus} />
                   </Td>
                   <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <DocumentCell cost={cost} />
                   </Td>
                   <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
                     <HStack spacing={1} justify="center">
-                      {resourcePerms.mine.canManageShare && (
-                        <Tooltip label="Udostępnij">
+                      {cost.approvalStatus === 'Draft' && (
+                        <Tooltip label="Skieruj do akceptacji">
                           <IconButton
-                            aria-label="Udostępnij koszt"
-                            icon={<Share2 size={14} />}
+                            aria-label="Skieruj do akceptacji"
+                            icon={<Check size={14} />}
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="orange"
+                            onClick={() => onSubmitForApproval(cost.id)}
+                            isLoading={submittingCostId === cost.id}
+                          />
+                        </Tooltip>
+                      )}
+                      {cost.approvalStatus === 'PendingApproval' && (
+                        <Tooltip label="Wycofaj">
+                          <IconButton
+                            aria-label="Wycofaj z akceptacji"
+                            icon={<X size={14} />}
                             size="xs"
                             variant="ghost"
                             colorScheme="gray"
-                            onClick={() => onShareCost(cost)}
+                            onClick={() => onWithdrawFromApproval(cost.id)}
+                            isLoading={withdrawingCostId === cost.id}
                           />
                         </Tooltip>
                       )}
@@ -482,56 +467,67 @@ function MyCostsTab({
   );
 }
 
-interface SharedCostsTabProps {
+interface PendingApprovalTabProps {
   costs: ProjectCostListItemWeb[];
   loading: boolean;
-  editingSharedCostId: string | null;
-  savingSharedCost: boolean;
-  resourcePerms: any;
-  onToggleSharedCostClosed: (costId: string, currentIsClosed: boolean) => void;
+  approvingCostId: string | null;
+  rejectingCostId: string | null;
+  onApproveCost: (costId: string) => void;
+  onRejectCost: (costId: string) => void;
 }
 
-function SharedCostsTab({
+function PendingApprovalTab({
   costs,
   loading,
-  editingSharedCostId,
-  savingSharedCost,
-  resourcePerms,
-  onToggleSharedCostClosed,
-}: SharedCostsTabProps) {
-  const bgColor = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.600");
-  const hoverBg = useColorModeValue("gray.50", "gray.700");
+  approvingCostId,
+  rejectingCostId,
+  onApproveCost,
+  onRejectCost,
+}: PendingApprovalTabProps) {
   const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
-  const canToggleClosed = resourcePerms.shared.canEdit;
 
   if (loading) return <LoadingSpinner />;
 
   return (
     <VStack spacing={4} align="stretch">
       <Text fontSize="sm" color="neutral.600">
-        Wydatki udostępnione przez innych członków projektu
+        Koszty oczekujące na akceptację
       </Text>
-
-      <CostSummaryBar costs={costs} />
 
       {costs.length === 0 ? (
         <EmptyState
-          icon={Share2}
-          title="Brak udostępnionych kosztów"
-          description="Nikt jeszcze nie udostępnił Ci kosztów w tym projekcie"
+          icon={DollarSign}
+          title="Brak kosztów do akceptacji"
+          description="Nie ma żadnych kosztów oczekujących na akceptację"
         />
       ) : viewMode === "mobile" ? (
         <VStack spacing={3} align="stretch">
           {costs.map((cost) => (
-            <ExpenseCard
-              key={cost.id}
-              cost={cost}
-              showOwner
-              canToggleAccepted={canToggleClosed}
-              isTogglingAccepted={editingSharedCostId === cost.id && savingSharedCost}
-              onToggleAccepted={() => onToggleSharedCostClosed(cost.id, cost.isAccepted)}
-            />
+            <Box key={cost.id}>
+              <ExpenseCard cost={cost} showOwner />
+              <HStack mt={1} spacing={2} justify="flex-end">
+                <Button
+                  size="xs"
+                  colorScheme="green"
+                  leftIcon={<Check size={12} />}
+                  onClick={() => onApproveCost(cost.id)}
+                  isLoading={approvingCostId === cost.id}
+                  isDisabled={rejectingCostId === cost.id}
+                >
+                  Akceptuj
+                </Button>
+                <Button
+                  size="xs"
+                  colorScheme="red"
+                  leftIcon={<X size={12} />}
+                  onClick={() => onRejectCost(cost.id)}
+                  isLoading={rejectingCostId === cost.id}
+                  isDisabled={approvingCostId === cost.id}
+                >
+                  Odrzuć
+                </Button>
+              </HStack>
+            </Box>
           ))}
         </VStack>
       ) : (
@@ -540,35 +536,55 @@ function SharedCostsTab({
             <Thead>
               <Tr>
                 <Th>Nazwa</Th>
+                <Th>Właściciel</Th>
                 <Th>Kontrahent</Th>
                 <Th>Data</Th>
                 <Th isNumeric>Netto</Th>
                 <Th isNumeric>Brutto</Th>
-                <Th textAlign="center">Zaakceptowane</Th>
                 <Th textAlign="center">Dokument</Th>
-                <Th>Udostępnione przez</Th>
+                <Th textAlign="center">Akcje</Th>
               </Tr>
             </Thead>
             <Tbody>
               {costs.map((cost) => (
                 <Tr key={cost.id} _hover={{ bg: 'neutral.50' }}>
                   <Td fontWeight="medium">{cost.name}</Td>
+                  <Td fontSize="sm" color="neutral.600">{cost.userName || "-"}</Td>
                   <Td>{cost.contractorName || "-"}</Td>
                   <Td>{formatDate(cost.date, false)}</Td>
                   <Td isNumeric>{formatCurrency(cost.net ?? 0)}</Td>
                   <Td isNumeric fontWeight="bold" color="green.600">{formatCurrency(cost.gross ?? 0)}</Td>
                   <Td textAlign="center">
-                    <Checkbox
-                      isChecked={cost.isAccepted}
-                      onChange={() => onToggleSharedCostClosed(cost.id, cost.isAccepted)}
-                      colorScheme="green"
-                      isDisabled={!canToggleClosed || (editingSharedCostId === cost.id && savingSharedCost)}
-                    />
-                  </Td>
-                  <Td textAlign="center">
                     <DocumentCell cost={cost} />
                   </Td>
-                  <Td>{cost.userName}</Td>
+                  <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
+                    <HStack spacing={1} justify="center">
+                      <Tooltip label="Akceptuj">
+                        <IconButton
+                          aria-label="Akceptuj koszt"
+                          icon={<Check size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="green"
+                          onClick={() => onApproveCost(cost.id)}
+                          isLoading={approvingCostId === cost.id}
+                          isDisabled={rejectingCostId === cost.id}
+                        />
+                      </Tooltip>
+                      <Tooltip label="Odrzuć">
+                        <IconButton
+                          aria-label="Odrzuć koszt"
+                          icon={<X size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() => onRejectCost(cost.id)}
+                          isLoading={rejectingCostId === cost.id}
+                          isDisabled={approvingCostId === cost.id}
+                        />
+                      </Tooltip>
+                    </HStack>
+                  </Td>
                 </Tr>
               ))}
             </Tbody>
@@ -592,13 +608,13 @@ export default function ProjectSimpleCosts() {
   const hasFetchedProjectData = useRef(false);
 
   const [deletingCostId, setDeletingCostId] = useState<string | null>(null);
-  const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
   const [editingClosedCostId, setEditingClosedCostId] = useState<string | null>(null);
   const [savingClosedCost, setSavingClosedCost] = useState(false);
 
-  const [costToManageShare, setCostToManageShare] = useState<ProjectCostListItemWeb | null>(null);
-  const [editingSharedCostId, setEditingSharedCostId] = useState<string | null>(null);
-  const [savingSharedCost, setSavingSharedCost] = useState(false);
+  const [submittingCostId, setSubmittingCostId] = useState<string | null>(null);
+  const [withdrawingCostId, setWithdrawingCostId] = useState<string | null>(null);
+  const [approvingCostId, setApprovingCostId] = useState<string | null>(null);
+  const [rejectingCostId, setRejectingCostId] = useState<string | null>(null);
 
   // Modal state for add/edit expense
   const [editingCost, setEditingCost] = useState<ProjectCostListItemWeb | null>(null);
@@ -636,23 +652,19 @@ export default function ProjectSimpleCosts() {
     `costs-mine-${projectId}`
   );
 
-  // Tab cache dla udostępnionych kosztów
-  const sharedCostsCache = useTabCache<ProjectCostListItemWeb[]>(
+  // Tab cache dla kosztów do akceptacji
+  const pendingCostsCache = useTabCache<ProjectCostListItemWeb[]>(
     async () => {
       if (!user?.activeTenantId || !projectId) return [];
-      const res = await projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.Shared);
+      const res = await projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.PendingApproval);
       return res.data;
     },
-    `costs-shared-${projectId}`
+    `costs-pending-${projectId}`
   );
-
-  const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
-  const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
-  const { isOpen: isShareCostsModalOpen, onOpen: onShareCostsModalOpen, onClose: onShareCostsModalClose } = useDisclosure();
 
   const resourcePerms = useResourcePermissions(projectId);
 
-  const { updateCost, deleteCost } = useProjectCostMutations(
+  const { updateCost, deleteCost, submitCostForApproval, withdrawCostFromApproval, approveCost, rejectCost } = useProjectCostMutations(
     user?.activeTenantId ?? '',
     projectId ?? ''
   );
@@ -685,7 +697,7 @@ export default function ProjectSimpleCosts() {
       const fetchPromises = [];
       if (resourcePerms.tabs.showAll) fetchPromises.push(allCostsCache.fetch());
       if (resourcePerms.tabs.showMine) fetchPromises.push(myCostsCache.fetch());
-      if (resourcePerms.tabs.showShared) fetchPromises.push(sharedCostsCache.fetch());
+      if (resourcePerms.tabs.showPendingApproval) fetchPromises.push(pendingCostsCache.fetch());
 
       await Promise.all(fetchPromises);
     } catch {
@@ -698,7 +710,7 @@ export default function ProjectSimpleCosts() {
   const refreshData = () => {
     allCostsCache.clear();
     myCostsCache.clear();
-    sharedCostsCache.clear();
+    pendingCostsCache.clear();
     hasFetchedProjectData.current = false;
     fetchProjectData();
   };
@@ -742,21 +754,6 @@ export default function ProjectSimpleCosts() {
     }
   };
 
-  const handleShareCost = (cost: ProjectCostListItemWeb) => {
-    setCostToShare(cost);
-    onShareModalOpen();
-  };
-
-  const handleManageShare = (cost: ProjectCostListItemWeb) => {
-    setCostToManageShare(cost);
-    onManageShareModalOpen();
-  };
-
-  const handleShareUpdated = () => {
-    refreshData();
-    onManageShareModalClose();
-  };
-
   const handleToggleCostClosed = async (costId: string, currentIsClosed: boolean) => {
     if (!user?.activeTenantId || !projectId) return;
 
@@ -778,7 +775,6 @@ export default function ProjectSimpleCosts() {
         description: cost.description || undefined,
         net: cost.net ?? null,
         gross: cost.gross ?? null,
-        isAccepted: !currentIsClosed,
         removeDocument: false,
       });
 
@@ -792,39 +788,59 @@ export default function ProjectSimpleCosts() {
     }
   };
 
-  const handleToggleSharedCostClosed = async (costId: string, currentIsClosed: boolean) => {
+  const handleSubmitForApproval = async (costId: string) => {
     if (!user?.activeTenantId || !projectId) return;
-    if (!resourcePerms.shared.canEdit) return;
-
-    setEditingSharedCostId(costId);
-    setSavingSharedCost(true);
+    setSubmittingCostId(costId);
     try {
-      // Znajdujemy koszt w cache aby pobrać wszystkie dane
-      const cost = sharedCostsCache.data?.find(c => c.id === costId);
-      if (!cost) {
-        showError("Nie znaleziono kosztu");
-        return;
-      }
-
-      await updateCost(costId, {
-        name: cost.name,
-        number: cost.number ?? undefined,
-        contractorId: cost.contractorId ?? undefined,
-        date: new Date(cost.date),
-        description: cost.description || undefined,
-        net: cost.net ?? null,
-        gross: cost.gross ?? null,
-        isAccepted: !currentIsClosed,
-        removeDocument: false,
-      });
-
+      await submitCostForApproval(costId);
       showApiSuccess('statusUpdated');
       refreshData();
     } catch {
-      showError("Wystąpił błąd podczas aktualizacji statusu");
+      showError("Wystąpił błąd podczas wysyłania do akceptacji");
     } finally {
-      setEditingSharedCostId(null);
-      setSavingSharedCost(false);
+      setSubmittingCostId(null);
+    }
+  };
+
+  const handleApproveCost = async (costId: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+    setApprovingCostId(costId);
+    try {
+      await approveCost(costId);
+      showApiSuccess('statusUpdated');
+      refreshData();
+    } catch {
+      showError("Wystąpił błąd podczas akceptacji kosztu");
+    } finally {
+      setApprovingCostId(null);
+    }
+  };
+
+  const handleRejectCost = async (costId: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+    setRejectingCostId(costId);
+    try {
+      await rejectCost(costId);
+      showApiSuccess('statusUpdated');
+      refreshData();
+    } catch {
+      showError("Wystąpił błąd podczas odrzucania kosztu");
+    } finally {
+      setRejectingCostId(null);
+    }
+  };
+
+  const handleWithdrawFromApproval = async (costId: string) => {
+    if (!user?.activeTenantId || !projectId) return;
+    setWithdrawingCostId(costId);
+    try {
+      await withdrawCostFromApproval(costId);
+      showApiSuccess('statusUpdated');
+      refreshData();
+    } catch {
+      showError("Wystąpił błąd podczas wycofywania z akceptacji");
+    } finally {
+      setWithdrawingCostId(null);
     }
   };
 
@@ -880,15 +896,16 @@ export default function ProjectSimpleCosts() {
                   </HStack>
                 </Tab>
               )}
-              {resourcePerms.tabs.showShared && (
+              {resourcePerms.tabs.showPendingApproval && (
                 <Tab fontWeight="bold">
                   <HStack spacing={2}>
-                    <Icon as={Share2} boxSize={4} />
-                    <Text>Udostępnione</Text>
-                    <Badge colorScheme="action" ml={2}>{sharedCostsCache.data?.length || 0}</Badge>
+                    <Icon as={Clock} boxSize={4} />
+                    <Text>Do akceptacji</Text>
+                    <Badge colorScheme="orange" ml={2}>{pendingCostsCache.data?.length || 0}</Badge>
                   </HStack>
                 </Tab>
               )}
+
             </TabList>
 
             <TabPanels>
@@ -899,14 +916,9 @@ export default function ProjectSimpleCosts() {
                     loading={allCostsCache.loading}
                     resourcePerms={resourcePerms}
                     deletingCostId={deletingCostId}
-                    editingClosedCostId={editingClosedCostId}
-                    savingClosedCost={savingClosedCost}
-                    onShareCostsModalOpen={onShareCostsModalOpen}
                     onAddCost={handleOpenAddModal}
-                    onManageShare={handleManageShare}
                     onEditCost={handleOpenEditModal}
                     onDeleteCost={handleDeleteCost}
-                    onToggleCostClosed={handleToggleCostClosed}
                   />
                 </TabPanel>
               )}
@@ -916,30 +928,30 @@ export default function ProjectSimpleCosts() {
                     costs={myCostsCache.data || []}
                     loading={myCostsCache.loading}
                     deletingCostId={deletingCostId}
-                    editingClosedCostId={editingClosedCostId}
-                    savingClosedCost={savingClosedCost}
+                    submittingCostId={submittingCostId}
+                    withdrawingCostId={withdrawingCostId}
                     resourcePerms={resourcePerms}
-                    onShareCostsModalOpen={onShareCostsModalOpen}
                     onAddCost={handleOpenAddModal}
                     onEditCost={handleOpenEditModal}
-                    onShareCost={handleShareCost}
                     onDeleteCost={handleDeleteCost}
-                    onToggleCostClosed={handleToggleCostClosed}
+                    onSubmitForApproval={handleSubmitForApproval}
+                    onWithdrawFromApproval={handleWithdrawFromApproval}
                   />
                 </TabPanel>
               )}
-              {resourcePerms.tabs.showShared && (
+              {resourcePerms.tabs.showPendingApproval && (
                 <TabPanel>
-                  <SharedCostsTab
-                    costs={sharedCostsCache.data || []}
-                    loading={sharedCostsCache.loading}
-                    editingSharedCostId={editingSharedCostId}
-                    savingSharedCost={savingSharedCost}
-                    resourcePerms={resourcePerms}
-                    onToggleSharedCostClosed={handleToggleSharedCostClosed}
+                  <PendingApprovalTab
+                    costs={pendingCostsCache.data || []}
+                    loading={pendingCostsCache.loading}
+                    approvingCostId={approvingCostId}
+                    rejectingCostId={rejectingCostId}
+                    onApproveCost={handleApproveCost}
+                    onRejectCost={handleRejectCost}
                   />
                 </TabPanel>
               )}
+
             </TabPanels>
           </Tabs>
         )}
@@ -974,51 +986,6 @@ export default function ProjectSimpleCosts() {
           onConfirm={confirmDeleteCost}
           isLoading={deletingCostId !== null}
         />
-
-        {/* MODAL: MANAGE COST SHARE (pojedynczy koszt) */}
-        {costToManageShare && user?.activeTenantId && projectId && (
-          <ManageCostShareModal
-            isOpen={isManageShareModalOpen}
-            onClose={() => {
-              onManageShareModalClose();
-              setCostToManageShare(null);
-            }}
-            tenantId={user.activeTenantId}
-            projectId={projectId}
-            costId={costToManageShare.id}
-            costName={costToManageShare.name}
-            sharedWithUserIds={costToManageShare.sharedWithUserIds || []}
-            currentUserId={user?.id || ""}
-            ownerUserId={costToManageShare.userId}
-            onShareUpdated={handleShareUpdated}
-          />
-        )}
-
-        {/* MODAL: SHARE COSTS (grupowe udostępnianie) */}
-        {user?.activeTenantId && projectId && (
-          <ShareCostsModal
-            isOpen={isShareCostsModalOpen}
-            onClose={onShareCostsModalClose}
-            tenantId={user.activeTenantId}
-            projectId={projectId}
-            onCostsShared={refreshData}
-          />
-        )}
-
-        {/* MODAL: SHARE COST (backward compatibility) */}
-        {isShareModalOpen && costToShare && user?.activeTenantId && projectId && (
-          <ShareCostModal
-            isOpen={isShareModalOpen}
-            onClose={() => {
-              onShareModalClose();
-              setCostToShare(null);
-            }}
-            tenantId={user.activeTenantId}
-            projectId={projectId}
-            cost={costToShare}
-            onCostShared={refreshData}
-          />
-        )}
 
       </Box>
     </MainLayout>

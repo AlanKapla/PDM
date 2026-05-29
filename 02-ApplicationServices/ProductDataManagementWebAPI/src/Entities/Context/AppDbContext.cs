@@ -46,7 +46,6 @@ namespace Entities.Context
         public DbSet<WorkScheduleStageWorkAssignment> WorkScheduleStageWorkAssignments => Set<WorkScheduleStageWorkAssignment>();
         public DbSet<WorkScheduleStageWorkComment> WorkScheduleStageWorkComments => Set<WorkScheduleStageWorkComment>();
         public DbSet<WorkScheduleStageWorkDependency> WorkScheduleStageWorkDependencies => Set<WorkScheduleStageWorkDependency>();
-        public DbSet<SharedProjectCost> SharedProjectCosts => Set<SharedProjectCost>();
         public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
         public DbSet<CostEstimateTemplateUnit> CostEstimateTemplateUnits => Set<CostEstimateTemplateUnit>();
         public DbSet<CostEstimateTemplateCategory> CostEstimateTemplateCategories => Set<CostEstimateTemplateCategory>();

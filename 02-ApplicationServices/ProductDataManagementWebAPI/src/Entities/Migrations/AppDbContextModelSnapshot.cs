@@ -922,46 +922,6 @@ namespace Entities.Migrations
                     b.ToTable("CostAttachments", (string)null);
                 });
 
-            modelBuilder.Entity("Entities.Models.Costs.SharedProjectCost", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProjectCostId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("SharedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("SharedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SharedWithUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProjectCostId");
-
-                    b.HasIndex("ProjectCostId", "SharedWithUserId")
-                        .IsUnique();
-
-                    b.HasIndex("TenantId", "SharedByUserId");
-
-                    b.HasIndex("TenantId", "SharedWithUserId");
-
-                    b.HasIndex("TenantId", "ProjectId", "SharedWithUserId");
-
-                    b.ToTable("SharedProjectCosts");
-                });
-
             modelBuilder.Entity("Entities.Models.Files.ProjectFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2082,23 +2042,24 @@ namespace Entities.Migrations
                 {
                     b.HasBaseType("Entities.Models.Costs.BaseCost");
 
-                    b.Property<DateTime?>("AcceptedAt")
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(450)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("AcceptedByUserId")
+                    b.Property<Guid?>("ApprovedByUserId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsAccepted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasIndex("Date");
 
-                    b.HasIndex("TenantId", "ProjectId", "IsAccepted");
+                    b.HasIndex("TenantId", "ProjectId", "ApprovalStatus");
 
                     b.HasIndex("TenantId", "ProjectId", "UserId");
 
@@ -2489,33 +2450,6 @@ namespace Entities.Migrations
                         .IsRequired();
 
                     b.Navigation("Cost");
-                });
-
-            modelBuilder.Entity("Entities.Models.Costs.SharedProjectCost", b =>
-                {
-                    b.HasOne("Entities.Models.Costs.ProjectCost", "ProjectCost")
-                        .WithMany("SharedWith")
-                        .HasForeignKey("ProjectCostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Entities.Models.Tenants.TenantMember", "SharedByTenantMember")
-                        .WithMany()
-                        .HasForeignKey("TenantId", "SharedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Entities.Models.Tenants.TenantMember", "SharedWithTenantMember")
-                        .WithMany()
-                        .HasForeignKey("TenantId", "SharedWithUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ProjectCost");
-
-                    b.Navigation("SharedByTenantMember");
-
-                    b.Navigation("SharedWithTenantMember");
                 });
 
             modelBuilder.Entity("Entities.Models.Files.ProjectFile", b =>
@@ -3222,11 +3156,6 @@ namespace Entities.Migrations
                     b.Navigation("PredecessorDependencies");
 
                     b.Navigation("SuccessorDependencies");
-                });
-
-            modelBuilder.Entity("Entities.Models.Costs.ProjectCost", b =>
-                {
-                    b.Navigation("SharedWith");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,11 +1,4 @@
-using Entities.Models.Chats;
 using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -17,12 +10,13 @@ namespace Entities.Configurations
         {
             builder.Property(pc => pc.UserId).IsRequired();
 
-            builder.Property(pc => pc.IsAccepted)
+            builder.Property(pc => pc.ApprovalStatus)
                 .IsRequired()
-                .HasDefaultValue(false);
+                .HasDefaultValue(CostApprovalStatus.Draft)
+                .HasConversion<string>();
 
-            builder.Property(pc => pc.AcceptedByUserId);
-            builder.Property(pc => pc.AcceptedAt);
+            builder.Property(pc => pc.ApprovedByUserId);
+            builder.Property(pc => pc.ApprovedAt);
 
             builder.HasOne(pc => pc.ProjectMember)
                 .WithMany()
@@ -30,7 +24,7 @@ namespace Entities.Configurations
                 .HasPrincipalKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId })
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasIndex(pc => new { pc.TenantId, pc.ProjectId, pc.IsAccepted });
+            builder.HasIndex(pc => new { pc.TenantId, pc.ProjectId, pc.ApprovalStatus });
             builder.HasIndex(pc => pc.Date);
         }
     }

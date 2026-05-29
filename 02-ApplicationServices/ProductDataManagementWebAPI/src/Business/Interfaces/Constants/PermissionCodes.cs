@@ -27,6 +27,9 @@ public static class PermissionCodes
     public const string ProjectSchedule = "PROJECT.SCHEDULE";
     public const string ProjectDashboardTracker = "PROJECT.DASHBOARD_TRACKER";
 
+    // PROJECT – ADMIN ONLY
+    public const string ProjectAdmin = "PROJECT.ADMIN";
+
     public static readonly string[] All = new[]
     {
         TenantContextList, TenantContextAdminList,
@@ -34,6 +37,7 @@ public static class PermissionCodes
         TenantSettingsView, TenantSettingsEdit, TenantMembersManage, TenantProjectsCreate,
         ProjectView,
         ProjectSettings, ProjectMembers, ProjectFiles, ProjectEstimates,
-        ProjectCosts, ProjectSchedule, ProjectDashboardTracker
+        ProjectCosts, ProjectSchedule, ProjectDashboardTracker,
+        ProjectAdmin
     };
 }

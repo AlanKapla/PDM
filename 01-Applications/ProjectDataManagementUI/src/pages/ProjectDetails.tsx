@@ -33,7 +33,6 @@ import { handleApiError } from "../utils/handleApiError";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
-import ShareCostModal from "../components/ShareCostModal";
 import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
 import { projectApi, ResourceScope } from "../api/projectApi";
@@ -46,7 +45,7 @@ import type { ProjectDetailsWeb } from "../types/project.types";
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
-import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb } from "../types/project.types";
+import type { ProjectCostListItemWeb, ProjectFilePackageWeb } from "../types/project.types";
 
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -93,10 +92,7 @@ export default function ProjectDetails() {
   const [, setLoadingWorkSchedules] = useState(false);
   const [, setProjectCosts] = useState<ProjectCostListItemWeb[]>([]);
   const [, setLoadingCosts] = useState(false);
-  const [, setSharedCosts] = useState<SharedProjectCostWeb[]>([]);
-  const [, setLoadingSharedCosts] = useState(false);
-  const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
-  const { isOpen: isShareCostModalOpen, onOpen: onShareCostModalOpen, onClose: onShareCostModalClose } = useDisclosure();
+
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
   const { isOpen: isShareFilesModalOpen, onClose: onShareFilesModalClose } = useDisclosure();
   const { isOpen: isToggleStatusOpen, onOpen: onToggleStatusOpen, onClose: onToggleStatusClose } = useDisclosure();
@@ -182,20 +178,6 @@ export default function ProjectDetails() {
     }
   };
 
-  const fetchSharedProjectCosts = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoadingSharedCosts(true);
-    try {
-      const response = await projectApi.getSharedProjectCosts(user.activeTenantId, projectId);
-      setSharedCosts(response.data);
-    } catch (err) {
-      showError("Błąd", "Nie udało się pobrać udostępnionych kosztów");
-    } finally {
-      setLoadingSharedCosts(false);
-    }
-  };
-
   const _handleAddCost = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
@@ -274,7 +256,6 @@ export default function ProjectDetails() {
       description: cost.description || '',
       net: cost.net?.toString() || '',
       gross: (cost.gross ?? '').toString(),
-      isAccepted: cost.isAccepted,
       removeDocument: false,
     });
     setDocumentFile(null);
@@ -321,7 +302,6 @@ export default function ProjectDetails() {
           description: editingCostData.description || undefined,
           net: editingCostData.net ? parseFloat(editingCostData.net) : undefined,
           gross: editingCostData.gross ? parseFloat(editingCostData.gross) : undefined,
-          isAccepted: editingCostData.isAccepted ?? false,
           document: documentFile || undefined,
           removeDocument: editingCostData.removeDocument,
         }
@@ -345,11 +325,6 @@ export default function ProjectDetails() {
     setEditingCostId(null);
     setEditingCostData(null);
     setDocumentFile(null);
-  };
-
-  const _handleShareCost = (cost: ProjectCostListItemWeb) => {
-    setCostToShare(cost);
-    onShareCostModalOpen();
   };
 
   const _handleDeleteCost = async (costId: string) => {
@@ -861,24 +836,6 @@ export default function ProjectDetails() {
             onMemberAdded={() => {
               fetchMembers();
               fetchProjectDetails();
-            }}
-          />
-        )}
-
-        {/* Modal udostępniania kosztu */}
-        {isShareCostModalOpen && costToShare && user?.activeTenantId && projectId && (
-          <ShareCostModal
-            isOpen={isShareCostModalOpen}
-            onClose={() => {
-              onShareCostModalClose();
-              setCostToShare(null);
-            }}
-            tenantId={user.activeTenantId}
-            projectId={projectId}
-            cost={costToShare}
-            onCostShared={() => {
-              fetchProjectCosts();
-              fetchSharedProjectCosts();
             }}
           />
         )}

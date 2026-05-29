@@ -10,7 +10,6 @@ export interface CreateProjectCostRequest {
   description?: string;
   net?: number | null;
   gross?: number | null;
-  isAccepted?: boolean;
   document?: File;
 }
 
@@ -22,7 +21,6 @@ export interface UpdateProjectCostRequest {
   description?: string;
   net?: number | null;
   gross?: number | null;
-  isAccepted: boolean;
   document?: File;
   updatedDocument?: File;
   removeDocument: boolean;
@@ -32,9 +30,17 @@ export interface UseProjectCostMutationsResult {
   createCost: (data: CreateProjectCostRequest) => Promise<ProjectCostListItemWeb>;
   updateCost: (costId: string, data: UpdateProjectCostRequest) => Promise<ProjectCostListItemWeb>;
   deleteCost: (costId: string) => Promise<void>;
+  submitCostForApproval: (costId: string) => Promise<ProjectCostListItemWeb>;
+  withdrawCostFromApproval: (costId: string) => Promise<ProjectCostListItemWeb>;
+  approveCost: (costId: string) => Promise<ProjectCostListItemWeb>;
+  rejectCost: (costId: string) => Promise<ProjectCostListItemWeb>;
   isCreating: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
+  isSubmitting: boolean;
+  isWithdrawing: boolean;
+  isApproving: boolean;
+  isRejecting: boolean;
 }
 
 /**
@@ -49,6 +55,10 @@ export function useProjectCostMutations(
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const createCost = useCallback(
     async (data: CreateProjectCostRequest): Promise<ProjectCostListItemWeb> => {
@@ -91,7 +101,78 @@ export function useProjectCostMutations(
     [tenantId, projectId, onSuccess]
   );
 
-  return { createCost, updateCost, deleteCost, isCreating, isUpdating, isDeleting };
+  const submitCostForApproval = useCallback(
+    async (costId: string): Promise<ProjectCostListItemWeb> => {
+      setIsSubmitting(true);
+      try {
+        const result = await projectApi.submitProjectCostForApproval(tenantId, projectId, costId);
+        onSuccess?.();
+        return result;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [tenantId, projectId, onSuccess]
+  );
+
+  const withdrawCostFromApproval = useCallback(
+    async (costId: string): Promise<ProjectCostListItemWeb> => {
+      setIsWithdrawing(true);
+      try {
+        const result = await projectApi.withdrawProjectCostFromApproval(tenantId, projectId, costId);
+        onSuccess?.();
+        return result;
+      } finally {
+        setIsWithdrawing(false);
+      }
+    },
+    [tenantId, projectId, onSuccess]
+  );
+
+  const approveCost = useCallback(
+    async (costId: string): Promise<ProjectCostListItemWeb> => {
+      setIsApproving(true);
+      try {
+        const result = await projectApi.approveProjectCost(tenantId, projectId, costId);
+        onSuccess?.();
+        return result;
+      } finally {
+        setIsApproving(false);
+      }
+    },
+    [tenantId, projectId, onSuccess]
+  );
+
+  const rejectCost = useCallback(
+    async (costId: string): Promise<ProjectCostListItemWeb> => {
+      setIsRejecting(true);
+      try {
+        const result = await projectApi.rejectProjectCost(tenantId, projectId, costId);
+        onSuccess?.();
+        return result;
+      } finally {
+        setIsRejecting(false);
+      }
+    },
+    [tenantId, projectId, onSuccess]
+  );
+
+  return {
+    createCost,
+    updateCost,
+    deleteCost,
+    submitCostForApproval,
+    withdrawCostFromApproval,
+    approveCost,
+    rejectCost,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    isSubmitting,
+    isWithdrawing,
+    isApproving,
+    isRejecting,
+  };
 }
 
 export default useProjectCostMutations;

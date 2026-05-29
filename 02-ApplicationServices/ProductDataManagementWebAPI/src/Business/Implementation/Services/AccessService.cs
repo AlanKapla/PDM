@@ -191,6 +191,7 @@ public sealed class AccessService : IAccessService
                                      && (projectSnapshot.IsProjectAdmin || user.IsSuperAdmin),
                 ResourceScope.Mine => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles),
                 ResourceScope.Shared => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles),
+                ResourceScope.PendingApproval => projectSnapshot.IsProjectAdmin || user.IsSuperAdmin,
                 _ => false
             };
 
@@ -206,8 +207,21 @@ public sealed class AccessService : IAccessService
         }
         else
         {
+            // PROJECT.ADMIN is a virtual permission reserved for project/super admins only.
+            // It is never stored in ProjectPermissionCodes — check admin flag directly.
+            if (permissionCode == PermissionCodes.ProjectAdmin)
+            {
+                if (!projectSnapshot.IsProjectAdmin && !user.IsSuperAdmin)
+                {
+                    logger.LogWarning(
+                        "Authorization failed: User {UserId} requires PROJECT.ADMIN in project {ProjectId}",
+                        user.Id,
+                        resource.ProjectId.Value);
+                    return false;
+                }
+            }
             // Check if user has the general permission
-            if (!projectSnapshot.ProjectPermissionCodes.Contains(permissionCode))
+            else if (!projectSnapshot.ProjectPermissionCodes.Contains(permissionCode))
             {
                 logger.LogWarning(
                     "Authorization failed: User {UserId} lacks permission {Permission} in project {ProjectId}",

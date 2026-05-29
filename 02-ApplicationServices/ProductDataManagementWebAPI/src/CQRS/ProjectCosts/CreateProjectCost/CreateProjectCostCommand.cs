@@ -19,7 +19,6 @@ namespace CQRS.ProjectCosts.CreateProjectCost
         public string? Description { get; init; }
         public decimal? Net { get; init; }
         public decimal? Gross { get; init; }
-        public bool IsAccepted { get; init; }
         public IFormFile? Document { get; init; }
 
         public string PermissionCode => PermissionCodes.ProjectCosts;

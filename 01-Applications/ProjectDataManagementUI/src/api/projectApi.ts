@@ -6,6 +6,7 @@ export enum ResourceScope {
   All = 0,
   Mine = 1,
   Shared = 2,
+  PendingApproval = 3,
 }
 
 // Helper to convert enum to route string
@@ -17,6 +18,8 @@ const resourceScopeToRoute = (scope: ResourceScope): string => {
       return "mine";
     case ResourceScope.Shared:
       return "shared";
+    case ResourceScope.PendingApproval:
+      return "PendingApproval";
     default:
       return "mine";
   }
@@ -373,11 +376,6 @@ export const projectApi = {
     return axiosClient.get(`/tenants/${tenantId}/projects/${projectId}/cost/mine`);
   },
 
-  // DEPRECATED - use getProjectCosts with ResourceScope.Shared
-  getSharedProjectCosts: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/projects/${projectId}/cost/shared`);
-  },
-
   // Utwórz nowy koszt projektowy
   createProjectCost: async (
     tenantId: string,
@@ -390,7 +388,6 @@ export const projectApi = {
       description?: string;
       net?: number | null;
       gross?: number | null;
-      isAccepted?: boolean;
       document?: File;
     }
   ): Promise<ProjectCostListItemWeb> => {
@@ -404,7 +401,6 @@ export const projectApi = {
     if (data.description) formData.append("Description", data.description);
     if (data.net !== undefined && data.net !== null) formData.append("Net", data.net.toString());
     if (data.gross !== undefined && data.gross !== null) formData.append("Gross", data.gross.toString());
-    if (data.isAccepted !== undefined) formData.append("IsAccepted", data.isAccepted.toString());
     if (data.document) formData.append("Document", data.document);
 
     const res = await axiosClient.post<ProjectCostListItemWeb>(`/tenants/${tenantId}/projects/${projectId}/cost`, formData, {
@@ -426,7 +422,6 @@ export const projectApi = {
       description?: string;
       net?: number | null;
       gross?: number | null;
-      isAccepted: boolean;
       /** Nowy dokument – gdy koszt nie miał wcześniej pliku */
       document?: File;
       /** Nowy plik zastępujący istniejący dokument */
@@ -445,7 +440,6 @@ export const projectApi = {
     if (data.description) formData.append("Description", data.description);
     if (data.net !== undefined && data.net !== null) formData.append("Net", data.net.toString());
     if (data.gross !== undefined && data.gross !== null) formData.append("Gross", data.gross.toString());
-    formData.append("IsAccepted", data.isAccepted.toString());
     if (data.document) formData.append("Document", data.document);
     if (data.updatedDocument) formData.append("UpdatedDocument", data.updatedDocument);
     formData.append("RemoveDocument", data.removeDocument.toString());
@@ -461,28 +455,52 @@ export const projectApi = {
     return axiosClient.delete(`/tenants/${tenantId}/projects/${projectId}/cost/${costId}`);
   },
 
-  // Udostępnij wiele kosztów wybranym członkom (grupowe udostępnianie)
-  shareProjectCosts: async (
+  // Prześlij koszt do akceptacji
+  submitProjectCostForApproval: async (
     tenantId: string,
     projectId: string,
-    data: {
-      projectCostIds: string[];
-      sharedWithUserIds: string[];
-    }
-  ) => {
-    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/cost/share`, data);
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/submit`
+    );
+    return res.data;
   },
 
-  // Aktualizuj udostępnienie pojedynczego kosztu
-  updateCostShare: async (
+  // Wycofaj koszt z akceptacji
+  withdrawProjectCostFromApproval: async (
     tenantId: string,
     projectId: string,
-    costId: string,
-    sharedWithUserIds: string[]
-  ) => {
-    return axiosClient.put(`/tenants/${tenantId}/projects/${projectId}/cost/${costId}/share`, {
-      sharedWithUserIds,
-    });
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/withdraw`
+    );
+    return res.data;
+  },
+
+  // Zatwierdź koszt
+  approveProjectCost: async (
+    tenantId: string,
+    projectId: string,
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/approve`
+    );
+    return res.data;
+  },
+
+  // Odrzuć koszt
+  rejectProjectCost: async (
+    tenantId: string,
+    projectId: string,
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/reject`
+    );
+    return res.data;
   },
 
   // Zmień rolę i uprawnienia modułów członka projektu

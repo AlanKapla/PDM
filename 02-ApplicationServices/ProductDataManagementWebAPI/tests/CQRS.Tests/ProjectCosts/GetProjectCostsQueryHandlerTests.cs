@@ -16,7 +16,6 @@ namespace CQRS.Tests.ProjectCosts;
 public sealed class GetProjectCostsQueryHandlerTests
 {
     private readonly Mock<IReadRepository<ProjectCost>> _projectCostRepoMock = new();
-    private readonly Mock<IReadRepository<SharedProjectCost>> _sharedProjectCostRepoMock = new();
     private readonly Mock<IReadRepository<BaseCostAttachment>> _attachmentRepoMock = new();
     private readonly Mock<IUserService> _userServiceMock = new();
     private readonly Mock<IBlobStorageService> _blobStorageServiceMock = new();
@@ -51,7 +50,6 @@ public sealed class GetProjectCostsQueryHandlerTests
 
         _handler = new GetProjectCostsQueryHandler(
             _projectCostRepoMock.Object,
-            _sharedProjectCostRepoMock.Object,
             _attachmentRepoMock.Object,
             _userServiceMock.Object,
             _blobStorageServiceMock.Object,
@@ -81,8 +79,7 @@ public sealed class GetProjectCostsQueryHandlerTests
                 TenantId = TenantId,
                 ProjectId = ProjectId,
                 UserId = UserId,
-                Name = "Cost 1",
-                SharedWith = new List<SharedProjectCost>()
+                Name = "Cost 1"
             }
         };
 
@@ -121,16 +118,10 @@ public sealed class GetProjectCostsQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenScopeShared_ReturnsSharedCosts()
+    public async Task Handle_WhenScopeShared_ReturnsEmpty()
     {
         // Arrange
         GetProjectCostsQuery query = BuildQuery(ResourceScope.Shared);
-
-        _sharedProjectCostRepoMock
-            .Setup(r => r.GetBySearch(
-                It.IsAny<Expression<Func<SharedProjectCost, bool>>>(),
-                It.IsAny<Func<IQueryable<SharedProjectCost>, IIncludableQueryable<SharedProjectCost, object>>[]>()))
-            .ReturnsAsync(new List<SharedProjectCost>());
 
         // Act
         IEnumerable<ProjectCostListItemWeb> result = await _handler.Handle(query, CancellationToken.None);

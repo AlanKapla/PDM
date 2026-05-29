@@ -44,6 +44,9 @@ public static class PermissionScopes
         [PermissionCodes.ProjectCosts] = PermissionScope.Project,
         [PermissionCodes.ProjectSchedule] = PermissionScope.Project,
         [PermissionCodes.ProjectDashboardTracker] = PermissionScope.Project,
+
+        // PROJECT - ADMIN ONLY
+        [PermissionCodes.ProjectAdmin] = PermissionScope.Project,
     };
 
     /// <summary>

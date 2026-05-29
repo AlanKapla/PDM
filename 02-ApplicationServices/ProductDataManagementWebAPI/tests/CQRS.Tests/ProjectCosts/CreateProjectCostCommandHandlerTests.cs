@@ -50,8 +50,7 @@ public sealed class CreateProjectCostCommandHandlerTests
             ProjectId = ProjectId,
             Name = "Test Cost",
             ContractorId = contractorId,
-            Net = 1000m,
-            IsAccepted = false
+            Net = 1000m
         };
     }
 

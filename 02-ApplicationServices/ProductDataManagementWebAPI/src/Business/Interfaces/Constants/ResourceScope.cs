@@ -18,5 +18,10 @@ public enum ResourceScope
     /// <summary>
     /// Only resources shared with the current user (requires READ_SHARED permission)
     /// </summary>
-    Shared = 2
+    Shared = 2,
+
+    /// <summary>
+    /// Only resources pending approval (requires admin role)
+    /// </summary>
+    PendingApproval = 3
 }

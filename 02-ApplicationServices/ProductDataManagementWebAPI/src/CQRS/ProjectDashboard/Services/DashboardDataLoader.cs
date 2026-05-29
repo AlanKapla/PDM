@@ -108,7 +108,7 @@ namespace Business.Implementation.Services
                 .ToList();
 
             List<ProjectCost> acceptedProjectCosts = (await projectCostRepository.GetBySearch(
-                pc => pc.TenantId == tenantId && pc.ProjectId == projectId && pc.IsAccepted))
+                pc => pc.TenantId == tenantId && pc.ProjectId == projectId && pc.ApprovalStatus == CostApprovalStatus.Approved))
                 .ToList();
 
             return trackedCosts.Cast<BaseCost>().Concat(acceptedProjectCosts).ToList();

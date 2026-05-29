@@ -171,6 +171,8 @@ export interface SharedProjectFileWeb {
 
 // ===== Koszty projektowe =====
 
+export type CostApprovalStatus = 'Draft' | 'PendingApproval' | 'Approved';
+
 export interface ProjectCostListItemWeb {
   id: string;
   userId: string;
@@ -183,12 +185,13 @@ export interface ProjectCostListItemWeb {
   description?: string;
   net: number | null;
   gross: number | null;
-  isAccepted: boolean;
+  approvalStatus: CostApprovalStatus;
+  approvedByUserId: string | null;
+  approvedAt: string | null;
   hasDocument: boolean;
   documentFileName?: string;
   previewSasUrl?: string;
   downloadSasUrl?: string;
-  sharedWithUserIds: string[];
   createdAt: string;
 }
 
@@ -202,7 +205,6 @@ export interface CreateProjectCostCommand {
   description?: string;
   net?: number | null;
   gross?: number | null;
-  isAccepted?: boolean;
   document?: File;
 }
 
@@ -217,7 +219,6 @@ export interface UpdateProjectCostCommand {
   description?: string;
   net?: number | null;
   gross?: number | null;
-  isAccepted: boolean;
   /** Nowy dokument dołączany do kosztu który nie miał wcześniej pliku */
   document?: File;
   /** Nowy plik zastępujący istniejący dokument */
@@ -225,24 +226,4 @@ export interface UpdateProjectCostCommand {
   removeDocument: boolean;
 }
 
-export interface SharedProjectCostWeb {
-  id: string;
-  projectCostId: string;
-  sharedWithUserId: string;
-  sharedWithUserName: string;
-  sharedByUserId: string;
-  sharedByUserName: string;
-  sharedAt: string;
-  costName: string;
-  costPlace?: string;
-  costDate: string;
-  costDescription?: string;
-  costNetAmount?: number;
-  costVatRate?: number;
-  costGrossAmount: number;
-  costIsAccepted: boolean;
-  costHasDocument: boolean;
-  costDocumentFileName?: string;
-  previewSasUrl?: string;
-  downloadSasUrl?: string;
-}
+
