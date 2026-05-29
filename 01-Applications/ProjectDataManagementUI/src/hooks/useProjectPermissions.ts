@@ -66,6 +66,7 @@ export function useProjectPermissions(projectId: string | undefined) {
       canViewAllResources ||
       hasPermission(permissions, PermissionCodes.ProjectFiles) ||
       hasPermission(permissions, PermissionCodes.ProjectEstimates) ||
+      hasPermission(permissions, PermissionCodes.ProjectCosts) ||
       hasPermission(permissions, PermissionCodes.ProjectSchedule),
 
     isAdmin,

@@ -21,7 +21,7 @@ export default function WorkScheduleView() {
   const { projectId, workScheduleId } = useParams<{ projectId: string; workScheduleId: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const permissions = useResourcePermissions(projectId);
+  const permissions = useResourcePermissions(projectId, "schedule");
 
   const isMobile = useBreakpointValue({ base: true, md: false }) ?? false;
 

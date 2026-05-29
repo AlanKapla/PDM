@@ -1,4 +1,5 @@
 using Business.Implementation.Services;
+using Business.Interfaces.Services;
 using Entities.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -10,12 +11,13 @@ namespace Business.Tests.Services;
 public class PermissionsVersionServiceTests
 {
     private readonly Mock<IRepository<PermissionsVersionProfile>> _repoMock = new Mock<IRepository<PermissionsVersionProfile>>();
+    private readonly Mock<IUserContextCache> _userContextCacheMock = new Mock<IUserContextCache>();
     private readonly Mock<ILogger<PermissionsVersionService>> _loggerMock = new Mock<ILogger<PermissionsVersionService>>();
     private readonly PermissionsVersionService _sut;
 
     public PermissionsVersionServiceTests()
     {
-        _sut = new PermissionsVersionService(_repoMock.Object, _loggerMock.Object);
+        _sut = new PermissionsVersionService(_repoMock.Object, _userContextCacheMock.Object, _loggerMock.Object);
     }
 
     // ─── BumpVersionAsync ─────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ public class PermissionsVersionServiceTests
         existing.Version.Should().Be(4);
         _repoMock.Verify(r => r.Update(existing), Times.Once);
         _repoMock.Verify(r => r.Insert(It.IsAny<PermissionsVersionProfile>()), Times.Never);
+        _userContextCacheMock.Verify(c => c.InvalidateUserPermissionsVersion(userId), Times.Once);
     }
 
     [Fact]
@@ -63,6 +66,7 @@ public class PermissionsVersionServiceTests
         inserted.Should().NotBeNull();
         inserted!.UserId.Should().Be(userId);
         inserted.Version.Should().Be(2);
+        _userContextCacheMock.Verify(c => c.InvalidateUserPermissionsVersion(userId), Times.Once);
     }
 
     // ─── BumpVersionsAsync ────────────────────────────────────────────────────
@@ -111,6 +115,8 @@ public class PermissionsVersionServiceTests
         // Assert
         _repoMock.Verify(r => r.InsertRange(It.IsAny<IEnumerable<PermissionsVersionProfile>>()), Times.Never);
         _repoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _userContextCacheMock.Verify(c => c.InvalidateUserPermissionsVersion(userId1), Times.Once);
+        _userContextCacheMock.Verify(c => c.InvalidateUserPermissionsVersion(userId2), Times.Once);
     }
 
     [Fact]
@@ -150,5 +156,7 @@ public class PermissionsVersionServiceTests
         inserted.Should().HaveCount(1);
         inserted![0].UserId.Should().Be(newUserId);
         inserted[0].Version.Should().Be(2);
+        _userContextCacheMock.Verify(c => c.InvalidateUserPermissionsVersion(existingUserId), Times.Once);
+        _userContextCacheMock.Verify(c => c.InvalidateUserPermissionsVersion(newUserId), Times.Once);
     }
 }

@@ -187,10 +187,10 @@ public sealed class AccessService : IAccessService
         {
             bool hasRequiredPermission = resourceScope.Value switch
             {
-                ResourceScope.All => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles)
+                ResourceScope.All => projectSnapshot.ProjectPermissionCodes.Contains(permissionCode)
                                      && (projectSnapshot.IsProjectAdmin || user.IsSuperAdmin),
-                ResourceScope.Mine => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles),
-                ResourceScope.Shared => projectSnapshot.ProjectPermissionCodes.Contains(PermissionCodes.ProjectFiles),
+                ResourceScope.Mine => projectSnapshot.ProjectPermissionCodes.Contains(permissionCode),
+                ResourceScope.Shared => projectSnapshot.ProjectPermissionCodes.Contains(permissionCode),
                 ResourceScope.PendingApproval => projectSnapshot.IsProjectAdmin || user.IsSuperAdmin,
                 _ => false
             };

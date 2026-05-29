@@ -369,7 +369,7 @@ export default function ProjectCosts() {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  const resourcePerms = useResourcePermissions(projectId);
+  const resourcePerms = useResourcePermissions(projectId, "estimates");
 
   // Tab cache dla Moje kosztorysy
   const myCostEstimatesCache = useTabCache<CostEstimateListItemWeb[]>(

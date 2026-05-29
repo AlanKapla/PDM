@@ -137,7 +137,7 @@ export const CostEstimateEditPage: React.FC = () => {
   const { showSuccess, showError, showApiSuccess } = useToastNotification();
 
   // ---- Uprawnienia do zasobu ----
-  const resourcePerms = useResourcePermissions(projectId);
+  const resourcePerms = useResourcePermissions(projectId, "estimates");
 
   // ---- Stan ----
   const [loading, setLoading] = useState(true);

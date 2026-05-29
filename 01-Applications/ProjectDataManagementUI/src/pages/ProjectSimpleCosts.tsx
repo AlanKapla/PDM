@@ -662,7 +662,7 @@ export default function ProjectSimpleCosts() {
     `costs-pending-${projectId}`
   );
 
-  const resourcePerms = useResourcePermissions(projectId);
+  const resourcePerms = useResourcePermissions(projectId, "costs");
 
   const { updateCost, deleteCost, submitCostForApproval, withdrawCostFromApproval, approveCost, rejectCost } = useProjectCostMutations(
     user?.activeTenantId ?? '',

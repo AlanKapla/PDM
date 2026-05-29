@@ -1,7 +1,12 @@
 import { useProjectPermissions } from "./useProjectPermissions";
 
+export type ResourceModule = "files" | "estimates" | "costs" | "schedule";
+
 /**
  * Centralna logika uprawnień dla zasobów projektu (pliki, koszty, harmonogramy, kosztorysy)
+ * 
+ * @param module - Moduł projektu: "files" | "estimates" | "costs" | "schedule"
+ *                 Domyślnie "files" dla zachowania kompatybilności wstecznej.
  * 
  * ZASADY UPRAWNIEŃ:
  * 
@@ -48,8 +53,15 @@ export interface ResourcePermissions {
   raw: any;
 }
 
-export const useResourcePermissions = (projectId: string | undefined): ResourcePermissions => {
+export const useResourcePermissions = (projectId: string | undefined, module: ResourceModule = "files"): ResourcePermissions => {
   const permissions = useProjectPermissions(projectId);
+
+  const canView =
+    module === "files" ? permissions.canViewFiles :
+    module === "estimates" ? permissions.canViewEstimates :
+    module === "costs" ? permissions.canViewCosts :
+    module === "schedule" ? permissions.canViewSchedule :
+    permissions.canViewFiles;
 
   return {
     // ==================== ZAKŁADKI ====================
@@ -57,11 +69,11 @@ export const useResourcePermissions = (projectId: string | undefined): ResourceP
       /** Zakładka "Wszystkie" - widoczna tylko dla admina projektu, TenantAdmin i SuperAdmin */
       showAll: permissions.canViewAllResources,
       
-      /** Zakładka "Moje" - widoczna gdy user ma dostęp do plików */
-      showMine: permissions.canViewFiles,
+      /** Zakładka "Moje" - widoczna gdy user ma dostęp do modułu */
+      showMine: canView,
       
-      /** Zakładka "Udostępnione" - widoczna gdy user ma dostęp do plików */
-      showShared: permissions.canViewFiles,
+      /** Zakładka "Udostępnione" - widoczna gdy user ma dostęp do modułu */
+      showShared: canView,
 
       /** Zakładka "Do akceptacji" - widoczna tylko dla adminów projektu */
       showPendingApproval: permissions.canViewAllResources,
@@ -70,19 +82,19 @@ export const useResourcePermissions = (projectId: string | undefined): ResourceP
     // ==================== AKCJE W "MOJE" ====================
     mine: {
       /** Czy user może dodawać nowe zasoby w zakładce "Moje" */
-      canCreate: permissions.canViewFiles,
+      canCreate: canView,
       
       /** Czy user może edytować zasoby w zakładce "Moje" */
-      canEdit: permissions.canViewFiles,
+      canEdit: canView,
       
       /** Czy user może usuwać zasoby w zakładce "Moje" */
-      canDelete: permissions.canViewFiles,
+      canDelete: canView,
       
       /** Czy user może udostępniać zasoby */
-      canShare: permissions.canViewFiles,
+      canShare: canView,
       
       /** Czy user może zarządzać udostępnieniem */
-      canManageShare: permissions.canViewFiles,
+      canManageShare: canView,
     },
 
     // ==================== AKCJE W "WSZYSTKIE" ====================
@@ -106,10 +118,10 @@ export const useResourcePermissions = (projectId: string | undefined): ResourceP
     // ==================== AKCJE W "UDOSTĘPNIONE" ====================
     shared: {
       /** Czy user może edytować udostępnione zasoby */
-      canEdit: permissions.canViewFiles,
+      canEdit: canView,
       
       /** Czy user może tylko czytać udostępnione zasoby */
-      canReadOnly: permissions.canViewFiles,
+      canReadOnly: canView,
     },
 
     // ==================== OGÓLNE ====================
