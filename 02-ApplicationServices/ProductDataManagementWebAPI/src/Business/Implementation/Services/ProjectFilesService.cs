@@ -618,7 +618,8 @@ public sealed class ProjectFilesService : IProjectFilesService
                         Name = p.Name,
                         CreatedAt = p.CreatedAt,
                         CreatedByUserId = p.CreatedByUserId,
-                        IsDeleted = p.IsDeleted
+                        IsDeleted = p.IsDeleted,
+                        ParentId = p.ParentId
                     });
 
                 return dictionary;

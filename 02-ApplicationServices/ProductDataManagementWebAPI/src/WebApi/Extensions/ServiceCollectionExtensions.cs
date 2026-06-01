@@ -2,6 +2,7 @@
 using Business.Implementation.Model;
 using Business.Implementation.Services;
 using Business.Implementation.Validators;
+using CQRS.CostEstimates.Validators;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
@@ -391,6 +392,7 @@ namespace WebApi.Extensions
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<CostEstimateGroupValidator>();
             services.AddScoped<CostEstimateItemValidator>();
+            services.AddScoped<CostEstimateFieldValueValidator>();
             services.AddSingleton<ICacheService, CacheService>();
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
             services.AddScoped<IFileAccessGuard, FileAccessGuard>();

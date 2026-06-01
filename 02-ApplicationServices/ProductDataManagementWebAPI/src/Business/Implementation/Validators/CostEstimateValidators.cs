@@ -72,14 +72,38 @@ namespace Business.Implementation.Validators
 
             foreach (var fieldValue in fieldValues)
             {
-                // Pobierz definicję pola ze słownika
                 if (!fieldDefinitionsById.TryGetValue(fieldValue.FieldDefinitionId, out var fieldDef))
                 {
                     errors.Add($"Field definition {fieldValue.FieldDefinitionId} not found in template version");
                     continue;
                 }
-                
-                // TODO: Dodatkowa walidacja wartości według typu pola
+
+                var result = ValidateSingleGroupFieldValue(fieldDef.FieldType, fieldValue.DecimalValue);
+                errors.AddRange(result.Errors);
+            }
+
+            return new ValidationResult(errors.Count == 0, errors);
+        }
+
+        /// <summary>
+        /// Waliduje pojedynczą wartość pola grupy według zakresu dla danego typu pola.
+        /// </summary>
+        private ValidationResult ValidateSingleGroupFieldValue(FieldType fieldType, decimal? decimalValue)
+        {
+            var errors = new List<string>();
+
+            if (decimalValue.HasValue)
+            {
+                switch (fieldType)
+                {
+                    case FieldType.GroupBudget:
+                    case FieldType.GroupPriority:
+                        if (decimalValue.Value < 0)
+                        {
+                            errors.Add($"Field '{fieldType}': Value cannot be negative");
+                        }
+                        break;
+                }
             }
 
             return new ValidationResult(errors.Count == 0, errors);
@@ -209,14 +233,14 @@ namespace Business.Implementation.Validators
             ValidateDecimalRange(fieldDef.FieldType, value, errors, fieldDef.Label);
         }
         
-        private bool ValidateDecimalRange(FieldType fieldType, decimal value, List<string> errors, string label)
+        private static bool ValidateDecimalRange(FieldType fieldType, decimal value, List<string> errors, string label)
         {
             switch (fieldType)
             {
                 case FieldType.ItemCalculatedVatRate:
-                    if (value < 0 || value > 100)
+                    if (value < 0 || value > 1)
                     {
-                        errors.Add($"Field '{label}': VAT rate must be between 0 and 100");
+                        errors.Add($"Field '{label}': VAT rate must be between 0 and 1 (e.g. 0.23 = 23%)");
                         return false;
                     }
                     break;

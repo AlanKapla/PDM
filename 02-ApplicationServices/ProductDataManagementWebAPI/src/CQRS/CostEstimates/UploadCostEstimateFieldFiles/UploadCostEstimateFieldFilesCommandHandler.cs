@@ -3,6 +3,7 @@ using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.Helpers;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
 using MediatR;
@@ -74,6 +75,8 @@ namespace CQRS.CostEstimates.UploadCostEstimateFieldFiles
             {
                 throw new NotFoundApiException(nameof(CostEstimateItem), request.ItemId.ToString());
             }
+
+            CostEstimateItemStructureGuard.EnsureItemHasNoComponents(request.ItemId, itemsDict);
 
             // Validate field definition via cached template
             CostEstimateTemplate template = await ceCacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)

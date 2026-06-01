@@ -83,16 +83,39 @@ export default function ShareFilesModal({
     }
   };
 
-  // Zaznacz/odznacz paczkę
+  // Helpers do kaskadowego zaznaczania
+  const findNode = (id: string, list: ProjectFilePackageWeb[]): ProjectFilePackageWeb | undefined => {
+    for (const cat of list) {
+      if (cat.id === id) return cat;
+      const found = findNode(id, cat.subCatalogs || []);
+      if (found) return found;
+    }
+    return undefined;
+  };
+
+  const collectAllIds = (node: ProjectFilePackageWeb): string[] => {
+    const ids: string[] = [node.id];
+    for (const sub of node.subCatalogs || []) {
+      ids.push(...collectAllIds(sub));
+    }
+    return ids;
+  };
+
+  // Zaznacz/odznacz katalog kaskadowo (wraz z podkatalogami)
   const togglePackageSelection = (packageId: string) => {
+    const node = findNode(packageId, packages);
+    const idsToToggle = node ? collectAllIds(node) : [packageId];
     setSelectedPackageIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(packageId)) {
-        newSet.delete(packageId);
-      } else {
-        newSet.add(packageId);
+      const isSelected = prev.has(packageId);
+      const next = new Set(prev);
+      for (const id of idsToToggle) {
+        if (isSelected) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
       }
-      return newSet;
+      return next;
     });
   };
 
@@ -110,7 +133,7 @@ export default function ShareFilesModal({
 
   const handleShare = async () => {
     if (selectedPackageIds.size === 0) {
-      showWarning("Błąd", "Wybierz przynajmniej jedną paczkę");
+      showWarning("Błąd", "Wybierz przynajmniej jeden katalog");
       return;
     }
 
@@ -127,7 +150,7 @@ export default function ShareFilesModal({
       
       await projectApi.sharePackages(tenantId, projectId, packageIds, userIds);
 
-      showSuccess("Sukces", `Udostępniono ${packageIds.length} paczek dla ${userIds.length} użytkownik(ów)`);
+      showSuccess("Sukces", `Udostępniono ${packageIds.length} katalogów dla ${userIds.length} użytkownik(ów)`);
       onFilesShared();
       onClose();
     } catch (error) {
@@ -145,10 +168,10 @@ export default function ShareFilesModal({
         <ModalHeader>
           <HStack spacing={2}>
             <Box display={{ base: "none", md: "block" }}>
-              <Share2 size={24} />
+              <Share2 size={24} aria-hidden="true" />
             </Box>
             <Box display={{ base: "block", md: "none" }}>
-              <Share2 size={20} />
+              <Share2 size={20} aria-hidden="true" />
             </Box>
             <Text fontSize={{ base: "md", md: "lg" }}>Udostępnij pliki grupowo</Text>
           </HStack>
@@ -159,11 +182,11 @@ export default function ShareFilesModal({
             {/* Wybór paczek */}
             <Box>
               <Text fontWeight="bold" mb={2}>
-                Wybierz paczki do udostępnienia ({selectedPackageIds.size} wybrano):
+                Wybierz katalogi do udostępnienia ({selectedPackageIds.size} wybrano):
               </Text>
               {packages.length === 0 ? (
                 <Text fontSize="sm" color="gray.500">
-                  Nie masz jeszcze żadnych paczek do udostępnienia
+                  Nie masz jeszcze żadnych katalogów do udostępnienia
                 </Text>
               ) : (
                 <VStack spacing={2} align="stretch" maxH="300px" overflowY="auto">
@@ -189,7 +212,7 @@ export default function ShareFilesModal({
                               togglePackageSelection(pkg.id);
                             }}
                           />
-                          <Package size={16} />
+                          <Package size={16} aria-hidden="true" />
                           <Text fontWeight="bold" fontSize="sm">{pkg.name}</Text>
                           <Text fontSize="xs" color="gray.500">({pkg.totalFiles} plików)</Text>
                         </HStack>
@@ -202,7 +225,7 @@ export default function ShareFilesModal({
 
             <Alert status="info" fontSize="xs">
               <AlertIcon />
-              Udostępniasz całe paczki plików. Członkowie będą mieli dostęp do wszystkich plików i wersji w wybranych paczkach.
+              Udostępniasz katalogi wraz z podkatalogami. Wybrani członkowie otrzymają dostęp do wszystkich plików i podkatalogów w zaznaczonych katalogach.
             </Alert>
 
             <Divider />
@@ -256,7 +279,7 @@ export default function ShareFilesModal({
 
             <Alert status="info" fontSize="sm">
               <AlertIcon />
-              Wybrani członkowie otrzymają dostęp do wybranych paczek i będą mogli je przeglądać oraz pobierać.
+              Wybrani członkowie otrzymają dostęp do wybranych katalogów i będą mogli je przeglądać oraz pobierać.
             </Alert>
           </VStack>
         </ModalBody>
@@ -279,7 +302,7 @@ export default function ShareFilesModal({
             width={{ base: "100%", md: "auto" }}
             order={{ base: 1, md: 2 }}
           >
-            Udostępnij ({selectedPackageIds.size} paczek dla {selectedUserIds.size})
+            Udostępnij ({selectedPackageIds.size} katalogów dla {selectedUserIds.size})
           </Button>
         </ModalFooter>
       </ModalContent>

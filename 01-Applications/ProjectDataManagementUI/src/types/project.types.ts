@@ -97,6 +97,13 @@ export interface ProjectFilePackageWeb {
   ownerName: string;
   files: ProjectFileWeb[];
   totalFiles: number;
+  parentId: string | null;
+  subCatalogs: ProjectFilePackageWeb[];
+}
+
+export interface CreateDirectoryPayload {
+  directoryName: string;
+  parentId?: string | null;
 }
 
 export interface ProjectFileWeb {

@@ -59,13 +59,29 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
             {
                 await UploadBlobsAsync(containerName, packageNameForBlob, request, projectFiles, versions, uploadedBlobPaths, cancellationToken);
 
+                // Step 1: Insert package + files (CurrentVersionId = null).
+                // Versions are intentionally NOT added to context yet to avoid the circular FK cycle:
+                //   ProjectFile [Added] → CurrentVersionId → ProjectFileVersion [Added] → ProjectFileId → ProjectFile [Added]
                 await projectFilePackageRepo.Insert(package);
                 await projectFileRepo.InsertRange(projectFiles);
+                await projectFileRepo.SaveChangesAsync(cancellationToken);
+                // ProjectFile entities are now Unchanged in the context (persisted with null CurrentVersionId).
+
+                // Step 2: Insert versions (+ comments). ProjectFile rows are already in DB, so
+                //   ProjectFileVersion INSERT only has a one-directional FK dependency on ProjectFile — no cycle.
                 await projectFileVersionRepo.InsertRange(versions);
                 if (comments.Count > 0)
                 {
                     await commentRepo.InsertRange(comments);
                 }
+
+                // Step 3: Link each file to its current version.
+                // Files are Modified (not Added), versions are Added — no circular INSERT dependency.
+                for (int i = 0; i < projectFiles.Count; i++)
+                {
+                    projectFiles[i].CurrentVersionId = versions[i].Id;
+                }
+                // TransactionBehavior will INSERT versions/comments and UPDATE files in one SaveChanges.
 
                 await InvalidateCachesAsync(request, comments.Count > 0, cancellationToken);
 
@@ -93,6 +109,7 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                 ProjectId = request.ProjectId,
                 OwnerId = currentUser.Id,
                 Name = request.PackageName,
+                ParentId = request.ParentId,
                 CreatedByUserId = currentUser.Id,
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
@@ -136,7 +153,7 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                     IsDeleted = false
                 };
 
-                projectFile.CurrentVersionId = firstVersion.Id;
+                // CurrentVersionId will be set after the first SaveChanges to avoid circular FK dependency
 
                 projectFiles.Add(projectFile);
                 versions.Add(firstVersion);

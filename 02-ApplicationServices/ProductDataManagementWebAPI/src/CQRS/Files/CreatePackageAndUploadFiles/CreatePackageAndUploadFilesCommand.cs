@@ -11,6 +11,8 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
     {
         public required string PackageName { get; init; }
 
+        public Guid? ParentId { get; init; }
+
         /// <summary>
         /// Lista plików do przesłania z opcjonalnymi nazwami wyświetlanymi
         /// </summary>

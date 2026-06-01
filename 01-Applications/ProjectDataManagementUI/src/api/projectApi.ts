@@ -82,10 +82,14 @@ export const projectApi = {
     tenantId: string, 
     projectId: string, 
     packageName: string, 
-    files: Array<{ file: File; displayName?: string; comment?: string }>
+    files: Array<{ file: File; displayName?: string; comment?: string }>,
+    parentId?: string
   ) => {
     const formData = new FormData();
     formData.append('PackageName', packageName);
+    if (parentId) {
+      formData.append('ParentId', parentId);
+    }
     
     files.forEach((item, index) => {
       formData.append(`Files[${index}].File`, item.file);
@@ -125,6 +129,19 @@ export const projectApi = {
     return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/file`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
+  },
+
+  // Utwórz katalog
+  createDirectory: async (
+    tenantId: string,
+    projectId: string,
+    directoryName: string,
+    parentId?: string | null
+  ) => {
+    return axiosClient.post<void>(
+      `/tenants/${tenantId}/projects/${projectId}/file/directories`,
+      { directoryName, parentId: parentId ?? null }
+    );
   },
 
   // 🆕 Hierarchiczne endpointy dla plików (API v2.0)

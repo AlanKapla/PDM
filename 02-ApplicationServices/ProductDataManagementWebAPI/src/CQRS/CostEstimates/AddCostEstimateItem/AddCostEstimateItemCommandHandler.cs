@@ -67,6 +67,20 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
                         "Options cannot have their own Options. Maximum nesting: Position \u2192 Component \u2192 Option.");
                 }
 
+                if (request.RelationType == ItemRelationType.Option &&
+                    parentItem.RelationType == ItemRelationType.None)
+                {
+                    bool parentHasComponents = itemsDict.Values
+                        .Any(i => i.ParentItemId == parentItem.Id && i.RelationType == ItemRelationType.Component);
+
+                    if (parentHasComponents)
+                    {
+                        throw new ValidationApiException(
+                            "Items with Components cannot have direct Options. " +
+                            "Add Options to the Components instead.");
+                    }
+                }
+
                 if (request.RelationType == ItemRelationType.Component &&
                     parentItem.RelationType != ItemRelationType.None)
                 {

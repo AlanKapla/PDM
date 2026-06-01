@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="CostEstimates\Validators\**" />
     <Compile Remove="Files\ShareProjectFiles\**" />
     <Compile Remove="Files\ShareProjectFile\**" />
     <Compile Remove="ProjectCosts\GetProjectCostDetails\**" />
@@ -22,7 +21,6 @@
     <Compile Remove="Users\UserRefresh\**" />
     <Compile Remove="Users\UserRegister\**" />
     <Compile Remove="Users\UserResetPassword\**" />
-    <EmbeddedResource Remove="CostEstimates\Validators\**" />
     <EmbeddedResource Remove="Files\ShareProjectFiles\**" />
     <EmbeddedResource Remove="Files\ShareProjectFile\**" />
     <EmbeddedResource Remove="ProjectCosts\GetProjectCostDetails\**" />
@@ -37,7 +35,6 @@
     <EmbeddedResource Remove="Users\UserRefresh\**" />
     <EmbeddedResource Remove="Users\UserRegister\**" />
     <EmbeddedResource Remove="Users\UserResetPassword\**" />
-    <None Remove="CostEstimates\Validators\**" />
     <None Remove="Files\ShareProjectFiles\**" />
     <None Remove="Files\ShareProjectFile\**" />
     <None Remove="ProjectCosts\GetProjectCostDetails\**" />

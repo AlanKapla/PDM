@@ -13,4 +13,5 @@ public record ProjectFilePackageDto
     public DateTime CreatedAt { get; init; }
     public Guid CreatedByUserId { get; init; }
     public bool IsDeleted { get; init; }
+    public Guid? ParentId { get; init; }
 }

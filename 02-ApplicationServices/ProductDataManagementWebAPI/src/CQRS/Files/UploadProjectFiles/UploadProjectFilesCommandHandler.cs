@@ -1,4 +1,4 @@
-using Business.Interfaces.Configurations;
+﻿using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
@@ -70,11 +70,34 @@ namespace CQRS.Files.UploadProjectFiles
                         cancellationToken);
                 }
 
+                // Insert files first with CurrentVersionId = null and versions in a separate SaveChanges
+                // to avoid a circular FK dependency (ProjectFile.CurrentVersionId <-> ProjectFileVersion.ProjectFileId).
+                // The surrounding TransactionBehavior wraps everything in a DB transaction, so atomicity is preserved.
+                Dictionary<Guid, Guid> fileIdToCurrentVersionId = new Dictionary<Guid, Guid>(projectFiles.Count);
+                foreach (ProjectFile pf in projectFiles)
+                {
+                    if (pf.CurrentVersionId is Guid versionId)
+                    {
+                        fileIdToCurrentVersionId[pf.Id] = versionId;
+                        pf.CurrentVersionId = null;
+                    }
+                }
+
                 await projectFileRepo.InsertRange(projectFiles);
                 await projectFileVersionRepo.InsertRange(versions);
                 if (comments.Count > 0)
                 {
                     await commentRepo.InsertRange(comments);
+                }
+
+                await projectFileRepo.SaveChangesAsync(cancellationToken);
+
+                foreach (ProjectFile pf in projectFiles)
+                {
+                    if (fileIdToCurrentVersionId.TryGetValue(pf.Id, out Guid versionId))
+                    {
+                        pf.CurrentVersionId = versionId;
+                    }
                 }
 
                 await InvalidateCachesAsync(request, comments.Count > 0, cancellationToken);
@@ -104,12 +127,9 @@ namespace CQRS.Files.UploadProjectFiles
                        pfp.ProjectId == request.ProjectId &&
                        pfp.TenantId == request.TenantId);
 
-            if (package is null)
-            {
-                throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString());
-            }
-
-            return package;
+            return package is null
+                ? throw new NotFoundApiException(nameof(ProjectFilePackage), request.ProjectFilePackageId.ToString())
+                : package;
         }
 
         private async Task UploadSingleFileAsync(

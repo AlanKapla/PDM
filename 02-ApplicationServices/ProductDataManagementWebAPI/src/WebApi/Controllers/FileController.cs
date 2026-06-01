@@ -1,5 +1,6 @@
 using Business.Interfaces.Constants;
 using CQRS.Files.AddFileVersionComment;
+using CQRS.Files.CreateDirectory;
 using CQRS.Files.CreatePackageAndUploadFiles;
 using CQRS.Files.DeleteProjectFile;
 using CQRS.Files.GetPackageFiles;
@@ -260,6 +261,27 @@ namespace WebApi.Controllers
                 FileId = fileId
             };
 
+            await Send(command);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Creates a new empty directory
+        /// </summary>
+        [HttpPost("directories")]
+        [Authorize(Policy = PermissionCodes.ProjectFiles)]
+        public async Task<IActionResult> CreateDirectory(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] CreateDirectoryRequest request)
+        {
+            CreateDirectoryCommand command = new()
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                DirectoryName = request.DirectoryName,
+                ParentId = request.ParentId
+            };
             await Send(command);
             return NoContent();
         }

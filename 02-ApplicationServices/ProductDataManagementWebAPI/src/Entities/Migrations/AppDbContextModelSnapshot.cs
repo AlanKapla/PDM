@@ -1009,6 +1009,9 @@ namespace Entities.Migrations
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1018,6 +1021,8 @@ namespace Entities.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ParentId");
 
                     b.HasIndex("OwnerId", "ProjectId");
 
@@ -1031,7 +1036,11 @@ namespace Entities.Migrations
 
                     b.HasIndex("TenantId", "ProjectId", "OwnerId", "Name")
                         .IsUnique()
-                        .HasFilter("[IsDeleted] = 0");
+                        .HasFilter("[IsDeleted] = 0 AND [ParentId] IS NULL");
+
+                    b.HasIndex("TenantId", "ProjectId", "OwnerId", "ParentId", "Name")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0 AND [ParentId] IS NOT NULL");
 
                     b.ToTable("ProjectFilePackages");
                 });
@@ -2508,6 +2517,11 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Entities.Models.Files.ProjectFilePackage", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Entities.Models.Projects.Project", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId")
@@ -2533,6 +2547,8 @@ namespace Entities.Migrations
                     b.Navigation("Owner");
 
                     b.Navigation("OwnerTenantMember");
+
+                    b.Navigation("Parent");
 
                     b.Navigation("Project");
                 });
@@ -3085,6 +3101,8 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.Files.ProjectFilePackage", b =>
                 {
+                    b.Navigation("Children");
+
                     b.Navigation("Files");
                 });
 

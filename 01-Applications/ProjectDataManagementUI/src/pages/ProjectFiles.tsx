@@ -31,12 +31,13 @@ import {
   Textarea,
   Tooltip,
 } from "@chakra-ui/react";
-import { FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus } from "lucide-react";
+import { FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus, FolderPlus, FolderOpen, Folder } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
+import CreateDirectoryModal from "../components/CreateDirectoryModal";
 import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
@@ -56,7 +57,6 @@ import {
   fileKeys,
 } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccordionIndex } from "../hooks/useAccordionIndex";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module-scope helpers (czyste funkcje)
@@ -627,6 +627,203 @@ const PackageFiles: React.FC<PackageFilesProps> = ({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DirectoryNode — rekurencyjny węzeł katalogu w drzewie
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface DirectoryNodeProps {
+  catalog: ProjectFilePackageWeb;
+  depth: number;
+  config: {
+    packageIconColor: string;
+    badgeColor: string;
+    isShared: boolean;
+    showOwner: boolean;
+    showOwnerInPackage: boolean;
+    ownerLabel?: string;
+  };
+  tenantId: string;
+  projectId: string;
+  resourceScope: ResourceScope;
+  expandedPackageIds: Set<string>;
+  expandedVersionFileIds: Set<string>;
+  expandedCommentKeys: Set<string>;
+  resourcePerms: ResourcePermissions;
+  currentUserId: string | undefined;
+  onTogglePackage: (packageId: string) => void;
+  onToggleVersions: (fileId: string) => void;
+  onToggleVersionComments: (fileId: string, versionId: string) => void;
+  onPreview: (sasUrlView: string) => void;
+  onDownload: (fileId: string, sasUrlDownload: string) => void;
+  onOpenUploadVersion: (file: any) => void;
+  onOpenManageShare: (file: any) => void;
+  newComments: Map<string, string>;
+  onCommentChange: (commentKey: string, value: string) => void;
+  onSubmitComment: (fileId: string, versionId: string) => void;
+  submittingComment: string | null;
+  onCreateDirectory?: (parentId: string | undefined) => void;
+  onUploadFiles?: (catalogId: string) => void;
+}
+
+const DirectoryNode: React.FC<DirectoryNodeProps> = ({
+  catalog,
+  depth,
+  config,
+  tenantId,
+  projectId,
+  resourceScope,
+  expandedPackageIds,
+  expandedVersionFileIds,
+  expandedCommentKeys,
+  resourcePerms,
+  currentUserId,
+  onTogglePackage,
+  onToggleVersions,
+  onToggleVersionComments,
+  onPreview,
+  onDownload,
+  onOpenUploadVersion,
+  onOpenManageShare,
+  newComments,
+  onCommentChange,
+  onSubmitComment,
+  submittingComment,
+  onCreateDirectory,
+  onUploadFiles,
+}) => {
+  const isExpanded = expandedPackageIds.has(catalog.id);
+
+  return (
+    <Box ml={depth > 0 ? depth * 6 : 0} mb={2}>
+      <Accordion allowMultiple index={isExpanded ? [0] : []}>
+        <AccordionItem bg="white" borderWidth="1px" borderColor="neutral.200" rounded="md">
+          <AccordionButton
+            py={3}
+            _hover={{ bg: "neutral.50" }}
+            onClick={() => onTogglePackage(catalog.id)}
+          >
+            <HStack flex="1" spacing={3}>
+              <Icon
+                as={isExpanded ? FolderOpen : Folder}
+                boxSize={4}
+                color={config.packageIconColor}
+                aria-hidden="true"
+              />
+              <Text fontWeight="semibold" fontSize="md">{catalog.name}</Text>
+              <Badge colorScheme={config.badgeColor} fontSize="sm">{catalog.totalFiles}</Badge>
+              {config.showOwnerInPackage && catalog.ownerName && (
+                <Text fontSize="sm" color="neutral.500">{config.ownerLabel}: {catalog.ownerName}</Text>
+              )}
+            </HStack>
+            {onUploadFiles && (
+              <IconButton
+                as="span"
+                aria-label="Dodaj pliki do katalogu"
+                icon={<Upload size={14} aria-hidden="true" />}
+                size="xs"
+                variant="ghost"
+                colorScheme="primary"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onUploadFiles(catalog.id);
+                }}
+              />
+            )}
+            {onCreateDirectory && (
+              <IconButton
+                as="span"
+                aria-label="Dodaj podkatalog"
+                icon={<FolderPlus size={14} aria-hidden="true" />}
+                size="xs"
+                variant="ghost"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onCreateDirectory(catalog.id);
+                }}
+              />
+            )}
+            <AccordionIcon />
+          </AccordionButton>
+          <AccordionPanel pb={4}>
+            {(catalog.subCatalogs?.length ?? 0) > 0 && (
+              <Box mb={3}>
+                {catalog.subCatalogs.map((sub) => (
+                  <DirectoryNode
+                    key={sub.id}
+                    catalog={sub}
+                    depth={depth + 1}
+                    config={config}
+                    tenantId={tenantId}
+                    projectId={projectId}
+                    resourceScope={resourceScope}
+                    expandedPackageIds={expandedPackageIds}
+                    expandedVersionFileIds={expandedVersionFileIds}
+                    expandedCommentKeys={expandedCommentKeys}
+                    resourcePerms={resourcePerms}
+                    currentUserId={currentUserId}
+                    onTogglePackage={onTogglePackage}
+                    onToggleVersions={onToggleVersions}
+                    onToggleVersionComments={onToggleVersionComments}
+                    onPreview={onPreview}
+                    onDownload={onDownload}
+                    onOpenUploadVersion={onOpenUploadVersion}
+                    onOpenManageShare={onOpenManageShare}
+                    newComments={newComments}
+                    onCommentChange={onCommentChange}
+                    onSubmitComment={onSubmitComment}
+                    submittingComment={submittingComment}
+                    onCreateDirectory={onCreateDirectory}
+                    onUploadFiles={onUploadFiles}
+                  />
+                ))}
+              </Box>
+            )}
+            <Box overflowX="auto">
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Nazwa pliku</Th>
+                    {config.showOwner && (
+                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                    )}
+                    <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                    <Th>Akcje</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  <PackageFiles
+                    tenantId={tenantId}
+                    projectId={projectId}
+                    packageId={catalog.id}
+                    scope={resourceScope}
+                    isExpanded={isExpanded}
+                    isShared={config.isShared}
+                    showOwner={config.showOwner}
+                    expandedVersionFileIds={expandedVersionFileIds}
+                    expandedCommentKeys={expandedCommentKeys}
+                    resourcePerms={resourcePerms}
+                    currentUserId={currentUserId}
+                    onToggleVersions={onToggleVersions}
+                    onToggleVersionComments={onToggleVersionComments}
+                    onPreview={onPreview}
+                    onDownload={onDownload}
+                    onOpenUploadVersion={onOpenUploadVersion}
+                    onOpenManageShare={onOpenManageShare}
+                    newComments={newComments}
+                    onCommentChange={onCommentChange}
+                    onSubmitComment={onSubmitComment}
+                    submittingComment={submittingComment}
+                  />
+                </Tbody>
+              </Table>
+            </Box>
+          </AccordionPanel>
+        </AccordionItem>
+      </Accordion>
+    </Box>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FilesTab — zakładka per scope (all/mine/shared)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -654,6 +851,8 @@ interface FilesTabProps {
   submittingComment: string | null;
   onShareFilesModalOpen?: () => void;
   onUploadModalOpen?: () => void;
+  onCreateDirectory?: (parentId: string | undefined) => void;
+  onUploadFiles?: (catalogId: string) => void;
 }
 
 const FilesTab: React.FC<FilesTabProps> = ({
@@ -680,9 +879,10 @@ const FilesTab: React.FC<FilesTabProps> = ({
   submittingComment,
   onShareFilesModalOpen,
   onUploadModalOpen,
+  onCreateDirectory,
+  onUploadFiles,
 }) => {
   const config = SCOPE_CONFIG[scope];
-  const expandedIndices = useAccordionIndex(expandedPackageIds, packages || []);
   const perms = scope === "all" ? resourcePerms.all
     : scope === "mine" ? resourcePerms.mine
     : null;
@@ -694,6 +894,16 @@ const FilesTab: React.FC<FilesTabProps> = ({
           {config.description}
         </Text>
         <HStack spacing={2}>
+          {onCreateDirectory && perms?.canCreate && (
+            <Button
+              leftIcon={<FolderPlus size={16} aria-hidden="true" />}
+              onClick={() => onCreateDirectory(undefined)}
+              variant="outline"
+              size="sm"
+            >
+              Dodaj katalog
+            </Button>
+          )}
           {onShareFilesModalOpen && perms?.canShare && (
             <Button
               leftIcon={<Share2 size={18} />}
@@ -725,67 +935,37 @@ const FilesTab: React.FC<FilesTabProps> = ({
           description={config.emptyDescription}
         />
       ) : (
-        <Accordion allowMultiple index={expandedIndices}>
-          {packages.map((pkg) => {
-            const isPackageExpanded = expandedPackageIds.has(pkg.id);
-            return (
-              <AccordionItem key={pkg.id} bg="white" borderWidth="1px" borderColor="neutral.200" rounded="md" mb={3}>
-                <AccordionButton py={4} _hover={{ bg: 'neutral.50' }} onClick={() => onTogglePackage(pkg.id)}>
-                  <HStack flex="1" spacing={3}>
-                    <Icon as={config.packageIcon} boxSize={5} color={config.packageIconColor} />
-                    <Text fontWeight="semibold" fontSize="md">{pkg.name}</Text>
-                    <Badge colorScheme={config.badgeColor} fontSize="sm">{pkg.totalFiles}</Badge>
-                    {config.showOwnerInPackage && pkg.ownerName && (
-                      <Text fontSize="sm" color="neutral.500">{config.ownerLabel}: {pkg.ownerName}</Text>
-                    )}
-                  </HStack>
-                  <AccordionIcon />
-                </AccordionButton>
-                <AccordionPanel pb={4}>
-                  <Box overflowX="auto">
-                    <Table size="sm" variant="simple">
-                      <Thead>
-                        <Tr>
-                          <Th>Nazwa pliku</Th>
-                          {config.showOwner && (
-                            <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                          )}
-                          <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                          <Th>Akcje</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        <PackageFiles
-                          tenantId={tenantId}
-                          projectId={projectId}
-                          packageId={pkg.id}
-                          scope={resourceScope}
-                          isExpanded={isPackageExpanded}
-                          isShared={config.isShared}
-                          showOwner={config.showOwner}
-                          expandedVersionFileIds={expandedVersionFileIds}
-                          expandedCommentKeys={expandedCommentKeys}
-                          resourcePerms={resourcePerms}
-                          currentUserId={currentUserId}
-                          onToggleVersions={onToggleVersions}
-                          onToggleVersionComments={onToggleVersionComments}
-                          onPreview={onPreview}
-                          onDownload={onDownload}
-                          onOpenUploadVersion={onOpenUploadVersion}
-                          onOpenManageShare={onOpenManageShare}
-                          newComments={newComments}
-                          onCommentChange={onCommentChange}
-                          onSubmitComment={onSubmitComment}
-                          submittingComment={submittingComment}
-                        />
-                      </Tbody>
-                    </Table>
-                  </Box>
-                </AccordionPanel>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
+        <VStack spacing={0} align="stretch">
+          {packages.map((pkg) => (
+            <DirectoryNode
+              key={pkg.id}
+              catalog={pkg}
+              depth={0}
+              config={config}
+              tenantId={tenantId}
+              projectId={projectId}
+              resourceScope={resourceScope}
+              expandedPackageIds={expandedPackageIds}
+              expandedVersionFileIds={expandedVersionFileIds}
+              expandedCommentKeys={expandedCommentKeys}
+              resourcePerms={resourcePerms}
+              currentUserId={currentUserId}
+              onTogglePackage={onTogglePackage}
+              onToggleVersions={onToggleVersions}
+              onToggleVersionComments={onToggleVersionComments}
+              onPreview={onPreview}
+              onDownload={onDownload}
+              onOpenUploadVersion={onOpenUploadVersion}
+              onOpenManageShare={onOpenManageShare}
+              newComments={newComments}
+              onCommentChange={onCommentChange}
+              onSubmitComment={onSubmitComment}
+              submittingComment={submittingComment}
+              onCreateDirectory={onCreateDirectory}
+              onUploadFiles={onUploadFiles}
+            />
+          ))}
+        </VStack>
       )}
     </VStack>
   );
@@ -803,6 +983,7 @@ export default function ProjectFiles() {
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
   const { isOpen: isShareFilesModalOpen, onOpen: onShareFilesModalOpen, onClose: onShareFilesModalClose } = useDisclosure();
+  const { isOpen: isCreateDirOpen, onOpen: onCreateDirOpen, onClose: onCreateDirClose } = useDisclosure();
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [expandedPackageIds, setExpandedPackageIds] = useState<Set<string>>(new Set());
@@ -812,6 +993,8 @@ export default function ProjectFiles() {
   const [fileToManageShare, setFileToManageShare] = useState<any | null>(null);
   const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
+  const [createDirParentId, setCreateDirParentId] = useState<string | undefined>(undefined);
+  const [uploadTargetDirectoryId, setUploadTargetDirectoryId] = useState<string | undefined>(undefined);
 
   const queryClient = useQueryClient();
 
@@ -888,6 +1071,16 @@ export default function ProjectFiles() {
     setExpandedPackageIds(new Set());
     setExpandedVersionFileIds(new Set());
     setExpandedCommentKeys(new Set());
+  };
+
+  const handleOpenCreateDirectory = (parentId: string | undefined) => {
+    setCreateDirParentId(parentId);
+    onCreateDirOpen();
+  };
+
+  const handleOpenUploadForDirectory = (catalogId: string) => {
+    setUploadTargetDirectoryId(catalogId);
+    onUploadModalOpen();
   };
 
   // === Toggle helpers (czyste manipulacje Set) ===
@@ -1143,6 +1336,8 @@ export default function ProjectFiles() {
                       submittingComment={submittingComment}
                       onShareFilesModalOpen={onShareFilesModalOpen}
                       onUploadModalOpen={onUploadModalOpen}
+                      onCreateDirectory={handleOpenCreateDirectory}
+                      onUploadFiles={handleOpenUploadForDirectory}
                     />
                   )}
                 </TabPanel>
@@ -1176,6 +1371,8 @@ export default function ProjectFiles() {
                       submittingComment={submittingComment}
                       onShareFilesModalOpen={onShareFilesModalOpen}
                       onUploadModalOpen={onUploadModalOpen}
+                      onCreateDirectory={handleOpenCreateDirectory}
+                      onUploadFiles={handleOpenUploadForDirectory}
                     />
                   )}
                 </TabPanel>
@@ -1218,11 +1415,12 @@ export default function ProjectFiles() {
         {isUploadModalOpen && (
           <UploadFilesModal
             isOpen={isUploadModalOpen}
-            onClose={onUploadModalClose}
+            onClose={() => { setUploadTargetDirectoryId(undefined); onUploadModalClose(); }}
             projectId={projectId || ""}
             projectName={project?.name || ""}
             tenantId={tenantId}
             onFilesUploaded={refreshData}
+            targetCatalogId={uploadTargetDirectoryId}
           />
         )}
 
@@ -1265,6 +1463,21 @@ export default function ProjectFiles() {
               : myFilesQuery.data || undefined
           }
         />
+
+        {isCreateDirOpen && (
+          <CreateDirectoryModal
+            isOpen={isCreateDirOpen}
+            onClose={onCreateDirClose}
+            onSuccess={() => {
+              onCreateDirClose();
+              refreshData();
+            }}
+            tenantId={tenantId}
+            projectId={projectId || ""}
+            catalogs={activeTabIndex === allFilesTabIndex ? allFilesData : myFilesData}
+            defaultParentId={createDirParentId}
+          />
+        )}
       </Box>
     </MainLayout>
   );

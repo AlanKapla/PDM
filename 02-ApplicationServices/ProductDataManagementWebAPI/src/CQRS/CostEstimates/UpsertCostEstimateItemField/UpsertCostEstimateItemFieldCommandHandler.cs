@@ -1,4 +1,5 @@
 using Business.Implementation.Helpers;
+using CQRS.CostEstimates.Validators;
 using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
@@ -33,6 +34,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UpsertCostEstimateItemFieldCommandHandler> logger;
+        private readonly CostEstimateFieldValueValidator fieldValueValidator;
 
         public UpsertCostEstimateItemFieldCommandHandler(
             IRepository<CostEstimateItem> itemRepository,
@@ -43,7 +45,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             IReadRepository<Notification> notificationRepository,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
-            ILogger<UpsertCostEstimateItemFieldCommandHandler> logger)
+            ILogger<UpsertCostEstimateItemFieldCommandHandler> logger,
+            CostEstimateFieldValueValidator fieldValueValidator)
         {
             this.itemRepository = itemRepository;
             this.itemFieldValueRepository = itemFieldValueRepository;
@@ -54,6 +57,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
+            this.fieldValueValidator = fieldValueValidator;
         }
 
         public async Task<Guid> Handle(UpsertCostEstimateItemFieldCommand request, CancellationToken cancellationToken)
@@ -78,8 +82,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
                 throw new NotFoundApiException(nameof(CostEstimateItem), request.ItemId.ToString());
 
             Guid fieldValueId = request.FieldValueId is null
-                ? await AddFieldValue(request, costEstimate.TemplateId, accessLevel, cancellationToken)
-                : await UpdateFieldValue(request, accessLevel, cancellationToken);
+                ? await AddFieldValue(request, costEstimate.TemplateId, accessLevel, itemsDict, cancellationToken)
+                : await UpdateFieldValue(request, accessLevel, itemsDict, cancellationToken);
 
             if (costEstimate.OwnerId != currentUser.Id)
             {
@@ -96,6 +100,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             UpsertCostEstimateItemFieldCommand request,
             Guid templateId,
             CostEstimateAccessLevel accessLevel,
+            Dictionary<Guid, CostEstimateItem> itemsDict,
             CancellationToken cancellationToken)
         {
             CostEstimateTemplate template = await cacheService.GetTemplateAsync(templateId, cancellationToken)
@@ -114,13 +119,17 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
                 throw new ForbiddenApiException("This field is read-only and cannot be modified.");
             }
 
-            if (fieldDef.FieldType is FieldType.ItemCalculatedVatRate
-                && request.DecimalValue.HasValue
-                && (request.DecimalValue.Value < 0m || request.DecimalValue.Value > 1m))
+            CostEstimateItemStructureGuard.EnsureItemHasNoComponents(request.ItemId, itemsDict);
+
+            CostEstimateFieldValueContext addContext = CostEstimateFieldValueContext.From(
+                fieldDef, request.StringValue, request.DecimalValue, request.BoolValue, request.DateTimeValue);
+            FluentValidation.Results.ValidationResult addValidationResult = fieldValueValidator.Validate(addContext);
+            if (!addValidationResult.IsValid)
             {
-                throw new ValidationApiException(
-                    $"VatRate value must be between 0 and 1. Provided: {request.DecimalValue.Value}");
+                throw new ValidationApiException(string.Join("; ", addValidationResult.Errors.Select(e => e.ErrorMessage)));
             }
+
+            await CheckExclusiveSelectionAsync(request, fieldDef.FieldType, fieldDef.Id, itemsDict, cancellationToken);
 
             var itemFieldValuesDict = await cacheService.GetItemFieldValuesDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
@@ -182,6 +191,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
         private async Task<Guid> UpdateFieldValue(
             UpsertCostEstimateItemFieldCommand request,
             CostEstimateAccessLevel accessLevel,
+            Dictionary<Guid, CostEstimateItem> itemsDict,
             CancellationToken cancellationToken)
         {
             CostEstimateItemFieldValue fieldValue = await itemFieldValueRepository.GetFirstBySearch(
@@ -194,6 +204,18 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             {
                 throw new ForbiddenApiException("This field is read-only and cannot be modified.");
             }
+
+            CostEstimateItemStructureGuard.EnsureItemHasNoComponents(request.ItemId, itemsDict);
+
+            CostEstimateFieldValueContext updateContext = CostEstimateFieldValueContext.From(
+                fieldValue.FieldDefinition, request.StringValue, request.DecimalValue, request.BoolValue, request.DateTimeValue);
+            FluentValidation.Results.ValidationResult updateValidationResult = fieldValueValidator.Validate(updateContext);
+            if (!updateValidationResult.IsValid)
+            {
+                throw new ValidationApiException(string.Join("; ", updateValidationResult.Errors.Select(e => e.ErrorMessage)));
+            }
+
+            await CheckExclusiveSelectionAsync(request, fieldValue.FieldDefinition.FieldType, fieldValue.FieldDefinitionId, itemsDict, cancellationToken);
 
             FieldValueConverter.SetTypedValue(
                 fieldValue,
@@ -214,6 +236,52 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             await UpdateItemNameAsync(fieldValue.FieldDefinition.FieldType, request, cancellationToken);
 
             return fieldValue.Id;
+        }
+
+        private async Task CheckExclusiveSelectionAsync(
+            UpsertCostEstimateItemFieldCommand request,
+            FieldType fieldType,
+            Guid fieldDefinitionId,
+            Dictionary<Guid, CostEstimateItem> itemsDict,
+            CancellationToken cancellationToken)
+        {
+            if (fieldType != FieldType.ItemSystemSelected || request.BoolValue != true)
+            {
+                return;
+            }
+
+            CostEstimateItem currentItem = itemsDict[request.ItemId];
+            if (currentItem.RelationType != ItemRelationType.Option || !currentItem.ParentItemId.HasValue)
+            {
+                return;
+            }
+
+            HashSet<Guid> siblingIds = itemsDict.Values
+                .Where(i => i.ParentItemId == currentItem.ParentItemId
+                            && i.RelationType == ItemRelationType.Option
+                            && i.Id != request.ItemId)
+                .Select(i => i.Id)
+                .ToHashSet();
+
+            if (siblingIds.Count == 0)
+            {
+                return;
+            }
+
+            Dictionary<Guid, CostEstimateItemFieldValue> fieldValuesDict = await cacheService.GetItemFieldValuesDictionaryAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            bool siblingAlreadySelected = fieldValuesDict.Values
+                .Any(fv => siblingIds.Contains(fv.ItemId)
+                            && fv.FieldDefinitionId == fieldDefinitionId
+                            && fv.BoolValue == true);
+
+            if (siblingAlreadySelected)
+            {
+                throw new ValidationApiException(
+                    "Field 'Zaznaczenie' [ItemSystemSelected]: Only one option can be selected at a time. " +
+                    "Deselect the currently selected option before selecting this one.");
+            }
         }
 
         private async Task UpdateItemNameAsync(

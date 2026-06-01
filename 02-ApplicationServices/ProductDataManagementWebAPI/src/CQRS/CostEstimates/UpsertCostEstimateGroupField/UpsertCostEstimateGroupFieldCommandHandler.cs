@@ -1,4 +1,5 @@
 using Business.Implementation.Helpers;
+using CQRS.CostEstimates.Validators;
 using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
@@ -33,6 +34,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UpsertCostEstimateGroupFieldCommandHandler> logger;
+        private readonly CostEstimateFieldValueValidator fieldValueValidator;
 
         public UpsertCostEstimateGroupFieldCommandHandler(
             IRepository<CostEstimateGroup> groupRepository,
@@ -43,7 +45,8 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
             IReadRepository<Notification> notificationRepository,
             INotificationSender notificationSender,
             ICurrentUser currentUser,
-            ILogger<UpsertCostEstimateGroupFieldCommandHandler> logger)
+            ILogger<UpsertCostEstimateGroupFieldCommandHandler> logger,
+            CostEstimateFieldValueValidator fieldValueValidator)
         {
             this.groupRepository = groupRepository;
             this.groupFieldValueRepository = groupFieldValueRepository;
@@ -54,6 +57,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
             this.logger = logger;
+            this.fieldValueValidator = fieldValueValidator;
         }
 
         public async Task<Guid> Handle(UpsertCostEstimateGroupFieldCommand request, CancellationToken cancellationToken)
@@ -119,6 +123,14 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
                 .FirstOrDefault(f => f.Id == request.FieldDefinitionId)
                 ?? throw new ValidationApiException(
                     $"Field definition {request.FieldDefinitionId} not found in template group fields");
+
+            CostEstimateFieldValueContext addContext = CostEstimateFieldValueContext.From(
+                fieldDef, request.StringValue, request.DecimalValue, request.BoolValue, request.DateTimeValue);
+            FluentValidation.Results.ValidationResult addValidationResult = fieldValueValidator.Validate(addContext);
+            if (!addValidationResult.IsValid)
+            {
+                throw new ValidationApiException(string.Join("; ", addValidationResult.Errors.Select(e => e.ErrorMessage)));
+            }
 
             var groupFieldValuesDict = await cacheService.GetGroupFieldValuesDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
@@ -186,6 +198,14 @@ namespace CQRS.CostEstimates.UpsertCostEstimateGroupField
                       fv.GroupId == request.GroupId,
                 q => q.Include(fv => fv.FieldDefinition))
                 ?? throw new NotFoundApiException("GroupFieldValue", request.FieldValueId!.Value.ToString());
+
+            CostEstimateFieldValueContext updateContext = CostEstimateFieldValueContext.From(
+                fieldValue.FieldDefinition, request.StringValue, request.DecimalValue, request.BoolValue, request.DateTimeValue);
+            FluentValidation.Results.ValidationResult updateValidationResult = fieldValueValidator.Validate(updateContext);
+            if (!updateValidationResult.IsValid)
+            {
+                throw new ValidationApiException(string.Join("; ", updateValidationResult.Errors.Select(e => e.ErrorMessage)));
+            }
 
             FieldValueConverter.SetTypedValue(
                 fieldValue,

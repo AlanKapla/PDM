@@ -46,21 +46,24 @@ namespace CQRS.Files.SharePackages
                     request.TenantId, request.ProjectId, packageId, FileAccessKind.Share, cancellationToken);
             }
 
-            // 2. Load packages for owner lookup (used to skip sharing with the package owner)
-            List<ProjectFilePackage> packages = (await packageRepo.GetBySearch(
-                p => request.PackageIds.Contains(p.Id)
-                    && p.ProjectId == request.ProjectId
-                    && p.TenantId == request.TenantId)).ToList();
+            // 2. Expand PackageIds with all descendants (cascade share)
+            IReadOnlyList<ProjectFilePackage> allProjectPackages = await GetAllProjectPackagesAsync(
+                request.TenantId, request.ProjectId);
 
-            // 3. Create dictionary for fast owner lookup
-            Dictionary<Guid, Guid> packageOwners = packages.ToDictionary(p => p.Id, p => p.OwnerId);
+            IReadOnlyList<Guid> allPackageIds = ExpandWithDescendants(request.PackageIds, allProjectPackages);
 
-            // 4. Share all packages with all specified users (excluding self and package owners)
+            // 3. Build owner lookup from already-fetched packages (no extra query)
+            HashSet<Guid> allPackageIdsSet = new HashSet<Guid>(allPackageIds);
+            Dictionary<Guid, Guid> packageOwners = allProjectPackages
+                .Where(p => allPackageIdsSet.Contains(p.Id))
+                .ToDictionary(p => p.Id, p => p.OwnerId);
+
+            // 4. Share all packages (including descendants) with all specified users (excluding self and package owners)
             int totalShared = 0;
             int skippedSelf = 0;
             int skippedOwners = 0;
 
-            foreach (Guid packageId in request.PackageIds)
+            foreach (Guid packageId in allPackageIds)
             {
                 Guid packageOwnerId = packageOwners[packageId];
 
@@ -95,9 +98,46 @@ namespace CQRS.Files.SharePackages
 
             logger.LogInformation(
                 "{PackageCount} packages processed: {TotalShared} shares created, {SkippedSelf} skipped (self), {SkippedOwners} skipped (owners)",
-                request.PackageIds.Count, totalShared, skippedSelf, skippedOwners);
+                allPackageIds.Count, totalShared, skippedSelf, skippedOwners);
 
             return Unit.Value;
+        }
+
+        private async Task<IReadOnlyList<ProjectFilePackage>> GetAllProjectPackagesAsync(
+            Guid tenantId, Guid projectId)
+        {
+            IEnumerable<ProjectFilePackage> packages = await packageRepo.GetBySearch(
+                p => p.TenantId == tenantId && p.ProjectId == projectId);
+            return packages.ToList();
+        }
+
+        private static IReadOnlyList<Guid> ExpandWithDescendants(
+            IEnumerable<Guid> rootIds,
+            IReadOnlyList<ProjectFilePackage> allPackages)
+        {
+            Dictionary<Guid, List<Guid>> childrenByParent = allPackages
+                .Where(p => p.ParentId.HasValue)
+                .GroupBy(p => p.ParentId!.Value)
+                .ToDictionary(g => g.Key, g => g.Select(p => p.Id).ToList());
+
+            HashSet<Guid> result = new HashSet<Guid>();
+            Queue<Guid> queue = new Queue<Guid>(rootIds);
+
+            while (queue.Count > 0)
+            {
+                Guid current = queue.Dequeue();
+                if (!result.Add(current)) continue;
+
+                if (childrenByParent.TryGetValue(current, out List<Guid>? children))
+                {
+                    foreach (Guid child in children)
+                    {
+                        queue.Enqueue(child);
+                    }
+                }
+            }
+
+            return result.ToList();
         }
 
         /// <summary>

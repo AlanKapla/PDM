@@ -21,7 +21,7 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                 .MaximumLength(FileConstants.MaxPackageNameLength)
                 .WithMessage($"Package name cannot exceed {FileConstants.MaxPackageNameLength} characters");
 
-            // Check if package with this name already exists for current user
+            // Check if package with this name already exists for current user in the same parent directory
             RuleFor(x => x)
                 .MustAsync(async (command, cancellation) =>
                 {
@@ -29,10 +29,24 @@ namespace CQRS.Files.CreatePackageAndUploadFiles
                         pfp => pfp.TenantId == command.TenantId &&
                                pfp.ProjectId == command.ProjectId &&
                                pfp.OwnerId == currentUser.Id &&
-                               pfp.Name == command.PackageName);
+                               pfp.Name == command.PackageName &&
+                               pfp.ParentId == command.ParentId);
                     return existingPackage is null;
                 })
                 .WithMessage("A package with this name already exists for you in this project");
+
+            RuleFor(x => x.ParentId)
+                .MustAsync(async (command, parentId, ct) =>
+                {
+                    if (parentId is null) return true;
+                    ProjectFilePackage? parent = await packageRepo.GetFirstBySearch(
+                        p => p.Id == parentId.Value &&
+                             p.TenantId == command.TenantId &&
+                             p.ProjectId == command.ProjectId);
+                    return parent is not null;
+                })
+                .WithMessage("Parent directory not found or does not belong to this project.")
+                .When(c => c.ParentId.HasValue);
 
             RuleFor(x => x.Files)
                 .NotNull().WithMessage("Files list cannot be null")

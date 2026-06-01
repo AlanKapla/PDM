@@ -12,6 +12,10 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
             RuleFor(x => x.CostEstimateId).RequiredId();
             RuleFor(x => x.ItemId).RequiredId();
 
+            RuleFor(x => x.StringValue)
+                .MaximumLength(2000).WithMessage("StringValue cannot exceed 2000 characters.")
+                .When(x => x.StringValue != null);
+
             // FieldDefinitionId is required only when adding (FieldValueId is null)
             RuleFor(x => x.FieldDefinitionId)
                 .NotEmpty().WithMessage("'FieldDefinitionId' is required.")

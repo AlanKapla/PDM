@@ -17,8 +17,10 @@
         public List<ProjectFileWeb> Files { get; init; } = new();
 
         /// <summary>
-        /// Total number of files in the package
+        /// Total number of files in the package (including all descendants)
         /// </summary>
-        public required int TotalFiles { get; init; }
+        public required int TotalFiles { get; set; }
+        public Guid? ParentId { get; init; }
+        public List<ProjectFilePackageWeb> SubCatalogs { get; set; } = new();
     }
 }
