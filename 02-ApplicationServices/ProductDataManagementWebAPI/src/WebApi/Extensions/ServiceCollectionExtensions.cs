@@ -1,4 +1,5 @@
 ﻿using Azure.Identity;
+using Business.AIAgent.Registration;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
 using Business.Implementation.Validators;
@@ -58,7 +59,8 @@ namespace WebApi.Extensions
                 .AddAppServices()
                 .AddConfigurations(config)
                 .AddFrontendCors(config)
-                .AddChat(config);
+                .AddChat(config)
+                .AddAIAgent(config);
 
             return services;
         }

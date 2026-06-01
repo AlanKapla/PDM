@@ -14,6 +14,8 @@ import {
   DrawerBody,
   DrawerFooter,
   DrawerCloseButton,
+  Alert,
+  AlertIcon,
   Button,
   HStack,
   VStack,
@@ -33,8 +35,10 @@ import {
   useBreakpointValue,
   Box,
 } from "@chakra-ui/react";
+import { FileUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import CostForm, { validateCostForm } from "./CostForm";
+import { AICostImportModal } from "./AICostImportModal";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { useProjectPermissions } from "../../hooks/useProjectPermissions";
 import { useTenantPermissions } from "../../hooks/useTenantPermissions";
@@ -42,6 +46,7 @@ import { costTrackerApi } from "../../api/costTrackerApi";
 import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
 import type { CostEstimateSummaryWeb, TrackerGroupWeb, CostFormValues } from "../../types/costTracker.types";
+import type { ParsedCostDto } from "../../types/ai.types";
 
 interface CostFormModalProps {
   isOpen: boolean;
@@ -107,6 +112,23 @@ export default function CostFormModal({
   const [formValues, setFormValues] = useState<CostFormValues>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof CostFormValues, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAIImportOpen, setIsAIImportOpen] = useState(false);
+  const [aiParsedInfo, setAiParsedInfo] = useState<ParsedCostDto | null>(null);
+
+  const handleAIParsed = (parsed: ParsedCostDto, file: File) => {
+    setAiParsedInfo(parsed);
+    setFormValues({
+      name: parsed.name ?? '',
+      description: parsed.description ?? '',
+      net: parsed.net ?? undefined,
+      number: parsed.number ?? '',
+      contractorId: parsed.contractorFound ? (parsed.contractorId ?? null) : null,
+      date: parsed.date ? parsed.date.substring(0, 10) : '',
+      newFiles: [file],
+    });
+    setActiveStep(3);
+    setIsAIImportOpen(false);
+  };
 
   const selectedEstimate = useMemo(
     () => costEstimateSummaries.find((e) => e.costEstimateId === selectedEstimateId),
@@ -297,14 +319,25 @@ export default function CostFormModal({
 
       case 3:
         return (
-          <CostForm
-            values={formValues}
-            onChange={setFormValues}
-            errors={formErrors}
-            isSubmitting={isSubmitting}
-            tenantId={tenantId}
-            canQuickAdd={canQuickAdd}
-          />
+          <VStack spacing={3} align="stretch">
+            {aiParsedInfo && (
+              <Alert status="info" fontSize="sm">
+                <AlertIcon />
+                Dane wypełnione przez AI — sprawdź i zatwierdź przed zapisaniem.
+                {aiParsedInfo.confidence < 0.7 && (
+                  <Text as="span" ml={1} fontWeight="medium" color="orange.600">(niska pewność)</Text>
+                )}
+              </Alert>
+            )}
+            <CostForm
+              values={formValues}
+              onChange={setFormValues}
+              errors={formErrors}
+              isSubmitting={isSubmitting}
+              tenantId={tenantId}
+              canQuickAdd={canQuickAdd}
+            />
+          </VStack>
         );
 
       default:
@@ -313,44 +346,55 @@ export default function CostFormModal({
   };
 
   const footer = (
-    <HStack spacing={2} width="100%" justify="flex-end">
-      {activeStep > 0 && (
+    <HStack spacing={2} width="100%" justify="space-between">
+      <Button
+        variant="outline"
+        size="sm"
+        leftIcon={<FileUp size={14} aria-hidden="true" />}
+        onClick={() => setIsAIImportOpen(true)}
+        isDisabled={isSubmitting}
+      >
+        Importuj z dokumentu
+      </Button>
+      <HStack spacing={2}>
+        {activeStep > 0 && (
+          <Button
+            variant="ghost"
+            onClick={handleBack}
+            isDisabled={isSubmitting}
+            width={{ base: "full", md: "auto" }}
+          >
+            Wstecz
+          </Button>
+        )}
         <Button
           variant="ghost"
-          onClick={handleBack}
+          onClick={handleClose}
           isDisabled={isSubmitting}
           width={{ base: "full", md: "auto" }}
         >
-          Wstecz
+          Anuluj
         </Button>
-      )}
-      <Button
-        variant="ghost"
-        onClick={handleClose}
-        isDisabled={isSubmitting}
-        width={{ base: "full", md: "auto" }}
-      >
-        Anuluj
-      </Button>
-      {activeStep < STEPS.length - 1 ? (
-        <Button
-          colorScheme="primary"
-          onClick={handleNext}
-          isDisabled={!canNext()}
-          width={{ base: "full", md: "auto" }}
-        >
-          Dalej
-        </Button>
-      ) : (
-        <Button
-          colorScheme="primary"
-          onClick={handleSubmit}
-          isLoading={isSubmitting}
-          width={{ base: "full", md: "auto" }}
-        >
-          Zapisz
-        </Button>
-      )}
+        {activeStep < STEPS.length - 1 ? (
+          <Button
+            colorScheme="primary"
+            onClick={handleNext}
+            isDisabled={!canNext()}
+            width={{ base: "full", md: "auto" }}
+          >
+            Dalej
+          </Button>
+        ) : (
+          <Button
+            colorScheme="primary"
+            onClick={handleSubmit}
+            isLoading={isSubmitting}
+            width={{ base: "full", md: "auto" }}
+          >
+            Zapisz
+          </Button>
+        )}
+      </HStack>
     </HStack>
   );
 
@@ -365,27 +409,47 @@ export default function CostFormModal({
   // Na mobile renderuj jako bottom-sheet drawer
   if (isMobile) {
     return (
-      <Drawer isOpen={isOpen} onClose={handleClose} placement="bottom" size="full">
-        <DrawerOverlay />
-        <DrawerContent>
-          <DrawerCloseButton />
-          <DrawerHeader>Dodaj koszt</DrawerHeader>
-          <DrawerBody>{body}</DrawerBody>
-          <DrawerFooter>{footer}</DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+      <>
+        <Drawer isOpen={isOpen} onClose={handleClose} placement="bottom" size="full">
+          <DrawerOverlay />
+          <DrawerContent>
+            <DrawerCloseButton />
+            <DrawerHeader>Dodaj koszt</DrawerHeader>
+            <DrawerBody>{body}</DrawerBody>
+            <DrawerFooter>{footer}</DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+        <AICostImportModal
+          isOpen={isAIImportOpen}
+          onClose={() => setIsAIImportOpen(false)}
+          tenantId={tenantId}
+          projectId={projectId}
+          costType="TrackedCost"
+          onParsed={handleAIParsed}
+        />
+      </>
     );
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "xl" }} isCentered scrollBehavior="inside">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Dodaj koszt</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>{body}</ModalBody>
-        <ModalFooter>{footer}</ModalFooter>
-      </ModalContent>
-    </Modal>
+    <>
+      <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "xl" }} isCentered scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Dodaj koszt</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>{body}</ModalBody>
+          <ModalFooter>{footer}</ModalFooter>
+        </ModalContent>
+      </Modal>
+      <AICostImportModal
+        isOpen={isAIImportOpen}
+        onClose={() => setIsAIImportOpen(false)}
+        tenantId={tenantId}
+        projectId={projectId}
+        costType="TrackedCost"
+        onParsed={handleAIParsed}
+      />
+    </>
   );
 }

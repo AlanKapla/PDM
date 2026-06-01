@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useToken, Table, Thead, Tbody, Tfoot, Tr, Th, Td, IconButton } from '@chakra-ui/react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Sparkles } from 'lucide-react';
+import { AICostImportModal } from '../../../../components/CostTracker/AICostImportModal';
+import type { ParsedCostDto } from '../../../../types/ai.types';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
 import { PLN } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
@@ -26,6 +28,8 @@ export function AllCostsTab({
 }: AllCostsTabProps): React.ReactElement {
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [createModal, setCreateModal] = useState(false);
+  const [aiImportModal, setAiImportModal] = useState(false);
+  const [aiPrefillData, setAiPrefillData] = useState<{ parsedData: ParsedCostDto; file: File } | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const currencySymbol = useDashboardCurrency();
@@ -96,20 +100,42 @@ export function AllCostsTab({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Lista kosztów</span>
-          <button
-            onClick={() => setCreateModal(true)}
-            style={{
-              fontSize: '0.75rem',
-              padding: '6px 12px',
-              background: action50,
-              color: level1700,
-              border: `0.5px solid ${level1500}`,
-              borderRadius: 6,
-              cursor: 'pointer',
-            }}
-          >
-            + Dodaj koszt
-          </button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={() => setAiImportModal(true)}
+              style={{
+                fontSize: '0.75rem',
+                padding: '6px 12px',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontWeight: 500,
+                boxShadow: '0 1px 4px rgba(124, 58, 237, 0.35)',
+              }}
+            >
+              <Sparkles size={12} />
+              Importuj z AI
+            </button>
+            <button
+              onClick={() => setCreateModal(true)}
+              style={{
+                fontSize: '0.75rem',
+                padding: '6px 12px',
+                background: action50,
+                color: level1700,
+                border: `0.5px solid ${level1500}`,
+                borderRadius: 6,
+                cursor: 'pointer',
+              }}
+            >
+              + Dodaj koszt
+            </button>
+          </div>
         </div>
         <div className="dashboard-table-wrap">
         {costs.length === 0 ? (
@@ -285,14 +311,30 @@ export function AllCostsTab({
         </div>
       </div>
 
+      {aiImportModal && (
+        <AICostImportModal
+          isOpen
+          onClose={() => setAiImportModal(false)}
+          tenantId={tenantId}
+          projectId={projectId}
+          costType="TrackedCost"
+          onParsed={(data, file) => {
+            setAiPrefillData({ parsedData: data, file });
+            setAiImportModal(false);
+            setCreateModal(true);
+          }}
+        />
+      )}
+
       {createModal && (
         <CostModal
           type="tracked"
           tenantId={tenantId}
           projectId={projectId}
           mode="create"
-          onSuccess={() => { onRefetch(); setCreateModal(false); }}
-          onClose={() => setCreateModal(false)}
+          aiPrefill={aiPrefillData ?? undefined}
+          onSuccess={() => { onRefetch(); setCreateModal(false); setAiPrefillData(null); }}
+          onClose={() => { setCreateModal(false); setAiPrefillData(null); }}
         />
       )}
 

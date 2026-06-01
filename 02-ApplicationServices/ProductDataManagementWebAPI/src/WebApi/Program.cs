@@ -1,4 +1,5 @@
 ﻿using Microsoft.IdentityModel.Logging;
+using Business.AIAgent.Registration;
 using Chat.Registration;
 using WebApi.Extensions;
 
@@ -70,6 +71,9 @@ internal class Program
             .RequireCors("AllowFrontend");
 
         app.MapHub<WebApi.Hubs.MessageHub>("/api/hubs/messages")
+            .RequireCors("AllowFrontend");
+
+        app.MapHub<WebApi.Hubs.AIHub>("/api/hubs/ai")
             .RequireCors("AllowFrontend");
 
         app.MapChatHub()

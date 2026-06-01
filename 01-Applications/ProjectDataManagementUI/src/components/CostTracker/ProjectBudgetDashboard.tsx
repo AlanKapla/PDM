@@ -22,15 +22,19 @@ import {
   useDisclosure,
   useBreakpointValue,
 } from "@chakra-ui/react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, ScanLine } from "lucide-react";
 import { formatCurrency } from "../../utils/formatters";
 import ProjectSummaryHeader from "./ProjectSummaryHeader";
 import EstimateCard from "./EstimateCard";
 import ProjectAdditionalCostsSection from "./ProjectAdditionalCostsSection";
 import AllCostsSection from "./AllCostsSection";
 import CostFormModal from "./CostFormModal";
+import CostFormDrawer from "./CostFormDrawer";
 import BudgetSummarySection from "./BudgetSummarySection";
+import { AICostImportModal } from "./AICostImportModal";
 import { useProjectCostTracker } from "../../hooks/useProjectCostTracker";
+import type { CostFormValues } from "../../types/costTracker.types";
+import type { ParsedCostDto } from "../../types/ai.types";
 
 interface ProjectBudgetDashboardProps {
   tenantId: string;
@@ -63,6 +67,9 @@ export default function ProjectBudgetDashboard({
 }: ProjectBudgetDashboardProps) {
   const { data, isLoading, error, refetch } = useProjectCostTracker(tenantId, projectId);
   const { isOpen: isModalOpen, onOpen: onModalOpen, onClose: onModalClose } = useDisclosure();
+  const { isOpen: isAIImportOpen, onOpen: onAIImportOpen, onClose: onAIImportClose } = useDisclosure();
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
+  const [aiDrawerInitialValues, setAiDrawerInitialValues] = useState<CostFormValues | null>(null);
   const isMobile = useBreakpointValue({ base: true, md: false });
   const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
 
@@ -124,15 +131,28 @@ export default function ProjectBudgetDashboard({
               </Button>
             </HStack>
             {!isMobile && (
-              <Button
-                colorScheme="primary"
-                size="sm"
-                leftIcon={<Plus size={14} />}
-                onClick={onModalOpen}
-                minH="44px"
-              >
-                Dodaj koszt
-              </Button>
+              <>
+                <Tooltip label="Importuj koszt z dokumentu (AI)" hasArrow>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<ScanLine size={14} />}
+                    onClick={onAIImportOpen}
+                    minH="44px"
+                  >
+                    Skanuj dokument
+                  </Button>
+                </Tooltip>
+                <Button
+                  colorScheme="primary"
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  onClick={onModalOpen}
+                  minH="44px"
+                >
+                  Dodaj koszt
+                </Button>
+              </>
             )}
           </HStack>
         </HStack>
@@ -237,23 +257,44 @@ export default function ProjectBudgetDashboard({
 
       {/* Floating button — mobile */}
       {isMobile && (
-        <Tooltip label="Dodaj koszt" hasArrow placement="left">
-          <Button
-            position="fixed"
-            bottom={4}
-            right={4}
-            colorScheme="primary"
-            borderRadius="full"
-            shadow="lg"
-            onClick={onModalOpen}
-            zIndex={10}
-            minH="44px"
-            minW="44px"
-            aria-label="Dodaj koszt"
-          >
-            <Plus size={20} />
-          </Button>
-        </Tooltip>
+        <>
+          <Tooltip label="Dodaj koszt" hasArrow placement="left">
+            <Button
+              position="fixed"
+              bottom={4}
+              right={4}
+              colorScheme="primary"
+              borderRadius="full"
+              shadow="lg"
+              onClick={onModalOpen}
+              zIndex={10}
+              minH="44px"
+              minW="44px"
+              aria-label="Dodaj koszt"
+            >
+              <Plus size={20} />
+            </Button>
+          </Tooltip>
+          <Tooltip label="Skanuj dokument (AI)" hasArrow placement="left">
+            <Button
+              position="fixed"
+              bottom={16}
+              right={4}
+              variant="outline"
+              colorScheme="primary"
+              borderRadius="full"
+              shadow="lg"
+              bg="white"
+              onClick={onAIImportOpen}
+              zIndex={10}
+              minH="44px"
+              minW="44px"
+              aria-label="Importuj koszt z dokumentu"
+            >
+              <ScanLine size={20} />
+            </Button>
+          </Tooltip>
+        </>
       )}
 
       {/* Modal dodawania kosztu */}
@@ -265,6 +306,41 @@ export default function ProjectBudgetDashboard({
         projectId={projectId}
         costEstimateSummaries={data.costEstimateSummaries}
       />
+
+      {/* Modal AI importu kosztu z dokumentu */}
+      <AICostImportModal
+        isOpen={isAIImportOpen}
+        onClose={onAIImportClose}
+        tenantId={tenantId}
+        projectId={projectId}
+        costType="TrackedCost"
+        onParsed={(parsed: ParsedCostDto, file: File) => {
+          const initialValues: CostFormValues = {
+            name: parsed.name ?? '',
+            description: parsed.description ?? '',
+            net: parsed.net ?? undefined,
+            number: parsed.number ?? '',
+            contractorId: parsed.contractorFound ? (parsed.contractorId ?? null) : null,
+            date: parsed.date ? parsed.date.substring(0, 10) : '',
+            newFiles: [file],
+          };
+          setAiDrawerInitialValues(initialValues);
+          onAIImportClose();
+          setIsAiDrawerOpen(true);
+        }}
+      />
+
+      {isAiDrawerOpen && (
+        <CostFormDrawer
+          isOpen
+          onClose={() => { setIsAiDrawerOpen(false); setAiDrawerInitialValues(null); }}
+          onSuccess={() => { setIsAiDrawerOpen(false); setAiDrawerInitialValues(null); handleRefetch(); }}
+          tenantId={tenantId}
+          projectId={projectId}
+          initialValues={aiDrawerInitialValues ?? undefined}
+          title="Dodaj koszt (z AI)"
+        />
+      )}
     </Box>
   );
 }

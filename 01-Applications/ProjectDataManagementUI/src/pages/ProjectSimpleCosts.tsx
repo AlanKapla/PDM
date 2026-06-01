@@ -35,6 +35,7 @@ import {
   Download,
   Eye,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -45,9 +46,11 @@ import { LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { CostModal } from "../features/dashboard/components/CostModal";
+import { AICostImportModal } from "../components/CostTracker/AICostImportModal";
 import ExpenseCard from "../components/ExpenseCard";
 import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { ProjectCostListItemWeb, CostApprovalStatus } from "../types/project.types";
+import type { ParsedCostDto } from "../types/ai.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTabCache } from "../hooks/useTabCache";
@@ -159,6 +162,7 @@ interface AllCostsTabProps {
   resourcePerms: any;
   deletingCostId: string | null;
   onAddCost: () => void;
+  onAiImport: () => void;
   onEditCost: (cost: ProjectCostListItemWeb) => void;
   onDeleteCost: (id: string) => void;
 }
@@ -169,6 +173,7 @@ function AllCostsTab({
   resourcePerms,
   deletingCostId,
   onAddCost,
+  onAiImport,
   onEditCost,
   onDeleteCost,
 }: AllCostsTabProps) {
@@ -187,14 +192,28 @@ function AllCostsTab({
         </Text>
         <HStack spacing={2}>
           {resourcePerms.all.canCreate && (
-            <Button
-              leftIcon={<Plus size={18} />}
-              colorScheme="primary"
-              size="sm"
-              onClick={onAddCost}
-            >
-              Dodaj koszt
-            </Button>
+            <>
+              <Button
+                leftIcon={<Sparkles size={14} />}
+                size="sm"
+                background="linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)"
+                color="white"
+                _hover={{ background: 'linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)' }}
+                boxShadow="0 1px 4px rgba(124, 58, 237, 0.35)"
+                border="none"
+                onClick={onAiImport}
+              >
+                Importuj z AI
+              </Button>
+              <Button
+                leftIcon={<Plus size={18} />}
+                colorScheme="primary"
+                size="sm"
+                onClick={onAddCost}
+              >
+                Dodaj koszt
+              </Button>
+            </>
           )}
         </HStack>
       </HStack>
@@ -292,6 +311,7 @@ interface MyCostsTabProps {
   submittingCostId: string | null;
   withdrawingCostId: string | null;
   onAddCost: () => void;
+  onAiImport: () => void;
   onEditCost: (cost: ProjectCostListItemWeb) => void;
   onDeleteCost: (costId: string) => void;
   onSubmitForApproval: (costId: string) => void;
@@ -306,6 +326,7 @@ function MyCostsTab({
   submittingCostId,
   withdrawingCostId,
   onAddCost,
+  onAiImport,
   onEditCost,
   onDeleteCost,
   onSubmitForApproval,
@@ -326,14 +347,28 @@ function MyCostsTab({
         </Text>
         <HStack spacing={2}>
           {resourcePerms.mine.canCreate && (
-            <Button
-              leftIcon={<Plus size={18} />}
-              colorScheme="primary"
-              size="sm"
-              onClick={onAddCost}
-            >
-              Dodaj koszt
-            </Button>
+            <>
+              <Button
+                leftIcon={<Sparkles size={14} />}
+                size="sm"
+                background="linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)"
+                color="white"
+                _hover={{ background: 'linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)' }}
+                boxShadow="0 1px 4px rgba(124, 58, 237, 0.35)"
+                border="none"
+                onClick={onAiImport}
+              >
+                Importuj z AI
+              </Button>
+              <Button
+                leftIcon={<Plus size={18} />}
+                colorScheme="primary"
+                size="sm"
+                onClick={onAddCost}
+              >
+                Dodaj koszt
+              </Button>
+            </>
           )}
         </HStack>
       </HStack>
@@ -618,6 +653,8 @@ export default function ProjectSimpleCosts() {
 
   // Modal state for add/edit expense
   const [editingCost, setEditingCost] = useState<ProjectCostListItemWeb | null>(null);
+  const [isAiImportOpen, setIsAiImportOpen] = useState(false);
+  const [aiPrefillData, setAiPrefillData] = useState<{ parsedData: ParsedCostDto; file: File } | null>(null);
   const {
     isOpen: isExpenseModalOpen,
     onOpen: onExpenseModalOpen,
@@ -917,6 +954,7 @@ export default function ProjectSimpleCosts() {
                     resourcePerms={resourcePerms}
                     deletingCostId={deletingCostId}
                     onAddCost={handleOpenAddModal}
+                    onAiImport={() => setIsAiImportOpen(true)}
                     onEditCost={handleOpenEditModal}
                     onDeleteCost={handleDeleteCost}
                   />
@@ -932,6 +970,7 @@ export default function ProjectSimpleCosts() {
                     withdrawingCostId={withdrawingCostId}
                     resourcePerms={resourcePerms}
                     onAddCost={handleOpenAddModal}
+                    onAiImport={() => setIsAiImportOpen(true)}
                     onEditCost={handleOpenEditModal}
                     onDeleteCost={handleDeleteCost}
                     onSubmitForApproval={handleSubmitForApproval}
@@ -962,6 +1001,23 @@ export default function ProjectSimpleCosts() {
           </Text>
         </Box>
 
+        {/* MODAL: Importuj koszt z AI */}
+        {isAiImportOpen && user?.activeTenantId && projectId && (
+          <AICostImportModal
+            isOpen
+            onClose={() => setIsAiImportOpen(false)}
+            tenantId={user.activeTenantId}
+            projectId={projectId}
+            costType="ProjectCost"
+            onParsed={(data, file) => {
+              setAiPrefillData({ parsedData: data, file });
+              setIsAiImportOpen(false);
+              setEditingCost(null);
+              onExpenseModalOpen();
+            }}
+          />
+        )}
+
         {/* MODAL: Dodaj / Edytuj koszt */}
         {isExpenseModalOpen && user?.activeTenantId && projectId && (
           <CostModal
@@ -970,12 +1026,17 @@ export default function ProjectSimpleCosts() {
             projectId={projectId}
             mode={editingCost ? 'edit' : 'create'}
             cost={editingCost ?? undefined}
+            aiPrefill={!editingCost ? (aiPrefillData ?? undefined) : undefined}
             onSuccess={() => {
               showApiSuccess(editingCost ? 'costUpdated' : 'costAdded');
               handleCloseModal();
+              setAiPrefillData(null);
               refreshData();
             }}
-            onClose={handleCloseModal}
+            onClose={() => {
+              handleCloseModal();
+              setAiPrefillData(null);
+            }}
           />
         )}
 

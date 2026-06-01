@@ -1,0 +1,180 @@
+using Azure.AI.OpenAI;
+using Azure.Identity;
+using Business.AIAgent.Configuration;
+using Business.Interfaces.Services;
+using Business.Interfaces.WebModels.AI;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OpenAI.Chat;
+using System.ClientModel;
+using System.Text.Json;
+
+namespace Business.AIAgent.Services;
+
+public sealed class DocumentParserService : IDocumentParserService
+{
+    private readonly AzureAIAgentOptions _options;
+    private readonly ILogger<DocumentParserService> _logger;
+
+    private const string SystemPrompt =
+        """
+        Jesteś ekspertem od odczytywania faktur i rachunków. 
+        Twoim zadaniem jest wyciągnięcie danych kosztowych z dostarczonego dokumentu.
+        Zawsze odpowiadaj WYŁĄCZNIE w formacie JSON, bez żadnych dodatkowych komentarzy.
+        Zwróć JSON z następującymi polami:
+        {
+          "name": "nazwa tego co zostało zakupione (krótka, np. Materiały budowlane)",
+          "description": "rozszerzony opis z drobnymi detalami co konkretnie zostało zakupione",
+          "number": "numer faktury lub rachunku",
+          "net": numer (suma netto całego dokumentu),
+          "gross": numer (suma brutto całego dokumentu),
+          "date": "data w formacie YYYY-MM-DD",
+          "contractorName": "pełna nazwa firmy/osoby wystawiającej",
+          "contractorNip": "NIP bez kresek",
+          "contractorAddress": "pełny adres (ulica, kod, miasto)",
+          "confidence": liczba od 0 do 1 (pewność odczytu)
+        }
+        Jeśli nie możesz odczytać danego pola, ustaw null.
+        Kwoty net i gross to SUMY całego dokumentu, nie poszczególnych pozycji.
+        """;
+
+    public DocumentParserService(
+        IOptions<AzureAIAgentOptions> options,
+        ILogger<DocumentParserService> logger)
+    {
+        _options = options.Value;
+        _logger = logger;
+    }
+
+    public async Task<ParsedCostDto> ParseAsync(
+        byte[] fileBytes,
+        string mediaType,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            AzureOpenAIClient azureClient = BuildClient();
+            ChatClient client = azureClient.GetChatClient(_options.DefaultDeployment);
+
+            List<ChatMessage> messages =
+            [
+                new SystemChatMessage(SystemPrompt),
+                new UserChatMessage(
+                    ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(fileBytes), mediaType))
+            ];
+
+            ChatCompletion response = await client.CompleteChatAsync(messages, cancellationToken: cancellationToken);
+            string rawJson = response.Content[0].Text;
+            return MapToDto(rawJson);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse cost document via AI");
+            return new ParsedCostDto { Name = "Nieznany koszt", Confidence = 0 };
+        }
+    }
+
+    private AzureOpenAIClient BuildClient()
+    {
+        return string.IsNullOrWhiteSpace(_options.ApiKey)
+            ? new AzureOpenAIClient(new Uri(_options.Endpoint), new DefaultAzureCredential())
+            : new AzureOpenAIClient(new Uri(_options.Endpoint), new ApiKeyCredential(_options.ApiKey));
+    }
+
+    private ParsedCostDto MapToDto(string rawJson)
+    {
+        string raw = rawJson?.Length > 500 ? rawJson[..500] : rawJson ?? string.Empty;
+
+        string jsonToParse = rawJson ?? string.Empty;
+
+        // Remove markdown fences if present
+        if (jsonToParse.Contains("```"))
+        {
+            int start = jsonToParse.IndexOf('{');
+            int end = jsonToParse.LastIndexOf('}');
+            if (start >= 0 && end >= start)
+            {
+                jsonToParse = jsonToParse[start..(end + 1)];
+            }
+        }
+
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(jsonToParse);
+            JsonElement root = doc.RootElement;
+
+            string name = root.TryGetProperty("name", out JsonElement nameProp) && nameProp.ValueKind == JsonValueKind.String
+                ? nameProp.GetString() ?? "Nieznany koszt"
+                : "Nieznany koszt";
+
+            string? description = root.TryGetProperty("description", out JsonElement descProp) && descProp.ValueKind == JsonValueKind.String
+                ? descProp.GetString()
+                : null;
+
+            string? number = root.TryGetProperty("number", out JsonElement numProp) && numProp.ValueKind == JsonValueKind.String
+                ? numProp.GetString()
+                : null;
+
+            decimal? net = root.TryGetProperty("net", out JsonElement netProp) && netProp.ValueKind == JsonValueKind.Number
+                ? netProp.GetDecimal()
+                : null;
+
+            decimal? gross = root.TryGetProperty("gross", out JsonElement grossProp) && grossProp.ValueKind == JsonValueKind.Number
+                ? grossProp.GetDecimal()
+                : null;
+
+            DateTime? date = root.TryGetProperty("date", out JsonElement dateProp) && dateProp.ValueKind == JsonValueKind.String
+                ? DateTime.TryParse(dateProp.GetString(), out DateTime parsedDate) ? parsedDate : null
+                : null;
+
+            string? contractorName = root.TryGetProperty("contractorName", out JsonElement cnProp) && cnProp.ValueKind == JsonValueKind.String
+                ? cnProp.GetString()
+                : null;
+
+            string? contractorNip = root.TryGetProperty("contractorNip", out JsonElement cnipProp) && cnipProp.ValueKind == JsonValueKind.String
+                ? cnipProp.GetString()
+                : null;
+
+            string? contractorAddress = root.TryGetProperty("contractorAddress", out JsonElement caProp) && caProp.ValueKind == JsonValueKind.String
+                ? caProp.GetString()
+                : null;
+
+            double confidence = root.TryGetProperty("confidence", out JsonElement confProp) && confProp.ValueKind == JsonValueKind.Number
+                ? confProp.GetDouble()
+                : 0;
+
+            SuggestedContractorDto? suggestedContractor = null;
+            if (!string.IsNullOrWhiteSpace(contractorName))
+            {
+                suggestedContractor = new SuggestedContractorDto
+                {
+                    Name = contractorName,
+                    Nip = contractorNip,
+                    Address = contractorAddress
+                };
+            }
+
+            return new ParsedCostDto
+            {
+                Name = name,
+                Description = description,
+                Number = number,
+                Net = net,
+                Gross = gross,
+                Date = date,
+                ContractorName = contractorName,
+                ContractorNip = contractorNip,
+                ContractorAddress = contractorAddress,
+                ContractorFound = false,
+                SuggestedContractor = suggestedContractor,
+                Confidence = confidence,
+                RawText = raw
+            };
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize AI response: {Raw}", raw);
+            return new ParsedCostDto { Name = "Nieznany koszt", Confidence = 0, RawText = raw };
+        }
+    }
+}
