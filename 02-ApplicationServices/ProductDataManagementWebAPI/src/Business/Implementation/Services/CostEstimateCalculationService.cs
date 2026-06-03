@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Entities.Models.Chats;
 using Entities.Models.Costs;
 using Entities.Models.Files;
@@ -271,9 +271,10 @@ namespace Business.Implementation.Services
                 // Pozycja NIE ma komponentów - oblicz z FieldValues (jak dotychczas)
                 Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues = item.FieldValues
                     .Where(fv => fv.FieldDefinition != null && fv.FieldDefinition.FieldScope == FieldScope.ItemCalculated)
+                    .GroupBy(fv => fv.FieldDefinition.FieldType)
                     .ToDictionary(
-                        fv => fv.FieldDefinition.FieldType,
-                        fv => fv);
+                        g => g.Key,
+                        g => g.First());
 
                 decimal? unitPriceNet = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitPriceNet)?.DecimalValue;
                 decimal? vatRate = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedVatRate)?.DecimalValue;

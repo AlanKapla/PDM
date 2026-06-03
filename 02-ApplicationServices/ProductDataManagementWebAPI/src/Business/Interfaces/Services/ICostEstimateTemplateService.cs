@@ -65,6 +65,17 @@ namespace Business.Interfaces.Services
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Validates that the user owns the template, then loads it with all field definitions
+        /// (GroupFieldDefinitions, SystemFieldDefinitions, CalculatedFieldDefinitions,
+        /// GenericFieldDefinitions) and Units fully populated.
+        /// Throws NotFoundApiException when template does not exist or access is denied.
+        /// </summary>
+        Task<CostEstimateTemplate> GetTemplateForAIGenerationAsync(
+            Guid templateId,
+            Guid currentUserId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Returns a list of all available default (system) templates loaded from embedded JSON resources
         /// </summary>
         List<DefaultCostEstimateTemplateListItemWeb> GetDefaultTemplates();

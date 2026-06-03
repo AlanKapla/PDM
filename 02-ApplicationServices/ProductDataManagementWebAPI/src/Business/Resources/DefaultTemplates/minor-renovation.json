@@ -1,0 +1,178 @@
+{
+  "slug": "minor-renovation",
+  "name": "Kosztorys drobnego remontu",
+  "description": "Uproszczony szablon do szybkiej wyceny drobnych prac remontowych — malowanie, podłogi, łazienka, kuchnia. Minimum pól, maksimum czytelności",
+  "category": "Remontowy",
+  "templateId": "00000005-0000-0000-0000-000000000005",
+  "maxGroupLevel": null,
+  "currencies": [
+    {
+      "code": "PLN",
+      "name": "Polski złoty",
+      "symbol": "zł",
+      "isDefault": true,
+      "order": 0
+    }
+  ],
+  "units": [
+    {
+      "code": "szt",
+      "name": "Sztuka",
+      "symbol": "szt.",
+      "category": "Ilościowe",
+      "isDefault": true,
+      "order": 0
+    },
+    {
+      "code": "m2",
+      "name": "Metr kwadratowy",
+      "symbol": "m²",
+      "category": "Powierzchniowe",
+      "isDefault": false,
+      "order": 1
+    },
+    {
+      "code": "mb",
+      "name": "Metr bieżący",
+      "symbol": "mb",
+      "category": "Liniowe",
+      "isDefault": false,
+      "order": 2
+    },
+    {
+      "code": "kpl",
+      "name": "Komplet",
+      "symbol": "kpl.",
+      "category": "Ilościowe",
+      "isDefault": false,
+      "order": 3
+    }
+  ],
+  "categories": [
+    {
+      "name": "Malowanie",
+      "symbol": "Mal.",
+      "order": 0
+    },
+    {
+      "name": "Podłogi",
+      "symbol": "Pod.",
+      "order": 1
+    },
+    {
+      "name": "Łazienka",
+      "symbol": "Łaz.",
+      "order": 2
+    },
+    {
+      "name": "Kuchnia",
+      "symbol": "Kuch.",
+      "order": 3
+    },
+    {
+      "name": "Elektryka",
+      "symbol": "El.",
+      "order": 4
+    },
+    {
+      "name": "Hydraulika",
+      "symbol": "Hyd.",
+      "order": 5
+    },
+    {
+      "name": "Stolarstwo",
+      "symbol": "Stol.",
+      "order": 6
+    },
+    {
+      "name": "Inne",
+      "symbol": "Inne",
+      "order": 7
+    }
+  ],
+  "groupHeaderFields": [
+    {
+      "fieldName": "00000005-0001-0000-0000-000000000001",
+      "fieldType": 0,
+      "label": "Rodzaj prac",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ],
+  "systemFields": [
+    {
+      "fieldName": "00000005-0002-0000-0000-000000000001",
+      "fieldType": 100,
+      "label": "Opis pracy",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000005-0002-0000-0000-000000000002",
+      "fieldType": 101,
+      "label": "Ilość",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000005-0002-0000-0000-000000000003",
+      "fieldType": 102,
+      "label": "Jednostka",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ],
+  "calculatedFields": [
+    {
+      "fieldName": "00000005-0003-0000-0000-000000000001",
+      "fieldType": 200,
+      "label": "Cena",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000005-0003-0000-0000-000000000002",
+      "fieldType": 203,
+      "label": "Wartość",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": true,
+      "sumInGroup": true,
+      "sumInTotal": true
+    }
+  ],
+  "genericFields": [
+    {
+      "fieldName": "00000005-0004-0000-0000-000000000001",
+      "fieldType": 301,
+      "label": "Komentarz",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ]
+}

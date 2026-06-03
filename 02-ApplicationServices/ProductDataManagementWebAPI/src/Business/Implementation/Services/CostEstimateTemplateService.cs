@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using System.Text.Json;
+using Business.Implementation.CacheKeys;
 using Business.Implementation.Helpers;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Exceptions;
@@ -30,6 +31,7 @@ namespace Business.Implementation.Services
         private readonly ICostEstimateCalculationService calculationService;
         private readonly IBlobStorageService blobStorageService;
         private readonly ICacheService cacheService;
+        private readonly ICostEstimateCacheService costEstimateCacheService;
         private readonly ILogger<CostEstimateTemplateService> logger;
 
         public CostEstimateTemplateService(
@@ -45,6 +47,7 @@ namespace Business.Implementation.Services
             ICostEstimateCalculationService calculationService,
             IBlobStorageService blobStorageService,
             ICacheService cacheService,
+            ICostEstimateCacheService costEstimateCacheService,
             ILogger<CostEstimateTemplateService> logger)
         {
             this.templateRepository = templateRepository;
@@ -59,6 +62,7 @@ namespace Business.Implementation.Services
             this.calculationService = calculationService;
             this.blobStorageService = blobStorageService;
             this.cacheService = cacheService;
+            this.costEstimateCacheService = costEstimateCacheService;
             this.logger = logger;
         }
 
@@ -226,6 +230,22 @@ namespace Business.Implementation.Services
         {
             var cacheKey = $"{CacheKeyPrefix}{templateId}";
             await cacheService.RemoveCacheByKeyAsync(cacheKey, cancellationToken);
+        }
+
+        public async Task<CostEstimateTemplate> GetTemplateForAIGenerationAsync(
+            Guid templateId,
+            Guid currentUserId,
+            CancellationToken cancellationToken = default)
+        {
+            CostEstimateTemplate template = await costEstimateCacheService.GetTemplateAsync(
+                templateId,
+                cancellationToken)
+                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), templateId.ToString());
+
+            if (template.IsDeleted || template.OwnerId != currentUserId)
+                throw new NotFoundApiException(nameof(CostEstimateTemplate), templateId.ToString());
+
+            return template;
         }
 
         #endregion

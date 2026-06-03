@@ -576,6 +576,88 @@ export function createEmptyItem(order: number = 0, parentItemId?: string): CostE
   };
 }
 
+// ========== AI COST ESTIMATE GENERATION ==========
+
+/**
+ * Dane wejściowe od użytkownika — opis inwestycji.
+ * Mapuje się na AICostEstimateRequestWeb po stronie API.
+ */
+export interface AICostEstimateRequestDto {
+  /** ID szablonu wybranego przez użytkownika */
+  templateId: string;
+  /** Co budujesz? (wolny tekst) */
+  investmentType: string;
+  /** Stan wykończenia */
+  finishingStandard?: string;
+  /** Szacowany budżet brutto w PLN */
+  budget?: number;
+  /** Powierzchnia/zakres */
+  area?: number;
+  /** Jednostka powierzchni (m², mb, szt) */
+  areaUnit?: string;
+  /** Lokalizacja inwestycji */
+  location?: string;
+  /** Rok ukończenia */
+  completionYear?: number;
+  /** Dodatkowe wymagania */
+  additionalRequirements?: string;
+}
+
+/**
+ * Wartość pola wygenerowana przez AI.
+ */
+export interface AIFieldValueDto {
+  fieldDefinitionId: string;
+  decimalValue?: number;
+  stringValue?: string;
+  boolValue?: boolean;
+  dateTimeValue?: string;
+}
+
+/**
+ * Pozycja kosztorysowa w podglądzie AI.
+ */
+export interface AIItemPreviewDto {
+  tempId: string;
+  name: string;
+  order: number;
+  fieldValues: AIFieldValueDto[];
+}
+
+/**
+ * Grupa kosztorysowa w podglądzie AI.
+ */
+export interface AIGroupPreviewDto {
+  tempId: string;
+  parentTempId?: string | null;
+  name: string;
+  order: number;
+  fieldValues: AIFieldValueDto[];
+  items: AIItemPreviewDto[];
+  children?: AIGroupPreviewDto[];
+}
+
+/**
+ * Podgląd kosztorysu wygenerowanego przez AI.
+ * NIE jest zapisany w bazie danych — służy do prezentacji i zatwierdzenia przez użytkownika.
+ */
+export interface AICostEstimatePreviewDto {
+  templateId: string;
+  suggestedName: string;
+  suggestedDescription?: string | null;
+  groups: AIGroupPreviewDto[];
+  warnings: string[];
+}
+
+/**
+ * Żądanie zapisu zatwierdzonego podglądu AI.
+ */
+export interface CreateCostEstimateFromAIPreviewDto {
+  name: string;
+  description?: string;
+  preview: AICostEstimatePreviewDto;
+}
+
 // ========== EXISTING TYPES (for compatibility) ==========
 // Keep existing types from the original file for backward compatibility
 // NOTE: Template versioning has been removed in the refactoring

@@ -240,7 +240,7 @@ namespace Business.Implementation.Model
 
             // Check if user is Tenant Admin (has admin rights in project's tenant)
             TenantMember? tenantMembership = await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == projectEntity.TenantId && tm.UserId == _id && tm.IsActive);
+                tm => tm.TenantId == projectEntity.TenantId && tm.UserId == _id);
 
             bool isTenantAdmin = tenantMembership?.IsAdmin ?? false;
 

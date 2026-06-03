@@ -40,6 +40,7 @@ using Repositories.Repository.Interfaces;
 using Repositories.Repository.Repositories;
 using WebApi.Authorization;
 using WebApi.Services;
+using Business.Implementation.Services.AI;
 
 namespace WebApi.Extensions
 {
@@ -407,6 +408,9 @@ namespace WebApi.Extensions
             services.AddScoped<IProjectDashboardAssembler, ProjectDashboardAssembler>();
 
             services.AddHostedService<StartupSeederService>();
+
+            services.AddScoped<IDocumentParserService, DocumentParserService>();
+            services.AddScoped<ICostEstimateAIGeneratorService, CostEstimateAIGeneratorService>();
 
             return services;
         }

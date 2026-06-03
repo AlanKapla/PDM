@@ -417,4 +417,40 @@ export const costEstimateApi = {
     );
     return response.data;
   },
+
+  // ============================================================
+  // AI GENERATION
+  // ============================================================
+
+  /**
+   * Generuje podgląd kosztorysu przez AI.
+   * NIE zapisuje do bazy danych — zwraca podgląd do zatwierdzenia.
+   */
+  generateAIPreview: async (
+    tenantId: string,
+    projectId: string,
+    request: import('../types/costEstimate.types.new').AICostEstimateRequestDto
+  ): Promise<import('../types/costEstimate.types.new').AICostEstimatePreviewDto> => {
+    const response = await axiosClient.post<import('../types/costEstimate.types.new').AICostEstimatePreviewDto>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-estimate/generate-ai-preview`,
+      request
+    );
+    return response.data;
+  },
+
+  /**
+   * Zapisuje kosztorys zatwierdzony przez użytkownika z podglądu AI.
+   * Zwraca ID nowo utworzonego kosztorysu.
+   */
+  createFromAIPreview: async (
+    tenantId: string,
+    projectId: string,
+    body: import('../types/costEstimate.types.new').CreateCostEstimateFromAIPreviewDto
+  ): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-estimate/create-from-ai-preview`,
+      body
+    );
+    return response.data;
+  },
 };

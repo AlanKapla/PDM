@@ -1,17 +1,12 @@
-using Business.AIAgent.Abstractions;
+﻿using Business.AIAgent.Abstractions;
 using Business.AIAgent.Configuration;
 using Business.AIAgent.Core;
 using Business.AIAgent.Services;
-using Business.AIAgent.Tools.Base;
-using Business.Interfaces.Services;
 using Business.AIAgent.Tools.CostEstimate;
 using Business.AIAgent.Tools.Http;
 using Business.AIAgent.Tools.Projects;
 using Business.AIAgent.Tools.SubAgent;
 using Business.AIAgent.Tools.WorkSchedule;
-using Entities.Models.CostEstimates;
-using Entities.Models.Projects;
-using Entities.Models.WorkSchedules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -33,7 +28,7 @@ public static class AIAgentServiceExtensions
         services.AddScoped<ToolCallExecutor>();
         services.AddScoped<IAgentRunner, AgentRunner>();
         services.AddScoped<IToolRegistry, ToolRegistry>();
-        services.AddScoped<IDocumentParserService, DocumentParserService>();
+        services.AddScoped<IAICompletionService, AzureAICompletionService>();
 
         // Domain tools — registered as IAgentTool so ToolRegistry can discover all
         services.AddScoped<IAgentTool, GetProjectInfoTool>();

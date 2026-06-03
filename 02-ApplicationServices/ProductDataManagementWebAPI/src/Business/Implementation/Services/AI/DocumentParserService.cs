@@ -1,19 +1,14 @@
-using Azure.AI.OpenAI;
-using Azure.Identity;
-using Business.AIAgent.Configuration;
+﻿using Business.AIAgent.Services;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.AI;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using OpenAI.Chat;
-using System.ClientModel;
 using System.Text.Json;
 
-namespace Business.AIAgent.Services;
+namespace Business.Implementation.Services.AI;
 
 public sealed class DocumentParserService : IDocumentParserService
 {
-    private readonly AzureAIAgentOptions _options;
+    private readonly IAICompletionService _completionService;
     private readonly ILogger<DocumentParserService> _logger;
 
     private const string SystemPrompt =
@@ -39,10 +34,10 @@ public sealed class DocumentParserService : IDocumentParserService
         """;
 
     public DocumentParserService(
-        IOptions<AzureAIAgentOptions> options,
+        IAICompletionService completionService,
         ILogger<DocumentParserService> logger)
     {
-        _options = options.Value;
+        _completionService = completionService;
         _logger = logger;
     }
 
@@ -53,18 +48,7 @@ public sealed class DocumentParserService : IDocumentParserService
     {
         try
         {
-            AzureOpenAIClient azureClient = BuildClient();
-            ChatClient client = azureClient.GetChatClient(_options.DefaultDeployment);
-
-            List<ChatMessage> messages =
-            [
-                new SystemChatMessage(SystemPrompt),
-                new UserChatMessage(
-                    ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(fileBytes), mediaType))
-            ];
-
-            ChatCompletion response = await client.CompleteChatAsync(messages, cancellationToken: cancellationToken);
-            string rawJson = response.Content[0].Text;
+            string rawJson = await _completionService.CompleteWithImageAsync(SystemPrompt, fileBytes, mediaType, cancellationToken);
             return MapToDto(rawJson);
         }
         catch (Exception ex)
@@ -74,20 +58,12 @@ public sealed class DocumentParserService : IDocumentParserService
         }
     }
 
-    private AzureOpenAIClient BuildClient()
-    {
-        return string.IsNullOrWhiteSpace(_options.ApiKey)
-            ? new AzureOpenAIClient(new Uri(_options.Endpoint), new DefaultAzureCredential())
-            : new AzureOpenAIClient(new Uri(_options.Endpoint), new ApiKeyCredential(_options.ApiKey));
-    }
-
     private ParsedCostDto MapToDto(string rawJson)
     {
         string raw = rawJson?.Length > 500 ? rawJson[..500] : rawJson ?? string.Empty;
 
         string jsonToParse = rawJson ?? string.Empty;
 
-        // Remove markdown fences if present
         if (jsonToParse.Contains("```"))
         {
             int start = jsonToParse.IndexOf('{');

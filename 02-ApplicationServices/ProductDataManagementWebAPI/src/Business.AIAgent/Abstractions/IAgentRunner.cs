@@ -1,4 +1,4 @@
-namespace Business.AIAgent.Abstractions;
+﻿namespace Business.AIAgent.Abstractions;
 
 public interface IAgentRunner
 {

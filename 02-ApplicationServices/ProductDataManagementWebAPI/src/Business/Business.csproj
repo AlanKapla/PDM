@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Business.AIAgent\Business.AIAgent.csproj" />
     <ProjectReference Include="..\Entities\Entities.csproj" />
     <ProjectReference Include="..\Repositories\Repositories.csproj" />
   </ItemGroup>
@@ -27,6 +28,7 @@
     <PackageReference Include="Azure.Identity" Version="1.17.1" />
     <PackageReference Include="Azure.Storage.Queues" Version="12.19.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.9.14" />
+    <PackageReference Include="Toon.DotNet" Version="1.7.2" />
   </ItemGroup>
 
 </Project>

@@ -10,7 +10,13 @@ namespace Entities.Configurations
         public void Configure(EntityTypeBuilder<CostEstimateItem> builder)
         {
             builder.HasKey(w => w.Id);
-            
+
+            // Options i Components to właściwości wyliczane z _childItems (filtrowane po RelationType).
+            // Bez Ignore EF tworzy implicit many-to-many join table 'CostEstimateItemCostEstimateItem'
+            // (ComponentsId, OptionsId), co powoduje PK violation przy SaveChanges.
+            builder.Ignore(w => w.Options);
+            builder.Ignore(w => w.Components);
+
             builder.Property(w => w.CostEstimateId)
                 .IsRequired();
             

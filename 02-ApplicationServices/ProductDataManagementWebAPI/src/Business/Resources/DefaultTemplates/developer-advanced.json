@@ -1,0 +1,491 @@
+{
+  "slug": "developer-advanced",
+  "name": "Kosztorys dewelopera",
+  "description": "Zaawansowany szablon kosztorysu dla deweloperów z obsługą VAT, wielopoziomowych grup robót, kategorii, plików, harmonogramu i wielowalutowości",
+  "category": "Deweloperski",
+  "templateId": "00000002-0000-0000-0000-000000000002",
+  "maxGroupLevel": 2,
+  "currencies": [
+    {
+      "code": "PLN",
+      "name": "Polski złoty",
+      "symbol": "zł",
+      "isDefault": true,
+      "order": 0
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "isDefault": false,
+      "order": 1
+    },
+    {
+      "code": "USD",
+      "name": "Dolar amerykański",
+      "symbol": "$",
+      "isDefault": false,
+      "order": 2
+    }
+  ],
+  "units": [
+    {
+      "code": "szt",
+      "name": "Sztuka",
+      "symbol": "szt.",
+      "category": "Ilościowe",
+      "isDefault": true,
+      "order": 0
+    },
+    {
+      "code": "m2",
+      "name": "Metr kwadratowy",
+      "symbol": "m²",
+      "category": "Powierzchniowe",
+      "isDefault": false,
+      "order": 1
+    },
+    {
+      "code": "m3",
+      "name": "Metr sześcienny",
+      "symbol": "m³",
+      "category": "Objętościowe",
+      "isDefault": false,
+      "order": 2
+    },
+    {
+      "code": "mb",
+      "name": "Metr bieżący",
+      "symbol": "mb",
+      "category": "Liniowe",
+      "isDefault": false,
+      "order": 3
+    },
+    {
+      "code": "kpl",
+      "name": "Komplet",
+      "symbol": "kpl.",
+      "category": "Ilościowe",
+      "isDefault": false,
+      "order": 4
+    },
+    {
+      "code": "t",
+      "name": "Tona",
+      "symbol": "t",
+      "category": "Wagowe",
+      "isDefault": false,
+      "order": 5
+    },
+    {
+      "code": "kg",
+      "name": "Kilogram",
+      "symbol": "kg",
+      "category": "Wagowe",
+      "isDefault": false,
+      "order": 6
+    },
+    {
+      "code": "h",
+      "name": "Roboczogodzina",
+      "symbol": "r-g",
+      "category": "Czasowe",
+      "isDefault": false,
+      "order": 7
+    },
+    {
+      "code": "m",
+      "name": "Metr",
+      "symbol": "m",
+      "category": "Liniowe",
+      "isDefault": false,
+      "order": 8
+    }
+  ],
+  "categories": [
+    {
+      "name": "Stan 0",
+      "symbol": "Stan 0",
+      "order": 0
+    },
+    {
+      "name": "Stan surowy otwarty",
+      "symbol": "SSO",
+      "order": 1
+    },
+    {
+      "name": "Stan surowy zamknięty",
+      "symbol": "SSZ",
+      "order": 2
+    },
+    {
+      "name": "Instalacje sanitarne",
+      "symbol": "IS",
+      "order": 3
+    },
+    {
+      "name": "Instalacje elektryczne",
+      "symbol": "IE",
+      "order": 4
+    },
+    {
+      "name": "Elewacja",
+      "symbol": "ELW",
+      "order": 5
+    },
+    {
+      "name": "Dach",
+      "symbol": "Dach",
+      "order": 6
+    },
+    {
+      "name": "Stolarka",
+      "symbol": "Stol.",
+      "order": 7
+    },
+    {
+      "name": "Drogi i parking",
+      "symbol": "Drogi",
+      "order": 8
+    },
+    {
+      "name": "Zagospodarowanie terenu",
+      "symbol": "ZT",
+      "order": 9
+    },
+    {
+      "name": "Odbiory i dokumentacja",
+      "symbol": "Odb.",
+      "order": 10
+    }
+  ],
+  "groupHeaderFields": [
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000001",
+      "fieldType": 0,
+      "label": "Etap",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000002",
+      "fieldType": 1,
+      "label": "Opis etapu",
+      "isSortable": false,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000003",
+      "fieldType": 2,
+      "label": "Nr etapu",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000004",
+      "fieldType": 5,
+      "label": "Status",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000005",
+      "fieldType": 7,
+      "label": "Kierownik",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000006",
+      "fieldType": 3,
+      "label": "Data rozpoczęcia",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000007",
+      "fieldType": 4,
+      "label": "Data zakończenia",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0001-0000-0000-000000000008",
+      "fieldType": 8,
+      "label": "Budżet etapu",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ],
+  "systemFields": [
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000001",
+      "fieldType": 100,
+      "label": "Nazwa pozycji",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000002",
+      "fieldType": 103,
+      "label": "Warianty",
+      "isSortable": false,
+      "isFilterable": false,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false,
+      "childFields": [
+        {
+          "fieldName": "00000002-0002-0000-0000-000000000011",
+          "fieldType": 100,
+          "label": "Nazwa wariantu",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        },
+        {
+          "fieldName": "00000002-0002-0000-0000-000000000012",
+          "fieldType": 104,
+          "label": "Zaznaczenie",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        },
+        {
+          "fieldName": "00000002-0002-0000-0000-000000000013",
+          "fieldType": 200,
+          "label": "Cena wariantu",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        },
+        {
+          "fieldName": "00000002-0002-0000-0000-000000000014",
+          "fieldType": 301,
+          "label": "Link",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        }
+      ]
+    },
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000003",
+      "fieldType": 104,
+      "label": "Zaznaczenie",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000004",
+      "fieldType": 101,
+      "label": "Ilość",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000005",
+      "fieldType": 102,
+      "label": "Jednostka",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000006",
+      "fieldType": 106,
+      "label": "Kategoria",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000007",
+      "fieldType": 105,
+      "label": "Pliki",
+      "isSortable": false,
+      "isFilterable": false,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0002-0000-0000-000000000008",
+      "fieldType": 107,
+      "label": "Zakres pracy harmonogramu",
+      "isSortable": false,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ],
+  "calculatedFields": [
+    {
+      "fieldName": "00000002-0003-0000-0000-000000000001",
+      "fieldType": 200,
+      "label": "Cena netto",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0003-0000-0000-000000000002",
+      "fieldType": 201,
+      "label": "VAT",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0003-0000-0000-000000000003",
+      "fieldType": 203,
+      "label": "Wartość netto",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": true,
+      "sumInGroup": true,
+      "sumInTotal": true
+    },
+    {
+      "fieldName": "00000002-0003-0000-0000-000000000004",
+      "fieldType": 204,
+      "label": "Wartość brutto",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": true,
+      "sumInGroup": true,
+      "sumInTotal": true
+    },
+    {
+      "fieldName": "00000002-0003-0000-0000-000000000005",
+      "fieldType": 206,
+      "label": "Kwota VAT",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": true,
+      "sumInGroup": true,
+      "sumInTotal": true
+    }
+  ],
+  "genericFields": [
+    {
+      "fieldName": "00000002-0004-0000-0000-000000000001",
+      "fieldType": 301,
+      "label": "Wykonawca",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0004-0000-0000-000000000002",
+      "fieldType": 301,
+      "label": "Nr umowy",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0004-0000-0000-000000000003",
+      "fieldType": 301,
+      "label": "Link",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000002-0004-0000-0000-000000000004",
+      "fieldType": 301,
+      "label": "Komentarz",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ]
+}

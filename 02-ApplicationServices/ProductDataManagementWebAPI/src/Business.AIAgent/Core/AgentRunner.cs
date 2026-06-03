@@ -1,4 +1,4 @@
-using Azure.AI.OpenAI;
+﻿using Azure.AI.OpenAI;
 using Azure.Identity;
 using Business.AIAgent.Abstractions;
 using Business.AIAgent.Configuration;
@@ -105,7 +105,7 @@ public sealed class AgentRunner : IAgentRunner
             AsyncCollectionResult<StreamingChatCompletionUpdate> stream =
                 client.CompleteChatStreamingAsync(messages, completionOptions, cancellationToken);
 
-            await foreach (StreamingChatCompletionUpdate update in stream.ConfigureAwait(false))
+            await foreach (var (update, error) in ReadStreamAsync(stream, cancellationToken))
             {
                 foreach (ChatMessageContentPart part in update.ContentUpdate)
                 {
@@ -215,4 +215,40 @@ public sealed class AgentRunner : IAgentRunner
 
         return options;
     }
+
+    // Wyciągnij stream do osobnej metody bez try/catch
+    private async IAsyncEnumerable<(StreamingChatCompletionUpdate update, Exception? error)> ReadStreamAsync(
+        AsyncCollectionResult<StreamingChatCompletionUpdate> stream,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        Exception? caught = null;
+        await using var enumerator = stream.GetAsyncEnumerator(cancellationToken);
+
+        while (true)
+        {
+            StreamingChatCompletionUpdate? update = null;
+            try
+            {
+                if (!await enumerator.MoveNextAsync())
+                    break;
+                update = enumerator.Current;
+            }
+            catch (Exception ex)
+            {
+                caught = ex;
+            }
+
+            // yield jest POZA try/catch
+            if (caught is not null)
+            {
+                yield return (null!, caught);
+                yield break;
+            }
+
+            yield return (update!, null);
+        }
+    }
+
+
+
 }

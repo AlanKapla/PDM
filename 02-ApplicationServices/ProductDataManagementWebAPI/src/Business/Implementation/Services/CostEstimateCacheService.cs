@@ -76,7 +76,8 @@ namespace Business.Implementation.Services
                         q => q.Include(t => t.GroupFieldDefinitions),
                         q => q.Include(t => t.SystemFieldDefinitions),
                         q => q.Include(t => t.CalculatedFieldDefinitions),
-                        q => q.Include(t => t.GenericFieldDefinitions));
+                        q => q.Include(t => t.GenericFieldDefinitions),
+                        q => q.Include(t => t.Units));
                     return template!;
                 },
                 CostEstimateCacheKeys.Ttl,

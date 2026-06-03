@@ -26,7 +26,7 @@ import {
   useDisclosure,
   Tooltip,
 } from "@chakra-ui/react";
-import { Trash2, Plus, FileText, Copy, Share2, Users } from "lucide-react";
+import { Trash2, Plus, FileText, Copy, Share2, Users, Bot } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
@@ -39,6 +39,7 @@ import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
 import CopyCostEstimateModal from "../components/CopyCostEstimateModal";
 import ShareCostEstimateModal from "../components/ShareCostEstimateModal";
 import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
+import GenerateCostEstimateWithAIModal from "../components/GenerateCostEstimateWithAIModal";
 import type { CostEstimateListItemWeb, CostEstimateShareWeb } from "../types/costEstimate.types.new";
 import type { CostEstimateStatus } from "../types/costEstimate.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
@@ -93,6 +94,8 @@ interface CostEstimatesTabProps {
   handleShareCostEstimate: (costEstimate: CostEstimateListItemWeb) => void;
   resourcePerms: ResourcePermissions;
   onCreateModalOpen: () => void;
+  /** Otwiera modal generowania kosztorysu z AI */
+  onAIModalOpen: () => void;
   /** Czy wyświetlać kolumnę Właściciel (zakładka Wszystkie i Udostępnione) */
   showOwnerColumn?: boolean;
   /** Czy pokazywać przycisk Udostępnij */
@@ -117,6 +120,7 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
   handleDeleteCostEstimate,
   handleShareCostEstimate,
   onCreateModalOpen,
+  onAIModalOpen,
   showOwnerColumn = false,
   canShare = false,
   canCopy = false,
@@ -361,6 +365,7 @@ export default function ProjectCosts() {
   const hasFetchedProjectData = useRef(false);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
+  const { isOpen: isAIModalOpen, onOpen: onAIModalOpen, onClose: onAIModalClose } = useDisclosure();
   const { isOpen: isCopyModalOpen, onOpen: onCopyModalOpen, onClose: onCopyModalClose } = useDisclosure();
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
   const { isOpen: isDeleteModalOpen, onOpen: onDeleteModalOpen, onClose: onDeleteModalClose } = useDisclosure();
@@ -519,6 +524,7 @@ export default function ProjectCosts() {
     handleShareCostEstimate,
     resourcePerms,
     onCreateModalOpen,
+    onAIModalOpen,
   };
 
   if (loading) {
@@ -548,13 +554,25 @@ export default function ProjectCosts() {
             </VStack>
           </HStack>
           {(resourcePerms.mine.canCreate || resourcePerms.all.canCreate) && (
-            <Button
-              leftIcon={<Plus size={18} />}
-              colorScheme="primary"
-              onClick={onCreateModalOpen}
-            >
-              Nowy kosztorys
-            </Button>
+            <HStack spacing={2}>
+              <Button
+                colorScheme="purple"
+                variant="outline"
+                leftIcon={<Bot size={18} />}
+                onClick={onAIModalOpen}
+                size="sm"
+              >
+                Stwórz z AI
+              </Button>
+              <Button
+                leftIcon={<Plus size={18} />}
+                colorScheme="primary"
+                onClick={onCreateModalOpen}
+                size="sm"
+              >
+                Nowy kosztorys
+              </Button>
+            </HStack>
           )}
         </HStack>
 
@@ -636,6 +654,20 @@ export default function ProjectCosts() {
               )}
             </TabPanels>
           </Tabs>
+        )}
+
+        {/* MODAL: GENERATE COST ESTIMATE WITH AI */}
+        {user?.activeTenantId && projectId && (
+          <GenerateCostEstimateWithAIModal
+            isOpen={isAIModalOpen}
+            onClose={onAIModalClose}
+            tenantId={user.activeTenantId}
+            projectId={projectId}
+            onCostEstimateCreated={(id: string) => {
+              onAIModalClose();
+              navigate(`/projects/${projectId}/cost-estimates/${id}`);
+            }}
+          />
         )}
 
         {/* MODAL: CREATE COST ESTIMATE */}

@@ -19,6 +19,9 @@ using CQRS.CostEstimates.UpdateCostEstimate;
 using CQRS.CostEstimates.MoveCostEstimateItem;
 using CQRS.CostEstimates.RecalculateCostEstimate;
 using CQRS.CostEstimates.UploadCostEstimateFieldFiles;
+using CQRS.CostEstimates.GenerateCostEstimateAIPreview;
+using CQRS.CostEstimates.CreateCostEstimateFromAIPreview;
+using Business.Interfaces.WebModels.AI;
 using Entities.Models.CostEstimates;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -113,6 +116,67 @@ namespace WebApi.Controllers
             var costEstimateId = await Send(command);
             return CreatedAtAction(nameof(GetCostEstimateDetails), 
                 new { tenantId, projectId, id = costEstimateId }, costEstimateId);
+        }
+
+        /// <summary>
+        /// Generuje podgląd kosztorysu przez AI na podstawie opisu inwestycji i wybranego szablonu.
+        /// Nie zapisuje niczego do bazy danych — zwraca podgląd do zatwierdzenia przez użytkownika.
+        /// </summary>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <param name="request">Opis inwestycji i ID szablonu</param>
+        [HttpPost("generate-ai-preview")]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
+        [ProducesResponseType(typeof(AICostEstimatePreviewWeb), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GenerateCostEstimateAIPreview(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] AICostEstimateRequestWeb request)
+        {
+            GenerateCostEstimateAIPreviewCommand command = new GenerateCostEstimateAIPreviewCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Request = request
+            };
+            return Ok(await Send(command));
+        }
+
+        /// <summary>
+        /// Zapisuje kosztorys zatwierdzony przez użytkownika z podglądu wygenerowanego przez AI.
+        /// Atomowo tworzy kosztorys z grupami, pozycjami i wartościami pól.
+        /// Zwraca ID nowo utworzonego kosztorysu.
+        /// </summary>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="projectId">Project ID</param>
+        /// <param name="body">Nazwa, opis i podgląd AI</param>
+        [HttpPost("create-from-ai-preview")]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CreateCostEstimateFromAIPreview(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] CreateCostEstimateFromAIPreviewWeb body)
+        {
+            CreateCostEstimateFromAIPreviewCommand command = new CreateCostEstimateFromAIPreviewCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Name = body.Name,
+                Description = body.Description,
+                Preview = body.Preview
+            };
+            Guid id = await Send(command);
+            return CreatedAtAction(
+                nameof(GetCostEstimateDetails),
+                new { tenantId, projectId, id },
+                id);
         }
 
         /// <summary>

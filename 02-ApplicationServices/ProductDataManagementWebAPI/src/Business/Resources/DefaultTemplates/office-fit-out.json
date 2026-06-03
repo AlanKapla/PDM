@@ -1,0 +1,392 @@
+{
+  "slug": "office-fit-out",
+  "name": "Kosztorys aranżacji biura",
+  "description": "Szablon do wyceny aranżacji przestrzeni biurowej lub komercyjnej z obsługą VAT, wykonawców i wariantów wykończenia",
+  "category": "Komercyjny",
+  "templateId": "00000006-0000-0000-0000-000000000006",
+  "maxGroupLevel": 1,
+  "currencies": [
+    {
+      "code": "PLN",
+      "name": "Polski złoty",
+      "symbol": "zł",
+      "isDefault": true,
+      "order": 0
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "isDefault": false,
+      "order": 1
+    }
+  ],
+  "units": [
+    {
+      "code": "szt",
+      "name": "Sztuka",
+      "symbol": "szt.",
+      "category": "Ilościowe",
+      "isDefault": true,
+      "order": 0
+    },
+    {
+      "code": "m2",
+      "name": "Metr kwadratowy",
+      "symbol": "m²",
+      "category": "Powierzchniowe",
+      "isDefault": false,
+      "order": 1
+    },
+    {
+      "code": "mb",
+      "name": "Metr bieżący",
+      "symbol": "mb",
+      "category": "Liniowe",
+      "isDefault": false,
+      "order": 2
+    },
+    {
+      "code": "kpl",
+      "name": "Komplet",
+      "symbol": "kpl.",
+      "category": "Ilościowe",
+      "isDefault": false,
+      "order": 3
+    },
+    {
+      "code": "h",
+      "name": "Roboczogodzina",
+      "symbol": "r-g",
+      "category": "Czasowe",
+      "isDefault": false,
+      "order": 4
+    }
+  ],
+  "categories": [
+    {
+      "name": "Prace rozbiórkowe",
+      "symbol": "Rozb.",
+      "order": 0
+    },
+    {
+      "name": "Posadzki",
+      "symbol": "Pos.",
+      "order": 1
+    },
+    {
+      "name": "Sufity podwieszane",
+      "symbol": "Suf.",
+      "order": 2
+    },
+    {
+      "name": "Ścianki działowe",
+      "symbol": "Śc.",
+      "order": 3
+    },
+    {
+      "name": "Elektryka i teletechnika",
+      "symbol": "ET",
+      "order": 4
+    },
+    {
+      "name": "Instalacje HVAC",
+      "symbol": "HVAC",
+      "order": 5
+    },
+    {
+      "name": "Stolarka",
+      "symbol": "Stol.",
+      "order": 6
+    },
+    {
+      "name": "Malowanie i tapety",
+      "symbol": "Mal.",
+      "order": 7
+    },
+    {
+      "name": "Meble i wyposażenie",
+      "symbol": "Meb.",
+      "order": 8
+    },
+    {
+      "name": "Odbiory",
+      "symbol": "Odb.",
+      "order": 9
+    }
+  ],
+  "groupHeaderFields": [
+    {
+      "fieldName": "00000006-0001-0000-0000-000000000001",
+      "fieldType": 0,
+      "label": "Nazwa zakresu",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0001-0000-0000-000000000002",
+      "fieldType": 2,
+      "label": "Nr",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0001-0000-0000-000000000003",
+      "fieldType": 1,
+      "label": "Opis",
+      "isSortable": false,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0001-0000-0000-000000000004",
+      "fieldType": 5,
+      "label": "Status",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0001-0000-0000-000000000005",
+      "fieldType": 7,
+      "label": "Odpowiedzialny",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ],
+  "systemFields": [
+    {
+      "fieldName": "00000006-0002-0000-0000-000000000001",
+      "fieldType": 100,
+      "label": "Nazwa pozycji",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0002-0000-0000-000000000002",
+      "fieldType": 103,
+      "label": "Warianty",
+      "isSortable": false,
+      "isFilterable": false,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false,
+      "childFields": [
+        {
+          "fieldName": "00000006-0002-0000-0000-000000000011",
+          "fieldType": 100,
+          "label": "Wariant",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        },
+        {
+          "fieldName": "00000006-0002-0000-0000-000000000012",
+          "fieldType": 104,
+          "label": "Wybrany",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        },
+        {
+          "fieldName": "00000006-0002-0000-0000-000000000013",
+          "fieldType": 200,
+          "label": "Cena wariantu",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        },
+        {
+          "fieldName": "00000006-0002-0000-0000-000000000014",
+          "fieldType": 301,
+          "label": "Link",
+          "isSortable": true,
+          "isFilterable": true,
+          "isVisible": true,
+          "isReadonly": false,
+          "sumInGroup": false,
+          "sumInTotal": false
+        }
+      ]
+    },
+    {
+      "fieldName": "00000006-0002-0000-0000-000000000003",
+      "fieldType": 104,
+      "label": "Zaznaczenie",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0002-0000-0000-000000000004",
+      "fieldType": 101,
+      "label": "Ilość",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0002-0000-0000-000000000005",
+      "fieldType": 102,
+      "label": "Jednostka",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0002-0000-0000-000000000006",
+      "fieldType": 106,
+      "label": "Kategoria",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0002-0000-0000-000000000007",
+      "fieldType": 105,
+      "label": "Pliki",
+      "isSortable": false,
+      "isFilterable": false,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ],
+  "calculatedFields": [
+    {
+      "fieldName": "00000006-0003-0000-0000-000000000001",
+      "fieldType": 200,
+      "label": "Cena netto",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0003-0000-0000-000000000002",
+      "fieldType": 201,
+      "label": "VAT",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0003-0000-0000-000000000003",
+      "fieldType": 202,
+      "label": "Cena brutto",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": true,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0003-0000-0000-000000000004",
+      "fieldType": 203,
+      "label": "Wartość netto",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": true,
+      "sumInGroup": true,
+      "sumInTotal": true
+    },
+    {
+      "fieldName": "00000006-0003-0000-0000-000000000005",
+      "fieldType": 204,
+      "label": "Wartość brutto",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": true,
+      "sumInGroup": true,
+      "sumInTotal": true
+    }
+  ],
+  "genericFields": [
+    {
+      "fieldName": "00000006-0004-0000-0000-000000000001",
+      "fieldType": 301,
+      "label": "Dostawca / wykonawca",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0004-0000-0000-000000000002",
+      "fieldType": 301,
+      "label": "Link",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    },
+    {
+      "fieldName": "00000006-0004-0000-0000-000000000003",
+      "fieldType": 301,
+      "label": "Komentarz",
+      "isSortable": true,
+      "isFilterable": true,
+      "isVisible": true,
+      "isReadonly": false,
+      "sumInGroup": false,
+      "sumInTotal": false
+    }
+  ]
+}
