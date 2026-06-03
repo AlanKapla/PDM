@@ -53,13 +53,11 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
             return EmptyPreview(template.Id, "Planer nie zwrócił listy grup.");
         }
 
-        // Krok 2: Generuj każdą grupę sekwencyjnie
+        // Krok 2: Generuj każdą grupę równolegle
         string templateSchema = BuildTemplateSchema(template);
-        List<AIGroupPreviewWeb> groups = [];
 
-        for (int i = 0; i < groupPlan.Count; i++)
+        IEnumerable<Task<AIGroupPreviewWeb?>> groupTasks = groupPlan.Select(async (stub, i) =>
         {
-            GroupStub stub = groupPlan[i];
             string groupMessage = BuildGroupGeneratorMessage(
                 stub, i + 1, groupPlan.Count, templateSchema, request);
 
@@ -74,15 +72,14 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
                 _logger.LogWarning(
                     "cost-estimate-group-generator failed for '{Name}': {Error}",
                     stub.Name, groupResult.ErrorMessage);
-                continue;
+                return null;
             }
 
-            AIGroupPreviewWeb? group = ParseSingleGroup(groupResult.Response);
-            if (group is not null)
-            {
-                groups.Add(group);
-            }
-        }
+            return ParseSingleGroup(groupResult.Response);
+        });
+
+        AIGroupPreviewWeb?[] groupResults = await Task.WhenAll(groupTasks);
+        List<AIGroupPreviewWeb> groups = groupResults.OfType<AIGroupPreviewWeb>().ToList();
 
         AICostEstimatePreviewWeb preview = new()
         {
