@@ -17,6 +17,9 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
     private readonly IAgentRunner _agentRunner;
     private readonly ILogger<CostEstimateAIGeneratorService> _logger;
 
+    // Limit concurrent LLM calls to avoid Azure OpenAI rate-limit (429) bursts
+    private static readonly SemaphoreSlim _groupSemaphore = new(5, 5);
+
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public CostEstimateAIGeneratorService(
@@ -58,24 +61,32 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
 
         IEnumerable<Task<AIGroupPreviewWeb?>> groupTasks = groupPlan.Select(async (stub, i) =>
         {
-            string groupMessage = BuildGroupGeneratorMessage(
-                stub, i + 1, groupPlan.Count, templateSchema, request);
-
-            AgentRunResult groupResult = await _agentRunner.RunAsync(
-                "cost-estimate-group-generator",
-                groupMessage,
-                context.CreateSubAgentContext(),
-                cancellationToken);
-
-            if (!groupResult.IsSuccess)
+            await _groupSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                _logger.LogWarning(
-                    "cost-estimate-group-generator failed for '{Name}': {Error}",
-                    stub.Name, groupResult.ErrorMessage);
-                return null;
-            }
+                string groupMessage = BuildGroupGeneratorMessage(
+                    stub, i + 1, groupPlan.Count, templateSchema, request);
 
-            return ParseSingleGroup(groupResult.Response);
+                AgentRunResult groupResult = await _agentRunner.RunAsync(
+                    "cost-estimate-group-generator",
+                    groupMessage,
+                    context.CreateSubAgentContext(),
+                    cancellationToken);
+
+                if (!groupResult.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "cost-estimate-group-generator failed for '{Name}': {Error}",
+                        stub.Name, groupResult.ErrorMessage);
+                    return null;
+                }
+
+                return ParseSingleGroup(groupResult.Response);
+            }
+            finally
+            {
+                _groupSemaphore.Release();
+            }
         });
 
         AIGroupPreviewWeb?[] groupResults = await Task.WhenAll(groupTasks);

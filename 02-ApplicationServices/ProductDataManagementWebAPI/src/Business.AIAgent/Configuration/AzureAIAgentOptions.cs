@@ -13,4 +13,7 @@ public sealed class AzureAIAgentOptions
     public string DefaultDeployment { get; set; } = "gpt-4o";
 
     public int MaxSubAgentDepth { get; set; } = 3;
+
+    /// <summary>Timeout for a single agent RunAsync call in seconds. Default: 120s.</summary>
+    public int AgentTimeoutSeconds { get; set; } = 120;
 }

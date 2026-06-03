@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenAI.Chat;
 using System.ClientModel;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -13,6 +14,12 @@ namespace Business.AIAgent.Core;
 
 public sealed class AgentRunner : IAgentRunner
 {
+    // Static cache: endpoint|deployment → ChatClient (thread-safe, reuses underlying HttpClient)
+    private static readonly ConcurrentDictionary<string, ChatClient> _clientCache = new();
+    // Single DefaultAzureCredential handles token caching internally — must not be recreated per call
+    private static readonly Lazy<DefaultAzureCredential> _defaultCredential =
+        new(() => new DefaultAzureCredential(), isThreadSafe: true);
+
     private readonly AgentDefinitionLoader _loader;
     private readonly IToolRegistry _registry;
     private readonly ToolCallExecutor _executor;
@@ -39,12 +46,17 @@ public sealed class AgentRunner : IAgentRunner
         AgentContext context,
         CancellationToken cancellationToken = default)
     {
+        using CancellationTokenSource timeoutCts =
+            new(TimeSpan.FromSeconds(_options.AgentTimeoutSeconds));
+        using CancellationTokenSource linkedCts =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
         StringBuilder fullResponse = new();
         int iterations = 0;
 
         try
         {
-            await foreach (AgentStreamEvent evt in RunStreamingAsync(agentName, userMessage, context, cancellationToken))
+            await foreach (AgentStreamEvent evt in RunStreamingAsync(agentName, userMessage, context, linkedCts.Token))
             {
                 if (evt.Type == AgentStreamEventType.Token)
                 {
@@ -57,6 +69,12 @@ public sealed class AgentRunner : IAgentRunner
             }
 
             return AgentRunResult.Success(fullResponse.ToString(), iterations);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+        {
+            _logger.LogWarning("AgentRunner timed out after {Seconds}s for agent '{AgentName}'",
+                _options.AgentTimeoutSeconds, agentName);
+            return AgentRunResult.Failure($"Agent '{agentName}' timed out after {_options.AgentTimeoutSeconds}s.");
         }
         catch (Exception ex)
         {
@@ -80,7 +98,7 @@ public sealed class AgentRunner : IAgentRunner
         }
 
         AgentDefinition definition = _loader.Load(agentName);
-        ChatClient client = BuildChatClient(definition.Model);
+        ChatClient client = GetOrCreateChatClient(definition.Model);
 
         IReadOnlyList<IAgentTool> allowedTools = _registry.GetAllowedTools(definition.Tools);
 
@@ -107,6 +125,14 @@ public sealed class AgentRunner : IAgentRunner
 
             await foreach (var (update, error) in ReadStreamAsync(stream, cancellationToken))
             {
+                if (error is not null)
+                {
+                    _logger.LogError(error, "Stream error for agent '{AgentName}' iteration {Iteration}",
+                        agentName, iteration);
+                    yield return AgentStreamEvent.ErrorEvent(error.Message, context.SessionId);
+                    yield break;
+                }
+
                 foreach (ChatMessageContentPart part in update.ContentUpdate)
                 {
                     if (part.Kind == ChatMessageContentPartKind.Text && !string.IsNullOrEmpty(part.Text))
@@ -177,17 +203,21 @@ public sealed class AgentRunner : IAgentRunner
         yield return AgentStreamEvent.CompleteEvent(context.SessionId);
     }
 
-    private ChatClient BuildChatClient(string modelName)
+    private ChatClient GetOrCreateChatClient(string modelName)
     {
         string deployment = string.IsNullOrWhiteSpace(modelName)
             ? _options.DefaultDeployment
             : modelName;
 
-        AzureOpenAIClient azureClient = string.IsNullOrWhiteSpace(_options.ApiKey)
-            ? new AzureOpenAIClient(new Uri(_options.Endpoint), new DefaultAzureCredential())
-            : new AzureOpenAIClient(new Uri(_options.Endpoint), new ApiKeyCredential(_options.ApiKey));
+        string cacheKey = $"{_options.Endpoint}|{deployment}";
+        return _clientCache.GetOrAdd(cacheKey, _ =>
+        {
+            AzureOpenAIClient azureClient = string.IsNullOrWhiteSpace(_options.ApiKey)
+                ? new AzureOpenAIClient(new Uri(_options.Endpoint), _defaultCredential.Value)
+                : new AzureOpenAIClient(new Uri(_options.Endpoint), new ApiKeyCredential(_options.ApiKey));
 
-        return azureClient.GetChatClient(deployment);
+            return azureClient.GetChatClient(deployment);
+        });
     }
 
     private static ChatCompletionOptions BuildOptions(
