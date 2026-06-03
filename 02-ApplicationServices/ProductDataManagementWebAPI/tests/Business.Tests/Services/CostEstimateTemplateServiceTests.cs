@@ -1,4 +1,4 @@
-using Business.Implementation.Services;
+﻿using Business.Implementation.Services;
 using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
@@ -23,6 +23,7 @@ public class CostEstimateTemplateServiceTests
     private readonly Mock<ICostEstimateCalculationService> _calculationServiceMock = new();
     private readonly Mock<IBlobStorageService> _blobMock = new();
     private readonly Mock<ICacheService> _cacheMock = new();
+    private readonly Mock<ICostEstimateCacheService> _costEstimateCacheMock = new();
     private readonly CostEstimateTemplateService _sut;
 
     public CostEstimateTemplateServiceTests()
@@ -40,6 +41,7 @@ public class CostEstimateTemplateServiceTests
             _calculationServiceMock.Object,
             _blobMock.Object,
             _cacheMock.Object,
+            _costEstimateCacheMock.Object,
             NullLogger<CostEstimateTemplateService>.Instance);
 
         _templateRepoMock.Setup(r => r.Insert(It.IsAny<CostEstimateTemplate>())).Returns(Task.CompletedTask);
