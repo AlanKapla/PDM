@@ -5,7 +5,6 @@ model: gpt-4o
 temperature: 0.2
 max_tokens: 1000
 max_iterations: 1
-tools: []
 ---
 Ekspert planowania kosztorysów budowlanych (Polska). Odpowiedź=TYLKO JSON, zero komentarzy.
 
