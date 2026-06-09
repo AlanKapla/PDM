@@ -22,6 +22,7 @@ using CQRS.WorkSchedules.SetWorkScheduleDependencies;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriodIsClosed;
+using CQRS.WorkSchedules.GenerateScheduleFromEstimateAI;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods;
 using CQRS.WorkSchedules.SyncWorkScheduleWithEstimate;
 using CQRS.WorkSchedules.UpdateWorkSchedule;
@@ -493,6 +494,19 @@ namespace WebApi.Controllers
             [FromRoute] Guid projectId,
             [FromRoute] Guid workScheduleId,
             [FromBody] SetWorkScheduleDependenciesCommand command)
+        {
+            command = command with { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
+            WorkScheduleDetailsWeb result = await Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("{workScheduleId}/generate-from-ai")]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
+        public async Task<IActionResult> GenerateFromAI(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid workScheduleId,
+            [FromBody] GenerateScheduleFromEstimateAICommand command)
         {
             command = command with { TenantId = tenantId, ProjectId = projectId, WorkScheduleId = workScheduleId };
             WorkScheduleDetailsWeb result = await Send(command);

@@ -391,6 +391,7 @@ namespace WebApi.Extensions
             services.AddScoped<IWorkScheduleCacheService, WorkScheduleCacheService>();
             services.AddScoped<IWorkScheduleAccessService, WorkScheduleAccessService>();
             services.AddScoped<WorkScheduleBuilder>();
+            services.AddScoped<IWorkScheduleAIGeneratorService, WorkScheduleAIGeneratorService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<CostEstimateGroupValidator>();

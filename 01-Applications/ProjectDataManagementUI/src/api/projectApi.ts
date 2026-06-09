@@ -1,5 +1,6 @@
 import { axiosClient } from "./axiosClient";
 import type { ProjectCostListItemWeb, SetProjectCurrencyRequest } from "../types/project.types";
+import type { WorkScheduleDetailsWeb, GenerateScheduleFromEstimateAIRequest } from "../types/workSchedule.types";
 
 // Resource scope enum matching backend
 export enum ResourceScope {
@@ -373,6 +374,26 @@ export const projectApi = {
   // Synchronizuj harmonogram z powiązanym kosztorysem
   syncWorkScheduleWithEstimate: async (tenantId: string, projectId: string, workScheduleId: string) => {
     return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/work-schedule/${workScheduleId}/sync-with-estimate`);
+  },
+
+  // Generuj harmonogram z kosztorysu wspierany przez AI — okresy i zależności
+  generateScheduleFromEstimateAI: async (
+    tenantId: string,
+    projectId: string,
+    workScheduleId: string,
+    data: GenerateScheduleFromEstimateAIRequest
+  ): Promise<WorkScheduleDetailsWeb> => {
+    const response = await axiosClient.post<WorkScheduleDetailsWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/work-schedule/${workScheduleId}/generate-from-ai`,
+      {
+        tenantId,
+        projectId,
+        workScheduleId,
+        overallStartDate: data.overallStartDate,
+        overallEndDate: data.overallEndDate,
+      }
+    );
+    return response.data;
   },
 
   // Pobierz prace przypisane do użytkownika (cross-tenant)
