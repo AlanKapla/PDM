@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze współpracy projektowej. Użyj gdy potrzebujesz testów dla członków zespołu i zaproszeń."
 name: "Project Collaboration Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -143,3 +142,4 @@ Nagłówek pliku:
 
 ---
 ```
+

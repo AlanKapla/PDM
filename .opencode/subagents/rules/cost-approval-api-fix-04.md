@@ -7,7 +7,7 @@ Zaimplementować 4 nowe komendy zmieniające status `ApprovalStatus` kosztu:
 3. `ApproveProjectCostCommand` — tylko admin: `PendingApproval → Approved`
 4. `RejectProjectCostCommand` — tylko admin: `PendingApproval → Draft`
 
-Przeczytaj skill `.github/skills/api/skill-api-cqrs.md` i `.github/skills/api/skill-api-validators.md`.
+Przeczytaj skill `.opencode/skills/api/skill-api-cqrs.md` i `.opencode/skills/api/skill-api-validators.md`.
 
 ---
 

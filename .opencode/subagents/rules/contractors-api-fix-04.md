@@ -4,10 +4,10 @@
 Implementacja kontrolera REST dla endpointów CRUD kontrahentów.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-controllers.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-controllers.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu: `.github/subagents/rules/contractors-api-audit.md`
+- Raport audytu: `.opencode/subagents/rules/contractors-api-audit.md`
 - CQRS istnieje po `contractors-api-fix-03`
 - Wzorzec: `src/WebApi/Controllers/TenantController.cs`
 - Routing: `/api/tenants/{tenantId:guid}/contractors`

@@ -1,7 +1,7 @@
 # Chat — podsumowanie audytu i refaktoru
 
 Domena: **Chat** (CQRS/Chats + powiązane: WebModels, encje Chat/ChatMember/MessageHistory, hub SignalR, kontrolery)
-Raport audytu: [.github/subagents/rules/chat-audit.md](chat-audit.md)
+Raport audytu: [.opencode/subagents/rules/chat-audit.md](chat-audit.md)
 Status końcowy: **API build 0 błędów, UI build 0 błędów**.
 
 ## Decyzje domenowe (z konsultacji z człowiekiem)

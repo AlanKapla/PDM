@@ -9,7 +9,7 @@ Zaktualizować typy i klienta API:
 5. Zaktualizować `ResourceScope` — dodać `PendingApproval = 3`
 6. Zaktualizować `projectApi.ts` — usunąć share metody, dodać 4 nowe (submit/withdraw/approve/reject)
 
-Przeczytaj skill `.github/skills/ui/skill-ui-types.md` i `.github/skills/ui/skill-ui-api-client.md`.
+Przeczytaj skill `.opencode/skills/ui/skill-ui-types.md` i `.opencode/skills/ui/skill-ui-api-client.md`.
 
 ---
 

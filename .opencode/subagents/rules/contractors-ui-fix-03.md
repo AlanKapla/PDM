@@ -5,10 +5,10 @@ Stworzenie komponentu `ContractorPicker` (select kontrahenta z listy tenanta) i 
 we wszystkich formularzach kosztów: `CostForm`, `CostFormDrawer`, `CostFormModal`.
 
 ## Skill
-Przeczytaj `.github/skills/ui/skill-ui-components.md` i `.github/skills/ui/skill-ui-forms-modals.md` przed implementacją.
+Przeczytaj `.opencode/skills/ui/skill-ui-components.md` i `.opencode/skills/ui/skill-ui-forms-modals.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu UI: `.github/subagents/rules/contractors-ui-audit.md`
+- Raport audytu UI: `.opencode/subagents/rules/contractors-ui-audit.md`
 - Typy istnieją po `contractors-ui-fix-01`
 - `useContractors` hook istnieje po `contractors-ui-fix-01`
 - `ContractorQuickAddModal` zostanie dodany w `contractors-ui-fix-04`

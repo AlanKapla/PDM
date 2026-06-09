@@ -1,7 +1,6 @@
 ---
 description: "Subagent audytujący warstwę UI (React/TypeScript) pod kątem wdrożenia nowego feature. Użyj gdy potrzebujesz analizy istniejących komponentów przed implementacją zmian. NIE modyfikuje kodu."
 name: "UI Audit Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -27,14 +26,14 @@ NIE modyfikujesz kodu — tylko analizujesz i raportujesz.
 Feature Planner wywołuje cię z poleceniem:
 ```
 Przeprowadź audyt UI dla feature: {nazwa}.
-Kontekst: przeczytaj .github/features/{feature-name}.md
+Kontekst: przeczytaj .opencode/features/{feature-name}.md
 Skup się na: {konkretne komponenty/strony}
-Zapisz raport do .github/subagents/rules/{feature}-ui-audit.md
+Zapisz raport do .opencode/subagents/rules/{feature}-ui-audit.md
 ```
 
 ## Krok 1 — Zrozum feature
 
-Przeczytaj plik `.github/features/{feature-name}.md`.
+Przeczytaj plik `.opencode/features/{feature-name}.md`.
 Zrozum co ma być zmienione lub dodane w UI.
 
 ## Krok 2 — Zbierz kontekst przez #codebase
@@ -175,7 +174,7 @@ Zapisz raport do wskazanego pliku i zwróć Feature Plannerowi:
 
 ```
 Audyt UI dla feature {nazwa} zakończony.
-Raport: .github/subagents/rules/{feature}-ui-audit.md
+Raport: .opencode/subagents/rules/{feature}-ui-audit.md
 
 Znaleziono:
 - Nowych komponentów: N
@@ -185,3 +184,5 @@ Znaleziono:
 
 Pytania domenowe: N
 ```
+
+

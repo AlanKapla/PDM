@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze wiadomości i chatu. Użyj gdy potrzebujesz testów dla chatu bezpośredniego, grupowego, AI chat i powiadomień real-time."
 name: "Messages Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -147,3 +146,4 @@ Nagłówek pliku:
 
 ---
 ```
+

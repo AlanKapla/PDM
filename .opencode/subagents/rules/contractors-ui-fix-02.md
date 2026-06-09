@@ -5,10 +5,10 @@ Stworzenie strony zarządzania kontrahentami (`ContractorsPage`) dostępnej pod 
 widocznej tylko dla admina tenanta. Funkcje: lista z filtrowaniem, dodawanie, edycja, usuwanie.
 
 ## Skill
-Przeczytaj `.github/skills/ui/skill-ui-components.md` i `.github/skills/ui/skill-ui-forms-modals.md` przed implementacją.
+Przeczytaj `.opencode/skills/ui/skill-ui-components.md` i `.opencode/skills/ui/skill-ui-forms-modals.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu UI: `.github/subagents/rules/contractors-ui-audit.md`
+- Raport audytu UI: `.opencode/subagents/rules/contractors-ui-audit.md`
 - Hooki istnieją po `contractors-ui-fix-01`
 - Wzorzec strony tenant-level: `src/pages/TenantDetails.tsx` lub `src/pages/CostEstimateTemplates.tsx`
 - Wzorzec modala CRUD: `AppModal` z `src/components/ui/AppModal.tsx`

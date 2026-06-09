@@ -7,7 +7,7 @@ Usunąć nawigację `SharedWith` z `ProjectCost`.
 Zaktualizować web model `ProjectCostListItemWeb`.
 Zaktualizować `ProjectCostConfiguration`.
 
-Przeczytaj skill `.github/skills/api/skill-api-entities.md` przed implementacją.
+Przeczytaj skill `.opencode/skills/api/skill-api-entities.md` przed implementacją.
 
 ---
 

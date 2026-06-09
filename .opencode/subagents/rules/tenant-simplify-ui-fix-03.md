@@ -5,7 +5,7 @@ Zaktualizuj komponenty używające `roleCode` do pracy z `isAdmin`.
 Dodaj walidację duplikatów na UI w formularzu zapraszania członka.
 
 ## Skill
-Przeczytaj `.github/skills/ui/skill-ui-components.md` i `.github/skills/ui/skill-ui-forms-modals.md` przed implementacją.
+Przeczytaj `.opencode/skills/ui/skill-ui-components.md` i `.opencode/skills/ui/skill-ui-forms-modals.md` przed implementacją.
 
 ---
 

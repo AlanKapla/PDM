@@ -8,10 +8,10 @@ Stworzenie fundamentów UI dla feature Kontrahenci:
 4. Aktualizacja istniejących typów (usunięcie `contractor: string`, dodanie `contractorId + contractorName`)
 
 ## Skill
-Przeczytaj `.github/skills/ui/skill-ui-types.md`, `.github/skills/ui/skill-ui-api-client.md`, `.github/skills/ui/skill-ui-hooks.md` przed implementacją.
+Przeczytaj `.opencode/skills/ui/skill-ui-types.md`, `.opencode/skills/ui/skill-ui-api-client.md`, `.opencode/skills/ui/skill-ui-hooks.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu UI: `.github/subagents/rules/contractors-ui-audit.md`
+- Raport audytu UI: `.opencode/subagents/rules/contractors-ui-audit.md`
 - Wzorzec typów: `src/types/costTracker.types.ts`
 - Wzorzec API client: `src/api/costTrackerApi.ts` lub `src/api/tenantApi.ts`
 - Wzorzec hooków: `src/hooks/queries/useCostTracker.ts`

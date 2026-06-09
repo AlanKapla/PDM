@@ -7,8 +7,8 @@ Przebudowa strony `ProjectFiles.tsx` — zagnieżdżony accordion dla drzewa kat
 `C:\Users\kapla\source\repos\PDM\01-Applications\ProjectDataManagementUI`
 
 ## Skill
-Przeczytaj: `.github/skills/ui/skill-ui-components.md`
-Przeczytaj: `.github/skills/ui/skill-ui-accessibility.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-components.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-accessibility.md`
 
 ## Kontekst
 

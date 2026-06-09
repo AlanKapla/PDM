@@ -1,7 +1,6 @@
 ---
 description: "Koordynator pisania testów jednostkowych — deleguje do wyspecjalizowanych agentów. Użyj gdy potrzebujesz testów dla wielu warstw (handlery, serwisy, kontrolery, walidatory)."
 name: "Unit Test Orchestrator Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -132,3 +131,4 @@ Wracaj do Kroku 2 dla każdej kolejnej klasy po zatwierdzeniu.
 3. **Jeśli projekt testowy nie istnieje** — zapytaj użytkownika
    czy utworzyć go przed pisaniem testów.
 4. **Jeśli build failed** — przedstaw błędy i zapytaj co robić.
+

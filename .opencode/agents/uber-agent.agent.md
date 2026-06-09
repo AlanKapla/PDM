@@ -1,7 +1,6 @@
 ---
 description: "Orkiestrator procesu audytu i refaktoru CQRS. Użyj gdy chcesz przeprowadzić audyt i refaktor domeny CQRS. Koordynuje Audit Agent i Refactor Agent."
 name: "Uber Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -24,10 +23,10 @@ Zarządzasz przepływem pracy między agentami i człowiekiem.
 
 ## Lokalizacje plików
 
-- Raporty audytu: `.github/subagents/rules/{domain}-audit.md`
-- Prompty refaktoru: `.github/subagents/rules/{domain}-fix-{nn}.md`
+- Raporty audytu: `.opencode/subagents/rules/{domain}-audit.md`
+- Prompty refaktoru: `.opencode/subagents/rules/{domain}-fix-{nn}.md`
   gdzie `nn` to dwucyfrowy numer kolejny: 01, 02, 03 itd.
-- Raport zbiorczy: `.github/subagents/rules/{domain}-summary.md`
+- Raport zbiorczy: `.opencode/subagents/rules/{domain}-summary.md`
 
 ## Wzorzec pracy — jedna domena
 
@@ -35,7 +34,7 @@ Zarządzasz przepływem pracy między agentami i człowiekiem.
 Wywołaj Audit Agent:
 ```
 @audit-agent Przeprowadź audyt domeny {NazwaDomeny}.
-Zapisz raport do .github/subagents/rules/{domain}-audit.md
+Zapisz raport do .opencode/subagents/rules/{domain}-audit.md
 ```
 
 Poczekaj na zakończenie. Przeczytaj raport audytu.
@@ -48,8 +47,8 @@ Na podstawie raportu audytu:
 
 ### Krok 3 — Generowanie promptów refaktoru
 Dla każdej grupy powiązanych zmian stwórz osobny plik promptu:
-`.github/subagents/rules/{domain}-fix-01.md`
-`.github/subagents/rules/{domain}-fix-02.md`
+`.opencode/subagents/rules/{domain}-fix-01.md`
+`.opencode/subagents/rules/{domain}-fix-02.md`
 itd.
 
 Zasady grupowania:
@@ -62,7 +61,7 @@ Zasady grupowania:
 ### Krok 4 — Refaktor (wielokrotny)
 Dla każdego pliku promptu wywołaj Refactor Agent:
 ```
-@refactor-agent Wykonaj zmiany opisane w .github/subagents/rules/{domain}-fix-{nn}.md
+@refactor-agent Wykonaj zmiany opisane w .opencode/subagents/rules/{domain}-fix-{nn}.md
 ```
 
 Poczekaj na raport (build status + co zrobiono).
@@ -72,7 +71,7 @@ Refactor Agent ponownie z plikiem naprawczym.
 Po wykonaniu wszystkich promptów przejdź do następnego.
 
 ### Krok 5 — Podsumowanie
-Zapisz podsumowanie domeny do `.github/subagents/rules/{domain}-summary.md`
+Zapisz podsumowanie domeny do `.opencode/subagents/rules/{domain}-summary.md`
 i przedstaw człowiekowi.
 
 ## Wzorzec promptu dla Audit Agent
@@ -81,7 +80,7 @@ i przedstaw człowiekowi.
 Przeprowadź pełny audyt CQRS dla domeny {NazwaDomeny}.
 NIE wprowadzaj żadnych zmian.
 Używaj #codebase do przeszukania całego solution.
-Zapisz raport do .github/subagents/rules/{domain}-audit.md
+Zapisz raport do .opencode/subagents/rules/{domain}-audit.md
 
 Raport musi zawierać:
 BLOK 1 — Inwentaryzacja (lista plików)
@@ -103,7 +102,7 @@ Wzorce docelowe:
 ## Wzorzec promptu dla Refactor Agent
 
 ```
-Wykonaj zmiany opisane w .github/subagents/rules/{domain}-fix-{nn}.md
+Wykonaj zmiany opisane w .opencode/subagents/rules/{domain}-fix-{nn}.md
 Używaj #codebase przed każdą zmianą.
 Po zakończeniu zwróć krótki raport:
 - Status buildu (0 błędów / N błędów)
@@ -186,3 +185,5 @@ Przed generowaniem promptów refaktoru zawsze pytaj o:
 
 Nie pytaj o rzeczy techniczne które możesz sam zdecydować
 na podstawie wzorców z innych domen.
+
+

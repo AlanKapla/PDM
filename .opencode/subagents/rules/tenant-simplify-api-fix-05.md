@@ -5,7 +5,7 @@ Zaktualizuj wszystkie handlery CQRS dotyczące tenanta, aby używały `IsAdmin` 
 Dodaj walidację duplikatów w `InviteTenantMember`.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-cqrs.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-cqrs.md` przed implementacją.
 
 ---
 

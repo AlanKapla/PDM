@@ -7,7 +7,7 @@ Zaktualizować istniejące komendy/handlery/query po usunięciu `IsAccepted` i `
 3. `GetProjectCostsQuery` — dodać scope `PendingApproval`, usunąć scope `Shared`
 4. `GetProjectCostsQueryHandler` — usunąć logikę Shared, dodać logikę PendingApproval
 
-Przeczytaj skill `.github/skills/api/skill-api-cqrs.md`.
+Przeczytaj skill `.opencode/skills/api/skill-api-cqrs.md`.
 
 ---
 

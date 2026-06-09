@@ -6,7 +6,7 @@
 3. Usuń `RoleCodes.TenantAdmin` i `RoleCodes.TenantMember`
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-controllers.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-controllers.md` przed implementacją.
 
 ---
 

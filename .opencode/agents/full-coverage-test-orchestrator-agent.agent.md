@@ -1,7 +1,6 @@
 ---
 description: "Orkiestrator pisania testów jednostkowych dla całego projektu. Użyj gdy chcesz osiągnąć pełne pokrycie testami serwisów, handlerów, walidatorów i kontrolerów."
 name: "Full Coverage Test Orchestrator Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -240,7 +239,7 @@ Czy kontynuować z następną grupą? (tak/pomiń/zatrzymaj)
 ## Krok 5 — Podsumowanie końcowe
 
 Po przetworzeniu wszystkich grup zapisz raport końcowy
-do `.github/subagents/rules/test-coverage-summary.md`:
+do `.opencode/subagents/rules/test-coverage-summary.md`:
 
 ```markdown
 # Raport pokrycia testami
@@ -298,3 +297,5 @@ Automatycznie pomijaj (bez pytania):
 - `*Extensions.cs` — extension methods
 - `Program.cs` — startup
 - `*Configuration.cs` — EF konfiguracje
+
+

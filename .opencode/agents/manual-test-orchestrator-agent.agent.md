@@ -1,7 +1,6 @@
 ---
 description: "Orkiestrator generowania kompleksowej dokumentacji testowej dla testera manualnego. Użyj gdy potrzebujesz przypadków testowych dla wielu obszarów systemu PDM. Koordynuje 6 subagentów domenowych."
 name: "Manual Test Orchestrator Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -125,7 +124,7 @@ Mapowanie modułów na subagenty:
 
 ```
 ✅ Moduł {N}: {Nazwa} — UKOŃCZONY
-   Plik: .github/subagents/rules/{filename}.md
+   Plik: .opencode/subagents/rules/{filename}.md
    Liczba przypadków: {N} (jeśli znane)
    
 Kontynuuję do modułu {N+1}: {Nazwa następnego modułu}...
@@ -218,7 +217,7 @@ Po ukończeniu wszystkich modułów, utwórz plik zbiorczy:
 - Czas: {czas}
 
 ### Lokalizacja plików
-Wszystkie pliki w: `.github/subagents/rules/`
+Wszystkie pliki w: `.opencode/subagents/rules/`
 Indeks: `.opencode/testCases/test-cases-index.md`
 
 ### Następne kroki
@@ -236,3 +235,5 @@ Indeks: `.opencode/testCases/test-cases-index.md`
 3. **Nigdy nie zakładaj** — jeśli użytkownik nie sprecyzował zakresu, pytaj.
 4. **Kontynuuj po błędach** tylko jeśli użytkownik wyraźnie to zaakceptuje.
 5. **Indeks tworzy się na końcu** — po wszystkich modułach.
+
+

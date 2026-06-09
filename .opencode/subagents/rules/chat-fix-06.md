@@ -4,7 +4,7 @@ Cel: dostosować routing kontrolera do konwencji `api/tenants/{tenantId}/...`
 dla operacji tenant/project-scoped, zachowując osobny endpoint dla
 direct chats (cross-tenant).
 
-Kontekst: audyt `.github/subagents/rules/chat-audit.md`, problem W9.
+Kontekst: audyt `.opencode/subagents/rules/chat-audit.md`, problem W9.
 Wymaga ukończenia fix-05 (split CreateChat na Direct + Group).
 
 ## Architektura routingu

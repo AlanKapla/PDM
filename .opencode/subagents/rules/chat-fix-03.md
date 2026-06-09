@@ -3,7 +3,7 @@
 Cel: wyeliminować race-conditions, w których eventy SignalR są wysyłane przed
 commitem transakcji `TransactionBehavior` lub przed `ExecuteDeleteAsync`.
 
-Kontekst: audyt `.github/subagents/rules/chat-audit.md`, problemy K2, K3, K4, K5.
+Kontekst: audyt `.opencode/subagents/rules/chat-audit.md`, problemy K2, K3, K4, K5.
 Decyzja domenowa: wprowadzić **outbox / post-commit dispatcher**.
 
 ## Architektura

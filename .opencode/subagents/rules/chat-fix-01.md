@@ -3,7 +3,7 @@
 Cel: ujednolicić styl kodu w domenie Chat z konwencjami projektu, bez zmian
 strukturalnych. To podstawa pod kolejne fixy.
 
-Kontekst: pełny audyt w `.github/subagents/rules/chat-audit.md`.
+Kontekst: pełny audyt w `.opencode/subagents/rules/chat-audit.md`.
 Zasada nadrzędna: **zakaz `var`** — zawsze explicit types.
 **Brak zmian behawioralnych** poza punktem 9 (K6 walidacja ReplyToMessageId).
 

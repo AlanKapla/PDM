@@ -1,7 +1,6 @@
 ---
 description: "Subagent piszący testy jednostkowe dla kontrolerów ASP.NET Core (xUnit + Moq). Użyj gdy potrzebujesz testów dla kontrolera WebApi."
 name: "Controller Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -256,3 +255,4 @@ tests/WebApi.Tests/Controllers/{NazwaKontrolera}Tests.cs
 ### Blokery
 {jeśli są lub "brak"}
 ```
+

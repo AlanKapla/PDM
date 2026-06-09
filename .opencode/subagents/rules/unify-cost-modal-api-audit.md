@@ -2,7 +2,7 @@
 
 **Data:** 2026-05-15  
 **Agent:** api-audit-agent  
-**Feature spec:** `.github/features/unify-cost-modal.md`
+**Feature spec:** `.opencode/features/unify-cost-modal.md`
 
 ---
 

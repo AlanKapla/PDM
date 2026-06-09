@@ -5,7 +5,7 @@ Uprość `TenantCtxSnapshot` — usuń `TenantRoleId` i `TenantPermissionCodes`,
 Uprość `CurrentUser.BuildTenantSnapshotAsync` — bez zapytania do ról/uprawnień DB.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-services.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-services.md` przed implementacją.
 
 ## Pliki do modyfikacji
 

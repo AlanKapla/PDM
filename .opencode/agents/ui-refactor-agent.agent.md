@@ -1,7 +1,6 @@
 ---
 description: "Subagent implementujący zmiany w warstwie UI (React/TypeScript). Użyj gdy masz gotowy plan zmian i potrzebujesz kogoś do modyfikacji komponentów, hooków lub typów."
 name: "UI Refactor Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -28,7 +27,7 @@ Używasz `#codebase` przez MCP żeby zrozumieć kontekst przed każdą zmianą.
 
 Feature Planner wywołuje cię z poleceniem:
 ```
-Wykonaj zmiany opisane w .github/subagents/rules/{feature}-ui-fix-{nn}.md
+Wykonaj zmiany opisane w .opencode/subagents/rules/{feature}-ui-fix-{nn}.md
 ```
 
 ## Zasady pracy
@@ -205,3 +204,5 @@ Gotowy na {feature}-ui-fix-{nn+1} lub opis blokera.
 Zatrzymaj się, wykonaj pozostałe niezależne kroki,
 zaraportuj bloker z dokładnym opisem.
 Nie obchodź blokerów hackami.
+
+

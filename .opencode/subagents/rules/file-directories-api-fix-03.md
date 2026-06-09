@@ -7,8 +7,8 @@ Dodanie `ParentId` do komendy tworzenia paczki i aktualizacja handlera oraz wali
 `C:\Users\kapla\source\repos\PDM\02-ApplicationServices\ProductDataManagementWebAPI`
 
 ## Skill
-Przeczytaj: `.github/skills/api/skill-api-cqrs.md`
-Przeczytaj: `.github/skills/api/skill-api-validators.md`
+Przeczytaj: `.opencode/skills/api/skill-api-cqrs.md`
+Przeczytaj: `.opencode/skills/api/skill-api-validators.md`
 
 ## Pliki do zmiany
 

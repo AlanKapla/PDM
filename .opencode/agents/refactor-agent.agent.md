@@ -1,7 +1,6 @@
 ---
 description: "Subagent wykonujący refaktor kodu na podstawie gotowego promptu. Użyj gdy masz opis zmian i potrzebujesz kogoś do implementacji. NIE audytuje — tylko wykonuje."
 name: "Refactor Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -29,7 +28,7 @@ Nie audytujesz, nie analizujesz szerzej — robisz dokładnie to co jest w promp
 
 Uber Agent wywołuje cię z poleceniem:
 ```
-Wykonaj zmiany opisane w .github/subagents/rules/{domain}-fix-{nn}.md
+Wykonaj zmiany opisane w .opencode/subagents/rules/{domain}-fix-{nn}.md
 ```
 
 ## Jak pracujesz
@@ -180,3 +179,5 @@ RuleFor(x => x.UserId).NotCurrentUser(currentUser);
 // NIE używaj:
 RuleFor(x => x.TenantId).NotEmpty().WithMessage("...");
 ```
+
+

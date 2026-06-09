@@ -6,10 +6,10 @@
 3. Aktualizacja `CostModal` w dashboard (niezależna implementacja formularza kosztów)
 
 ## Skill
-Przeczytaj `.github/skills/ui/skill-ui-forms-modals.md` i `.github/skills/ui/skill-ui-components.md` przed implementacją.
+Przeczytaj `.opencode/skills/ui/skill-ui-forms-modals.md` i `.opencode/skills/ui/skill-ui-components.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu UI: `.github/subagents/rules/contractors-ui-audit.md`
+- Raport audytu UI: `.opencode/subagents/rules/contractors-ui-audit.md`
 - `ContractorPicker` istnieje po `contractors-ui-fix-03`
 - `AppModal` wzorzec: `src/components/ui/AppModal.tsx`
 - `CostModal` (dashboard): `src/features/dashboard/components/CostModal.tsx` — NIEZALEŻNA implementacja, nie reużywa CostForm

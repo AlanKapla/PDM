@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze synchronizacji kosztorys-harmonogram. Użyj gdy potrzebujesz testów dla integracji między modułami."
 name: "Sync Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -127,3 +126,4 @@ Nagłówek pliku:
 
 ---
 ```
+

@@ -6,7 +6,7 @@ Usunąć wszystkie pliki związane z mechanizmem udostępniania kosztów:
 - Serwisy: `IProjectCostShareNotificationService`, `ProjectCostShareNotificationService`
 - Uproszczenie `IProjectCostAccessService` — usunięcie `HasShareAccessAsync`
 
-Przeczytaj skill `.github/skills/api/skill-api-cqrs.md` i `.github/skills/api/skill-api-services.md`.
+Przeczytaj skill `.opencode/skills/api/skill-api-cqrs.md` i `.opencode/skills/api/skill-api-services.md`.
 
 ---
 

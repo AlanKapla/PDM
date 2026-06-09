@@ -2,7 +2,7 @@
 
 Cel: zlikwidować problemy O(N) i N+1 w zapytaniach domeny Chat.
 
-Kontekst: audyt `.github/subagents/rules/chat-audit.md`, problemy W3, W4, W5, W6, W12.
+Kontekst: audyt `.opencode/subagents/rules/chat-audit.md`, problemy W3, W4, W5, W6, W12.
 
 ## Wymagania wstępne — repozytorium
 

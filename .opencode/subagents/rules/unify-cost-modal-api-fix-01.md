@@ -6,7 +6,7 @@ Ujednolicić kontrakt API dla `ProjectCost` tak, aby pola wspólne z `TrackedCos
 
 ## Kontekst z audytu
 
-Raport audytu: `.github/subagents/rules/unify-cost-modal-api-audit.md`
+Raport audytu: `.opencode/subagents/rules/unify-cost-modal-api-audit.md`
 
 `ProjectCost` dziedziczy po `BaseCost` który ma pola: `Name`, `Description`, `Net`, `Gross`, `Contractor`, `Date`, `Number`. Obecny kontrakt API dla ProjectCost:
 - używa `NetAmount`/`GrossAmount` zamiast `Net`/`Gross`

@@ -15,7 +15,7 @@ Domena **Notifications** w `02-ApplicationServices/ProductDataManagementWebAPI/s
 
 ## Zakres audytu
 
-Pełny raport: [.github/subagents/rules/notifications-audit.md](notifications-audit.md)
+Pełny raport: [.opencode/subagents/rules/notifications-audit.md](notifications-audit.md)
 
 Zidentyfikowano **2 problemy krytyczne / 8 wysokich / 10 normalnych**.
 

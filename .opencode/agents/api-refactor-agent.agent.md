@@ -1,7 +1,6 @@
 ---
 description: "Subagent implementujący zmiany w warstwie API (.NET). Użyj gdy masz gotowy plan zmian i potrzebujesz kogoś do wykonania refaktoru kodu w C#."
 name: "API Refactor Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -29,7 +28,7 @@ Używasz `#codebase` przez MCP żeby zrozumieć kontekst przed każdą zmianą.
 
 Feature Planner wywołuje cię z poleceniem:
 ```
-Wykonaj zmiany opisane w .github/subagents/rules/{feature}-api-fix-{nn}.md
+Wykonaj zmiany opisane w .opencode/subagents/rules/{feature}-api-fix-{nn}.md
 ```
 
 ## Zasady pracy
@@ -170,3 +169,5 @@ Gotowy na {feature}-api-fix-{nn+1} lub opis blokera.
 Zatrzymaj się, wykonaj pozostałe niezależne kroki,
 zaraportuj bloker z dokładnym opisem.
 Nie obchodź blokerów hackami.
+
+

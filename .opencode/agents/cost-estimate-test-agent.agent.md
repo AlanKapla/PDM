@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze kosztorysów. Użyj gdy potrzebujesz dokumentacji testowej dla kosztorysów, szablonów i udostępniania."
 name: "Cost Estimate Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -174,3 +173,4 @@ Nagłówek pliku:
 
 ---
 ```
+

@@ -67,5 +67,5 @@
 - N8: `SharedProjectCost` mógłby dziedziczyć po wspólnej bazie z `TenantId`/`ProjectId` — refaktor cross-domenowy, do osobnej iteracji.
 
 ## Pliki referencyjne
-- Audyt: [.github/subagents/rules/projectcost-audit.md](.github/subagents/rules/projectcost-audit.md)
-- Prompty: [projectcost-fix-01.md](.github/subagents/rules/projectcost-fix-01.md), [projectcost-fix-02.md](.github/subagents/rules/projectcost-fix-02.md), [projectcost-fix-03.md](.github/subagents/rules/projectcost-fix-03.md), [projectcost-fix-04.md](.github/subagents/rules/projectcost-fix-04.md)
+- Audyt: [.opencode/subagents/rules/projectcost-audit.md](.opencode/subagents/rules/projectcost-audit.md)
+- Prompty: [projectcost-fix-01.md](.opencode/subagents/rules/projectcost-fix-01.md), [projectcost-fix-02.md](.opencode/subagents/rules/projectcost-fix-02.md), [projectcost-fix-03.md](.opencode/subagents/rules/projectcost-fix-03.md), [projectcost-fix-04.md](.opencode/subagents/rules/projectcost-fix-04.md)

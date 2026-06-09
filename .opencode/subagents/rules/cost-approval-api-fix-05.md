@@ -6,7 +6,7 @@
 3. Zaktualizować `CostTrackerHandlerBase.MapProjectCostToWeb` — nowe pola
 4. Sprawdzić i zaktualizować walidator `UpdateProjectCostCommandValidator` — usunąć IsAccepted
 
-Przeczytaj skill `.github/skills/api/skill-api-controllers.md`.
+Przeczytaj skill `.opencode/skills/api/skill-api-controllers.md`.
 
 ---
 

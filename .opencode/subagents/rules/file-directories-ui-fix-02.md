@@ -7,7 +7,7 @@ Dodanie hooka `useCreateDirectory` do `useProjectFiles.ts`.
 `C:\Users\kapla\source\repos\PDM\01-Applications\ProjectDataManagementUI`
 
 ## Skill
-Przeczytaj: `.github/skills/ui/skill-ui-hooks.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-hooks.md`
 
 ## Plik do zmiany
 

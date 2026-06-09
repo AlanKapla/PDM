@@ -7,8 +7,8 @@ Aktualizacja typów TypeScript i klienta API o obsługę hierarchii katalogów.
 `C:\Users\kapla\source\repos\PDM\01-Applications\ProjectDataManagementUI`
 
 ## Skill
-Przeczytaj: `.github/skills/ui/skill-ui-types.md`
-Przeczytaj: `.github/skills/ui/skill-ui-api-client.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-types.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-api-client.md`
 
 ## Pliki do zmiany
 

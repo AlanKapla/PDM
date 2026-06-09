@@ -1,7 +1,6 @@
 ---
 description: "Subagent do audytu domen CQRS — analizuje kod i zapisuje raport. Użyj gdy potrzebujesz audytu istniejącej domeny przed refaktorem. NIE modyfikuje kodu."
 name: "Audit Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -26,7 +25,7 @@ Twoim jedynym zadaniem jest analiza i raportowanie — nigdy nie modyfikujesz ko
 Uber Agent wywołuje cię z poleceniem w stylu:
 ```
 Przeprowadź audyt domeny {NazwaDomeny}.
-Zapisz raport do .github/subagents/rules/{domain}-audit.md
+Zapisz raport do .opencode/subagents/rules/{domain}-audit.md
 ```
 
 ## Struktura raportu
@@ -235,7 +234,7 @@ Zapisz raport do wskazanego pliku i zwróć Uber Agentowi:
 
 ```
 Audyt domeny {NazwaDomeny} zakończony.
-Raport: .github/subagents/rules/{domain}-audit.md
+Raport: .opencode/subagents/rules/{domain}-audit.md
 
 Znaleziono:
 - Krytyczne: N
@@ -245,3 +244,5 @@ Znaleziono:
 Pytania domenowe wymagające decyzji człowieka:
 1. [jeśli są]
 ```
+
+

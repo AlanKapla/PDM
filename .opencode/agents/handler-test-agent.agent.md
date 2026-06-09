@@ -1,7 +1,6 @@
 ---
 description: "Subagent piszący testy jednostkowe dla handlerów CQRS (xUnit + Moq). Użyj gdy potrzebujesz testów dla CommandHandler lub QueryHandler."
 name: "Handler Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -236,3 +235,4 @@ tests/CQRS.Tests/{domena}/{NazwaHandlera}Tests.cs
 ### Blokery
 {jeśli są lub "brak"}
 ```
+

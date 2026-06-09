@@ -2,7 +2,7 @@
 
 **Data audytu:** 2026-06-01  
 **Agent:** ui-audit-agent  
-**Feature spec:** `.github/features/file-directories.md`
+**Feature spec:** `.opencode/features/file-directories.md`
 
 ---
 

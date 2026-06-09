@@ -5,10 +5,10 @@ Zastąpienie wolnotekstowego pola `Contractor string?` w `BaseCost` relacją FK 
 Aktualizacja wszystkich Commands, Validatorów, Handlerów i WebModels.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-entities.md` i `.github/skills/api/skill-api-cqrs.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-entities.md` i `.opencode/skills/api/skill-api-cqrs.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu: `.github/subagents/rules/contractors-api-audit.md`
+- Raport audytu: `.opencode/subagents/rules/contractors-api-audit.md`
 - Encja `Contractor` istnieje już po wykonaniu `contractors-api-fix-01`
 - **Stare dane są porzucane** (clean break) — migracja usuwa kolumnę `Contractor nvarchar(500)` i dodaje `ContractorId uniqueidentifier`
 - `OnDelete(SetNull)` — gdy kontrahent usunięty, koszt nie ginie (ContractorId → NULL)

@@ -5,7 +5,7 @@ Cel: dodać pipeline autoryzacji (`IAuthorizableRequest` + `[Authorize(Policy)]`
 membership-based authorization (świadoma decyzja domenowa — direct chats
 są cross-tenant, brak wspólnego scope autoryzacji).
 
-Kontekst: audyt `.github/subagents/rules/chat-audit.md`, problem K1, W7.
+Kontekst: audyt `.opencode/subagents/rules/chat-audit.md`, problem K1, W7.
 
 ## Część A — Nowe `PermissionCodes`
 

@@ -7,9 +7,9 @@ Stworzenie modala "Dodaj katalog" i aktualizacja `UploadFilesModal` o pole wybor
 `C:\Users\kapla\source\repos\PDM\01-Applications\ProjectDataManagementUI`
 
 ## Skill
-Przeczytaj: `.github/skills/ui/skill-ui-forms-modals.md`
-Przeczytaj: `.github/skills/ui/skill-ui-components.md`
-Przeczytaj: `.github/skills/ui/skill-ui-accessibility.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-forms-modals.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-components.md`
+Przeczytaj: `.opencode/skills/ui/skill-ui-accessibility.md`
 
 ## Kontekst
 

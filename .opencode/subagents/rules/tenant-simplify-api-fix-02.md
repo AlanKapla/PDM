@@ -4,7 +4,7 @@
 Zastąp `RoleCode: string` przez `IsAdmin: bool` we wszystkich WebModelach dotyczących tenanta.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-cqrs.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-cqrs.md` przed implementacją.
 
 ## Pliki do modyfikacji
 

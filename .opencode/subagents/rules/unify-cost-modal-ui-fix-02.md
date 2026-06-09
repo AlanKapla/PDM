@@ -7,7 +7,7 @@ To odciąży 700-liniową stronę i stworzy symetrię z istniejącym `useTracked
 
 ## Kontekst
 
-Raport UI audytu: `.github/subagents/rules/unify-cost-modal-ui-audit.md`
+Raport UI audytu: `.opencode/subagents/rules/unify-cost-modal-ui-audit.md`
 
 Istniejący wzorzec (TrackedCost):
 - `src/features/dashboard/hooks/useTrackedCostMutations.ts` — hook mutacji dla TrackedCost

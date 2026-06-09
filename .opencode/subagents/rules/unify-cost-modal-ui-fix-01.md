@@ -7,8 +7,8 @@ Po tym kroku codebase ma jeden kanoniczny typ dla każdej encji.
 
 ## Kontekst
 
-Raport UI audytu: `.github/subagents/rules/unify-cost-modal-ui-audit.md`
-Raport API audytu: `.github/subagents/rules/unify-cost-modal-api-audit.md`
+Raport UI audytu: `.opencode/subagents/rules/unify-cost-modal-ui-audit.md`
+Raport API audytu: `.opencode/subagents/rules/unify-cost-modal-api-audit.md`
 
 API fix-01 zmieniło kontrakt ProjectCost:
 - `NetAmount` → `Net`, `GrossAmount` → `Gross`

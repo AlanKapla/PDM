@@ -7,7 +7,7 @@ Dodanie pola `ParentId` (nullable Guid) do encji `ProjectFilePackage` z self-ref
 `C:\Users\kapla\source\repos\PDM\02-ApplicationServices\ProductDataManagementWebAPI`
 
 ## Skill
-Przeczytaj: `.github/skills/api/skill-api-entities.md`
+Przeczytaj: `.opencode/skills/api/skill-api-entities.md`
 
 ## Pliki do zmiany
 

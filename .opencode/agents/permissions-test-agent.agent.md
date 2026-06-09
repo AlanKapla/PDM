@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze uprawnień. Użyj gdy potrzebujesz testów dla ról, permisji i kontroli dostępu."
 name: "Permissions Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -149,3 +148,4 @@ Nagłówek pliku:
 
 ---
 ```
+

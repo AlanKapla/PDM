@@ -5,10 +5,10 @@ Implementacja pełnego CQRS dla encji `Contractor` (tenant-scoped).
 5 operacji: GetContractors (lista), GetContractor (jeden), CreateContractor, UpdateContractor, DeleteContractor.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-cqrs.md` i `.github/skills/api/skill-api-validators.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-cqrs.md` i `.opencode/skills/api/skill-api-validators.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu: `.github/subagents/rules/contractors-api-audit.md`
+- Raport audytu: `.opencode/subagents/rules/contractors-api-audit.md`
 - Encja `Contractor` istnieje po `contractors-api-fix-01`
 - Wzorzec tenant-scoped: `src/CQRS/Tenants/UpdateTenant/` — przeczytaj ten folder jako wzorzec
 - Permission: `PermissionCodes.TenantEdit` dla zapisu, `PermissionCodes.TenantView` dla odczytu

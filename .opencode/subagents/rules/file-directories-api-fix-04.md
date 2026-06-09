@@ -7,9 +7,9 @@ Stworzenie nowego endpointu `POST /file/directories` który tworzy katalog bez u
 `C:\Users\kapla\source\repos\PDM\02-ApplicationServices\ProductDataManagementWebAPI`
 
 ## Skill
-Przeczytaj: `.github/skills/api/skill-api-cqrs.md`
-Przeczytaj: `.github/skills/api/skill-api-validators.md`
-Przeczytaj: `.github/skills/api/skill-api-controllers.md`
+Przeczytaj: `.opencode/skills/api/skill-api-cqrs.md`
+Przeczytaj: `.opencode/skills/api/skill-api-validators.md`
+Przeczytaj: `.opencode/skills/api/skill-api-controllers.md`
 
 ## Nowe pliki do stworzenia
 

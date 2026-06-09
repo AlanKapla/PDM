@@ -1,7 +1,6 @@
 ---
 description: "Subagent piszący testy jednostkowe dla serwisów z warstwy Business (xUnit + Moq). Użyj gdy potrzebujesz testów dla serwisu domenowego."
 name: "Service Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -279,3 +278,4 @@ tests/Business.Tests/{NazwaSerwisu}Tests.cs
 ### Blokery
 {jeśli są lub "brak"}
 ```
+

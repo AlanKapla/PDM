@@ -5,7 +5,7 @@ Uprość `useTenantPermissions` — zamiast sprawdzać permission codes z tablic
 Zaktualizuj `AuthContext` jeśli odwołuje się do `activeTenantPermissions`.
 
 ## Skill
-Przeczytaj `.github/skills/ui/skill-ui-hooks.md` przed implementacją.
+Przeczytaj `.opencode/skills/ui/skill-ui-hooks.md` przed implementacją.
 
 ---
 

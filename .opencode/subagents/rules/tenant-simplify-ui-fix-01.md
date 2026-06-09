@@ -6,7 +6,7 @@ Zastąp `activeTenantPermissions: string[]` przez `isActiveTenantAdmin: boolean`
 Zaktualizuj `tenantApi` — endpoint `updateTenantMemberRole` → `updateTenantMemberAdmin`.
 
 ## Skill
-Przeczytaj `.github/skills/ui/skill-ui-types.md` i `.github/skills/ui/skill-ui-api-client.md` przed implementacją.
+Przeczytaj `.opencode/skills/ui/skill-ui-types.md` i `.opencode/skills/ui/skill-ui-api-client.md` przed implementacją.
 
 ---
 

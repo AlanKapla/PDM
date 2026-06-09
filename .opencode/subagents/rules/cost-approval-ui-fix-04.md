@@ -5,7 +5,7 @@ Zaktualizować komponenty kart i modala kosztów:
 1. `ExpenseCard.tsx` — usunąć checkbox `isAccepted`, dodać status badge
 2. `CostModal.tsx` (dashboard) — usunąć checkbox `isAccepted` dla `type='project'`
 
-Przeczytaj skill `.github/skills/ui/skill-ui-components.md`.
+Przeczytaj skill `.opencode/skills/ui/skill-ui-components.md`.
 
 ---
 

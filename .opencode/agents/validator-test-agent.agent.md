@@ -1,7 +1,6 @@
 ---
 description: "Subagent piszący testy jednostkowe dla walidatorów FluentValidation (xUnit + Moq + FluentValidation.TestHelper). Użyj gdy potrzebujesz testów dla walidatora Command/Query."
 name: "Validator Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -266,3 +265,4 @@ tests/CQRS.Tests/{domena}/{NazwaValidator}Tests.cs
 ### Blokery
 {jeśli są lub "brak"}
 ```
+

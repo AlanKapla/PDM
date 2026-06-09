@@ -8,7 +8,7 @@ Stworzyć jeden modal `CostModal` z trybem `type: "tracked" | "project"` zastęp
 
 ## Kontekst
 
-Raport UI audytu: `.github/subagents/rules/unify-cost-modal-ui-audit.md`
+Raport UI audytu: `.opencode/subagents/rules/unify-cost-modal-ui-audit.md`
 Decyzja architektoniczna: jeden modal z trybem, NIE dwa osobne komponenty.
 
 ## Pola formularza

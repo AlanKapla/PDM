@@ -7,7 +7,7 @@ Zaktualizować stronę `ProjectSimpleCosts.tsx`:
 3. Dodać akcje "Skieruj do akceptacji" / "Wycofaj" dla właściciela
 4. Dodać akcje "Akceptuj" / "Odrzuć" w zakładce "Do akceptacji" dla adminów
 
-Przeczytaj skill `.github/skills/ui/skill-ui-components.md`.
+Przeczytaj skill `.opencode/skills/ui/skill-ui-components.md`.
 
 ---
 

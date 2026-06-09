@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze harmonogramów. Użyj gdy potrzebujesz testów dla tworzenia, etapów, zadań i zależności harmonogramu."
 name: "Work Schedule Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -165,3 +164,4 @@ Nagłówek pliku:
 
 ---
 ```
+

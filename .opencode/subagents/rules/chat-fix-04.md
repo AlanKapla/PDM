@@ -3,7 +3,7 @@
 Cel: zlikwidować duplikację mapowań i wprowadzić enkapsulację encji
 (metody biznesowe zamiast publicznych setterów).
 
-Kontekst: audyt `.github/subagents/rules/chat-audit.md`, problemy W14, N7, N16.
+Kontekst: audyt `.opencode/subagents/rules/chat-audit.md`, problemy W14, N7, N16.
 
 ## Część A — Hermetyzacja encji
 

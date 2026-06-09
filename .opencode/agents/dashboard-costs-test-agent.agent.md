@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze dashboardu, kosztów i wydatków. Użyj gdy potrzebujesz testów dla Cost Tracker, Project Costs lub dashboardu."
 name: "Dashboard Costs Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -173,3 +172,4 @@ Nagłówek pliku:
 
 ---
 ```
+

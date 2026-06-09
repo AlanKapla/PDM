@@ -4,7 +4,7 @@ Cel: web modele Chat mają mieszkać w `Business/Interfaces/WebModels/Chats/`
 zgodnie z konwencją reszty solution. Inline DTO z kontrolera wydzielić do
 osobnych plików (`Requests/`).
 
-Kontekst: audyt `.github/subagents/rules/chat-audit.md`, problemy W1, W8, N13.
+Kontekst: audyt `.opencode/subagents/rules/chat-audit.md`, problemy W1, W8, N13.
 
 ## Zakres
 

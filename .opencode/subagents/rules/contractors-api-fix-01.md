@@ -4,10 +4,10 @@
 Dodanie nowej encji `Contractor` (tenant-scoped) do warstwy Entities oraz wygenerowanie migracji DB.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-entities.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-entities.md` przed implementacją.
 
 ## Kontekst
-- Raport audytu: `.github/subagents/rules/contractors-api-audit.md`
+- Raport audytu: `.opencode/subagents/rules/contractors-api-audit.md`
 - Encja należy do tenanta (tylko `TenantId`, bez `ProjectId`)
 - Używa soft-delete (dziedziczy po `DeletableEntity`)
 - Wzorzec: `src/Entities/Models/Tenants/Tenant.cs` i jego konfiguracja

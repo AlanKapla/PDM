@@ -1,7 +1,6 @@
 ---
 description: "Subagent generujący przypadki testowe dla testera manualnego w obszarze plików i wersjonowania. Użyj gdy potrzebujesz testów dla uploadu, pakietów, wersji, komentarzy i udostępniania plików."
 name: "Files Test Agent"
-mode: subagent
 tools:
   read: true
   write: true
@@ -158,3 +157,4 @@ Nagłówek pliku:
 
 ---
 ```
+

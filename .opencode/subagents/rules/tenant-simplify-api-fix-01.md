@@ -5,7 +5,7 @@ Zastąp `RoleId` (FK do tabeli Roles) polem `IsAdmin: bool` w encji `TenantMembe
 Usuń nawigację `MemberRole` oraz zależność od encji `Role` w kontekście tenanta.
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-entities.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-entities.md` przed implementacją.
 
 ## Pliki do modyfikacji
 

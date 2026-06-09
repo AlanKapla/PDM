@@ -9,7 +9,7 @@ Usuń:
 - check `!tenantSnapshot.IsActive` — tenant zawsze aktywny, nie obsługujemy toggle
 
 ## Skill
-Przeczytaj `.github/skills/api/skill-api-services.md` przed implementacją.
+Przeczytaj `.opencode/skills/api/skill-api-services.md` przed implementacją.
 
 ## Plik do modyfikacji
 
