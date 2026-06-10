@@ -61,6 +61,11 @@
 3. **Filter by isVisible** — zrobione po stronie API w handlerze (`GetCostEstimateDetailsQueryHandler`)
 4. **Prop rename** — we wszystkich row komponentach (`SortableGroupRow`, `SortableItemRow`, `SortableOptionRow`, `SortableComponentRow`) prop `expandedColumns` przemianowany na `columns`
 5. **Osobne sekcje kolejności pól w edytorze szablonu** — zakładka "Kolejność pól" rozdzielona na dwie sekcje: "Kolejność pól etapów" i "Kolejność pól pozycji", każda z własnym drag-and-drop; zapis przez `groupColumnLayout`/`itemColumnLayout`
+6. **Dynamiczna szerokość kolumny expand** — `40px + maxLevel * 24px` zamiast stałej 40px; wyliczana z `flatRows.reduce(max nesting level)`
+7. **Wyrównanie kolumn** — group rows renderują puste Td dla item columns (`itemColumnCount`); item rows renderują puste Td dla group columns (`groupColumnCount`); tfoot renderuje puste Td dla obu; wszystkie wiersze mają tę samą liczbę komórek co header
+8. **EnsureItemHasNoComponents guard** — przyjmuje opcjonalny `FieldType?`; `ItemSystemName(100)` i `ItemSystemSelected(104)` są dozwolone na pozycjach z komponentami (opisują pozycję, nie wartości)
+9. **Nazwy kolumn zawsze widoczne** — `GroupName` i `ItemSystemName` zawsze widoczne nawet gdy sekcja pól zwinięta; `visibleGroupColumns`/`visibleItemColumns` filtrują tylko do kolumny nazwy gdy zwinięte
+10. **Freeze kolumn nazw podczas scrolla** — `GroupName` i `ItemSystemName` mają `position: sticky` z wyliczonym `left` offsetem (`baseStickyLeft + sum(visibleGroupColumnWidths)`); header: `zIndex:11 bg:white`; body: `zIndex:5 bg:rowBg`; zaimplementowane w `SortableGroupRow`, `SortableItemRow`, `SortableComponentRow`, `SortableOptionRow` przez prop `stickyLeftForName`
 
 ## Następne kroki (opcjonalne usprawnienia)
 1. **Invalidate Redis cache** — po deployu trzeba zinvalidować cache `platform:template:{id}` bo stara struktura zawiera stare `ColumnLayout`

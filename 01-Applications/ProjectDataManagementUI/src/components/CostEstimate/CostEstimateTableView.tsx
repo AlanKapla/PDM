@@ -76,9 +76,8 @@ import type {
   SystemFieldWeb,
   CalculatedFieldWeb,
   GenericFieldWeb,
-  FieldType,
 } from '../../types/costEstimate.types';
-import { FieldScope } from '../../types/costEstimate.types';
+import { FieldType, FieldScope } from '../../types/costEstimate.types';
 
 // ---------------------------------------------------------------------------
 // Wydzielone moduły
@@ -672,6 +671,17 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   const [groupFieldsCollapsed, setGroupFieldsCollapsed] = useState(false);
   const [itemFieldsCollapsed, setItemFieldsCollapsed] = useState(false);
 
+  // Widoczne kolumny — po zwinięciu sekcji pokazuj tylko pole nazwy (GroupName / ItemSystemName)
+  const visibleGroupColumns = useMemo(() => {
+    if (!groupFieldsCollapsed) return groupColumns;
+    return groupColumns.filter(col => col.originalColumn.fieldType === FieldType.GroupName);
+  }, [groupColumns, groupFieldsCollapsed]);
+
+  const visibleItemColumns = useMemo(() => {
+    if (!itemFieldsCollapsed) return itemColumns;
+    return itemColumns.filter(col => col.originalColumn.fieldType === FieldType.ItemSystemName);
+  }, [itemColumns, itemFieldsCollapsed]);
+
   // ========== FILTROWANIE I SORTOWANIE POZYCJI ==========
 
   // Copilot: Renderowanie pól zawsze na podstawie definicji z templateStructure.
@@ -905,6 +915,19 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     const maxLevel = flatRows.reduce((max, row) => Math.max(max, row.level), 0);
     return 40 + maxLevel * 24;
   }, [flatRows]);
+
+  // Sticky left offset dla kolumny # (expander)
+  const expandStickyLeft: number = canStructuralEdit ? 120 : 0;
+
+  // Sticky left offset dla nazwy etapu (GroupName) — freeze podczas scrolla
+  // Kolejność od lewej: [Akcje (120px)] [# (expandColWidth)] [GroupName] ...
+  const stickyLeftForGroupName: number = expandStickyLeft + expandColWidth;
+
+  // Sticky left dla nazwy pozycji (ItemSystemName) — freeze tylko gdy pola etapów są zwinięte
+  const visibleGroupWidths: number = visibleGroupColumns.reduce(
+    (sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0
+  );
+  const stickyLeftForItemSystemName: number = stickyLeftForGroupName + visibleGroupWidths;
 
   // ========== COLLAPSE / EXPAND ==========
 
@@ -2869,15 +2892,25 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             #
           </Th>
 
-          {/* Render visible columns: groupColumns + itemColumns */}
-          {[
-            ...(!groupFieldsCollapsed ? groupColumns : []),
-            ...(!itemFieldsCollapsed ? itemColumns : []),
-          ].map((col) => {
+          {/* Render visible columns: visibleGroupColumns + visibleItemColumns */}
+          {[...visibleGroupColumns, ...visibleItemColumns].map((col) => {
             const isSorted = sortConfig?.fieldId === col.fieldId;
             const sortDirection = isSorted ? sortConfig?.direction : null;
             const filterValue = filters[col.fieldId] || '';
             const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
+            
+            // Freeze name columns during horizontal scroll:
+            // GroupName — zawsze sticky
+            // ItemSystemName — sticky tylko gdy pola etapów są zwinięte
+            const isGroupName = col.fieldScope === FieldScope.Group && col.originalColumn.fieldType === FieldType.GroupName;
+            const isItemName = col.fieldScope !== FieldScope.Group && col.originalColumn.fieldType === FieldType.ItemSystemName;
+            const freezeItemName: boolean = isItemName && groupFieldsCollapsed;
+            const isSticky: boolean = isGroupName || freezeItemName;
+            const stickyLeft: string | undefined = isGroupName
+              ? `${stickyLeftForGroupName}px`
+              : freezeItemName
+                ? `${stickyLeftForItemSystemName}px`
+                : undefined;
             
             return (
               <Th
@@ -2889,7 +2922,10 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                 minW={`${colWidth}px`}
                 maxW={`${colWidth}px`}
                 verticalAlign="top"
-                position="relative"
+                position={isSticky ? 'sticky' : 'relative'}
+                left={stickyLeft}
+                zIndex={isSticky ? 11 : undefined}
+                bg={isSticky ? 'white' : undefined}
                 userSelect="none"
               >
                 <VStack spacing={1} align="stretch">
@@ -3143,10 +3179,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             <SortableContext items={getSortableIds} strategy={verticalListSortingStrategy}>
               {(() => {
                 // Widoczne kolumny z uwzględnieniem collapsible sections
-                const visibleColumns = [
-                  ...(!groupFieldsCollapsed ? groupColumns : []),
-                  ...(!itemFieldsCollapsed ? itemColumns : []),
-                ];
+                const visibleColumns = [...visibleGroupColumns, ...visibleItemColumns];
                 const totalColumnWidth = visibleColumns.reduce(
                   (sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0
                 );
@@ -3197,9 +3230,11 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       showGroupSummary={showGroupSummary}
                       groupSummaryFields={groupSummaryFields}
                       currencySymbol={details.selectedCurrencySymbol || details.selectedCurrencyCode || ''}
-                      columns={groupFieldsCollapsed ? [] : groupColumns}
-                      itemColumnCount={itemFieldsCollapsed ? 0 : itemColumns.length}
+                      columns={visibleGroupColumns}
+                      itemColumnCount={visibleItemColumns.length}
                       expandColWidth={expandColWidth}
+                      expandStickyLeft={expandStickyLeft}
+                      stickyLeftForName={stickyLeftForGroupName}
                       getColumnWidth={getColumnWidth}
                       getGroupFieldValue={getGroupFieldValue}
                       updateGroupFieldValue={updateGroupFieldValue}
@@ -3230,9 +3265,12 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       editable={canStructuralEdit}
                       canEditFields={editable}
                       templateStructure={templateStructure}
-                      columns={itemFieldsCollapsed ? [] : itemColumns}
-                      groupColumnCount={groupFieldsCollapsed ? 0 : groupColumns.length}
+                      columns={visibleItemColumns}
+                      groupColumnCount={visibleGroupColumns.length}
                       expandColWidth={expandColWidth}
+                      expandStickyLeft={expandStickyLeft}
+                      stickyLeftForName={groupFieldsCollapsed ? stickyLeftForItemSystemName : undefined}
+                      groupNameStickyLeft={stickyLeftForGroupName}
                       getColumnWidth={getColumnWidth}
                       getItemFieldValue={getItemFieldValue}
                       getItemFieldValueFull={getItemFieldValueFull}
@@ -3266,7 +3304,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                     )}
                     <Td p={2} w={`${expandColWidth}px`} minW={`${expandColWidth}px`} />
           {/* Group columns */}
-          {!groupFieldsCollapsed && groupColumns.map((col) => {
+          {visibleGroupColumns.map((col) => {
                       const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
                       
                       const calcField = templateStructure.calculatedFields?.find(
@@ -3337,7 +3375,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       );
                     })}
           {/* Item columns — puste Td do wyrównania liczby komórek */}
-          {!itemFieldsCollapsed && itemColumns.map((col) => {
+          {visibleItemColumns.map((col) => {
                       const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
                       return (
                         <Td key={col.fieldId} p={2} bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>

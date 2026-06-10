@@ -2,7 +2,6 @@ import React from 'react';
 import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox, Box } from '@chakra-ui/react';
 import { GripVertical, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { getFieldValueAsString } from '../../../types/costEstimate.types.new';
 import type { CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../../../types/costEstimate.types.new';
 import { getAllOptionValues } from '../../../utils/costEstimateCalculations';
@@ -32,6 +31,12 @@ export interface SortableOptionRowProps {
   columns: ExpandedColumn[];
   groupColumnCount: number;
   expandColWidth: number;
+  /** Sticky left offset dla kolumny # (expand) — freeze podczas scrolla */
+  expandStickyLeft?: number;
+  /** Sticky left offset dla nazwy pozycji (ItemSystemName) — freeze podczas scrolla */
+  stickyLeftForName?: number;
+  /** Sticky left offset dla nazwy etapu (GroupName) — freeze dla pustego Td w tej kolumnie */
+  groupNameStickyLeft?: number;
   getColumnWidth: GetColumnWidthFn;
   /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
   getItemFieldValueFull: (item: CostEstimateItemWeb, fieldId: string) => CostEstimateFieldValueWeb | undefined;
@@ -65,6 +70,9 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
   columns: columnsProp,
   groupColumnCount,
   expandColWidth,
+  expandStickyLeft,
+  stickyLeftForName,
+  groupNameStickyLeft,
   getColumnWidth,
   getItemFieldValueFull,
   updateOptionFieldValue,
@@ -81,9 +89,14 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
     isDragging,
   } = useSortable({ id });
 
+  // Używamy CSS `translate` zamiast `transform` aby nie tworzyć stacking contextu
+  const translateX: number = transform?.x ?? 0;
+  const translateY: number = transform?.y ?? 0;
+  const transitionStyle: string | undefined = transition?.replace('transform', 'translate');
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    translate: `${translateX}px ${translateY}px`,
+    transition: transitionStyle,
     opacity: isDragging ? 0.5 : 1,
   };
 
@@ -139,20 +152,50 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
       )}
 
       {/* Pozycja column removed — minimal expand cell */}
-      <Td p={2} pl={`${indent + 48}px`} w={`${expandColWidth}px`} minW={`${expandColWidth}px`} bg="level2.50" />
+      <Td
+        p={2}
+        pl={`${indent + 48}px`}
+        w={`${expandColWidth}px`}
+        minW={`${expandColWidth}px`}
+        bg="level2.50"
+        position={expandStickyLeft !== undefined ? 'sticky' : undefined}
+        left={expandStickyLeft !== undefined ? `${expandStickyLeft}px` : undefined}
+        zIndex={expandStickyLeft !== undefined ? 5 : undefined}
+        boxShadow={expandStickyLeft !== undefined ? 'inset 0 0 0 9999px var(--chakra-colors-level2-50)' : undefined}
+      />
 
       {/* Puste Td dla kolumn etapów — wyrównanie liczby komórek z nagłówkiem */}
-      {Array.from({ length: groupColumnCount }).map((_, idx) => (
-        <Td key={`empty-group-${idx}`} p={2} bg="level2.50" />
-      ))}
+      {Array.from({ length: groupColumnCount }).map((_, idx) => {
+        const isGroupNameCol: boolean = idx === 0 && groupNameStickyLeft !== undefined;
+        const groupBg: string = 'level2.50';
+        return (
+          <Td
+            key={`empty-group-${idx}`}
+            p={2}
+            bg={groupBg}
+            position={isGroupNameCol ? 'sticky' : undefined}
+            left={isGroupNameCol ? `${groupNameStickyLeft}px` : undefined}
+            zIndex={isGroupNameCol ? 5 : undefined}
+            boxShadow={isGroupNameCol ? `inset 0 0 0 9999px var(--chakra-colors-${groupBg.replace('.', '-')})` : undefined}
+          />
+        );
+      })}
 
       {columnsProp.map((col: any) => {
         const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
 
+        // Freeze ItemSystemName podczas scrolla
+        const isNameCol: boolean = stickyLeftForName !== undefined &&
+          col.originalColumn?.fieldType === 100; // FieldType.ItemSystemName
+        const stickyShadowColor: string = 'var(--chakra-colors-level2-50)';
+        const stickyProps: Record<string, any> | undefined = isNameCol
+          ? { position: 'sticky', left: `${stickyLeftForName}px`, zIndex: 5, bg: 'level2.50', boxShadow: `inset 0 0 0 9999px ${stickyShadowColor}` }
+          : undefined;
+
         // Dla opcji renderujemy tylko kolumny childField, reszta to puste komórki
         if (col.type !== 'childField' || !col.childField) {
           return (
-            <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+            <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden" {...(stickyProps ?? {})}>
               <Text fontSize="xs" color="neutral.400" textAlign="center">—</Text>
             </Td>
           );
@@ -176,7 +219,7 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
         const optionAllValues = getAllOptionValues(option.fieldValues || [], templateStructure, item);
 
         return (
-          <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+          <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden" {...(stickyProps ?? {})}>
             {canEditFields ? (
               renderFieldInput(
                 col.childField,

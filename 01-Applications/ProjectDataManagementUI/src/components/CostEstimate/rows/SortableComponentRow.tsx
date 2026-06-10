@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox, Box } from '@chakra-ui/react';
 import { GripVertical, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import type { CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../../../types/costEstimate.types.new';
 import { getAllValues } from '../../../utils/costEstimateCalculations';
 import { getFieldSource } from '../../../utils/resolveFieldDefinition';
@@ -33,6 +32,12 @@ export interface SortableComponentRowProps {
   columns: ExpandedColumn[];
   groupColumnCount: number;
   expandColWidth: number;
+  /** Sticky left offset dla kolumny # (expand) — freeze podczas scrolla */
+  expandStickyLeft?: number;
+  /** Sticky left offset dla nazwy pozycji (ItemSystemName) — freeze podczas scrolla */
+  stickyLeftForName?: number;
+  /** Sticky left offset dla nazwy etapu (GroupName) — freeze dla pustego Td w tej kolumnie */
+  groupNameStickyLeft?: number;
   getColumnWidth: GetColumnWidthFn;
   getItemFieldValue: (item: CostEstimateItemWeb, fieldId: string) => string | undefined;
   /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
@@ -77,6 +82,9 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
   columns: columnsProp,
   groupColumnCount,
   expandColWidth,
+  expandStickyLeft,
+  stickyLeftForName,
+  groupNameStickyLeft,
   getColumnWidth,
   getItemFieldValue,
   getItemFieldValueFull,
@@ -97,9 +105,14 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
     isDragging,
   } = useSortable({ id });
 
+  // Używamy CSS `translate` zamiast `transform` aby nie tworzyć stacking contextu
+  const translateX: number = transform?.x ?? 0;
+  const translateY: number = transform?.y ?? 0;
+  const transitionStyle: string | undefined = transition?.replace('transform', 'translate');
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    translate: `${translateX}px ${translateY}px`,
+    transition: transitionStyle,
     opacity: isDragging ? 0.5 : 1,
   };
 
@@ -188,6 +201,10 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           w={`${expandColWidth}px`}
           minW={`${expandColWidth}px`}
           bg="level1.50"
+          position={expandStickyLeft !== undefined ? 'sticky' : undefined}
+          left={expandStickyLeft !== undefined ? `${expandStickyLeft}px` : undefined}
+          zIndex={expandStickyLeft !== undefined ? 5 : undefined}
+          boxShadow={expandStickyLeft !== undefined ? 'inset 0 0 0 9999px var(--chakra-colors-level1-50)' : undefined}
         >
           {hasOptions && (
             <Tooltip label={optionsExpanded ? 'Zwiń opcje' : 'Rozwiń opcje'}>
@@ -206,13 +223,33 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
         </Td>
 
         {/* Puste Td dla kolumn etapów — wyrównanie liczby komórek z nagłówkiem */}
-        {Array.from({ length: groupColumnCount }).map((_, idx) => (
-          <Td key={`empty-group-${idx}`} p={2} bg="level1.50" />
-        ))}
+        {Array.from({ length: groupColumnCount }).map((_, idx) => {
+          const isGroupNameCol: boolean = idx === 0 && groupNameStickyLeft !== undefined;
+          const groupBg: string = 'level1.50';
+          return (
+            <Td
+              key={`empty-group-${idx}`}
+              p={2}
+              bg={groupBg}
+              position={isGroupNameCol ? 'sticky' : undefined}
+              left={isGroupNameCol ? `${groupNameStickyLeft}px` : undefined}
+              zIndex={isGroupNameCol ? 5 : undefined}
+              boxShadow={isGroupNameCol ? `inset 0 0 0 9999px var(--chakra-colors-${groupBg.replace('.', '-')})` : undefined}
+            />
+          );
+        })}
 
         {/* Kolumny pól komponentu */}
         {columnsProp.map((col: any) => {
           const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
+
+          // Freeze ItemSystemName podczas scrolla
+          const isNameCol: boolean = stickyLeftForName !== undefined &&
+            col.originalColumn?.fieldType === 100; // FieldType.ItemSystemName
+          const stickyShadowColor: string = 'var(--chakra-colors-level1-50)';
+          const stickyProps: Record<string, any> | undefined = isNameCol
+            ? { position: 'sticky', left: `${stickyLeftForName}px`, zIndex: 5, bg: 'level1.50', boxShadow: `inset 0 0 0 9999px ${stickyShadowColor}` }
+            : undefined;
 
           // Pola nagłówka grupy — puste
           const groupHeaderField = templateStructure.groupHeaderFields?.find(
@@ -220,7 +257,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           );
           if (groupHeaderField) {
             return (
-              <Td key={col.fieldId} p={2} bg="level1.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+              <Td key={col.fieldId} p={2} bg="level1.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} {...(stickyProps ?? {})}>
                 <Text fontSize="xs" color="neutral.400" textAlign="center">—</Text>
               </Td>
             );
@@ -229,7 +266,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           // Pola opcji (childField) — pokaż liczbę opcji komponentu
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="level1.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+              <Td key={col.fieldId} p={2} bg="level1.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden" {...(stickyProps ?? {})}>
                 <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">
                   {componentOptions.length > 0 ? `${componentOptions.length} opcji` : '—'}
                 </Text>
@@ -270,7 +307,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
             const value = getItemFieldValue(component, fieldDef.id);
             const fieldValueFull = getItemFieldValueFull(component, fieldDef.id);
             return (
-              <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+              <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden" {...(stickyProps ?? {})}>
                 {canEditFields ? (
                   renderFieldInput(
                     fieldDef,
@@ -307,7 +344,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           }
 
           return (
-            <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+            <Td key={col.fieldId} p={2} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden" {...(stickyProps ?? {})}>
               -
             </Td>
           );
@@ -331,6 +368,9 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
             columns={columnsProp}
             groupColumnCount={groupColumnCount}
             expandColWidth={expandColWidth}
+            expandStickyLeft={expandStickyLeft}
+            stickyLeftForName={stickyLeftForName}
+            groupNameStickyLeft={groupNameStickyLeft}
             getColumnWidth={getColumnWidth}
           getItemFieldValueFull={getItemFieldValueFull}
           updateOptionFieldValue={updateOptionFieldValue}
