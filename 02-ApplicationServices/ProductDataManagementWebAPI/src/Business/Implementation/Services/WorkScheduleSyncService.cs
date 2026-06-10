@@ -1,15 +1,7 @@
-using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
+﻿using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
+using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -354,7 +346,7 @@ namespace Business.Implementation.Services
         {
             return item.FieldValues.Any(fv =>
                 fv.FieldDefinition.FieldType == FieldType.ItemSystemIsWorkScope &&
-                fv.BoolValue == true);
+                fv.BoolValue == true) && item.RelationType == ItemRelationType.None;
         }
 
         private static string ResolveItemName(CostEstimateItem item, int order)

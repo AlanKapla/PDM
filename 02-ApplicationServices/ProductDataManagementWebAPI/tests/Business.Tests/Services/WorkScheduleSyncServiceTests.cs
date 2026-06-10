@@ -1,6 +1,7 @@
-using Business.Implementation.Services;
+﻿using Business.Implementation.Services;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostEstimateTemplates;
+using Entities.Models.CostTrackers;
 using Entities.Models.WorkSchedules;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -354,5 +355,577 @@ public class WorkScheduleSyncServiceTests
         // Assert
         result.Should().HaveCount(2);
         _stageRepoMock.Verify(r => r.Insert(It.IsAny<WorkScheduleStage>()), Times.Exactly(2));
+    }
+
+    // ─── RelationType filtering ────────────────────────────────────────────
+
+    [Fact]
+    public async Task SyncFromCostEstimateAsync_WorkScopeItemWithRelationTypeNone_CreatesWork()
+    {
+        // Arrange
+        Guid ceId = Guid.NewGuid();
+        Guid groupId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        WorkSchedule schedule = new()
+        {
+            Id = scheduleId,
+            TenantId = Guid.NewGuid(),
+            ProjectId = Guid.NewGuid(),
+            CostEstimateId = ceId
+        };
+
+        CostEstimateGroup group = new()
+        {
+            Id = groupId,
+            CostEstimateId = ceId,
+            Name = "Etap 1",
+            Level = 0,
+            Order = 0,
+            FieldValues = new List<CostEstimateGroupFieldValue>()
+        };
+
+        CostEstimateItem item = new()
+        {
+            Id = Guid.NewGuid(),
+            CostEstimateId = ceId,
+            GroupId = groupId,
+            RelationType = ItemRelationType.None,
+            Order = 0,
+            IsDeleted = false,
+            FieldValues = new List<CostEstimateItemFieldValue>
+            {
+                new()
+                {
+                    FieldDefinition = new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        FieldType = FieldType.ItemSystemIsWorkScope
+                    },
+                    BoolValue = true
+                }
+            }
+        };
+
+        _groupRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateGroup, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateGroup>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateGroup, object>>[]>()))
+            .ReturnsAsync([group]);
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStage, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStage>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStage, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _stageRepoMock.Setup(r => r.Insert(It.IsAny<WorkScheduleStage>())).Returns(Task.CompletedTask);
+        _stageRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _itemRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateItem, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateItem>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateItem, object>>[]>()))
+            .ReturnsAsync([item]);
+
+        _workRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStageWork, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStageWork>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStageWork, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _workRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _trackedCostRepoMock
+            .Setup(r => r.ExecuteUpdateAsync(
+                It.IsAny<System.Linq.Expressions.Expression<Func<TrackedCost, bool>>>(),
+                It.IsAny<System.Action<Microsoft.EntityFrameworkCore.Query.UpdateSettersBuilder<TrackedCost>>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        // Act
+        List<WorkScheduleStage> result = await _sut.SyncFromCostEstimateAsync(schedule, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        _workRepoMock.Verify(r => r.Insert(It.Is<WorkScheduleStageWork>(w => w.CostEstimateItemId == item.Id)), Times.Once);
+    }
+
+    [Fact]
+    public async Task SyncFromCostEstimateAsync_WorkScopeItemWithRelationTypeOption_SkipsWork()
+    {
+        // Arrange
+        Guid ceId = Guid.NewGuid();
+        Guid groupId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        WorkSchedule schedule = new()
+        {
+            Id = scheduleId,
+            TenantId = Guid.NewGuid(),
+            ProjectId = Guid.NewGuid(),
+            CostEstimateId = ceId
+        };
+
+        CostEstimateGroup group = new()
+        {
+            Id = groupId,
+            CostEstimateId = ceId,
+            Name = "Etap 1",
+            Level = 0,
+            Order = 0,
+            FieldValues = new List<CostEstimateGroupFieldValue>()
+        };
+
+        CostEstimateItem item = new()
+        {
+            Id = Guid.NewGuid(),
+            CostEstimateId = ceId,
+            GroupId = groupId,
+            RelationType = ItemRelationType.Option,
+            Order = 0,
+            IsDeleted = false,
+            FieldValues = new List<CostEstimateItemFieldValue>
+            {
+                new()
+                {
+                    FieldDefinition = new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        FieldType = FieldType.ItemSystemIsWorkScope
+                    },
+                    BoolValue = true
+                }
+            }
+        };
+
+        _groupRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateGroup, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateGroup>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateGroup, object>>[]>()))
+            .ReturnsAsync([group]);
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStage, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStage>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStage, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _stageRepoMock.Setup(r => r.Insert(It.IsAny<WorkScheduleStage>())).Returns(Task.CompletedTask);
+        _stageRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _itemRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateItem, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateItem>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateItem, object>>[]>()))
+            .ReturnsAsync([item]);
+
+        _workRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStageWork, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStageWork>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStageWork, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _workRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        // Act
+        List<WorkScheduleStage> result = await _sut.SyncFromCostEstimateAsync(schedule, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        _workRepoMock.Verify(r => r.Insert(It.IsAny<WorkScheduleStageWork>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SyncFromCostEstimateAsync_WorkScopeItemWithRelationTypeComponent_SkipsWork()
+    {
+        // Arrange
+        Guid ceId = Guid.NewGuid();
+        Guid groupId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        WorkSchedule schedule = new()
+        {
+            Id = scheduleId,
+            TenantId = Guid.NewGuid(),
+            ProjectId = Guid.NewGuid(),
+            CostEstimateId = ceId
+        };
+
+        CostEstimateGroup group = new()
+        {
+            Id = groupId,
+            CostEstimateId = ceId,
+            Name = "Etap 1",
+            Level = 0,
+            Order = 0,
+            FieldValues = new List<CostEstimateGroupFieldValue>()
+        };
+
+        CostEstimateItem item = new()
+        {
+            Id = Guid.NewGuid(),
+            CostEstimateId = ceId,
+            GroupId = groupId,
+            RelationType = ItemRelationType.Component,
+            Order = 0,
+            IsDeleted = false,
+            FieldValues = new List<CostEstimateItemFieldValue>
+            {
+                new()
+                {
+                    FieldDefinition = new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        FieldType = FieldType.ItemSystemIsWorkScope
+                    },
+                    BoolValue = true
+                }
+            }
+        };
+
+        _groupRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateGroup, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateGroup>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateGroup, object>>[]>()))
+            .ReturnsAsync([group]);
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStage, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStage>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStage, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _stageRepoMock.Setup(r => r.Insert(It.IsAny<WorkScheduleStage>())).Returns(Task.CompletedTask);
+        _stageRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _itemRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateItem, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateItem>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateItem, object>>[]>()))
+            .ReturnsAsync([item]);
+
+        _workRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStageWork, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStageWork>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStageWork, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _workRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        // Act
+        List<WorkScheduleStage> result = await _sut.SyncFromCostEstimateAsync(schedule, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        _workRepoMock.Verify(r => r.Insert(It.IsAny<WorkScheduleStageWork>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SyncFromCostEstimateAsync_NonWorkScopeItemWithRelationTypeNone_SkipsWork()
+    {
+        // Arrange
+        Guid ceId = Guid.NewGuid();
+        Guid groupId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        WorkSchedule schedule = new()
+        {
+            Id = scheduleId,
+            TenantId = Guid.NewGuid(),
+            ProjectId = Guid.NewGuid(),
+            CostEstimateId = ceId
+        };
+
+        CostEstimateGroup group = new()
+        {
+            Id = groupId,
+            CostEstimateId = ceId,
+            Name = "Etap 1",
+            Level = 0,
+            Order = 0,
+            FieldValues = new List<CostEstimateGroupFieldValue>()
+        };
+
+        CostEstimateItem item = new()
+        {
+            Id = Guid.NewGuid(),
+            CostEstimateId = ceId,
+            GroupId = groupId,
+            RelationType = ItemRelationType.None,
+            Order = 0,
+            IsDeleted = false,
+            FieldValues = new List<CostEstimateItemFieldValue>
+            {
+                new()
+                {
+                    FieldDefinition = new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        FieldType = FieldType.ItemSystemIsWorkScope
+                    },
+                    BoolValue = false
+                }
+            }
+        };
+
+        _groupRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateGroup, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateGroup>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateGroup, object>>[]>()))
+            .ReturnsAsync([group]);
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStage, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStage>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStage, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _stageRepoMock.Setup(r => r.Insert(It.IsAny<WorkScheduleStage>())).Returns(Task.CompletedTask);
+        _stageRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _itemRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateItem, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateItem>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateItem, object>>[]>()))
+            .ReturnsAsync([item]);
+
+        _workRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStageWork, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStageWork>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStageWork, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _workRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        // Act
+        List<WorkScheduleStage> result = await _sut.SyncFromCostEstimateAsync(schedule, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        _workRepoMock.Verify(r => r.Insert(It.IsAny<WorkScheduleStageWork>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SyncFromCostEstimateAsync_ExistingWorkForNonMainItem_SoftDeletedOnResync()
+    {
+        // Arrange
+        Guid ceId = Guid.NewGuid();
+        Guid groupId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        Guid stageId = Guid.NewGuid();
+        WorkSchedule schedule = new()
+        {
+            Id = scheduleId,
+            TenantId = Guid.NewGuid(),
+            ProjectId = Guid.NewGuid(),
+            CostEstimateId = ceId
+        };
+
+        CostEstimateGroup group = new()
+        {
+            Id = groupId,
+            CostEstimateId = ceId,
+            Name = "Etap 1",
+            Level = 0,
+            Order = 0,
+            FieldValues = new List<CostEstimateGroupFieldValue>()
+        };
+
+        WorkScheduleStage existingStage = new()
+        {
+            Id = stageId,
+            WorkScheduleId = scheduleId,
+            CostEstimateGroupId = groupId,
+            Name = "Stage 1",
+            IsDeleted = false
+        };
+
+        CostEstimateItem item = new()
+        {
+            Id = Guid.NewGuid(),
+            CostEstimateId = ceId,
+            GroupId = groupId,
+            RelationType = ItemRelationType.Option,
+            Order = 0,
+            IsDeleted = false,
+            FieldValues = new List<CostEstimateItemFieldValue>
+            {
+                new()
+                {
+                    FieldDefinition = new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        FieldType = FieldType.ItemSystemIsWorkScope
+                    },
+                    BoolValue = true
+                }
+            }
+        };
+
+        WorkScheduleStageWork existingWork = new()
+        {
+            Id = Guid.NewGuid(),
+            WorkScheduleStageId = stageId,
+            CostEstimateItemId = item.Id,
+            Name = "Old Work",
+            IsDeleted = false,
+            TenantId = schedule.TenantId,
+            ProjectId = schedule.ProjectId
+        };
+
+        _groupRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateGroup, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateGroup>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateGroup, object>>[]>()))
+            .ReturnsAsync([group]);
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStage, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStage>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStage, object>>[]>()))
+            .ReturnsAsync([existingStage]);
+
+        _stageRepoMock.Setup(r => r.Update(It.IsAny<WorkScheduleStage>())).Returns(Task.CompletedTask);
+        _stageRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _itemRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateItem, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateItem>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateItem, object>>[]>()))
+            .ReturnsAsync([item]);
+
+        _workRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStageWork, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStageWork>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStageWork, object>>[]>()))
+            .ReturnsAsync([existingWork]);
+
+        _workRepoMock.Setup(r => r.UpdateRange(It.IsAny<IEnumerable<WorkScheduleStageWork>>())).Returns(Task.CompletedTask);
+        _workRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _depRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStageWorkDependency, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStageWorkDependency>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStageWorkDependency, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _trackedCostRepoMock
+            .Setup(r => r.ExecuteUpdateAsync(
+                It.IsAny<System.Linq.Expressions.Expression<Func<TrackedCost, bool>>>(),
+                It.IsAny<System.Action<Microsoft.EntityFrameworkCore.Query.UpdateSettersBuilder<TrackedCost>>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        // Act
+        List<WorkScheduleStage> result = await _sut.SyncFromCostEstimateAsync(schedule, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        existingWork.IsDeleted.Should().BeTrue();
+        existingWork.DeletedAt.Should().NotBeNull();
+        _workRepoMock.Verify(r => r.UpdateRange(It.Is<List<WorkScheduleStageWork>>(list => list.Any(w => w.IsDeleted))), Times.Once);
+    }
+
+    [Fact]
+    public async Task SyncFromCostEstimateAsync_OnlyNonMainItems_NoWorksCreated()
+    {
+        // Arrange
+        Guid ceId = Guid.NewGuid();
+        Guid groupId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        WorkSchedule schedule = new()
+        {
+            Id = scheduleId,
+            TenantId = Guid.NewGuid(),
+            ProjectId = Guid.NewGuid(),
+            CostEstimateId = ceId
+        };
+
+        CostEstimateGroup group = new()
+        {
+            Id = groupId,
+            CostEstimateId = ceId,
+            Name = "Etap 1",
+            Level = 0,
+            Order = 0,
+            FieldValues = new List<CostEstimateGroupFieldValue>()
+        };
+
+        CostEstimateItem optionItem = new()
+        {
+            Id = Guid.NewGuid(),
+            CostEstimateId = ceId,
+            GroupId = groupId,
+            RelationType = ItemRelationType.Option,
+            Order = 0,
+            IsDeleted = false,
+            FieldValues = new List<CostEstimateItemFieldValue>
+            {
+                new()
+                {
+                    FieldDefinition = new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        FieldType = FieldType.ItemSystemIsWorkScope
+                    },
+                    BoolValue = true
+                }
+            }
+        };
+
+        CostEstimateItem componentItem = new()
+        {
+            Id = Guid.NewGuid(),
+            CostEstimateId = ceId,
+            GroupId = groupId,
+            RelationType = ItemRelationType.Component,
+            Order = 1,
+            IsDeleted = false,
+            FieldValues = new List<CostEstimateItemFieldValue>
+            {
+                new()
+                {
+                    FieldDefinition = new CostEstimateTemplateItemSystemFieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        FieldType = FieldType.ItemSystemIsWorkScope
+                    },
+                    BoolValue = true
+                }
+            }
+        };
+
+        _groupRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateGroup, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateGroup>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateGroup, object>>[]>()))
+            .ReturnsAsync([group]);
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStage, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStage>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStage, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _stageRepoMock.Setup(r => r.Insert(It.IsAny<WorkScheduleStage>())).Returns(Task.CompletedTask);
+        _stageRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        _itemRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateItem, bool>>>(),
+                It.IsAny<Func<IQueryable<CostEstimateItem>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateItem, object>>[]>()))
+            .ReturnsAsync([optionItem, componentItem]);
+
+        _workRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<WorkScheduleStageWork, bool>>>(),
+                It.IsAny<Func<IQueryable<WorkScheduleStageWork>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<WorkScheduleStageWork, object>>[]>()))
+            .ReturnsAsync([]);
+
+        _workRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+        // Act
+        List<WorkScheduleStage> result = await _sut.SyncFromCostEstimateAsync(schedule, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        _workRepoMock.Verify(r => r.Insert(It.IsAny<WorkScheduleStageWork>()), Times.Never);
     }
 }
