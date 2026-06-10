@@ -67,7 +67,7 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
 
             RuleFor(x => x)
                 .Must(x => UiColumnLayoutReferencesExistingFields(x))
-                .When(x => x.UpdateStructure && x.UiConfiguration?.ColumnLayout != null)
+                .When(x => x.UpdateStructure && x.UiConfiguration != null && (x.UiConfiguration.GroupColumnLayout != null || x.UiConfiguration.ItemColumnLayout != null))
                 .WithMessage("UI ColumnLayout must only reference existing FieldNames (Guid) from GroupHeaderFields, SystemFields, CalculatedFields or GenericFields");
 
             // Walidacja hierarchii pól - tylko ItemSystemOptions może mieć child fields
@@ -153,7 +153,8 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
 
         private bool UiColumnLayoutReferencesExistingFields(UpdateCostEstimateTemplateCommand command)
         {
-            if (command.UiConfiguration?.ColumnLayout == null)
+            var uiConfig = command.UiConfiguration;
+            if (uiConfig == null)
             {
                 return true;
             }
@@ -169,16 +170,33 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                     .Select(f => f.FieldName))
                 .ToHashSet();
 
-            // ColumnLayout nie może być puste gdy są zdefiniowane jakiekolwiek pola
-            if (allFieldNames.Count > 0 && command.UiConfiguration.ColumnLayout.Count == 0)
+            // Obsługa nowego formatu (GroupColumnLayout + ItemColumnLayout)
+            if (uiConfig.GroupColumnLayout != null)
             {
-                return false;
+                if (allFieldNames.Count > 0 && uiConfig.GroupColumnLayout.Count == 0)
+                {
+                    return false;
+                }
+                if (!uiConfig.GroupColumnLayout.All(fieldName =>
+                    fieldName != Guid.Empty && allFieldNames.Contains(fieldName)))
+                {
+                    return false;
+                }
+            }
+            if (uiConfig.ItemColumnLayout != null)
+            {
+                if (allFieldNames.Count > 0 && uiConfig.ItemColumnLayout.Count == 0)
+                {
+                    return false;
+                }
+                if (!uiConfig.ItemColumnLayout.All(fieldName =>
+                    fieldName != Guid.Empty && allFieldNames.Contains(fieldName)))
+                {
+                    return false;
+                }
             }
 
-            // Wszystkie pola w ColumnLayout muszą istnieć w allFieldNames (Guid.Empty not allowed)
-            return command.UiConfiguration.ColumnLayout.All(fieldName =>
-                fieldName != Guid.Empty &&
-                allFieldNames.Contains(fieldName));
+            return true;
         }
 
         /// <summary>

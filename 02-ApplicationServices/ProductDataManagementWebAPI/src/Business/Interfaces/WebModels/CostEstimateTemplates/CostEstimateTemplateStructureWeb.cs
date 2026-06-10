@@ -49,7 +49,7 @@ namespace Business.Interfaces.WebModels.CostEstimateTemplates
         List<FieldDefinitionWeb>? ChildFields = null
     );
     
-    public record UiConfigurationWeb(List<ColumnConfigurationWeb> Columns);
+    public record UiConfigurationWeb(List<ColumnConfigurationWeb> GroupColumns, List<ColumnConfigurationWeb> ItemColumns);
     
     /// <summary>
     /// Konfiguracja kolumny w UI

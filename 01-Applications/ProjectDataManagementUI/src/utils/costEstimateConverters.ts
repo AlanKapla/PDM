@@ -86,12 +86,18 @@ export interface SummaryFieldWeb {
 }
 
 export interface UiConfigurationWeb {
-  columns: ColumnConfigurationWeb[];
+  groupColumns: ColumnConfigurationWeb[];
+  itemColumns: ColumnConfigurationWeb[];
 }
 
 // DTO do command update - tylko kolejność kolumn
 export interface UiConfigurationDto {
-  columnLayout?: string[];  // Lista GUID-ów pól określająca kolejność kolumn
+  /** @deprecated Używaj groupColumnLayout/itemColumnLayout — stare API z pojedynczą listą GUID-ów */
+  columnLayout?: string[];
+  /** Kolejność kolumn dla pól grupy (etapu) — lista GUID-ów pól */
+  groupColumnLayout?: string[];
+  /** Kolejność kolumn dla pól pozycji — lista GUID-ów pól */
+  itemColumnLayout?: string[];
 }
 
 export interface ColumnConfigurationWeb {

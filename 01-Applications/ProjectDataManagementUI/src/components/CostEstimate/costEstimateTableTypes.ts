@@ -12,9 +12,6 @@ import type {
 // Stałe
 // ---------------------------------------------------------------------------
 
-/** Minimalna szerokość kolumny „Pozycja" — dopasowuje się do zawartości */
-export const POSITION_COL_MIN_WIDTH = 260;
-
 // ---------------------------------------------------------------------------
 // Typy
 // ---------------------------------------------------------------------------
@@ -45,6 +42,8 @@ export interface ExpandedColumn {
   isFilterable: boolean;
   isBoolean: boolean;
   isNumeric: boolean;
+  /** FieldScope (0=Group, 1=ItemSystem, 2=ItemCalculated, 3=ItemGeneric) */
+  fieldScope: number;
 }
 
 // ---------------------------------------------------------------------------

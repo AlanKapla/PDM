@@ -14,8 +14,6 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
-  ListPlus,
-  FolderPlus,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -30,7 +28,7 @@ import type {
   FormatDisplayValueFn,
   GetColumnWidthFn,
 } from '../costEstimateTableTypes';
-import { POSITION_COL_MIN_WIDTH } from '../costEstimateTableTypes';
+
 
 // ---------------------------------------------------------------------------
 // Props
@@ -50,7 +48,11 @@ export interface SortableGroupRowProps {
   showGroupSummary: boolean;
   groupSummaryFields: any[];
   currencySymbol: string;
-  expandedColumns: ExpandedColumn[];
+  columns: ExpandedColumn[];
+  /** Liczba kolumn pozycji — tyle samo pustych Td trzeba wyrenderować dla wyrównania */
+  itemColumnCount: number;
+  /** Szerokość kolumny expand (z uwzględnieniem poziomu zagnieżdżenia) */
+  expandColWidth: number;
   getColumnWidth: GetColumnWidthFn;
   getGroupFieldValue: (group: CostEstimateGroupWeb, fieldId: string) => string | undefined;
   updateGroupFieldValue: (groupId: string, fieldId: string, value: string | undefined) => void;
@@ -95,7 +97,9 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
   showGroupSummary,
   groupSummaryFields,
   currencySymbol,
-  expandedColumns,
+  columns: columnsProp,
+  itemColumnCount,
+  expandColWidth,
   getColumnWidth,
   getGroupFieldValue,
   updateGroupFieldValue,
@@ -125,10 +129,10 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
     <Tr
       ref={setNodeRef}
       style={style}
-      bg={level === 0 ? 'neutral.100' : 'neutral.50'}
+      bg={level === 0 ? 'primary.100' : 'primary.50'}
       borderTopWidth="1px"
       borderTopColor="neutral.200"
-      _hover={{ bg: 'neutral.200', cursor: 'pointer' }}
+      _hover={{ bg: level === 0 ? 'primary.200' : 'primary.100', cursor: 'pointer' }}
     >
       {/* Akcje grupy - zamrożona kolumna */}
       {editable && (
@@ -139,10 +143,10 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
           position="sticky"
           left={0}
           zIndex={5}
-          bg={level === 0 ? 'neutral.100' : 'neutral.50'}
+          bg={level === 0 ? 'primary.100' : 'primary.50'}
           boxShadow={level === 0
-            ? 'inset 3px 0 0 var(--chakra-colors-neutral-600)'
-            : 'inset 2px 0 0 var(--chakra-colors-neutral-400)'}
+            ? 'inset 3px 0 0 var(--chakra-colors-primary-400)'
+            : 'inset 2px 0 0 var(--chakra-colors-primary-300)'}
           minW="120px"
           maxW="120px"
         >
@@ -163,7 +167,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
               <Tooltip label="Dodaj pozycję">
                 <IconButton
                   aria-label="Dodaj pozycję"
-                  icon={<ListPlus size={14} />}
+                  icon={<Text fontWeight="bold" fontSize="xs" lineHeight="1">P+</Text>}
                   size="xs"
                   colorScheme="green"
                   variant="ghost"
@@ -178,7 +182,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
                 <Tooltip label={`Osiągnięto maksymalny poziom zagnieżdżenia (${maxLevel})`}>
                   <IconButton
                     aria-label="Dodaj podetap"
-                    icon={<FolderPlus size={14} />}
+                    icon={<Text fontWeight="bold" fontSize="xs" lineHeight="1">E+</Text>}
                     size="xs"
                     colorScheme="gray"
                     variant="ghost"
@@ -189,7 +193,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
                 <Tooltip label="Dodaj podetap">
                   <IconButton
                     aria-label="Dodaj podetap"
-                    icon={<FolderPlus size={14} />}
+                    icon={<Text fontWeight="bold" fontSize="xs" lineHeight="1">E+</Text>}
                     size="xs"
                   colorScheme="primary"
                     variant="ghost"
@@ -215,55 +219,32 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
         </Td>
       )}
 
-      {/* Pozycja + expand/collapse - zamrożona kolumna */}
+      {/* Expand/collapse button dla grupy */}
       <Td
-        p={3}
+        p={2}
         pl={`${indent + 12}px`}
-        position="sticky"
-        left={editable ? '120px' : 0}
-        zIndex={5}
-        bg={level === 0 ? 'neutral.100' : 'neutral.50'}
-        boxShadow={!editable
-          ? (level === 0
-            ? 'inset 3px 0 0 var(--chakra-colors-neutral-600)'
-            : 'inset 2px 0 0 var(--chakra-colors-neutral-400)')
-          : undefined}
-        w={`${POSITION_COL_MIN_WIDTH}px`}
-        minW={`${POSITION_COL_MIN_WIDTH}px`}
-        whiteSpace="nowrap"
+        w={`${expandColWidth}px`}
+        minW={`${expandColWidth}px`}
+        bg={level === 0 ? 'primary.100' : 'primary.50'}
       >
-        <HStack spacing={2}>
-          <Tooltip label={isCollapsed ? 'Rozwiń etap' : 'Zwiń etap'}>
-            <IconButton
-              aria-label={isCollapsed ? 'Rozwiń' : 'Zwiń'}
-              icon={isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-              size="xs"
-              variant="ghost"
-              onClick={() => toggleGroupCollapse(group.id)}
-            />
-          </Tooltip>
-          <Badge
-            bg="neutral.600"
-            color="white"
-            px={3}
-            py={1}
-            borderRadius="md"
-            fontSize="xs"
-            fontWeight="semibold"
-            letterSpacing="wide"
-          >
-            ETAP {groupNumber}
-          </Badge>
-        </HStack>
+        <Tooltip label={isCollapsed ? 'Rozwiń etap' : 'Zwiń etap'}>
+          <IconButton
+            aria-label={isCollapsed ? 'Rozwiń' : 'Zwiń'}
+            icon={isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+            size="xs"
+            variant="ghost"
+            onClick={() => toggleGroupCollapse(group.id)}
+          />
+        </Tooltip>
       </Td>
 
       {/* Kolumny pól grup */}
-      {expandedColumns.map((col: any) => {
+      {columnsProp.map((col: any) => {
         const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
 
         if (col.type === 'childField') {
           return (
-              <Td key={col.fieldId} p={2} bg={level === 0 ? 'neutral.100' : 'neutral.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+              <Td key={col.fieldId} p={2} bg={level === 0 ? 'primary.100' : 'primary.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
               <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
             </Td>
           );
@@ -351,7 +332,7 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
                 key={col.fieldId}
                 p={2}
                 textAlign="center"
-                bg={level === 0 ? 'neutral.100' : 'neutral.50'}
+                bg={level === 0 ? 'primary.100' : 'primary.50'}
                 w={`${colWidth}px`}
                 minW={`${colWidth}px`}
                 maxW={`${colWidth}px`}
@@ -367,11 +348,16 @@ export const SortableGroupRow: React.FC<SortableGroupRowProps> = ({
         }
 
         return (
-          <Td key={col.fieldId} p={2} bg={level === 0 ? 'neutral.100' : 'neutral.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+          <Td key={col.fieldId} p={2} bg={level === 0 ? 'primary.100' : 'primary.50'} w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
             <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
           </Td>
         );
       })}
+
+      {/* Puste Td dla kolumn pozycji — wyrównanie liczby komórek z nagłówkiem */}
+      {Array.from({ length: itemColumnCount }).map((_, idx) => (
+        <Td key={`empty-item-${idx}`} p={2} bg={level === 0 ? 'primary.100' : 'primary.50'} />
+      ))}
     </Tr>
   );
 };

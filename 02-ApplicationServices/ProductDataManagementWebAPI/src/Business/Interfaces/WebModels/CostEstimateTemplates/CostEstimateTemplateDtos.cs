@@ -22,7 +22,7 @@
         List<FieldDefinitionDto>? ChildFields = null
     );
 
-    public record UiConfigurationDto(List<Guid>? ColumnLayout);
+    public record UiConfigurationDto(List<Guid>? GroupColumnLayout, List<Guid>? ItemColumnLayout);
 
     public record CategoryDto(
         string Name,

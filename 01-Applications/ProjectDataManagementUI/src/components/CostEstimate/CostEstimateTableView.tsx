@@ -105,10 +105,92 @@ import { FileFieldRenderer } from './FileFieldRenderer';
 import { SortableGroupRow } from './rows/SortableGroupRow';
 import { SortableItemRow } from './rows/SortableItemRow';
 import {
-  POSITION_COL_MIN_WIDTH,
   type FlatRow,
   type ExpandedColumn,
 } from './costEstimateTableTypes';
+
+// ---------------------------------------------------------------------------
+// LocalTextInput — kontrolowany input tekstowy z lokalnym stanem.
+// Zapobiega znikaniu liter przy szybkim pisaniu gdy rodzic robi setDetails()
+// po każdym keystroke (re-render nadpisuje value z propa).
+// ---------------------------------------------------------------------------
+const LocalTextInput: React.FC<{
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  disabled?: boolean;
+}> = ({ value, onChange, disabled }) => {
+  const [localValue, setLocalValue] = React.useState(value ?? '');
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  // Sync z rodzicem TYLKO gdy input nie jest aktywny
+  React.useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(value ?? '');
+    }
+  }, [value, isFocused]);
+
+  return (
+    <Input
+      type="text"
+      value={localValue}
+      onChange={(e) => {
+        const v = e.target.value;
+        setLocalValue(v);
+        onChange(v || undefined);
+      }}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      isDisabled={disabled}
+      size="sm"
+      variant="outline"
+      bg="white"
+      borderColor="neutral.300"
+      _hover={{ borderColor: 'primary.400' }}
+      _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
+    />
+  );
+};
+
+// ---------------------------------------------------------------------------
+// LocalDateInput — input daty/daty-godziny z lokalnym stanem.
+// Analogicznie do LocalTextInput — chroni przed gubionymi znakami.
+// ---------------------------------------------------------------------------
+const LocalDateInput: React.FC<{
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  disabled?: boolean;
+  type?: 'date' | 'datetime-local';
+}> = ({ value, onChange, disabled, type = 'date' }) => {
+  const [localValue, setLocalValue] = React.useState(value ?? '');
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(value ?? '');
+    }
+  }, [value, isFocused]);
+
+  return (
+    <Input
+      type={type}
+      value={localValue}
+      onChange={(e) => {
+        const v = e.target.value;
+        setLocalValue(v);
+        onChange(v || undefined);
+      }}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      isDisabled={disabled}
+      size="sm"
+      variant="outline"
+      bg="white"
+      borderColor="neutral.300"
+      _hover={{ borderColor: 'primary.400' }}
+      _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
+    />
+  );
+};
 
 // ---------------------------------------------------------------------------
 // VatRateInput — osobny komponent potrzebny do lokalnego stanu błędu
@@ -506,8 +588,12 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   // ========== EXPANDED COLUMNS ==========
 
   const expandedColumns = useMemo((): ExpandedColumn[] => {
-    const columns = templateStructure.uiConfiguration?.columns || [];
-    const sortedColumns = [...columns]
+    const uiConfig = templateStructure.uiConfiguration;
+    const allColumns = [
+      ...(uiConfig?.groupColumns ?? []),
+      ...(uiConfig?.itemColumns ?? []),
+    ];
+    const sortedColumns = [...allColumns]
       .sort((a: ColumnConfigurationWeb, b: ColumnConfigurationWeb) => a.order - b.order);
 
     const result: ExpandedColumn[] = [];
@@ -546,6 +632,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             isFilterable: childField.isFilterable ?? false,
             isBoolean: childCfg?.isBoolean ?? false,
             isNumeric: childCfg?.isNumeric ?? false,
+            fieldScope: col.fieldScope,
           });
         }
       } else {
@@ -562,12 +649,28 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
           isFilterable: fieldDef?.isFilterable ?? false,
           isBoolean: fieldCfg?.isBoolean ?? false,
           isNumeric: fieldCfg?.isNumeric ?? false,
+          fieldScope: col.fieldScope,
         });
       }
     }
 
     return result;
   }, [templateStructure]);
+
+  // Podział expandedColumns na group i item
+  const groupColumns = useMemo(
+    () => expandedColumns.filter(col => col.fieldScope === FieldScope.Group),
+    [expandedColumns]
+  );
+
+  const itemColumns = useMemo(
+    () => expandedColumns.filter(col => col.fieldScope !== FieldScope.Group),
+    [expandedColumns]
+  );
+
+  // Collapsible field sections
+  const [groupFieldsCollapsed, setGroupFieldsCollapsed] = useState(false);
+  const [itemFieldsCollapsed, setItemFieldsCollapsed] = useState(false);
 
   // ========== FILTROWANIE I SORTOWANIE POZYCJI ==========
 
@@ -606,15 +709,10 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   const filterAndSortGroups = useCallback((groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] => {
     let result = [...groups];
 
-    const isGroupCol = (col: ExpandedColumn) =>
-      col.type !== 'childField' &&
-      (templateStructure.groupHeaderFields as GroupHeaderFieldWeb[] ?? []).some(f => f.id === col.fieldDef?.id);
+    const groupColIds = new Set(groupColumns.map(col => col.fieldId));
 
     const activeFilters = Object.entries(filters);
-    const groupFilters = activeFilters.filter(([fieldId]) => {
-      const col = expandedColumns.find(c => c.fieldId === fieldId);
-      return col && isGroupCol(col);
-    });
+    const groupFilters = activeFilters.filter(([fieldId]) => groupColIds.has(fieldId));
 
     if (groupFilters.length > 0) {
       result = result.filter(group =>
@@ -634,8 +732,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     }
 
     if (sortConfig) {
-      const col = expandedColumns.find(c => c.fieldId === sortConfig.fieldId);
-      if (col && isGroupCol(col)) {
+      const col = groupColumns.find(c => c.fieldId === sortConfig.fieldId);
+      if (col) {
         result.sort((a, b) => {
           const valueA = getGroupFieldValueForColumn(a, col);
           const valueB = getGroupFieldValueForColumn(b, col);
@@ -656,7 +754,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     }
 
     return result;
-  }, [filters, sortConfig, expandedColumns, templateStructure]);
+  }, [filters, sortConfig, groupColumns, templateStructure]);
 
   const filterOptions = useCallback((options: any[], optionFilters: [string, string][]): any[] => {
     if (optionFilters.length === 0) return options;
@@ -686,26 +784,22 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
   const filterAndSortItems = useCallback((items: CostEstimateItemWeb[]): CostEstimateItemWeb[] => {
     let result = [...items];
     
-    const groupHeaderFieldIds = new Set(
-      (templateStructure.groupHeaderFields as GroupHeaderFieldWeb[] ?? []).map(f => f.id)
-    );
-    const isItemCol = (col: ExpandedColumn) =>
-      col.type !== 'childField' && !groupHeaderFieldIds.has(col.fieldDef?.id);
+    const itemColIds = new Set(itemColumns.map(col => col.fieldId));
 
     const activeFilters = Object.entries(filters);
     const itemFilters = activeFilters.filter(([fieldId]) => {
-      const col = expandedColumns.find(c => c.fieldId === fieldId);
-      return col && isItemCol(col);
+      const col = itemColumns.find(c => c.fieldId === fieldId);
+      return col && col.type !== 'childField';
     });
     const optionFilters = activeFilters.filter(([fieldId]) => {
-      const col = expandedColumns.find(c => c.fieldId === fieldId);
+      const col = itemColumns.find(c => c.fieldId === fieldId);
       return col && col.type === 'childField';
     });
     
     if (itemFilters.length > 0) {
       result = result.filter(item => {
         return itemFilters.every(([fieldId, filterValue]) => {
-          const col = expandedColumns.find(c => c.fieldId === fieldId);
+          const col = itemColumns.find(c => c.fieldId === fieldId);
           if (!col) return true;
           const itemValue = getItemFieldValueForColumn(item, col);
           
@@ -730,7 +824,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     }
     
     if (sortConfig) {
-      const col = expandedColumns.find(c => c.fieldId === sortConfig.fieldId);
+      const col = itemColumns.find(c => c.fieldId === sortConfig.fieldId)
+        ?? expandedColumns.find(c => c.fieldId === sortConfig.fieldId);
       if (col) {
         result.sort((a, b) => {
           const valueA = getItemFieldValueForColumn(a, col);
@@ -756,7 +851,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     }
     
     return result;
-}, [filters, sortConfig, expandedColumns, templateStructure]);
+}, [filters, sortConfig, itemColumns, expandedColumns, templateStructure]);
 
   // ========== FLAT ROWS ==========
 
@@ -768,12 +863,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
       const filteredItems = filterAndSortItems(group.items || []);
       
       // Ukryj grupę tylko gdy są aktywne filtry ITEMOWE i nie ma pasujących pozycji ani podgrup
-      const groupHeaderFieldIds = new Set(
-        (templateStructure.groupHeaderFields as GroupHeaderFieldWeb[] ?? []).map(f => f.id)
-      );
       const hasActiveItemFilters = Object.keys(filters).some(fieldId => {
-        const col = expandedColumns.find(c => c.fieldId === fieldId);
-        return col && col.type !== 'childField' && !groupHeaderFieldIds.has(col.fieldDef?.id);
+        const col = itemColumns.find(c => c.fieldId === fieldId);
+        return col && col.type !== 'childField';
       });
       if (hasActiveItemFilters && filteredItems.length === 0 && (group.childGroups || []).length === 0) {
         return;
@@ -807,6 +899,12 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     filterAndSortGroups(details.rootGroups || []).forEach((group, index) => processGroup(group, 0, '', index));
     return rows;
   }, [details.rootGroups, collapsedGroups, showGroupSummary, filterAndSortItems, filterAndSortGroups, filters]);
+
+  // Dynamiczna szerokość kolumny expand — dostosowana do maksymalnego poziomu zagnieżdżenia
+  const expandColWidth = useMemo(() => {
+    const maxLevel = flatRows.reduce((max, row) => Math.max(max, row.level), 0);
+    return 40 + maxLevel * 24;
+  }, [flatRows]);
 
   // ========== COLLAPSE / EXPAND ==========
 
@@ -1689,7 +1787,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
   // ========== RENDEROWANIE INPUTÓW ==========
 
-  const renderFieldInput = (
+  const renderFieldInput = useCallback((
     fieldDef: any,
     value: string | undefined,
     onChange: (value: string | undefined) => void,
@@ -1857,17 +1955,10 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
      if (cfg?.isDate) {
        return (
-         <Input
-           type="date"
-           value={value || ''}
-           onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={effectiveDisabled}
-           size="sm"
-           variant="outline"
-           bg="white"
-           borderColor="neutral.300"
-           _hover={{ borderColor: 'primary.400' }}
-           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
+         <LocalDateInput
+           value={value}
+           onChange={onChange}
+           disabled={effectiveDisabled}
          />
        );
      }
@@ -1912,33 +2003,20 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
      }
      if (fieldType === 4) {
        return (
-         <Input
-           type="date"
-           value={value || ''}
-           onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={effectiveDisabled}
-           size="sm"
-           variant="outline"
-           bg="white"
-           borderColor="neutral.300"
-           _hover={{ borderColor: 'primary.400' }}
-           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
+         <LocalDateInput
+           value={value}
+           onChange={onChange}
+           disabled={effectiveDisabled}
          />
        );
      }
      if (fieldType === 5) {
        return (
-         <Input
+         <LocalDateInput
            type="datetime-local"
-           value={value || ''}
-           onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={effectiveDisabled}
-           size="sm"
-           variant="outline"
-           bg="white"
-           borderColor="neutral.300"
-           _hover={{ borderColor: 'primary.400' }}
-           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
+           value={value}
+           onChange={onChange}
+           disabled={effectiveDisabled}
          />
        );
      }
@@ -1947,19 +2025,13 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
      const hasLink = containsUrl(value);
      return (
        <HStack spacing={1} w="100%">
-         <Input
-           type="text"
-           value={value || ''}
-           onChange={(e) => onChange(e.target.value || undefined)}
-           isDisabled={effectiveDisabled}
-           size="sm"
-           variant="outline"
-           bg="white"
-           borderColor="neutral.300"
-           _hover={{ borderColor: 'primary.400' }}
-           _focus={{ borderColor: 'primary.500', boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)' }}
-           flex={1}
-         />
+         <Box flex={1}>
+           <LocalTextInput
+             value={value}
+             onChange={onChange}
+             disabled={effectiveDisabled}
+           />
+         </Box>
          {hasLink && (
            <Tooltip label="Otwórz link">
              <IconButton
@@ -1979,7 +2051,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
          )}
        </HStack>
      );
-   };
+   }, [accessLevel, editable, templateStructure, containsUrl, renderTextWithLinks, onUploadFiles, onUploadSuccess]);
 
   // ========== OPCJE / WARIANTY ==========
 
@@ -2785,8 +2857,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             color="neutral.500"
             fontSize="xs"
             py={4}
-            w={`${POSITION_COL_MIN_WIDTH}px`}
-            minW={`${POSITION_COL_MIN_WIDTH}px`}
+            w={`${expandColWidth}px`}
+            minW={`${expandColWidth}px`}
             textAlign="center"
             position="sticky"
             left={canStructuralEdit ? '120px' : 0}
@@ -2794,10 +2866,14 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             bg="white"
             whiteSpace="nowrap"
           >
-            Pozycja
+            #
           </Th>
 
-          {expandedColumns.map((col) => {
+          {/* Render visible columns: groupColumns + itemColumns */}
+          {[
+            ...(!groupFieldsCollapsed ? groupColumns : []),
+            ...(!itemFieldsCollapsed ? itemColumns : []),
+          ].map((col) => {
             const isSorted = sortConfig?.fieldId === col.fieldId;
             const sortDirection = isSorted ? sortConfig?.direction : null;
             const filterValue = filters[col.fieldId] || '';
@@ -3001,6 +3077,26 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
         </Box>
       )}
       
+      {/* Collapsible field sections */}
+      <HStack spacing={4} px={4} py={2} borderBottomWidth="1px" borderBottomColor="neutral.200">
+        <Button
+          size="sm"
+          variant="ghost"
+          leftIcon={groupFieldsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          onClick={() => setGroupFieldsCollapsed(prev => !prev)}
+        >
+          Pola etapów {groupFieldsCollapsed ? `(${groupColumns.length} ukryte)` : `(${groupColumns.length})`}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          leftIcon={itemFieldsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          onClick={() => setItemFieldsCollapsed(prev => !prev)}
+        >
+          Pola pozycji {itemFieldsCollapsed ? `(${itemColumns.length} ukryte)` : `(${itemColumns.length})`}
+        </Button>
+      </HStack>
+      
       <Box 
         overflowX="auto"
         sx={{
@@ -3029,7 +3125,7 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             {canStructuralEdit && onAddGroup && (
               <Button
                 leftIcon={<FolderPlus size={16} />}
-                colorScheme="green"
+                colorScheme="primary"
                 size="md"
                 onClick={handleAddGroupWithExpand}
               >
@@ -3045,15 +3141,27 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={getSortableIds} strategy={verticalListSortingStrategy}>
+              {(() => {
+                // Widoczne kolumny z uwzględnieniem collapsible sections
+                const visibleColumns = [
+                  ...(!groupFieldsCollapsed ? groupColumns : []),
+                  ...(!itemFieldsCollapsed ? itemColumns : []),
+                ];
+                const totalColumnWidth = visibleColumns.reduce(
+                  (sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0
+                );
+                const totalColCount = (canStructuralEdit ? 1 : 0) + 1 + visibleColumns.length;
+                
+                return (
               <Table size="sm" variant="simple" sx={{ 
                 tableLayout: 'fixed', 
-                minWidth: `${(canStructuralEdit ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
-                width: `${(canStructuralEdit ? 120 : 0) + POSITION_COL_MIN_WIDTH + expandedColumns.reduce((sum, col) => sum + getColumnWidth(col.fieldId, col.width, col.label), 0)}px`,
+                minWidth: `${(canStructuralEdit ? 120 : 0) + expandColWidth + totalColumnWidth}px`,
+                width: `${(canStructuralEdit ? 120 : 0) + expandColWidth + totalColumnWidth}px`,
               }}>
               <colgroup>
                 {canStructuralEdit && <col style={{ width: '120px' }} />}
-                <col style={{ width: `${POSITION_COL_MIN_WIDTH}px` }} />
-                {expandedColumns.map((col) => (
+                <col style={{ width: `${expandColWidth}px` }} />
+                {visibleColumns.map((col) => (
                   <col key={col.fieldId} style={{ width: `${getColumnWidth(col.fieldId, col.width, col.label)}px` }} />
                 ))}
               </colgroup>
@@ -3067,7 +3175,6 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                   const group = row.group;
                   const isCollapsed = collapsedGroups.has(group.id);
                   const sortableId = `group::${group.id}`;
-                  const totalColCount = (canStructuralEdit ? 1 : 0) + 1 + expandedColumns.length;
 
                   return (
                     <React.Fragment key={sortableId}>
@@ -3090,7 +3197,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       showGroupSummary={showGroupSummary}
                       groupSummaryFields={groupSummaryFields}
                       currencySymbol={details.selectedCurrencySymbol || details.selectedCurrencyCode || ''}
-                      expandedColumns={expandedColumns}
+                      columns={groupFieldsCollapsed ? [] : groupColumns}
+                      itemColumnCount={itemFieldsCollapsed ? 0 : itemColumns.length}
+                      expandColWidth={expandColWidth}
                       getColumnWidth={getColumnWidth}
                       getGroupFieldValue={getGroupFieldValue}
                       updateGroupFieldValue={updateGroupFieldValue}
@@ -3121,7 +3230,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                       editable={canStructuralEdit}
                       canEditFields={editable}
                       templateStructure={templateStructure}
-                      expandedColumns={expandedColumns}
+                      columns={itemFieldsCollapsed ? [] : itemColumns}
+                      groupColumnCount={groupFieldsCollapsed ? 0 : groupColumns.length}
+                      expandColWidth={expandColWidth}
                       getColumnWidth={getColumnWidth}
                       getItemFieldValue={getItemFieldValue}
                       getItemFieldValueFull={getItemFieldValueFull}
@@ -3153,12 +3264,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                         <Badge colorScheme="neutral" variant="outline" fontSize="xs">SUMA</Badge>
                       </Td>
                     )}
-                    <Td p={2} w={`${POSITION_COL_MIN_WIDTH}px`} minW={`${POSITION_COL_MIN_WIDTH}px`}>
-                      <Text fontSize="sm" fontWeight="bold" color="neutral.600" whiteSpace="nowrap">
-                        PODSUMOWANIE KOSZTORYSU
-                      </Text>
-                    </Td>
-                    {expandedColumns.map((col) => {
+                    <Td p={2} w={`${expandColWidth}px`} minW={`${expandColWidth}px`} />
+          {/* Group columns */}
+          {!groupFieldsCollapsed && groupColumns.map((col) => {
                       const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
                       
                       const calcField = templateStructure.calculatedFields?.find(
@@ -3228,10 +3336,21 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                         </Td>
                       );
                     })}
+          {/* Item columns — puste Td do wyrównania liczby komórek */}
+          {!itemFieldsCollapsed && itemColumns.map((col) => {
+                      const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
+                      return (
+                        <Td key={col.fieldId} p={2} bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                          <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
+                        </Td>
+                      );
+                    })}
                   </Tr>
                 </tfoot>
               )}
             </Table>
+              );
+              })()}
           </SortableContext>
         </DndContext>
       )}

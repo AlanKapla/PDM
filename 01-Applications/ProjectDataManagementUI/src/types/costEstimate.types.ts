@@ -162,7 +162,10 @@ export interface NestedFieldWeb {
   enableCalculatedFieldsSummation?: boolean;
   summableCalculatedFields?: string[];
   uiConfiguration?: {
+    /** @deprecated Używaj groupColumns/itemColumns */
     columns?: ColumnConfigurationWeb[];
+    groupColumns?: ColumnConfigurationWeb[];
+    itemColumns?: ColumnConfigurationWeb[];
   };
 }
 
@@ -183,12 +186,22 @@ export interface SummaryFieldWeb {
 }
 
 export interface UiConfigurationWeb {
-  columns: ColumnConfigurationWeb[];
+  /** @deprecated Używaj groupColumns/itemColumns — stare API z pojedynczą listą kolumn */
+  columns?: ColumnConfigurationWeb[];
+  /** Kolumny dla pól grupy (etapu) */
+  groupColumns: ColumnConfigurationWeb[];
+  /** Kolumny dla pól pozycji */
+  itemColumns: ColumnConfigurationWeb[];
 }
 
 // DTO do command update - tylko kolejność kolumn
 export interface UiConfigurationDto {
-  columnLayout?: string[];  // Lista GUID-ów pól określająca kolejność kolumn
+  /** @deprecated Używaj groupColumnLayout/itemColumnLayout — stare API z pojedynczą listą GUID-ów */
+  columnLayout?: string[];
+  /** Kolejność kolumn dla pól grupy (etapu) — lista GUID-ów pól */
+  groupColumnLayout?: string[];
+  /** Kolejność kolumn dla pól pozycji — lista GUID-ów pól */
+  itemColumnLayout?: string[];
 }
 
 export interface ColumnConfigurationWeb {
@@ -640,9 +653,17 @@ export interface CostEstimateSummaryConfiguration {
 }
 
 export interface CostEstimateUiConfiguration {
-  columnLayout?: string[]; // Stare API - zachowane dla kompatybilności
+  /** @deprecated Używaj groupColumnLayout/itemColumnLayout */
+  columnLayout?: string[];
   columnWidths?: Record<string, string>;
-  columns?: ColumnConfigurationWeb[]; // Nowe API - preferowane
+  /** @deprecated Używaj groupColumns/itemColumns */
+  columns?: ColumnConfigurationWeb[];
+  /** Kolejność kolumn dla pól grupy — lista GUID-ów */
+  groupColumnLayout?: string[];
+  /** Kolejność kolumn dla pól pozycji — lista GUID-ów */
+  itemColumnLayout?: string[];
+  groupColumns?: ColumnConfigurationWeb[];
+  itemColumns?: ColumnConfigurationWeb[];
 }
 
 export interface CostEstimateTemplateStructure {

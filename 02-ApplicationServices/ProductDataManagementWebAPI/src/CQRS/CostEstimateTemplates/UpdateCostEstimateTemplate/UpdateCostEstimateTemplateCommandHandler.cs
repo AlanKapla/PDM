@@ -32,6 +32,9 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
 
             if (request.UpdateStructure)
             {
+                // Automatycznie wymuś że GroupName (FieldType=0) jest pierwszy w GroupColumnLayout, a ItemSystemName (FieldType=100) pierwszy w ItemColumnLayout
+                EnforceRequiredFieldLayoutOrder(request.GroupHeaderFields, request.SystemFields, request.UiConfiguration);
+
                 ValidateRequiredTemplateFields(ExtractFieldTypes(
                     request.GroupHeaderFields,
                     request.SystemFields,
@@ -83,6 +86,59 @@ namespace CQRS.CostEstimateTemplates.UpdateCostEstimateTemplate
                 .Concat(systemFields ?? [])
                 .Concat(calculatedFields ?? [])
                 .Select(f => (FieldType)f.FieldType);
+        }
+
+        /// <summary>
+        /// Wymusza, że GroupName (FieldType=0) jest pierwszy w GroupColumnLayout, a ItemSystemName (FieldType=100) pierwszy w ItemColumnLayout.
+        /// Automatycznie przesuwa GUID tych pól na początek odpowiednich list layoutu.
+        /// </summary>
+        private static void EnforceRequiredFieldLayoutOrder(
+            List<FieldDefinitionDto>? groupHeaderFields,
+            List<FieldDefinitionDto>? systemFields,
+            UiConfigurationDto? uiConfiguration)
+        {
+            if (uiConfiguration == null)
+            {
+                return;
+            }
+
+            // GroupColumnLayout — wymuś GroupName (FieldType=0) jako pierwszy
+            if (uiConfiguration.GroupColumnLayout != null && groupHeaderFields != null)
+            {
+                Guid? groupNameGuid = groupHeaderFields
+                    .FirstOrDefault(f => f.FieldType == (int)FieldType.GroupName)
+                    ?.FieldName;
+
+                if (groupNameGuid.HasValue && groupNameGuid.Value != Guid.Empty)
+                {
+                    List<Guid> layout = uiConfiguration.GroupColumnLayout;
+                    int currentIndex = layout.IndexOf(groupNameGuid.Value);
+                    if (currentIndex > 0)
+                    {
+                        layout.RemoveAt(currentIndex);
+                        layout.Insert(0, groupNameGuid.Value);
+                    }
+                }
+            }
+
+            // ItemColumnLayout — wymuś ItemSystemName (FieldType=100) jako pierwszy
+            if (uiConfiguration.ItemColumnLayout != null && systemFields != null)
+            {
+                Guid? itemSystemNameGuid = systemFields
+                    .FirstOrDefault(f => f.FieldType == (int)FieldType.ItemSystemName)
+                    ?.FieldName;
+
+                if (itemSystemNameGuid.HasValue && itemSystemNameGuid.Value != Guid.Empty)
+                {
+                    List<Guid> layout = uiConfiguration.ItemColumnLayout;
+                    int currentIndex = layout.IndexOf(itemSystemNameGuid.Value);
+                    if (currentIndex > 0)
+                    {
+                        layout.RemoveAt(currentIndex);
+                        layout.Insert(0, itemSystemNameGuid.Value);
+                    }
+                }
+            }
         }
     }
 }

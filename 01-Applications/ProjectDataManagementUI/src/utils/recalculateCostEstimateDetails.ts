@@ -71,6 +71,18 @@ const isItemSelected = (
   return false;
 };
 
+/** Usuwa pole z pozycji — gdy brak danych do obliczenia wartości kalkulowanej */
+const clearItemFieldValue = (
+  item: CostEstimateItemWeb,
+  fieldId: string,
+): CostEstimateItemWeb => {
+  const idx = item.fieldValues.findIndex((v) => v.fieldDefinitionId === fieldId);
+  if (idx === -1) return item;
+  const newFieldValues = [...item.fieldValues];
+  newFieldValues.splice(idx, 1);
+  return { ...item, fieldValues: newFieldValues };
+};
+
 /** Ustawia wartość pola w pozycji (typowane jako decimalValue) */
 const setItemFieldValue = (
   item: CostEstimateItemWeb,
@@ -192,7 +204,11 @@ export function recalculateCostEstimateDetails(
         unitVat = unitPriceNet! * vatRate!;
         updated = setItemFieldValue(updated, unitVatDef.id, unitVat);
       } else {
-        unitVat = getSourceFieldValue(updated, unitVatDef.id);
+        // Brak danych do obliczenia — usuń starą (nieaktualną) wartość kalkulowaną
+        if (getSourceFieldValue(updated, unitVatDef.id) !== undefined) {
+          updated = clearItemFieldValue(updated, unitVatDef.id);
+        }
+        unitVat = undefined;
       }
     }
 
@@ -202,7 +218,11 @@ export function recalculateCostEstimateDetails(
         valueNet = unitPriceNet! * quantity!;
         updated = setItemFieldValue(updated, valueNetDef.id, valueNet);
       } else {
-        valueNet = getSourceFieldValue(updated, valueNetDef.id);
+        // Brak danych do obliczenia — usuń starą (nieaktualną) wartość kalkulowaną
+        if (getSourceFieldValue(updated, valueNetDef.id) !== undefined) {
+          updated = clearItemFieldValue(updated, valueNetDef.id);
+        }
+        valueNet = undefined;
       }
     }
 
@@ -212,19 +232,26 @@ export function recalculateCostEstimateDetails(
         totalVat = valueNet * vatRate!;
         updated = setItemFieldValue(updated, totalVatDef.id, totalVat);
       } else {
-        totalVat = getSourceFieldValue(updated, totalVatDef.id);
+        // Brak danych do obliczenia — usuń starą (nieaktualną) wartość kalkulowaną
+        if (getSourceFieldValue(updated, totalVatDef.id) !== undefined) {
+          updated = clearItemFieldValue(updated, totalVatDef.id);
+        }
+        totalVat = undefined;
       }
     }
 
     // ValueGross: priorytet Net Value + VAT Value, fallback Net Value × (1 + VAT Rate)
-    // Jeśli brak danych do obliczenia — pole pozostaje edytowalne (nie nadpisujemy)
     if (valueGrossDef) {
       if (valueNet !== undefined && totalVat !== undefined) {
         updated = setItemFieldValue(updated, valueGrossDef.id, valueNet + totalVat);
       } else if (valueNet !== undefined && has.vatRate) {
         updated = setItemFieldValue(updated, valueGrossDef.id, valueNet * (1 + vatRate!));
+      } else {
+        // Brak danych do obliczenia — usuń starą (nieaktualną) wartość kalkulowaną
+        if (getSourceFieldValue(updated, valueGrossDef.id) !== undefined) {
+          updated = clearItemFieldValue(updated, valueGrossDef.id);
+        }
       }
-      // else: brak danych do obliczenia — nie nadpisuj wartości ręcznej
     }
 
     // Pobierz obliczoną wartość valueGross (obliczoną powyżej lub ręczną)
@@ -240,8 +267,13 @@ export function recalculateCostEstimateDetails(
       } else if (computedValueGross !== undefined && has.quantity && quantity !== 0) {
         unitPriceGross = computedValueGross / quantity!;
         updated = setItemFieldValue(updated, unitPriceGrossDef.id, unitPriceGross);
+      } else {
+        // Brak danych do obliczenia — usuń starą (nieaktualną) wartość kalkulowaną
+        if (getSourceFieldValue(updated, unitPriceGrossDef.id) !== undefined) {
+          updated = clearItemFieldValue(updated, unitPriceGrossDef.id);
+        }
+        unitPriceGross = undefined;
       }
-      // else: brak danych do obliczenia — nie nadpisuj wartości ręcznej
     }
 
     return updated;

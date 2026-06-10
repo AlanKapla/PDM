@@ -4,6 +4,7 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimates;
+using Business.Interfaces.WebModels.CostEstimateTemplates;
 using Entities.Models.Chats;
 using Entities.Models.Costs;
 using Entities.Models.Files;
@@ -121,13 +122,16 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
             // Full access widzi wszystkie kolumny (IsVisible jest ignorowane).
             if (accessLevel is CostEstimateAccessLevel.Restricted or CostEstimateAccessLevel.ReadOnly && templateStructure.UiConfiguration is not null)
             {
-                var visibleColumns = templateStructure.UiConfiguration.Columns
+                List<ColumnConfigurationWeb> visibleGroupColumns = templateStructure.UiConfiguration.GroupColumns
+                    .Where(c => c.IsVisible)
+                    .ToList();
+                List<ColumnConfigurationWeb> visibleItemColumns = templateStructure.UiConfiguration.ItemColumns
                     .Where(c => c.IsVisible)
                     .ToList();
 
                 templateStructure = templateStructure with
                 {
-                    UiConfiguration = new Business.Interfaces.WebModels.CostEstimateTemplates.UiConfigurationWeb(visibleColumns)
+                    UiConfiguration = new UiConfigurationWeb(visibleGroupColumns, visibleItemColumns)
                 };
             }
 

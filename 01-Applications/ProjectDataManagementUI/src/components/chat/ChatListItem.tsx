@@ -39,11 +39,17 @@ export default function ChatListItem({
       : chat.lastMessage.content
     : "Brak wiadomości";
 
-  const initials = displayName
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+  const otherMember = !chat.isGroupChat
+    ? chat.members.find((m) => m.userId !== currentUserId)
+    : null;
+
+  const initials = otherMember
+    ? `${otherMember.firstName[0]}${otherMember.lastName[0]}`.toUpperCase()
+    : displayName
+        .split(" ")
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() ?? "")
+        .join("");
 
   return (
     <HStack

@@ -724,10 +724,21 @@ export default function CostEstimateTemplateSelector() {
                           <HStack spacing={2} mb={4}>
                             <Layout size={18} />
                             <Text fontSize="md" fontWeight="bold">Kolejność kolumn w tabeli</Text>
-                            <Badge colorScheme="cyan">{templateStructure.uiConfiguration?.columns?.length || 0}</Badge>
+                            <Badge colorScheme="cyan">{
+                              (templateStructure.uiConfiguration?.groupColumns?.length ?? 0) +
+                              (templateStructure.uiConfiguration?.itemColumns?.length ?? 0)
+                            }</Badge>
                           </HStack>
                           
-                          {templateStructure.uiConfiguration?.columns && templateStructure.uiConfiguration.columns.length > 0 ? (
+                          {/* Merge groupColumns i itemColumns dla wyświetlenia */}
+                          {(() => {
+                            const uiConfig = templateStructure.uiConfiguration;
+                            const allColumns = [
+                              ...(uiConfig?.groupColumns ?? []),
+                              ...(uiConfig?.itemColumns ?? []),
+                            ].sort((a, b) => a.order - b.order);
+                            const hasColumns = allColumns.length > 0;
+                            return hasColumns ? (
                             <Box overflowX="auto">
                             <Table size="sm" variant="simple">
                               <Thead>
@@ -739,7 +750,7 @@ export default function CostEstimateTemplateSelector() {
                                 </Tr>
                               </Thead>
                               <Tbody>
-                                {templateStructure.uiConfiguration.columns.sort((a, b) => a.order - b.order).map((col, idx) => (
+                                {allColumns.map((col, idx) => (
                                   <Tr key={col.fieldId}>
                                     <Td>{idx + 1}</Td>
                                     <Td fontWeight="medium">{col.fieldLabel}</Td>
@@ -760,7 +771,8 @@ export default function CostEstimateTemplateSelector() {
                             </Box>
                           ) : (
                             <Text color="neutral.500" fontSize="sm">Brak konfiguracji kolumn</Text>
-                          )}
+                          );
+                          })()}
                         </Box>
                       </TabPanel>
                     </TabPanels>

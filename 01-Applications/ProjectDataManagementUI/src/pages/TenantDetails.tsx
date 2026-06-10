@@ -621,9 +621,6 @@ export default function TenantDetails() {
                     <Text fontSize="2xl" fontWeight="bold">
                       {tenant.name}
                     </Text>
-                    <Badge colorScheme={tenant.isActive ? "green" : "gray"}>
-                      {tenant.isActive ? "Aktywna" : "Nieaktywna"}
-                    </Badge>
                   </HStack>
                   <Text fontSize="sm" color="neutral.500">
                     Utworzono:{" "}
@@ -669,6 +666,80 @@ export default function TenantDetails() {
               <TabPanels>
                 {/* Tab: Członkowie */}
                 <TabPanel p={0}>
+                  {isInviting ? (
+                    <Box
+                      p={{ base: 3, md: 4 }}
+                      bg="neutral.50"
+                      borderBottom="1px solid"
+                      borderColor="neutral.200"
+                    >
+                      <VStack spacing={3} align="stretch">
+                        <FormControl>
+                          <FormLabel fontSize="sm">
+                            Adres email osoby zapraszanej
+                          </FormLabel>
+                          <Input
+                            type="email"
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                            placeholder="jan.kowalski@example.com"
+                            bg="white"
+                            onKeyPress={(e) => {
+                              if (e.key === "Enter" && !sendingInvite) {
+                                handleInviteMember();
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <HStack
+                          spacing={2}
+                          flexWrap={{ base: "wrap", md: "nowrap" }}
+                        >
+                          <Button
+                            size={{ base: "sm", md: "md" }}
+                            colorScheme="primary"
+                            onClick={handleInviteMember}
+                            isLoading={sendingInvite}
+                            flex={{ base: "1 1 100%", md: "1" }}
+                            fontSize={{ base: "xs", md: "sm" }}
+                          >
+                            Wyślij zaproszenie
+                          </Button>
+                          <Button
+                            size={{ base: "sm", md: "md" }}
+                            variant="ghost"
+                            colorScheme="gray"
+                            onClick={() => {
+                              setIsInviting(false);
+                              setInviteEmail("");
+                            }}
+                            isDisabled={sendingInvite}
+                            flex={{ base: "1 1 100%", md: "1" }}
+                            fontSize={{ base: "xs", md: "sm" }}
+                          >
+                            Anuluj
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  ) : (
+                    <Box
+                      p={{ base: 3, md: 4 }}
+                      borderBottom="1px solid"
+                      borderColor="neutral.200"
+                    >
+                      <Button
+                        size={{ base: "xs", md: "sm" }}
+                        leftIcon={<UserPlus size={14} />}
+                        colorScheme="primary"
+                        variant="ghost"
+                        onClick={() => setIsInviting(true)}
+                        fontSize={{ base: "xs", md: "sm" }}
+                      >
+                        Zaproś
+                      </Button>
+                    </Box>
+                  )}
                   {tenant.members.length === 0 ? (
                     <Box p={{ base: 3, md: 4 }}>
                       <Text color="neutral.500" textAlign="center">

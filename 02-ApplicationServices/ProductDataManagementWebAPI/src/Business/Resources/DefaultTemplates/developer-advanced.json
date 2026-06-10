@@ -286,7 +286,7 @@
         {
           "fieldName": "00000002-0002-0000-0000-000000000012",
           "fieldType": 104,
-          "label": "Zaznaczenie",
+          "label": "Wybierz",
           "isSortable": true,
           "isFilterable": true,
           "isVisible": true,
@@ -321,7 +321,7 @@
     {
       "fieldName": "00000002-0002-0000-0000-000000000003",
       "fieldType": 104,
-      "label": "Zaznaczenie",
+      "label": "Sumuj",
       "isSortable": true,
       "isFilterable": true,
       "isVisible": true,

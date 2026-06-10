@@ -158,7 +158,7 @@
         {
           "fieldName": "00000001-0002-0000-0000-000000000012",
           "fieldType": 104,
-          "label": "Zaznaczenie",
+          "label": "Wybierz",
           "isSortable": true,
           "isFilterable": true,
           "isVisible": true,
@@ -193,7 +193,7 @@
     {
       "fieldName": "00000001-0002-0000-0000-000000000004",
       "fieldType": 104,
-      "label": "Zaznaczenie",
+      "label": "Sumuj",
       "isSortable": true,
       "isFilterable": true,
       "isVisible": true,
@@ -239,7 +239,7 @@
     {
       "fieldName": "00000001-0003-0000-0000-000000000001",
       "fieldType": 200,
-      "label": "Cena",
+      "label": "Cena netto",
       "isSortable": true,
       "isFilterable": true,
       "isVisible": true,
@@ -250,7 +250,7 @@
     {
       "fieldName": "00000001-0003-0000-0000-000000000002",
       "fieldType": 203,
-      "label": "Wartość",
+      "label": "Wartość netto",
       "isSortable": true,
       "isFilterable": true,
       "isVisible": true,

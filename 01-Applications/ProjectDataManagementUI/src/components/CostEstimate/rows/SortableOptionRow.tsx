@@ -13,7 +13,6 @@ import type {
   FormatDisplayValueFn,
   GetColumnWidthFn,
 } from '../costEstimateTableTypes';
-import { POSITION_COL_MIN_WIDTH } from '../costEstimateTableTypes';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -30,7 +29,9 @@ export interface SortableOptionRowProps {
   /** Czy user może edytować wartości pól (false tylko dla trybu podglądu). Niezależne od canStructuralEdit. */
   canEditFields: boolean;
   templateStructure: any;
-  expandedColumns: ExpandedColumn[];
+  columns: ExpandedColumn[];
+  groupColumnCount: number;
+  expandColWidth: number;
   getColumnWidth: GetColumnWidthFn;
   /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
   getItemFieldValueFull: (item: CostEstimateItemWeb, fieldId: string) => CostEstimateFieldValueWeb | undefined;
@@ -61,7 +62,9 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
   editable,
   canEditFields,
   templateStructure,
-  expandedColumns,
+  columns: columnsProp,
+  groupColumnCount,
+  expandColWidth,
   getColumnWidth,
   getItemFieldValueFull,
   updateOptionFieldValue,
@@ -88,10 +91,10 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
     <Tr
       ref={setNodeRef}
       style={style}
-      bg="neutral.25"
+      bg="level2.50"
       borderBottomWidth="0.5px"
       borderBottomColor="neutral.100"
-      _hover={{ bg: 'neutral.50', cursor: 'pointer' }}
+      _hover={{ bg: 'level2.100', cursor: 'pointer' }}
     >
       {editable && (
         <Td
@@ -101,9 +104,9 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
           position="sticky"
           left={0}
           zIndex={5}
-          bg="neutral.25"
+          bg="level2.50"
           borderLeftWidth="2px"
-          borderLeftColor="neutral.200"
+          borderLeftColor="level2.300"
           minW="120px"
           maxW="120px"
         >
@@ -135,33 +138,15 @@ export const SortableOptionRow: React.FC<SortableOptionRowProps> = ({
         </Td>
       )}
 
-      <Td
-        p={2}
-        pl={`${indent + 48}px`}
-        position="sticky"
-        left={editable ? '120px' : 0}
-        zIndex={5}
-        bg="neutral.25"
-        borderLeftWidth={!editable ? '2px' : undefined}
-        borderLeftColor={!editable ? 'neutral.200' : undefined}
-        w={`${POSITION_COL_MIN_WIDTH}px`}
-        minW={`${POSITION_COL_MIN_WIDTH}px`}
-        whiteSpace="nowrap"
-      >
-        <Badge
-          bg="neutral.100"
-          color="neutral.400"
-          px={2}
-          py={0.5}
-          borderRadius="md"
-          fontSize="xs"
-          fontWeight="medium"
-        >
-          OPCJA {optIndex + 1}
-        </Badge>
-      </Td>
+      {/* Pozycja column removed — minimal expand cell */}
+      <Td p={2} pl={`${indent + 48}px`} w={`${expandColWidth}px`} minW={`${expandColWidth}px`} bg="level2.50" />
 
-      {expandedColumns.map((col: any) => {
+      {/* Puste Td dla kolumn etapów — wyrównanie liczby komórek z nagłówkiem */}
+      {Array.from({ length: groupColumnCount }).map((_, idx) => (
+        <Td key={`empty-group-${idx}`} p={2} bg="level2.50" />
+      ))}
+
+      {columnsProp.map((col: any) => {
         const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
 
         // Dla opcji renderujemy tylko kolumny childField, reszta to puste komórki

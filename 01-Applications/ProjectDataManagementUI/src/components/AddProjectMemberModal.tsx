@@ -16,6 +16,9 @@ import {
   useColorModeValue,
   Box,
   Icon,
+  Input,
+  FormControl,
+  FormLabel,
 } from "@chakra-ui/react";
 import { UserPlus, Check } from "lucide-react";
 import { ProjectModule, PROJECT_MODULE_LABELS } from "../types/projectModulePermissions";
@@ -26,6 +29,7 @@ import { projectKeys } from "../hooks/queries";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from '../utils/handleApiError';
 import { LoadingSpinner, EmptyState, UserAvatar, DataCard } from "./common";
+import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import type { TenantMemberWeb, ProjectMemberWeb } from "../types/project.types";
 
 const ALL_MODULES = (Object.values(ProjectModule) as number[]).filter(m => m !== ProjectModule.Settings);
@@ -49,6 +53,7 @@ export default function AddProjectMemberModal({
   onMemberAdded
 }: AddProjectMemberModalProps) {
   const { showError, showApiSuccess } = useToastNotification();
+  const { canManageMembers } = useTenantPermissions();
   const queryClient = useQueryClient();
   const [tenantMembers, setTenantMembers] = useState<TenantMemberWeb[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberWeb[]>([]);
@@ -56,6 +61,9 @@ export default function AddProjectMemberModal({
   const [adding, setAdding] = useState<string | null>(null);
   const [configuringUserId, setConfiguringUserId] = useState<string | null>(null);
   const [selectedModules, setSelectedModules] = useState<Set<number>>(new Set());
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   const bgColor = useColorModeValue("white", "gray.800");
 
@@ -126,6 +134,32 @@ export default function AddProjectMemberModal({
     setSelectedModules(new Set());
   };
 
+  const handleInviteToOrganization = async () => {
+    if (!inviteEmail.trim()) {
+      showError("Błąd walidacji", "Adres email nie może być pusty");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inviteEmail)) {
+      showError("Błąd walidacji", "Podaj prawidłowy adres email");
+      return;
+    }
+
+    setSendingInvite(true);
+    try {
+      await tenantApi.inviteMember(tenantId, inviteEmail);
+      showApiSuccess('inviteSent');
+      setShowInviteForm(false);
+      setInviteEmail("");
+    } catch (error) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
   const isMemberInProject = (userId: String) => {
     return projectMembers.some(pm => pm.userId === userId);
   };
@@ -155,6 +189,63 @@ export default function AddProjectMemberModal({
             <EmptyState 
               title="Wszyscy członkowie są już w projekcie"
               description="Wszystkie osoby z organizacji zostały już dodane do tego projektu"
+              action={
+                canManageMembers ? (
+                  showInviteForm ? (
+                    <Box width="full" textAlign="left">
+                      <VStack spacing={3} align="stretch">
+                        <FormControl>
+                          <FormLabel fontSize="sm">Adres email osoby zapraszanej</FormLabel>
+                          <Input
+                            type="email"
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                            placeholder="jan.kowalski@example.com"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !sendingInvite) {
+                                handleInviteToOrganization();
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <HStack spacing={2} justify="center">
+                          <Button
+                            size="sm"
+                            colorScheme="primary"
+                            onClick={handleInviteToOrganization}
+                            isLoading={sendingInvite}
+                            loadingText="Wysyłanie..."
+                            leftIcon={<Icon as={UserPlus} />}
+                          >
+                            Wyślij zaproszenie
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setShowInviteForm(false);
+                              setInviteEmail("");
+                            }}
+                            isDisabled={sendingInvite}
+                          >
+                            Anuluj
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  ) : (
+                    <Button
+                      size="sm"
+                      colorScheme="primary"
+                      variant="outline"
+                      leftIcon={<Icon as={UserPlus} />}
+                      onClick={() => setShowInviteForm(true)}
+                    >
+                      Zaproś nowego członka do organizacji
+                    </Button>
+                  )
+                ) : undefined
+              }
             />
           ) : (
             <Box

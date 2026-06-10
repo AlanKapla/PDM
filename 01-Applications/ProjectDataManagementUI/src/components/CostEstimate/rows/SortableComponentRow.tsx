@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Tr, Td, Text, IconButton, Tooltip, Badge, HStack, Checkbox, Box } from '@chakra-ui/react';
-import { GripVertical, Trash2, GitBranch, ChevronDown, ChevronRight } from 'lucide-react';
+import { GripVertical, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CostEstimateItemWeb, CostEstimateFieldValueWeb } from '../../../types/costEstimate.types.new';
@@ -13,7 +13,6 @@ import type {
   FormatDisplayValueFn,
   GetColumnWidthFn,
 } from '../costEstimateTableTypes';
-import { POSITION_COL_MIN_WIDTH } from '../costEstimateTableTypes';
 import { SortableOptionRow } from './SortableOptionRow';
 
 // ---------------------------------------------------------------------------
@@ -31,7 +30,9 @@ export interface SortableComponentRowProps {
   /** Czy user może edytować wartości pól (false tylko dla trybu podglądu). Niezależne od canStructuralEdit. */
   canEditFields: boolean;
   templateStructure: any;
-  expandedColumns: ExpandedColumn[];
+  columns: ExpandedColumn[];
+  groupColumnCount: number;
+  expandColWidth: number;
   getColumnWidth: GetColumnWidthFn;
   getItemFieldValue: (item: CostEstimateItemWeb, fieldId: string) => string | undefined;
   /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
@@ -73,7 +74,9 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
   editable,
   canEditFields,
   templateStructure,
-  expandedColumns,
+  columns: columnsProp,
+  groupColumnCount,
+  expandColWidth,
   getColumnWidth,
   getItemFieldValue,
   getItemFieldValueFull,
@@ -118,10 +121,10 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
       <Tr
         ref={setNodeRef}
         style={style}
-        bg="neutral.50"
+        bg="level1.50"
         borderBottomWidth="0.5px"
         borderBottomColor="neutral.100"
-        _hover={{ bg: 'neutral.100', cursor: 'pointer' }}
+        _hover={{ bg: 'level1.100', cursor: 'pointer' }}
       >
         {/* Akcje komponentu */}
         {editable && (
@@ -132,9 +135,9 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
             position="sticky"
             left={0}
             zIndex={5}
-            bg="neutral.50"
+            bg="level1.50"
             borderLeftWidth="2px"
-            borderLeftColor="neutral.300"
+            borderLeftColor="level1.300"
             minW="120px"
             maxW="120px"
           >
@@ -165,7 +168,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
                 <Tooltip label="Dodaj opcję/wariant">
                   <IconButton
                     aria-label="Dodaj opcję"
-                    icon={<GitBranch size={14} />}
+                    icon={<Text fontWeight="bold" fontSize="xs" lineHeight="1">O+</Text>}
                     size="xs"
                     colorScheme="level2"
                     variant="ghost"
@@ -178,51 +181,37 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           </Td>
         )}
 
-        {/* Etykieta komponentu */}
+        {/* Pozycja column removed — tylko expand/collapse */}
         <Td
           p={2}
           pl={`${indent + 48}px`}
-          position="sticky"
-          left={editable ? '120px' : 0}
-          zIndex={5}
-          bg="neutral.50"
-          borderLeftWidth={!editable ? '2px' : undefined}
-          borderLeftColor={!editable ? 'neutral.300' : undefined}
-          w={`${POSITION_COL_MIN_WIDTH}px`}
-          minW={`${POSITION_COL_MIN_WIDTH}px`}
-          whiteSpace="nowrap"
+          w={`${expandColWidth}px`}
+          minW={`${expandColWidth}px`}
+          bg="level1.50"
         >
-          <HStack spacing={1}>
-            {hasOptions && (
-              <Tooltip label={optionsExpanded ? 'Zwiń opcje' : 'Rozwiń opcje'}>
-                <IconButton
-                  aria-label="Zwiń/rozwiń opcje"
-                  icon={optionsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => setOptionsExpanded((prev) => !prev)}
-                  minW="auto"
-                  h="auto"
-                  p={0}
-                />
-              </Tooltip>
-            )}
-            <Badge
-              bg="neutral.200"
-              color="neutral.600"
-              px={2}
-              py={0.5}
-              borderRadius="md"
-              fontSize="xs"
-              fontWeight="medium"
-            >
-              KOMPONENT {compIndex + 1}
-            </Badge>
-          </HStack>
+          {hasOptions && (
+            <Tooltip label={optionsExpanded ? 'Zwiń opcje' : 'Rozwiń opcje'}>
+              <IconButton
+                aria-label="Zwiń/rozwiń opcje"
+                icon={optionsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                size="xs"
+                variant="ghost"
+                onClick={() => setOptionsExpanded((prev) => !prev)}
+                minW="auto"
+                h="auto"
+                p={0}
+              />
+            </Tooltip>
+          )}
         </Td>
 
+        {/* Puste Td dla kolumn etapów — wyrównanie liczby komórek z nagłówkiem */}
+        {Array.from({ length: groupColumnCount }).map((_, idx) => (
+          <Td key={`empty-group-${idx}`} p={2} bg="level1.50" />
+        ))}
+
         {/* Kolumny pól komponentu */}
-        {expandedColumns.map((col: any) => {
+        {columnsProp.map((col: any) => {
           const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
 
           // Pola nagłówka grupy — puste
@@ -231,7 +220,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           );
           if (groupHeaderField) {
             return (
-              <Td key={col.fieldId} p={2} bg="neutral.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+              <Td key={col.fieldId} p={2} bg="level1.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
                 <Text fontSize="xs" color="neutral.400" textAlign="center">—</Text>
               </Td>
             );
@@ -240,7 +229,7 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           // Pola opcji (childField) — pokaż liczbę opcji komponentu
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="neutral.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
+              <Td key={col.fieldId} p={2} bg="level1.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`} overflow="hidden">
                 <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">
                   {componentOptions.length > 0 ? `${componentOptions.length} opcji` : '—'}
                 </Text>
@@ -339,8 +328,10 @@ export const SortableComponentRow: React.FC<SortableComponentRowProps> = ({
           editable={editable}
           canEditFields={canEditFields}
           templateStructure={templateStructure}
-          expandedColumns={expandedColumns}
-          getColumnWidth={getColumnWidth}
+            columns={columnsProp}
+            groupColumnCount={groupColumnCount}
+            expandColWidth={expandColWidth}
+            getColumnWidth={getColumnWidth}
           getItemFieldValueFull={getItemFieldValueFull}
           updateOptionFieldValue={updateOptionFieldValue}
           removeOptionFromItem={removeOptionFromItem}

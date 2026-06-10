@@ -177,7 +177,10 @@ export interface NestedFieldsDto {
   enableCalculatedFieldsSummation?: boolean;
   summableCalculatedFields?: string[];  // Tablica GUIDów pól (UUID strings)
   uiConfiguration?: {
-    columnLayout?: string[];  // Tablica GUIDów pól (UUID strings)
+    /** @deprecated Używaj groupColumnLayout/itemColumnLayout */
+    columnLayout?: string[];
+    groupColumnLayout?: string[];  // Lista GUID-ów pól grupy
+    itemColumnLayout?: string[];   // Lista GUID-ów pól pozycji
     columnWidths?: Record<string, string>;  // GUID pola -> szerokość
   };
 }
@@ -224,7 +227,10 @@ export interface UpdateCostEstimateTemplateRequest {
     showTotalSummary: boolean;
   };
   uiConfiguration?: {
-    columnLayout?: string[];  // Tablica GUIDów pół (UUID strings) - kolejność kolumn
+    /** @deprecated Używaj groupColumnLayout/itemColumnLayout */
+    columnLayout?: string[];
+    groupColumnLayout?: string[];  // Lista GUID-ów pól grupy (etapu)
+    itemColumnLayout?: string[];   // Lista GUID-ów pól pozycji
     columnWidths?: Record<string, string>;  // GUID pola -> szerokość (np. "150px")
   };
 }

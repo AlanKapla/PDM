@@ -151,34 +151,41 @@ namespace Business.Implementation.Services
                     cancellationToken);
 
                 var fieldNameToIdMap = new Dictionary<Guid, Guid>();
-                var columnLayoutOrderMap = BuildColumnLayoutOrderMap(uiConfiguration?.ColumnLayout);
+                var (groupOrderMap, itemOrderMap) = BuildColumnLayoutOrderMaps(
+                    uiConfiguration?.GroupColumnLayout,
+                    uiConfiguration?.ItemColumnLayout,
+                    null,  // No legacy ColumnLayout — backward compat handled by caller
+                    groupHeaderFields,
+                    systemFields,
+                    calculatedFields,
+                    genericFields);
 
                 if (groupHeaderFields != null)
                 {
                     await UpsertFieldsInBatchAsync(
                         groupHeaderFields, template.Id, FieldScope.Group,
-                        fieldNameToIdMap, columnLayoutOrderMap, cancellationToken);
+                        fieldNameToIdMap, groupOrderMap, cancellationToken);
                 }
 
                 if (systemFields != null)
                 {
                     await UpsertFieldsInBatchAsync(
                         systemFields, template.Id, FieldScope.ItemSystem,
-                        fieldNameToIdMap, columnLayoutOrderMap, cancellationToken);
+                        fieldNameToIdMap, itemOrderMap, cancellationToken);
                 }
 
                 if (calculatedFields != null)
                 {
                     await UpsertFieldsInBatchAsync(
                         calculatedFields, template.Id, FieldScope.ItemCalculated,
-                        fieldNameToIdMap, columnLayoutOrderMap, cancellationToken);
+                        fieldNameToIdMap, itemOrderMap, cancellationToken);
                 }
 
                 if (genericFields != null)
                 {
                     await UpsertFieldsInBatchAsync(
                         genericFields, template.Id, FieldScope.ItemGeneric,
-                        fieldNameToIdMap, columnLayoutOrderMap, cancellationToken);
+                        fieldNameToIdMap, itemOrderMap, cancellationToken);
                 }
 
                 await RecalculateAllCostEstimatesForTemplateAsync(template.Id, cancellationToken);
@@ -321,18 +328,11 @@ namespace Business.Implementation.Services
                 .Select(f => BuildFieldDefinitionWebRecursive(f))
                 .ToList();
 
-            var allFieldsList = new List<CostEstimateTemplateFieldDefinitionBase>();
-            allFieldsList.AddRange(groupHeaderFieldsList);
-            allFieldsList.AddRange(systemFieldsList);
-            allFieldsList.AddRange(calculatedFieldsList);
-            allFieldsList.AddRange(genericFieldsList);
-
-            // Kolumny budujemy bez filtrowania po IsVisible — cache jest neutralny.
-            // Filtrowanie po IsVisible odbywa się na poziomie query, w zależności od access level:
-            // Full access widzi wszystkie kolumny, Restricted widzi tylko IsVisible = true.
-            var columns = allFieldsList
+            // Group columns — tylko pola z FieldScope == Group
+            var groupColumns = groupHeaderFieldsList
                 .Where(f => f.ParentFieldId == null)
                 .OrderBy(f => f.Order)
+                .ThenBy(f => f.FieldName)  // tiebreaker
                 .Select(f => new ColumnConfigurationWeb(
                     f.Id,
                     f.FieldName,
@@ -344,8 +344,29 @@ namespace Business.Implementation.Services
                 ))
                 .ToList();
 
-            UiConfigurationWeb? uiConfig = columns.Any() 
-                ? new UiConfigurationWeb(columns) 
+            // Item columns — tylko pola z FieldScope == ItemSystem/ItemCalculated/ItemGeneric
+            var itemFieldsList = new List<CostEstimateTemplateFieldDefinitionBase>();
+            itemFieldsList.AddRange(systemFieldsList);
+            itemFieldsList.AddRange(calculatedFieldsList);
+            itemFieldsList.AddRange(genericFieldsList);
+
+            var itemColumns = itemFieldsList
+                .Where(f => f.ParentFieldId == null)
+                .OrderBy(f => f.Order)
+                .ThenBy(f => f.FieldName)  // tiebreaker
+                .Select(f => new ColumnConfigurationWeb(
+                    f.Id,
+                    f.FieldName,
+                    (int)f.FieldType,
+                    f.Label,
+                    (int)f.FieldScope,
+                    f.Order,
+                    f.IsVisible
+                ))
+                .ToList();
+
+            UiConfigurationWeb? uiConfig = (groupColumns.Any() || itemColumns.Any()) 
+                ? new UiConfigurationWeb(groupColumns, itemColumns) 
                 : null;
 
             return new CostEstimateTemplateStructureWeb(
@@ -519,20 +540,70 @@ namespace Business.Implementation.Services
 
         #region Field Structure Management
 
-        private Dictionary<Guid, int> BuildColumnLayoutOrderMap(List<Guid>? columnLayout)
+        private static (Dictionary<Guid, int> groupOrderMap, Dictionary<Guid, int> itemOrderMap) BuildColumnLayoutOrderMaps(
+            List<Guid>? groupColumnLayout,
+            List<Guid>? itemColumnLayout,
+            List<Guid>? legacyColumnLayout,
+            List<FieldDefinitionDto>? groupFields,
+            List<FieldDefinitionDto>? systemFields,
+            List<FieldDefinitionDto>? calculatedFields,
+            List<FieldDefinitionDto>? genericFields)
+        {
+            // Case 1: New structure with separate group/item layouts
+            if (groupColumnLayout != null && itemColumnLayout != null)
+            {
+                var groupMap = BuildSimpleOrderMap(groupColumnLayout);
+                var itemMap = BuildSimpleOrderMap(itemColumnLayout);
+                return (groupMap, itemMap);
+            }
+
+            // Case 2: Backward compatibility — legacy single ColumnLayout
+            if (legacyColumnLayout != null && legacyColumnLayout.Any())
+            {
+                // Build lookup sets for group vs item field names
+                HashSet<Guid> groupFieldNames = groupFields?
+                    .Select(f => f.FieldName)
+                    .ToHashSet() ?? new HashSet<Guid>();
+
+                HashSet<Guid> itemFieldNames = new HashSet<Guid>();
+                if (systemFields != null)
+                    itemFieldNames.UnionWith(systemFields.Select(f => f.FieldName));
+                if (calculatedFields != null)
+                    itemFieldNames.UnionWith(calculatedFields.Select(f => f.FieldName));
+                if (genericFields != null)
+                    itemFieldNames.UnionWith(genericFields.Select(f => f.FieldName));
+
+                var groupMap = new Dictionary<Guid, int>();
+                var itemMap = new Dictionary<Guid, int>();
+
+                for (int i = 0; i < legacyColumnLayout.Count; i++)
+                {
+                    Guid fieldName = legacyColumnLayout[i];
+
+                    if (groupFieldNames.Contains(fieldName))
+                    {
+                        groupMap[fieldName] = i;
+                    }
+                    else if (itemFieldNames.Contains(fieldName))
+                    {
+                        itemMap[fieldName] = i;
+                    }
+                }
+
+                return (groupMap, itemMap);
+            }
+
+            // Case 3: No layout data — empty maps
+            return (new Dictionary<Guid, int>(), new Dictionary<Guid, int>());
+        }
+
+        private static Dictionary<Guid, int> BuildSimpleOrderMap(List<Guid> layout)
         {
             var orderMap = new Dictionary<Guid, int>();
-
-            if (columnLayout == null || !columnLayout.Any())
+            for (int i = 0; i < layout.Count; i++)
             {
-                return orderMap;
+                orderMap[layout[i]] = i;
             }
-
-            for (int i = 0; i < columnLayout.Count; i++)
-            {
-                orderMap[columnLayout[i]] = i;
-            }
-
             return orderMap;
         }
 
@@ -1031,14 +1102,8 @@ namespace Business.Implementation.Services
             var calculatedFields = MapFieldDtosToWeb(template.CalculatedFields);
             var genericFields = MapFieldDtosToWeb(template.GenericFields);
 
-            var allFields = template.GroupHeaderFields
-                .Concat(template.SystemFields)
-                .Concat(template.CalculatedFields)
-                .Concat(template.GenericFields)
+            var groupColumns = template.GroupHeaderFields
                 .Where(f => f.IsVisible)
-                .ToList();
-
-            var columns = allFields
                 .Select((f, index) => new ColumnConfigurationWeb(
                     FieldId: f.FieldName,
                     FieldName: f.FieldName,
@@ -1049,7 +1114,26 @@ namespace Business.Implementation.Services
                 ))
                 .ToList();
 
-            var uiConfig = columns.Count > 0 ? new UiConfigurationWeb(columns) : null;
+            var itemFields = template.SystemFields
+                .Concat(template.CalculatedFields)
+                .Concat(template.GenericFields)
+                .Where(f => f.IsVisible)
+                .ToList();
+
+            var itemColumns = itemFields
+                .Select((f, index) => new ColumnConfigurationWeb(
+                    FieldId: f.FieldName,
+                    FieldName: f.FieldName,
+                    FieldType: f.FieldType,
+                    FieldLabel: f.Label,
+                    FieldScope: CostEstimateFieldTypeHelper.GetFieldTypeConfig(f.FieldType)?.FieldScope ?? 0,
+                    Order: index
+                ))
+                .ToList();
+
+            var uiConfig = (groupColumns.Count > 0 || itemColumns.Count > 0) 
+                ? new UiConfigurationWeb(groupColumns, itemColumns) 
+                : null;
 
             return new CostEstimateTemplateStructureWeb(
                 TemplateId: template.TemplateId,
@@ -1138,8 +1222,12 @@ namespace Business.Implementation.Services
             var calculatedFields = RegenerateFieldGuids(defaultTemplate.CalculatedFields);
             var genericFields = RegenerateFieldGuids(defaultTemplate.GenericFields);
 
-            var columnLayout = groupFields
-                .Concat(systemFields)
+            var groupColumnLayout = groupFields
+                .Where(f => f.IsVisible)
+                .Select(f => f.FieldName)
+                .ToList();
+
+            var itemColumnLayout = systemFields
                 .Concat(calculatedFields)
                 .Concat(genericFields)
                 .Where(f => f.IsVisible)
@@ -1163,7 +1251,7 @@ namespace Business.Implementation.Services
                 systemFields,
                 calculatedFields,
                 genericFields,
-                new UiConfigurationDto(columnLayout),
+                new UiConfigurationDto(groupColumnLayout, itemColumnLayout),
                 cancellationToken);
 
             return templateId;
@@ -1221,8 +1309,12 @@ namespace Business.Implementation.Services
             var calculatedFields = MapFieldWebsToDtos(structure.CalculatedFields);
             var genericFields = MapFieldWebsToDtos(structure.GenericFields);
 
-            var columnLayout = groupFields
-                .Concat(systemFields)
+            var groupColumnLayout = groupFields
+                .Where(f => f.IsVisible)
+                .Select(f => f.FieldName)
+                .ToList();
+
+            var itemColumnLayout = systemFields
                 .Concat(calculatedFields)
                 .Concat(genericFields)
                 .Where(f => f.IsVisible)
@@ -1246,7 +1338,7 @@ namespace Business.Implementation.Services
                 systemFields,
                 calculatedFields,
                 genericFields,
-                new UiConfigurationDto(columnLayout),
+                new UiConfigurationDto(groupColumnLayout, itemColumnLayout),
                 cancellationToken);
 
             return templateId;

@@ -86,6 +86,7 @@ import {
   CheckCircle,
   Coins,
   Ruler,
+  Lock,
 } from "lucide-react";
 import type {
   CalculatedFieldDefinition,
@@ -301,8 +302,10 @@ export default function CostEstimateTemplateEditor() {
   const [totalSummaryFields, setTotalSummaryFields] = useState<string[]>([]);
 
   // UI Configuration State
-  const [columns, setColumns] = useState<ColumnConfigurationWeb[]>([]);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [groupColumns, setGroupColumns] = useState<ColumnConfigurationWeb[]>([]);
+  const [itemColumns, setItemColumns] = useState<ColumnConfigurationWeb[]>([]);
+  const [groupDraggedIndex, setGroupDraggedIndex] = useState<number | null>(null);
+  const [itemDraggedIndex, setItemDraggedIndex] = useState<number | null>(null);
 
   // Mobile tab navigation
   const [activeTab, setActiveTab] = useState(0);
@@ -421,7 +424,8 @@ export default function CostEstimateTemplateEditor() {
     showTotalSummary,
     groupSummaryFields,
     totalSummaryFields,
-    columns,
+    groupColumns,
+    itemColumns,
   ]);
 
   // Fetch field type configurations on mount
@@ -713,8 +717,10 @@ export default function CostEstimateTemplateEditor() {
         setGroupSummaryFields(struct.summaryConfiguration?.groupSummaryFields.map(f => f.fieldName) ?? []);
         setTotalSummaryFields(struct.summaryConfiguration?.totalSummaryFields.map(f => f.fieldName) ?? []);
 
-        // Konfiguracja UI
-        setColumns(struct.uiConfiguration?.columns ?? []);
+        // Konfiguracja UI — osobne listy dla pól etapów i pozycji
+        const uiColumns = struct.uiConfiguration;
+        setGroupColumns(uiColumns?.groupColumns ?? []);
+        setItemColumns(uiColumns?.itemColumns ?? []);
 
         // Waluty nie są już częścią szablonu kosztorysu — pozostaje domyślna PLN ze stanu lokalnego.
         setUnits((struct.units ?? []).map(u => ({
@@ -1073,7 +1079,9 @@ export default function CostEstimateTemplateEditor() {
         }),
       },
       uiConfiguration: {
-        columns: columns,
+        columns: [...groupColumns, ...itemColumns],
+        groupColumns,
+        itemColumns,
       },
     };
 
@@ -1473,8 +1481,8 @@ export default function CostEstimateTemplateEditor() {
             totalSummaryFields: totalSummaryFields.length > 0 ? totalSummaryFields : [],
           },
           uiConfiguration: {
-            columnLayout: columns.length > 0 ? columns.map(c => c.fieldName) : undefined,
-            columnWidths: undefined,
+            groupColumnLayout: groupColumns.length > 0 ? groupColumns.map(c => c.fieldName) : undefined,
+            itemColumnLayout: itemColumns.length > 0 ? itemColumns.map(c => c.fieldName) : undefined,
           },
         });
 
@@ -1547,8 +1555,8 @@ export default function CostEstimateTemplateEditor() {
             totalSummaryFields: totalSummaryFields.length > 0 ? totalSummaryFields : [],
           },
           uiConfiguration: {
-            columnLayout: columns.length > 0 ? columns.map(c => c.fieldName) : undefined,
-            columnWidths: undefined,
+            groupColumnLayout: groupColumns.length > 0 ? groupColumns.map(c => c.fieldName) : undefined,
+            itemColumnLayout: itemColumns.length > 0 ? itemColumns.map(c => c.fieldName) : undefined,
           },
         });
 
@@ -1567,25 +1575,25 @@ export default function CostEstimateTemplateEditor() {
     }
   };
 
-  // Render funkcja dla TabPanel "Układ pól"
+  // Render funkcja dla TabPanel "Kolejność pól"
   const renderFieldLayoutTab = () => {
-    // Zbierz wszystkie pola z template
-    // UWAGA: Zbieramy tylko pola główne (parenty), bez childFields z pól Options
-    const allFields: Array<{ name: string; label: string; type: string; colorScheme: string }> = [];
+    // Zbierz widoczne pola grup (header fields) i item fields (system/calculated/generic)
+    const groupFieldEntries: Array<{ name: string; label: string; type: string; colorScheme: string }> = [];
+    const itemFieldEntries: Array<{ name: string; label: string; type: string; colorScheme: string }> = [];
 
     // Pola nagłówków grup (GroupName, Notes, etc.) — tylko widoczne
     headerFields.filter(f => f.visible).forEach((field) => {
-      allFields.push({
-        name: field.name || `header_${field.type}_temp`,  // Fallback jeśli brak GUID (nie powinno się zdarzyć)
+      groupFieldEntries.push({
+        name: field.name || `header_${field.type}_temp`,
         label: field.customLabel || getDefaultGroupHeaderLabel(field.type),
         type: 'Nagłówek etapu',
         colorScheme: 'purple',
       });
     });
 
-    // Pola systemowe - tylko parenty, bez childFields — tylko widoczne
+    // Pola systemowe — tylko widoczne
     systemFields.filter(f => f.visible).forEach((field) => {
-      allFields.push({
+      itemFieldEntries.push({
         name: field.name,
         label: field.label,
         type: 'Systemowe',
@@ -1595,7 +1603,7 @@ export default function CostEstimateTemplateEditor() {
 
     // Pola obliczeniowe — tylko widoczne
     calculatedFields.filter(f => f.visible).forEach((field) => {
-      allFields.push({
+      itemFieldEntries.push({
         name: field.name,
         label: field.label,
         type: 'Obliczeniowe',
@@ -1605,7 +1613,7 @@ export default function CostEstimateTemplateEditor() {
 
     // Pola generyczne — tylko widoczne
     genericFields.filter(f => f.visible).forEach((field) => {
-      allFields.push({
+      itemFieldEntries.push({
         name: field.name,
         label: field.label,
         type: 'Generyczne',
@@ -1613,86 +1621,200 @@ export default function CostEstimateTemplateEditor() {
       });
     });
 
-    // Upewnij się że columns zawiera wszystkie pola
-    const existingFieldNames = columns.map(c => c.fieldName);
-    allFields.forEach((field, index) => {
-      if (!existingFieldNames.includes(field.name)) {
-        // Dodaj brakujące pole - musimy określić fieldScope i fieldType
-        let fieldScope = FieldScope.ItemGeneric;
-        let fieldType = FieldType.ItemGenericString;
-        
-        if (systemFields.find(f => f.name === field.name)) {
-          fieldScope = FieldScope.ItemSystem;
-          const sysField = systemFields.find(f => f.name === field.name)!;
-          fieldType = sysField.type + 100; // SystemFieldType (0-4) → FieldType (100-104)
-        } else if (calculatedFields.find(f => f.name === field.name)) {
-          fieldScope = FieldScope.ItemCalculated;
-          const calcField = calculatedFields.find(f => f.name === field.name)!;
-          fieldType = calcField.type + 200; // CalculatedFieldType (0-6) → FieldType (200-206)
-        } else if (genericFields.find(f => f.name === field.name)) {
-          fieldScope = FieldScope.ItemGeneric;
-          const genField = genericFields.find(f => f.name === field.name)!;
-          fieldType = genField.type + 300; // GenericFieldType (0-5) → FieldType (300-305)
-        } else if (headerFields.find(f => f.name === field.name)) {
-          fieldScope = FieldScope.Group;
-          const hdrField = headerFields.find(f => f.name === field.name)!;
-          fieldType = hdrField.type as unknown as FieldType; // GroupHeaderFieldType (0-9) = FieldType (0-9)
+    // Helper: uzupełnij brakujące wpisy w kolumnach
+    const ensureFieldInColumns = (
+      entries: Array<{ name: string; label: string; type: string; colorScheme: string }>,
+      currentColumns: ColumnConfigurationWeb[],
+      setter: (cols: ColumnConfigurationWeb[]) => void
+    ): ColumnConfigurationWeb[] => {
+      const existingNames = currentColumns.map(c => c.fieldName);
+      const newCols = [...currentColumns];
+
+      entries.forEach((entry) => {
+        if (!existingNames.includes(entry.name)) {
+          // Określ fieldScope i fieldType dla nowego pola
+          let fieldScope = FieldScope.ItemGeneric;
+          let fieldType = FieldType.ItemGenericString;
+
+          if (systemFields.find(f => f.name === entry.name)) {
+            fieldScope = FieldScope.ItemSystem;
+            const sysField = systemFields.find(f => f.name === entry.name)!;
+            fieldType = (sysField.type + 100) as FieldType;
+          } else if (calculatedFields.find(f => f.name === entry.name)) {
+            fieldScope = FieldScope.ItemCalculated;
+            const calcField = calculatedFields.find(f => f.name === entry.name)!;
+            fieldType = (calcField.type + 200) as FieldType;
+          } else if (genericFields.find(f => f.name === entry.name)) {
+            fieldScope = FieldScope.ItemGeneric;
+            const genField = genericFields.find(f => f.name === entry.name)!;
+            fieldType = (genField.type + 300) as FieldType;
+          } else if (headerFields.find(f => f.name === entry.name)) {
+            fieldScope = FieldScope.Group;
+            const hdrField = headerFields.find(f => f.name === entry.name)!;
+            fieldType = hdrField.type as unknown as FieldType;
+          }
+
+          newCols.push({
+            fieldId: crypto.randomUUID(),
+            fieldName: entry.name,
+            fieldType,
+            fieldLabel: entry.label,
+            fieldScope,
+            order: newCols.length,
+          });
         }
-        
-        const newColumn: ColumnConfigurationWeb = {
-          fieldId: crypto.randomUUID(),
-          fieldName: field.name,
-          fieldType,
-          fieldLabel: field.label,
-          fieldScope: fieldScope,
-          order: columns.length,
-        };
-        
-        setColumns([...columns, newColumn]);
+      });
+
+      // Usuń pola które już nie istnieją w entries
+      const validNames = entries.map(e => e.name);
+      const filtered = newCols.filter(col => validNames.includes(col.fieldName));
+
+      if (filtered.length !== currentColumns.length || !filtered.every((v, i) => v.fieldId === currentColumns[i]?.fieldId)) {
+        setter(filtered);
       }
-    });
 
-    // Usuń pola które już nie istnieją
-    const validFieldNames = allFields.map((f) => f.name);
-    const validatedColumns = columns.filter((col) => validFieldNames.includes(col.fieldName));
+      return filtered;
+    };
 
-    // Jeśli columns się zmienił, zaktualizuj
-    if (validatedColumns.length !== columns.length || !validatedColumns.every((v, i) => v.fieldId === columns[i].fieldId)) {
-      setColumns(validatedColumns);
-    }
+    const validatedGroupCols = ensureFieldInColumns(groupFieldEntries, groupColumns, setGroupColumns);
+    const validatedItemCols = ensureFieldInColumns(itemFieldEntries, itemColumns, setItemColumns);
 
-    // Sortuj pola według columns order
-    const sortedFields = [...allFields].sort((a, b) => {
-      const indexA = validatedColumns.findIndex(c => c.fieldName === a.name);
-      const indexB = validatedColumns.findIndex(c => c.fieldName === b.name);
+    // Sortuj według kolejności w groupColumns / itemColumns
+    const sortedGroupFields = [...groupFieldEntries].sort((a, b) => {
+      const indexA = validatedGroupCols.findIndex(c => c.fieldName === a.name);
+      const indexB = validatedGroupCols.findIndex(c => c.fieldName === b.name);
       return indexA - indexB;
     });
 
-    const handleDragStart = (index: number) => {
-      setDraggedIndex(index);
-    };
+    const sortedItemFields = [...itemFieldEntries].sort((a, b) => {
+      const indexA = validatedItemCols.findIndex(c => c.fieldName === a.name);
+      const indexB = validatedItemCols.findIndex(c => c.fieldName === b.name);
+      return indexA - indexB;
+    });
 
-    const handleDragOver = (e: React.DragEvent, index: number) => {
-      e.preventDefault();
-      if (draggedIndex === null || draggedIndex === index) return;
+    // Znajdź pola, które muszą być zablokowane (Nazwa etapu, Nazwa pozycji)
+    const groupFrozenName: string | undefined = headerFields.find(f => f.type === GroupHeaderFieldType.GroupName)?.name || `header_${GroupHeaderFieldType.GroupName}_temp`;
+    const itemFrozenName: string | undefined = systemFields.find(f => f.type === SystemFieldType.Name)?.name;
+    const frozenGroupNames: Set<string> = new Set<string>();
+    const frozenItemNames: Set<string> = new Set<string>();
+    if (groupFrozenName) frozenGroupNames.add(groupFrozenName);
+    if (itemFrozenName) frozenItemNames.add(itemFrozenName);
 
-      const newColumns = [...validatedColumns];
-      const draggedItem = newColumns[draggedIndex];
-      newColumns.splice(draggedIndex, 1);
-      newColumns.splice(index, 0, draggedItem);
-      
-      // Update order property
-      const reordered = newColumns.map((col, idx) => ({ ...col, order: idx }));
-      setColumns(reordered);
-      setDraggedIndex(index);
-    };
+    // Render helper dla listy przeciąganej (z obsługą zablokowanych pól)
+    const renderDraggableList = (
+      entries: Array<{ name: string; label: string; type: string; colorScheme: string }>,
+      columnsList: ColumnConfigurationWeb[],
+      setColumnsList: (cols: ColumnConfigurationWeb[]) => void,
+      draggedIdx: number | null,
+      setDraggedIdx: (idx: number | null) => void,
+      frozenNames: Set<string>
+    ) => {
+      if (entries.length === 0) {
+        return <Text fontSize="sm" color="neutral.500">Brak pól w tej sekcji</Text>;
+      }
 
-    const handleDragEnd = () => {
-      setDraggedIndex(null);
+      // Rozdziel na zablokowane (zawsze na początku) i przeciągalne
+      const frozenEntries = entries.filter(e => frozenNames.has(e.name));
+      const draggableEntries = entries.filter(e => !frozenNames.has(e.name));
+
+      const handleDragStart = (index: number) => {
+        setDraggedIdx(index);
+      };
+
+      const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (draggedIdx === null || draggedIdx === index) return;
+
+        // Przeciągamy tylko w obrębie draggableEntries, a index jest liczony od początku draggable
+        const newCols = [...columnsList.filter(col => !frozenNames.has(col.fieldName))];
+        const draggedItem = newCols[draggedIdx];
+        newCols.splice(draggedIdx, 1);
+        newCols.splice(index, 0, draggedItem);
+
+        // Sklej zablokowane + przeciągalne
+        const frozenCols = columnsList.filter(col => frozenNames.has(col.fieldName));
+        const reordered = [...frozenCols, ...newCols].map((col, idx) => ({ ...col, order: idx }));
+        setColumnsList(reordered);
+        setDraggedIdx(index);
+      };
+
+      const handleDragEnd = () => {
+        setDraggedIdx(null);
+      };
+
+      return (
+        <VStack spacing={2} align="stretch">
+          {/* Zablokowane pola — zawsze pierwsze, nieprzeciągalne */}
+          {frozenEntries.map((field) => (
+            <HStack
+              key={field.name}
+              p={3}
+              bg="orange.50"
+              borderRadius="md"
+              borderWidth="2px"
+              borderColor="orange.200"
+              spacing={3}
+              opacity={0.85}
+            >
+              <Icon as={Lock} color="orange.500" />
+              <Badge colorScheme="orange" minW="90px">
+                {field.type}
+              </Badge>
+              <Text fontSize="sm" fontWeight="semibold" flex="1" color="orange.800">
+                {field.label}
+              </Text>
+              <Badge colorScheme="orange" variant="outline" fontSize="xs">wymagane · zawsze pierwsze</Badge>
+            </HStack>
+          ))}
+
+          {/* Przeciągalne pola */}
+          {draggableEntries.length === 0 ? (
+            frozenEntries.length > 0 ? null : (
+              <Text fontSize="sm" color="neutral.500">Brak pól w tej sekcji</Text>
+            )
+          ) : (
+            draggableEntries.map((field, index) => (
+              <HStack
+                key={field.name}
+                p={3}
+                bg={draggedIdx === index ? 'primary.100' : 'gray.50'}
+                borderRadius="md"
+                borderWidth="2px"
+                borderColor={draggedIdx === index ? 'primary.400' : 'gray.200'}
+                spacing={3}
+                cursor="grab"
+                _hover={{ bg: draggedIdx === index ? 'primary.100' : 'gray.100', borderColor: 'primary.300' }}
+                _active={{ cursor: 'grabbing' }}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                {...createTouchHandlers(index, draggedIdx, setDraggedIdx, (from, to) => {
+                  const frozenCols = columnsList.filter(col => frozenNames.has(col.fieldName));
+                  const draggableCols = columnsList.filter(col => !frozenNames.has(col.fieldName));
+                  const newCols = [...draggableCols];
+                  const [moved] = newCols.splice(from, 1);
+                  newCols.splice(to, 0, moved);
+                  setColumnsList([...frozenCols, ...newCols].map((col, idx) => ({ ...col, order: idx })));
+                })}
+                transition="all 0.2s"
+              >
+                <Icon as={GripVertical} color="neutral.500" />
+                <Badge colorScheme={field.colorScheme} minW="90px">
+                  {field.type}
+                </Badge>
+                <Text fontSize="sm" fontWeight="medium" flex="1">
+                  {field.label}
+                </Text>
+              </HStack>
+            ))
+          )}
+        </VStack>
+      );
     };
 
     return (
-      <VStack spacing={4} align="stretch">
+      <VStack spacing={6} align="stretch">
         <Box bg="primary.50" p={4} borderRadius="md" borderWidth="1px" borderColor="primary.200">
           <HStack spacing={2} mb={2}>
             <Icon as={Layout} color="primary.600" />
@@ -1701,57 +1823,31 @@ export default function CostEstimateTemplateEditor() {
             </Text>
           </HStack>
           <Text fontSize="sm" color="neutral.700">
-            Przeciągnij i upuść pola, aby zmienić kolejność wyświetlania kolumn w tabeli. Kolejność tutaj określa
-            kolejność kolumn w edytorze i podglądzie kosztorysu.
+            Ustaw osobno kolejność pól dla etapów i dla pozycji. Przeciągnij i upuść pola, aby zmienić ich
+            kolejność wyświetlania w tabeli kosztorysu.
           </Text>
         </Box>
 
-        <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px">
-          <Text fontSize="md" fontWeight="bold" mb={4}>
-            Kolejność pól ({sortedFields.length})
+        {/* Sekcja pól etapów */}
+        <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px" borderLeft="4px solid" borderLeftColor="purple.400">
+          <Text fontSize="md" fontWeight="bold" mb={1}>
+            Kolejność pól etapów ({sortedGroupFields.length})
           </Text>
+          <Text fontSize="sm" color="neutral.500" mb={4}>
+            Pola widoczne w wierszach etapów (grupy)
+          </Text>
+          {renderDraggableList(sortedGroupFields, validatedGroupCols, setGroupColumns, groupDraggedIndex, setGroupDraggedIndex, frozenGroupNames)}
+        </Box>
 
-          {sortedFields.length === 0 ? (
-            <Text fontSize="sm" color="neutral.500">
-              Brak pól w szablonie
-            </Text>
-          ) : (
-            <VStack spacing={2} align="stretch">
-              {sortedFields.map((field, index) => (
-                <HStack
-                  key={field.name}
-                  p={3}
-                  bg={draggedIndex === index ? 'primary.100' : 'gray.50'}
-                  borderRadius="md"
-                  borderWidth="2px"
-                  borderColor={draggedIndex === index ? 'primary.400' : 'gray.200'}
-                  spacing={3}
-                  cursor="grab"
-                  _hover={{ bg: draggedIndex === index ? 'primary.100' : 'gray.100', borderColor: 'primary.300' }}
-                  _active={{ cursor: 'grabbing' }}
-                  draggable
-                  onDragStart={() => handleDragStart(index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragEnd={handleDragEnd}
-                  {...createTouchHandlers(index, draggedIndex, setDraggedIndex, (from, to) => {
-                    const newCols = [...validatedColumns];
-                    const [moved] = newCols.splice(from, 1);
-                    newCols.splice(to, 0, moved);
-                    setColumns(newCols.map((col, idx) => ({ ...col, order: idx })));
-                  })}
-                  transition="all 0.2s"
-                >
-                  <Icon as={GripVertical} color="neutral.500" />
-                  <Badge colorScheme={field.colorScheme} minW="90px">
-                    {field.type}
-                  </Badge>
-                  <Text fontSize="sm" fontWeight="medium" flex="1">
-                    {field.label}
-                  </Text>
-                </HStack>
-              ))}
-            </VStack>
-          )}
+        {/* Sekcja pól pozycji */}
+        <Box bg="white" p={6} borderRadius="lg" shadow="sm" borderWidth="1px" borderLeft="4px solid" borderLeftColor="cyan.400">
+          <Text fontSize="md" fontWeight="bold" mb={1}>
+            Kolejność pól pozycji ({sortedItemFields.length})
+          </Text>
+          <Text fontSize="sm" color="neutral.500" mb={4}>
+            Pola widoczne w wierszach pozycji (systemowe, obliczeniowe, generyczne)
+          </Text>
+          {renderDraggableList(sortedItemFields, validatedItemCols, setItemColumns, itemDraggedIndex, setItemDraggedIndex, frozenItemNames)}
         </Box>
       </VStack>
     );
@@ -1881,7 +1977,7 @@ export default function CostEstimateTemplateEditor() {
                 Pola pozycji ({systemFields.length + calculatedFields.length + genericFields.length})
               </option>
               <option value={3}>Parametry</option>
-              <option value={4}>⠿ Kolejność pól</option>
+              <option value={4}>⠿ Kolejność pól (etapy / pozycje)</option>
             </Select>
           </Box>
 

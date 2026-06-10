@@ -223,20 +223,23 @@ export default function CreateCostEstimateModal({
               )}
               
               {!loadingTemplates && templates.length === 0 && (
-                <Alert status="warning" mt={2} borderRadius="md">
+                <Alert status="info" mt={2} borderRadius="md">
                   <AlertIcon />
                   <Box>
                     <Text fontSize="sm" fontWeight="medium">
                       Brak dostępnych szablonów
                     </Text>
-                    <Text fontSize="xs" color="neutral.600">
-                      Musisz najpierw utworzyć szablon kosztorysu.
+                    <Text fontSize="xs" color="neutral.600" mt={1}>
+                      Nie masz jeszcze własnych szablonów. Możesz{" "}
+                      <RouterLink to="/cost-estimate-templates" style={{ textDecoration: "underline", color: "var(--chakra-colors-primary-500)" }}>
+                        stworzyć własny szablon
+                      </RouterLink>
+                      {" "}lub{" "}
+                      <RouterLink to="/cost-estimate-templates/select" style={{ textDecoration: "underline", color: "var(--chakra-colors-primary-500)" }}>
+                        wybrać szablon domyślny
+                      </RouterLink>
+                      .
                     </Text>
-                    <RouterLink to="/cost-estimate-templates">
-                      <Text fontSize="xs" color="primary.500" mt={1} textDecoration="underline">
-                        Przejdź do zarządzania szablonami →
-                      </Text>
-                    </RouterLink>
                   </Box>
                 </Alert>
               )}

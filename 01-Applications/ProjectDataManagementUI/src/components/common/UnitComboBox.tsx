@@ -93,10 +93,16 @@ export const UnitComboBox: React.FC<UnitComboBoxProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Zamknij dropdown przy scrollu (pozycja się zmieni)
+  // Zamknij dropdown przy scrollu strony (pozycja się zmieni),
+  // ale nie zamykaj gdy scroll odbywa się wewnątrz dropdowna.
   useEffect(() => {
     if (!isOpen) return;
-    const handleScroll = () => setIsOpen(false);
+    const handleScroll = (e: Event) => {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target as Node)) {
+        return;
+      }
+      setIsOpen(false);
+    };
     window.addEventListener('scroll', handleScroll, true);
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [isOpen]);

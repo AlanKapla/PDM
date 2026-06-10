@@ -13,8 +13,6 @@ import {
 import {
   GripVertical,
   Trash2,
-  GitBranch,
-  Layers,
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
@@ -30,7 +28,6 @@ import type {
   FormatDisplayValueFn,
   GetColumnWidthFn,
 } from '../costEstimateTableTypes';
-import { POSITION_COL_MIN_WIDTH } from '../costEstimateTableTypes';
 import { SortableOptionRow } from './SortableOptionRow';
 import { SortableComponentRow } from './SortableComponentRow';
 
@@ -49,7 +46,11 @@ export interface SortableItemRowProps {
   /** Czy user może edytować wartości pól (false tylko dla trybu podglądu). Niezależne od canStructuralEdit. */
   canEditFields: boolean;
   templateStructure: any;
-  expandedColumns: ExpandedColumn[];
+  columns: ExpandedColumn[];
+  /** Liczba kolumn etapów — tyle samo pustych Td trzeba wyrenderować przed kolumnami pozycji */
+  groupColumnCount: number;
+  /** Szerokość kolumny expand (z uwzględnieniem poziomu zagnieżdżenia) */
+  expandColWidth: number;
   getColumnWidth: GetColumnWidthFn;
   getItemFieldValue: (item: CostEstimateItemWeb, fieldId: string) => string | undefined;
   /** Zwraca pełne CostEstimateFieldValueWeb — potrzebne dla pól z plikami */
@@ -101,7 +102,9 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
   editable,
   canEditFields,
   templateStructure,
-  expandedColumns,
+  columns: columnsProp,
+  groupColumnCount,
+  expandColWidth,
   getColumnWidth,
   getItemFieldValue,
   getItemFieldValueFull,
@@ -160,10 +163,10 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
       <Tr
         ref={setNodeRef}
         style={style}
-        bg="white"
+        bg="level1.100"
         borderBottomWidth="0.5px"
         borderBottomColor="neutral.100"
-        _hover={{ bg: 'neutral.50', cursor: 'pointer' }}
+        _hover={{ bg: 'level1.200', cursor: 'pointer' }}
       >
         {/* Akcje pozycji - zamrożona kolumna */}
         {editable && (
@@ -174,12 +177,12 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             position="sticky"
             left={0}
             zIndex={5}
-            bg="white"
+            bg="level1.100"
             borderLeftWidth="2px"
-            borderLeftColor="neutral.200"
+            borderLeftColor="level1.300"
             minW="120px"
             maxW="120px"
-            _groupHover={{ bg: 'neutral.50' }}
+            _groupHover={{ bg: 'level1.200' }}
           >
             <HStack spacing={1} justify="center">
               <Tooltip label="Przeciągnij aby zmienić kolejność">
@@ -215,7 +218,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                 >
                   <IconButton
                     aria-label="Dodaj opcję"
-                    icon={<GitBranch size={14} />}
+                    icon={<Text fontWeight="bold" fontSize="xs" lineHeight="1">O+</Text>}
                     size="xs"
                     colorScheme="level2"
                     variant="ghost"
@@ -234,7 +237,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                 >
                   <IconButton
                     aria-label="Dodaj komponent"
-                    icon={<Layers size={14} />}
+                    icon={<Text fontWeight="bold" fontSize="xs" lineHeight="1">K+</Text>}
                     size="xs"
                     colorScheme="green"
                     variant="ghost"
@@ -249,56 +252,49 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           </Td>
         )}
 
-        {/* Pozycja - zamrożona kolumna */}
+        {/* Expand/collapse button */}
         <Td
-          p={3}
+          p={2}
           pl={`${indent + 24}px`}
-          position="sticky"
-          left={editable ? '120px' : 0}
-          zIndex={5}
-          bg="white"
-          borderLeftWidth={!editable ? '2px' : undefined}
-          borderLeftColor={!editable ? 'neutral.200' : undefined}
-          w={`${POSITION_COL_MIN_WIDTH}px`}
-          minW={`${POSITION_COL_MIN_WIDTH}px`}
-          whiteSpace="nowrap"
-          _groupHover={{ bg: 'neutral.50' }}
+          w={`${expandColWidth}px`}
+          minW={`${expandColWidth}px`}
+          bg="level1.100"
         >
-          <HStack spacing={1}>
-            {hasChildren && (
-              <Tooltip label={
-                componentsExpanded && optionsExpanded
-                  ? 'Zwiń opcje i komponenty'
-                  : 'Rozwiń opcje i komponenty'
-              }>
-                <IconButton
-                  aria-label="Zwiń/rozwiń"
-                  icon={
-                    componentsExpanded && optionsExpanded
-                      ? <ChevronDown size={14} />
-                      : <ChevronRight size={14} />
-                  }
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => {
-                    const allExpanded = componentsExpanded && optionsExpanded;
-                    setComponentsExpanded(!allExpanded);
-                    setOptionsExpanded(!allExpanded);
-                  }}
-                  minW="auto"
-                  h="auto"
-                  p={0}
-                />
-              </Tooltip>
-            )}
-            <Text fontSize="sm" color="neutral.600" fontWeight="medium">
-              POZYCJA {itemNumber}
-            </Text>
-          </HStack>
+          {hasChildren && (
+            <Tooltip label={
+              componentsExpanded && optionsExpanded
+                ? 'Zwiń opcje i komponenty'
+                : 'Rozwiń opcje i komponenty'
+            }>
+              <IconButton
+                aria-label="Zwiń/rozwiń"
+                icon={
+                  componentsExpanded && optionsExpanded
+                    ? <ChevronDown size={14} />
+                    : <ChevronRight size={14} />
+                }
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  const allExpanded = componentsExpanded && optionsExpanded;
+                  setComponentsExpanded(!allExpanded);
+                  setOptionsExpanded(!allExpanded);
+                }}
+                minW="auto"
+                h="auto"
+                p={0}
+              />
+            </Tooltip>
+          )}
         </Td>
 
+        {/* Puste Td dla kolumn etapów — wyrównanie liczby komórek z nagłówkiem */}
+        {Array.from({ length: groupColumnCount }).map((_, idx) => (
+          <Td key={`empty-group-${idx}`} p={2} bg="level1.100" />
+        ))}
+
         {/* Kolumny pól pozycji */}
-        {expandedColumns.map((col: any) => {
+        {columnsProp.map((col: any) => {
           const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
 
           const groupHeaderField = templateStructure.groupHeaderFields?.find(
@@ -306,7 +302,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
           );
           if (groupHeaderField) {
             return (
-              <Td key={col.fieldId} p={2} bg="white" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+              <Td key={col.fieldId} p={2} bg="level1.100" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
                 <Text fontSize="xs" color="neutral.300" fontStyle="italic" textAlign="center">—</Text>
               </Td>
             );
@@ -314,7 +310,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
 
           if (col.type === 'childField') {
             return (
-              <Td key={col.fieldId} p={2} bg="neutral.50" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+              <Td key={col.fieldId} p={2} bg="level1.100" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
                 <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">
                   {itemOptions.length > 0 ? `${itemOptions.length} opcji` : '—'}
                 </Text>
@@ -366,7 +362,7 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
                 minW={`${colWidth}px`}
                 maxW={`${colWidth}px`}
                 overflow="hidden"
-                bg={hasComponents && isCalcFieldForDisable ? 'neutral.50' : undefined}
+                bg={hasComponents && isCalcFieldForDisable ? 'level1.100' : undefined}
               >
                 {canEditFields ? (
                   renderFieldInput(
@@ -417,7 +413,9 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             editable={editable}
             canEditFields={canEditFields}
             templateStructure={templateStructure}
-            expandedColumns={expandedColumns}
+            columns={columnsProp}
+            groupColumnCount={groupColumnCount}
+            expandColWidth={expandColWidth}
             getColumnWidth={getColumnWidth}
             getItemFieldValue={getItemFieldValue}
             getItemFieldValueFull={getItemFieldValueFull}
@@ -445,7 +443,9 @@ export const SortableItemRow: React.FC<SortableItemRowProps> = ({
             editable={editable}
             canEditFields={canEditFields}
             templateStructure={templateStructure}
-            expandedColumns={expandedColumns}
+            columns={columnsProp}
+            groupColumnCount={groupColumnCount}
+            expandColWidth={expandColWidth}
             getColumnWidth={getColumnWidth}
             getItemFieldValueFull={getItemFieldValueFull}
             updateOptionFieldValue={updateOptionFieldValue}

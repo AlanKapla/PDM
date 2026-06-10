@@ -317,7 +317,8 @@ export const computeFieldFromAvailable = (fieldType: number, vals: AllItemValues
  * Przelicza pozycję po zmianie pola.
  * Dla każdego pola obliczanego:
  * - jeśli MOŻNA obliczyć → zapisz wartość
- * - jeśli NIE MOŻNA → NIE usuwaj (mogło być wpisane ręcznie)
+ * - jeśli NIE MOŻNA → usuń starą wartość (dane źródłowe zostały usunięte)
+ *   Wyjątek: pole pominięte przez skipFieldType (ręczna edycja) nie jest usuwane
  *
  * @param skipFieldType — nie nadpisuj pola, które właśnie zostało ręcznie zmienione
  */
@@ -363,6 +364,9 @@ export const recalculateItem = (
           stringValue: computed.toString(),
         });
       }
+    } else if (idx !== -1) {
+      // Nie można obliczyć — usuń starą wartość (dane źródłowe zostały usunięte)
+      fieldValues.splice(idx, 1);
     }
   }
 
@@ -495,6 +499,9 @@ export const recalculateOption = (
           stringValue: computed.toString(),
         });
       }
+    } else if (idx !== -1) {
+      // Nie można obliczyć — usuń starą wartość (dane źródłowe zostały usunięte)
+      fieldValues.splice(idx, 1);
     }
   }
 

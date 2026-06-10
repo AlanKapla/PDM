@@ -119,7 +119,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
                 throw new ForbiddenApiException("This field is read-only and cannot be modified.");
             }
 
-            CostEstimateItemStructureGuard.EnsureItemHasNoComponents(request.ItemId, itemsDict);
+            CostEstimateItemStructureGuard.EnsureItemHasNoComponents(request.ItemId, itemsDict, fieldDef.FieldType);
 
             CostEstimateFieldValueContext addContext = CostEstimateFieldValueContext.From(
                 fieldDef, request.StringValue, request.DecimalValue, request.BoolValue, request.DateTimeValue);
@@ -205,7 +205,7 @@ namespace CQRS.CostEstimates.UpsertCostEstimateItemField
                 throw new ForbiddenApiException("This field is read-only and cannot be modified.");
             }
 
-            CostEstimateItemStructureGuard.EnsureItemHasNoComponents(request.ItemId, itemsDict);
+            CostEstimateItemStructureGuard.EnsureItemHasNoComponents(request.ItemId, itemsDict, fieldValue.FieldDefinition.FieldType);
 
             CostEstimateFieldValueContext updateContext = CostEstimateFieldValueContext.From(
                 fieldValue.FieldDefinition, request.StringValue, request.DecimalValue, request.BoolValue, request.DateTimeValue);

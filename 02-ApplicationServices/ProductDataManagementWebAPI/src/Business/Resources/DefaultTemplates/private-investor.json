@@ -202,7 +202,7 @@
     {
       "fieldName": "00000004-0002-0000-0000-000000000003",
       "fieldType": 104,
-      "label": "Zaznaczenie",
+      "label": "Sumuj",
       "isSortable": true,
       "isFilterable": true,
       "isVisible": true,
