@@ -88,8 +88,13 @@
     gap: 32px;
   }
 
-  .feature-row__highlights {
-    grid-column: 2;
+  .feature-row__right,
+  .feature-row__gallery {
+    grid-column: 1 / -1;
+  }
+
+  .feature-row__gallery {
+    margin-top: 16px;
   }
 
   .feature-row__number {
@@ -115,20 +120,144 @@
   gap: 28px;
 }
 
-.feature-row__screen {
+.feature-row__gallery {
+  grid-column: 1 / -1;
+  margin-top: 24px;
+  padding-bottom: 32px;
+}
+
+.feature-row__gallery .gallery {
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ==========================================
+   Gallery — karuzela zdjęć w module
+   ========================================== */
+
+.gallery {
+  position: relative;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid #EAE0D5;
   background: #F9F4EF;
-  min-height: 160px;
+}
+
+.gallery:focus-visible {
+  outline: 3px solid var(--cobalt-500);
+  outline-offset: -3px;
+}
+
+.gallery__viewport {
+  width: 100%;
+  min-height: 200px;
+  max-height: 620px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #F9F4EF;
+  overflow: hidden;
 }
 
-.feature-row__screen-img {
+.gallery__img {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
   display: block;
-  object-fit: cover;
+}
+
+/* Przyciski nawigacji — overlay na obrazie */
+.gallery__btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+  padding: 0;
+  line-height: 1;
+}
+
+.gallery__btn:hover {
+  background: #fff;
+  transform: translateY(-50%) scale(1.08);
+}
+
+.gallery__btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.gallery__btn--prev {
+  left: 12px;
+}
+
+.gallery__btn--next {
+  right: 12px;
+}
+
+/* Kropki (paginacja) */
+.gallery__dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.gallery__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  background: #CCC3B8;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+  padding: 0;
+}
+
+.gallery__dot:hover {
+  background: var(--cobalt-400);
+  transform: scale(1.25);
+}
+
+.gallery__dot--active {
+  background: var(--cobalt-500);
+  transform: scale(1.25);
+}
+
+/* Responsywność galerii */
+@media (max-width: 600px) {
+  .feature-row__gallery {
+    padding-bottom: 24px;
+  }
+
+  .gallery__viewport {
+    max-height: 400px;
+    min-height: 160px;
+  }
+
+  .gallery__btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .gallery__btn--prev {
+    left: 8px;
+  }
+
+  .gallery__btn--next {
+    right: 8px;
+  }
 }

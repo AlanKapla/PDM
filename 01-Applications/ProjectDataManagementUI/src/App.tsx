@@ -2,16 +2,19 @@
 import AppRouter from "./routes/AppRouter";
 import { AuthProvider } from "./context/AuthContext";
 import { ChatUnreadProvider } from "./context/ChatUnreadContext";
+import { DemoProvider } from "./context/DemoContext";
 import CookieBanner from "./components/CookieBanner";
 
 function App() {
   return (
     <AuthProvider>
       <ChatUnreadProvider>
-        <BrowserRouter>
-          <AppRouter />
-          <CookieBanner />
-        </BrowserRouter>
+        <DemoProvider>
+          <BrowserRouter>
+            <AppRouter />
+            <CookieBanner />
+          </BrowserRouter>
+        </DemoProvider>
       </ChatUnreadProvider>
     </AuthProvider>
   );

@@ -16,6 +16,11 @@
         /// </summary>
         bool IsActiveTenantAdmin,
 
+        /// <summary>
+        /// Whether the user has the SYSTEM.SUPERADMIN role.
+        /// </summary>
+        bool IsSuperAdmin,
+
         string? PhoneNumber,
         string? CompanyName,
         string? TaxId,

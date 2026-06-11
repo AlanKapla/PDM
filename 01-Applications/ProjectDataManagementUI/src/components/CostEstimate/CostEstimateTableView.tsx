@@ -459,7 +459,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
     }
     
     // Liczby - formatuj z separatorem tysięcy i 2 miejscami po przecinku
-    if (cfg?.isNumeric || fieldDef?.fieldType === 0 || fieldDef?.fieldType === 1) {
+    // UWAGA: fieldType 0=GroupName i 1=GroupDescription to tekst, nie liczby!
+    if (cfg?.isNumeric) {
       const num = parseFloat(value);
       if (!isNaN(num)) {
         return num.toLocaleString('pl-PL', {
@@ -903,6 +904,16 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
         filterAndSortGroups(group.childGroups || []).forEach((child, childIndex) => {
           processGroup(child, level + 1, groupNumber, childIndex);
         });
+
+        // Dodaj wiersz podsumowania dla grupy (sumy pól item columns)
+        if (showGroupSummary && group.items && group.items.length > 0) {
+          rows.push({
+            type: 'groupSummary',
+            level: level + 1,
+            groupId: group.id,
+            group,
+          });
+        }
       }
     };
 
@@ -1878,7 +1889,8 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
          );
        }
 
-       const isNumForDisplay = cfg?.isNumeric || [0, 1].includes(fieldDef.fieldType);
+        // UWAGA: fieldType 0=GroupName i 1=GroupDescription to tekst, nie liczby!
+        const isNumForDisplay = cfg?.isNumeric;
        const isTextWithLink = !isNumForDisplay && value && containsUrl(value);
        const readonlyNumericValue = value !== undefined && value !== '' ? parseFloat(value) : undefined;
        const displayValue = readonlyNumericValue !== undefined
@@ -2015,15 +2027,9 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
 
      {
      }
-     if (fieldType === 0 || fieldType === 1) {
-       return (
-         <FormattedNumericInput
-           value={value}
-           onChange={onChange}
-           disabled={effectiveDisabled}
-         />
-       );
-     }
+      // UWAGA: fieldType 0=GroupName i 1=GroupDescription to tekst, nie liczby!
+      // Te pola są już obsłużone przez cfg.isText → LocalTextInput na końcu funkcji.
+      // Pomijamy — nie wpadaj w `FormattedNumericInput` dla pól tekstowych.
      if (fieldType === 4) {
        return (
          <LocalDateInput
@@ -3289,6 +3295,97 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                   );
                 }
 
+                if (row.type === 'groupSummary' && row.group) {
+                  const summaryGroup = row.group;
+                  return (
+                    <Tr key={`summary-${row.groupId}`} bg="neutral.25">
+                      {canStructuralEdit && (
+                        <Td p={2} w="120px" minW="120px" maxW="120px" />
+                      )}
+                      <Td p={2} w={`${expandColWidth}px`} minW={`${expandColWidth}px`}>
+                        <Badge colorScheme="neutral" variant="outline" fontSize="xs">SUMA ETAPU</Badge>
+                      </Td>
+                      {/* Group columns — puste */}
+                      {visibleGroupColumns.map((col) => {
+                        const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
+                        return (
+                          <Td key={`gsum-${col.fieldId}`} p={2} bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                            <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
+                          </Td>
+                        );
+                      })}
+                      {/* Item columns — sumowanie */}
+                      {visibleItemColumns.map((col) => {
+                        const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
+
+                        const systemField = templateStructure.systemFields?.find(
+                          (f: any) => f.id === col.fieldId || f.fieldName === col.originalColumn?.fieldName
+                        );
+                        const calcField = templateStructure.calculatedFields?.find(
+                          (f: any) => f.id === col.fieldId || f.fieldName === col.originalColumn?.fieldName
+                        );
+                        const genericField = templateStructure.genericFields?.find(
+                          (f: any) => f.id === col.fieldId || f.fieldName === col.originalColumn?.fieldName
+                        );
+                        const fieldDef = systemField || calcField || genericField;
+
+                        if (fieldDef) {
+                          const hasSumInGroupFlag = (fieldDef as any).sumInGroup === true;
+                          const isInSummaryFields = groupSummaryFields.length > 0 &&
+                            groupSummaryFields.some((sf: any) => sf.fieldId === col.fieldId || sf.fieldId === fieldDef.id);
+
+                          const shouldSum = hasSumInGroupFlag || isInSummaryFields;
+
+                          if (shouldSum) {
+                            const summaryValues = (summaryGroup as any).summaryValues || {};
+                            let sumValue: number | undefined;
+
+                            if (summaryValues[fieldDef.id] !== undefined) {
+                              sumValue = summaryValues[fieldDef.id];
+                            } else if (fieldDef.fieldName === 'valueNet' && summaryGroup.totalNet !== undefined) {
+                              sumValue = summaryGroup.totalNet;
+                            } else if (fieldDef.fieldName === 'valueGross' && summaryGroup.totalGross !== undefined) {
+                              sumValue = summaryGroup.totalGross;
+                            } else if (fieldDef.fieldName === 'totalVat' && summaryGroup.totalVat !== undefined) {
+                              sumValue = summaryGroup.totalVat;
+                            } else {
+                              // Fallback: sum from group items
+                              const groupItems = (summaryGroup.items || []).concat(
+                                (summaryGroup.childGroups || []).flatMap((cg: any) => cg.items || [])
+                              );
+                              sumValue = 0;
+                              for (const itm of groupItems) {
+                                const fv = itm.fieldValues?.find((v: any) => v.fieldDefinitionId === fieldDef.id);
+                                if (fv?.decimalValue !== undefined && fv?.decimalValue !== null) {
+                                  sumValue += fv.decimalValue;
+                                } else if (fv?.stringValue) {
+                                  const parsed = parseFloat(fv.stringValue);
+                                  if (!isNaN(parsed)) sumValue += parsed;
+                                }
+                              }
+                            }
+
+                            const currencySymbol = details.selectedCurrencySymbol || details.selectedCurrencyCode || '';
+                            return (
+                              <Td key={`gsum-${col.fieldId}`} p={2} textAlign="center" bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                                <Text fontSize="sm" fontWeight="bold" color="primary.600">
+                                  Σ {(sumValue ?? 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}
+                                </Text>
+                              </Td>
+                            );
+                          }
+                        }
+
+                        return (
+                          <Td key={`gsum-${col.fieldId}`} p={2} bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                            <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>
+                          </Td>
+                        );
+                      })}
+                    </Tr>
+                  );
+                }
+
                 return null;
               })}
               </Tbody>
@@ -3374,9 +3471,77 @@ export const CostEstimateTableView: React.FC<CostEstimateTableViewProps> = ({
                         </Td>
                       );
                     })}
-          {/* Item columns — puste Td do wyrównania liczby komórek */}
+          {/* Item columns — sumowanie dla policzalnych pól */}
           {visibleItemColumns.map((col) => {
                       const colWidth = getColumnWidth(col.fieldId, col.width, col.label);
+                      
+                      const systemField = templateStructure.systemFields?.find(
+                        (f: any) => f.id === col.fieldId || f.fieldName === col.originalColumn?.fieldName
+                      );
+                      const calcField = templateStructure.calculatedFields?.find(
+                        (f: any) => f.id === col.fieldId || f.fieldName === col.originalColumn?.fieldName
+                      );
+                      const genericField = templateStructure.genericFields?.find(
+                        (f: any) => f.id === col.fieldId || f.fieldName === col.originalColumn?.fieldName
+                      );
+                      const fieldDef = systemField || calcField || genericField;
+
+                      if (fieldDef) {
+                        const hasSumInTotalFlag = (fieldDef as any).sumInTotal === true;
+                        const isInSummaryFields = totalSummaryFields.length > 0 &&
+                          totalSummaryFields.some((sf: any) => sf.fieldId === col.fieldId || sf.fieldId === fieldDef.id);
+
+                        const shouldSum = hasSumInTotalFlag || isInSummaryFields;
+
+                        if (shouldSum) {
+                          const fieldName = fieldDef.fieldName;
+                          const ft = fieldDef.fieldType ?? fieldDef.fieldTypeConfig?.fieldType;
+                          let sumValue: number | undefined;
+
+                          if (fieldName === 'valueNet' || ft === 203) {
+                            sumValue = details.totalNet;
+                          } else if (fieldName === 'valueGross' || ft === 204) {
+                            sumValue = details.totalGross;
+                          } else if (fieldName === 'totalVat' || ft === 206) {
+                            sumValue = details.totalVat;
+                          } else {
+                            sumValue = (details as any).summaryValues?.[fieldDef.id];
+                          }
+
+                          // Fallback: oblicz z pozycji na żywo
+                          if (sumValue === undefined) {
+                            const collectAllItems = (groups: CostEstimateGroupWeb[]): CostEstimateItemWeb[] => {
+                              let items: CostEstimateItemWeb[] = [];
+                              for (const g of groups) {
+                                if (g.items) items = items.concat(g.items);
+                                if (g.childGroups) items = items.concat(collectAllItems(g.childGroups));
+                              }
+                              return items;
+                            };
+                            const allItems = collectAllItems(details.rootGroups);
+                            sumValue = 0;
+                            for (const itm of allItems) {
+                              const fv = itm.fieldValues?.find((v: any) => v.fieldDefinitionId === fieldDef.id);
+                              if (fv?.decimalValue !== undefined && fv?.decimalValue !== null) {
+                                sumValue += fv.decimalValue;
+                              } else if (fv?.stringValue) {
+                                const parsed = parseFloat(fv.stringValue);
+                                if (!isNaN(parsed)) sumValue += parsed;
+                              }
+                            }
+                          }
+
+                          const currencySymbol = details.selectedCurrencySymbol || details.selectedCurrencyCode || '';
+                          return (
+                            <Td key={col.fieldId} p={2} textAlign="center" bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
+                              <Text fontSize="sm" fontWeight="bold" color="primary.600">
+                                Σ {(sumValue ?? 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencySymbol}
+                              </Text>
+                            </Td>
+                          );
+                        }
+                      }
+
                       return (
                         <Td key={col.fieldId} p={2} bg="neutral.25" w={`${colWidth}px`} minW={`${colWidth}px`} maxW={`${colWidth}px`}>
                           <Text fontSize="xs" color="neutral.400" fontStyle="italic" textAlign="center">—</Text>

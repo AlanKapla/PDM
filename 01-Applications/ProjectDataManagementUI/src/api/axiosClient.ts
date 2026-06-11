@@ -2,6 +2,7 @@ import axios from "axios";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
+import { setupMockInterceptors, isDemoModeActive } from "./mock";
 
 // Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
 function requireEnvVar(key: string): string {
@@ -21,11 +22,24 @@ export const axiosClient = axios.create({
   withCredentials: false, // Changed to false - using Bearer tokens instead of cookies
 });
 
+// ---- Demo Mode — mock interceptors ----
+// Rejestrujemy NAJPIERW, aby mock interceptor działał jako OSTATNI w łańcuchu
+// (Axios odwraca kolejność rejestracji). Dzięki temu żaden inny interceptor
+// nie może odrzucić requestu po ustawieniu mock adaptera.
+setupMockInterceptors(axiosClient);
+
 // Request interceptor to add access token
 // Follows MSAL best practice: acquireTokenSilent first, then fallback to interactive
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-acquire-token
 axiosClient.interceptors.request.use(
   async (config) => {
+    // W demo mode nie potrzebujemy tokena — wszystkie requesty są mockowane.
+    // Token interceptor odpala się PRZED mock interceptorem (bo jest zarejestrowany później),
+    // więc musimy go pominąć, aby nie odrzucił requestu przed ustawieniem mock adaptera.
+    if (isDemoModeActive()) {
+      return config;
+    }
+
     const accounts = msalInstance.getAllAccounts();
     
     if (accounts.length > 0) {

@@ -32,6 +32,11 @@ export interface UserProfile {
    */
   isActiveTenantAdmin: boolean;
 
+  /**
+   * Whether the user has the SYSTEM.SUPERADMIN role
+   */
+  isSuperAdmin: boolean;
+
   // Kontaktowe
   phoneNumber?: string | null;
 

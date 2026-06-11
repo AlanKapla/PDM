@@ -65,7 +65,7 @@ argument-hint: "Co chcesz zmienić na landing page Brickly?"
 - Bezpłatna
 - Otwarta na integracje z zewnętrznymi systemami (ERP, księgowość, platformy zakupowe)
 - Możliwość dodawania spersonalizowanych modułów dla klienta
-- Moduły AI automatyzujące pracę (w przyszłości)
+- Moduły AI automatyzujące pracę: rozpoznawanie dokumentów kosztowych i generowanie kosztorysów
 
 ## Słownik screenshotów
 
@@ -94,6 +94,8 @@ Screenshoty umieszczane są w: `public/screenshots/`
 | `tasks-module.png`              | Zaplanowane prace dla członków projektu             |
 | `contractors-module.png`        | Kontrahenci organizacji                             |
 | `parameters-module.png`         | Parametryzacja projektu (np. waluta)               |
+| `ai-cost-import.png`            | AI — automatyczne rozpoznawanie faktur i paragonów |
+| `ai-estimate-generate.png`      | AI — generowanie kosztorysu na podstawie opisu     |
 
 ## Procedura modyfikacji komponentu
 

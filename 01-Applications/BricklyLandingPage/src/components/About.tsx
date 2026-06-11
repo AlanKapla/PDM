@@ -8,6 +8,7 @@ const BENEFITS = [
   'Centralne repozytorium dokumentów, plików i faktur',
   'Komunikacja w kontekście projektu — z pełną historią',
   'Raporty dla inwestora generowane automatycznie',
+  'Automatyczne rozpoznawanie faktur i generowanie kosztorysów przez AI',
 ]
 
 export default function About() {

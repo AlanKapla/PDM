@@ -18,7 +18,7 @@ import type {
 
 /** Spłaszczony wiersz tabeli — używany w flatRows */
 export interface FlatRow {
-  type: 'group' | 'item';
+  type: 'group' | 'item' | 'groupSummary';
   level: number;
   groupId?: string;
   group?: CostEstimateGroupWeb;

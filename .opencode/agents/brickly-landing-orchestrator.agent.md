@@ -7,8 +7,6 @@ tools:
   glob: true
   grep: true
   task: true
-
-argument-hint: "Opisz zmiany do wprowadzenia na landing page Brickly"
 ---
 
 # Brickly Landing Page — Orkiestrator

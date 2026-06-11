@@ -258,9 +258,6 @@ export default function Projects() {
                           <Text fontWeight="bold" fontSize={{ base: "sm", md: "lg" }} noOfLines={1}>
                             {project.name}
                           </Text>
-                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "xs", md: "xs" }}>
-                            {project.isActive ? "Aktywny" : "Nieaktywny"}
-                          </Badge>
                           <Badge colorScheme={project.isAdmin ? "purple" : "blue"} fontSize={{ base: "xs", md: "xs" }}>
                             {project.isAdmin ? "Admin" : "Cz\u0142onek"}
                           </Badge>

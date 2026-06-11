@@ -659,9 +659,6 @@ export default function ProjectDetails() {
                         <Text fontSize="2xl" fontWeight="bold">
                           {project.name}
                         </Text>
-                        <Badge colorScheme={project.isActive ? "green" : "gray"}>
-                          {project.isActive ? "Aktywny" : "Nieaktywny"}
-                        </Badge>
                       </HStack>
                       <Text fontSize="sm" color="neutral.500">
                         Utworzono: {formatDate(project.createdAt)}

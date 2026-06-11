@@ -43,8 +43,9 @@ export default function CallToAction() {
           <p className="cta-section__integration-text">
             Platforma jest otwarta na integracje z systemami zewnętrznymi —
             ERP, oprogramowanie księgowe, platformy zakupowe.
-            Istnieje możliwość wdrożenia spersonalizowanych modułów
-            oraz funkcji opartych na AI, dostosowanych do potrzeb organizacji.
+            Dostępne są inteligentne funkcje automatyzacji:
+            rozpoznawanie dokumentów kosztowych ze zdjęć
+            oraz generowanie kosztorysów na podstawie opisu inwestycji.
           </p>
         </div>
 

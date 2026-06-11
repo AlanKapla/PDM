@@ -1,6 +1,119 @@
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import './Modules.css'
 
-const FEATURES = [
+/* ------------------------------------------------------------------ */
+/*  ScreenshotGallery — karuzela zrzutów ekranu dla pojedynczego     */
+/*  modułu. Przyjmuje tablicę nazw plików (bez rozszerzenia) i       */
+/*  ścieżkę bazową. Zdjęcia ładowane są jako module/N.png.           */
+/* ------------------------------------------------------------------ */
+
+interface ScreenshotGalleryProps {
+  /** Nazwy plików bez rozszerzenia, np. ['1', '2', '3'] */
+  screens: string[]
+  /** Ścieżka bazowa, np. /screenshots/module-01 */
+  basePath: string
+  /** Tekst alternatywny – zostanie uzupełniony o numer widoku */
+  alt: string
+}
+
+function ScreenshotGallery({ screens, basePath, alt }: ScreenshotGalleryProps) {
+  const [index, setIndex] = useState(0)
+  const total = screens.length
+
+  function handleGoPrev() {
+    setIndex((prev) => (prev === 0 ? total - 1 : prev - 1))
+  }
+
+  function handleGoNext() {
+    setIndex((prev) => (prev === total - 1 ? 0 : prev + 1))
+  }
+
+  function handleGoTo(i: number) {
+    setIndex(i)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      handleGoPrev()
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      handleGoNext()
+    }
+  }
+
+  return (
+    <div
+      className="gallery"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      role="region"
+      aria-label={`Galeria: ${alt}`}
+    >
+      <div className="gallery__viewport">
+        <img
+          src={`${basePath}/${screens[index]}.png`}
+          alt={`${alt} — widok ${index + 1} z ${total}`}
+          className="gallery__img"
+          loading="lazy"
+        />
+      </div>
+
+      {total > 1 && (
+        <>
+          <button
+            type="button"
+            className="gallery__btn gallery__btn--prev"
+            onClick={handleGoPrev}
+            aria-label="Poprzedni zrzut ekranu"
+          >
+            <ChevronLeft size={20} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="gallery__btn gallery__btn--next"
+            onClick={handleGoNext}
+            aria-label="Następny zrzut ekranu"
+          >
+            <ChevronRight size={20} aria-hidden="true" />
+          </button>
+          <div className="gallery__dots" role="tablist" aria-label="Wybór zrzutu ekranu">
+            {screens.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`gallery__dot${i === index ? ' gallery__dot--active' : ''}`}
+                onClick={() => handleGoTo(i)}
+                role="tab"
+                aria-selected={i === index}
+                aria-label={`Zrzut ekranu ${i + 1} z ${total}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Konfiguracja modułów                                              */
+/*                                                                     */
+/*  screens: tablica nazw plików (bez .png) w katalogu                */
+/*           public/screenshots/module-{number}/                       */
+/* ------------------------------------------------------------------ */
+
+interface Feature {
+  number: string
+  tag: string
+  title: string
+  description: string
+  highlights: string[]
+  screens: string[]
+}
+
+const FEATURES: Feature[] = [
   {
     number: '01',
     tag: 'Dokumentacja projektowa',
@@ -12,8 +125,7 @@ const FEATURES = [
       'Udostępnianie z granularną kontrolą uprawnień',
       'Bezpieczne repozytorium z logiem dostępu',
     ],
-    screen: 'doc-versioning.png',
-    screenAlt: 'Dokumentacja projektowa — wersjonowanie i komentarze',
+    screens: ['1', '2', '3'],
   },
   {
     number: '02',
@@ -26,8 +138,7 @@ const FEATURES = [
       'Przypisanie kosztów do pozycji kosztorysu',
       'Historia operacji z datą i autorem',
     ],
-    screen: 'cost-expenses.png',
-    screenAlt: 'Dokumentacja kosztowa — wydatki i akceptacja',
+    screens: ['1'],
   },
   {
     number: '03',
@@ -40,8 +151,7 @@ const FEATURES = [
       'Budowanie pozycji z komponentów (materiał, robocizna, transport)',
       'Automatyczne przeliczenia przy zmianie parametrów',
     ],
-    screen: 'estimate-templates.png',
-    screenAlt: 'Kosztorysy — szablony i warianty',
+    screens: ['1'],
   },
   {
     number: '04',
@@ -54,8 +164,7 @@ const FEATURES = [
       'Zależności między zakresami prac z różnych etapów',
       'Automatyczne alerty o opóźnieniach',
     ],
-    screen: 'schedule-periods.png',
-    screenAlt: 'Harmonogram — zakresy prac i zależności',
+    screens: ['1'],
   },
   {
     number: '05',
@@ -68,8 +177,7 @@ const FEATURES = [
       'Synchronizacja zmian między modułami',
       'Spójna struktura kosztowo-czasowa projektu',
     ],
-    screen: 'sync-stages.png',
-    screenAlt: 'Synchronizacja kosztorysu z harmonogramem',
+    screens: ['1'],
   },
   {
     number: '06',
@@ -82,8 +190,7 @@ const FEATURES = [
       'Analiza kosztowo-czasowa projektu',
       'Widok porównawczy planu z wykonaniem',
     ],
-    screen: 'dashboard-costs.png',
-    screenAlt: 'Dashboard — analiza kosztowo-czasowa',
+    screens: ['1'],
   },
   {
     number: '07',
@@ -96,8 +203,7 @@ const FEATURES = [
       'Generowanie zadań na podstawie harmonogramu',
       'Powiadomienia o nowych zadaniach i zmianach',
     ],
-    screen: 'communication-module.png',
-    screenAlt: 'Komunikacja i zaplanowane prace',
+    screens: ['1'],
   },
   {
     number: '08',
@@ -110,10 +216,39 @@ const FEATURES = [
       'Możliwość indywidualnych ustawień dla każdej inwestycji',
       'Integracja z modułami kosztorysów i harmonogramów',
     ],
-    screen: 'contractors-module.png',
-    screenAlt: 'Kontrahenci i parametryzacja projektu',
+    screens: ['1'],
+  },
+  {
+    number: '09',
+    tag: 'AI — Import dokumentów',
+    title: 'Automatyczne rozpoznawanie faktur i paragonów',
+    description: 'Zdjęcie faktury lub paragonu przesłane do platformy jest automatycznie analizowane przez AI. System rozpoznaje nazwę kosztu, kwoty netto i brutto, numer dokumentu, datę oraz dane kontrahenta. Odczytane informacje są prezentowane do weryfikacji przed zapisaniem.',
+    highlights: [
+      'Rozpoznawanie nazwy kosztu, kwot netto i brutto',
+      'Automatyczne odczytywanie numeru faktury i daty wystawienia',
+      'Wyodrębnianie danych kontrahenta: nazwa, NIP, adres',
+      'Weryfikacja odczytanych danych przed zapisem',
+    ],
+    screens: ['1'],
+  },
+  {
+    number: '10',
+    tag: 'AI — kosztorys z opisu',
+    title: 'Generowanie kosztorysu na podstawie opisu inwestycji',
+    description: 'Opis inwestycji w języku naturalnym — rodzaj obiektu, standard wykończenia, budżet, metraż, lokalizacja — jest analizowany przez AI na podstawie wybranego szablonu organizacji. System generuje pełną strukturę kosztorysu z grupami, pozycjami, ilościami i cenami. Uwzględniane są mnożniki lokalizacyjne kosztów robocizny oraz prognozowana inflacja na rok zakończenia inwestycji.',
+    highlights: [
+      'Opis inwestycji w języku naturalnym jako dane wejściowe',
+      'Automatyczny dobór mnożników lokalizacyjnych i inflacji',
+      'Generowanie pełnej struktury: grupy, pozycje, komponenty',
+      'Podgląd i edycja kosztorysu przed zatwierdzeniem',
+    ],
+    screens: ['1'],
   },
 ]
+
+/* ------------------------------------------------------------------ */
+/*  Modules — główny komponent sekcji                                 */
+/* ------------------------------------------------------------------ */
 
 export default function Modules() {
   return (
@@ -137,21 +272,20 @@ export default function Modules() {
               </div>
               <div className="feature-row__right">
                 <ul className="feature-row__highlights">
-                  {feature.highlights.map(h => (
+                  {feature.highlights.map((h) => (
                     <li key={h} className="feature-row__highlight">
                       <span className="feature-row__dot" aria-hidden="true" />
                       {h}
                     </li>
                   ))}
                 </ul>
-                <div className="feature-row__screen">
-                  <img
-                    src={`/screenshots/${feature.screen}`}
-                    alt={feature.screenAlt}
-                    className="feature-row__screen-img"
-                    loading="lazy"
-                  />
-                </div>
+              </div>
+              <div className="feature-row__gallery">
+                <ScreenshotGallery
+                  screens={feature.screens}
+                  basePath={`/screenshots/module-${feature.number}`}
+                  alt={`${feature.tag}: ${feature.title}`}
+                />
               </div>
             </div>
           ))}
