@@ -38,6 +38,9 @@ import { useNavigate } from "react-router-dom";
 import { useGantt } from "./GanttContext";
 import type { TimeScale } from "../../hooks/useTimelineData";
 
+/** MenuList portaled do body ma domyślny z-index 1 — musi być nad timeline (do ~300). */
+const GANTT_MENU_Z_INDEX = 1500;
+
 interface GanttToolbarProps {
   onNavigateBack: () => void;
   timeScale: TimeScale;
@@ -134,7 +137,7 @@ export default function GanttToolbar({
       py={3}
       position="sticky"
       top={0}
-      zIndex={20}
+      zIndex={30}
       shadow="sm"
     >
       {/* Wiersz 1: Nawigacja + Nazwa + Status */}
@@ -222,7 +225,7 @@ export default function GanttToolbar({
                 >
                   Kosztorys
                 </MenuButton>
-                <MenuList>
+                <MenuList zIndex={GANTT_MENU_Z_INDEX}>
                   <MenuItem
                     icon={isSyncing ? <Spinner size="xs" /> : <RefreshCw size={14} />}
                     onClick={syncWithEstimate}
@@ -299,7 +302,7 @@ export default function GanttToolbar({
                 <Tooltip label="Kosztorys" hasArrow>
                   <MenuButton as={IconButton} aria-label="Kosztorys" icon={<FileSpreadsheet size={14} />} size="sm" variant="outline" colorScheme="orange" />
                 </Tooltip>
-                <MenuList>
+                <MenuList zIndex={GANTT_MENU_Z_INDEX}>
                   <MenuItem icon={isSyncing ? <Spinner size="xs" /> : <RefreshCw size={14} />} onClick={syncWithEstimate} isDisabled={isSyncing}>
                     Synchronizuj z kosztorysem
                   </MenuItem>
@@ -363,7 +366,7 @@ export default function GanttToolbar({
               <MenuButton as={Button} size="xs" rightIcon={<ChevronDown size={12} />} leftIcon={<FileSpreadsheet size={13} />} colorScheme="orange" variant="outline">
                 Kosztorys
               </MenuButton>
-              <MenuList>
+              <MenuList zIndex={GANTT_MENU_Z_INDEX}>
                 <MenuItem icon={<RefreshCw size={14} />} onClick={syncWithEstimate} isDisabled={isSyncing}>
                   Synchronizuj
                 </MenuItem>
@@ -376,7 +379,7 @@ export default function GanttToolbar({
             <MenuButton as={Button} size="xs" rightIcon={<ChevronDown size={12} />} leftIcon={<Zap size={13} />} colorScheme="gray" variant="outline">
               Narzędzia
             </MenuButton>
-            <MenuList>
+            <MenuList zIndex={GANTT_MENU_Z_INDEX}>
               <MenuItem icon={<RefreshCw size={14} />} onClick={fetchSchedule}>Odśwież</MenuItem>
               {!compact && <MenuItem icon={<GitBranch size={14} />} onClick={() => setShowDependencies(!showDependencies)} fontWeight={showDependencies ? "semibold" : "normal"}>Zależności</MenuItem>}
               {!compact && <MenuItem icon={<CalendarX2 size={14} />} onClick={onToggleWeekends} fontWeight={hideWeekends ? "semibold" : "normal"}>Ukryj weekendy</MenuItem>}

@@ -8,11 +8,8 @@
 
 	<ItemGroup>
 	  <Compile Remove="Models\CostEstimateData\**" />
-	  <Compile Remove="Models\CostEstimateTemplateDefinitions\**" />
 	  <EmbeddedResource Remove="Models\CostEstimateData\**" />
-	  <EmbeddedResource Remove="Models\CostEstimateTemplateDefinitions\**" />
 	  <None Remove="Models\CostEstimateData\**" />
-	  <None Remove="Models\CostEstimateTemplateDefinitions\**" />
 	</ItemGroup>
 
 	<ItemGroup>

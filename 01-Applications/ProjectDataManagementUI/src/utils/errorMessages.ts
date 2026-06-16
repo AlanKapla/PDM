@@ -61,6 +61,7 @@ export const successMessages = {
   roleUpdated:     { title: "Zaktualizowano rolę", description: undefined },
   nameUpdated:     { title: "Zmieniono nazwę",     description: undefined },
   statusUpdated:   { title: "Zaktualizowano status", description: undefined },
+  filesUploaded:   { title: "Przesłano pliki", description: undefined },
 } as const;
 
 export type SuccessMessageKey = keyof typeof successMessages;

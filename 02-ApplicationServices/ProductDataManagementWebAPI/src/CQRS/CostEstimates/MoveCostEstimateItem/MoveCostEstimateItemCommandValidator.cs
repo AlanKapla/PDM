@@ -1,4 +1,4 @@
-﻿using CQRS.Extensions;
+using CQRS.Extensions;
 using FluentValidation;
 
 namespace CQRS.CostEstimates.MoveCostEstimateItem

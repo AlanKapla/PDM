@@ -1,14 +1,15 @@
 ﻿import type {
+  CostEstimateAdditionalFieldWeb,
+  CostEstimateDetailsWeb,
   CostEstimateGroupDto,
+  CostEstimateGroupWeb,
   CostEstimateItemDto,
-  CostEstimateGroupFieldValueDto,
-  CostEstimateFieldValueDto,
+  CostEstimateItemWeb,
 } from '../types/costEstimate.types.new';
-import { getFieldValueAsString } from '../types/costEstimate.types.new';
+import { AdditionalFieldType } from '../types/costEstimate.types.new';
 
 // Aliasy dla kompatybilności wstecznej
 type CostEstimateWorkScopeItemDto = CostEstimateItemDto;
-type CostEstimateWorkScopeItemFieldValueDto = CostEstimateFieldValueDto;
 
 /**
  * Utility functions for cost estimate hierarchy operations
@@ -21,9 +22,9 @@ export function cloneGroup(group: CostEstimateGroupDto): CostEstimateGroupDto {
   return {
     ...group,
     id: undefined, // Reset ID for new group
-    fieldValues: group.fieldValues.map(fv => ({ ...fv })),
-    items: group.items.map(item => cloneWorkScopeItem(item)),
-    childGroups: group.childGroups.map(child => cloneGroup(child)),
+    additionalFieldValues: (group.additionalFieldValues ?? []).map((fv) => ({ ...fv })),
+    items: group.items.map((item) => cloneWorkScopeItem(item)),
+    childGroups: group.childGroups.map((child) => cloneGroup(child)),
   };
 }
 
@@ -34,7 +35,7 @@ export function cloneWorkScopeItem(item: CostEstimateWorkScopeItemDto): CostEsti
   return {
     ...item,
     id: undefined, // Reset ID for new item
-    fieldValues: item.fieldValues.map(fv => ({ ...fv })),
+    additionalFieldValues: (item.additionalFieldValues ?? []).map((fv) => ({ ...fv })),
   };
 }
 
@@ -49,9 +50,9 @@ export function moveGroup(
 ): CostEstimateGroupDto[] {
   // Find and remove group from current location
   let movedGroup: CostEstimateGroupDto | null = null;
-  
+
   const removeGroup = (groupList: CostEstimateGroupDto[]): CostEstimateGroupDto[] => {
-    return groupList.filter(g => {
+    return groupList.filter((g) => {
       if (g.id === groupId) {
         movedGroup = g;
         return false;
@@ -73,12 +74,12 @@ export function moveGroup(
       ...group,
       level,
       parentGroupId: level === 0 ? undefined : group.parentGroupId,
-      childGroups: group.childGroups.map(child => updateLevels(child, level + 1)),
+      childGroups: group.childGroups.map((child) => updateLevels(child, level + 1)),
     };
   };
 
   movedGroup = updateLevels(movedGroup, newLevel);
-  movedGroup.parentGroupId = newParentId;
+  (movedGroup as CostEstimateGroupDto).parentGroupId = newParentId;
 
   // Insert group at new location
   if (!newParentId) {
@@ -87,7 +88,7 @@ export function moveGroup(
   } else {
     // Move to specific parent
     const addToParent = (groupList: CostEstimateGroupDto[]): CostEstimateGroupDto[] => {
-      return groupList.map(g => {
+      return groupList.map((g) => {
         if (g.id === newParentId) {
           return {
             ...g,
@@ -146,7 +147,7 @@ export function reorderWorkScopeItems(
 }
 
 /**
- * Search groups by field value
+ * Search groups by name or additional field value
  */
 export function searchGroups(
   groups: CostEstimateGroupDto[],
@@ -160,16 +161,27 @@ export function searchGroups(
     for (const group of groupList) {
       let matches = false;
 
-      // Search in field values
-      for (const fieldValue of group.fieldValues) {
-        if (fieldName && fieldValue.fieldDefinitionId !== fieldName) {
-          continue;
-        }
-        
-        const valueAsString = getFieldValueAsString(fieldValue as any);
-        if (valueAsString?.toLowerCase().includes(lowerSearch)) {
+      if (fieldName === undefined || fieldName === 'name') {
+        // Szukaj po name (direct property)
+        if (group.name?.toLowerCase().includes(lowerSearch)) {
           matches = true;
-          break;
+        }
+      }
+
+      if (!matches) {
+        // Szukaj w additionalFieldValues
+        for (const fv of group.additionalFieldValues ?? []) {
+          if (fieldName && fv.additionalFieldId !== fieldName) {
+            continue;
+          }
+          const valueStr = fv.stringValue
+            ?? (fv.decimalValue !== undefined ? String(fv.decimalValue) : undefined)
+            ?? (fv.boolValue !== undefined ? String(fv.boolValue) : undefined)
+            ?? fv.dateTimeValue;
+          if (valueStr?.toLowerCase().includes(lowerSearch)) {
+            matches = true;
+            break;
+          }
         }
       }
 
@@ -198,7 +210,7 @@ export function getGroupPath(
   const findPath = (groupList: CostEstimateGroupDto[]): boolean => {
     for (const group of groupList) {
       path.push(group);
-      
+
       if (group.id === targetGroupId) {
         return true;
       }
@@ -211,7 +223,7 @@ export function getGroupPath(
 
       path.pop();
     }
-    
+
     return false;
   };
 
@@ -258,7 +270,7 @@ export function validateGroupHierarchy(
       if (!canBranchGroups && group.childGroups.length > 0) {
         errors.push({
           groupId: group.id,
-          message: 'Szablon nie pozwala na tworzenie podetapów',
+          message: 'Nie można tworzyć podetapów',
         });
       }
 
@@ -298,7 +310,7 @@ export function calculateStatistics(groups: CostEstimateGroupDto[]): GroupStatis
       stats.totalGroups++;
       stats.totalItems += group.items.length;
       stats.maxLevel = Math.max(stats.maxLevel, group.level);
-      
+
       stats.groupsByLevel[group.level] = (stats.groupsByLevel[group.level] || 0) + 1;
       stats.itemsByLevel[group.level] = (stats.itemsByLevel[group.level] || 0) + group.items.length;
 
@@ -327,10 +339,8 @@ export function flattenGroupsWithContext(groups: CostEstimateGroupDto[]): Flatte
 
   const flatten = (groupList: CostEstimateGroupDto[], path: string[] = []) => {
     for (const group of groupList) {
-      const nameFieldValue = group.fieldValues.find(fv => 
-        fv.fieldDefinitionId.toLowerCase().includes('name')
-      );
-      const groupName = getFieldValueAsString(nameFieldValue as any) || `Etap ${group.order + 1}`;
+      // Nowa architektura: name jest direct property
+      const groupName = group.name || `Etap ${group.order + 1}`;
 
       result.push({
         group,
@@ -351,37 +361,146 @@ export function flattenGroupsWithContext(groups: CostEstimateGroupDto[]): Flatte
 
 /**
  * Bulk update field values across multiple groups
+ * Zaktualizowane: operuje na additionalFieldValues zamiast fieldValues
  */
 export function bulkUpdateGroupFields(
   groups: CostEstimateGroupDto[],
   fieldId: string,
   getValue: (group: CostEstimateGroupDto) => string | undefined
 ): CostEstimateGroupDto[] {
-  return groups.map(group => {
+  return groups.map((group) => {
     const newValue = getValue(group);
-    const existingIndex = group.fieldValues.findIndex(fv => fv.fieldDefinitionId === fieldId);
-    const newFieldValues = [...group.fieldValues];
+    const existingIndex = (group.additionalFieldValues ?? []).findIndex(
+      (fv) => fv.additionalFieldId === fieldId
+    );
+    const newAdditionalFieldValues = [...(group.additionalFieldValues ?? [])];
 
     if (newValue !== undefined && newValue !== '') {
       if (existingIndex >= 0) {
-        newFieldValues[existingIndex] = {
-          ...newFieldValues[existingIndex],
-          value: newValue,
+        newAdditionalFieldValues[existingIndex] = {
+          ...newAdditionalFieldValues[existingIndex],
+          stringValue: newValue,
         };
       } else {
-        newFieldValues.push({
-          fieldDefinitionId: fieldId,
-          value: newValue,
+        newAdditionalFieldValues.push({
+          id: `temp_${Date.now()}`,
+          additionalFieldId: fieldId,
+          stringValue: newValue,
         });
       }
     } else if (existingIndex >= 0) {
-      newFieldValues.splice(existingIndex, 1);
+      newAdditionalFieldValues.splice(existingIndex, 1);
     }
 
     return {
       ...group,
-      fieldValues: newFieldValues,
+      additionalFieldValues: newAdditionalFieldValues,
       childGroups: bulkUpdateGroupFields(group.childGroups, fieldId, getValue),
     };
   });
+}
+
+export interface CostEstimateTotals {
+  net: number;
+  gross: number;
+  vat: number;
+}
+
+function removeItemFromItems(
+  items: CostEstimateItemWeb[],
+  itemId: string,
+): CostEstimateItemWeb[] {
+  return items
+    .filter((item) => item.id !== itemId)
+    .map((item) => ({
+      ...item,
+      options: item.options ? removeItemFromItems(item.options, itemId) : item.options,
+      components: item.components
+        ? removeItemFromItems(item.components, itemId)
+        : item.components,
+    }));
+}
+
+/**
+ * Usuwa pozycję/komponent/opcję z drzewa kosztorysu (wszystkie poziomy zagnieżdżenia).
+ */
+export function removeItemFromCostEstimateTree(
+  groups: CostEstimateGroupWeb[],
+  itemId: string,
+): CostEstimateGroupWeb[] {
+  return groups.map((group) => ({
+    ...group,
+    items: removeItemFromItems(group.items ?? [], itemId),
+    childGroups: removeItemFromCostEstimateTree(group.childGroups ?? [], itemId),
+  }));
+}
+
+/** Filtruje etapy kosztorysu po zapytaniu wyszukiwania (nazwa + pola tekstowe). */
+export function filterCostEstimateGroupsBySearch(
+  rootGroups: CostEstimateGroupWeb[],
+  searchQuery: string,
+  additionalFields: CostEstimateAdditionalFieldWeb[] = [],
+): CostEstimateGroupWeb[] {
+  if (!searchQuery.trim()) {
+    return rootGroups;
+  }
+
+  const q = searchQuery.trim().toLowerCase();
+
+  const groupMatches = (group: CostEstimateGroupWeb): boolean => {
+    if (group.name.toLowerCase().includes(q)) {
+      return true;
+    }
+
+    const additionalMatch = (group.additionalFieldValues ?? []).some((fv) => {
+      const fieldDef = additionalFields.find((af) => af.id === fv.additionalFieldId);
+      if (!fieldDef || fieldDef.fieldType !== AdditionalFieldType.String) {
+        return false;
+      }
+      return (fv.stringValue ?? '').toLowerCase().includes(q);
+    });
+    if (additionalMatch) {
+      return true;
+    }
+
+    const itemMatch = (group.items ?? []).some((item) => {
+      if (item.name.toLowerCase().includes(q)) {
+        return true;
+      }
+      return (item.additionalFieldValues ?? []).some((fv) => {
+        const fieldDef = additionalFields.find((af) => af.id === fv.additionalFieldId);
+        if (!fieldDef || fieldDef.fieldType !== AdditionalFieldType.String) {
+          return false;
+        }
+        return (fv.stringValue ?? '').toLowerCase().includes(q);
+      });
+    });
+    if (itemMatch) {
+      return true;
+    }
+
+    return (group.childGroups ?? []).some(groupMatches);
+  };
+
+  return rootGroups.filter(groupMatches);
+}
+
+/** Sumy całkowite kosztorysu — z pól details lub jako suma rootGroups. */
+export function getCostEstimateTotals(details: CostEstimateDetailsWeb): CostEstimateTotals {
+  if (details.totalNet !== undefined && details.totalGross !== undefined) {
+    return {
+      net: details.totalNet ?? 0,
+      gross: details.totalGross ?? 0,
+      vat: details.totalVat ?? 0,
+    };
+  }
+
+  return details.rootGroups.reduce(
+    (acc, g) => ({
+      net: acc.net + (g.totalNet ?? 0),
+      gross: acc.gross + (g.totalGross ?? 0),
+      vat: acc.vat + (g.totalVat ?? 0),
+    }),
+    { net: 0, gross: 0, vat: 0 },
+  );
 }

@@ -1,16 +1,21 @@
 ﻿using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.Projects;
 using CQRS.Projects.AddProjectMember;
+using CQRS.Projects.AddProjectUnit;
 using CQRS.Projects.CreateProject;
-using CQRS.Projects.SetProjectCurrency;
+using CQRS.Projects.DeleteProjectUnit;
 using CQRS.Projects.GetProjectDetails;
 using CQRS.Projects.GetProjectMembers;
 using CQRS.Projects.GetProjectsDictionary;
+using CQRS.Projects.GetProjectUnits;
 using CQRS.Projects.GetTenantProjects;
 using CQRS.Projects.RemoveProjectMember;
+using CQRS.Projects.ReorderProjectUnits;
+using CQRS.Projects.SetProjectCurrency;
 using CQRS.Projects.ToggleProjectStatus;
 using CQRS.Projects.UpdateProject;
 using CQRS.Projects.UpdateProjectMemberRole;
+using CQRS.Projects.UpdateProjectUnit;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -161,6 +166,105 @@ namespace WebApi.Controllers
         {
             request = request with { TenantId = tenantId, ProjectId = projectId, UserId = userId };
             await Send(request);
+            return NoContent();
+        }
+
+        [HttpGet("{projectId}/units")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [ProducesResponseType(typeof(List<ProjectUnitWeb>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetProjectUnits(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            GetProjectUnitsQuery query = new GetProjectUnitsQuery { TenantId = tenantId, ProjectId = projectId };
+            List<ProjectUnitWeb> result = await Send(query);
+            return Ok(result);
+        }
+
+        [HttpPost("{projectId}/units")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> AddProjectUnit(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] UpsertProjectUnitWeb body)
+        {
+            AddProjectUnitCommand command = new AddProjectUnitCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Code = body.Code,
+                Name = body.Name,
+                Symbol = body.Symbol
+            };
+            Guid newId = await Send(command);
+            return CreatedAtAction(nameof(GetProjectUnits), new { tenantId, projectId }, newId);
+        }
+
+        [HttpPut("{projectId}/units/{unitId:guid}")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateProjectUnit(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid unitId,
+            [FromBody] UpsertProjectUnitWeb body)
+        {
+            UpdateProjectUnitCommand command = new UpdateProjectUnitCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                UnitId = unitId,
+                Code = body.Code,
+                Name = body.Name,
+                Symbol = body.Symbol,
+                Order = body.Order
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpDelete("{projectId}/units/{unitId:guid}")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteProjectUnit(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid unitId)
+        {
+            DeleteProjectUnitCommand command = new DeleteProjectUnitCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                UnitId = unitId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPost("{projectId}/units/reorder")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ReorderProjectUnits(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] List<Guid> unitIds)
+        {
+            ReorderProjectUnitsCommand command = new ReorderProjectUnitsCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                UnitIds = unitIds
+            };
+            await Send(command);
             return NoContent();
         }
     }

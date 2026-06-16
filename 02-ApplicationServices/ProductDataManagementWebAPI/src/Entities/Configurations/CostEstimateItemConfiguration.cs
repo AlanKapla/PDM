@@ -19,50 +19,76 @@ namespace Entities.Configurations
 
             builder.Property(w => w.CostEstimateId)
                 .IsRequired();
-            
+
             builder.Property(w => w.GroupId)
                 .IsRequired();
-            
+
             builder.Property(w => w.ParentItemId);  // Nullable - dla opcji i komponentów
-            
+
             builder.Property(w => w.RelationType)
                 .IsRequired()
                 .HasConversion<string>()
                 .HasDefaultValue(ItemRelationType.None);
-            
+
             builder.Property(w => w.Order)
                 .IsRequired();
-            
+
+            builder.Property(w => w.Name)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            // === NOWE POLA PODSTAWOWE ===
+            builder.Property(i => i.Quantity)
+                .HasPrecision(18, 4);
+
+            builder.Property(i => i.Unit)
+                .HasMaxLength(50);
+
+            builder.Property(i => i.UnitPriceNet)
+                .HasPrecision(18, 2);
+
+            builder.Property(i => i.VatRate)
+                .HasPrecision(5, 4); // 0.0000 to 9.9999
+
+            builder.Property(i => i.UnitPriceGross)
+                .HasPrecision(18, 2);
+
+            builder.Property(i => i.IsSelected)
+                .HasDefaultValue(true);
+
+            builder.Property(i => i.IsStageWork)
+                .HasDefaultValue(false);
+
             builder.Property(w => w.NetValue)
                 .HasPrecision(18, 2);
-            
+
             builder.Property(w => w.GrossValue)
                 .HasPrecision(18, 2);
-            
+
             builder.Property(w => w.VatValue)
                 .HasPrecision(18, 2);
-            
+
             builder.Property(w => w.CreatedAt)
                 .IsRequired();
-            
+
             builder.Property(w => w.UpdatedAt);
-            
+
             builder.Property(w => w.IsDeleted)
                 .IsRequired()
                 .HasDefaultValue(false);
-            
+
             builder.Property(w => w.DeletedAt);
-            
+
             builder.HasOne(w => w.CostEstimate)
                 .WithMany(c => c.AllItems)
                 .HasForeignKey(w => w.CostEstimateId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             builder.HasOne(w => w.Group)
                 .WithMany(g => g.Items)
                 .HasForeignKey(w => w.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
+
             // Self-referencing relationship: ParentItem → ChildItems
             // UWAGA: Nie mapujemy osobno Options i Components w EF!
             // Rozróżnienie następuje przez RelationType w kodzie aplikacji
@@ -70,12 +96,7 @@ namespace Entities.Configurations
                 .WithMany()  // ✅ Brak nawigacji z parent do children w EF
                 .HasForeignKey(w => w.ParentItemId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
-            builder.HasMany(w => w.FieldValues)
-                .WithOne(fv => fv.Item)
-                .HasForeignKey(fv => fv.ItemId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
+
             builder.HasIndex(w => w.CostEstimateId);
             builder.HasIndex(w => w.GroupId);
             builder.HasIndex(w => w.ParentItemId);
@@ -87,55 +108,4 @@ namespace Entities.Configurations
         }
     }
     
-    /// <summary>
-    /// Konfiguracja EF Core dla CostEstimateItemFieldValue
-    /// Używa pojedynczej relacji do CostEstimateTemplateFieldDefinitionBase (polimorfizm TPH)
-    /// </summary>
-    public class CostEstimateItemFieldValueConfiguration : IEntityTypeConfiguration<CostEstimateItemFieldValue>
-    {
-        public void Configure(EntityTypeBuilder<CostEstimateItemFieldValue> builder)
-        {
-            builder.HasKey(fv => fv.Id);
-            
-            builder.Property(fv => fv.ItemId)
-                .IsRequired();
-            
-            builder.Property(fv => fv.FieldDefinitionId)
-                .IsRequired();
-            
-            // Typowane właściwości wartości
-            builder.Property(fv => fv.StringValue)
-                .HasMaxLength(2000);
-            
-            builder.Property(fv => fv.DecimalValue)
-                .HasPrecision(18, 6);
-            
-            builder.Property(fv => fv.BoolValue);
-            
-            builder.Property(fv => fv.DateTimeValue);
-            
-            builder.Property(fv => fv.CreatedAt)
-                .IsRequired();
-            
-            builder.Property(fv => fv.UpdatedAt);
-            
-            // Relationship with CostEstimateItem
-            builder.HasOne(fv => fv.Item)
-                .WithMany(w => w.FieldValues)
-                .HasForeignKey(fv => fv.ItemId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
-            // Relationship with FieldDefinition (base class) - EF Core obsługuje polimorfizm (TPH)
-            // Może wskazywać na SystemFieldDefinition, CalculatedFieldDefinition lub GenericFieldDefinition
-            builder.HasOne(fv => fv.FieldDefinition)
-                .WithMany()
-                .HasForeignKey(fv => fv.FieldDefinitionId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
-            // Indexes for better query performance
-            builder.HasIndex(fv => fv.ItemId);
-            builder.HasIndex(fv => fv.FieldDefinitionId);
-            builder.HasIndex(fv => new { fv.ItemId, fv.FieldDefinitionId });
-        }
-    }
 }

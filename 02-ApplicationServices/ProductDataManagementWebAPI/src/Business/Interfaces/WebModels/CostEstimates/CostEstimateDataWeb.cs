@@ -1,41 +1,9 @@
 namespace Business.Interfaces.WebModels.CostEstimates
 {
     /// <summary>
-    /// Plik dołączony do pola kosztorysu typu ItemSystemFiles
-    /// </summary>
-    public sealed record CostEstimateFieldFileWeb(
-        Guid Id,
-        string OriginalFileName,
-        string ContentType,
-        long FileSize,
-        int Order,
-        string? SasUriPreview,
-        string? SasUriDownload,
-        DateTime CreatedAt
-    );
-
-    /// <summary>
-    /// Wartość pola w kosztorysie (wspólna dla grup i pozycji)
-    /// Wartość zwracana w odpowiednim polu typowanym w zależności od FieldType
-    /// </summary>
-    public sealed record CostEstimateFieldValueWeb(
-        Guid Id,
-        Guid FieldDefinitionId,
-        int FieldType,      // FieldType enum jako int (kompatybilność JSON)
-        int FieldScope,     // FieldScope enum jako int (Group/ItemSystem/ItemCalculated/ItemGeneric)
-        Guid? FieldName,    // GUID pola (dla pozycji)
-        string? FieldLabel,
-        string? StringValue,
-        decimal? DecimalValue,
-        bool? BoolValue,
-        DateTime? DateTimeValue,
-        List<CostEstimateFieldFileWeb>? Files = null  // Pliki - tylko dla FieldType == ItemSystemFiles
-    );
-    
-    /// <summary>
     /// Pozycja kosztorysu (work scope item)
-    /// Może zawierać kolekcję Options jeśli ma pole ItemSystemOptions
-    /// Może zawierać kolekcję Components - pozycja składa się z komponentów
+    /// Może zawierać kolekcję Options (warianty)
+    /// Może zawierać kolekcję Components (składniki pozycji)
     /// WAŻNE: Options i Components mogą mieć tylko 1 poziom zagnieżdżenia (child nie może mieć childa)
     /// </summary>
     public sealed record CostEstimateItemWeb(
@@ -44,16 +12,25 @@ namespace Business.Interfaces.WebModels.CostEstimates
         Guid? ParentItemId,     // ID pozycji nadrzędnej (jeśli to opcja lub komponent)
         int RelationType,        // ItemRelationType jako int: None=0, Option=1, Component=2
         int Order,
-        decimal? NetValue,       // Obliczona wartość netto (z komponentów lub pól)
-        decimal? GrossValue,     // Obliczona wartość brutto
-        decimal? VatValue,       // Obliczona wartość VAT
-        List<CostEstimateFieldValueWeb> FieldValues,
-        List<CostEstimateItemWeb>? Options,      // Kolekcja opcji - jeśli ParentItemId != null, to lista będzie pusta
-        List<CostEstimateItemWeb>? Components,   // Kolekcja komponentów - jeśli ParentItemId != null, to lista będzie pusta
+        string Name,                    // Zamiast w FieldValues
+        decimal? Quantity,              // NOWE — direct property
+        string? Unit,                   // NOWE
+        decimal? UnitPriceNet,          // NOWE
+        decimal? VatRate,               // NOWE
+        decimal? UnitPriceGross,        // NOWE
+        decimal? NetValue,              // Obliczona wartość netto
+        decimal? GrossValue,            // Obliczona wartość brutto
+        decimal? VatValue,              // Obliczona wartość VAT
+        bool IsSelected,                // NOWE
+        bool IsStageWork,               // NOWE
+        List<CostEstimateAdditionalFieldValueWeb> AdditionalFieldValues, // NOWE
+        List<CostEstimateItemWeb>? Options,      // Kolekcja opcji
+        List<CostEstimateItemWeb>? Components,   // Kolekcja komponentów
+        List<CostEstimateItemFileWeb>? Files,    // NOWE
         DateTime CreatedAt,
         DateTime? UpdatedAt
     );
-    
+
     /// <summary>
     /// Grupa kosztorysu
     /// </summary>
@@ -62,10 +39,11 @@ namespace Business.Interfaces.WebModels.CostEstimates
         Guid? ParentGroupId,
         int Level,
         int Order,
-        List<CostEstimateFieldValueWeb> FieldValues,
+        string Name,                    // Zamiast w FieldValues
         decimal? TotalNet,
         decimal? TotalGross,
         decimal? TotalVat,
+        List<CostEstimateAdditionalFieldValueWeb> AdditionalFieldValues, // NOWE
         DateTime? LastCalculatedAt,
         List<CostEstimateGroupWeb> ChildGroups,
         List<CostEstimateItemWeb> Items,

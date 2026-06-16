@@ -11,7 +11,8 @@ namespace Entities.Configurations.Projects
             builder.ToTable("ProjectParams");
 
             builder.HasDiscriminator<string>("ParamType")
-                .HasValue<ProjectCurrency>("Currency");
+                .HasValue<ProjectCurrency>("Currency")
+                .HasValue<ProjectUnit>("Unit");
 
             builder.HasOne(x => x.Project)
                 .WithMany(p => p.Params)
@@ -19,7 +20,10 @@ namespace Entities.Configurations.Projects
                 .OnDelete(DeleteBehavior.Cascade);
 
             builder.HasIndex(x => x.ProjectId);
-            builder.HasIndex("ProjectId", "ParamType").IsUnique();
+            // Unique tylko dla Currency — Unit może mieć wiele wierszy per projekt
+            builder.HasIndex("ProjectId", "ParamType")
+                .IsUnique()
+                .HasFilter("[ParamType] = 'Currency'");
         }
     }
 }

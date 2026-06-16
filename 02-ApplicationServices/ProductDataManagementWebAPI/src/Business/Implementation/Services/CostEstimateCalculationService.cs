@@ -1,447 +1,195 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
-using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
+﻿using Business.Implementation.Helpers;
 using Business.Interfaces.Services;
+using Entities.Models.CostEstimates;
 
 namespace Business.Implementation.Services
 {
-    
     public class CostEstimateCalculationService : ICostEstimateCalculationService
     {
         public void RecalculateCostEstimate(CostEstimate costEstimate)
         {
             ArgumentNullException.ThrowIfNull(costEstimate);
 
-            // Sprawdź które pola kalkulowane powinny być sumowane w totalach
-            bool shouldSumValueNetInTotal = ShouldSumFieldInTotal(costEstimate.Template, FieldType.ItemCalculatedValueNet);
-            bool shouldSumValueGrossInTotal = ShouldSumFieldInTotal(costEstimate.Template, FieldType.ItemCalculatedValueGross);
-            bool shouldSumTotalVatInTotal = ShouldSumFieldInTotal(costEstimate.Template, FieldType.ItemCalculatedTotalVat);
+            decimal totalNet = 0m;
+            decimal totalGross = 0m;
+            decimal totalVat = 0m;
 
-            // Sprawdź które pola powinny być sumowane w grupach
-            bool shouldSumValueNetInGroup = ShouldSumFieldInGroup(costEstimate.Template, FieldType.ItemCalculatedValueNet);
-            bool shouldSumValueGrossInGroup = ShouldSumFieldInGroup(costEstimate.Template, FieldType.ItemCalculatedValueGross);
-            bool shouldSumTotalVatInGroup = ShouldSumFieldInGroup(costEstimate.Template, FieldType.ItemCalculatedTotalVat);
+            List<CostEstimateGroup> allGroups = costEstimate.AllGroups.Where(g => !g.IsDeleted).ToList();
+            List<CostEstimateGroup> rootGroups = allGroups.Where(g => g.ParentGroupId == null).ToList();
 
-            // Sprawdź czy szablon definiuje pole ItemSystemSelected
-            bool hasSelectedField = HasSelectedFieldDefined(costEstimate.Template);
-
-            decimal? totalNet = null;
-            decimal? totalGross = null;
-            decimal? totalVat = null;
-
-            var allGroups = costEstimate.AllGroups.Where(g => !g.IsDeleted).ToList();
-            var rootGroups = allGroups.Where(g => g.ParentGroupId == null).ToList();
-
-            foreach (var rootGroup in rootGroups)
+            foreach (CostEstimateGroup rootGroup in rootGroups)
             {
-                var (groupNet, groupGross, groupVat) = RecalculateGroup(
-                    rootGroup, 
-                    allGroups, 
-                    shouldSumValueNetInGroup, 
-                    shouldSumValueGrossInGroup, 
-                    shouldSumTotalVatInGroup,
-                    hasSelectedField);
+                (decimal groupNet, decimal groupGross, decimal groupVat) = RecalculateGroup(rootGroup, allGroups);
 
-                // ✅ Sumuj w total jeśli szablon ma SumInTotal = true
-                if (shouldSumValueNetInTotal)
-                {
-                    totalNet = (totalNet ?? 0m) + groupNet;
-                }
-
-                if (shouldSumValueGrossInTotal)
-                {
-                    totalGross = (totalGross ?? 0m) + groupGross;
-                }
-
-                if (shouldSumTotalVatInTotal)
-                {
-                    totalVat = (totalVat ?? 0m) + groupVat;
-                }
+                totalNet += groupNet;
+                totalGross += groupGross;
+                totalVat += groupVat;
             }
 
-            // Zapisz totale - tylko dla pól z SumInTotal = true
-            costEstimate.TotalNet = shouldSumValueNetInTotal ? totalNet : null;
-            costEstimate.TotalGross = shouldSumValueGrossInTotal ? totalGross : null;
-            costEstimate.TotalVat = shouldSumTotalVatInTotal ? totalVat : null;
+            costEstimate.TotalNet = totalNet;
+            costEstimate.TotalGross = totalGross;
+            costEstimate.TotalVat = totalVat;
             costEstimate.LastCalculatedAt = DateTime.UtcNow;
             costEstimate.UpdatedAt = DateTime.UtcNow;
-        }
-        
-        /// <summary>
-        /// Sprawdza czy pole powinno być sumowane w totalach kosztorysu
-        /// Pole musi istnieć w szablonie jako calculated field (nie jako child field) i mieć SumInTotal = true
-        /// </summary>
-        private static bool ShouldSumFieldInTotal(CostEstimateTemplate template, FieldType fieldType)
-        {
-            var field = template.CalculatedFieldDefinitions?
-                .FirstOrDefault(f => f.FieldType == fieldType && !f.ParentFieldId.HasValue && f.SumInTotal);
-
-            return field != null;
-        }
-        
-        /// <summary>
-        /// Sprawdza czy pole powinno być sumowane w grupach
-        /// Pole musi istnieć w szablonie jako calculated field (nie jako child field) i mieć SumInGroup = true
-        /// </summary>
-        private static bool ShouldSumFieldInGroup(CostEstimateTemplate template, FieldType fieldType)
-        {
-            var field = template.CalculatedFieldDefinitions?
-                .FirstOrDefault(f => f.FieldType == fieldType && !f.ParentFieldId.HasValue && f.SumInGroup);
-
-            return field != null;
-        }
-
-        /// <summary>
-        /// Sprawdza czy szablon definiuje pole ItemSystemSelected
-        /// </summary>
-        private static bool HasSelectedFieldDefined(CostEstimateTemplate template)
-        {
-            return template.SystemFieldDefinitions?
-                .Any(f => f.FieldType == FieldType.ItemSystemSelected) == true;
-        }
-
-        /// <summary>
-        /// Sprawdza czy pozycja jest zaznaczona do sumowania.
-        /// Jeśli szablon nie definiuje pola ItemSystemSelected, pozycja zawsze bierze udział w sumowaniu.
-        /// Jeśli definiuje - pozycja bierze udział tylko gdy BoolValue == true.
-        /// </summary>
-        private static bool IsItemSelectedForSumming(CostEstimateItem item, bool hasSelectedField)
-        {
-            if (!hasSelectedField)
-            {
-                return true;
-            }
-
-            var selectedFieldValue = item.FieldValues
-                .FirstOrDefault(fv => fv.FieldDefinition != null
-                    && fv.FieldDefinition.FieldScope == FieldScope.ItemSystem
-                    && fv.FieldDefinition.FieldType == FieldType.ItemSystemSelected);
-
-            return selectedFieldValue?.BoolValue == true;
         }
 
         private static (decimal Net, decimal Gross, decimal Vat) RecalculateGroup(
             CostEstimateGroup group,
-            List<CostEstimateGroup> allGroups,
-            bool shouldSumValueNetInGroup,
-            bool shouldSumValueGrossInGroup,
-            bool shouldSumTotalVatInGroup,
-            bool hasSelectedField)
+            List<CostEstimateGroup> allGroups)
         {
-            if (group == null)
-            {
-                throw new ArgumentNullException(nameof(group));
-            }
+            ArgumentNullException.ThrowIfNull(group);
 
-            decimal? groupNet = null;
-            decimal? groupGross = null;
-            decimal? groupVat = null;
+            decimal groupNet = 0m;
+            decimal groupGross = 0m;
+            decimal groupVat = 0m;
 
-            // Calculate from items in this group (tylko główne pozycje - RelationType.None)
-            var mainItems = group.Items.Where(w => !w.IsDeleted && w.RelationType == ItemRelationType.None).ToList();
-            
-            foreach (var item in mainItems)
+            // Sumuj tylko pozycje główne (RelationType.None) z IsSelected == true
+            List<CostEstimateItem> mainItems = group.Items
+                .Where(i => !i.IsDeleted && i.RelationType == ItemRelationType.None && i.IsSelected)
+                .ToList();
+
+            foreach (CostEstimateItem item in mainItems)
             {
                 CalculateItemValues(item);
 
-                // Pozycja bierze udział w sumowaniu tylko gdy jest zaznaczona (lub szablon nie definiuje pola Selected)
-                if (!IsItemSelectedForSumming(item, hasSelectedField))
+                if (item.NetValue.HasValue)
                 {
-                    continue;
+                    groupNet += item.NetValue.Value;
                 }
 
-                // Sumuj tylko jeśli szablon ma zdefiniowane pole z SumInGroup = true i wartość istnieje
-                if (shouldSumValueNetInGroup && item.NetValue.HasValue)
+                if (item.GrossValue.HasValue)
                 {
-                    groupNet = (groupNet ?? 0m) + item.NetValue.Value;
+                    groupGross += item.GrossValue.Value;
                 }
 
-                if (shouldSumValueGrossInGroup && item.GrossValue.HasValue)
+                if (item.VatValue.HasValue)
                 {
-                    groupGross = (groupGross ?? 0m) + item.GrossValue.Value;
-                }
-
-                if (shouldSumTotalVatInGroup && item.VatValue.HasValue)
-                {
-                    groupVat = (groupVat ?? 0m) + item.VatValue.Value;
+                    groupVat += item.VatValue.Value;
                 }
             }
 
-            // Recursively calculate from child groups
-            var childGroups = allGroups.Where(g => g.ParentGroupId == group.Id && !g.IsDeleted).ToList();
-            foreach (var childGroup in childGroups)
+            // Rekurencyjnie podgrupy
+            List<CostEstimateGroup> childGroups = allGroups
+                .Where(g => g.ParentGroupId == group.Id && !g.IsDeleted)
+                .ToList();
+
+            foreach (CostEstimateGroup childGroup in childGroups)
             {
-                var (childNet, childGross, childVat) = RecalculateGroup(
-                    childGroup, 
-                    allGroups,
-                    shouldSumValueNetInGroup,
-                    shouldSumValueGrossInGroup,
-                    shouldSumTotalVatInGroup,
-                    hasSelectedField);
-                
-                // Sumuj tylko jeśli szablon ma zdefiniowane pole z SumInGroup = true
-                if (shouldSumValueNetInGroup)
-                {
-                    groupNet = (groupNet ?? 0m) + childNet;
-                }
-                
-                if (shouldSumValueGrossInGroup)
-                {
-                    groupGross = (groupGross ?? 0m) + childGross;
-                }
-                
-                if (shouldSumTotalVatInGroup)
-                {
-                    groupVat = (groupVat ?? 0m) + childVat;
-                }
+                (decimal childNet, decimal childGross, decimal childVat) = RecalculateGroup(childGroup, allGroups);
+                groupNet += childNet;
+                groupGross += childGross;
+                groupVat += childVat;
             }
 
-            // Update group totals - zapisz tylko gdy szablon ma zdefiniowane pole z SumInGroup = true
-            group.TotalNet = shouldSumValueNetInGroup ? groupNet : null;
-            group.TotalGross = shouldSumValueGrossInGroup ? groupGross : null;
-            group.TotalVat = shouldSumTotalVatInGroup ? groupVat : null;
+            group.TotalNet = groupNet;
+            group.TotalGross = groupGross;
+            group.TotalVat = groupVat;
             group.LastCalculatedAt = DateTime.UtcNow;
             group.UpdatedAt = DateTime.UtcNow;
 
-            // ✅ ZAWSZE zwróć obliczone wartości (nie zależnie od shouldSumInGroup!)
-            // Nawet gdy grupa nie sumuje (SumInGroup=false), total kosztorysu może wymagać sumy (SumInTotal=true)
-            return (
-                groupNet ?? 0m,
-                groupGross ?? 0m,
-                groupVat ?? 0m
-            );
+            return (groupNet, groupGross, groupVat);
         }
 
         /// <summary>
-        /// Oblicza wartości dla pozycji i zapisuje w NetValue, GrossValue, VatValue
-        /// Jeśli pozycja ma Components - sumuje z komponentów, jeśli nie - oblicza z FieldValues
+        /// Oblicza wartości dla pozycji i zapisuje w NetValue, GrossValue, VatValue.
+        /// Kolejność: Opcje (tylko zaznaczona) → Komponenty → Własne wartości.
+        /// Jeśli pozycja ma opcje ale żadna nie jest zaznaczona — spada do komponentów/własnych wartości.
         /// </summary>
         private static void CalculateItemValues(CostEstimateItem item)
         {
-            if (item == null)
+            if (item.IsDeleted)
             {
-                throw new ArgumentNullException(nameof(item));
+                return;
             }
 
-            // Sprawdź czy pozycja ma komponenty
-            var components = item.Components?.Where(c => !c.IsDeleted).ToList() ?? new List<CostEstimateItem>();
-            
-            if (components.Any())
+            // === OPCJE (tylko jeśli któraś jest zaznaczona) ===
+            List<CostEstimateItem> options = item.Options.Where(o => !o.IsDeleted).ToList();
+            CostEstimateItem? selectedOption = options.FirstOrDefault(o => o.IsSelected);
+
+            if (selectedOption is not null)
             {
-                // Pozycja ma komponenty - sumuj wartości z komponentów
-                decimal? totalNet = null;
-                decimal? totalGross = null;
-                decimal? totalVat = null;
-                
-                foreach (var component in components)
-                {
-                    // Rekurencyjnie oblicz wartości komponentu
-                    CalculateItemValues(component);
-                    
-                    if (component.NetValue.HasValue)
-                    {
-                        totalNet = (totalNet ?? 0m) + component.NetValue.Value;
-                    }
-                    
-                    if (component.GrossValue.HasValue)
-                    {
-                        totalGross = (totalGross ?? 0m) + component.GrossValue.Value;
-                    }
-                    
-                    if (component.VatValue.HasValue)
-                    {
-                        totalVat = (totalVat ?? 0m) + component.VatValue.Value;
-                    }
-                }
-                
-                item.NetValue = totalNet;
-                item.GrossValue = totalGross;
-                item.VatValue = totalVat;
+                // Najpierw oblicz wartości samej opcji
+                CalculateItemValues(selectedOption);
+
+                // Kopiuj wartości z zaznaczonej opcji do pozycji nadrzędnej
+                item.NetValue = selectedOption.NetValue;
+                item.GrossValue = selectedOption.GrossValue;
+                item.VatValue = selectedOption.VatValue;
+                return;
             }
-            else
+
+            // === KOMPONENTY ===
+            List<CostEstimateItem> components = item.Components.Where(c => !c.IsDeleted).ToList();
+            if (components.Count > 0)
             {
-                // Pozycja NIE ma komponentów - oblicz z FieldValues (jak dotychczas)
-                Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues = item.FieldValues
-                    .Where(fv => fv.FieldDefinition != null && fv.FieldDefinition.FieldScope == FieldScope.ItemCalculated)
-                    .GroupBy(fv => fv.FieldDefinition.FieldType)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.First());
-
-                decimal? unitPriceNet = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitPriceNet)?.DecimalValue;
-                decimal? vatRate = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedVatRate)?.DecimalValue;
-                decimal? unitPriceGross = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitPriceGross)?.DecimalValue;
-                decimal? valueNetField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedValueNet)?.DecimalValue;
-                decimal? valueGrossField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedValueGross)?.DecimalValue;
-                decimal? totalVatField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedTotalVat)?.DecimalValue;
-                decimal? unitVatField = calculatedFieldValues.GetValueOrDefault(FieldType.ItemCalculatedUnitVat)?.DecimalValue;
-
-                decimal? quantity = GetQuantityFromSystemField(item);
-
-                decimal? valueNet = CalculateValueNet(unitPriceNet, quantity, valueNetField, calculatedFieldValues);
-                decimal? totalVat = CalculateTotalVat(valueNet, vatRate, totalVatField, calculatedFieldValues);
-                decimal? valueGross = CalculateValueGross(valueNet, totalVat, vatRate, valueGrossField, calculatedFieldValues);
-
-                CalculateUnitPriceGross(unitPriceNet, vatRate, totalVat, quantity, valueGross, unitPriceGross, calculatedFieldValues);
-                CalculateUnitVat(unitPriceNet, vatRate, unitVatField, calculatedFieldValues);
-
-                // Zapisz obliczone wartości w pozycji
-                item.NetValue = valueNet;
-                item.GrossValue = valueGross;
-                item.VatValue = totalVat;
+                CalculateItemValuesFromComponents(item, components);
+                return;
             }
+
+            // === WŁASNE WARTOŚCI ===
+            CalculateItemValuesFromDirectProperties(item);
         }
 
-        private static decimal? GetQuantityFromSystemField(CostEstimateItem item)
+        private static void CalculateItemValuesFromComponents(
+            CostEstimateItem item,
+            List<CostEstimateItem> components)
         {
-            var systemQuantityField = item.FieldValues
-                .FirstOrDefault(fv => fv.FieldDefinition != null &&
-                                     fv.FieldDefinition.FieldScope == FieldScope.ItemSystem &&
-                                     fv.FieldDefinition.FieldType == FieldType.ItemSystemQuantity);
+            decimal? totalNet = null;
+            decimal? totalGross = null;
+            decimal? totalVat = null;
 
-            return systemQuantityField?.DecimalValue;
+            foreach (CostEstimateItem component in components.Where(c => c.IsSelected))
+            {
+                // Rekurencyjnie — komponent może mieć własne wartości
+                CalculateItemValues(component);
+
+                if (component.NetValue.HasValue)
+                {
+                    totalNet = (totalNet ?? 0m) + component.NetValue.Value;
+                }
+
+                if (component.GrossValue.HasValue)
+                {
+                    totalGross = (totalGross ?? 0m) + component.GrossValue.Value;
+                }
+
+                if (component.VatValue.HasValue)
+                {
+                    totalVat = (totalVat ?? 0m) + component.VatValue.Value;
+                }
+            }
+
+            item.NetValue = totalNet;
+            item.GrossValue = totalGross;
+            item.VatValue = totalVat;
         }
 
-        private static decimal? CalculateUnitPriceGross(
-            decimal? unitPriceNet,
-            decimal? vatRate,
-            decimal? totalVat,
-            decimal? quantity,
-            decimal? valueGross,
-            decimal? unitPriceGross,
-            Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
+        private static void CalculateItemValuesFromDirectProperties(CostEstimateItem item)
         {
-            decimal? calculated = null;
+            decimal? valueNet = CostEstimateItemFinancialCalculator.CalculateValueNet(
+                item.UnitPriceNet,
+                item.Quantity,
+                item.NetValue);
+            decimal? totalVat = CostEstimateItemFinancialCalculator.CalculateTotalVat(
+                valueNet,
+                item.VatRate,
+                item.VatValue);
+            decimal? valueGross = CostEstimateItemFinancialCalculator.CalculateValueGross(
+                valueNet,
+                totalVat,
+                item.VatRate,
+                item.GrossValue);
+            decimal? unitPriceGross = CostEstimateItemFinancialCalculator.CalculateUnitPriceGross(
+                item.UnitPriceNet,
+                item.VatRate,
+                valueGross,
+                item.Quantity,
+                item.UnitPriceGross);
 
-            if (unitPriceNet.HasValue && vatRate.HasValue)
-            {
-                calculated = unitPriceNet.Value * (1m + vatRate.Value);
-            }
-            else if (unitPriceNet.HasValue && totalVat.HasValue && quantity.HasValue && quantity.Value != 0m)
-            {
-                calculated = unitPriceNet.Value + (totalVat.Value / quantity.Value);
-            }
-            else if (valueGross.HasValue && quantity.HasValue && quantity.Value != 0m)
-            {
-                calculated = valueGross.Value / quantity.Value;
-            }
-
-            if (calculated.HasValue)
-            {
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitPriceGross, out CostEstimateItemFieldValue fieldValue))
-                {
-                    fieldValue.DecimalValue = calculated.Value;
-                }
-
-                return calculated;
-            }
-
-            return unitPriceGross;
-        }
-
-        private static decimal? CalculateUnitVat(
-            decimal? unitPriceNet,
-            decimal? vatRate,
-            decimal? unitVatField,
-            Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
-        {
-            if (unitPriceNet.HasValue && vatRate.HasValue)
-            {
-                decimal calculated = unitPriceNet.Value * vatRate.Value;
-
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedUnitVat, out CostEstimateItemFieldValue fieldValue))
-                {
-                    fieldValue.DecimalValue = calculated;
-                }
-
-                return calculated;
-            }
-
-            return unitVatField;
-        }
-
-        private static decimal? CalculateValueNet(
-            decimal? unitPriceNet,
-            decimal? quantity,
-            decimal? valueNetField,
-            Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
-        {
-            if (unitPriceNet.HasValue && quantity.HasValue)
-            {
-                decimal calculated = unitPriceNet.Value * quantity.Value;
-
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueNet, out CostEstimateItemFieldValue fieldValue))
-                {
-                    fieldValue.DecimalValue = calculated;
-                }
-
-                return calculated;
-            }
-
-            return valueNetField;
-        }
-
-        private static decimal? CalculateTotalVat(
-            decimal? valueNet,
-            decimal? vatRate,
-            decimal? totalVatField,
-            Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
-        {
-            if (valueNet.HasValue && vatRate.HasValue)
-            {
-                decimal calculated = valueNet.Value * vatRate.Value;
-
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedTotalVat, out CostEstimateItemFieldValue fieldValue))
-                {
-                    fieldValue.DecimalValue = calculated;
-                }
-
-                return calculated;
-            }
-
-            return totalVatField;
-        }
-
-        private static decimal? CalculateValueGross(
-            decimal? valueNet,
-            decimal? totalVat,
-            decimal? vatRate,
-            decimal? valueGrossField,
-            Dictionary<FieldType, CostEstimateItemFieldValue> calculatedFieldValues)
-        {
-            if (valueNet.HasValue && totalVat.HasValue)
-            {
-                decimal calculated = valueNet.Value + totalVat.Value;
-
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueGross, out CostEstimateItemFieldValue fieldValue))
-                {
-                    fieldValue.DecimalValue = calculated;
-                }
-
-                return calculated;
-            }
-
-            if (valueNet.HasValue && vatRate.HasValue)
-            {
-                decimal calculated = valueNet.Value * (1m + vatRate.Value);
-
-                if (calculatedFieldValues.TryGetValue(FieldType.ItemCalculatedValueGross, out CostEstimateItemFieldValue fieldValue))
-                {
-                    fieldValue.DecimalValue = calculated;
-                }
-
-                return calculated;
-            }
-
-            return valueGrossField;
+            item.NetValue = valueNet;
+            item.GrossValue = valueGross;
+            item.VatValue = totalVat;
+            item.UnitPriceGross = unitPriceGross;
         }
     }
 }

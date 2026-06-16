@@ -6,14 +6,33 @@ using Entities.Models.Projects;
 using Entities.Models.Tenants;
 using MediatR;
 using Repositories.Repository.Interfaces;
+using System.Linq;
 
 namespace CQRS.Projects.CreateProject
 {
     public sealed class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand, ProjectDetailsWeb>
     {
+        private static readonly (string Code, string Name, string? Symbol)[] DefaultUnits = new[]
+        {
+            ("szt",  "Sztuka",               (string?)null),
+            ("m",    "Metr",                 (string?)null),
+            ("m²",   "Metr kwadratowy",      (string?)"m²"),
+            ("m³",   "Metr sześcienny",      (string?)"m³"),
+            ("kg",   "Kilogram",             (string?)null),
+            ("mb",   "Metr bieżący",         (string?)null),
+            ("godz", "Godzina",              (string?)null),
+            ("kpl",  "Komplet",              (string?)null),
+            ("t",    "Tona",                 (string?)null),
+            ("km",   "Kilometr",             (string?)null),
+            ("l",    "Litr",                 (string?)null),
+            ("opak", "Opakowanie",           (string?)null),
+            ("r-g",  "Roboczogodzina",       (string?)null),
+        };
+
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IRepository<ProjectCurrency> currencyRepo;
+        private readonly IRepository<ProjectUnit> projectUnitRepo;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
@@ -21,12 +40,14 @@ namespace CQRS.Projects.CreateProject
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
             IRepository<ProjectCurrency> currencyRepo,
+            IRepository<ProjectUnit> projectUnitRepo,
             IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
             this.currencyRepo = currencyRepo;
+            this.projectUnitRepo = projectUnitRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
@@ -56,6 +77,20 @@ namespace CQRS.Projects.CreateProject
             };
             await currencyRepo.Insert(defaultCurrency);
             await currencyRepo.SaveChangesAsync(cancellationToken);
+
+            int unitOrder = 1;
+            foreach ((string code, string name, string? symbol) in DefaultUnits)
+            {
+                await projectUnitRepo.Insert(new ProjectUnit
+                {
+                    ProjectId = project.Id,
+                    Code = code,
+                    Name = name,
+                    Symbol = symbol,
+                    Order = unitOrder++
+                });
+            }
+            await projectUnitRepo.SaveChangesAsync(cancellationToken);
 
             ProjectMember projectMember = new ProjectMember
             {

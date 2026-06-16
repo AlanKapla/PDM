@@ -17,9 +17,6 @@ using CQRS.CostEstimates.ReorderCostEstimateItems;
 using CQRS.CostEstimates.ShareCostEstimate;
 using CQRS.CostEstimates.UpdateCostEstimate;
 using CQRS.CostEstimates.UpdateCostEstimateShares;
-using CQRS.CostEstimates.UploadCostEstimateFieldFiles;
-using CQRS.CostEstimates.UpsertCostEstimateGroupField;
-using CQRS.CostEstimates.UpsertCostEstimateItemField;
 using Entities.Models.CostEstimates;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -70,7 +67,8 @@ namespace WebApi.Tests.Controllers
         {
             Guid tenantId = Guid.NewGuid();
             Guid projectId = Guid.NewGuid();
-            CreateCostEstimateCommand command = new CreateCostEstimateCommand { TemplateId = Guid.NewGuid(), Name = "CE1" };
+            // TemplateId removed - default schema created automatically
+            CreateCostEstimateCommand command = new CreateCostEstimateCommand { Name = "CE1" };
 
             IActionResult result = await sut.CreateCostEstimate(tenantId, projectId, command);
 
@@ -121,27 +119,6 @@ namespace WebApi.Tests.Controllers
             result.Should().BeOfType<OkObjectResult>();
             VerifyMediatorCalledOnce<CopyCostEstimateCommand>(c =>
                 c.TenantId == tenantId && c.ProjectId == projectId && c.CostEstimateId == id);
-        }
-
-        [Fact]
-        public async Task UploadCostEstimateFieldFiles_BuildsCommand_AndReturnsOk()
-        {
-            Guid tenantId = Guid.NewGuid();
-            Guid projectId = Guid.NewGuid();
-            Guid id = Guid.NewGuid();
-            Guid itemId = Guid.NewGuid();
-            Guid fieldDefinitionId = Guid.NewGuid();
-            List<IFormFile> files = new List<IFormFile>();
-
-            IActionResult result = await sut.UploadCostEstimateFieldFiles(tenantId, projectId, id, itemId, fieldDefinitionId, files);
-
-            result.Should().BeOfType<OkObjectResult>();
-            VerifyMediatorCalledOnce<UploadCostEstimateFieldFilesCommand>(c =>
-                c.TenantId == tenantId
-                && c.ProjectId == projectId
-                && c.CostEstimateId == id
-                && c.ItemId == itemId
-                && c.FieldDefinitionId == fieldDefinitionId);
         }
 
         [Fact]
@@ -264,38 +241,6 @@ namespace WebApi.Tests.Controllers
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<RecalculateCostEstimateCommand>(c =>
                 c.TenantId == tenantId && c.ProjectId == projectId && c.CostEstimateId == id);
-        }
-
-        [Fact]
-        public async Task UpsertCostEstimateGroupField_OverridesIds_AndReturnsOk()
-        {
-            Guid tenantId = Guid.NewGuid();
-            Guid projectId = Guid.NewGuid();
-            Guid id = Guid.NewGuid();
-            Guid groupId = Guid.NewGuid();
-            UpsertCostEstimateGroupFieldCommand command = new UpsertCostEstimateGroupFieldCommand();
-
-            IActionResult result = await sut.UpsertCostEstimateGroupField(tenantId, projectId, id, groupId, command);
-
-            result.Should().BeOfType<OkObjectResult>();
-            VerifyMediatorCalledOnce<UpsertCostEstimateGroupFieldCommand>(c =>
-                c.TenantId == tenantId && c.ProjectId == projectId && c.CostEstimateId == id && c.GroupId == groupId);
-        }
-
-        [Fact]
-        public async Task UpsertCostEstimateItemField_OverridesIds_AndReturnsOk()
-        {
-            Guid tenantId = Guid.NewGuid();
-            Guid projectId = Guid.NewGuid();
-            Guid id = Guid.NewGuid();
-            Guid itemId = Guid.NewGuid();
-            UpsertCostEstimateItemFieldCommand command = new UpsertCostEstimateItemFieldCommand();
-
-            IActionResult result = await sut.UpsertCostEstimateItemField(tenantId, projectId, id, itemId, command);
-
-            result.Should().BeOfType<OkObjectResult>();
-            VerifyMediatorCalledOnce<UpsertCostEstimateItemFieldCommand>(c =>
-                c.TenantId == tenantId && c.ProjectId == projectId && c.CostEstimateId == id && c.ItemId == itemId);
         }
 
         [Fact]

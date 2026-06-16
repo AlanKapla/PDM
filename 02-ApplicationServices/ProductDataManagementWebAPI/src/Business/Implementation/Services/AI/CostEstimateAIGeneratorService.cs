@@ -1,10 +1,7 @@
 ﻿using Business.AIAgent;
 using Business.AIAgent.Abstractions;
-using Business.Implementation.Helpers;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.AI;
-using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
@@ -32,7 +29,6 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
 
     public async Task<AICostEstimatePreviewWeb> GeneratePreviewAsync(
         AICostEstimateRequestWeb request,
-        CostEstimateTemplate template,
         CancellationToken cancellationToken)
     {
         AgentContext context = new();
@@ -45,7 +41,7 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
         if (!planResult.IsSuccess)
         {
             _logger.LogWarning("cost-estimate-planner failed: {Error}", planResult.ErrorMessage);
-            return EmptyPreview(template.Id, "Planer kosztorysu nie zwrócił odpowiedzi.");
+            return EmptyPreview("Planer kosztorysu nie zwrócił odpowiedzi.");
         }
 
         (string suggestedName, string? suggestedDescription, List<GroupStub> groupPlan) =
@@ -53,19 +49,19 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
 
         if (groupPlan.Count == 0)
         {
-            return EmptyPreview(template.Id, "Planer nie zwrócił listy grup.");
+            return EmptyPreview("Planer nie zwrócił listy grup.");
         }
 
-        // Krok 2: Generuj każdą grupę równolegle
-        string templateSchema = BuildTemplateSchema(template);
+        // Krok 2: Generuj każdą grupę równolegle, ale złóż wynik wg kolejności z planera
+        string templateSchema = BuildBasicFieldSchema();
 
-        IEnumerable<Task<AIGroupPreviewWeb?>> groupTasks = groupPlan.Select(async (stub, i) =>
+        Task<GroupGenerationResult>[] groupTasks = groupPlan.Select(async (stub, index) =>
         {
             await _groupSemaphore.WaitAsync(cancellationToken);
             try
             {
                 string groupMessage = BuildGroupGeneratorMessage(
-                    stub, i + 1, groupPlan.Count, templateSchema, request);
+                    stub, index + 1, groupPlan.Count, templateSchema, request);
 
                 AgentRunResult groupResult = await _agentRunner.RunAsync(
                     "cost-estimate-group-generator",
@@ -78,35 +74,35 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
                     _logger.LogWarning(
                         "cost-estimate-group-generator failed for '{Name}': {Error}",
                         stub.Name, groupResult.ErrorMessage);
-                    return null;
+                    return new GroupGenerationResult(stub, null);
                 }
 
-                return ParseSingleGroup(groupResult.Response);
+                AIGroupPreviewWeb? group = ParseSingleGroup(groupResult.Response);
+                return new GroupGenerationResult(stub, group);
             }
             finally
             {
                 _groupSemaphore.Release();
             }
-        });
+        }).ToArray();
 
-        AIGroupPreviewWeb?[] groupResults = await Task.WhenAll(groupTasks);
-        List<AIGroupPreviewWeb> groups = groupResults.OfType<AIGroupPreviewWeb>().ToList();
+        GroupGenerationResult[] groupResults = await Task.WhenAll(groupTasks);
+        (List<AIGroupPreviewWeb> groups, List<string> groupWarnings) =
+            BuildOrderedGroups(groupResults);
 
         AICostEstimatePreviewWeb preview = new()
         {
-            TemplateId = template.Id,
             SuggestedName = suggestedName,
             SuggestedDescription = suggestedDescription,
             Groups = groups,
-            Warnings = []
+            Warnings = groupWarnings
         };
 
-        return RemoveInvalidFieldValues(preview, template);
+        return RemoveInvalidFieldValues(preview);
     }
 
     private sealed record GroupStub(string TempId, string Name, int Order);
-
-    private sealed record FieldRow(string id, string lbl, string key);
+    private sealed record GroupGenerationResult(GroupStub Stub, AIGroupPreviewWeb? Group);
 
     private sealed record GroupPlanJson(string? SuggestedName, string? SuggestedDescription, List<GroupStubJson>? Groups);
     private sealed record GroupStubJson(string? TempId, string? Name, int? Order);
@@ -130,79 +126,57 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
         if (!string.IsNullOrEmpty(request.AdditionalRequirements))
             sb.AppendLine($"wymag:{request.AdditionalRequirements}");
         sb.AppendLine($"WYMAGANA_LICZBA_GRUP:{minGroups}");
+        sb.AppendLine("KOLEJNOSC: groups w tablicy i pole order muszą odzwierciedlać chronologię robót budowlanych (np. fundamenty przed elektryką).");
         sb.AppendLine("""Zwróć JSON: {"suggestedName":"...","suggestedDescription":"...","groups":[{"tempId":"g1","name":"...","order":1},...]}""");
         return sb.ToString();
     }
 
-    private static string BuildTemplateSchema(CostEstimateTemplate template)
+    /// <summary>
+    /// Buduje schemat podstawowych pól systemowych dla AI.
+    /// Zawsze 9 standardowych pól: Name, Quantity, Unit, UnitPriceNet, VatRate, UnitPriceGross, ValueNet, ValueGross, TotalVat
+    /// </summary>
+    private static string BuildBasicFieldSchema()
     {
-        string groupNameGuid  = FindFieldIdByType(template, FieldType.GroupName)?.ToString() ?? string.Empty;
-        string itemNameGuid   = FindFieldIdByType(template, FieldType.ItemSystemName)?.ToString() ?? string.Empty;
-        string qtyGuid        = FindFieldIdByType(template, FieldType.ItemSystemQuantity)?.ToString() ?? string.Empty;
-        string unitGuid       = FindFieldIdByType(template, FieldType.ItemSystemUnit)?.ToString() ?? string.Empty;
-        string categoryGuid   = FindFieldIdByType(template, FieldType.ItemSystemCategory)?.ToString() ?? string.Empty;
-        string priceGuid      = FindFieldIdByType(template, FieldType.ItemCalculatedUnitPriceNet)?.ToString() ?? string.Empty;
-        string vatGuid        = FindFieldIdByType(template, FieldType.ItemCalculatedVatRate)?.ToString() ?? string.Empty;
-        string priceGrossGuid = FindFieldIdByType(template, FieldType.ItemCalculatedUnitPriceGross)?.ToString() ?? string.Empty;
-        string valueNetGuid   = FindFieldIdByType(template, FieldType.ItemCalculatedValueNet)?.ToString() ?? string.Empty;
-        string valueGrossGuid = FindFieldIdByType(template, FieldType.ItemCalculatedValueGross)?.ToString() ?? string.Empty;
-        string unitVatGuid    = FindFieldIdByType(template, FieldType.ItemCalculatedUnitVat)?.ToString() ?? string.Empty;
-        string totalVatGuid   = FindFieldIdByType(template, FieldType.ItemCalculatedTotalVat)?.ToString() ?? string.Empty;
+        // Stałe Guid dla podstawowych pól (takie same jak w CreateCostEstimateCommand przy tworzeniu default schema)
+        // Te wartości będą używane przez AI do generowania fieldValues
+        string groupNameFieldName = "00000000-0000-0000-0000-000000000001";  // GroupName
+        string itemNameFieldName = "00000000-0000-0000-0000-000000000100";   // ItemSystemName
+        string qtyFieldName = "00000000-0000-0000-0000-000000000101";        // ItemSystemQuantity
+        string unitFieldName = "00000000-0000-0000-0000-000000000102";       // ItemSystemUnit
+        string priceNetFieldName = "00000000-0000-0000-0000-000000000200";   // ItemCalculatedUnitPriceNet
+        string vatFieldName = "00000000-0000-0000-0000-000000000201";        // ItemCalculatedVatRate
+        string priceGrossFieldName = "00000000-0000-0000-0000-000000000202"; // ItemCalculatedUnitPriceGross
+        string valueNetFieldName = "00000000-0000-0000-0000-000000000203";   // ItemCalculatedValueNet
+        string valueGrossFieldName = "00000000-0000-0000-0000-000000000204"; // ItemCalculatedValueGross
+        string totalVatFieldName = "00000000-0000-0000-0000-000000000205";   // ItemCalculatedTotalVat
 
         StringBuilder sb = new();
-        sb.AppendLine($"SZABLON:{template.Name}|Grupy:{(template.CanAddGroups ? "T" : "N")}|Podgrupy:{(template.CanBranchGroups ? "T" : "N")}{(template.MaxGroupLevel.HasValue ? $"|Max:{template.MaxGroupLevel}" : "")}");
+        sb.AppendLine("SCHEMAT:Podstawowy|Grupy:T|Podgrupy:T");
         sb.AppendLine("POLA(role,guid,vk; guid=fieldDefinitionId):");
-        var writableFields = new List<object>();
-        if (!string.IsNullOrEmpty(groupNameGuid))  writableFields.Add(new { role = "group_name",  guid = groupNameGuid,  vk = "stringValue" });
-        if (!string.IsNullOrEmpty(itemNameGuid))   writableFields.Add(new { role = "item_name",   guid = itemNameGuid,   vk = "stringValue" });
-        if (!string.IsNullOrEmpty(qtyGuid))        writableFields.Add(new { role = "qty",          guid = qtyGuid,        vk = "decimalValue" });
-        if (!string.IsNullOrEmpty(unitGuid))       writableFields.Add(new { role = "unit",         guid = unitGuid,       vk = "stringValue" });
-        if (!string.IsNullOrEmpty(priceGuid))      writableFields.Add(new { role = "price_net",    guid = priceGuid,      vk = "decimalValue" });
-        if (!string.IsNullOrEmpty(priceGrossGuid)) writableFields.Add(new { role = "price_gross",  guid = priceGrossGuid, vk = "decimalValue=price_net*(1+vat)" });
-        if (!string.IsNullOrEmpty(vatGuid))        writableFields.Add(new { role = "vat_rate",     guid = vatGuid,        vk = "decimalValue:0.08=8%,0.23=23%" });
-        if (!string.IsNullOrEmpty(categoryGuid))   writableFields.Add(new { role = "category",     guid = categoryGuid,   vk = "stringValue" });
+        
+        var writableFields = new List<object>
+        {
+            new { role = "group_name",  guid = groupNameFieldName,  vk = "stringValue" },
+            new { role = "item_name",   guid = itemNameFieldName,   vk = "stringValue" },
+            new { role = "qty",         guid = qtyFieldName,        vk = "decimalValue" },
+            new { role = "unit",        guid = unitFieldName,       vk = "stringValue" },
+            new { role = "price_net",   guid = priceNetFieldName,   vk = "decimalValue" },
+            new { role = "vat_rate",    guid = vatFieldName,        vk = "decimalValue:0.08=8%,0.23=23%" },
+            new { role = "price_gross", guid = priceGrossFieldName, vk = "decimalValue=price_net*(1+vat)" }
+        };
         sb.AppendLine(Toon.Encode(writableFields.ToArray()));
 
-        var readonlyFields = new List<object>();
-        if (!string.IsNullOrEmpty(valueNetGuid))   readonlyFields.Add(new { role = "value_net_READONLY",   guid = valueNetGuid });
-        if (!string.IsNullOrEmpty(valueGrossGuid)) readonlyFields.Add(new { role = "value_gross_READONLY", guid = valueGrossGuid });
-        if (!string.IsNullOrEmpty(unitVatGuid))    readonlyFields.Add(new { role = "unit_vat_READONLY",    guid = unitVatGuid });
-        if (!string.IsNullOrEmpty(totalVatGuid))   readonlyFields.Add(new { role = "total_vat_READONLY",   guid = totalVatGuid });
-        if (readonlyFields.Count > 0)
+        var readonlyFields = new List<object>
         {
-            sb.AppendLine("READONLY(system oblicza,NIE wpisuj):");
-            sb.AppendLine(Toon.Encode(readonlyFields.ToArray()));
-        }
+            new { role = "value_net_READONLY",   guid = valueNetFieldName },
+            new { role = "value_gross_READONLY", guid = valueGrossFieldName },
+            new { role = "total_vat_READONLY",   guid = totalVatFieldName }
+        };
+        sb.AppendLine("READONLY(system oblicza,NIE wpisuj):");
+        sb.AppendLine(Toon.Encode(readonlyFields.ToArray()));
 
-        FieldRow[] groupFldArr = BuildFieldRows(
-            template.GroupFieldDefinitions.Cast<CostEstimateTemplateFieldDefinitionBase>());
-        if (groupFldArr.Length > 0)
-        {
-            sb.AppendLine("POLA_GRUPY(id,lbl,vk):");
-            sb.AppendLine(Toon.Encode(groupFldArr));
-        }
-
-        FieldRow[] itemFldArr = BuildFieldRows(
-            template.SystemFieldDefinitions
-                .Where(f => !f.ParentFieldId.HasValue)
-                .Cast<CostEstimateTemplateFieldDefinitionBase>()
-            .Concat(template.CalculatedFieldDefinitions
-                .Where(f => !f.IsReadonly)
-                .Cast<CostEstimateTemplateFieldDefinitionBase>())
-            .Concat(template.GenericFieldDefinitions
-                .Cast<CostEstimateTemplateFieldDefinitionBase>()));
-        if (itemFldArr.Length > 0)
-        {
-            sb.AppendLine("POLA_POZ(id,lbl,vk):");
-            sb.AppendLine(Toon.Encode(itemFldArr));
-        }
-
-        if (template.Units.Any())
-        {
-            sb.AppendLine("JEDN(sym,n):");
-            sb.AppendLine(Toon.Encode(
-                template.Units.Select(u => new { sym = u.Symbol, n = u.Name }).ToArray()));
-        }
+        sb.AppendLine("JEDN(przykłady): m², m³, szt, mb, kg, t, m, godz, komplet");
+        
         return sb.ToString();
     }
 
@@ -263,13 +237,48 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
                     g.Name,
                     g.Order ?? i + 1));
             }
-            return (dto.SuggestedName ?? "Kosztorys AI", dto.SuggestedDescription, groups);
+            List<GroupStub> orderedGroups = groups
+                .OrderBy(g => g.Order)
+                .ThenBy(g => g.TempId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return (dto.SuggestedName ?? "Kosztorys AI", dto.SuggestedDescription, orderedGroups);
         }
         catch (JsonException ex)
         {
             _logger.LogWarning(ex, "Failed to parse group plan JSON");
             return ("Kosztorys AI", null, []);
         }
+    }
+
+    /// <summary>
+    /// Składa grupy wg kolejności z planera — niezależnie od tego, w jakiej kolejności zakończyły się taski równoległe.
+    /// </summary>
+    private static (List<AIGroupPreviewWeb> Groups, List<string> Warnings) BuildOrderedGroups(
+        IEnumerable<GroupGenerationResult> groupResults)
+    {
+        List<AIGroupPreviewWeb> orderedGroups = [];
+        List<string> warnings = [];
+        int order = 1;
+
+        foreach (GroupGenerationResult result in groupResults
+                     .OrderBy(r => r.Stub.Order)
+                     .ThenBy(r => r.Stub.TempId, StringComparer.OrdinalIgnoreCase))
+        {
+            if (result.Group is null)
+            {
+                warnings.Add($"Pominięto grupę '{result.Stub.Name}' — generator nie zwrócił danych.");
+                continue;
+            }
+
+            orderedGroups.Add(result.Group with
+            {
+                TempId = result.Stub.TempId,
+                Name = string.IsNullOrWhiteSpace(result.Group.Name) ? result.Stub.Name : result.Group.Name,
+                Order = order++
+            });
+        }
+
+        return (orderedGroups, warnings);
     }
 
     private AIGroupPreviewWeb? ParseSingleGroup(string rawJson)
@@ -297,33 +306,13 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
         return raw;
     }
 
-    private static AICostEstimatePreviewWeb EmptyPreview(Guid templateId, string warning)
+    private static AICostEstimatePreviewWeb EmptyPreview(string warning)
         => new()
         {
-            TemplateId = templateId,
             SuggestedName = "Kosztorys AI",
             Groups = [],
             Warnings = [warning]
         };
-
-    private static FieldRow[] BuildFieldRows(IEnumerable<CostEstimateTemplateFieldDefinitionBase> defs)
-        => defs
-            .Select(f => (f, cfg: CostEstimateFieldTypeHelper.GetFieldTypeConfig(f.FieldType)))
-            .Where(x => x.cfg is not null && !x.cfg.IsCollection && !x.cfg.IsFile)
-            .Select(x => new FieldRow(x.f.Id.ToString(), x.f.Label, GetValueKey(x.cfg!)))
-            .ToArray();
-
-    /// <summary>Zwraca Id (PK encji) pierwszego pola z danym FieldType we wszystkich kolekcjach szablonu.</summary>
-    private static Guid? FindFieldIdByType(CostEstimateTemplate template, FieldType fieldType)
-    {
-        return template.GroupFieldDefinitions
-            .Cast<CostEstimateTemplateFieldDefinitionBase>()
-            .Concat(template.SystemFieldDefinitions)
-            .Concat(template.CalculatedFieldDefinitions)
-            .Concat(template.GenericFieldDefinitions)
-            .FirstOrDefault(f => f.FieldType == fieldType)?.Id;
-    }
-
 
     private static void AppendLocationPricingHint(StringBuilder sb, string? location)
     {
@@ -352,26 +341,40 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
     }
 
 
-    private static AICostEstimatePreviewWeb RemoveInvalidFieldValues(
-        AICostEstimatePreviewWeb preview,
-        CostEstimateTemplate template)
+    /// <summary>
+    /// Filtruje field values — zostawia tylko te które pasują do podstawowych pól (9 standardowych)
+    /// </summary>
+    private static AICostEstimatePreviewWeb RemoveInvalidFieldValues(AICostEstimatePreviewWeb preview)
     {
-        Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allFieldDefs = BuildFieldDefDictionary(template);
+        // Stałe Guid dla podstawowych pól (takie same jak w BuildBasicFieldSchema)
+        HashSet<Guid> validFieldNames = new()
+        {
+            Guid.Parse("00000000-0000-0000-0000-000000000001"),  // GroupName
+            Guid.Parse("00000000-0000-0000-0000-000000000100"),  // ItemSystemName
+            Guid.Parse("00000000-0000-0000-0000-000000000101"),  // ItemSystemQuantity
+            Guid.Parse("00000000-0000-0000-0000-000000000102"),  // ItemSystemUnit
+            Guid.Parse("00000000-0000-0000-0000-000000000200"),  // ItemCalculatedUnitPriceNet
+            Guid.Parse("00000000-0000-0000-0000-000000000201"),  // ItemCalculatedVatRate
+            Guid.Parse("00000000-0000-0000-0000-000000000202"),  // ItemCalculatedUnitPriceGross
+            Guid.Parse("00000000-0000-0000-0000-000000000203"),  // ItemCalculatedValueNet
+            Guid.Parse("00000000-0000-0000-0000-000000000204"),  // ItemCalculatedValueGross
+            Guid.Parse("00000000-0000-0000-0000-000000000205")   // ItemCalculatedTotalVat
+        };
 
         List<AIGroupPreviewWeb> cleanGroups = preview.Groups.Select(g =>
         {
             List<AIFieldValueWeb> cleanGroupFields = g.FieldValues
-                .Where(fv => IsValidFieldValue(fv, allFieldDefs))
+                .Where(fv => validFieldNames.Contains(fv.FieldDefinitionId))
                 .ToList();
 
             List<AIItemPreviewWeb> cleanItems = g.Items.Select(i =>
             {
                 List<AIFieldValueWeb> cleanItemFields = i.FieldValues
-                    .Where(fv => IsValidFieldValue(fv, allFieldDefs))
+                    .Where(fv => validFieldNames.Contains(fv.FieldDefinitionId))
                     .ToList();
 
                 List<AIComponentPreviewWeb> cleanComponents = i.Components.Select(c =>
-                    c with { FieldValues = c.FieldValues.Where(fv => IsValidFieldValue(fv, allFieldDefs)).ToList() }
+                    c with { FieldValues = c.FieldValues.Where(fv => validFieldNames.Contains(fv.FieldDefinitionId)).ToList() }
                 ).ToList();
 
                 return i with { FieldValues = cleanItemFields, Components = cleanComponents };
@@ -381,42 +384,6 @@ public sealed class CostEstimateAIGeneratorService : ICostEstimateAIGeneratorSer
         }).ToList();
 
         return preview with { Groups = cleanGroups };
-    }
-
-    private static bool IsValidFieldValue(
-        AIFieldValueWeb fv,
-        Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> allFieldDefs)
-    {
-        if (!allFieldDefs.TryGetValue(fv.FieldDefinitionId, out CostEstimateTemplateFieldDefinitionBase? fieldDef))
-            return false;
-
-        Interfaces.WebModels.CostEstimateTemplates.CostEstimateFieldTypeConfigWeb? typeConfig =
-            CostEstimateFieldTypeHelper.GetFieldTypeConfig(fieldDef.FieldType);
-        if (typeConfig is null)
-            return false;
-        if (typeConfig.IsCollection || typeConfig.IsFile)
-            return false;
-
-        return true;
-    }
-
-    private static Dictionary<Guid, CostEstimateTemplateFieldDefinitionBase> BuildFieldDefDictionary(
-        CostEstimateTemplate template)
-    {
-        return template.GroupFieldDefinitions
-            .Cast<CostEstimateTemplateFieldDefinitionBase>()
-            .Concat(template.SystemFieldDefinitions)
-            .Concat(template.CalculatedFieldDefinitions)
-            .Concat(template.GenericFieldDefinitions)
-            .ToDictionary(f => f.Id);
-    }
-
-    private static string GetValueKey(Interfaces.WebModels.CostEstimateTemplates.CostEstimateFieldTypeConfigWeb cfg)
-    {
-        if (cfg.IsNumeric) return "decimalValue";
-        if (cfg.IsBoolean) return "boolValue";
-        if (cfg.IsDate) return "dateTimeValue";
-        return "stringValue";
     }
 
     private static int BuildGroupMinCount(AICostEstimateRequestWeb request)

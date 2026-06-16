@@ -11,10 +11,6 @@ namespace CQRS.CostEstimates.GenerateCostEstimateAIPreview
                 .NotNull()
                 .WithMessage("Dane żądania AI są wymagane.");
 
-            RuleFor(x => x.Request.TemplateId)
-                .NotEmpty()
-                .WithMessage("Szablon kosztorysu jest wymagany.");
-
             RuleFor(x => x.Request.InvestmentType)
                 .NotEmpty()
                 .WithMessage("Opis inwestycji jest wymagany.")

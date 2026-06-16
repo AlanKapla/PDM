@@ -16,6 +16,7 @@ public sealed class CreateProjectCommandHandlerTests
     private readonly Mock<IReadRepository<Project>> _projectRepoMock = new();
     private readonly Mock<IRepository<ProjectMember>> _projectMemberRepoMock = new();
     private readonly Mock<IRepository<ProjectCurrency>> _currencyRepoMock = new();
+    private readonly Mock<IRepository<ProjectUnit>> _projectUnitRepoMock = new();
     private readonly Mock<IPermissionsVersionService> _permissionsVersionServiceMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly CreateProjectCommandHandler _handler;
@@ -33,6 +34,7 @@ public sealed class CreateProjectCommandHandlerTests
             _projectRepoMock.Object,
             _projectMemberRepoMock.Object,
             _currencyRepoMock.Object,
+            _projectUnitRepoMock.Object,
             _permissionsVersionServiceMock.Object,
             _currentUserMock.Object);
     }

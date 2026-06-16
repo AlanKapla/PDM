@@ -26,8 +26,12 @@ namespace Entities.Models.CostEstimates
         public virtual CostEstimate CostEstimate { get; set; } = default!;
         public virtual CostEstimateGroup? ParentGroup { get; set; }
         public virtual ICollection<CostEstimateGroup> ChildGroups { get; set; } = new List<CostEstimateGroup>();
-        public virtual ICollection<CostEstimateGroupFieldValue> FieldValues { get; set; } = new List<CostEstimateGroupFieldValue>();
         public virtual ICollection<CostEstimateItem> Items { get; set; } = new List<CostEstimateItem>();
         public virtual ICollection<WorkScheduleStage> WorkScheduleStages { get; set; } = new List<WorkScheduleStage>();
+
+        /// <summary>
+        /// Wartości pól dodatkowych dla tej grupy (nowa płaska struktura)
+        /// </summary>
+        public virtual ICollection<CostEstimateAdditionalFieldValue> AdditionalFieldValues { get; set; } = new List<CostEstimateAdditionalFieldValue>();
     }
 }

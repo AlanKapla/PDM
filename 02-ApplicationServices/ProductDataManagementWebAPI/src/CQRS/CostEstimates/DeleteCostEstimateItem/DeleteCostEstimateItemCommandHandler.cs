@@ -2,16 +2,9 @@ using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -21,8 +14,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
     public sealed class DeleteCostEstimateItemCommandHandler : IRequestHandler<DeleteCostEstimateItemCommand, Unit>
     {
         private readonly IRepository<CostEstimateItem> itemRepository;
-        private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
-        private readonly IRepository<CostEstimateFieldFile> fieldFileRepository;
+        private readonly IRepository<CostEstimateItemFile> itemFileRepository;
         private readonly IRepository<WorkScheduleStageWork> stageWorkRepository;
         private readonly IRepository<TrackedCost> trackedCostRepository;
         private readonly ICostEstimateCacheService cacheService;
@@ -32,8 +24,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
 
         public DeleteCostEstimateItemCommandHandler(
             IRepository<CostEstimateItem> itemRepository,
-            IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
-            IRepository<CostEstimateFieldFile> fieldFileRepository,
+            IRepository<CostEstimateItemFile> itemFileRepository,
             IRepository<WorkScheduleStageWork> stageWorkRepository,
             IRepository<TrackedCost> trackedCostRepository,
             ICostEstimateCacheService cacheService,
@@ -42,8 +33,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             ILogger<DeleteCostEstimateItemCommandHandler> logger)
         {
             this.itemRepository = itemRepository;
-            this.itemFieldValueRepository = itemFieldValueRepository;
-            this.fieldFileRepository = fieldFileRepository;
+            this.itemFileRepository = itemFileRepository;
             this.stageWorkRepository = stageWorkRepository;
             this.trackedCostRepository = trackedCostRepository;
             this.cacheService = cacheService;
@@ -57,7 +47,6 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
             CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
-
 
             CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
@@ -74,35 +63,48 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
 
             DateTime now = DateTime.UtcNow;
 
-            // Collect all descendant item IDs from cached dictionary
             HashSet<Guid> allItemIds = CollectDescendantItemIds(itemsDict, request.ItemId);
             allItemIds.Add(request.ItemId);
 
-            // Soft-delete files + delete blobs
-            List<CostEstimateFieldFile> filesToDelete = (await fieldFileRepository.GetBySearch(
-                f => f.CostEstimateId == request.CostEstimateId &&
-                     allItemIds.Contains(f.FieldValue.ItemId))).ToList();
+            await SoftDeleteItemFilesAsync(request.CostEstimateId, allItemIds, now, cancellationToken);
+            await SoftDeleteItemsAsync(allItemIds, now, cancellationToken);
+            await NullifyWorkScheduleReferencesAsync(allItemIds, cancellationToken);
 
-            if (filesToDelete.Count > 0)
+            await cacheService.InvalidateCostEstimateAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            return Unit.Value;
+        }
+
+        private async Task SoftDeleteItemFilesAsync(
+            Guid costEstimateId,
+            HashSet<Guid> allItemIds,
+            DateTime now,
+            CancellationToken cancellationToken)
+        {
+            List<CostEstimateItemFile> filesToDelete = (await itemFileRepository.GetBySearch(
+                f => f.CostEstimateId == costEstimateId && allItemIds.Contains(f.ItemId) && !f.IsDeleted)).ToList();
+
+            if (filesToDelete.Count == 0)
             {
-                foreach (CostEstimateFieldFile file in filesToDelete)
-                {
-                    file.IsDeleted = true;
-                    file.DeletedAt = now;
-                }
-
-                await fieldFileRepository.UpdateRange(filesToDelete);
-
-                logger.LogInformation(
-                    "Soft-deleted {FileCount} files for deleted items in cost estimate {CostEstimateId}",
-                    filesToDelete.Count, request.CostEstimateId);
+                return;
             }
 
-            // Delete item field values (hard delete — no IsDeleted column)
-            await itemFieldValueRepository.ExecuteDeleteAsync(
-                fv => allItemIds.Contains(fv.ItemId), cancellationToken);
+            foreach (CostEstimateItemFile file in filesToDelete)
+            {
+                file.IsDeleted = true;
+                file.DeletedAt = now;
+            }
 
-            // Soft-delete items
+            await itemFileRepository.UpdateRange(filesToDelete);
+
+            logger.LogInformation(
+                "Soft-deleted {FileCount} files for deleted items in cost estimate {CostEstimateId}",
+                filesToDelete.Count, costEstimateId);
+        }
+
+        private async Task SoftDeleteItemsAsync(HashSet<Guid> allItemIds, DateTime now, CancellationToken cancellationToken)
+        {
             List<CostEstimateItem> itemsToDelete = (await itemRepository.GetBySearch(
                 i => allItemIds.Contains(i.Id))).ToList();
 
@@ -114,7 +116,12 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
 
             await itemRepository.UpdateRange(itemsToDelete);
             await itemRepository.SaveChangesAsync(cancellationToken);
+        }
 
+        private async Task NullifyWorkScheduleReferencesAsync(
+            HashSet<Guid> allItemIds,
+            CancellationToken cancellationToken)
+        {
             await stageWorkRepository.ExecuteUpdateAsync(
                 w => allItemIds.Contains(w.CostEstimateItemId!.Value),
                 s => s.SetProperty(w => w.CostEstimateItemId, (Guid?)null),
@@ -124,12 +131,6 @@ namespace CQRS.CostEstimates.DeleteCostEstimateItem
                 tc => allItemIds.Contains(tc.CostEstimateItemId!.Value),
                 s => s.SetProperty(tc => tc.CostEstimateItemId, (Guid?)null),
                 cancellationToken);
-
-            // Invalidate cache
-            await cacheService.InvalidateCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
-
-            return Unit.Value;
         }
 
         private static HashSet<Guid> CollectDescendantItemIds(

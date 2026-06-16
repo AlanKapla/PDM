@@ -19,7 +19,6 @@ import {
   Building2,
   FolderKanban,
   Briefcase,
-  FileText,
   Settings,
   RefreshCw,
   Mail,
@@ -166,22 +165,7 @@ export function SidebarContent() {
         Zaplanowane prace
       </Button>
 
-      {/* Szablony kosztorysów */}
-      <Button
-        as={RouterLink}
-        to="/cost-estimate-templates"
-        variant="ghost"
-        justifyContent="flex-start"
-        leftIcon={<FileText size={20} />}
-        w="100%"
-        bg={location.pathname === "/cost-estimate-templates" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg, textDecoration: "none" }}
-        textDecoration="none"
-      >
-        Szablony kosztorysów
-      </Button>
-
-      {/* Ustawienia */}
+      {/* Zaplanowane prace */}
       <Button
         as={RouterLink}
         to="/profile"

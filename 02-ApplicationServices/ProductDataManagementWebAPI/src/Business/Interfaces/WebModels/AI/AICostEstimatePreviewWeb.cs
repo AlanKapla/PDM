@@ -7,9 +7,6 @@ namespace Business.Interfaces.WebModels.AI
     /// </summary>
     public sealed record AICostEstimatePreviewWeb
     {
-        /// <summary>ID szablonu (powtórzony dla walidacji po stronie klienta).</summary>
-        public Guid TemplateId { get; init; }
-
         /// <summary>Sugerowana nazwa kosztorysu.</summary>
         public string SuggestedName { get; init; } = string.Empty;
 
@@ -37,7 +34,7 @@ namespace Business.Interfaces.WebModels.AI
         /// <summary>Kolejność w ramach poziomu.</summary>
         public int Order { get; init; }
 
-        /// <summary>Wartości pól grupy (GroupHeaderFields z szablonu).</summary>
+        /// <summary>Wartości pól grupy.</summary>
         public List<AIFieldValueWeb> FieldValues { get; init; } = [];
 
         /// <summary>Pozycje kosztorysowe w tej grupie.</summary>
@@ -55,7 +52,7 @@ namespace Business.Interfaces.WebModels.AI
         /// <summary>Kolejność w grupie.</summary>
         public int Order { get; init; }
 
-        /// <summary>Wartości pól pozycji (SystemFields + CalculatedFields + GenericFields z szablonu).</summary>
+        /// <summary>Wartości pól pozycji.</summary>
         public List<AIFieldValueWeb> FieldValues { get; init; } = [];
 
         /// <summary>
@@ -91,7 +88,7 @@ namespace Business.Interfaces.WebModels.AI
     /// </summary>
     public sealed record AIFieldValueWeb
     {
-        /// <summary>ID definicji pola z szablonu (CostEstimateTemplateFieldDefinitionBase.Id).</summary>
+        /// <summary>ID definicji pola ze schematu kosztorysu.</summary>
         public Guid FieldDefinitionId { get; init; }
 
         public decimal? DecimalValue { get; init; }

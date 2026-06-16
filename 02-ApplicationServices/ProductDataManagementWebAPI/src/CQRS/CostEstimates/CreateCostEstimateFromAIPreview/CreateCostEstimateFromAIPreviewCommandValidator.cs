@@ -22,11 +22,6 @@ namespace CQRS.CostEstimates.CreateCostEstimateFromAIPreview
                 .NotNull()
                 .WithMessage("Podgląd kosztorysu jest wymagany.");
 
-            RuleFor(x => x.Preview.TemplateId)
-                .NotEmpty()
-                .When(x => x.Preview is not null)
-                .WithMessage("ID szablonu w podglądzie jest wymagany.");
-
             RuleFor(x => x.Preview.Groups)
                 .NotEmpty()
                 .When(x => x.Preview is not null)

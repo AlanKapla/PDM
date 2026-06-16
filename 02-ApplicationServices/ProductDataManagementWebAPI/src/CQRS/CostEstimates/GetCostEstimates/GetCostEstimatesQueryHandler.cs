@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimates;
@@ -86,14 +86,7 @@ namespace CQRS.CostEstimates.GetCostEstimates
                 c => c.ProjectId == request.ProjectId,
                 cancellationToken);
 
-            List<Guid> templateIds = costEstimatesList.Select(c => c.TemplateId).Distinct().ToList();
-
-            var templateDict = new Dictionary<Guid, string>();
-            foreach (var tId in templateIds)
-            {
-                var t = await ceCacheService.GetTemplateAsync(tId, cancellationToken);
-                templateDict[tId] = t?.Name ?? "Unknown Template";
-            }
+            // Template logic removed - all cost estimates use schema-based structure
 
             var membersDict = (await userService.GetProjectMembersAsync(
                 request.TenantId, request.ProjectId, cancellationToken))
@@ -131,8 +124,6 @@ namespace CQRS.CostEstimates.GetCostEstimates
                     Id: c.Id,
                     TenantId: c.TenantId,
                     ProjectId: c.ProjectId,
-                    TemplateId: c.TemplateId,
-                    TemplateName: templateDict.GetValueOrDefault(c.TemplateId, "Unknown Template"),
                     Name: c.Name,
                     Description: c.Description,
                     Status: c.Status,
@@ -153,3 +144,5 @@ namespace CQRS.CostEstimates.GetCostEstimates
         }
     }
 }
+
+

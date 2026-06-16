@@ -69,27 +69,43 @@ PDM/
 
 ## Skille — API
 
-Przed implementacją przeczytaj odpowiedni skill:
+Przed implementacją użyj odpowiedniego skilla (wpisz `/` w chacie aby wybrać):
 
 | Obszar | Skill |
 |--------|-------|
-| CQRS (Commands, Queries, Handlers) | `.github/skills/api/skill-api-cqrs.md` |
-| Walidatory (FluentValidation) | `.github/skills/api/skill-api-validators.md` |
-| Kontrolery (endpoints, routing) | `.github/skills/api/skill-api-controllers.md` |
-| Encje i konfiguracje EF Core | `.github/skills/api/skill-api-entities.md` |
-| Repozytoria | `.github/skills/api/skill-api-repositories.md` |
-| Serwisy domenowe | `.github/skills/api/skill-api-services.md` |
-| Testy jednostkowe | `.github/skills/api/skill-api-unit-tests.md` |
+| CQRS (Commands, Queries, Handlers) | `api-cqrs` |
+| Walidatory (FluentValidation) | `api-validators` |
+| Kontrolery (endpoints, routing) | `api-controllers` |
+| Encje i konfiguracje EF Core | `api-entities` |
+| Repozytoria | `api-repositories` |
+| Serwisy domenowe | `api-services` |
+| Testy jednostkowe | `api-unit-tests` |
 
 ## Skille — UI
 
 | Obszar | Skill |
 |--------|-------|
-| Typy TypeScript | `.github/skills/ui/skill-ui-types.md` |
-| Hooki (React Query, custom) | `.github/skills/ui/skill-ui-hooks.md` |
-| Komponenty | `.github/skills/ui/skill-ui-components.md` |
-| Formularze i modale | `.github/skills/ui/skill-ui-forms-modals.md` |
-| Klienty API | `.github/skills/ui/skill-ui-api-client.md` |
-| Theme i design tokens | `.github/skills/ui/skill-ui-theme.md` |
-| Testy jednostkowe | `.github/skills/ui/skill-ui-unit-tests.md` |
-| **Dostępność WCAG AA / AXE** | `.github/skills/ui/skill-ui-accessibility.md` |
+| Typy TypeScript | `ui-types` |
+| Hooki (React Query, custom) | `ui-hooks` |
+| Komponenty | `ui-components` |
+| Formularze i modale | `ui-forms-modals` |
+| Klienty API | `ui-api-client` |
+| Theme i design tokens | `ui-theme` |
+| Testy jednostkowe | `ui-unit-tests` |
+| **Dostępność WCAG AA / AXE** | `ui-accessibility` |
+
+## Agenty
+
+Użyj `@` w chacie Copilota żeby wywołać specjalistycznego agenta:
+
+| Agent | Kiedy używać |
+|-------|-------------|
+| `@feature-planner-agent` | Planowanie i koordynacja wdrożenia nowego feature |
+| `@unit-test-orchestrator-agent` | Pisanie testów jednostkowych dla wielu warstw |
+| `@handler-test-agent` | Testy dla CommandHandler / QueryHandler (CQRS.Tests) |
+| `@validator-test-agent` | Testy dla walidatorów FluentValidation (CQRS.Tests) |
+| `@service-test-agent` | Testy dla serwisów domenowych (Business.Tests) |
+| `@api-audit-agent` | Audyt warstwy API przed implementacją zmian (read-only) |
+| `@ui-audit-agent` | Audyt warstwy UI przed implementacją zmian (read-only) |
+| `@refactor-agent` | Implementacja zmian w API wg promptu |
+| `@ui-refactor-agent` | Implementacja zmian w UI wg promptu |

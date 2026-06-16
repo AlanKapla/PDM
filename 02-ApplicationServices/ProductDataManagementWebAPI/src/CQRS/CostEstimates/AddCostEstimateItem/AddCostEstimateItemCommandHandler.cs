@@ -1,9 +1,8 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -90,10 +89,6 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
                 }
             }
 
-            // Validate template exists
-            _ = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
-
             CostEstimateItem item = new CostEstimateItem
             {
                 CostEstimateId = costEstimate.Id,
@@ -102,6 +97,8 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
                 ParentItemId = request.ParentItemId,
                 RelationType = request.RelationType,
                 Order = request.Order,
+                IsSelected = true,
+                IsStageWork = false,
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
             };
@@ -115,3 +112,6 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
         }
     }
 }
+
+
+

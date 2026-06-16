@@ -11,7 +11,6 @@ using Entities.Models;
 using Entities.Models.WorkSchedules;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
 
 namespace Entities.Context
@@ -46,20 +45,14 @@ namespace Entities.Context
         public DbSet<WorkScheduleStageWorkAssignment> WorkScheduleStageWorkAssignments => Set<WorkScheduleStageWorkAssignment>();
         public DbSet<WorkScheduleStageWorkComment> WorkScheduleStageWorkComments => Set<WorkScheduleStageWorkComment>();
         public DbSet<WorkScheduleStageWorkDependency> WorkScheduleStageWorkDependencies => Set<WorkScheduleStageWorkDependency>();
-        public DbSet<CostEstimateTemplate> CostEstimateTemplates => Set<CostEstimateTemplate>();
-        public DbSet<CostEstimateTemplateUnit> CostEstimateTemplateUnits => Set<CostEstimateTemplateUnit>();
-        public DbSet<CostEstimateTemplateCategory> CostEstimateTemplateCategories => Set<CostEstimateTemplateCategory>();
-        public DbSet<CostEstimateTemplateGroupFieldDefinition> CostEstimateTemplateGroupFieldDefinitions => Set<CostEstimateTemplateGroupFieldDefinition>();
-        public DbSet<CostEstimateTemplateItemSystemFieldDefinition> CostEstimateTemplateItemSystemFieldDefinitions => Set<CostEstimateTemplateItemSystemFieldDefinition>();
-        public DbSet<CostEstimateTemplateItemCalculatedFieldDefinition> CostEstimateTemplateItemCalculatedFieldDefinitions => Set<CostEstimateTemplateItemCalculatedFieldDefinition>();
-        public DbSet<CostEstimateTemplateItemGenericFieldDefinition> CostEstimateTemplateItemGenericFieldDefinitions => Set<CostEstimateTemplateItemGenericFieldDefinition>();
+
         public DbSet<CostEstimate> CostEstimates => Set<CostEstimate>();
         public DbSet<CostEstimateGroup> CostEstimateGroups => Set<CostEstimateGroup>();
-        public DbSet<CostEstimateGroupFieldValue> CostEstimateGroupFieldValues => Set<CostEstimateGroupFieldValue>();
         public DbSet<CostEstimateItem> CostEstimateItems => Set<CostEstimateItem>();
-        public DbSet<CostEstimateItemFieldValue> CostEstimateItemFieldValues => Set<CostEstimateItemFieldValue>();
-        public DbSet<CostEstimateFieldFile> CostEstimateFieldFiles => Set<CostEstimateFieldFile>();
         public DbSet<SharedCostEstimate> SharedCostEstimates => Set<SharedCostEstimate>();
+        public DbSet<CostEstimateFieldSchema> CostEstimateFieldSchemas => Set<CostEstimateFieldSchema>();
+        public DbSet<CostEstimateAdditionalFieldValue> CostEstimateAdditionalFieldValues => Set<CostEstimateAdditionalFieldValue>();
+        public DbSet<CostEstimateItemFile> CostEstimateItemFiles => Set<CostEstimateItemFile>();
         public DbSet<Contractor> Contractors => Set<Contractor>();
         public DbSet<BaseCost> Costs => Set<BaseCost>();
         public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();

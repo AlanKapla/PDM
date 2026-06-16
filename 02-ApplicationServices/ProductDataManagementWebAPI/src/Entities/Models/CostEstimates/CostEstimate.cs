@@ -7,7 +7,6 @@ using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
 using Entities.Models.Base;
-using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
 
 namespace Entities.Models.CostEstimates
@@ -16,7 +15,6 @@ namespace Entities.Models.CostEstimates
     {
         public Guid TenantId { get; set; }
         public Guid ProjectId { get; set; }
-        public Guid TemplateId { get; set; }
         public Guid OwnerId { get; set; }
         public string Name { get; set; } = default!;
         public string? Description { get; set; }
@@ -27,13 +25,25 @@ namespace Entities.Models.CostEstimates
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? LastCalculatedAt { get; set; }
+        
+        /// <summary>
+        /// Wersja schematu (dla przyszłych migracji)
+        /// Domyślnie 1 dla nowych kosztorysów.
+        /// </summary>
+        public int SchemaVersion { get; set; } = 1;
+        
         public virtual Tenant Tenant { get; set; } = default!;
         public virtual Project Project { get; set; } = default!;
-        public virtual CostEstimateTemplate Template { get; set; } = default!;
         public virtual User Owner { get; set; } = default!;
         public virtual ICollection<CostEstimateGroup> AllGroups { get; set; } = new List<CostEstimateGroup>();
         public virtual ICollection<CostEstimateItem> AllItems { get; set; } = new List<CostEstimateItem>();
         public virtual ICollection<WorkSchedule> WorkSchedules { get; set; } = new List<WorkSchedule>();
+        
+        /// <summary>
+        /// Schemat kolumn kosztorysu (pola podstawowe i dodatkowe).
+        /// </summary>
+        public virtual ICollection<CostEstimateFieldSchema> FieldSchemas { get; set; } = new List<CostEstimateFieldSchema>();
+        
         public IEnumerable<CostEstimateGroup> RootGroups => AllGroups?.Where(g => g.ParentGroupId == null) ?? Enumerable.Empty<CostEstimateGroup>();
         
         /// <summary>

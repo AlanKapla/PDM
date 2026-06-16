@@ -16,6 +16,7 @@ import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { useProjectDetails } from "../hooks/queries";
 import { LoadingSpinner } from "../components/common";
 import CurrencySelector from "../components/ProjectParameters/CurrencySelector";
+import UnitManager from "../components/ProjectParameters/UnitManager";
 
 export default function ProjectParameters() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -98,6 +99,24 @@ export default function ProjectParameters() {
                 tenantId={user.activeTenantId}
                 projectId={projectId}
                 currentCurrency={project?.currency}
+                canEdit={permissions.canEdit}
+              />
+            )}
+          </Box>
+
+          <Box
+            bg={cardBg}
+            p={{ base: 4, md: 6 }}
+            rounded="lg"
+            borderWidth="1px"
+            borderColor={borderColor}
+            shadow="sm"
+          >
+            <Heading size="sm" mb={4}>Jednostki miary</Heading>
+            {user?.activeTenantId && projectId && (
+              <UnitManager
+                tenantId={user.activeTenantId}
+                projectId={projectId}
                 canEdit={permissions.canEdit}
               />
             )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -23,7 +23,6 @@ import {
   AlertIcon,
   Spinner,
   Progress,
-  Divider,
   Icon,
   Flex,
   Accordion,
@@ -33,16 +32,9 @@ import {
   AccordionIcon,
   Tag,
 } from '@chakra-ui/react';
-import { Bot, ChevronRight, ChevronLeft, AlertTriangle, Check, FileText, Folder } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
-import {
-  costEstimateTemplateApi,
-  type CostEstimateTemplateListItem,
-  type CostEstimateTemplateStructureWeb,
-} from '../api/costEstimateTemplateApi';
+import { Bot, ChevronRight, ChevronLeft, Check, FileText, Folder } from 'lucide-react';
 import { useToastNotification } from '../hooks/useToastNotification';
 import { handleApiError } from '../utils/handleApiError';
-import { AuthContext } from '../context/AuthContext';
 import { useGenerateCostEstimateWithAI } from '../hooks/useGenerateCostEstimateWithAI';
 import type {
   AICostEstimateRequestDto,
@@ -61,7 +53,7 @@ const AREA_UNITS = ['m²', 'mb', 'szt', 'kpl', 'm³'] as const;
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 11 }, (_, i) => CURRENT_YEAR + i);
 
-export type AIModalStep = 1 | 2 | 3 | 4 | 5;
+export type AIModalStep = 1 | 2 | 3 | 4;
 
 export interface GenerateCostEstimateWithAIModalProps {
   isOpen: boolean;
@@ -93,10 +85,6 @@ const INITIAL_FORM: FormState = {
   additionalRequirements: '',
 };
 
-interface TemplateWithStructure extends CostEstimateTemplateListItem {
-  structure?: CostEstimateTemplateStructureWeb;
-}
-
 export default function GenerateCostEstimateWithAIModal({
   isOpen,
   onClose,
@@ -109,36 +97,26 @@ export default function GenerateCostEstimateWithAIModal({
   const [step, setStep] = useState<AIModalStep>(1);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-
-  const [templates, setTemplates] = useState<CostEstimateTemplateListItem[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-  const [templateDetails, setTemplateDetails] = useState<TemplateWithStructure | null>(null);
-  const [loadingTemplates, setLoadingTemplates] = useState<boolean>(false);
-  const [loadingTemplateDetails, setLoadingTemplateDetails] = useState<boolean>(false);
-
-  // Placeholder state for UI-04 steps
   const [preview, setPreview] = useState<AICostEstimatePreviewDto | null>(null);
   const [finalName, setFinalName] = useState<string>('');
   const [finalDescription, setFinalDescription] = useState<string>('');
 
-  const { user: _user } = useContext(AuthContext);
   const { generatePreview, createFromPreview } = useGenerateCostEstimateWithAI(tenantId, projectId);
 
-  // Uruchom generowanie gdy wchodzimy na step 3
   useEffect(() => {
-    if (step === 3 && !preview && !generatePreview.isPending) {
+    if (step === 2 && !preview && !generatePreview.isPending) {
       const request = buildRequest();
       generatePreview.mutate(request, {
         onSuccess: (result) => {
           setPreview(result);
           setFinalName(result.suggestedName);
           setFinalDescription(result.suggestedDescription ?? '');
-          setStep(4);
+          setStep(3);
         },
         onError: (error: Error) => {
           const { title, description } = handleApiError(error);
           showError(title, description);
-          setStep(2);
+          setStep(1);
         },
       });
     }
@@ -171,52 +149,11 @@ export default function GenerateCostEstimateWithAIModal({
       setStep(1);
       setForm(INITIAL_FORM);
       setFormErrors({});
-      setSelectedTemplateId('');
-      setTemplateDetails(null);
       setPreview(null);
       setFinalName('');
       setFinalDescription('');
-      loadTemplates();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
-
-  useEffect(() => {
-    if (!selectedTemplateId) {
-      setTemplateDetails(null);
-      return;
-    }
-    loadTemplateDetails(selectedTemplateId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTemplateId]);
-
-  const loadTemplates = async (): Promise<void> => {
-    setLoadingTemplates(true);
-    try {
-      const list = await costEstimateTemplateApi.getTemplates();
-      setTemplates(list);
-    } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-    } finally {
-      setLoadingTemplates(false);
-    }
-  };
-
-  const loadTemplateDetails = async (templateId: string): Promise<void> => {
-    setLoadingTemplateDetails(true);
-    try {
-      const details = await costEstimateTemplateApi.getTemplateDetails(templateId);
-      const base = templates.find((t) => t.id === templateId);
-      if (base) {
-        setTemplateDetails({ ...base, structure: details.structure });
-      }
-    } catch {
-      setTemplateDetails(null);
-    } finally {
-      setLoadingTemplateDetails(false);
-    }
-  };
 
   const validateStep1 = (): boolean => {
     const errors: Partial<Record<keyof FormState, string>> = {};
@@ -239,17 +176,7 @@ export default function GenerateCostEstimateWithAIModal({
     if (validateStep1()) setStep(2);
   };
 
-  const handleStep2Next = (): void => {
-    if (!selectedTemplateId) {
-      showError('Wybierz szablon', 'Musisz wybrać szablon kosztorysu przed kontynuacją.');
-      return;
-    }
-    setStep(3);
-  };
-
-  // Will be used in UI-04
   const buildRequest = (): AICostEstimateRequestDto => ({
-    templateId: selectedTemplateId,
     investmentType: form.investmentType.trim(),
     finishingStandard: form.finishingStandard || undefined,
     budget: form.budget ? Number(form.budget) : undefined,
@@ -266,13 +193,12 @@ export default function GenerateCostEstimateWithAIModal({
 
   const stepTitles: Record<AIModalStep, string> = {
     1: 'Opisz inwestycję',
-    2: 'Wybierz szablon',
-    3: 'Generowanie AI...',
-    4: 'Podgląd kosztorysu',
-    5: 'Zatwierdź i zapisz',
+    2: 'Generowanie AI...',
+    3: 'Podgląd kosztorysu',
+    4: 'Zatwierdź i zapisz',
   };
 
-  const progressValue = (step / 5) * 100;
+  const progressValue = (step / 4) * 100;
 
   return (
     <Modal
@@ -280,7 +206,7 @@ export default function GenerateCostEstimateWithAIModal({
       onClose={handleClose}
       size={{ base: 'full', md: 'xl' }}
       scrollBehavior="inside"
-      closeOnOverlayClick={step !== 3}
+      closeOnOverlayClick={step !== 2}
     >
       <ModalOverlay />
       <ModalContent>
@@ -290,11 +216,11 @@ export default function GenerateCostEstimateWithAIModal({
             <Text>Stwórz kosztorys z AI</Text>
           </HStack>
           <Text fontSize="sm" fontWeight="normal" color="gray.600" mt={1}>
-            Krok {step} z 5 — {stepTitles[step]}
+            Krok {step} z 4 — {stepTitles[step]}
           </Text>
           <Progress value={progressValue} size="xs" colorScheme="purple" mt={2} borderRadius="full" />
         </ModalHeader>
-        {step !== 3 && <ModalCloseButton aria-label="Zamknij modal" />}
+        {step !== 2 && <ModalCloseButton aria-label="Zamknij modal" />}
 
         <ModalBody>
           {step === 1 && (
@@ -304,25 +230,10 @@ export default function GenerateCostEstimateWithAIModal({
               errors={formErrors}
             />
           )}
-          {step === 2 && (
-            <Step2Template
-              templates={templates}
-              selectedTemplateId={selectedTemplateId}
-              onSelectTemplate={setSelectedTemplateId}
-              templateDetails={templateDetails}
-              loadingTemplates={loadingTemplates}
-              loadingTemplateDetails={loadingTemplateDetails}
-              tenantId={tenantId}
-            />
-          )}
-          {step === 3 && (
-            <Step3Generating />
-          )}
+          {step === 2 && <Step2Generating />}
+          {step === 3 && preview && <Step3Preview preview={preview} />}
           {step === 4 && preview && (
-            <Step4Preview preview={preview} />
-          )}
-          {step === 5 && preview && (
-            <Step5Confirm
+            <Step4Confirm
               preview={preview}
               finalName={finalName}
               finalDescription={finalDescription}
@@ -338,7 +249,7 @@ export default function GenerateCostEstimateWithAIModal({
               variant="ghost"
               leftIcon={<ChevronLeft size={16} aria-hidden="true" />}
               onClick={() => step > 1 ? setStep((s) => (s - 1) as AIModalStep) : handleClose()}
-              isDisabled={step === 3}
+              isDisabled={step === 2}
             >
               {step === 1 ? 'Anuluj' : 'Wstecz'}
             </Button>
@@ -349,29 +260,19 @@ export default function GenerateCostEstimateWithAIModal({
                 rightIcon={<ChevronRight size={16} aria-hidden="true" />}
                 onClick={handleStep1Next}
               >
-                Dalej
-              </Button>
-            )}
-            {step === 2 && (
-              <Button
-                colorScheme="purple"
-                rightIcon={<ChevronRight size={16} aria-hidden="true" />}
-                onClick={handleStep2Next}
-                isDisabled={!selectedTemplateId || loadingTemplateDetails}
-              >
                 Generuj z AI
               </Button>
             )}
-            {step === 4 && (
+            {step === 3 && (
               <Button
                 colorScheme="purple"
                 rightIcon={<ChevronRight size={16} />}
-                onClick={() => setStep(5)}
+                onClick={() => setStep(4)}
               >
                 Zatwierdź podgląd
               </Button>
             )}
-            {step === 5 && (
+            {step === 4 && (
               <Button
                 colorScheme="green"
                 leftIcon={<Check size={16} />}
@@ -388,8 +289,6 @@ export default function GenerateCostEstimateWithAIModal({
     </Modal>
   );
 }
-
-// ======== STEP 1: Formularz pytań ========
 
 interface Step1FormProps {
   form: FormState;
@@ -497,140 +396,23 @@ function Step1Form({ form, setForm, errors }: Step1FormProps) {
           {form.additionalRequirements.length}/2000
         </Text>
       </FormControl>
-    </VStack>
-  );
-}
-
-// ======== STEP 2: Wybór szablonu ========
-
-interface Step2TemplateProps {
-  templates: CostEstimateTemplateListItem[];
-  selectedTemplateId: string;
-  onSelectTemplate: (id: string) => void;
-  templateDetails: TemplateWithStructure | null;
-  loadingTemplates: boolean;
-  loadingTemplateDetails: boolean;
-  tenantId: string;
-}
-
-function Step2Template({
-  templates,
-  selectedTemplateId,
-  onSelectTemplate,
-  templateDetails,
-  loadingTemplates,
-  loadingTemplateDetails,
-  tenantId: _tenantId,
-}: Step2TemplateProps) {
-  if (loadingTemplates) {
-    return (
-      <Flex justify="center" py={8}>
-        <Spinner color="purple.500" />
-      </Flex>
-    );
-  }
-
-  if (templates.length === 0) {
-    return (
-      <Alert status="warning" borderRadius="md" role="alert">
-        <AlertIcon as={AlertTriangle} aria-hidden="true" />
-        <VStack align="flex-start" spacing={1}>
-          <Text fontWeight="semibold">Brak szablonów kosztorysów</Text>
-          <Text fontSize="sm">
-            Aby wygenerować kosztorys z AI, musisz najpierw{' '}
-            <RouterLink
-              to="/cost-estimate-templates"
-            >
-              <Text as="span" color="blue.500" textDecoration="underline">
-                utworzyć szablon kosztorysu
-              </Text>
-            </RouterLink>
-            .
-          </Text>
-        </VStack>
-      </Alert>
-    );
-  }
-
-  return (
-    <VStack spacing={4} align="stretch">
-      <FormControl isRequired>
-        <FormLabel>Szablon kosztorysu</FormLabel>
-        <Select
-          value={selectedTemplateId}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onSelectTemplate(e.target.value)}
-          placeholder="Wybierz szablon..."
-        >
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </Select>
-      </FormControl>
-
-      {loadingTemplateDetails && (
-        <Flex justify="center" py={4}>
-          <Spinner size="sm" color="purple.500" />
-        </Flex>
-      )}
-
-      {templateDetails?.structure && !loadingTemplateDetails && (
-        <Box
-          borderWidth="1px"
-          borderColor="purple.200"
-          borderRadius="md"
-          p={4}
-          bg="purple.50"
-        >
-          <Text fontWeight="semibold" mb={2}>{templateDetails.name}</Text>
-          {templateDetails.description && (
-            <Text fontSize="sm" color="gray.600" mb={2}>{templateDetails.description}</Text>
-          )}
-          <Divider mb={2} />
-          <HStack spacing={4} flexWrap="wrap">
-            {(templateDetails.structure.groupHeaderFields?.length ?? 0) > 0 && (
-              <Badge colorScheme="purple" variant="subtle">
-                {templateDetails.structure.groupHeaderFields.length} pól grup
-              </Badge>
-            )}
-            {(templateDetails.structure.systemFields?.length ?? 0) > 0 && (
-              <Badge colorScheme="blue" variant="subtle">
-                {templateDetails.structure.systemFields.length} pól systemowych
-              </Badge>
-            )}
-            {(templateDetails.structure.calculatedFields?.length ?? 0) > 0 && (
-              <Badge colorScheme="green" variant="subtle">
-                {templateDetails.structure.calculatedFields.length} pól obliczeniowych
-              </Badge>
-            )}
-            {(templateDetails.structure.units?.length ?? 0) > 0 && (
-              <Badge colorScheme="gray" variant="subtle">
-                {templateDetails.structure.units.length} jednostek
-              </Badge>
-            )}
-          </HStack>
-        </Box>
-      )}
 
       <Alert status="info" borderRadius="md" fontSize="sm">
         <AlertIcon aria-hidden="true" />
-        AI wygeneruje strukturę kosztorysu na podstawie szablonu. Możesz edytować wynik przed zapisem.
+        AI wygeneruje strukturę kosztorysu z domyślnym schematem pól. Możesz edytować wynik przed zapisem.
       </Alert>
     </VStack>
   );
 }
 
-// ======== STEP 3: Generowanie AI ========
-
-function Step3Generating() {
+function Step2Generating() {
   return (
     <VStack spacing={6} py={8} align="center">
       <Spinner size="xl" color="purple.500" thickness="4px" />
       <VStack spacing={1}>
         <Text fontWeight="semibold" fontSize="lg">AI generuje kosztorys...</Text>
         <Text color="gray.500" fontSize="sm" textAlign="center">
-          Analizuję opis inwestycji i strukturę szablonu.
+          Analizuję opis inwestycji.
           Może to potrwać do 30 sekund.
         </Text>
       </VStack>
@@ -638,13 +420,11 @@ function Step3Generating() {
   );
 }
 
-// ======== STEP 4: Podgląd drzewa ========
-
-interface Step4PreviewProps {
+interface Step3PreviewProps {
   preview: AICostEstimatePreviewDto;
 }
 
-function Step4Preview({ preview }: Step4PreviewProps) {
+function Step3Preview({ preview }: Step3PreviewProps) {
   return (
     <VStack spacing={4} align="stretch">
       {preview.warnings.length > 0 && (
@@ -757,9 +537,7 @@ function GroupPreviewItem({ group, allGroups, indent }: GroupPreviewItemProps) {
   );
 }
 
-// ======== STEP 5: Potwierdzenie + edycja nazwy ========
-
-interface Step5ConfirmProps {
+interface Step4ConfirmProps {
   preview: AICostEstimatePreviewDto;
   finalName: string;
   finalDescription: string;
@@ -767,13 +545,13 @@ interface Step5ConfirmProps {
   onDescriptionChange: (v: string) => void;
 }
 
-function Step5Confirm({
+function Step4Confirm({
   preview,
   finalName,
   finalDescription,
   onNameChange,
   onDescriptionChange,
-}: Step5ConfirmProps) {
+}: Step4ConfirmProps) {
   const totalItems = preview.groups.reduce((sum, g) => sum + g.items.length, 0);
 
   return (

@@ -1,0 +1,143 @@
+# Dokumentacja – Kosztorys
+
+---
+
+## Struktura ogólna
+
+Kosztorys zbudowany jest jako hierarchiczne drzewo. Na najwyższym poziomie znajdują się **etapy**, które mogą zawierać **podetapy** oraz **pozycje**. Podetap zachowuje się identycznie jak etap – różni się jedynie tym, że posiada rodzica. Każda pozycja może zawierać **komponenty** lub **opcje**, ale nigdy jedno i drugie jednocześnie.
+
+```
+Kosztorys
+└── Etap
+    ├── Podetap
+    │   └── Pozycja
+    │       ├── Komponenty
+    │       │   └── Opcje
+    │       └── Opcje
+    └── Pozycja
+        ├── Komponenty
+        └── Opcje
+```
+
+---
+
+## Etapy i podetapy
+
+Etapy grupują pozycje. Każdy etap ma pole **Nazwa**. Podetap to etap zagnieżdżony w innym etapie – poza obecnością rodzica nie różni się niczym od zwykłego etapu.
+
+---
+
+## Pozycje
+
+Pozycja to podstawowa jednostka kosztorysowa. Należy do etapu lub podetapu.
+
+**Pola:**
+- Nazwa
+- Ilość, Jednostka
+- Cena netto, Cena brutto, VAT
+- Wartość netto, Wartość brutto, Wartość VAT
+- **Sumuj** (bool, domyślnie: true) – jeśli true, wartości netto i brutto pozycji wliczają się do sum etapu i całego kosztorysu
+- **Zakres pracy harmonogramu** (bool, domyślnie: true) – jeśli true, pozycja traktowana jest jako zakres pracy w harmonogramie, pole dpstepne tylko dla pozycji głównej
+
+Jeśli pozycja ma komponenty, jej pola finansowe są zablokowane – wyliczane są automatycznie jako suma wartości komponentów. Edytowalne pozostają tylko **Nazwa** i **Sumuj**. Do każdej pozycji można załączać pliki.
+
+---
+
+## Komponenty
+
+Komponenty to składniki pozycji, np. robocizna, materiał, koszty stałe, transport. Mają te same pola finansowe co pozycja, oraz pole **Sumuj** (domyślnie: true). Jeśli Sumuj = true, wartości netto i brutto komponentu doliczają się do wartości pozycji.
+
+Komponent może mieć własne opcje. Do każdego komponentu można załączać pliki.
+
+---
+
+## Opcje
+
+Opcja to wariant pozycji lub komponentu, np. „sofa ze sklepu A", „sofa czerwona", „sofa biała". Mają te same pola finansowe. Dodatkowo mają pole **IsSelected** (bool).
+
+Wyboru opcji dokonuje się przyciskiem radio po lewej stronie nazwy. Można wybrać 0 lub 1 opcję. Gdy opcja jest zaznaczona, jej wartości finansowe nadpisują (bez trwałego czyszczenia) pola pozycji lub komponentu. Odznaczenie przywraca oryginalne wartości. Do każdej opcji można załączać pliki.
+
+---
+
+## Pola dodatkowe
+
+Użytkownik może definiować niestandardowe pola dla etapów i pozycji przez modal dostępny przy konfiguracji kolumn. Dostępne typy: **string, decimal, bool, datetime**. Pola mają własne etykiety, są wspólne dla etapów i pozycji, i nie są obowiązkowe.
+
+---
+
+## Widok drzewa (tabela)
+
+Główny widok kosztorysu. Każdy wiersz reprezentuje jeden element hierarchii, a wcięcie i odznaka (badge) określają jego poziom: **etap, podetap, pozycja, komponent, opcja**.
+
+Nagłówki tabeli zawierają pola podstawowe (finansowe) + Sumuj + Zakres harmonogramu + Plik. Kolumna z przyciskami radio dla opcji nie ma nagłówka. W nagłowku jest możliwośc ustalania szerokosci kolumny ale szerokość nie jest nigdy mniejsza niż pozwala na to ilość znaków w nazwie nagłowka. Po najechaniu na nazwę nagłowka pojawia się tooltip z informacją co zawiera kolumna.
+
+Po lewej stronie i na końcu każdego wiersza jest kolumna **Akcje**:
+Guziki w kolumnie akcje są zawsze widoczne dla kazdego poziomu
+
+| Poziom | Dostępne akcje |
+|---|---|
+| Etap / Podetap | + Dodaj podetap / Dodaj pozycję; 🗑 Usuń etap |
+| Pozycja | + Dodaj opcję / Dodaj komponent; 🗑 Usuń pozycję |
+| Komponent | + Dodaj opcję; 🗑 Usuń komponent |
+| Opcja | 🗑 Usuń opcję |
+
+Usunięcie elementu usuwa go wraz z całym poddrzewem (np. usunięcie etapu usuwa jego pozycje, komponenty i opcje). Usunięcie opcji lub komponentu nie usuwa pozycji nadrzędnej.
+
+Kolejność elementów można zmieniać przez **drag & drop** – etapów w kosztorysie, podetapów w etapie, pozycji w etapie/podetapie, komponentów w pozycji, opcji w pozycji/komponencie.
+
+Mozna włączać/wyłączać widoczność kolumn - to ustawienie jest zapisywane w session storage dla zalogowanego usera
+
+---
+
+## Widok kart
+
+Alternatywny widok. Elementy prezentowane są jako kafelki ułożone pionowo wg hierarchii. Kafelek etapu rozwija podetapy i pozycje, kafelek pozycji rozwija komponenty. Opcje widoczne są jako małe kafelki z przyciskiem radio w lewym dolnym rogu. Każdy kafelek pokazuje nazwę oraz wartość netto i brutto. Kliknięcie kafelka otwiera panel ze wszystkimi szczegółami: pola podstawowe, pola dodatkowe, pliki.
+Z poziomu widoku kart jest możliwośc akcji. Działanie na takiej samej zasadzie jak w drzewie
+
+## Widok mobilny
+
+Widok kart zoptymalizowany pod wąskie ekrany – funkcjonalnie identyczny, różni się tylko układem i rozmiarami elementów.
+
+## Zasady kalkulacji
+Wszystkie pola finansowe sa mozliwe do wpisania z palca ale istnieja reguły ktore tym zarzadzaja
+
+
+Net Value:
+
+Jeśli są UnitPriceNet i Quantity → NetValue = UnitPriceNet × Quantity i jest zablokowane do edycji
+W przeciwnym razie →  NetValue moze byc wpisane z palca i nie jest zablokowane do edycji
+
+Vat Value:
+
+Jeśli są NetValue (wyliczone wyżej lub wpisane z palca) i VatRate → VatValue = NetValue × VatRate i jest zablokowane do edycji
+W przeciwnym razie → VatValue moze byc wpisane z palca i nie jest zablokowane do edycji
+
+Gross Value:
+
+Jeśli są NetValue i VatValue → GrossValue = NetValue + VatValue
+Jeśli są NetValue i VatRate → GrossValue = NetValue × (1 + VatRate)
+W przeciwnym razie → GrossValue moze byc wpisane z palca i nie jest zablokowane do edycji
+
+Unit Price Gross (wyliczany przy okazji):
+
+Jeśli są UnitPriceNet i VatRate → UnitPriceGross = UnitPriceNet × (1 + VatRate)
+Jeśli nie, ale jest GrossValue i Quantity != 0 → UnitPriceGross = GrossValue / Quantity
+W przeciwnym razie → UnitPriceGross moze byc wpisane z palca i nie jest zablokowane do edycji
+
+
+## Co obecnie nie działa
+
+1 brak możliwosci edycji kazdego pola finansowego (gros price, net/gros/vat valuse) + silnik obliczen
+2 brak obsługi wszystkich mozliwych akcji i dodawania kazdego poziomu kosztorysu
+3 brak ustawiania szerokosci kolumn, nazwy kolumn sa obecnie uciete, wartosci nie sa wyswietlane w poprawnych miejscach
+4 brak całkowitego podsumowania koszotrysu
+5 brak wyboru komponentow/pozycji/wariantów do obliczeń
+6 pole jednostka powinień uzywac słownika jednostek, słownik ten ma byc zwracany przez dodatkoyw endpoint i cachowany na ui, jednostki maja być zapisane w parametrach projektu, projekt podczas tworzena ma miec utworzony słownik z najbardziej popularnymi jednostkami, jednostki te admin projektu bedzie mogł edytowac, podczas wyboru jednostki w kosztorysie, user mzoe wybrac jednostke z drop down select lub wpisac włąsną z palca
+7 brak kolumn dla kazdego wybranego pola wg wymagań
+8 usuwamy dodawanie opcji/komponentu dla pozycji w sztucznym wierszu, zostaje tylko dodaj pozycje i dodaj podetap dla etapów/podetapów w sztucznym wierszu
+9 kosztorys w drzewie moze sie scrolowac lewo/prawo jesli jest taka potrzeba
+10 nagłowek ma byc zafrezowany
+11 pola dodatkowe maja byc za polami podstawowymi i ustawiane wg kolejnosci zadanej przez usera
+12 nie dziala obsługa dodawania/pokazywania/edycji pol dodatkowych
+13 kolumna nazwa ma byc zafrezowana podczas scrolowania lewo/prawo
+14 ma byc możliwosc sortowania po każdym polu

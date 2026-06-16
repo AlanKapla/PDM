@@ -2,6 +2,14 @@ import { axiosClient } from "./axiosClient";
 import type { ProjectCostListItemWeb, SetProjectCurrencyRequest } from "../types/project.types";
 import type { WorkScheduleDetailsWeb, GenerateScheduleFromEstimateAIRequest } from "../types/workSchedule.types";
 
+export interface ProjectUnitDto {
+  id: string;
+  code: string;
+  name: string;
+  symbol?: string;
+  order: number;
+}
+
 // Resource scope enum matching backend
 export enum ResourceScope {
   All = 0,
@@ -562,5 +570,65 @@ export const projectApi = {
     data: SetProjectCurrencyRequest
   ): Promise<void> => {
     await axiosClient.put(`/tenants/${tenantId}/projects/${projectId}/currency`, data);
+  },
+
+  // Pobierz słownik jednostek projektu
+  getProjectUnits: async (
+    tenantId: string,
+    projectId: string
+  ): Promise<ProjectUnitDto[]> => {
+    const response = await axiosClient.get<ProjectUnitDto[]>(
+      `/tenants/${tenantId}/projects/${projectId}/units`
+    );
+    return response.data;
+  },
+
+  // Dodaj nową jednostkę do projektu
+  addProjectUnit: async (
+    tenantId: string,
+    projectId: string,
+    data: { code: string; name: string; symbol?: string }
+  ): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/tenants/${tenantId}/projects/${projectId}/units`,
+      data
+    );
+    return response.data;
+  },
+
+  // Aktualizuj jednostkę projektu
+  updateProjectUnit: async (
+    tenantId: string,
+    projectId: string,
+    unitId: string,
+    data: { code: string; name: string; symbol?: string; order: number }
+  ): Promise<void> => {
+    await axiosClient.put(
+      `/tenants/${tenantId}/projects/${projectId}/units/${unitId}`,
+      data
+    );
+  },
+
+  // Usuń jednostkę projektu
+  deleteProjectUnit: async (
+    tenantId: string,
+    projectId: string,
+    unitId: string
+  ): Promise<void> => {
+    await axiosClient.delete(
+      `/tenants/${tenantId}/projects/${projectId}/units/${unitId}`
+    );
+  },
+
+  // Zmień kolejność jednostek projektu
+  reorderProjectUnits: async (
+    tenantId: string,
+    projectId: string,
+    unitIds: string[]
+  ): Promise<void> => {
+    await axiosClient.post(
+      `/tenants/${tenantId}/projects/${projectId}/units/reorder`,
+      unitIds
+    );
   },
 };

@@ -63,32 +63,32 @@ export const mockContractors = [
 
 export const mockCostEstimates = [
   // Projekt P1 — Zielone Wzgórza I
-  { id: "ce-001", tenantId: T1, projectId: P1, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys budowlany — Etap I", description: "Kosztorys główny dla pierwszego etapu inwestycji", status: 3, totalNet: 12450000, totalGross: 15313500, totalVat: 2863500, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: true, sharedWithUsers: [{ userId: "u-006", fullName: "Anna Nowak", email: "a.nowak@brickly.pro", sharedAt: date("2025-07-01") }], currencyCode: "PLN", currencySymbol: "zł" },
-  { id: "ce-002", tenantId: T1, projectId: P1, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys instalacji sanitarnych", description: "Kosztorys branżowy — instalacje wod-kan i grzewcze", status: 3, totalNet: 2850000, totalGross: 3505500, totalVat: 655500, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), ownerId: "u-008", ownerName: "Piotr Zieliński", isSharedWithMe: true, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
-  { id: "ce-003", tenantId: T1, projectId: P1, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys elektryki i teletechniki", description: null, status: 1, totalNet: 1920000, totalGross: 2361600, totalVat: 441600, createdAt: date("2025-08-01"), updatedAt: date("2026-03-01"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: true, sharedWithUsers: [{ userId: "u-009", fullName: "Krzysztof Baran", email: "k.baran@brickly.pro", sharedAt: date("2025-08-15") }], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-001", tenantId: T1, projectId: P1, name: "Kosztorys budowlany — Etap I", description: "Kosztorys główny dla pierwszego etapu inwestycji", status: 3, totalNet: 12450000, totalGross: 15313500, totalVat: 2863500, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: true, sharedWithUsers: [{ userId: "u-006", fullName: "Anna Nowak", email: "a.nowak@brickly.pro", sharedAt: date("2025-07-01") }], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-002", tenantId: T1, projectId: P1, name: "Kosztorys instalacji sanitarnych", description: "Kosztorys branżowy — instalacje wod-kan i grzewcze", status: 3, totalNet: 2850000, totalGross: 3505500, totalVat: 655500, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), ownerId: "u-008", ownerName: "Piotr Zieliński", isSharedWithMe: true, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-003", tenantId: T1, projectId: P1, name: "Kosztorys elektryki i teletechniki", description: null, status: 1, totalNet: 1920000, totalGross: 2361600, totalVat: 441600, createdAt: date("2025-08-01"), updatedAt: date("2026-03-01"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: true, sharedWithUsers: [{ userId: "u-009", fullName: "Krzysztof Baran", email: "k.baran@brickly.pro", sharedAt: date("2025-08-15") }], currencyCode: "PLN", currencySymbol: "zł" },
 
   // Projekt P2 — Zielone Wzgórza II
-  { id: "ce-004", tenantId: T1, projectId: P2, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys budowlany — Etap II", description: "Kosztorys główny drugiego etapu", status: 2, totalNet: 9870000, totalGross: 12140100, totalVat: 2270100, createdAt: date("2025-10-01"), updatedAt: date("2026-04-10"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
-  { id: "ce-005", tenantId: T1, projectId: P2, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys zagospodarowania terenu", description: null, status: 0, totalNet: 1450000, totalGross: 1783500, totalVat: 333500, createdAt: date("2025-11-15"), updatedAt: null, ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-004", tenantId: T1, projectId: P2, name: "Kosztorys budowlany — Etap II", description: "Kosztorys główny drugiego etapu", status: 2, totalNet: 9870000, totalGross: 12140100, totalVat: 2270100, createdAt: date("2025-10-01"), updatedAt: date("2026-04-10"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-005", tenantId: T1, projectId: P2, name: "Kosztorys zagospodarowania terenu", description: null, status: 0, totalNet: 1450000, totalGross: 1783500, totalVat: 333500, createdAt: date("2025-11-15"), updatedAt: null, ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
 
   // Projekt P3 — Parkowe A
-  { id: "ce-006", tenantId: T1, projectId: P3, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys budowlany — Bud. A", description: null, status: 1, totalNet: 6450000, totalGross: 7933500, totalVat: 1483500, createdAt: date("2025-12-01"), updatedAt: date("2026-05-01"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-006", tenantId: T1, projectId: P3, name: "Kosztorys budowlany — Bud. A", description: null, status: 1, totalNet: 6450000, totalGross: 7933500, totalVat: 1483500, createdAt: date("2025-12-01"), updatedAt: date("2026-05-01"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
 
   // Projekt P4 — Apartamenty Centrum
-  { id: "ce-007", tenantId: T2, projectId: P4, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys główny — Faza I", description: "Kosztorys dla apartamentów w centrum miasta", status: 3, totalNet: 18750000, totalGross: 23062500, totalVat: 4312500, createdAt: date("2025-07-15"), updatedAt: date("2026-02-28"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: true, sharedWithUsers: [{ userId: "u-010", fullName: "Ewa Majewska", email: "e.majewska@budinvest.pl", sharedAt: date("2025-08-01") }], currencyCode: "PLN", currencySymbol: "zł" },
-  { id: "ce-008", tenantId: T2, projectId: P4, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys garażu podziemnego", description: null, status: 3, totalNet: 4250000, totalGross: 5227500, totalVat: 977500, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), ownerId: "u-010", ownerName: "Ewa Majewska", isSharedWithMe: true, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-007", tenantId: T2, projectId: P4, name: "Kosztorys główny — Faza I", description: "Kosztorys dla apartamentów w centrum miasta", status: 3, totalNet: 18750000, totalGross: 23062500, totalVat: 4312500, createdAt: date("2025-07-15"), updatedAt: date("2026-02-28"), ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: true, sharedWithUsers: [{ userId: "u-010", fullName: "Ewa Majewska", email: "e.majewska@budinvest.pl", sharedAt: date("2025-08-01") }], currencyCode: "PLN", currencySymbol: "zł" },
+  { id: "ce-008", tenantId: T2, projectId: P4, name: "Kosztorys garażu podziemnego", description: null, status: 3, totalNet: 4250000, totalGross: 5227500, totalVat: 977500, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), ownerId: "u-010", ownerName: "Ewa Majewska", isSharedWithMe: true, isSharedByMe: false, sharedWithUsers: [], currencyCode: "PLN", currencySymbol: "zł" },
 
   // Projekt P5 — Rezydencja Jeziorki
-  { id: "ce-009", tenantId: T2, projectId: P5, templateId: "tpl-std", templateName: "Szablon standardowy", name: "Kosztorys wstępny — Rezydencja", description: "Kosztorys koncepcyjny, waluta EUR", status: 0, totalNet: 3200000, totalGross: 3936000, totalVat: 736000, createdAt: date("2026-01-15"), updatedAt: null, ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "EUR", currencySymbol: "€" },
+  { id: "ce-009", tenantId: T2, projectId: P5, name: "Kosztorys wstępny — Rezydencja", description: "Kosztorys koncepcyjny, waluta EUR", status: 0, totalNet: 3200000, totalGross: 3936000, totalVat: 736000, createdAt: date("2026-01-15"), updatedAt: null, ownerId: uid, ownerName: "Michał Kowalski", isSharedWithMe: false, isSharedByMe: false, sharedWithUsers: [], currencyCode: "EUR", currencySymbol: "€" },
 ];
 
 // ============================================================================
 //   COST ESTIMATE DETAILS — generator unikalnych danych per kosztorys
 // ============================================================================
 
-/** Wspólna struktura template dla wszystkich kosztorysów */
-const sharedTemplateStructure = {
-  templateId: "tpl-std", maxGroupLevel: 2,
+/** Wspólna struktura pól dla mockowych kosztorysów */
+const sharedFieldStructure = {
+  maxGroupLevel: 2,
   currencies: [{ id: "curr-pln", code: "PLN", name: "Złoty polski", symbol: "zł", isDefault: true }],
   units: [{ id: "u-m3", code: "m³", name: "Metr sześcienny", symbol: "m³" }, { id: "u-m2", code: "m²", name: "Metr kwadratowy", symbol: "m²" }, { id: "u-ml", code: "m.b.", name: "Metr bieżący", symbol: "m.b." }, { id: "u-kpl", code: "kpl.", name: "Komplet", symbol: "kpl." }, { id: "u-szt", code: "szt.", name: "Sztuka", symbol: "szt." }, { id: "u-kg", code: "kg", name: "Kilogram", symbol: "kg" }],
   categories: [{ id: "cat-mat", name: "Materiały", symbol: "M" }, { id: "cat-rob", name: "Robocizna", symbol: "R" }, { id: "cat-sprz", name: "Sprzęt", symbol: "S" }, { id: "cat-trans", name: "Transport", symbol: "T" }],
@@ -690,9 +690,6 @@ export function getCostEstimateDetailsById(id: string): unknown {
     id,
     tenantId: meta.tenantId,
     projectId: meta.projectId,
-    templateId: "tpl-std",
-    templateName: "Szablon standardowy",
-    templateVersionNumber: 1,
     selectedCurrencyId: `curr-${meta.currency.code.toLowerCase()}`,
     selectedCurrencyCode: meta.currency.code,
     selectedCurrencySymbol: meta.currency.symbol,
@@ -710,7 +707,8 @@ export function getCostEstimateDetailsById(id: string): unknown {
     workScheduleId: meta.workScheduleId,
     accessLevel: 3,
     sharedWithUsers: meta.sharedWith,
-    templateStructure: sharedTemplateStructure,
+    fieldSchemas: [],
+    additionalFields: [],
     rootGroups,
     summaryValues: { "fd-value-net": totalValueNet },
   };

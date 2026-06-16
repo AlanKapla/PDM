@@ -244,7 +244,6 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
               <Tr>
                 <Th>Nazwa</Th>
                 {showOwnerColumn && <Th>Właściciel</Th>}
-                <Th>Szablon</Th>
                 <Th isNumeric>Wartość netto</Th>
                 <Th isNumeric>Wartość brutto</Th>
                 <Th>Utworzony</Th>
@@ -283,9 +282,6 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
                       <Text fontSize="xs">{costEstimate.ownerName}</Text>
                     </Td>
                   )}
-                  <Td>
-                    <Text fontSize="sm">{costEstimate.templateName}</Text>
-                  </Td>
                   <Td isNumeric>
                     {formatCurrency(costEstimate.totalNet, costEstimate.currencySymbol ?? costEstimate.currencyCode)}
                   </Td>

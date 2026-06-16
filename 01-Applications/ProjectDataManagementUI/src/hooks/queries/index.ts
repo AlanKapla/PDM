@@ -3,13 +3,6 @@ export { useProjects } from './useProjects';
 export { useProjectMembers } from './useProjectMembers';
 export { useMyTenants, useActiveInvitations, tenantKeys } from './useTenants';
 export {
-  useCostEstimateTemplates,
-  useCostEstimateTemplateDetails,
-  useDefaultTemplates,
-  useDefaultTemplate,
-  templateKeys,
-} from './useCostEstimateTemplates';
-export {
   useCostTrackerByProject,
   useCostTrackerByEstimate,
   useCostTrackerCosts,
@@ -38,7 +31,18 @@ export {
   useVersionComments,
   fileKeys,
 } from './useProjectFiles';
-export { useCostEstimateDetails, costEstimateKeys } from './useCostEstimate';
+export {
+  useCostEstimateDetails,
+  useAdditionalFields,
+  useAddAdditionalField,
+  useUpdateAdditionalField,
+  useDeleteAdditionalField,
+  useReorderAdditionalFields,
+  useReorderCostEstimateItems,
+  useReorderCostEstimateItemChildren,
+  useReorderCostEstimateGroups,
+  costEstimateKeys,
+} from './useCostEstimate';
 export {
   useContractors,
   useContractorDetails,

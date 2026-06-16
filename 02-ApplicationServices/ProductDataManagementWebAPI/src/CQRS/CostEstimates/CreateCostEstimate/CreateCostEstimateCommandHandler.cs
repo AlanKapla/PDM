@@ -1,50 +1,40 @@
-﻿using Business.Interfaces.Exceptions;
+﻿using Business.Implementation.Helpers;
 using Business.Interfaces.Model;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.CostEstimates.CreateCostEstimate
 {
     /// <summary>
-    /// Handler dla tworzenia kosztorysu
-    /// Obsługuje tworzenie pustego kosztorysu lub z pełną hierarchią grup/pozycji
-    /// Waliduje strukturę grup i wartości pól przed utworzeniem
-    /// Automatycznie przelicza sumy po utworzeniu
+    /// Handler dla tworzenia kosztorysu.
     /// </summary>
     public sealed class CreateCostEstimateCommandHandler : IRequestHandler<CreateCostEstimateCommand, Guid>
     {
         private readonly IRepository<CostEstimate> costEstimateRepository;
-        private readonly IRepository<CostEstimateTemplate> templateRepository;
+        private readonly IRepository<CostEstimateFieldSchema> fieldSchemaRepository;
         private readonly ICurrentUser currentUser;
 
         public CreateCostEstimateCommandHandler(
             IRepository<CostEstimate> costEstimateRepository,
-            IRepository<CostEstimateTemplate> templateRepository,
+            IRepository<CostEstimateFieldSchema> fieldSchemaRepository,
             ICurrentUser currentUser)
         {
             this.costEstimateRepository = costEstimateRepository;
-            this.templateRepository = templateRepository;
+            this.fieldSchemaRepository = fieldSchemaRepository;
             this.currentUser = currentUser;
         }
 
         public async Task<Guid> Handle(CreateCostEstimateCommand request, CancellationToken cancellationToken)
         {
-            // Verify template exists (field definitions are not needed at create-time)
-            CostEstimateTemplate template = await templateRepository.GetFirstBySearch(
-                t => t.Id == request.TemplateId && !t.IsDeleted && t.OwnerId == currentUser.Id)
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), request.TemplateId.ToString());
-
             DateTime now = DateTime.UtcNow;
+            Guid costEstimateId = Guid.NewGuid();
 
-            // Create cost estimate
-            CostEstimate costEstimate = new CostEstimate
+            CostEstimate costEstimate = new()
             {
-                Id = Guid.NewGuid(),
+                Id = costEstimateId,
                 TenantId = request.TenantId,
                 ProjectId = request.ProjectId,
-                TemplateId = request.TemplateId,
                 OwnerId = currentUser.Id,
                 Name = request.Name,
                 Description = request.Description,
@@ -56,7 +46,11 @@ namespace CQRS.CostEstimates.CreateCostEstimate
                 IsDeleted = false
             };
 
+            List<CostEstimateFieldSchema> defaultSchema =
+                DefaultCostEstimateFieldSchemaFactory.CreateDefaultSchema(costEstimateId, now);
+
             await costEstimateRepository.Insert(costEstimate);
+            await fieldSchemaRepository.InsertRange(defaultSchema);
             await costEstimateRepository.SaveChangesAsync(cancellationToken);
 
             return costEstimate.Id;

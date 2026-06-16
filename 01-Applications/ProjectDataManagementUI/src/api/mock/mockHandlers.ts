@@ -309,20 +309,6 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   }
 
   // ============================================
-  //  COST ESTIMATE TEMPLATES (lista)
-  // ============================================
-  if (pathOnly === "/api/cost-estimate-template" && method === "get") {
-    return ok([
-      { id: "tpl-std", name: "Szablon standardowy", description: "Standardowy szablon kosztorysu budowlanego", createdAt: date("2024-01-01"), createdByUserId: "demo-user-001", createdByUserName: "Michał Kowalski", itemsCount: 14 },
-      { id: "tpl-san", name: "Szablon instalacji sanitarnych", description: "Szablon branżowy — wod-kan i CO", createdAt: date("2024-03-15"), createdByUserId: "demo-user-001", createdByUserName: "Michał Kowalski", itemsCount: 8 },
-      { id: "tpl-elek", name: "Szablon elektryki i teletechniki", description: "Szablon branżowy — elektryka", createdAt: date("2024-06-01"), createdByUserId: "demo-user-001", createdByUserName: "Michał Kowalski", itemsCount: 6 },
-    ]);
-  }
-  if (/^\/api\/cost-estimate-template\/defaults\/\w+$/.test(pathOnly) && method === "get") {
-    return ok({ slug: "standard", name: "Szablon standardowy", description: "Standardowy szablon" });
-  }
-
-  // ============================================
   //  FALLBACK
   // ============================================
   console.warn(`[PDMDemo] Unhandled mock request: ${method} ${pathOnly}`);

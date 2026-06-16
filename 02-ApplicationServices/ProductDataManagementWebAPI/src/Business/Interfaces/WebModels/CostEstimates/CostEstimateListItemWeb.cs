@@ -18,8 +18,6 @@ namespace Business.Interfaces.WebModels.CostEstimates
         Guid Id,
         Guid TenantId,
         Guid ProjectId,
-        Guid TemplateId,
-        string TemplateName,
         string Name,
         string? Description,
         CostEstimateStatus Status,

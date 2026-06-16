@@ -2,8 +2,6 @@
 using Business.AIAgent.Registration;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
-using Business.Implementation.Validators;
-using CQRS.CostEstimates.Validators;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
@@ -17,7 +15,6 @@ using Entities.Context;
 using Entities.Models;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
 using Entities.Models.Files;
@@ -297,7 +294,8 @@ namespace WebApi.Extensions
                 .AddWriteRepository<ProjectMember>()
                 .AddWriteRepository<ProjectMemberModulePermission>()
                 .AddRepository<ProjectParams>()
-                .AddRepository<ProjectCurrency>();
+                .AddRepository<ProjectCurrency>()
+                .AddRepository<ProjectUnit>();
 
             services
                 .AddRepository<Notification>();
@@ -322,22 +320,13 @@ namespace WebApi.Extensions
                 .AddRepository<ProjectCost>();
 
             services
-                .AddRepository<CostEstimateTemplate>()
-                .AddWriteRepository<CostEstimateTemplateUnit>()
-                .AddWriteRepository<CostEstimateTemplateCategory>()
-                .AddWriteRepository<CostEstimateTemplateGroupFieldDefinition>()
-                .AddWriteRepository<CostEstimateTemplateItemSystemFieldDefinition>()
-                .AddWriteRepository<CostEstimateTemplateItemCalculatedFieldDefinition>()
-                .AddWriteRepository<CostEstimateTemplateItemGenericFieldDefinition>();
-
-            services
                 .AddRepository<CostEstimate>()
                 .AddRepository<SharedCostEstimate>()
                 .AddRepository<CostEstimateGroup>()
-                .AddRepository<CostEstimateGroupFieldValue>()
                 .AddRepository<CostEstimateItem>()
-                .AddRepository<CostEstimateItemFieldValue>()
-                .AddWriteRepository<CostEstimateFieldFile>();
+                .AddRepository<CostEstimateFieldSchema>()
+                .AddRepository<CostEstimateAdditionalFieldValue>()
+                .AddRepository<CostEstimateItemFile>();
 
             services
                 .AddRepository<TrackedCost>()
@@ -377,7 +366,7 @@ namespace WebApi.Extensions
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
-            services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
+            services.AddScoped<ICostEstimateRecalculationService, CostEstimateRecalculationService>();
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<IProjectCostAccessService, ProjectCostAccessService>();
@@ -394,9 +383,6 @@ namespace WebApi.Extensions
             services.AddScoped<IWorkScheduleAIGeneratorService, WorkScheduleAIGeneratorService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
-            services.AddScoped<CostEstimateGroupValidator>();
-            services.AddScoped<CostEstimateItemValidator>();
-            services.AddScoped<CostEstimateFieldValueValidator>();
             services.AddSingleton<ICacheService, CacheService>();
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
             services.AddScoped<IFileAccessGuard, FileAccessGuard>();

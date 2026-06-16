@@ -2,13 +2,10 @@ namespace Business.Interfaces.WebModels.AI
 {
     /// <summary>
     /// Dane wejściowe od użytkownika do generowania kosztorysu przez AI.
-    /// Wszystkie pola opcjonalne poza TemplateId i InvestmentType.
+    /// Wszystkie pola opcjonalne poza InvestmentType.
     /// </summary>
     public sealed record AICostEstimateRequestWeb
     {
-        /// <summary>ID szablonu wybranego przez użytkownika.</summary>
-        public Guid TemplateId { get; init; }
-
         /// <summary>Co budujesz? (wolny tekst, np. "dom jednorodzinny 150m²", "remont mieszkania")</summary>
         public string InvestmentType { get; init; } = string.Empty;
 
