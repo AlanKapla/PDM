@@ -42,6 +42,7 @@ import {
 import type { TenantInvitationWeb, UserTenant } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { formatDateShort } from "../utils/formatters";
 
 type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access";
 
@@ -156,7 +157,7 @@ function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitation
                       </Text>
                       {inv.expiresAt && (
                         <Text fontSize="xs" color="orange.500">
-                          Ważne do: {new Date(inv.expiresAt).toLocaleDateString("pl-PL")}
+                          Ważne do: {formatDateShort(inv.expiresAt)}
                         </Text>
                       )}
                     </VStack>

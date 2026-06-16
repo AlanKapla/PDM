@@ -14,6 +14,7 @@ import {
 } from "@chakra-ui/react";
 import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import { formatDateShort } from "../utils/formatters";
 import { useAuth } from "../context/AuthContext";
 import { changeActiveTenant } from "../services/tenantService";
 import { useMyTenants, tenantKeys } from "../hooks/queries";
@@ -112,7 +113,7 @@ export default function CollaboratingTenants() {
                                 </Text>
                                 <Stack direction={{ base: "column", sm: "row" }} spacing={2}>
                                   <Text fontSize="xs" color="neutral.500">
-                                    Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
+                                    Utworzono: {formatDateShort(tenant.createdAt)}
                                   </Text>
                                   <Badge colorScheme={getTenantRoleColor(tenant.isAdmin)} fontSize="xs">
                                     {getTenantRoleName(tenant.isAdmin)}

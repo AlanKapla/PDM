@@ -1,4 +1,5 @@
 ﻿import { useState } from "react";
+import { formatTime } from "../../utils/formatters";
 import {
   Box,
   VStack,
@@ -117,7 +118,7 @@ export default function ProjectBudgetDashboard({
             <HStack spacing={1} align="center">
               {!isMobile && (
                 <Text fontSize="xs" color="neutral.400">
-                  {lastRefreshed.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                  {formatTime(lastRefreshed)}
                 </Text>
               )}
               <Button

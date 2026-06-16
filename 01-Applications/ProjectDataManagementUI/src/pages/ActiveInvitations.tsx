@@ -12,6 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { Mail } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import { formatDateShort } from "../utils/formatters";
 import { acceptTenantInvitation } from "../services/tenantService";
 import { useActiveInvitations, tenantKeys } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
@@ -119,7 +120,7 @@ export default function ActiveInvitations() {
                           </HStack>
                           <HStack spacing={2} flexWrap="wrap">
                             <Text fontSize="xs" color="neutral.500">
-                              Wysłano: {new Date(invitation.createdAt).toLocaleDateString('pl-PL')}
+                              Wysłano: {formatDateShort(invitation.createdAt)}
                             </Text>
                             {invitation.expiresAt && (
                               <>
@@ -127,7 +128,7 @@ export default function ActiveInvitations() {
                                   •
                                 </Text>
                                 <Text fontSize="xs" color="orange.500">
-                                  Ważne do: {new Date(invitation.expiresAt).toLocaleDateString('pl-PL')}
+                                  Ważne do: {formatDateShort(invitation.expiresAt)}
                                 </Text>
                               </>
                             )}

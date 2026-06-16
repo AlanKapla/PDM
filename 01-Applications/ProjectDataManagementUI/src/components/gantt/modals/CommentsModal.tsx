@@ -20,6 +20,7 @@ import { Pencil, Trash2, Check, X } from "lucide-react";
 import { AuthContext } from "../../../context/AuthContext";
 import { useGantt } from "../GanttContext";
 import type { WorkScheduleStageWorkWeb, WorkScheduleStageWorkCommentWeb } from "../../../types/workSchedule.types";
+import { formatDateTimeCompact, parseApiDateTime } from "../../../utils/formatters";
 
 interface CommentsModalProps {
   isOpen: boolean;
@@ -29,13 +30,7 @@ interface CommentsModalProps {
 }
 
 function fmtDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("pl-PL", {
-      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatDateTimeCompact(iso);
 }
 
 export default function CommentsModal({ isOpen, onClose, stageId, work }: CommentsModalProps) {
@@ -51,7 +46,7 @@ export default function CommentsModal({ isOpen, onClose, stageId, work }: Commen
   const borderColor = useColorModeValue("neutral.100", "neutral.600");
 
   const comments = [...(work.comments ?? [])].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    (a, b) => (parseApiDateTime(a.createdAt)?.getTime() ?? 0) - (parseApiDateTime(b.createdAt)?.getTime() ?? 0)
   );
 
   const handleAdd = async () => {

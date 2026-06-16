@@ -46,6 +46,7 @@ import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectCostListItemWeb, ProjectFilePackageWeb } from "../types/project.types";
+import { formatDate } from "../utils/formatters";
 
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -386,17 +387,6 @@ export default function ProjectDetails() {
         newSet.add(fileId);
       }
       return newSet;
-    });
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pl-PL", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 

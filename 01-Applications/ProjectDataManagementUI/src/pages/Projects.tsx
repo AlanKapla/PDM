@@ -37,6 +37,7 @@ import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
 import { changeActiveTenant } from "../services/tenantService";
 import { useProjects, useMyTenants, projectKeys } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatDate } from "../utils/formatters";
 
 export default function Projects() {
   const location = useLocation();
@@ -90,14 +91,6 @@ export default function Projects() {
     } finally {
       setSwitching(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pl-PL", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
   };
 
   const handleCreateProject = async () => {
@@ -269,7 +262,7 @@ export default function Projects() {
                           </HStack>
                           <HStack spacing={1}>
                             <Icon as={Calendar} boxSize={3} />
-                            <Text noOfLines={1}>{formatDate(project.createdAt)}</Text>
+                            <Text noOfLines={1}>{formatDate(project.createdAt, false)}</Text>
                           </HStack>
                           <Text noOfLines={1}>
                             Członków: {project.membersCount}

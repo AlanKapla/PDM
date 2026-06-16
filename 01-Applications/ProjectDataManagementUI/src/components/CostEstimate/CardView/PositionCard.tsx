@@ -33,6 +33,7 @@ interface AutosaveParams {
 interface PositionCardProps {
   item: CostEstimateItemWeb;
   groupId: string;
+  currencySymbol: string;
   isEditMode: boolean;
   onFieldChange: (
     groupId: string,
@@ -64,6 +65,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 export const PositionCard: React.FC<PositionCardProps> = ({
   item,
   groupId,
+  currencySymbol,
   isEditMode,
   onFieldChange,
   onFieldAutosave,
@@ -167,6 +169,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
         <CardAmountSummary
           net={totalNet}
           gross={totalGross}
+          currencySymbol={currencySymbol}
           size="sm"
           layout="stacked"
         />
@@ -240,6 +243,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
                   key={comp.id}
                   item={comp}
                   groupId={groupId}
+                  currencySymbol={currencySymbol}
                   isEditMode={isEditMode}
                   onFieldChange={onFieldChange}
                   onFieldAutosave={onFieldAutosave}
@@ -268,6 +272,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
                   option={opt}
                   groupId={groupId}
                   parentItemId={item.id}
+                  currencySymbol={currencySymbol}
                   isEditMode={isEditMode}
                   onDeleteItem={onDeleteItem}
                   onSelectOption={onSelectOption}

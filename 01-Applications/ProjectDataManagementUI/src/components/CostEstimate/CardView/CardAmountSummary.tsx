@@ -1,11 +1,13 @@
 import React from 'react';
 import { Box, HStack, Text, VStack } from '@chakra-ui/react';
+import { formatCurrency } from '../../../utils/formatters';
 
 export type CardAmountSummarySize = 'sm' | 'md' | 'lg';
 
 interface CardAmountSummaryProps {
   net: number;
   gross: number;
+  currencySymbol: string;
   size?: CardAmountSummarySize;
   layout?: 'columns' | 'stacked';
 }
@@ -22,10 +24,13 @@ const SIZE_CONFIG: Record<
 export function CardAmountSummary({
   net,
   gross,
+  currencySymbol,
   size = 'md',
   layout = 'columns',
 }: CardAmountSummaryProps): React.ReactElement {
   const cfg = SIZE_CONFIG[size];
+  const netLabel = formatCurrency(net, currencySymbol);
+  const grossLabel = formatCurrency(gross, currencySymbol);
 
   if (layout === 'stacked') {
     return (
@@ -36,7 +41,7 @@ export function CardAmountSummary({
           lineHeight="1.25"
           sx={{ fontVariantNumeric: 'tabular-nums' }}
         >
-          {net.toFixed(2)} zł
+          {netLabel}
         </Text>
         <Text
           fontWeight="medium"
@@ -45,7 +50,7 @@ export function CardAmountSummary({
           lineHeight="1.25"
           sx={{ fontVariantNumeric: 'tabular-nums' }}
         >
-          {gross.toFixed(2)} brutto
+          {grossLabel}
         </Text>
       </VStack>
     );
@@ -68,7 +73,7 @@ export function CardAmountSummary({
           fontSize={cfg.net}
           sx={{ fontVariantNumeric: 'tabular-nums' }}
         >
-          {net.toFixed(2)} zł
+          {netLabel}
         </Text>
       </Box>
       <Box minW={cfg.colMinW}>
@@ -87,7 +92,7 @@ export function CardAmountSummary({
           color="neutral.600"
           sx={{ fontVariantNumeric: 'tabular-nums' }}
         >
-          {gross.toFixed(2)} zł
+          {grossLabel}
         </Text>
       </Box>
     </HStack>

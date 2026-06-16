@@ -34,6 +34,7 @@ import {
 } from "../hooks/queries";
 import { notificationHubService } from "../services/notificationHubService";
 import { type NotificationWeb, NotificationType } from "../types/notification.types";
+import { formatDateCompact, parseApiDateTime } from "../utils/formatters";
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
@@ -141,7 +142,11 @@ export default function NotificationBell() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseApiDateTime(dateString);
+    if (!date) {
+      return "-";
+    }
+
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -152,12 +157,8 @@ export default function NotificationBell() {
     if (diffMins < 60) return `${diffMins} min temu`;
     if (diffHours < 24) return `${diffHours} godz. temu`;
     if (diffDays < 7) return `${diffDays} dni temu`;
-    
-    return date.toLocaleDateString("pl-PL", {
-      day: "numeric",
-      month: "short",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-    });
+
+    return formatDateCompact(dateString);
   };
 
   const renderNotifications = (notifications: NotificationWeb[]) => (

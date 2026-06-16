@@ -21,6 +21,7 @@ import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { Building2, Plus, Trash2, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import { formatDateShort } from "../utils/formatters";
 import { getAdminTenants, createTenant, removeTenantMember } from "../services/tenantService";
 import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
@@ -232,7 +233,7 @@ export default function ManagedTenants() {
                           </Badge>
                         </HStack>
                         <Text fontSize="xs" color="gray.500">
-                          Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
+                          Utworzono: {formatDateShort(tenant.createdAt)}
                         </Text>
                       </VStack>
                     </Box>

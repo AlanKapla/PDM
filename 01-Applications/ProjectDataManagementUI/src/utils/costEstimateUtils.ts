@@ -485,6 +485,13 @@ export function filterCostEstimateGroupsBySearch(
   return rootGroups.filter(groupMatches);
 }
 
+/** Symbol waluty kosztorysu — preferuje selectedCurrencySymbol z API. */
+export function resolveCostEstimateCurrencySymbol(
+  details: Pick<CostEstimateDetailsWeb, 'selectedCurrencySymbol' | 'selectedCurrencyCode'>,
+): string {
+  return details.selectedCurrencySymbol || details.selectedCurrencyCode || 'PLN';
+}
+
 /** Sumy całkowite kosztorysu — z pól details lub jako suma rootGroups. */
 export function getCostEstimateTotals(details: CostEstimateDetailsWeb): CostEstimateTotals {
   if (details.totalNet !== undefined && details.totalGross !== undefined) {

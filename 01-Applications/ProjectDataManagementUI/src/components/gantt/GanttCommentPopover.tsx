@@ -18,6 +18,7 @@ import { useGantt } from "./GanttContext";
 import type { WorkScheduleStageWeb, WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
 import { AuthContext } from "../../context/AuthContext";
 import { useContext } from "react";
+import { formatDateCompact } from "../../utils/formatters";
 
 function findWorkInSchedule(stages: WorkScheduleStageWeb[], workId: string): WorkScheduleStageWorkWeb | null {
   for (const stage of stages) {
@@ -49,8 +50,7 @@ export default function GanttCommentPopover({ workId, stageId, isReadOnly = fals
   const isAdding = isMutating.has(`addComment-${workId}`);
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
-  const fmtDate = (d: string) =>
-    new Date(d).toLocaleDateString("pl-PL", { day: "numeric", month: "short", year: "numeric" });
+  const fmtDate = (d: string) => formatDateCompact(d);
 
   const handleAdd = async () => {
     const trimmed = newContent.trim();

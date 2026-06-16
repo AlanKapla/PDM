@@ -50,6 +50,7 @@ import {
 } from '../../../utils/additionalFieldHelpers';
 import { getColumnCellJustify } from '../../../utils/calcTreeViewColumnWidths';
 import { getBaseFieldPlaceholder } from '../../../utils/costEstimateFieldSchema';
+import { formatCurrency } from '../../../utils/formatters';
 import { AdditionalFieldInput } from '../AdditionalFieldInput';
 import {
   PrototypeTextInput,
@@ -94,6 +95,7 @@ interface GroupTotalValueCellProps {
   variant: 'net' | 'gross';
   width: string;
   justify: FlexProps['justify'];
+  currencySymbol: string;
 }
 
 /** Read-only sum cell for etap / podetap — aligned with item inputs and summary row */
@@ -103,9 +105,9 @@ const GroupTotalValueCell: React.FC<GroupTotalValueCellProps> = ({
   variant,
   width,
   justify,
+  currencySymbol,
 }) => {
   const hasValue = value !== undefined && value !== null;
-  const displayValue = hasValue ? value.toFixed(2) : '';
   const isPositive = (value ?? 0) > 0;
 
   return (
@@ -118,22 +120,17 @@ const GroupTotalValueCell: React.FC<GroupTotalValueCellProps> = ({
       position="relative"
       zIndex={1}
     >
-      <PrototypeNumberInput
-        value={displayValue}
-        isDisabled
-        isReadOnly
-        tabIndex={-1}
-        blendWithRow
-        placeholder="—"
+      <Text
+        fontSize="sm"
+        fontWeight={level === 0 ? 'bold' : 'semibold'}
+        color={variant === 'net'
+          ? (isPositive ? 'neutral.800' : 'neutral.400')
+          : (isPositive ? 'neutral.600' : 'neutral.300')}
+        sx={{ fontVariantNumeric: 'tabular-nums' }}
         aria-label={variant === 'net' ? 'Suma netto etapu' : 'Suma brutto etapu'}
-        sx={{
-          fontWeight: level === 0 ? 'bold' : 'semibold',
-          fontSize: 'sm',
-          color: variant === 'net'
-            ? (isPositive ? 'neutral.800' : 'neutral.400')
-            : (isPositive ? 'neutral.600' : 'neutral.300'),
-        }}
-      />
+      >
+        {hasValue ? formatCurrency(value, currencySymbol) : '—'}
+      </Text>
     </Flex>
   );
 };
@@ -172,6 +169,7 @@ type AutosaveParams = {
 
 export interface TreeViewRowProps {
   group: CostEstimateGroupWeb;
+  currencySymbol: string;
   level: number;
   isExpanded: boolean;
   isEditMode: boolean;
@@ -222,6 +220,7 @@ function getLeadingStickyWidth(nameColWidth: number, actionsColWidth: number): n
 
 export const TreeViewRow: React.FC<TreeViewRowProps> = ({
   group,
+  currencySymbol,
   level,
   isExpanded,
   isEditMode,
@@ -543,6 +542,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
               variant="net"
               width={w}
               justify={cellJustify}
+              currencySymbol={currencySymbol}
             />
           );
         }
@@ -556,6 +556,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
               variant="gross"
               width={w}
               justify={cellJustify}
+              currencySymbol={currencySymbol}
             />
           );
         }
@@ -682,6 +683,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
                     key={item.id}
                     item={item}
                     groupId={group.id}
+                    currencySymbol={currencySymbol}
                     level={level + 1}
                     isEditMode={isEditMode}
                     baseColumns={baseColumns}
@@ -722,6 +724,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
                   key={item.id}
                   item={item}
                   groupId={group.id}
+                  currencySymbol={currencySymbol}
                   level={level + 1}
                   isEditMode={isEditMode}
                   baseColumns={baseColumns}
@@ -762,6 +765,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
                 <TreeViewRow
                   key={childGroup.id}
                   group={childGroup}
+                  currencySymbol={currencySymbol}
                   level={level + 1}
                   isExpanded={true}
                   isEditMode={isEditMode}
@@ -854,6 +858,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
 interface ItemRowProps {
   item: CostEstimateItemWeb;
   groupId: string;
+  currencySymbol: string;
   level: number;
   isEditMode: boolean;
   baseColumns: ColumnDef[];
@@ -887,6 +892,7 @@ interface ItemRowProps {
 const ItemRow: React.FC<ItemRowProps> = ({
   item,
   groupId,
+  currencySymbol,
   level,
   isEditMode,
   nameColWidth,
@@ -1212,39 +1218,67 @@ const ItemRow: React.FC<ItemRowProps> = ({
         // Financial fields are editable when not computed from other fields
 
         if (isNetValueColumn(col)) {
+          const showCurrency = !isEditMode || flags.netValueComputed;
           return (
             <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
-              <PrototypeNumberInput
-                value={item.netValue !== undefined && item.netValue !== null ? String(item.netValue) : ''}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  onFieldChange(groupId, item.id, 'netValue', v);
-                  triggerBaseAutosave('netValue', 'numeric', v);
-                }}
-                isDisabled={!isEditMode || flags.netValueComputed}
-                placeholder={getBaseFieldPlaceholder(col.label)}
-                w="full"
-                blendWithRow
-              />
+              {showCurrency ? (
+                <Text
+                  fontSize="sm"
+                  w="full"
+                  textAlign={cellJustify === 'flex-start' ? 'left' : 'right'}
+                  sx={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {item.netValue !== undefined && item.netValue !== null
+                    ? formatCurrency(item.netValue, currencySymbol)
+                    : '—'}
+                </Text>
+              ) : (
+                <PrototypeNumberInput
+                  value={item.netValue !== undefined && item.netValue !== null ? String(item.netValue) : ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    onFieldChange(groupId, item.id, 'netValue', v);
+                    triggerBaseAutosave('netValue', 'numeric', v);
+                  }}
+                  isDisabled={!isEditMode || flags.netValueComputed}
+                  placeholder={getBaseFieldPlaceholder(col.label)}
+                  w="full"
+                  blendWithRow
+                />
+              )}
             </Flex>
           );
         }
 
         if (isGrossValueColumn(col)) {
+          const showCurrency = !isEditMode || flags.grossValueComputed;
           return (
             <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
-              <PrototypeNumberInput
-                value={item.grossValue !== undefined && item.grossValue !== null ? String(item.grossValue) : ''}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  onFieldChange(groupId, item.id, 'grossValue', v);
-                  triggerBaseAutosave('grossValue', 'numeric', v);
-                }}
-                isDisabled={!isEditMode || flags.grossValueComputed}
-                placeholder={getBaseFieldPlaceholder(col.label)}
-                w="full"
-                blendWithRow
-              />
+              {showCurrency ? (
+                <Text
+                  fontSize="sm"
+                  w="full"
+                  textAlign={cellJustify === 'flex-start' ? 'left' : 'right'}
+                  sx={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {item.grossValue !== undefined && item.grossValue !== null
+                    ? formatCurrency(item.grossValue, currencySymbol)
+                    : '—'}
+                </Text>
+              ) : (
+                <PrototypeNumberInput
+                  value={item.grossValue !== undefined && item.grossValue !== null ? String(item.grossValue) : ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    onFieldChange(groupId, item.id, 'grossValue', v);
+                    triggerBaseAutosave('grossValue', 'numeric', v);
+                  }}
+                  isDisabled={!isEditMode || flags.grossValueComputed}
+                  placeholder={getBaseFieldPlaceholder(col.label)}
+                  w="full"
+                  blendWithRow
+                />
+              )}
             </Flex>
           );
         }
@@ -1649,6 +1683,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
                   key={option.id}
                   item={option}
                   groupId={groupId}
+                  currencySymbol={currencySymbol}
                   level={level + 1}
                   isEditMode={isEditMode}
                   baseColumns={baseColumns}
@@ -1684,6 +1719,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
               key={option.id}
               item={option}
               groupId={groupId}
+              currencySymbol={currencySymbol}
               level={level + 1}
               isEditMode={isEditMode}
               baseColumns={baseColumns}
@@ -1728,6 +1764,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
                   key={component.id}
                   item={component}
                   groupId={groupId}
+                  currencySymbol={currencySymbol}
                   level={level + 1}
                   isEditMode={isEditMode}
                   baseColumns={baseColumns}
@@ -1763,6 +1800,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
               key={component.id}
               item={component}
               groupId={groupId}
+              currencySymbol={currencySymbol}
               level={level + 1}
               isEditMode={isEditMode}
               baseColumns={baseColumns}

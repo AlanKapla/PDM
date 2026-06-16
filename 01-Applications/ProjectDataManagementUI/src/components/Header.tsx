@@ -17,7 +17,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { User as UserIcon, RefreshCw, Building2 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
-import DemoModeToggle from "./DemoModeToggle";
+import DemoModeMenuItem from "./DemoModeMenuItem";
 import { useMyTenants } from "../hooks/queries";
 
 interface HeaderProps {
@@ -131,8 +131,6 @@ export default function Header({ onMenuOpen }: HeaderProps) {
 
             <NotificationBell />
 
-            <DemoModeToggle />
-
             <Menu placement="bottom-end" strategy="fixed">
               <MenuButton cursor="pointer">
                 <Avatar
@@ -159,6 +157,8 @@ export default function Header({ onMenuOpen }: HeaderProps) {
                 >
                   Zmień aktywnego tenanta
                 </MenuItem>
+
+                <DemoModeMenuItem />
 
                 <MenuDivider />
 

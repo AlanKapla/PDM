@@ -6,6 +6,19 @@ import type {
   WorkScheduleSummaryWeb,
   WorkScheduleStageWorkCommentWeb,
 } from "../../types/workSchedule.types";
+import {
+  buildingGroups,
+  installationGroups,
+  landDevelopmentGroups,
+  garageGroups,
+  preliminaryGroups,
+  customizeGroups,
+  buildMockFieldSchemas,
+  buildMockAdditionalFields,
+  getCategoryFieldId,
+  remapGroupsForEstimate,
+  type EstimateMeta,
+} from "./costEstimateMockData";
 
 const uid = "demo-user-001";
 const date = (d: string) => d + "T08:00:00Z";
@@ -85,439 +98,6 @@ export const mockCostEstimates = [
 // ============================================================================
 //   COST ESTIMATE DETAILS — generator unikalnych danych per kosztorys
 // ============================================================================
-
-/** Wspólna struktura pól dla mockowych kosztorysów */
-const sharedFieldStructure = {
-  maxGroupLevel: 2,
-  currencies: [{ id: "curr-pln", code: "PLN", name: "Złoty polski", symbol: "zł", isDefault: true }],
-  units: [{ id: "u-m3", code: "m³", name: "Metr sześcienny", symbol: "m³" }, { id: "u-m2", code: "m²", name: "Metr kwadratowy", symbol: "m²" }, { id: "u-ml", code: "m.b.", name: "Metr bieżący", symbol: "m.b." }, { id: "u-kpl", code: "kpl.", name: "Komplet", symbol: "kpl." }, { id: "u-szt", code: "szt.", name: "Sztuka", symbol: "szt." }, { id: "u-kg", code: "kg", name: "Kilogram", symbol: "kg" }],
-  categories: [{ id: "cat-mat", name: "Materiały", symbol: "M" }, { id: "cat-rob", name: "Robocizna", symbol: "R" }, { id: "cat-sprz", name: "Sprzęt", symbol: "S" }, { id: "cat-trans", name: "Transport", symbol: "T" }],
-  uiConfiguration: {
-    groupColumns: [
-      { fieldId: "fd-grp-name", fieldName: "grp-name-field", fieldType: 0, fieldLabel: "Nazwa etapu", fieldScope: 0, order: 0 },
-    ],
-    itemColumns: [
-      { fieldId: "fd-name", fieldName: "sys-name-field", fieldType: 100, fieldLabel: "Nazwa", fieldScope: 1, order: 0 },
-      { fieldId: "fd-qty", fieldName: "sys-qty-field", fieldType: 101, fieldLabel: "Ilość", fieldScope: 1, order: 1 },
-      { fieldId: "fd-unit", fieldName: "sys-unit-field", fieldType: 102, fieldLabel: "J.m.", fieldScope: 1, order: 2 },
-      { fieldId: "fd-price", fieldName: "calc-price-field", fieldType: 200, fieldLabel: "Cena jedn. netto", fieldScope: 2, order: 3 },
-      { fieldId: "fd-value-net", fieldName: "calc-value-net-field", fieldType: 203, fieldLabel: "Wartość netto", fieldScope: 2, order: 4 },
-      { fieldId: "fd-cat", fieldName: "sys-cat-field", fieldType: 106, fieldLabel: "Kategoria", fieldScope: 1, order: 5 },
-    ],
-  },
-  groupHeaderFields: [
-    {
-      id: "fd-grp-name", fieldName: "grp-name-field", fieldType: 0,
-      customLabel: "Nazwa etapu", isRequired: true, isVisible: true, order: 0, isReadonly: false,
-      isSortable: true, isFilterable: true,
-      fieldTypeConfig: { fieldType: 0, fieldScope: 0, namePl: "Nazwa etapu", valueTypeName: "String", isNumeric: false, isText: true, isDate: false, isBoolean: false, isCollection: false },
-    },
-  ],
-  systemFields: [
-    {
-      id: "fd-name", fieldName: "sys-name-field", fieldType: 100, label: "Nazwa",
-      isRequired: true, isVisible: true, order: 0, isSortable: true, isFilterable: true, isReadonly: false,
-      fieldTypeConfig: { fieldType: 100, fieldScope: 1, namePl: "Nazwa", valueTypeName: "String", isNumeric: false, isText: true, isDate: false, isBoolean: false, isCollection: false },
-    },
-    {
-      id: "fd-unit", fieldName: "sys-unit-field", fieldType: 102, label: "J.m.",
-      isRequired: false, isVisible: true, order: 1, isSortable: true, isFilterable: true, isReadonly: false,
-      fieldTypeConfig: { fieldType: 102, fieldScope: 1, namePl: "Jednostka miary", valueTypeName: "String", isNumeric: false, isText: true, isDate: false, isBoolean: false, isCollection: false },
-    },
-    {
-      id: "fd-qty", fieldName: "sys-qty-field", fieldType: 101, label: "Ilość",
-      isRequired: false, isVisible: true, order: 2, isSortable: true, isFilterable: true, isReadonly: false,
-      fieldTypeConfig: { fieldType: 101, fieldScope: 1, namePl: "Ilość", valueTypeName: "Decimal", isNumeric: true, isText: false, isDate: false, isBoolean: false, isCollection: false },
-    },
-    {
-      id: "fd-cat", fieldName: "sys-cat-field", fieldType: 106, label: "Kategoria",
-      isRequired: false, isVisible: true, order: 3, isSortable: true, isFilterable: true, isReadonly: false,
-      fieldTypeConfig: { fieldType: 106, fieldScope: 1, namePl: "Kategoria", valueTypeName: "String", isNumeric: false, isText: true, isDate: false, isBoolean: false, isCollection: false },
-    },
-  ],
-  calculatedFields: [
-    {
-      id: "fd-price", fieldName: "calc-price-field", fieldType: 200, label: "Cena jedn. netto",
-      isSortable: true, isFilterable: true, isSummable: false, isAutoCalculated: false, isReadonly: false, isRequired: false, isVisible: true, order: 0,
-      fieldTypeConfig: { fieldType: 200, fieldScope: 2, namePl: "Cena jednostkowa netto", valueTypeName: "Decimal", isNumeric: true, isText: false, isDate: false, isBoolean: false, isCollection: false },
-    },
-    {
-      id: "fd-value-net", fieldName: "calc-value-net-field", fieldType: 203, label: "Wartość netto",
-      isSortable: true, isFilterable: true, isSummable: true, summaryScope: 0, sumInGroup: true, sumInTotal: true,
-      isAutoCalculated: true, isReadonly: true, isRequired: false, isVisible: true, order: 1,
-      fieldTypeConfig: { fieldType: 203, fieldScope: 2, namePl: "Wartość netto", valueTypeName: "Decimal", isNumeric: true, isText: false, isDate: false, isBoolean: false, isCollection: false },
-    },
-  ],
-  genericFields: [],
-  summaryConfiguration: {
-    showGroupSummary: true,
-    showTotalSummary: true,
-    groupSummaryFields: [
-      { fieldId: "fd-value-net", fieldName: "calc-value-net-field", fieldType: 203, fieldLabel: "Wartość netto", fieldSource: 2, order: 0 },
-    ],
-    totalSummaryFields: [
-      { fieldId: "fd-value-net", fieldName: "calc-value-net-field", fieldType: 203, fieldLabel: "Wartość netto", fieldSource: 2, order: 0 },
-    ],
-  },
-};
-
-// ---- Wariant A: Budowlany (4 grupy, 14 pozycji) — ce-001, ce-004, ce-006, ce-007 ----
-const buildingGroups = [
-  {
-    id: "g-b001", parentGroupId: undefined, level: 0, order: 0, totalNet: 707775, totalGross: 869563.5, totalVat: 161788.5, lastCalculatedAt: date("2026-01-20"), createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"),
-    fieldValues: [{ id: "fv-gb1", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "1. Roboty ziemne i fundamentowe", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-b001", groupId: "g-b001", order: 0, netValue: 272175, grossValue: 334775.25, vatValue: 62600.25, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi1n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Wykopy pod fundamenty", fieldLabel: "Nazwa" },
-        { id: "fv-bi1u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m³", fieldLabel: "J.m." },
-        { id: "fv-bi1q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 2850, fieldLabel: "Ilość" },
-        { id: "fv-bi1p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 95.50, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-bi1c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-b002", groupId: "g-b001", order: 1, netValue: 326400, grossValue: 401472, vatValue: 75072, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi2n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Ławy fundamentowe żelbetowe", fieldLabel: "Nazwa" },
-        { id: "fv-bi2u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m³", fieldLabel: "J.m." },
-        { id: "fv-bi2q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 480, fieldLabel: "Ilość" },
-        { id: "fv-bi2p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 680, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-bi2c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-b003", groupId: "g-b001", order: 2, netValue: 52500, grossValue: 64575, vatValue: 12075, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi3n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Izolacja przeciwwilgociowa fundamentów", fieldLabel: "Nazwa" },
-        { id: "fv-bi3u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-bi3q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1250, fieldLabel: "Ilość" },
-        { id: "fv-bi3p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 42, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-bi3c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-b004", groupId: "g-b001", order: 3, netValue: 56700, grossValue: 69729, vatValue: 13029, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi4n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Zasypka i zagęszczenie", fieldLabel: "Nazwa" },
-        { id: "fv-bi4u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m³", fieldLabel: "J.m." },
-        { id: "fv-bi4q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1620, fieldLabel: "Ilość" },
-        { id: "fv-bi4p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 35, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-bi4c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-  {
-    id: "g-b002", parentGroupId: undefined, level: 0, order: 1, totalNet: 1581400, totalGross: 1945122, totalVat: 363722, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"),
-    fieldValues: [{ id: "fv-gb2", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "2. Konstrukcja żelbetowa", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-b005", groupId: "g-b002", order: 0, netValue: 294400, grossValue: 362112, vatValue: 67712, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi5n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Słupy żelbetowe 40×40 cm", fieldLabel: "Nazwa" },
-        { id: "fv-bi5u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m³", fieldLabel: "J.m." },
-        { id: "fv-bi5q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 320, fieldLabel: "Ilość" },
-        { id: "fv-bi5p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 920, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-bi5c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-b006", groupId: "g-b002", order: 1, netValue: 1176000, grossValue: 1446480, vatValue: 270480, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi6n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Stropy żelbetowe monolityczne", fieldLabel: "Nazwa" },
-        { id: "fv-bi6u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-bi6q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 4800, fieldLabel: "Ilość" },
-        { id: "fv-bi6p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 245, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-bi6c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-b007", groupId: "g-b002", order: 2, netValue: 111000, grossValue: 136530, vatValue: 25530, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi7n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Schody żelbetowe", fieldLabel: "Nazwa" },
-        { id: "fv-bi7u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-bi7q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 6, fieldLabel: "Ilość" },
-        { id: "fv-bi7p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 18500, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-bi7c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-  {
-    id: "g-b003", parentGroupId: undefined, level: 0, order: 2, totalNet: 2202400, totalGross: 2708952, totalVat: 506552, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"),
-    fieldValues: [{ id: "fv-gb3", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "3. Ściany i elewacja", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-b008", groupId: "g-b003", order: 0, netValue: 899000, grossValue: 1105770, vatValue: 206770, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi8n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Ściany nośne z bloczków silikatowych", fieldLabel: "Nazwa" },
-        { id: "fv-bi8u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-bi8q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 6200, fieldLabel: "Ilość" },
-        { id: "fv-bi8p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 145, fieldLabel: "Cena jedn. netto" },
-      ], options: undefined, components: undefined },
-      { id: "i-b009", groupId: "g-b003", order: 1, netValue: 470400, grossValue: 578592, vatValue: 108192, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi9n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Elewacja — tynk silikonowy", fieldLabel: "Nazwa" },
-        { id: "fv-bi9u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-bi9q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 4800, fieldLabel: "Ilość" },
-        { id: "fv-bi9p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 98, fieldLabel: "Cena jedn. netto" },
-      ], options: undefined, components: undefined },
-      { id: "i-b010", groupId: "g-b003", order: 2, netValue: 833000, grossValue: 1024590, vatValue: 191590, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi10n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Stolarka okienna PCV 3-szybowa", fieldLabel: "Nazwa" },
-        { id: "fv-bi10u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-bi10q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 980, fieldLabel: "Ilość" },
-        { id: "fv-bi10p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 850, fieldLabel: "Cena jedn. netto" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-  {
-    id: "g-b004", parentGroupId: undefined, level: 0, order: 3, totalNet: 7957825, totalGross: 9788124.75, totalVat: 1830299.75, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"),
-    fieldValues: [{ id: "fv-gb4", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "4. Pozostałe grupy (skrócone)", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-b011", groupId: "g-b004", order: 0, netValue: 2450000, grossValue: 3013500, vatValue: 563500, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi11n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Dach i pokrycie dachowe", fieldLabel: "Nazwa" },
-        { id: "fv-bi11u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-bi11q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-bi11p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 2450000, fieldLabel: "Cena jedn. netto" },
-      ], options: undefined, components: undefined },
-      { id: "i-b012", groupId: "g-b004", order: 1, netValue: 2850000, grossValue: 3505500, vatValue: 655500, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi12n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Instalacje sanitarne (wod-kan, CO)", fieldLabel: "Nazwa" },
-        { id: "fv-bi12u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-bi12q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-bi12p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 2850000, fieldLabel: "Cena jedn. netto" },
-      ], options: undefined, components: undefined },
-      { id: "i-b013", groupId: "g-b004", order: 2, netValue: 1920000, grossValue: 2361600, vatValue: 441600, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi13n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Instalacja elektryczna i teletechnika", fieldLabel: "Nazwa" },
-        { id: "fv-bi13u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-bi13q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-bi13p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 1920000, fieldLabel: "Cena jedn. netto" },
-      ], options: undefined, components: undefined },
-      { id: "i-b014", groupId: "g-b004", order: 3, netValue: 737825, grossValue: 907524.75, vatValue: 169699.75, createdAt: date("2025-06-15"), updatedAt: date("2026-01-20"), fieldValues: [
-        { id: "fv-bi14n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Koszty pośrednie i organizacja placu budowy", fieldLabel: "Nazwa" },
-        { id: "fv-bi14u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-bi14q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-bi14p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 737825, fieldLabel: "Cena jedn. netto" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-];
-
-// ---- Wariant B: Instalacje (2 grupy, 6 pozycji) — ce-002 ----
-const installationGroups = [
-  {
-    id: "g-s001", parentGroupId: undefined, level: 0, order: 0, totalNet: 1120000, totalGross: 1377600, totalVat: 257600, lastCalculatedAt: date("2026-02-15"), createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"),
-    fieldValues: [{ id: "fv-gs1", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "1. Instalacje wodociągowe i kanalizacyjne", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-s001", groupId: "g-s001", order: 0, netValue: 340000, grossValue: 418200, vatValue: 78200, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), fieldValues: [
-        { id: "fv-si1n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Rurociągi wodociągowe PP-R", fieldLabel: "Nazwa" },
-        { id: "fv-si1u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m.b.", fieldLabel: "J.m." },
-        { id: "fv-si1q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 850, fieldLabel: "Ilość" },
-        { id: "fv-si1p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 400, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-si1c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-s002", groupId: "g-s001", order: 1, netValue: 420000, grossValue: 516600, vatValue: 96600, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), fieldValues: [
-        { id: "fv-si2n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Kanalizacja sanitarna PCV", fieldLabel: "Nazwa" },
-        { id: "fv-si2u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m.b.", fieldLabel: "J.m." },
-        { id: "fv-si2q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 700, fieldLabel: "Ilość" },
-        { id: "fv-si2p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 600, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-si2c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-s003", groupId: "g-s001", order: 2, netValue: 360000, grossValue: 442800, vatValue: 82800, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), fieldValues: [
-        { id: "fv-si3n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Pompy i zestawy hydroforowe", fieldLabel: "Nazwa" },
-        { id: "fv-si3u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-si3q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 2, fieldLabel: "Ilość" },
-        { id: "fv-si3p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 180000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-si3c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Sprzęt", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-  {
-    id: "g-s002", parentGroupId: undefined, level: 0, order: 1, totalNet: 1730000, totalGross: 2127900, totalVat: 397900, lastCalculatedAt: date("2026-02-15"), createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"),
-    fieldValues: [{ id: "fv-gs2", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "2. Instalacje grzewcze i wentylacyjne", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-s004", groupId: "g-s002", order: 0, netValue: 680000, grossValue: 836400, vatValue: 156400, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), fieldValues: [
-        { id: "fv-si4n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Kotłownia gazowa z instalacją CO", fieldLabel: "Nazwa" },
-        { id: "fv-si4u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-si4q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-si4p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 680000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-si4c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-s005", groupId: "g-s002", order: 1, netValue: 570000, grossValue: 701100, vatValue: 131100, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), fieldValues: [
-        { id: "fv-si5n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Grzejniki i instalacja rozdzielcza", fieldLabel: "Nazwa" },
-        { id: "fv-si5u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "szt.", fieldLabel: "J.m." },
-        { id: "fv-si5q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 95, fieldLabel: "Ilość" },
-        { id: "fv-si5p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 6000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-si5c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-s006", groupId: "g-s002", order: 2, netValue: 480000, grossValue: 590400, vatValue: 110400, createdAt: date("2025-07-10"), updatedAt: date("2026-02-15"), fieldValues: [
-        { id: "fv-si6n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Wentylacja mechaniczna z rekuperacją", fieldLabel: "Nazwa" },
-        { id: "fv-si6u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-si6q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-si6p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 480000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-si6c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Sprzęt", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-];
-
-// ---- Wariant C: Zagospodarowanie terenu (2 grupy, 5 pozycji) — ce-005 ----
-const landDevelopmentGroups = [
-  {
-    id: "g-l001", parentGroupId: undefined, level: 0, order: 0, totalNet: 680000, totalGross: 836400, totalVat: 156400, lastCalculatedAt: date("2025-11-15"), createdAt: date("2025-11-15"),
-    fieldValues: [{ id: "fv-gl1", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "1. Nawierzchnie i drogi", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-l001", groupId: "g-l001", order: 0, netValue: 320000, grossValue: 393600, vatValue: 73600, createdAt: date("2025-11-15"), fieldValues: [
-        { id: "fv-l1n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Nawierzchnia z kostki brukowej", fieldLabel: "Nazwa" },
-        { id: "fv-l1u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-l1q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1600, fieldLabel: "Ilość" },
-        { id: "fv-l1p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 200, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-l1c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-l002", groupId: "g-l001", order: 1, netValue: 360000, grossValue: 442800, vatValue: 82800, createdAt: date("2025-11-15"), fieldValues: [
-        { id: "fv-l2n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Krawężniki i obrzeża betonowe", fieldLabel: "Nazwa" },
-        { id: "fv-l2u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m.b.", fieldLabel: "J.m." },
-        { id: "fv-l2q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1200, fieldLabel: "Ilość" },
-        { id: "fv-l2p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 300, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-l2c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-  {
-    id: "g-l002", parentGroupId: undefined, level: 0, order: 1, totalNet: 770000, totalGross: 947100, totalVat: 177100, lastCalculatedAt: date("2025-11-15"), createdAt: date("2025-11-15"),
-    fieldValues: [{ id: "fv-gl2", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "2. Zieleń i mała architektura", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-l003", groupId: "g-l002", order: 0, netValue: 280000, grossValue: 344400, vatValue: 64400, createdAt: date("2025-11-15"), fieldValues: [
-        { id: "fv-l3n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Nasadzenia drzew i krzewów", fieldLabel: "Nazwa" },
-        { id: "fv-l3u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "szt.", fieldLabel: "J.m." },
-        { id: "fv-l3q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 180, fieldLabel: "Ilość" },
-        { id: "fv-l3p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 1555.56, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-l3c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-l004", groupId: "g-l002", order: 1, netValue: 340000, grossValue: 418200, vatValue: 78200, createdAt: date("2025-11-15"), fieldValues: [
-        { id: "fv-l4n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Ławki, kosze, oświetlenie parkowe", fieldLabel: "Nazwa" },
-        { id: "fv-l4u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-l4q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 40, fieldLabel: "Ilość" },
-        { id: "fv-l4p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 8500, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-l4c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-l005", groupId: "g-l002", order: 2, netValue: 150000, grossValue: 184500, vatValue: 34500, createdAt: date("2025-11-15"), fieldValues: [
-        { id: "fv-l5n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Trawniki i nawodnienie", fieldLabel: "Nazwa" },
-        { id: "fv-l5u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-l5q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 3000, fieldLabel: "Ilość" },
-        { id: "fv-l5p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 50, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-l5c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-];
-
-// ---- Wariant D: Garaż podziemny (2 grupy, 6 pozycji) — ce-008 ----
-const garageGroups = [
-  {
-    id: "g-r001", parentGroupId: undefined, level: 0, order: 0, totalNet: 2100000, totalGross: 2583000, totalVat: 483000, lastCalculatedAt: date("2026-01-15"), createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"),
-    fieldValues: [{ id: "fv-gr1", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "1. Konstrukcja garażu", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-r001", groupId: "g-r001", order: 0, netValue: 920000, grossValue: 1131600, vatValue: 211600, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-r1n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Płyta denna żelbetowa 30 cm", fieldLabel: "Nazwa" },
-        { id: "fv-r1u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m³", fieldLabel: "J.m." },
-        { id: "fv-r1q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1150, fieldLabel: "Ilość" },
-        { id: "fv-r1p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 800, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-r1c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-r002", groupId: "g-r001", order: 1, netValue: 680000, grossValue: 836400, vatValue: 156400, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-r2n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Ściany oporowe żelbetowe", fieldLabel: "Nazwa" },
-        { id: "fv-r2u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m³", fieldLabel: "J.m." },
-        { id: "fv-r2q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 400, fieldLabel: "Ilość" },
-        { id: "fv-r2p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 1700, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-r2c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-r003", groupId: "g-r001", order: 2, netValue: 500000, grossValue: 615000, vatValue: 115000, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-r3n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Strop garażu z otworami wentylacyjnymi", fieldLabel: "Nazwa" },
-        { id: "fv-r3u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-r3q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 2500, fieldLabel: "Ilość" },
-        { id: "fv-r3p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 200, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-r3c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-  {
-    id: "g-r002", parentGroupId: undefined, level: 0, order: 1, totalNet: 2150000, totalGross: 2644500, totalVat: 494500, lastCalculatedAt: date("2026-01-15"), createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"),
-    fieldValues: [{ id: "fv-gr2", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "2. Wykończenie i instalacje", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-r004", groupId: "g-r002", order: 0, netValue: 780000, grossValue: 959400, vatValue: 179400, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-r4n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Posadzka epoksydowa garażu", fieldLabel: "Nazwa" },
-        { id: "fv-r4u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "m²", fieldLabel: "J.m." },
-        { id: "fv-r4q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 2600, fieldLabel: "Ilość" },
-        { id: "fv-r4p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 300, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-r4c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Materiały", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-r005", groupId: "g-r002", order: 1, netValue: 640000, grossValue: 787200, vatValue: 147200, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-r5n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Wentylacja mechaniczna garażu", fieldLabel: "Nazwa" },
-        { id: "fv-r5u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-r5q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-r5p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 640000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-r5c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Sprzęt", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-r006", groupId: "g-r002", order: 2, netValue: 730000, grossValue: 897900, vatValue: 167900, createdAt: date("2025-08-20"), updatedAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-r6n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Instalacja oświetlenia i zasilania", fieldLabel: "Nazwa" },
-        { id: "fv-r6u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-r6q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-r6p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 730000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-r6c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-];
-
-// ---- Wariant E: Kosztorys wstępny EUR (1 grupa, 3 pozycje) — ce-009 ----
-const preliminaryGroups = [
-  {
-    id: "g-p001", parentGroupId: undefined, level: 0, order: 0, totalNet: 3200000, totalGross: 3936000, totalVat: 736000, createdAt: date("2026-01-15"),
-    fieldValues: [{ id: "fv-gp1", fieldDefinitionId: "fd-grp-name", fieldType: 1, fieldScope: 0, stringValue: "1. Prace koncepcyjne i przygotowawcze", fieldLabel: "Nazwa grupy" }],
-    childGroups: [], items: [
-      { id: "i-p001", groupId: "g-p001", order: 0, netValue: 1200000, grossValue: 1476000, vatValue: 276000, createdAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-p1n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Projekt koncepcyjny i wstępne koszty", fieldLabel: "Nazwa" },
-        { id: "fv-p1u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-p1q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-p1p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 1200000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-p1c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-p002", groupId: "g-p001", order: 1, netValue: 950000, grossValue: 1168500, vatValue: 218500, createdAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-p2n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Badania geotechniczne i pomiary", fieldLabel: "Nazwa" },
-        { id: "fv-p2u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-p2q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-p2p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 950000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-p2c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-      { id: "i-p003", groupId: "g-p001", order: 2, netValue: 1050000, grossValue: 1291500, vatValue: 241500, createdAt: date("2026-01-15"), fieldValues: [
-        { id: "fv-p3n", fieldDefinitionId: "fd-name", fieldType: 1, fieldScope: 1, stringValue: "Uzyskanie pozwoleń i opinii", fieldLabel: "Nazwa" },
-        { id: "fv-p3u", fieldDefinitionId: "fd-unit", fieldType: 1, fieldScope: 1, stringValue: "kpl.", fieldLabel: "J.m." },
-        { id: "fv-p3q", fieldDefinitionId: "fd-qty", fieldType: 2, fieldScope: 1, decimalValue: 1, fieldLabel: "Ilość" },
-        { id: "fv-p3p", fieldDefinitionId: "fd-price", fieldType: 2, fieldScope: 2, decimalValue: 1050000, fieldLabel: "Cena jedn. netto" },
-        { id: "fv-p3c", fieldDefinitionId: "fd-cat", fieldType: 1, fieldScope: 1, stringValue: "Robocizna", fieldLabel: "Kategoria" },
-      ], options: undefined, components: undefined },
-    ],
-  },
-];
-
-// ============================================================================
-//   Helper: klonuje grupy i modyfikuje nazwy etapów oraz nazwy pozycji
-//   aby każdy kosztorys był unikalny
-// ============================================================================
-function customizeGroups(groups: any[], stageNames: string[], itemNameMap: Record<string, string>): any[] {
-  return groups.map((g, gi) => {
-    const newGroupName = stageNames[gi] ?? g.fieldValues[0]?.stringValue ?? `Etap ${gi + 1}`;
-    const newItems = g.items.map((item: any) => {
-      const nameFv = item.fieldValues.find((fv: any) => fv.fieldDefinitionId === "fd-name");
-      if (nameFv && itemNameMap[nameFv.stringValue]) {
-        nameFv.stringValue = itemNameMap[nameFv.stringValue];
-      }
-      return item;
-    });
-    return {
-      ...g,
-      fieldValues: g.fieldValues.map((fv: any) =>
-        fv.fieldDefinitionId === "fd-grp-name" ? { ...fv, stringValue: newGroupName } : fv
-      ),
-      items: newItems,
-    };
-  });
-}
-
-/** Mapowanie: ID kosztorysu → (wariant grup, ewentualna customizacja, tenantId, itp.) */
-type EstimateMeta = {
-  tenantId: string;
-  projectId: string;
-  groups: any[];
-  name: string;
-  description: string | null;
-  status: number;
-  totalNet: number;
-  ownerName: string;
-  workScheduleId: string | null;
-  sharedWith: Array<{ userId: string; fullName: string; email: string; sharedAt: string }>;
-  currency: { code: string; symbol: string };
-  /** Opcjonalna funkcja customizująca grupy przed użyciem */
-  customize?: (groups: any[]) => any[];
-};
 
 const estimateMetaMap: Record<string, EstimateMeta> = {
   "ce-001": {
@@ -647,50 +227,36 @@ const estimateMetaMap: Record<string, EstimateMeta> = {
 
 export function getCostEstimateDetailsById(id: string): unknown {
   const meta = estimateMetaMap[id];
+  const createdAt = date("2025-06-15");
+  const updatedAt = date("2026-01-20");
+
   if (!meta) {
-    // Fallback: zwróć podstawową wersję dla nieznanego ID
-    const fallback = estimateMetaMap["ce-001"];
+    const fallbackDetails = getCostEstimateDetailsById("ce-001") as Record<string, unknown>;
     return {
-      ...fallback,
-      id, name: `Kosztorys (${id})`, description: null,
-      totalNet: 100000, status: 0,
-      ownerName: "Michał Kowalski", workScheduleId: null,
-      sharedWith: [],
+      ...fallbackDetails,
+      id,
+      name: `Kosztorys (${id})`,
+      description: null,
+      totalNet: 100000,
+      totalGross: 123000,
+      totalVat: 23000,
+      status: 0,
+      ownerName: "Michał Kowalski",
+      workScheduleId: null,
+      sharedWithUsers: [],
     };
   }
+
   const totalGross = Math.round(meta.totalNet * 1.23);
   const totalVat = totalGross - meta.totalNet;
-  const nowIso = new Date().toISOString();
-
-  // Build groups with unique IDs
-  const rootGroups: any[] = (meta.customize ? meta.customize(meta.groups) : meta.groups).map((g: any, gi: number) => {
-    const groupItems = g.items.map((item: any) => ({
-      ...item,
-      id: `${id}-${item.id}`,
-      groupId: `${id}-g-${gi}`,
-      fieldValues: item.fieldValues.map((fv: any) => ({ ...fv, id: `${id}-${fv.id}` })),
-    }));
-    // Compute group summaryValues for calculated fields
-    const groupSummaryValues: Record<string, number> = {};
-    const valueNetSum = groupItems.reduce((sum: number, it: any) => sum + (it.netValue ?? 0), 0);
-    groupSummaryValues["fd-value-net"] = valueNetSum;
-    return {
-      ...g,
-      id: `${id}-g-${gi}`,
-      fieldValues: g.fieldValues.map((fv: any) => ({ ...fv, id: `${id}-${fv.id}` })),
-      items: groupItems,
-      summaryValues: groupSummaryValues,
-    };
-  });
-
-  // Compute overall summaryValues
-  const totalValueNet = rootGroups.reduce((sum: number, g: any) => sum + ((g.summaryValues?.["fd-value-net"] as number) ?? 0), 0);
+  const categoryFieldId = getCategoryFieldId(id);
+  const sourceGroups = meta.customize ? meta.customize(meta.groups) : meta.groups;
+  const rootGroups = remapGroupsForEstimate(sourceGroups, id, categoryFieldId);
 
   return {
     id,
     tenantId: meta.tenantId,
     projectId: meta.projectId,
-    selectedCurrencyId: `curr-${meta.currency.code.toLowerCase()}`,
     selectedCurrencyCode: meta.currency.code,
     selectedCurrencySymbol: meta.currency.symbol,
     name: meta.name,
@@ -699,18 +265,17 @@ export function getCostEstimateDetailsById(id: string): unknown {
     totalNet: meta.totalNet,
     totalGross,
     totalVat,
-    createdAt: date("2025-06-15"),
-    updatedAt: date("2026-01-20"),
-    lastCalculatedAt: date("2026-01-20"),
+    createdAt,
+    updatedAt,
+    lastCalculatedAt: updatedAt,
     ownerId: uid,
     ownerName: meta.ownerName,
     workScheduleId: meta.workScheduleId,
     accessLevel: 3,
     sharedWithUsers: meta.sharedWith,
-    fieldSchemas: [],
-    additionalFields: [],
+    fieldSchemas: buildMockFieldSchemas(id, createdAt),
+    additionalFields: buildMockAdditionalFields(id, createdAt),
     rootGroups,
-    summaryValues: { "fd-value-net": totalValueNet },
   };
 }
 

@@ -43,7 +43,8 @@ import { AdditionalFieldType } from '../../../types/costEstimate.types.new';
 import { getSchemaColumns, resolveTreeViewSchemaColumns, MIN_COL_WIDTHS } from '../../../utils/costEstimateFieldSchema';
 import { calcTreeViewColumnWidths } from '../../../utils/calcTreeViewColumnWidths';
 import { resolveAdditionalFieldDefinitions } from '../../../utils/additionalFieldHelpers';
-import { getCostEstimateTotals } from '../../../utils/costEstimateUtils';
+import { getCostEstimateTotals, resolveCostEstimateCurrencySymbol } from '../../../utils/costEstimateUtils';
+import { formatCurrency } from '../../../utils/formatters';
 import { TreeViewHeader, TREE_VIEW_HEADER_HEIGHT } from './TreeViewHeader';
 import { TreeViewRow } from './TreeViewRow';
 import { AddInlineButton } from '../PrototypeActionButtons';
@@ -122,6 +123,7 @@ export function saveVisibleCols(userId: string, costEstimateId: string, cols: Se
 
 interface CostEstimateTreeViewProps {
   details: CostEstimateDetailsWeb;
+  currencySymbol?: string;
   isEditMode: boolean;
   tenantId: string;
   projectId: string;
@@ -180,6 +182,7 @@ export const CostEstimateTreeView = forwardRef<
   CostEstimateTreeViewProps
 >(({
   details,
+  currencySymbol: currencySymbolProp,
   isEditMode,
   tenantId,
   projectId,
@@ -204,6 +207,10 @@ export const CostEstimateTreeView = forwardRef<
   onToggleFieldVisibility,
   onAddField,
 }, ref) => {
+  const currencySymbol = useMemo(
+    () => currencySymbolProp ?? resolveCostEstimateCurrencySymbol(details),
+    [currencySymbolProp, details.selectedCurrencySymbol, details.selectedCurrencyCode],
+  );
   const { user } = useContext(AuthContext);
   const userId = user?.id ?? 'anonymous';
 
@@ -621,7 +628,7 @@ export const CostEstimateTreeView = forwardRef<
               <Flex key={col.id} flex="0 0 auto" w={w} justify="flex-end" pr={2}>
                 <Text fontSize="sm" fontWeight="bold" color="neutral.800"
                   sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {totals.net.toFixed(2)}
+                  {formatCurrency(totals.net, currencySymbol)}
                 </Text>
               </Flex>
             );
@@ -632,7 +639,7 @@ export const CostEstimateTreeView = forwardRef<
               <Flex key={col.id} flex="0 0 auto" w={w} justify="flex-end" pr={2}>
                 <Text fontSize="sm" fontWeight="bold" color="neutral.800"
                   sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {totals.gross.toFixed(2)}
+                  {formatCurrency(totals.gross, currencySymbol)}
                 </Text>
               </Flex>
             );
@@ -699,6 +706,7 @@ export const CostEstimateTreeView = forwardRef<
                     <TreeViewRow
                       key={group.id}
                       group={group}
+                      currencySymbol={currencySymbol}
                       level={0}
                       isExpanded={expandedGroups.has(group.id)}
                       isEditMode={isEditMode}

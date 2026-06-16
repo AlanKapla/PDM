@@ -16,6 +16,7 @@ interface OptionSubCardProps {
   option: CostEstimateItemWeb;
   groupId: string;
   parentItemId: string;
+  currencySymbol: string;
   isEditMode: boolean;
   onDeleteItem: (itemId: string) => void;
   onSelectOption: (groupId: string, itemId: string, optionId: string) => void;
@@ -39,6 +40,7 @@ export const OptionSubCard: React.FC<OptionSubCardProps> = ({
   option,
   groupId,
   parentItemId,
+  currencySymbol,
   isEditMode,
   onDeleteItem,
   onSelectOption,
@@ -102,6 +104,7 @@ export const OptionSubCard: React.FC<OptionSubCardProps> = ({
         <CardAmountSummary
           net={totalNet}
           gross={totalGross}
+          currencySymbol={currencySymbol}
           size="sm"
           layout="stacked"
         />

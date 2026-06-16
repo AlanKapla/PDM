@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { HStack, Text } from '@chakra-ui/react';
 import type { CostEstimateDetailsWeb } from '../../types/costEstimate.types.new';
-import { getCostEstimateTotals } from '../../utils/costEstimateUtils';
+import { getCostEstimateTotals, resolveCostEstimateCurrencySymbol } from '../../utils/costEstimateUtils';
 import { formatCurrency } from '../../utils/formatters';
 
 export interface CostEstimateTotalsBadgesProps {
@@ -50,7 +50,7 @@ export function CostEstimateTotalsBadges({
   details,
 }: CostEstimateTotalsBadgesProps): React.ReactElement {
   const totals = useMemo(() => getCostEstimateTotals(details), [details]);
-  const currency = details.selectedCurrencySymbol || details.selectedCurrencyCode || 'PLN';
+  const currency = resolveCostEstimateCurrencySymbol(details);
 
   return (
     <HStack spacing={{ base: 2, md: 3 }} mb={4} flexWrap="wrap">

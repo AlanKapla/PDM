@@ -53,6 +53,7 @@ import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import AppModal from "../components/ui/AppModal";
 import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { ContractorWeb, CreateContractorRequest } from "../types/contractor.types";
+import { formatDateShort } from "../utils/formatters";
 
 interface ContractorFormValues {
   name: string;
@@ -624,7 +625,7 @@ export default function TenantDetails() {
                   </HStack>
                   <Text fontSize="sm" color="neutral.500">
                     Utworzono:{" "}
-                    {new Date(tenant.createdAt).toLocaleDateString("pl-PL")}
+                    {formatDateShort(tenant.createdAt)}
                   </Text>
                   <Badge colorScheme={getTenantRoleColor(tenant.isAdmin)}>
                     {getTenantRoleName(tenant.isAdmin)}
@@ -799,9 +800,7 @@ export default function TenantDetails() {
                                 fontSize={{ base: "xs", md: "sm" }}
                                 display={{ base: "none", md: "table-cell" }}
                               >
-                                {new Date(
-                                  member.joinedAt
-                                ).toLocaleDateString("pl-PL")}
+                                {formatDateShort(member.joinedAt)}
                               </Td>
                               <Td>
                                 <HStack spacing={2}>
@@ -970,18 +969,14 @@ export default function TenantDetails() {
                                 fontSize={{ base: "xs", md: "sm" }}
                                 display={{ base: "none", md: "table-cell" }}
                               >
-                                {new Date(
-                                  invitation.createdAt
-                                ).toLocaleDateString("pl-PL")}
+                                {formatDateShort(invitation.createdAt)}
                               </Td>
                               <Td
                                 fontSize={{ base: "xs", md: "sm" }}
                                 display={{ base: "none", md: "table-cell" }}
                               >
                                 {invitation.expiresAt
-                                  ? new Date(
-                                    invitation.expiresAt
-                                  ).toLocaleDateString("pl-PL")
+                                  ? formatDateShort(invitation.expiresAt)
                                   : "Brak"}
                               </Td>
                               <Td fontSize={{ base: "xs", md: "sm" }}>

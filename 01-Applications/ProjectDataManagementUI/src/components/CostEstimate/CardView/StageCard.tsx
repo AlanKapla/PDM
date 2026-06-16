@@ -34,6 +34,7 @@ interface AutosaveParams {
 
 interface SubStageSectionProps {
   subGroup: CostEstimateGroupWeb;
+  currencySymbol: string;
   isExpanded: boolean;
   onToggle: () => void;
   isEditMode: boolean;
@@ -55,6 +56,7 @@ interface SubStageSectionProps {
 
 const SubStageSection: React.FC<SubStageSectionProps> = ({
   subGroup,
+  currencySymbol,
   isExpanded,
   onToggle,
   isEditMode,
@@ -122,6 +124,7 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
         <CardAmountSummary
           net={totalNet}
           gross={totalGross}
+          currencySymbol={currencySymbol}
           size="md"
           layout="stacked"
         />
@@ -139,6 +142,7 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
                 key={item.id}
                 item={item}
                 groupId={subGroup.id}
+                currencySymbol={currencySymbol}
                 isEditMode={isEditMode}
                 onFieldChange={onFieldChange}
                 onFieldAutosave={onFieldAutosave}
@@ -164,6 +168,7 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
 
 interface StageCardProps {
   stage: CostEstimateGroupWeb;
+  currencySymbol: string;
   isExpanded: boolean;
   expandedGroups: Set<string>;
   isEditMode: boolean;
@@ -189,6 +194,7 @@ interface StageCardProps {
 
 export const StageCard: React.FC<StageCardProps> = ({
   stage,
+  currencySymbol,
   isExpanded,
   expandedGroups,
   isEditMode,
@@ -269,6 +275,7 @@ export const StageCard: React.FC<StageCardProps> = ({
         <CardAmountSummary
           net={totalNet}
           gross={totalGross}
+          currencySymbol={currencySymbol}
           size="lg"
           layout="stacked"
         />
@@ -321,6 +328,7 @@ export const StageCard: React.FC<StageCardProps> = ({
                 <SubStageSection
                   key={subGroup.id}
                   subGroup={subGroup}
+                  currencySymbol={currencySymbol}
                   isExpanded={expandedGroups.has(subGroup.id)}
                   onToggle={() => onToggleGroup(subGroup.id)}
                   isEditMode={isEditMode}
@@ -341,6 +349,7 @@ export const StageCard: React.FC<StageCardProps> = ({
                   key={item.id}
                   item={item}
                   groupId={stage.id}
+                  currencySymbol={currencySymbol}
                   isEditMode={isEditMode}
                   onFieldChange={onFieldChange}
                   onFieldAutosave={onFieldAutosave}

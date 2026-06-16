@@ -12,7 +12,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import type {
   CostEstimateDetailsWeb,
 } from '../../types/costEstimate.types.new';
-import { filterCostEstimateGroupsBySearch } from '../../utils/costEstimateUtils';
+import { filterCostEstimateGroupsBySearch, resolveCostEstimateCurrencySymbol } from '../../utils/costEstimateUtils';
 import { CostEstimateTreeView, type CostEstimateTreeViewHandle } from './TreeView/CostEstimateTreeView';
 import { CostEstimateCardView, type CostEstimateCardViewHandle } from './CardView/CostEstimateCardView';
 
@@ -122,6 +122,11 @@ export const CostEstimateModernView = forwardRef<
     };
   }, [details, searchQuery]);
 
+  const currencySymbol = useMemo(
+    () => resolveCostEstimateCurrencySymbol(details),
+    [details.selectedCurrencySymbol, details.selectedCurrencyCode],
+  );
+
   useImperativeHandle(ref, () => ({
     expandAll: () => {
       if (isMobile || effectiveViewMode === 'card') {
@@ -145,6 +150,7 @@ export const CostEstimateModernView = forwardRef<
         <CostEstimateCardView
           ref={cardViewRef}
           details={filteredDetails}
+          currencySymbol={currencySymbol}
           isEditMode={isEditMode}
           onFieldChange={onFieldChange}
           onFieldAutosave={onFieldAutosave}
@@ -181,6 +187,7 @@ export const CostEstimateModernView = forwardRef<
           <CostEstimateTreeView
             ref={treeViewRef}
             details={details}
+            currencySymbol={currencySymbol}
             isEditMode={isEditMode}
             tenantId={tenantId}
             projectId={projectId}
@@ -210,6 +217,7 @@ export const CostEstimateModernView = forwardRef<
         <CostEstimateCardView
           ref={cardViewRef}
           details={details}
+          currencySymbol={currencySymbol}
           isEditMode={isEditMode}
           onFieldChange={onFieldChange}
           onFieldAutosave={onFieldAutosave}

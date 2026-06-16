@@ -116,6 +116,7 @@ import {
 } from '../types/costEstimate.types.new';
 import { addAdditionalField, updateAdditionalField, uploadItemFiles, deleteItemFile, setItemIsSelected } from '../api/costEstimateApi';
 import { getFieldDefByType, FieldType } from '../utils/schemaHelpers';
+import { formatTime } from '../utils/formatters';
 
 // ---------------------------------------------------------------------------
 // Helpery
@@ -129,10 +130,6 @@ const formatCurrency = (value: number | undefined, symbol: string): string => {
     maximumFractionDigits: 2,
   })} ${symbol}`;
 };
-
-/** Formatuj godzinę z daty */
-const formatTime = (date: Date): string =>
-  date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
 
 /**
  * Tworzy domyślne fieldValues dla nowo dodanej pozycji/komponentu/opcji.

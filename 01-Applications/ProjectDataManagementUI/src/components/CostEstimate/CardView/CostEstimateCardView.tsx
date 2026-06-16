@@ -18,9 +18,11 @@ import { AddInlineButton } from '../PrototypeActionButtons';
 import { PositionDetailModal } from './PositionDetailModal';
 import { GroupDetailModal } from './GroupDetailModal';
 import { resolveAdditionalFieldDefinitions } from '../../../utils/additionalFieldHelpers';
+import { resolveCostEstimateCurrencySymbol } from '../../../utils/costEstimateUtils';
 
 interface CostEstimateCardViewProps {
   details: CostEstimateDetailsWeb;
+  currencySymbol?: string;
   isEditMode: boolean;
   onFieldChange: (
     groupId: string,
@@ -153,6 +155,7 @@ export const CostEstimateCardView = forwardRef<
   CostEstimateCardViewProps
 >(({
   details,
+  currencySymbol: currencySymbolProp,
   isEditMode,
   onFieldChange,
   onFieldAutosave,
@@ -166,6 +169,10 @@ export const CostEstimateCardView = forwardRef<
   onSelectOption,
   onUploadFiles,
 }, ref) => {
+  const currencySymbol = useMemo(
+    () => currencySymbolProp ?? resolveCostEstimateCurrencySymbol(details),
+    [currencySymbolProp, details.selectedCurrencySymbol, details.selectedCurrencyCode],
+  );
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     () => collectAllGroupIds(details.rootGroups)
   );
@@ -233,6 +240,7 @@ export const CostEstimateCardView = forwardRef<
         <StageCard
           key={stage.id}
           stage={stage}
+          currencySymbol={currencySymbol}
           isExpanded={expandedGroups.has(stage.id)}
           expandedGroups={expandedGroups}
           isEditMode={isEditMode}
