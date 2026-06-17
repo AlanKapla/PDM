@@ -4,11 +4,10 @@ import { Pencil, Trash2, Sparkles } from 'lucide-react';
 import { AICostImportModal } from '../../../../components/CostTracker/AICostImportModal';
 import type { ParsedCostDto } from '../../../../types/ai.types';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
-import { PLN } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
+import { NetGrossAmount } from '../shared/NetGrossAmount';
 import { CostModal } from '../CostModal';
 import AppModal from '../../../../components/ui/AppModal';
-import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface AllCostsTabProps {
   costs: TrackedCostWeb[];
@@ -32,7 +31,6 @@ export function AllCostsTab({
   const [aiPrefillData, setAiPrefillData] = useState<{ parsedData: ParsedCostDto; file: File } | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const currencySymbol = useDashboardCurrency();
   const [
     neutral200, neutral400, neutral50, neutral600,
     level250, level2600, action50, level1700, level1500,
@@ -57,6 +55,9 @@ export function AllCostsTab({
   const totalAdditionalNet = costs
     .filter((c) => c.sourceType === 'ProjectAdditional' || !c.sourceType)
     .reduce((sum, c) => sum + (c.net ?? 0), 0);
+  const totalAdditionalGross = costs
+    .filter((c) => c.sourceType === 'ProjectAdditional' || !c.sourceType)
+    .reduce((sum, c) => sum + (c.gross ?? 0), 0);
 
   const handleDeleteConfirmed = async () => {
     if (!confirmDeleteCost) return;
@@ -83,11 +84,11 @@ export function AllCostsTab({
           marginBottom: 16,
         }}
       >
-        <KpiCard label="Łączne koszty" value={PLN(totalNet, currencySymbol)} />
+        <KpiCard label="Łączne koszty" netValue={totalNet} grossValue={totalGross} />
         <KpiCard label="Liczba pozycji" value={String(costs.length)} />
         <KpiCard label="Z harmonogramu" value={String(countSchedule)} />
         <KpiCard label="Z kosztorysu" value={String(countEstimate)} />
-        <KpiCard label="Koszty główne" value={PLN(totalAdditionalNet, currencySymbol)} />
+        <KpiCard label="Koszty główne" netValue={totalAdditionalNet} grossValue={totalAdditionalGross} />
       </div>
 
       <div
@@ -155,8 +156,7 @@ export function AllCostsTab({
                 <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Źródło</Th>
                 <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px" display={{ base: 'none', md: 'table-cell' }}>Etap / Zakres</Th>
                 <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px" display={{ base: 'none', md: 'table-cell' }}>Wykonawca</Th>
-                <Th isNumeric color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Netto</Th>
-                <Th isNumeric color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Brutto</Th>
+                <Th isNumeric color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px">Kwota</Th>
                 <Th color="neutral.400" borderBottomWidth="0.5px" borderBottomColor="neutral.200" fontWeight="medium" px="6px" py="4px"></Th>
               </Tr>
             </Thead>
@@ -262,11 +262,14 @@ export function AllCostsTab({
                   <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
                     {cost.contractorName ?? '—'}
                   </Td>
-                  <Td isNumeric px="6px" py="4px" color="orange.600" fontWeight="medium">
-                    {PLN(cost.net, currencySymbol)}
-                  </Td>
-                  <Td isNumeric px="6px" py="4px" color="neutral.600">
-                    {PLN(cost.gross, currencySymbol)}
+                  <Td isNumeric px="6px" py="4px">
+                    <NetGrossAmount
+                      net={cost.net}
+                      gross={cost.gross}
+                      size="sm"
+                      align="right"
+                      accentColor="orange.600"
+                    />
                   </Td>
                   <Td px="6px" py="4px" whiteSpace="nowrap">
                     <IconButton
@@ -293,16 +296,23 @@ export function AllCostsTab({
             <Tfoot>
               <Tr>
                 <Td
-                  colSpan={7}
+                  colSpan={6}
                   px="6px"
                   py="6px"
                   borderTopWidth="0.5px"
                   borderTopColor="neutral.200"
                   color="neutral.600"
-                  textAlign="right"
-                  fontWeight="medium"
                 >
-                  Suma łączna: <span style={{ color: orange600 }}>{PLN(totalNet, currencySymbol)}</span>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, fontWeight: 'medium' }}>
+                    <span>Suma łączna:</span>
+                    <NetGrossAmount
+                      net={totalNet}
+                      gross={totalGross}
+                      size="sm"
+                      align="right"
+                      accentColor={orange600}
+                    />
+                  </div>
                 </Td>
               </Tr>
             </Tfoot>

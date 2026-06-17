@@ -3,14 +3,13 @@ import { useToken } from '@chakra-ui/react';
 import { Sparkles } from 'lucide-react';
 import type { ProjectAdditionalCostsWeb, ProjectFinancialSummaryWeb, TrackedCostWeb } from '../../types/projectDashboard.types';
 import type { ParsedCostDto } from '../../../../types/ai.types';
-import { PLN, PROG } from '../../utils/formatters';
+import { PROG } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { MiniProgressBar } from '../shared/MiniProgressBar';
 import { CostTable } from '../shared/CostTable';
 import { CostModal } from '../CostModal';
 import AppModal from '../../../../components/ui/AppModal';
 import { AICostImportModal } from '../../../../components/CostTracker/AICostImportModal';
-import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface AdditionalCostsTabProps {
   data: ProjectAdditionalCostsWeb;
@@ -37,18 +36,20 @@ export function AdditionalCostsTab({
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const currencySymbol = useDashboardCurrency();
   const [neutral400, level1700, red600, amber400, action50, neutral200, level1500] = useToken('colors', [
     'neutral.400', 'level1.700', 'red.600', 'amber.400', 'action.50', 'neutral.200', 'level1.500',
   ]);
 
   const reserveNet = financialSummary.projectReserveBudgetNet;
+  const reserveGross = financialSummary.projectReserveBudgetGross;
   const additionalNet = data.totalNet ?? 0;
-  const remainingReserve = reserveNet != null ? reserveNet - additionalNet : null;
+  const additionalGross = data.totalGross ?? 0;
+  const remainingReserveNet = reserveNet != null ? reserveNet - additionalNet : null;
+  const remainingReserveGross = reserveGross != null ? reserveGross - additionalGross : null;
   const remainingColor =
-    remainingReserve == null
+    remainingReserveNet == null
       ? neutral400
-      : remainingReserve >= 0
+      : remainingReserveNet >= 0
       ? level1700
       : red600;
 
@@ -75,11 +76,12 @@ export function AdditionalCostsTab({
   return (
     <div>
       <div className="dashboard-kpi-3col">
-        <KpiCard label="Budżet główny" value={PLN(reserveNet, currencySymbol)} />
-        <KpiCard label="Koszty główne" value={PLN(data.totalNet, currencySymbol)} accent={amber400} />
+        <KpiCard label="Budżet główny" netValue={reserveNet} grossValue={reserveGross} />
+        <KpiCard label="Koszty główne" netValue={data.totalNet} grossValue={data.totalGross} accent={amber400} />
         <KpiCard
           label="Pozostały budżet główny"
-          value={PLN(remainingReserve, currencySymbol)}
+          netValue={remainingReserveNet}
+          grossValue={remainingReserveGross}
           accent={remainingColor}
         />
       </div>

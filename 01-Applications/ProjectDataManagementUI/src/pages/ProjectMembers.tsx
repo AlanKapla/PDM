@@ -1,5 +1,5 @@
 ﻿import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -20,13 +20,13 @@ import {
   Th,
   Td,
 } from "@chakra-ui/react";
-import { ArrowLeft, Users, UserPlus, Trash2, Settings } from "lucide-react";
+import { Users, UserPlus, Trash2, Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import EditProjectMemberModal from "../components/EditProjectMemberModal";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
-import { LoadingSpinner, EmptyState } from "../components/common";
+import { BackToProjectButton, LoadingSpinner, EmptyState } from "../components/common";
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
@@ -38,7 +38,6 @@ import type { ProjectMemberWeb } from "../types/project.types";
 
 export default function ProjectMembers() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const permissions = useProjectPermissions(projectId);
   const { showSuccess, showError, showApiSuccess } = useToastNotification();
@@ -124,6 +123,7 @@ export default function ProjectMembers() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <BackToProjectButton />
         {!permissions.isAdmin ? (
           <Box bg={cardBg} p={8} rounded="lg" borderWidth="1px" borderColor={borderColor}>
             <VStack spacing={4}>

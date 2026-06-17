@@ -13,8 +13,10 @@ import {
 } from '@chakra-ui/react';
 import { Trash2 } from 'lucide-react';
 import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
-import { isTemporaryId } from '../../../types/costEstimate.types.new';
+import { CostEstimateFieldType, isTemporaryId } from '../../../types/costEstimate.types.new';
 import { PrototypeTextInput, PrototypeNumberInput } from '../PrototypeInputs';
+import { getBaseFieldPlaceholder, getFieldLabelByKey, getInputTextAlign } from '../../../utils/costEstimateFieldSchema';
+import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 import { GhostActionButton, AddInlineButton } from '../PrototypeActionButtons';
 import { OptionRadioButton } from './OptionRadioButton';
 import { getCostEstimateItemFieldState, areItemSourceFieldsLocked } from '../../../utils/costEstimateItemFlags';
@@ -36,6 +38,7 @@ interface DetailModalChildrenTableProps {
   items: CostEstimateItemWeb[];
   groupId: string;
   isEditMode: boolean;
+  schemaColumns: ColumnDef[];
   onFieldChange: (
     groupId: string,
     itemId: string | null,
@@ -53,6 +56,7 @@ interface ChildTableRowProps {
   variant: 'options' | 'components';
   groupId: string;
   isEditMode: boolean;
+  schemaColumns: ColumnDef[];
   onFieldChange: DetailModalChildrenTableProps['onFieldChange'];
   onFieldAutosave?: DetailModalChildrenTableProps['onFieldAutosave'];
   onDeleteItem: (itemId: string) => void;
@@ -71,6 +75,7 @@ function ChildTableRow({
   variant,
   groupId,
   isEditMode,
+  schemaColumns,
   onFieldChange,
   onFieldAutosave,
   onDeleteItem,
@@ -79,6 +84,9 @@ function ChildTableRow({
   const fieldState = getCostEstimateItemFieldState(child);
   const sourceLocked = areItemSourceFieldsLocked(fieldState);
   const { flags } = fieldState;
+
+  const label = (fieldKey: string): string => getFieldLabelByKey(schemaColumns, fieldKey);
+  const placeholder = (fieldKey: string): string => getBaseFieldPlaceholder(label(fieldKey));
 
   const triggerBaseFieldAutosave = useCallback(
     (fieldName: string, valueType: AutosaveParams['valueType'], value: string | undefined) => {
@@ -114,6 +122,7 @@ function ChildTableRow({
 
       <Td px={2} py={2} minW="140px">
         <PrototypeTextInput
+          showBorder
           value={child.name ?? ''}
           onChange={(e) => {
             const val = e.target.value;
@@ -121,12 +130,13 @@ function ChildTableRow({
             triggerBaseFieldAutosave('name', 'string', val);
           }}
           isDisabled={!isEditMode}
-          placeholder="Nazwa"
+          placeholder={placeholder('name')}
         />
       </Td>
 
-      <Td px={2} py={2} minW="80px">
+      <Td px={2} py={2} minW="80px" isNumeric>
         <PrototypeNumberInput
+          showBorder
           value={child.quantity !== undefined && child.quantity !== null ? String(child.quantity) : ''}
           onChange={(e) => {
             const val = e.target.value;
@@ -134,12 +144,14 @@ function ChildTableRow({
             triggerBaseFieldAutosave('quantity', 'numeric', val || undefined);
           }}
           isDisabled={!isEditMode || sourceLocked}
-          placeholder="Ilość"
+          placeholder={placeholder('quantity')}
         />
       </Td>
 
-      <Td px={2} py={2} minW="72px">
+      <Td px={2} py={2} minW="72px" isNumeric>
         <PrototypeTextInput
+          showBorder
+          textAlign={getInputTextAlign('unit', CostEstimateFieldType.Unit)}
           value={child.unit ?? ''}
           onChange={(e) => {
             const val = e.target.value;
@@ -147,12 +159,13 @@ function ChildTableRow({
             triggerBaseFieldAutosave('unit', 'string', val);
           }}
           isDisabled={!isEditMode || sourceLocked}
-          placeholder="J.m."
+          placeholder={placeholder('unit')}
         />
       </Td>
 
-      <Td px={2} py={2} minW="96px">
+      <Td px={2} py={2} minW="96px" isNumeric>
         <PrototypeNumberInput
+          showBorder
           value={
             child.unitPriceNet !== undefined && child.unitPriceNet !== null
               ? String(child.unitPriceNet)
@@ -164,12 +177,13 @@ function ChildTableRow({
             triggerBaseFieldAutosave('unitPriceNet', 'numeric', val || undefined);
           }}
           isDisabled={!isEditMode || sourceLocked}
-          placeholder="Cena netto"
+          placeholder={placeholder('unitPriceNet')}
         />
       </Td>
 
-      <Td px={2} py={2} minW="72px">
+      <Td px={2} py={2} minW="72px" isNumeric>
         <PrototypeNumberInput
+          showBorder
           value={
             child.vatRate !== undefined && child.vatRate !== null
               ? String(Math.round(child.vatRate * 100))
@@ -183,35 +197,37 @@ function ChildTableRow({
             triggerBaseFieldAutosave('vatRate', 'numeric', decimal);
           }}
           isDisabled={!isEditMode || sourceLocked}
-          placeholder="23"
+          placeholder={placeholder('vatRate')}
         />
       </Td>
 
       <Td px={2} py={2} minW="88px" isNumeric>
         {flags.netValueComputed || !isEditMode ? (
-          <Text fontSize="sm" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          <Text fontSize="sm" textAlign="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {fmtValue(child.netValue)}
           </Text>
         ) : (
           <PrototypeNumberInput
+          showBorder
             value={child.netValue !== undefined && child.netValue !== null ? String(child.netValue) : ''}
             onChange={(e) => {
               const val = e.target.value;
               onFieldChange(groupId, child.id, 'netValue', val === '' ? null : parseFloat(val));
               triggerBaseFieldAutosave('netValue', 'numeric', val || undefined);
             }}
-            placeholder="Netto"
+            placeholder={placeholder('netValue')}
           />
         )}
       </Td>
 
       <Td px={2} py={2} minW="88px" isNumeric>
         {flags.grossValueComputed || !isEditMode ? (
-          <Text fontSize="sm" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          <Text fontSize="sm" textAlign="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {fmtValue(child.grossValue)}
           </Text>
         ) : (
           <PrototypeNumberInput
+          showBorder
             value={
               child.grossValue !== undefined && child.grossValue !== null ? String(child.grossValue) : ''
             }
@@ -220,7 +236,7 @@ function ChildTableRow({
               onFieldChange(groupId, child.id, 'grossValue', val === '' ? null : parseFloat(val));
               triggerBaseFieldAutosave('grossValue', 'numeric', val || undefined);
             }}
-            placeholder="Brutto"
+            placeholder={placeholder('grossValue')}
           />
         )}
       </Td>
@@ -238,7 +254,7 @@ function ChildTableRow({
               isDisabled={!isEditMode}
               colorScheme="primary"
               size="sm"
-              aria-label="Sumuj"
+              aria-label={label('isSelected')}
             />
           </Flex>
         </Td>
@@ -264,6 +280,7 @@ export function DetailModalChildrenTable({
   items,
   groupId,
   isEditMode,
+  schemaColumns,
   onFieldChange,
   onFieldAutosave,
   onDeleteItem,
@@ -271,13 +288,14 @@ export function DetailModalChildrenTable({
   onSelectOption,
 }: DetailModalChildrenTableProps): React.ReactElement {
   const addLabel = variant === 'options' ? 'Dodaj opcję' : 'Dodaj komponent';
+  const label = (fieldKey: string): string => getFieldLabelByKey(schemaColumns, fieldKey);
 
   return (
     <Box
       border="1px solid"
       borderColor="neutral.200"
       borderRadius="12px"
-      bg="neutral.25"
+      bg="white"
       px={4}
       py={4}
     >
@@ -308,34 +326,34 @@ export function DetailModalChildrenTable({
                   </Th>
                 )}
                 <Th px={2} minW="140px" fontSize="xs" textTransform="uppercase" color="neutral.500">
-                  Nazwa
+                  {label('name')}
                 </Th>
                 <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
-                  Ilość
-                </Th>
-                <Th px={2} fontSize="xs" textTransform="uppercase" color="neutral.500">
-                  J.m.
+                  {label('quantity')}
                 </Th>
                 <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
-                  Cena netto
+                  {label('unit')}
                 </Th>
                 <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
-                  VAT %
+                  {label('unitPriceNet')}
                 </Th>
                 <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
-                  Netto
+                  {label('vatRate')}
                 </Th>
                 <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
-                  Brutto
+                  {label('netValue')}
+                </Th>
+                <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
+                  {label('grossValue')}
                 </Th>
                 {variant === 'components' && (
                   <Th px={2} w="64px" textAlign="center" fontSize="xs" textTransform="uppercase" color="neutral.500">
-                    Sumuj
+                    {label('isSelected')}
                   </Th>
                 )}
                 {isEditMode && (
                   <Th px={2} w="48px" fontSize="xs" textTransform="uppercase" color="neutral.500">
-                    Akcje
+                    {label('actions')}
                   </Th>
                 )}
               </Tr>
@@ -348,6 +366,7 @@ export function DetailModalChildrenTable({
                   variant={variant}
                   groupId={groupId}
                   isEditMode={isEditMode}
+                  schemaColumns={schemaColumns}
                   onFieldChange={onFieldChange}
                   onFieldAutosave={onFieldAutosave}
                   onDeleteItem={onDeleteItem}

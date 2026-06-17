@@ -18,6 +18,7 @@ import { Plus, X } from "lucide-react";
 import AttachmentList from "./AttachmentList";
 import ContractorPicker from "../ContractorPicker";
 import { useToastNotification } from "../../hooks/useToastNotification";
+import { syncCostAmounts } from "../../utils/costAmountCalculations";
 import type { TrackedCostAttachmentWeb, CostFormValues } from "../../types/costTracker.types";
 
 interface CostFormProps {
@@ -32,6 +33,15 @@ interface CostFormProps {
 
 const MAX_FILE_SIZE = 52 * 1024 * 1024; // 52 MB
 
+function toAmount(value: number | string | undefined): number | undefined {
+  if (value === undefined || value === "") {
+    return undefined;
+  }
+
+  const parsed = typeof value === "number" ? value : parseFloat(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
 export default function CostForm({
   values,
   onChange,
@@ -45,6 +55,18 @@ export default function CostForm({
   const { showWarning } = useToastNotification();
 
   const set = (patch: Partial<CostFormValues>) => onChange({ ...values, ...patch });
+
+  const handleNetChange = (_: string, num: number) => {
+    const net = Number.isNaN(num) ? undefined : num;
+    const synced = syncCostAmounts(net, undefined, "net");
+    onChange({ ...values, net: synced.net, gross: synced.gross });
+  };
+
+  const handleGrossChange = (_: string, num: number) => {
+    const gross = Number.isNaN(num) ? undefined : num;
+    const synced = syncCostAmounts(undefined, gross, "gross");
+    onChange({ ...values, net: synced.net, gross: synced.gross });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const all = Array.from(e.target.files ?? []);
@@ -87,13 +109,13 @@ export default function CostForm({
         <FormErrorMessage>{errors.name}</FormErrorMessage>
       </FormControl>
 
-      {/* Kwoty + numer faktury */}
+      {/* Kwoty netto / brutto */}
       <HStack spacing={4} align="flex-start" flexDir={{ base: "column", sm: "row" }}>
         <FormControl isInvalid={!!errors.net} flex={1}>
           <FormLabel>Kwota netto (PLN)</FormLabel>
           <NumberInput
             value={values.net ?? ""}
-            onChange={(_, num) => set({ net: isNaN(num) ? undefined : num })}
+            onChange={handleNetChange}
             min={0}
             precision={2}
             isDisabled={isSubmitting}
@@ -103,17 +125,32 @@ export default function CostForm({
           <FormErrorMessage>{errors.net}</FormErrorMessage>
         </FormControl>
 
-        <FormControl flex={1}>
-          <FormLabel>Numer faktury</FormLabel>
-          <Input
-            value={values.number ?? ""}
-            onChange={(e) => set({ number: e.target.value })}
-            placeholder="np. FV/2024/001"
-            maxLength={100}
+        <FormControl isInvalid={!!errors.gross} flex={1}>
+          <FormLabel>Kwota brutto (PLN)</FormLabel>
+          <NumberInput
+            value={values.gross ?? ""}
+            onChange={handleGrossChange}
+            min={0}
+            precision={2}
             isDisabled={isSubmitting}
-          />
+          >
+            <NumberInputField placeholder="0,00" />
+          </NumberInput>
+          <FormErrorMessage>{errors.gross}</FormErrorMessage>
         </FormControl>
       </HStack>
+
+      {/* Numer faktury */}
+      <FormControl>
+        <FormLabel>Numer faktury</FormLabel>
+        <Input
+          value={values.number ?? ""}
+          onChange={(e) => set({ number: e.target.value })}
+          placeholder="np. FV/2024/001"
+          maxLength={100}
+          isDisabled={isSubmitting}
+        />
+      </FormControl>
 
       {/* Wykonawca */}
       <FormControl isInvalid={!!errors.contractorId}>
@@ -236,10 +273,11 @@ export function validateCostForm(values: CostFormValues): Partial<Record<keyof C
     errors.name = "Nazwa jest wymagana";
   }
 
-  const hasNet = values.net !== undefined && values.net !== "" && !isNaN(Number(values.net));
+  const hasNet = toAmount(values.net) !== undefined;
+  const hasGross = toAmount(values.gross) !== undefined;
 
-  if (!hasNet) {
-    errors.net = "Podaj kwotę netto";
+  if (!hasNet && !hasGross) {
+    errors.net = "Podaj kwotę netto lub brutto";
   }
 
   return errors;

@@ -18,6 +18,8 @@ import { GhostActionButton, AddInlineButton } from '../PrototypeActionButtons';
 import { PositionCard } from './PositionCard';
 import { ADD_ROW_SURFACE, getGroupRowSurface } from '../TreeView/treeViewRowSurfaces';
 import { CardAmountSummary } from './CardAmountSummary';
+import { CardNameText } from './CardNameText';
+import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 
 interface AutosaveParams {
   entityType: 'group' | 'item';
@@ -35,8 +37,12 @@ interface AutosaveParams {
 interface SubStageSectionProps {
   subGroup: CostEstimateGroupWeb;
   currencySymbol: string;
+  schemaColumns: ColumnDef[];
+  depth: number;
   isExpanded: boolean;
+  expandedGroups: Set<string>;
   onToggle: () => void;
+  onToggleGroup: (groupId: string) => void;
   isEditMode: boolean;
   onFieldChange: (
     groupId: string,
@@ -46,8 +52,10 @@ interface SubStageSectionProps {
   ) => void;
   onFieldAutosave?: (params: AutosaveParams) => void;
   onAddItem: (groupId: string) => void;
+  onAddSubGroup: (parentGroupId: string) => void;
   onAddComponent: (groupId: string, itemId: string) => void;
   onAddOption: (groupId: string, itemId: string) => void;
+  onDeleteGroup: (groupId: string) => void;
   onDeleteItem: (groupId: string, itemId: string) => void;
   onSelectOption: (groupId: string, itemId: string, optionId: string) => void;
   onOpenItemDetail?: (itemId: string, groupId: string) => void;
@@ -57,23 +65,30 @@ interface SubStageSectionProps {
 const SubStageSection: React.FC<SubStageSectionProps> = ({
   subGroup,
   currencySymbol,
+  schemaColumns,
+  depth,
   isExpanded,
+  expandedGroups,
   onToggle,
+  onToggleGroup,
   isEditMode,
   onFieldChange,
   onFieldAutosave,
   onAddItem,
+  onAddSubGroup,
   onAddComponent,
   onAddOption,
+  onDeleteGroup,
   onDeleteItem,
   onSelectOption,
   onOpenItemDetail,
   onOpenGroupDetail,
 }) => {
-  const subGroupName = subGroup.name || 'Podetap';
   const totalNet = subGroup.totalNet ?? 0;
   const totalGross = subGroup.totalGross ?? 0;
-  const subStageSurface = getGroupRowSurface(1);
+  const hasSubGroups = (subGroup.childGroups?.length ?? 0) > 0;
+  const hasItems = (subGroup.items?.length ?? 0) > 0;
+  const subStageSurface = getGroupRowSurface(depth);
 
   const handleOpenDetail = () => {
     onOpenGroupDetail?.(subGroup.id, true);
@@ -109,7 +124,9 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
           <ChevronDown size={15} />
         </Box>
 
-        <Text
+        <CardNameText
+          name={subGroup.name}
+          schemaColumns={schemaColumns}
           flex={1}
           minW={0}
           fontSize="sm"
@@ -117,9 +134,7 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
           noOfLines={2}
           cursor="pointer"
           onClick={handleOpenDetail}
-        >
-          {subGroupName}
-        </Text>
+        />
 
         <CardAmountSummary
           net={totalNet}
@@ -128,37 +143,99 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
           size="md"
           layout="stacked"
         />
+
+        {isEditMode && (
+          <HStack spacing={0.5} flexShrink={0} pl={2} ml={1} borderLeft="1px solid" borderColor="neutral.200">
+            <GhostActionButton
+              label="Dodaj pozycję"
+              icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">P+</Box>}
+              variant="add"
+              onClick={() => onAddItem(subGroup.id)}
+              blendWithRow
+            />
+            <GhostActionButton
+              label="Dodaj podetap"
+              icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">E+</Box>}
+              variant="add"
+              onClick={() => onAddSubGroup(subGroup.id)}
+              blendWithRow
+            />
+            <GhostActionButton
+              label="Usuń podetap"
+              icon={<Trash2 size={14} />}
+              variant="delete"
+              onClick={() => onDeleteGroup(subGroup.id)}
+              blendWithRow
+            />
+          </HStack>
+        )}
       </Flex>
 
       <Collapse in={isExpanded} animateOpacity>
         <VStack spacing={2} align="stretch" pl={7} pr={2} pb={3} mt={1}>
-          {subGroup.items.length === 0 ? (
+          {!hasItems && !hasSubGroups ? (
             <Text fontSize="sm" color="neutral.500" py={2}>
               Brak pozycji
             </Text>
           ) : (
-            subGroup.items.map((item) => (
-              <PositionCard
-                key={item.id}
-                item={item}
-                groupId={subGroup.id}
-                currencySymbol={currencySymbol}
-                isEditMode={isEditMode}
-                onFieldChange={onFieldChange}
-                onFieldAutosave={onFieldAutosave}
-                onAddComponent={onAddComponent}
-                onAddOption={onAddOption}
-                onDeleteItem={(itemId) => onDeleteItem(subGroup.id, itemId)}
-                onSelectOption={onSelectOption}
-                onOpenItemDetail={onOpenItemDetail}
-              />
-            ))
+            <>
+              {hasSubGroups &&
+                subGroup.childGroups!.map((childGroup) => (
+                  <SubStageSection
+                    key={childGroup.id}
+                    subGroup={childGroup}
+                    currencySymbol={currencySymbol}
+                    schemaColumns={schemaColumns}
+                    depth={depth + 1}
+                    isExpanded={expandedGroups.has(childGroup.id)}
+                    expandedGroups={expandedGroups}
+                    onToggle={() => onToggleGroup(childGroup.id)}
+                    onToggleGroup={onToggleGroup}
+                    isEditMode={isEditMode}
+                    onFieldChange={onFieldChange}
+                    onFieldAutosave={onFieldAutosave}
+                    onAddItem={onAddItem}
+                    onAddSubGroup={onAddSubGroup}
+                    onAddComponent={onAddComponent}
+                    onAddOption={onAddOption}
+                    onDeleteGroup={onDeleteGroup}
+                    onDeleteItem={onDeleteItem}
+                    onSelectOption={onSelectOption}
+                    onOpenItemDetail={onOpenItemDetail}
+                    onOpenGroupDetail={onOpenGroupDetail}
+                  />
+                ))}
+
+              {hasItems &&
+                subGroup.items.map((item) => (
+                  <PositionCard
+                    key={item.id}
+                    item={item}
+                    groupId={subGroup.id}
+                    currencySymbol={currencySymbol}
+                    schemaColumns={schemaColumns}
+                    isEditMode={isEditMode}
+                    onFieldChange={onFieldChange}
+                    onFieldAutosave={onFieldAutosave}
+                    onAddComponent={onAddComponent}
+                    onAddOption={onAddOption}
+                    onDeleteItem={(itemId) => onDeleteItem(subGroup.id, itemId)}
+                    onSelectOption={onSelectOption}
+                    onOpenItemDetail={onOpenItemDetail}
+                  />
+                ))}
+            </>
           )}
 
           {isEditMode && (
-            <AddInlineButton onClick={() => onAddItem(subGroup.id)}>
-              Dodaj pozycję
-            </AddInlineButton>
+            <HStack spacing={2}>
+              <AddInlineButton onClick={() => onAddItem(subGroup.id)}>
+                Dodaj pozycję
+              </AddInlineButton>
+              <AddInlineButton onClick={() => onAddSubGroup(subGroup.id)}>
+                Dodaj podetap
+              </AddInlineButton>
+            </HStack>
           )}
         </VStack>
       </Collapse>
@@ -169,6 +246,7 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
 interface StageCardProps {
   stage: CostEstimateGroupWeb;
   currencySymbol: string;
+  schemaColumns: ColumnDef[];
   isExpanded: boolean;
   expandedGroups: Set<string>;
   isEditMode: boolean;
@@ -185,7 +263,7 @@ interface StageCardProps {
   onAddSubGroup: (parentGroupId: string) => void;
   onAddComponent: (groupId: string, itemId: string) => void;
   onAddOption: (groupId: string, itemId: string) => void;
-  onDeleteGroup: () => void;
+  onDeleteGroup: (groupId: string) => void;
   onDeleteItem: (groupId: string, itemId: string) => void;
   onSelectOption: (groupId: string, itemId: string, optionId: string) => void;
   onOpenItemDetail?: (itemId: string, groupId: string) => void;
@@ -195,6 +273,7 @@ interface StageCardProps {
 export const StageCard: React.FC<StageCardProps> = ({
   stage,
   currencySymbol,
+  schemaColumns,
   isExpanded,
   expandedGroups,
   isEditMode,
@@ -212,7 +291,6 @@ export const StageCard: React.FC<StageCardProps> = ({
   onOpenItemDetail,
   onOpenGroupDetail,
 }) => {
-  const stageName = stage.name || 'Bez nazwy';
   const totalNet = stage.totalNet ?? 0;
   const totalGross = stage.totalGross ?? 0;
   const hasSubGroups = (stage.childGroups?.length ?? 0) > 0;
@@ -225,6 +303,7 @@ export const StageCard: React.FC<StageCardProps> = ({
 
   return (
     <Box
+      data-ce-group-id={stage.id}
       bg={stageSurface.bg}
       border="1px solid"
       borderColor="neutral.100"
@@ -260,7 +339,9 @@ export const StageCard: React.FC<StageCardProps> = ({
           <ChevronDown size={18} />
         </Flex>
 
-        <Text
+        <CardNameText
+          name={stage.name}
+          schemaColumns={schemaColumns}
           flex={1}
           minW={0}
           fontSize="md"
@@ -268,9 +349,7 @@ export const StageCard: React.FC<StageCardProps> = ({
           noOfLines={2}
           cursor="pointer"
           onClick={handleOpenDetail}
-        >
-          {stageName}
-        </Text>
+        />
 
         <CardAmountSummary
           net={totalNet}
@@ -307,7 +386,7 @@ export const StageCard: React.FC<StageCardProps> = ({
               label="Usuń etap"
               icon={<Trash2 size={15} />}
               variant="delete"
-              onClick={onDeleteGroup}
+              onClick={() => onDeleteGroup(stage.id)}
               blendWithRow
             />
           </HStack>
@@ -329,14 +408,20 @@ export const StageCard: React.FC<StageCardProps> = ({
                   key={subGroup.id}
                   subGroup={subGroup}
                   currencySymbol={currencySymbol}
+                  schemaColumns={schemaColumns}
+                  depth={1}
                   isExpanded={expandedGroups.has(subGroup.id)}
+                  expandedGroups={expandedGroups}
                   onToggle={() => onToggleGroup(subGroup.id)}
+                  onToggleGroup={onToggleGroup}
                   isEditMode={isEditMode}
                   onFieldChange={onFieldChange}
                   onFieldAutosave={onFieldAutosave}
                   onAddItem={onAddItem}
+                  onAddSubGroup={onAddSubGroup}
                   onAddComponent={onAddComponent}
                   onAddOption={onAddOption}
+                  onDeleteGroup={onDeleteGroup}
                   onDeleteItem={onDeleteItem}
                   onSelectOption={onSelectOption}
                   onOpenItemDetail={onOpenItemDetail}
@@ -350,6 +435,7 @@ export const StageCard: React.FC<StageCardProps> = ({
                   item={item}
                   groupId={stage.id}
                   currencySymbol={currencySymbol}
+                  schemaColumns={schemaColumns}
                   isEditMode={isEditMode}
                   onFieldChange={onFieldChange}
                   onFieldAutosave={onFieldAutosave}

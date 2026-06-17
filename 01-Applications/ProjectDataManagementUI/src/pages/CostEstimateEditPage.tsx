@@ -51,8 +51,6 @@ import {
 import {
   ArrowLeft,
   Pencil,
-  Maximize2,
-  Minimize2,
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
@@ -93,6 +91,7 @@ import {
   useReorderCostEstimateItemChildren,
   useReorderCostEstimateGroups,
   costEstimateKeys,
+  invalidateCostEstimateLists,
 } from '../hooks/queries';
 import { recalculateCostEstimateDetails } from '../utils/recalculateCostEstimateDetails';
 import { removeItemFromCostEstimateTree } from '../utils/costEstimateUtils';
@@ -348,7 +347,7 @@ export const CostEstimateEditPage: React.FC = () => {
   );
 
   // ---- React Query: pobieranie szczegółów kosztorysu ----
-  const { data: fetchedDetails, isLoading, refetch } = useCostEstimateDetails(
+  const { data: fetchedDetails, isPending, isFetching, refetch } = useCostEstimateDetails(
     user?.activeTenantId ?? undefined,
     projectId,
     estimateId
@@ -409,6 +408,11 @@ export const CostEstimateEditPage: React.FC = () => {
   }, [userId, estimateId, details]);
 
   // Przetwarzaj dane z React Query (recalculacja + backup) gdy się zmienią
+  useEffect(() => {
+    setDetails(null);
+    setHasChanges(false);
+  }, [estimateId]);
+
   useEffect(() => {
     if (fetchedDetails) {
       prePopulateBackups(fetchedDetails);
@@ -489,6 +493,7 @@ export const CostEstimateEditPage: React.FC = () => {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [isBackNavigation, setIsBackNavigation] = useState(false);
   const [editDescription, setEditDescription] = useState('');
+  const [isSavingMeta, setIsSavingMeta] = useState(false);
 
   // ---- Kolory (dark mode ready) ----
   const toolbarBg = useColorModeValue('white', 'gray.800');
@@ -547,23 +552,62 @@ export const CostEstimateEditPage: React.FC = () => {
   }, [details, onEditMetaOpen]);
 
   /** Zapisuje zmiany nazwy/opisu */
-  const handleSaveMetaChanges = useCallback(() => {
-    if (!details) return;
+  const handleSaveMetaChanges = useCallback(async () => {
+    if (!details || !user?.activeTenantId || !projectId || !estimateId) return;
     const trimmedName = editName.trim();
     if (!trimmedName) {
       setEditNameError('Nazwa kosztorysu nie może być pusta');
       return;
     }
+
+    const trimmedDescription = editDescription.trim();
     setEditNameError('');
-    setDetails({
-      ...details,
-      name: trimmedName,
-      description: editDescription.trim() || undefined,
-    });
-    setHasChanges(true);
-    showApiSuccess('nameUpdated');
-    onEditMetaClose();
-  }, [details, editName, editDescription, onEditMetaClose, showSuccess]);
+    setIsSavingMeta(true);
+
+    try {
+      await costEstimateApi.updateCostEstimate(
+        user.activeTenantId,
+        projectId,
+        estimateId,
+        {
+          name: trimmedName,
+          description: trimmedDescription || undefined,
+        }
+      );
+
+      setDetails({
+        ...details,
+        name: trimmedName,
+        description: trimmedDescription || undefined,
+      });
+
+      void queryClient.invalidateQueries({
+        queryKey: costEstimateKeys.detail(user.activeTenantId, projectId, estimateId),
+      });
+      void invalidateCostEstimateLists(queryClient, user.activeTenantId, projectId);
+
+      showApiSuccess('nameUpdated');
+      onEditMetaClose();
+    } catch (err) {
+      showError(
+        'Błąd zapisu',
+        err instanceof Error ? err.message : 'Nie udało się zapisać kosztorysu'
+      );
+    } finally {
+      setIsSavingMeta(false);
+    }
+  }, [
+    details,
+    editName,
+    editDescription,
+    user?.activeTenantId,
+    projectId,
+    estimateId,
+    queryClient,
+    onEditMetaClose,
+    showApiSuccess,
+    showError,
+  ]);
 
   // ========== POPSTATE (przycisk wstecz/dalej przeglądarki) ==========
   useEffect(() => {
@@ -661,6 +705,8 @@ export const CostEstimateEditPage: React.FC = () => {
         projectId,
         estimateId,
       );
+
+      void invalidateCostEstimateLists(queryClient, user.activeTenantId, projectId);
       
       setHasChanges(false);
       setLastSavedAt(new Date());
@@ -669,7 +715,7 @@ export const CostEstimateEditPage: React.FC = () => {
     } finally {
       setIsRecalculating(false);
     }
-  }, [user?.activeTenantId, projectId, estimateId]);
+  }, [user?.activeTenantId, projectId, estimateId, queryClient]);
   
   /**
    * Planuje auto-recalculate z debounce.
@@ -804,6 +850,8 @@ export const CostEstimateEditPage: React.FC = () => {
         projectId,
         estimateId,
       );
+
+      void invalidateCostEstimateLists(queryClient, user.activeTenantId, projectId);
       
       // Pobierz aktualne dane z bazy
       await loadCostEstimate();
@@ -817,7 +865,7 @@ export const CostEstimateEditPage: React.FC = () => {
     } finally {
       setIsRecalculating(false);
     }
-  }, [user?.activeTenantId, projectId, estimateId, flushPendingChanges]);
+  }, [user?.activeTenantId, projectId, estimateId, flushPendingChanges, queryClient, loadCostEstimate, showError]);
 
   // Handler dla autosave wywoływany z tabeli
   const handleFieldAutosave = useCallback((params: {
@@ -1220,13 +1268,6 @@ export const CostEstimateEditPage: React.FC = () => {
         return applyOptimisticDelete(prev);
       });
 
-      if (prevDetails && user.activeTenantId && projectId && estimateId) {
-        queryClient.setQueryData<CostEstimateDetailsWeb>(
-          costEstimateKeys.detail(user.activeTenantId, projectId, estimateId),
-          (cached) => (cached ? applyOptimisticDelete(cached) : cached),
-        );
-      }
-
       try {
         await costEstimateApi.deleteItem(
           user.activeTenantId,
@@ -1237,17 +1278,11 @@ export const CostEstimateEditPage: React.FC = () => {
       } catch (err) {
         if (prevDetails) {
           setDetails(prevDetails);
-          if (user.activeTenantId && projectId && estimateId) {
-            queryClient.setQueryData<CostEstimateDetailsWeb>(
-              costEstimateKeys.detail(user.activeTenantId, projectId, estimateId),
-              prevDetails,
-            );
-          }
         }
         showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć pozycji');
       }
     },
-    [user?.activeTenantId, projectId, estimateId, queryClient, showError],
+    [user?.activeTenantId, projectId, estimateId, showError],
   );
 
   const confirmDeleteItem = useCallback(async () => {
@@ -2083,7 +2118,9 @@ export const CostEstimateEditPage: React.FC = () => {
     );
   }
 
-  if (isLoading) {
+  const isLoadingDetails = isPending || isFetching || (fetchedDetails !== undefined && details === null);
+
+  if (isLoadingDetails) {
     return (
       <MainLayout>
         <LoadingSpinner message="Ładowanie kosztorysu…" fullScreen />
@@ -2173,7 +2210,7 @@ export const CostEstimateEditPage: React.FC = () => {
           </HStack>
         </HStack>
 
-        {/* Prawa strona: wskaźniki + fullscreen */}
+        {/* Prawa strona: wskaźniki */}
         <HStack spacing={2} flexShrink={0}>
           {isRecalculating && (
             <HStack
@@ -2196,17 +2233,6 @@ export const CostEstimateEditPage: React.FC = () => {
               <Text>Przeliczono {formatTime(lastSavedAt)}</Text>
             </HStack>
           )}
-          <Box display={{ base: 'none', md: 'block' }}>
-            <Tooltip label={isFullscreen ? 'Zamknij pełny ekran (Esc)' : 'Pełny ekran'}>
-              <IconButton
-                aria-label="Pełny ekran"
-                icon={isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                size="sm"
-                variant="outline"
-                onClick={() => setIsFullscreen((v) => !v)}
-              />
-            </Tooltip>
-          </Box>
         </HStack>
       </Flex>
 
@@ -2276,6 +2302,8 @@ export const CostEstimateEditPage: React.FC = () => {
           }}
           onSyncSchedule={handleSyncSchedule}
           onShare={onShareModalOpen}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={() => setIsFullscreen((v) => !v)}
         />
       </Box>
     </Box>
@@ -2357,13 +2385,27 @@ export const CostEstimateEditPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <Box bg={pageBg} minH="100vh">
+      <Box
+        bg={pageBg}
+        display="flex"
+        flexDirection="column"
+        h={{ base: 'calc(100dvh - 168px)', md: 'calc(100dvh - 104px)' }}
+        minH={0}
+        overflow="hidden"
+      >
         {toolbar}
 
-        {/* Kosztorys — widok drzewa (desktop) / karty (mobile) */}
-        <Box px={{ base: 1, md: 4 }} py={{ base: 2, md: 3 }}>
+        <Box
+          flex={1}
+          minH={0}
+          display="flex"
+          flexDirection="column"
+          px={{ base: 1, md: 4 }}
+          py={{ base: 2, md: 3 }}
+        >
           <CostEstimateModernView
             ref={modernViewRef}
+            fillHeight
             details={details}
             isEditMode={canAnyEdit}
             tenantId={user.activeTenantId}
@@ -2788,7 +2830,11 @@ export const CostEstimateEditPage: React.FC = () => {
             <Button variant="ghost" mr={3} onClick={onEditMetaClose}>
               Anuluj
             </Button>
-            <Button colorScheme="primary" onClick={handleSaveMetaChanges}>
+            <Button
+              colorScheme="primary"
+              onClick={() => void handleSaveMetaChanges()}
+              isLoading={isSavingMeta}
+            >
               Zapisz
             </Button>
           </ModalFooter>

@@ -40,6 +40,11 @@ import { useTrackedCostMutations } from '../hooks/useTrackedCostMutations';
 import { useProjectCostMutations } from '../../../hooks/useProjectCostMutations';
 import { useProjectPermissions } from '../../../hooks/useProjectPermissions';
 import { useTenantPermissions } from '../../../hooks/useTenantPermissions';
+import {
+  syncCostAmounts,
+  parseAmountString,
+  formatAmountString,
+} from '../../../utils/costAmountCalculations';
 import type { ProjectCostListItemWeb } from '../../../types/project.types';
 
 type CostModalMode = 'create' | 'edit';
@@ -259,6 +264,30 @@ export function CostModal(props: CostModalProps): React.ReactElement {
     }));
   };
 
+  const handleNetChange = (value: string) => {
+    setForm((prev) => {
+      const net = parseAmountString(value);
+      const synced = syncCostAmounts(net, undefined, 'net');
+      return {
+        ...prev,
+        net: value.trim() === '' ? '' : value,
+        gross: formatAmountString(synced.gross),
+      };
+    });
+  };
+
+  const handleGrossChange = (value: string) => {
+    setForm((prev) => {
+      const gross = parseAmountString(value);
+      const synced = syncCostAmounts(undefined, gross, 'gross');
+      return {
+        ...prev,
+        net: formatAmountString(synced.net),
+        gross: value.trim() === '' ? '' : value,
+      };
+    });
+  };
+
   const handleAction = async () => {
     if (props.type === 'tracked') {
       const trackedProps = props;
@@ -419,7 +448,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 step="0.01"
                 min="0"
                 value={form.net}
-                onChange={(e) => setForm((p) => ({ ...p, net: e.target.value }))}
+                onChange={(e) => handleNetChange(e.target.value)}
               />
             </FormControl>
             <FormControl>
@@ -429,7 +458,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 step="0.01"
                 min="0"
                 value={form.gross}
-                onChange={(e) => setForm((p) => ({ ...p, gross: e.target.value }))}
+                onChange={(e) => handleGrossChange(e.target.value)}
               />
             </FormControl>
           </SimpleGrid>

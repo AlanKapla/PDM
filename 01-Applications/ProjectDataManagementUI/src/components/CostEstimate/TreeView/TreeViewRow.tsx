@@ -89,6 +89,16 @@ function isGrossValueColumn(col: ColumnDef): boolean {
   return fieldKey === 'grossValue' || col.schemaFieldType === CostEstimateFieldType.GrossValue;
 }
 
+const TREE_INDENT_STEP = 28;
+
+/** Etap (level 0) bez wcięcia; podetap zagnieżdżony wcięty jak pozycja na tej głębokości. */
+function getTreeIndentPx(level: number): number {
+  if (level <= 0) {
+    return 0;
+  }
+  return (level + 1) * TREE_INDENT_STEP;
+}
+
 interface GroupTotalValueCellProps {
   value: number | undefined | null;
   level: number;
@@ -191,12 +201,17 @@ export interface TreeViewRowProps {
   onFieldAutosave?: (params: AutosaveParams) => void;
   onAddItem: () => void;
   onAddSubGroup: () => void;
+  onAddItemFromRow: (groupId: string) => void;
   onAddSubGroupFromRow: (parentGroupId: string) => void;
+  onDeleteGroupFromRow: (groupId: string) => void;
   onAddComponent: (itemId: string) => void;
   onAddOption: (itemId: string) => void;
+  onAddComponentFromRow: (groupId: string, itemId: string) => void;
+  onAddOptionFromRow: (groupId: string, itemId: string) => void;
   onDeleteGroup: () => void;
   /** @param itemId ID elementu do usunięcia (pozycji, komponentu lub opcji) */
   onDeleteItem: (itemId: string) => void;
+  onDeleteItemFromRow: (groupId: string, itemId: string) => void;
   onSelectOption: (groupId: string, itemId: string, optionId: string) => void;
   onUploadFiles: (itemId: string) => void;
   onReorderItemChildren: (parentItemId: string, itemOrders: Array<{ itemId: string; order: number }>) => void;
@@ -234,11 +249,16 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
   onFieldAutosave,
   onAddItem,
   onAddSubGroup,
+  onAddItemFromRow,
   onAddSubGroupFromRow,
+  onDeleteGroupFromRow,
   onAddComponent,
   onAddOption,
+  onAddComponentFromRow,
+  onAddOptionFromRow,
   onDeleteGroup,
   onDeleteItem,
+  onDeleteItemFromRow,
   onSelectOption,
   onUploadFiles,
   onReorderItemChildren,
@@ -268,6 +288,8 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
   };
 
   const hasSubGroups = (group.childGroups?.length ?? 0) > 0;
+  const groupTagLevel = level === 0 ? 0 : 1;
+  const indentSize = getTreeIndentPx(level);
 
   const { bg: rowSurfaceBg, hoverBg: rowSurfaceHoverBg } = getGroupRowSurface(level);
 
@@ -567,7 +589,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
   };
 
   return (
-    <Box ref={setNodeRef} style={style}>
+    <Box ref={setNodeRef} style={style} data-ce-group-id={group.id}>
       {/* Group Row */}
       <Flex
         align="center"
@@ -588,6 +610,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
           left={0}
           width={`${nameColWidth}px`}
           gap={2}
+          pl={indentSize > 0 ? `${indentSize}px` : undefined}
         >
           {isEditMode && (
             <Box {...attributes} {...listeners}>
@@ -602,8 +625,8 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
             blendWithRow
           />
 
-          <PrototypeTag level={level} />
-          <PrototypeDot level={level} />
+          <PrototypeTag level={groupTagLevel} />
+          <PrototypeDot level={groupTagLevel} />
 
           <PrototypeTextInput
             value={group.name ?? ''}
@@ -637,16 +660,14 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
             isDisabled={!isEditMode}
             blendWithRow
           />
-          {level < 2 && (
-            <GhostActionButton
-              label="Dodaj podetap"
-              icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">E+</Box>}
-              variant="add"
-              onClick={onAddSubGroup}
-              isDisabled={!isEditMode}
-              blendWithRow
-            />
-          )}
+          <GhostActionButton
+            label="Dodaj podetap"
+            icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">E+</Box>}
+            variant="add"
+            onClick={onAddSubGroup}
+            isDisabled={!isEditMode}
+            blendWithRow
+          />
           <GhostActionButton
             label="Usuń"
             icon={<Trash2 size={15} />}
@@ -777,13 +798,18 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
                   onToggle={() => {}}
                   onFieldChange={onFieldChange}
                   onFieldAutosave={onFieldAutosave}
-                  onAddItem={onAddItem}
+                  onAddItem={() => onAddItemFromRow(childGroup.id)}
                   onAddSubGroup={() => onAddSubGroupFromRow(childGroup.id)}
+                  onAddItemFromRow={onAddItemFromRow}
                   onAddSubGroupFromRow={onAddSubGroupFromRow}
-                  onAddComponent={onAddComponent}
-                  onAddOption={onAddOption}
-                  onDeleteGroup={onDeleteGroup}
-                  onDeleteItem={onDeleteItem}
+                  onDeleteGroupFromRow={onDeleteGroupFromRow}
+                  onAddComponent={(itemId) => onAddComponentFromRow(childGroup.id, itemId)}
+                  onAddOption={(itemId) => onAddOptionFromRow(childGroup.id, itemId)}
+                  onAddComponentFromRow={onAddComponentFromRow}
+                  onAddOptionFromRow={onAddOptionFromRow}
+                  onDeleteGroup={() => onDeleteGroupFromRow(childGroup.id)}
+                  onDeleteItem={(itemId) => onDeleteItemFromRow(childGroup.id, itemId)}
+                  onDeleteItemFromRow={onDeleteItemFromRow}
                   onSelectOption={onSelectOption}
                   onUploadFiles={onUploadFiles}
                   projectUnits={projectUnits}
@@ -822,7 +848,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
                 surfaceBg={ADD_ROW_SURFACE.bg}
                 left={0}
                 width={`${leadingStickyWidth}px`}
-                pl={`${(level + 1) * 28}px`}
+                pl={`${(level + 1) * TREE_INDENT_STEP}px`}
                 flexWrap="nowrap"
                 overflow="visible"
               >
@@ -836,11 +862,9 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
                   <Box flexShrink={0}>
                     <AddInlineButton onClick={onAddItem}>Dodaj pozycję</AddInlineButton>
                   </Box>
-                  {level < 2 && (
-                    <Box flexShrink={0}>
-                      <AddInlineButton onClick={onAddSubGroup}>Dodaj podetap</AddInlineButton>
-                    </Box>
-                  )}
+                  <Box flexShrink={0}>
+                    <AddInlineButton onClick={onAddSubGroup}>Dodaj podetap</AddInlineButton>
+                  </Box>
                 </Flex>
               </TreeViewStickyCell>
             </Flex>
@@ -916,7 +940,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
   onAddProjectUnit,
   isAddingUnit,
 }) => {
-  const indentSize = (level + 1) * 28;
+  const indentSize = getTreeIndentPx(level);
   const isComponent = item.relationType === 2;
   const isOption = item.relationType === 1;
   const hasComponents = (item.components?.length ?? 0) > 0;

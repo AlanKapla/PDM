@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { useToken } from '@chakra-ui/react';
 import { TimelineStatus } from '../types/projectDashboard.types';
 import type { WorkItemLinkWeb, TrackedCostWeb } from '../types/projectDashboard.types';
-import { PLN, DATE, DAYS, PROG } from '../utils/formatters';
+import { DATE, DAYS, PROG } from '../utils/formatters';
 import { Accordion } from './shared/Accordion';
 import { MiniProgressBar } from './shared/MiniProgressBar';
 import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
 import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
 import { CostTable } from './shared/CostTable';
+import { NetGrossAmount } from './shared/NetGrossAmount';
+import { DeviationDisplay } from './shared/DeviationDisplay';
 import { Badge } from './shared/Badge';
 import { CostModal } from './CostModal';
-import { DEVIATION_COLOR } from '../utils/formatters';
-import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
 export interface WorkItemAccordionProps {
   item: WorkItemLinkWeb;
@@ -39,7 +39,6 @@ export function WorkItemAccordion({
   const [createModal, setCreateModal] = useState(false);
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const currencySymbol = useDashboardCurrency();
   const [
     neutral400, neutral50, neutral600, neutral200,
     orange600, primary500, level1500,
@@ -80,16 +79,13 @@ export function WorkItemAccordion({
           ))}
         </div>
       )}
-      <span
-        style={{
-          fontSize: "xs",
-          fontWeight: "medium",
-          color: item.costsNet != null ? orange600 : neutral400,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {item.costsNet != null ? PLN(item.costsNet, currencySymbol) : '—'}
-      </span>
+      <NetGrossAmount
+        net={item.costsNet}
+        gross={item.costsGross}
+        size="sm"
+        align="right"
+        accentColor={item.costsNet != null ? orange600 : neutral400}
+      />
       <div style={{ width: 60, flexShrink: 0 }}>
         <MiniProgressBar
           percent={item.timeline?.progressPercent ?? null}
@@ -111,7 +107,6 @@ export function WorkItemAccordion({
     : coverPercent != null && coverPercent < 50
     ? primary500
     : level1500;
-  const deviationColor = DEVIATION_COLOR(item.deviationNet, item.isBudgetExceeded);
 
   const estimateHeader = (
     <div
@@ -154,12 +149,21 @@ export function WorkItemAccordion({
         )}
       </div>
       {/* Kolumna 3: budżet */}
-      <div style={{ textAlign: 'right', color: neutral600 }}>{PLN(item.budgetNet, currencySymbol)}</div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <NetGrossAmount net={item.budgetNet} gross={item.budgetGross} size="sm" align="right" />
+      </div>
       {/* Kolumna 4: koszty */}
-      <div style={{ textAlign: 'right', fontWeight: "medium" }}>{PLN(item.costsNet, currencySymbol)}</div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <NetGrossAmount net={item.costsNet} gross={item.costsGross} size="sm" align="right" />
+      </div>
       {/* Kolumna 5: odchylenie */}
-      <div style={{ textAlign: 'right', color: deviationColor }}>
-        {item.deviationNet != null ? PLN(item.deviationNet, currencySymbol) : '—'}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <DeviationDisplay
+          deviationNet={item.deviationNet}
+          deviationGross={item.deviationGross}
+          deviationPercent={item.deviationPercent}
+          isBudgetExceeded={item.isBudgetExceeded}
+        />
       </div>
       {/* Kolumna 6: status */}
       <div>

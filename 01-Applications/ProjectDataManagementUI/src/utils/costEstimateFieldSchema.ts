@@ -73,20 +73,37 @@ function getAppliesTo(field: CostEstimateFieldSchemaWeb): Array<'group' | 'item'
 }
 
 function getTextAlign(field: CostEstimateFieldSchemaWeb): ColumnDef['textAlign'] {
-  if (field.fieldKey === 'name') {
+  return getCostEstimateFieldTextAlign(field.fieldKey, field.fieldType);
+}
+
+/** Wyrównanie pola kosztorysu — ta sama reguła co w TreeView. */
+export function getCostEstimateFieldTextAlign(
+  fieldKey: string,
+  fieldType: CostEstimateFieldType | number
+): NonNullable<ColumnDef['textAlign']> {
+  if (fieldKey === 'name') {
     return 'left';
   }
 
-  if (field.fieldKey === 'actions' || field.fieldKey === 'files') {
+  if (fieldKey === 'actions' || fieldKey === 'files') {
     return 'center';
   }
 
-  const columnFieldType = mapFieldTypeToColumnFieldType(field.fieldType);
+  const columnFieldType = mapFieldTypeToColumnFieldType(fieldType as CostEstimateFieldType);
   if (columnFieldType === 'boolean') {
     return 'center';
   }
 
   return 'right';
+}
+
+/** Wyrównanie wartości w inputach (center → right, jak w TreeViewRow). */
+export function getInputTextAlign(
+  fieldKey: string,
+  fieldType: CostEstimateFieldType | number
+): 'left' | 'right' {
+  const align = getCostEstimateFieldTextAlign(fieldKey, fieldType);
+  return align === 'left' ? 'left' : 'right';
 }
 
 function isSortableField(field: CostEstimateFieldSchemaWeb): boolean {
@@ -154,6 +171,12 @@ export function buildAdditionalFieldColumns(
 /** Placeholder pól bazowych — nazwa kolumny z schematu (jak pola dodatkowe używają field.name). */
 export function getBaseFieldPlaceholder(columnLabel: string): string {
   return columnLabel;
+}
+
+/** Etykieta pola bazowego po fieldKey — ta sama nazwa co kolumna w Tree View. */
+export function getFieldLabelByKey(columns: ColumnDef[], fieldKey: string): string {
+  const col = columns.find((c) => getColumnFieldKey(c) === fieldKey);
+  return col?.label ?? fieldKey;
 }
 
 export function getSchemaColumns(details: {

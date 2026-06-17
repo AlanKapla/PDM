@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import {
   costEstimateApi,
   getAdditionalFields,
@@ -7,11 +8,13 @@ import {
   deleteAdditionalField,
   reorderAdditionalFields,
 } from '../../api/costEstimateApi';
+import { ResourceScope } from '../../api/projectApi';
 import type {
   CostEstimateDetailsWeb,
   CostEstimateGroupWeb,
   CostEstimateItemWeb,
   CostEstimateAdditionalFieldWeb,
+  CostEstimateListItemWeb,
   AdditionalFieldType,
   ReorderItemDto,
   ReorderItemChildDto,
@@ -20,11 +23,40 @@ import type {
 
 export const costEstimateKeys = {
   all: ['cost-estimate'] as const,
+  lists: (tenantId: string, projectId: string) =>
+    ['cost-estimate', tenantId, projectId, 'list'] as const,
+  list: (tenantId: string, projectId: string, scope: ResourceScope) =>
+    ['cost-estimate', tenantId, projectId, 'list', scope] as const,
   detail: (tenantId: string, projectId: string, estimateId: string) =>
     ['cost-estimate', tenantId, projectId, 'detail', estimateId] as const,
   additionalFields: (tenantId: string, projectId: string, estimateId: string) =>
     ['cost-estimate', tenantId, projectId, estimateId, 'additional-fields'] as const,
 };
+
+/** Invaliduje wszystkie listy kosztorysów projektu (Mine / All / Shared). */
+export function invalidateCostEstimateLists(
+  queryClient: QueryClient,
+  tenantId: string,
+  projectId: string,
+): Promise<void> {
+  return queryClient.invalidateQueries({
+    queryKey: costEstimateKeys.lists(tenantId, projectId),
+  });
+}
+
+export function useCostEstimatesByScope(
+  tenantId: string | undefined,
+  projectId: string | undefined,
+  scope: ResourceScope,
+  enabled: boolean = true,
+) {
+  return useQuery<CostEstimateListItemWeb[]>({
+    queryKey: costEstimateKeys.list(tenantId ?? '', projectId ?? '', scope),
+    queryFn: () => costEstimateApi.getCostEstimatesByScope(tenantId!, projectId!, scope),
+    enabled: Boolean(tenantId && projectId && enabled),
+    staleTime: 0,
+  });
+}
 
 export function useCostEstimateDetails(
   tenantId: string | undefined,

@@ -34,24 +34,50 @@ export function CardAmountSummary({
 
   if (layout === 'stacked') {
     return (
-      <VStack align="flex-end" spacing={0} flexShrink={0} minW={cfg.colMinW}>
-        <Text
-          fontWeight="bold"
-          fontSize={cfg.net}
-          lineHeight="1.25"
-          sx={{ fontVariantNumeric: 'tabular-nums' }}
-        >
-          {netLabel}
-        </Text>
-        <Text
-          fontWeight="medium"
-          fontSize={cfg.gross}
-          color="neutral.500"
-          lineHeight="1.25"
-          sx={{ fontVariantNumeric: 'tabular-nums' }}
-        >
-          {grossLabel}
-        </Text>
+      <VStack align="flex-end" spacing={0.5} flexShrink={0} minW={cfg.colMinW}>
+        <HStack spacing={2} justify="flex-end">
+          <Text
+            fontSize={cfg.label}
+            fontWeight="semibold"
+            color="neutral.500"
+            textTransform="uppercase"
+            letterSpacing="0.04em"
+            flexShrink={0}
+          >
+            Netto
+          </Text>
+          <Text
+            fontWeight="bold"
+            fontSize={cfg.net}
+            lineHeight="1.25"
+            textAlign="right"
+            sx={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {netLabel}
+          </Text>
+        </HStack>
+        <HStack spacing={2} justify="flex-end">
+          <Text
+            fontSize={cfg.label}
+            fontWeight="semibold"
+            color="neutral.500"
+            textTransform="uppercase"
+            letterSpacing="0.04em"
+            flexShrink={0}
+          >
+            Brutto
+          </Text>
+          <Text
+            fontWeight="medium"
+            fontSize={cfg.gross}
+            color="neutral.600"
+            lineHeight="1.25"
+            textAlign="right"
+            sx={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {grossLabel}
+          </Text>
+        </HStack>
       </VStack>
     );
   }

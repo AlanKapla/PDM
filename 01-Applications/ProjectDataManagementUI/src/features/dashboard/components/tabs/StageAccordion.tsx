@@ -1,12 +1,12 @@
 import React from 'react';
 import { useToken } from '@chakra-ui/react';
 import type { ScheduleStageWeb } from '../../types/projectDashboard.types';
-import { PLN, DATE, DAYS } from '../../utils/formatters';
+import { DATE, DAYS } from '../../utils/formatters';
 import { Accordion } from '../shared/Accordion';
 import { TimelineStatusBadge } from '../shared/TimelineStatusBadge';
 import { KpiCard } from '../shared/KpiCard';
+import { NetGrossAmount } from '../shared/NetGrossAmount';
 import { WorkItemAccordion } from '../WorkItemAccordion';
-import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface StageAccordionProps {
   stage: ScheduleStageWeb;
@@ -25,7 +25,6 @@ export function StageAccordion({
   projectId,
   onRefetch,
 }: StageAccordionProps): React.ReactElement {
-  const currencySymbol = useDashboardCurrency();
   const [neutral400, orange600, orange800, neutral100, neutral200, neutral600] = useToken('colors', [
     'neutral.400', 'orange.600', 'orange.800', 'neutral.100', 'neutral.200', 'neutral.600',
   ]);
@@ -40,9 +39,13 @@ export function StageAccordion({
         </span>
       )}
       {stage.totalCostsNet != null && (
-        <span style={{ fontSize: "xs", fontWeight: "medium", color: orange600, whiteSpace: 'nowrap' }}>
-          {PLN(stage.totalCostsNet, currencySymbol)}
-        </span>
+        <NetGrossAmount
+          net={stage.totalCostsNet}
+          gross={stage.totalCostsGross}
+          size="sm"
+          align="right"
+          accentColor={orange600}
+        />
       )}
     </div>
   );
@@ -52,7 +55,7 @@ export function StageAccordion({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* KPI etapu */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          <KpiCard label="Koszty etapu netto" value={PLN(stage.totalCostsNet, currencySymbol)} small />
+          <KpiCard label="Koszty etapu" netValue={stage.totalCostsNet} grossValue={stage.totalCostsGross} small />
           <KpiCard
             label="Opóźnionych zakresów"
             value={String(stage.delayedWorkItemsCount)}
@@ -105,9 +108,13 @@ export function StageAccordion({
             }}
           >
             <span>Suma kosztów etapu:</span>
-            <span style={{ fontWeight: "medium", color: orange600 }}>
-              {PLN(stage.totalCostsNet, currencySymbol)}
-            </span>
+            <NetGrossAmount
+              net={stage.totalCostsNet}
+              gross={stage.totalCostsGross}
+              size="sm"
+              align="right"
+              accentColor={orange600}
+            />
           </div>
         )}
       </div>

@@ -320,6 +320,7 @@ export default function ProjectBudgetDashboard({
             name: parsed.name ?? '',
             description: parsed.description ?? '',
             net: parsed.net ?? undefined,
+            gross: parsed.gross ?? undefined,
             number: parsed.number ?? '',
             contractorId: parsed.contractorFound ? (parsed.contractorId ?? null) : null,
             date: parsed.date ? parsed.date.substring(0, 10) : '',

@@ -1,0 +1,357 @@
+---
+name: ui-accessibility
+description: Zasady dostępności dla całej warstwy UI: WCAG 2.1 AA, testy AXE, zarządzanie fokusem, kontrast kolorów, atrybuty ARIA. Użyj gdy tworzysz lub modyfikujesz dowolny komponent React.
+---
+
+# Skill: UI / Dostępność — WCAG AA + AXE
+
+## Opis
+Zasady dostępności dla całej warstwy UI: WCAG 2.1 AA, testy AXE, zarządzanie fokusem, kontrast kolorów, atrybuty ARIA.
+
+## Kiedy używać
+Użyj tego skilla gdy tworzysz lub modyfikujesz dowolny komponent React.
+**Wszystkie komponenty muszą przechodzić testy AXE i spełniać WCAG 2.1 AA.**
+
+---
+
+## Testy AXE — obowiązkowe dla każdego komponentu
+
+### Setup (jednorazowy, w `src/test/setup.ts`)
+```typescript
+import * as axeMatchers from 'vitest-axe/matchers';
+import { expect } from 'vitest';
+expect.extend(axeMatchers);
+
+// Mock window.matchMedia dla Chakra UI useBreakpointValue w jsdom
+Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+        matches: false, media: query, onchange: null,
+        addListener: () => undefined, removeListener: () => undefined,
+        addEventListener: () => undefined, removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+    }),
+});
+```
+
+### Wzorzec testu komponentu z axe
+
+```typescript
+// src/components/ui/__tests__/AppModal.axe.test.tsx
+import { axe } from 'vitest-axe';
+import { renderWithChakra } from '../../../test/render-with-chakra';
+import AppModal from '../AppModal';
+
+describe('AppModal — AXE', () => {
+    it('brakNaruszen_otwartyModal', async () => {
+        const { container } = renderWithChakra(
+            <AppModal isOpen onClose={() => undefined} title="Testowy modal">
+                <p>Treść</p>
+            </AppModal>
+        );
+        const results = await axe(container);
+        expect(results).toHaveNoViolations();
+    });
+});
+```
+
+### Import axe w każdym teście komponentu
+
+```typescript
+import { axe } from 'vitest-axe';
+// toHaveNoViolations jest dostępne globalnie przez setup.ts
+
+it('opisCo_warunek_brakNaruszenA11y', async () => {
+    const { container } = renderWithChakra(<MyComponent />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+});
+```
+
+---
+
+## Kontrast kolorów — WCAG AA
+
+### Minimalne wymagania
+| Typ tekstu | Minimalny kontrast |
+|-----------|-------------------|
+| Normalny tekst (< 18px lub < 14px bold) | 4.5:1 |
+| Duży tekst (≥ 18px lub ≥ 14px bold) | 3:1 |
+| Elementy UI (granice inputów, ikony funkcyjne) | 3:1 |
+
+### Kolory tekstowe — bezpieczne wartości
+```typescript
+// DOBRZE — kontrast ≥ 4.5:1 na białym tle:
+color="neutral.700"      // #2D3748 → ~11.6:1
+color="neutral.600"      // #4A5568 → ~7.0:1
+color="gray.600"         // #4A5568 → ~7.0:1
+color="primary.700"      // #2C5282 → ~9.1:1
+
+// UWAGA — tylko dla dekoracyjnego tekstu pomocniczego (placeholder, hint), NIE dla treści:
+color="neutral.500"      // #718096 → ~4.48:1 (nie używaj dla czytelnej treści!)
+
+// ŹLE — zbyt niski kontrast dla tekstu treści:
+color="neutral.400"      // zbyt jasny
+color="gray.400"         // zbyt jasny
+```
+
+### Weryfikacja kontrastu
+Przed każdym użyciem koloru tekstu sprawdź przez [WebAIM Contrast Checker](https://webaim.org/resources/contrastchecker/).
+
+---
+
+## Fokus i klawiatura
+
+### Focus-visible (nie focus)
+Nie usuwaj outline z elementów fokusowanych. Używaj CSS `focus-visible`:
+```css
+/* DOBRZE — outline tylko dla użytkowników klawiatury: */
+:focus-visible {
+    outline: 3px solid #3182CE;
+    outline-offset: 2px;
+}
+
+/* ŹLE — usuwa outline dla wszystkich: */
+:focus { outline: none; }
+```
+
+### Interaktywne elementy niebędące przyciskami
+Każdy `div` lub `span` z `onClick` musi mieć pełną obsługę klawiatury:
+```tsx
+// DOBRZE:
+<Box
+    role="button"
+    tabIndex={0}
+    onClick={handleClick}
+    onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick();
+        }
+    }}
+    cursor="pointer"
+>
+
+// ŹLE — nie ma obsługi klawiatury:
+<Box onClick={handleClick} cursor="pointer">
+```
+
+### Kolejność fokusowania (tab order)
+- Logiczna kolejność zgodna z wizualnym układem
+- `tabIndex={0}` dla elementów dodanych do tab order
+- `tabIndex={-1}` dla elementów programowo fokusowanych (nie tab)
+- Nigdy nie używaj `tabIndex > 0`
+
+---
+
+## Atrybuty ARIA
+
+### Przyciski ikon — zawsze aria-label
+```tsx
+// DOBRZE:
+<IconButton aria-label="Usuń element" icon={<Trash2 />} />
+<button aria-label="Zamknij dialog">
+    <X aria-hidden="true" />
+</button>
+
+// ŹLE — brak etykiety:
+<IconButton icon={<Trash2 />} />
+```
+
+### Ikony dekoracyjne — aria-hidden
+```tsx
+// Ikona obok tekstu — dekoracyjna:
+<HStack>
+    <Icon as={Calendar} aria-hidden="true" />
+    <Text>12 stycznia</Text>
+</HStack>
+
+// Ikona jedyna informacja — potrzebuje etykiety:
+<Icon as={Warning} aria-label="Ostrzeżenie" role="img" />
+```
+
+### Komunikaty o stanie — role="alert" lub aria-live
+```tsx
+// Błędy formularza — role="alert":
+{error && (
+    <Alert status="error" role="alert">
+        <AlertIcon aria-hidden="true" />
+        {error}
+    </Alert>
+)}
+
+// Dynamicznie ładowane dane:
+<Box aria-live="polite" aria-atomic="true">
+    {isLoading ? 'Ładowanie...' : `Załadowano ${count} elementów`}
+</Box>
+```
+
+### Formularze — powiązanie label z inputem
+```tsx
+// Chakra FormControl + FormLabel automatycznie paruje label z inputem przez htmlFor
+// DOBRZE:
+<FormControl isRequired isInvalid={!!error}>
+    <FormLabel>Nazwa projektu</FormLabel>  {/* auto-htmlFor przez Chakra */}
+    <Input placeholder="Wpisz nazwę..." />
+    {error && <FormErrorMessage>{error.message}</FormErrorMessage>}
+</FormControl>
+
+// Jeśli Input jest poza FormControl — użyj id + aria-labelledby:
+<label id="project-name-label">Nazwa</label>
+<Input aria-labelledby="project-name-label" />
+```
+
+### Grupy pól — fieldset / role="group"
+```tsx
+// Grupa powiązanych checkboxów/radio:
+<fieldset>
+    <legend>Typ użytkownika</legend>
+    <Checkbox>Administrator</Checkbox>
+    <Checkbox>Redaktor</Checkbox>
+</fieldset>
+```
+
+---
+
+## Modale i dialogi
+
+### Chakra UI Modal — automatyczna dostępność
+Chakra `Modal` zapewnia automatycznie:
+- `role="dialog"` i `aria-modal="true"`
+- `aria-labelledby` → `ModalHeader`
+- Focus trap (fokus zamknięty wewnątrz modala)
+- Powrót fokusa do triggera po zamknięciu
+- Obsługa klawisza Escape
+
+**Wymagania dodatkowe:**
+```tsx
+// Jeśli modal ma opis — dodaj aria-describedby:
+<Modal aria-describedby="modal-description" ...>
+    <ModalHeader>Tytuł</ModalHeader>
+    <ModalBody>
+        <Text id="modal-description">Opis celu modala</Text>
+        {/* reszta treści */}
+    </ModalBody>
+</Modal>
+```
+
+### Focus management po otwarciu
+```tsx
+// AppModal — Chakra auto-fokusuje pierwszy fokusowany element
+// Jeśli chcesz wskazać konkretny element:
+const initialFocusRef = useRef<HTMLInputElement>(null);
+<Modal initialFocusRef={initialFocusRef} ...>
+    <Input ref={initialFocusRef} />
+</Modal>
+```
+
+---
+
+## Nawigacja klawiaturą — skip link
+
+**Obowiązkowy na każdej stronie.** Implementacja w `MainLayout.tsx`:
+```tsx
+{/* Skip link — pierwszy element w DOM */}
+<a
+    href="#main-content"
+    style={{
+        position: 'absolute',
+        left: '-9999px',
+        top: 'auto',
+        width: '1px',
+        height: '1px',
+        overflow: 'hidden',
+    }}
+    onFocus={(e) => {
+        e.currentTarget.style.cssText = `
+            position: fixed;
+            left: 16px;
+            top: 16px;
+            width: auto;
+            height: auto;
+            overflow: visible;
+            background: #2B6CB0;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            z-index: 9999;
+            font-weight: 600;
+        `;
+    }}
+    onBlur={(e) => {
+        e.currentTarget.style.cssText = `
+            position: absolute;
+            left: -9999px;
+            top: auto;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        `;
+    }}
+>
+    Przejdź do treści głównej
+</a>
+<main id="main-content">
+    {children}
+</main>
+```
+
+---
+
+## Obrazy i media
+
+```tsx
+// Obraz niosący informację:
+<img src={logo} alt="Logo firmy Brickly" />
+
+// Obraz dekoracyjny:
+<img src={decoration} alt="" role="presentation" />
+
+// Ikona SVG jako obraz:
+<svg role="img" aria-label="Wykres sprzedaży">
+    <title>Wykres sprzedaży za 2024</title>
+</svg>
+```
+
+---
+
+## Tabele
+
+```tsx
+// Tabela danych — zawsze z nagłówkami:
+<Table>
+    <caption>Lista projektów</caption>  {/* opcjonalny opis */}
+    <Thead>
+        <Tr>
+            <Th scope="col">Nazwa</Th>
+            <Th scope="col">Status</Th>
+            <Th scope="col">
+                <VisuallyHidden>Akcje</VisuallyHidden>  {/* jeśli zawiera tylko przyciski */}
+            </Th>
+        </Tr>
+    </Thead>
+    <Tbody>
+        <Tr>
+            <Td>Projekt alfa</Td>
+            <Td>Aktywny</Td>
+            <Td>
+                <IconButton aria-label="Usuń projekt alfa" icon={<Trash2 />} />
+            </Td>
+        </Tr>
+    </Tbody>
+</Table>
+```
+
+---
+
+## Checklist przed PR
+
+- [ ] `npx vitest run --reporter=verbose` — wszystkie testy AXE zielone
+- [ ] Każdy `IconButton` ma `aria-label`
+- [ ] Każda ikona obok tekstu ma `aria-hidden="true"`
+- [ ] Żaden `div`/`span` z `onClick` nie ma brakującej obsługi klawiatury
+- [ ] Tekst treści ma kontrast ≥ 4.5:1
+- [ ] Elementy UI (bordery, ikony) mają kontrast ≥ 3:1
+- [ ] Formularze: każdy input sparowany z labelem
+- [ ] `role="alert"` na komunikatach o błędach
+- [ ] Skip link w `MainLayout`

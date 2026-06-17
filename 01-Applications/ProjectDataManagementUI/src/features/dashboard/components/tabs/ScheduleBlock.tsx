@@ -1,14 +1,14 @@
 import React from 'react';
 import { useToken } from '@chakra-ui/react';
 import type { ScheduleSummaryWeb } from '../../types/projectDashboard.types';
-import { PLN, PROG, DATE, DAYS } from '../../utils/formatters';
+import { DATE, DAYS } from '../../utils/formatters';
 import { Accordion } from '../shared/Accordion';
 import { TimelineStatusBadge } from '../shared/TimelineStatusBadge';
 import { KpiCard } from '../shared/KpiCard';
+import { NetGrossAmount } from '../shared/NetGrossAmount';
 import { Badge } from '../shared/Badge';
 import { MiniGantt } from './MiniGantt';
 import { StageAccordion } from './StageAccordion';
-import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
 
 export interface ScheduleBlockProps {
   summary: ScheduleSummaryWeb;
@@ -27,7 +27,6 @@ export function ScheduleBlock({
   projectId,
   onRefetch,
 }: ScheduleBlockProps): React.ReactElement {
-  const currencySymbol = useDashboardCurrency();
   const [primary50, primary600, level250, level2600, orange600, orange800] = useToken('colors', [
     'primary.50', 'primary.600', 'level2.50', 'level2.600', 'orange.600', 'orange.800',
   ]);
@@ -50,9 +49,13 @@ export function ScheduleBlock({
         />
       )}
       {summary.totalCostsNet != null && (
-        <span style={{ fontSize: "xs", fontWeight: "medium", color: orange600 }}>
-          {PLN(summary.totalCostsNet, currencySymbol)}
-        </span>
+        <NetGrossAmount
+          net={summary.totalCostsNet}
+          gross={summary.totalCostsGross}
+          size="sm"
+          align="right"
+          accentColor={orange600}
+        />
       )}
       <TimelineStatusBadge status={summary.timelineStatus} small />
     </div>
@@ -63,8 +66,7 @@ export function ScheduleBlock({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Sekcja A: KPI finansowe */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          <KpiCard label="Koszty netto" value={PLN(summary.totalCostsNet, currencySymbol)} small />
-          <KpiCard label="Koszty brutto" value={PLN(summary.totalCostsGross, currencySymbol)} small />
+          <KpiCard label="Koszty" netValue={summary.totalCostsNet} grossValue={summary.totalCostsGross} small />
           <KpiCard
             label="Zakresów z kosztami"
             value={`${summary.workItemsWithCostsCount} / ${summary.totalWorkItemsCount}`}

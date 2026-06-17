@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Heading,
@@ -30,9 +31,9 @@ import { Trash2, Plus, FileText, Copy, Share2, Users, Bot } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { AuthContext } from "../context/AuthContext";
 import { useContext } from "react";
-import { LoadingSpinner, EmptyState } from "../components/common";
+import { BackToProjectButton, LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { projectApi, ResourceScope } from "../api/projectApi";
+import { ResourceScope } from "../api/projectApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { formatDate } from "../utils/formatters";
 import CreateCostEstimateModal from "../components/CreateCostEstimateModal";
@@ -44,8 +45,11 @@ import type { CostEstimateListItemWeb, CostEstimateShareWeb } from "../types/cos
 import type { CostEstimateStatus } from "../types/costEstimate.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
-import { useTabCache } from "../hooks/useTabCache";
-import { useProjectDetails } from "../hooks/queries";
+import {
+  useCostEstimatesByScope,
+  invalidateCostEstimateLists,
+  useProjectDetails,
+} from "../hooks/queries";
 import { handleApiError } from "../utils/handleApiError";
 
 /** Formatuje kwotę z separatorami tysięcy (spacjami) */
@@ -72,16 +76,9 @@ const costEstimateStatusColors: Record<CostEstimateStatus, string> = {
   [5]: "purple",
 };
 
-interface TabCacheResult<T> {
-  data: T | null;
-  loading: boolean;
-  fetch: () => Promise<void>;
-  setData: (data: T) => void;
-  clear: () => void;
-}
-
 interface CostEstimatesTabProps {
-  cache: TabCacheResult<CostEstimateListItemWeb[]>;
+  costEstimates: CostEstimateListItemWeb[];
+  isLoading: boolean;
   cardBg: string;
   borderColor: string;
   hoverBg: string;
@@ -108,7 +105,8 @@ interface CostEstimatesTabProps {
 
 // Współdzielona tabela kosztorysów używana przez wszystkie trzy zakładki
 const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
-  cache,
+  costEstimates,
+  isLoading,
   cardBg,
   borderColor,
   hoverBg,
@@ -128,11 +126,9 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
 }) => {
   const viewMode = useBreakpointValue({ base: "mobile", md: "desktop" });
 
-  if (cache.loading) {
+  if (isLoading) {
     return <LoadingSpinner message="Ładowanie kosztorysów..." />;
   }
-
-  const costEstimates = cache.data || [];
 
   if (viewMode === "mobile") {
     return (
@@ -349,16 +345,15 @@ const CostEstimatesTable = React.memo<CostEstimatesTabProps>(({
 export default function ProjectCosts() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useContext(AuthContext);
   const { showError, showSuccess } = useToastNotification();
 
-  const [loading, setLoading] = useState(true);
   const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToShare, setCostEstimateToShare] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToDelete, setCostEstimateToDelete] = useState<CostEstimateListItemWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const hasFetchedProjectData = useRef(false);
 
   const { isOpen: isCreateModalOpen, onOpen: onCreateModalOpen, onClose: onCreateModalClose } = useDisclosure();
   const { isOpen: isAIModalOpen, onOpen: onAIModalOpen, onClose: onAIModalClose } = useDisclosure();
@@ -371,96 +366,45 @@ export default function ProjectCosts() {
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   const resourcePerms = useResourcePermissions(projectId, "estimates");
+  const queriesReady = !resourcePerms.raw.loading && Boolean(user?.activeTenantId && projectId);
 
-  // Tab cache dla Moje kosztorysy
-  const myCostEstimatesCache = useTabCache<CostEstimateListItemWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      return await costEstimateApi.getCostEstimatesByScope(
-        user.activeTenantId,
-        projectId,
-        ResourceScope.Mine
-      );
-    },
-    `cost-estimates-mine-${projectId}`
+  const allCostEstimatesQuery = useCostEstimatesByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.All,
+    queriesReady && resourcePerms.tabs.showAll,
+  );
+  const myCostEstimatesQuery = useCostEstimatesByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.Mine,
+    queriesReady && resourcePerms.tabs.showMine,
+  );
+  const sharedCostEstimatesQuery = useCostEstimatesByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.Shared,
+    queriesReady && resourcePerms.tabs.showShared,
   );
 
-  // Tab cache dla Wszystkie kosztorysy
-  const allCostEstimatesCache = useTabCache<CostEstimateListItemWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      return await costEstimateApi.getCostEstimatesByScope(
-        user.activeTenantId,
-        projectId,
-        ResourceScope.All
-      );
-    },
-    `cost-estimates-all-${projectId}`
-  );
-
-  // Tab cache dla Udostępnione kosztorysy
-  const sharedCostEstimatesCache = useTabCache<CostEstimateListItemWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      return await costEstimateApi.getCostEstimatesByScope(
-        user.activeTenantId,
-        projectId,
-        ResourceScope.Shared
-      );
-    },
-    `cost-estimates-shared-${projectId}`
-  );
-
-  // React Query — nazwa projektu (współdzielony cache między stronami projektu)
   const { data: project } = useProjectDetails(
     user?.activeTenantId ?? undefined,
     projectId
   );
 
-  useEffect(() => {
-    if (resourcePerms.raw.loading) return;
-    if (hasFetchedProjectData.current) return;
+  const loading = resourcePerms.raw.loading || (
+    queriesReady && (
+      (resourcePerms.tabs.showAll && allCostEstimatesQuery.isPending) ||
+      (resourcePerms.tabs.showMine && myCostEstimatesQuery.isPending) ||
+      (resourcePerms.tabs.showShared && sharedCostEstimatesQuery.isPending)
+    )
+  );
 
-    hasFetchedProjectData.current = true;
-    fetchProjectData();
-  }, [projectId, resourcePerms.raw.loading]);
-
-  const fetchProjectData = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    const hasAnyTab =
-      resourcePerms.tabs.showMine ||
-      resourcePerms.tabs.showAll ||
-      resourcePerms.tabs.showShared;
-
-    if (!hasAnyTab) {
-      setLoading(false);
+  const refreshData = (): void => {
+    if (!user?.activeTenantId || !projectId) {
       return;
     }
-
-    setLoading(true);
-    try {
-      // Pobierz zakładki równolegle według uprawnień
-      const fetchPromises = [];
-      if (resourcePerms.tabs.showAll) fetchPromises.push(allCostEstimatesCache.fetch());
-      if (resourcePerms.tabs.showMine) fetchPromises.push(myCostEstimatesCache.fetch());
-      if (resourcePerms.tabs.showShared) fetchPromises.push(sharedCostEstimatesCache.fetch());
-
-      await Promise.all(fetchPromises);
-    } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refreshData = () => {
-    myCostEstimatesCache.clear();
-    allCostEstimatesCache.clear();
-    sharedCostEstimatesCache.clear();
-    hasFetchedProjectData.current = false;
-    fetchProjectData();
+    void invalidateCostEstimateLists(queryClient, user.activeTenantId, projectId);
   };
 
   const handleDeleteCostEstimate = (costEstimate: CostEstimateListItemWeb) => {
@@ -499,12 +443,8 @@ export default function ProjectCosts() {
     onShareModalOpen();
   };
 
-  const handleShareUpdated = () => {
-    // Odśwież dane po zmianie udostępnienia
-    myCostEstimatesCache.clear();
-    allCostEstimatesCache.clear();
-    hasFetchedProjectData.current = false;
-    fetchProjectData();
+  const handleShareUpdated = (): void => {
+    refreshData();
   };
 
   const commonTableProps = {
@@ -541,6 +481,7 @@ export default function ProjectCosts() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <BackToProjectButton />
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={FileText} boxSize={8} color="primary.600" />
@@ -588,7 +529,7 @@ export default function ProjectCosts() {
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Wszystkie</Text>
-                    <Badge colorScheme="level2" ml={1}>{allCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="level2" ml={1}>{allCostEstimatesQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -597,7 +538,7 @@ export default function ProjectCosts() {
                   <HStack spacing={2}>
                     <Icon as={FileText} boxSize={4} />
                     <Text>Moje</Text>
-                    <Badge colorScheme="primary" ml={1}>{myCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="primary" ml={1}>{myCostEstimatesQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -606,7 +547,7 @@ export default function ProjectCosts() {
                   <HStack spacing={2}>
                     <Icon as={Users} boxSize={4} />
                     <Text>Udostępnione</Text>
-                    <Badge colorScheme="action" ml={1}>{sharedCostEstimatesCache.data?.length ?? 0}</Badge>
+                    <Badge colorScheme="action" ml={1}>{sharedCostEstimatesQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -617,7 +558,8 @@ export default function ProjectCosts() {
                 <TabPanel>
                   <CostEstimatesTable
                     {...commonTableProps}
-                    cache={allCostEstimatesCache}
+                    costEstimates={allCostEstimatesQuery.data ?? []}
+                    isLoading={allCostEstimatesQuery.isPending}
                     showOwnerColumn
                     canShare={resourcePerms.all.canShare}
                     canCopy={resourcePerms.all.canEdit}
@@ -629,7 +571,8 @@ export default function ProjectCosts() {
                 <TabPanel>
                   <CostEstimatesTable
                     {...commonTableProps}
-                    cache={myCostEstimatesCache}
+                    costEstimates={myCostEstimatesQuery.data ?? []}
+                    isLoading={myCostEstimatesQuery.isPending}
                     canShare={resourcePerms.mine.canShare}
                     canCopy={resourcePerms.mine.canEdit}
                     canDelete={resourcePerms.mine.canDelete}
@@ -640,7 +583,8 @@ export default function ProjectCosts() {
                 <TabPanel>
                   <CostEstimatesTable
                     {...commonTableProps}
-                    cache={sharedCostEstimatesCache}
+                    costEstimates={sharedCostEstimatesQuery.data ?? []}
+                    isLoading={sharedCostEstimatesQuery.isPending}
                     showOwnerColumn
                     canShare={false}
                     canCopy={false}

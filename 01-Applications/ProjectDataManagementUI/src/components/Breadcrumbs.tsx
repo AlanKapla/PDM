@@ -82,6 +82,8 @@ export default function Breadcrumbs() {
             segments.push({ label: "Wydatki", path: `/projects/${params.projectId}/costs`, isCurrentPage: true });
           } else if (pathSegments[2] === "dashboard") {
             segments.push({ label: "Dashboard", path: `/projects/${params.projectId}/dashboard`, isCurrentPage: true });
+          } else if (pathSegments[2] === "parameters") {
+            segments.push({ label: "Parametry", path: `/projects/${params.projectId}/parameters`, isCurrentPage: true });
           } else if (pathSegments[2] === "cost-estimates") {
             if (params.estimateId) {
               segments.push({ label: "Kosztorysy", path: `/projects/${params.projectId}/cost-estimates` });

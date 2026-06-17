@@ -20,8 +20,10 @@ import type {
   CostEstimateItemWeb,
   CostEstimateAdditionalFieldWeb,
 } from '../../../types/costEstimate.types.new';
-import { isTemporaryId } from '../../../types/costEstimate.types.new';
+import { CostEstimateFieldType, isTemporaryId } from '../../../types/costEstimate.types.new';
 import { PrototypeTextInput, PrototypeNumberInput } from '../PrototypeInputs';
+import { getBaseFieldPlaceholder, getFieldLabelByKey, getInputTextAlign } from '../../../utils/costEstimateFieldSchema';
+import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 import { useCostEstimateItemFieldState } from '../../../hooks/useCostEstimateItemFieldState';
 import {
   areItemAdditionalFieldsLocked,
@@ -43,6 +45,7 @@ interface PositionDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   isEditMode: boolean;
+  schemaColumns: ColumnDef[];
   additionalFields?: CostEstimateAdditionalFieldWeb[];
   onFieldChange: (
     groupId: string,
@@ -89,6 +92,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
   isOpen,
   onClose,
   isEditMode,
+  schemaColumns,
   additionalFields,
   onFieldChange,
   onFieldAutosave,
@@ -105,7 +109,6 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
   const nameLocked = isItemNameLocked(fieldState);
   const hasFiles = (item.files?.length ?? 0) > 0;
 
-  const positionName = item.name || 'Bez nazwy';
   const quantity = item.quantity;
   const unit = item.unit ?? '';
   const isSelected = item.isSelected;
@@ -118,6 +121,9 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
   const showOptionsTable = hasOptions || (isEditMode && canHaveOptions);
   const showComponentsTable = !isOption && (hasComponents || (isEditMode && canHaveComponents));
   const modalSize = showOptionsTable || showComponentsTable ? '2xl' : 'xl';
+
+  const label = (fieldKey: string): string => getFieldLabelByKey(schemaColumns, fieldKey);
+  const placeholder = (fieldKey: string): string => getBaseFieldPlaceholder(label(fieldKey));
 
   const triggerBaseFieldAutosave = useCallback(
     (fieldName: string, valueType: AutosaveParams['valueType'], value: string | undefined) => {
@@ -173,31 +179,27 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
         <DetailModalSection title="Informacje podstawowe">
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Nazwa
+              {label('name')}
             </FormLabel>
             <PrototypeTextInput
-              value={positionName}
+              showBorder
+              value={item.name ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
                 onFieldChange(groupId, item.id, 'name', val);
                 triggerBaseFieldAutosave('name', 'string', val);
               }}
               isDisabled={!isEditMode || nameLocked}
-              placeholder={
-                isComponent
-                  ? 'Nazwa komponentu...'
-                  : isOption
-                  ? 'Nazwa opcji...'
-                  : 'Nazwa pozycji...'
-              }
+              placeholder={placeholder('name')}
             />
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Ilość
+              {label('quantity')}
             </FormLabel>
             <PrototypeNumberInput
+              showBorder
               value={quantity !== undefined && quantity !== null ? String(quantity) : ''}
               onChange={(e) => {
                 const val = e.target.value;
@@ -205,15 +207,17 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('quantity', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || sourceFieldsLocked}
-              placeholder="Ilość"
+              placeholder={placeholder('quantity')}
             />
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Jednostka
+              {label('unit')}
             </FormLabel>
             <PrototypeTextInput
+              showBorder
+              textAlign={getInputTextAlign('unit', CostEstimateFieldType.Unit)}
               value={unit}
               onChange={(e) => {
                 const val = e.target.value;
@@ -221,7 +225,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('unit', 'string', val);
               }}
               isDisabled={!isEditMode || sourceFieldsLocked}
-              placeholder="Jednostka"
+              placeholder={placeholder('unit')}
             />
           </FormControl>
 
@@ -229,7 +233,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             <FormControl>
               <HStack justify="space-between" align="center">
                 <FormLabel fontSize="sm" fontWeight="medium" mb={0}>
-                  Zakres pracy harmonogramu
+                  {label('isStageWork')}
                 </FormLabel>
                 <Checkbox
                   isChecked={isStageWork}
@@ -250,7 +254,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             <FormControl>
               <HStack justify="space-between" align="center">
                 <FormLabel fontSize="sm" fontWeight="medium" mb={0}>
-                  Sumuj
+                  {label('isSelected')}
                 </FormLabel>
                 <Checkbox
                   isChecked={isSelected}
@@ -269,7 +273,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Załączone pliki
+              {label('files')}
             </FormLabel>
             <HStack spacing={2}>
               <IconButton
@@ -292,9 +296,10 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
         <DetailModalSection title="Wartości finansowe">
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Cena jednostkowa netto
+              {label('unitPriceNet')}
             </FormLabel>
             <PrototypeNumberInput
+              showBorder
               value={unitPriceNet !== undefined && unitPriceNet !== null ? String(unitPriceNet) : ''}
               onChange={(e) => {
                 const val = e.target.value;
@@ -302,15 +307,16 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('unitPriceNet', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || sourceFieldsLocked}
-              placeholder="Cena netto"
+              placeholder={placeholder('unitPriceNet')}
             />
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Stawka VAT (%)
+              {label('vatRate')}
             </FormLabel>
             <PrototypeNumberInput
+              showBorder
               value={vatRate !== undefined && vatRate !== null ? String(Math.round(vatRate * 100)) : ''}
               onChange={(e) => {
                 const val = e.target.value;
@@ -320,15 +326,16 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('vatRate', 'numeric', decimal);
               }}
               isDisabled={!isEditMode || sourceFieldsLocked}
-              placeholder="23"
+              placeholder={placeholder('vatRate')}
             />
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Cena jednostkowa brutto
+              {label('unitPriceGross')}
             </FormLabel>
             <PrototypeNumberInput
+              showBorder
               value={unitPriceGross !== undefined && unitPriceGross !== null ? String(unitPriceGross) : ''}
               onChange={(e) => {
                 const val = e.target.value;
@@ -336,15 +343,16 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('unitPriceGross', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || flags.unitPriceGrossComputed}
-              placeholder="Cena brutto"
+              placeholder={placeholder('unitPriceGross')}
             />
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Wartość netto
+              {label('netValue')}
             </FormLabel>
             <PrototypeNumberInput
+              showBorder
               value={item.netValue !== undefined && item.netValue !== null ? String(item.netValue) : ''}
               onChange={(e) => {
                 const val = e.target.value;
@@ -352,15 +360,16 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('netValue', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || flags.netValueComputed}
-              placeholder="Wartość netto"
+              placeholder={placeholder('netValue')}
             />
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Wartość VAT
+              {label('vatValue')}
             </FormLabel>
             <PrototypeNumberInput
+              showBorder
               value={item.vatValue !== undefined && item.vatValue !== null ? String(item.vatValue) : ''}
               onChange={(e) => {
                 const val = e.target.value;
@@ -368,15 +377,16 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('vatValue', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || flags.vatValueComputed}
-              placeholder="Wartość VAT"
+              placeholder={placeholder('vatValue')}
             />
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Wartość brutto
+              {label('grossValue')}
             </FormLabel>
             <PrototypeNumberInput
+              showBorder
               value={item.grossValue !== undefined && item.grossValue !== null ? String(item.grossValue) : ''}
               onChange={(e) => {
                 const val = e.target.value;
@@ -384,7 +394,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                 triggerBaseFieldAutosave('grossValue', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || flags.grossValueComputed}
-              placeholder="Wartość brutto"
+              placeholder={placeholder('grossValue')}
             />
           </FormControl>
         </DetailModalSection>
@@ -397,6 +407,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
                   {field.name}
                 </FormLabel>
                 <AdditionalFieldInput
+                  showBorder
                   field={field}
                   fieldValues={item.additionalFieldValues ?? []}
                   isDisabled={!isEditMode || additionalFieldsLocked}
@@ -421,6 +432,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             items={item.options ?? []}
             groupId={groupId}
             isEditMode={isEditMode}
+            schemaColumns={schemaColumns}
             onFieldChange={onFieldChange}
             onFieldAutosave={onFieldAutosave}
             onDeleteItem={onDeleteItem}
@@ -436,6 +448,7 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             items={item.components ?? []}
             groupId={groupId}
             isEditMode={isEditMode}
+            schemaColumns={schemaColumns}
             onFieldChange={onFieldChange}
             onFieldAutosave={onFieldAutosave}
             onDeleteItem={onDeleteItem}

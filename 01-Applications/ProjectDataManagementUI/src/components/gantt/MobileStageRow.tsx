@@ -21,10 +21,11 @@ import {
   MenuList,
   MenuItem,
 } from "@chakra-ui/react";
-import { ChevronDown, ChevronRight, Plus, Trash2, MoreVertical, Move, Pencil } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, MoreVertical, Move, Pencil, Calendar } from "lucide-react";
 import { useRef } from "react";
 import { useGantt } from "./GanttContext";
 import MobileWorkRow from "./MobileWorkRow";
+import { fmtCompactDate, getStageRange } from "./ganttRowUtils";
 import type { WorkScheduleStageWeb } from "../../types/workSchedule.types";
 
 interface MobileStageRowProps {
@@ -43,6 +44,7 @@ export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
   const isDeleting = isMutating.has(`deleteStage-${stage.id}`);
   const works = [...(stage.works ?? [])].sort((a, b) => a.order - b.order);
   const childStages = [...(stage.childStages ?? [])].sort((a, b) => a.order - b.order);
+  const stageRange = getStageRange(stage);
 
   const bgStage = useColorModeValue("primary.50", "primary.900");
   const borderColor = useColorModeValue("primary.200", "primary.700");
@@ -68,12 +70,24 @@ export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
             <Box color="primary.500" flexShrink={0}>
               {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </Box>
-            <Text fontWeight="semibold" fontSize="sm" noOfLines={1} flex={1}>
-              {stage.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
-            </Text>
-            <Badge colorScheme="gray" variant="subtle" fontSize="2xs">
-              {works.length > 0 ? `${works.length}` : "0"}
-            </Badge>
+            <VStack align="start" spacing={0} flex={1} minW={0}>
+              <HStack spacing={2} w="full">
+                <Text fontWeight="semibold" fontSize="sm" noOfLines={1} flex={1}>
+                  {stage.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
+                </Text>
+                <Badge colorScheme="gray" variant="subtle" fontSize="2xs">
+                  {works.length > 0 ? `${works.length}` : "0"}
+                </Badge>
+              </HStack>
+              {stageRange && (
+                <HStack spacing={1}>
+                  <Calendar size={10} color="gray" />
+                  <Text fontSize="xs" color="gray.500">
+                    {fmtCompactDate(stageRange.start)}–{fmtCompactDate(stageRange.end)}
+                  </Text>
+                </HStack>
+              )}
+            </VStack>
           </HStack>
 
           {isEditing && canEdit && (

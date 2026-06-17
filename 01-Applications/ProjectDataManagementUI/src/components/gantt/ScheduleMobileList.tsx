@@ -5,20 +5,21 @@ import {
   Spinner,
   useColorModeValue,
   Button,
-  HStack,
-  IconButton,
-  Tooltip,
 } from "@chakra-ui/react";
 import { Plus } from "lucide-react";
+import { useMemo } from "react";
 import { useGantt } from "./GanttContext";
 import MobileStageRow from "./MobileStageRow";
+import { filterStagesBySearch } from "./ganttRowUtils";
 
 export default function ScheduleMobileList() {
-  const { schedule, isLoading, mode, canEdit, openMobileModal } = useGantt();
+  const { schedule, isLoading, mode, canEdit, openMobileModal, searchQuery } = useGantt();
   const borderColor = useColorModeValue("gray.200", "gray.700");
-  const cardBg = useColorModeValue("white", "gray.800");
 
-  const stages = [...(schedule?.stages ?? [])].sort((a, b) => a.order - b.order);
+  const stages = useMemo(() => {
+    const filtered = filterStagesBySearch(schedule?.stages ?? [], searchQuery);
+    return [...filtered].sort((a, b) => a.order - b.order);
+  }, [schedule?.stages, searchQuery]);
 
   if (isLoading) {
     return (

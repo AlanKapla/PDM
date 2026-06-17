@@ -6,8 +6,8 @@
  * - Checkbox (sumuj) and radio (opcje) remain interactive on cards
  */
 
-import React, { useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { VStack, Flex } from '@chakra-ui/react';
+import React, { useState, useCallback, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
+import { VStack, Flex, Box, Text, HStack } from '@chakra-ui/react';
 import type {
   CostEstimateDetailsWeb,
   CostEstimateGroupWeb,
@@ -18,7 +18,13 @@ import { AddInlineButton } from '../PrototypeActionButtons';
 import { PositionDetailModal } from './PositionDetailModal';
 import { GroupDetailModal } from './GroupDetailModal';
 import { resolveAdditionalFieldDefinitions } from '../../../utils/additionalFieldHelpers';
-import { resolveCostEstimateCurrencySymbol } from '../../../utils/costEstimateUtils';
+import { getCostEstimateTotals, resolveCostEstimateCurrencySymbol } from '../../../utils/costEstimateUtils';
+import { resolveTreeViewSchemaColumns } from '../../../utils/costEstimateFieldSchema';
+import { BASE_COLUMNS } from '../TreeView/CostEstimateTreeView';
+import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
+import { useNewRootGroupFocus } from '../../../hooks/useNewRootGroupFocus';
+import { CardViewGrandTotalBar } from './CardViewGrandTotalBar';
+import { ADD_ROW_SURFACE } from '../TreeView/treeViewRowSurfaces';
 
 interface CostEstimateCardViewProps {
   details: CostEstimateDetailsWeb;
@@ -44,7 +50,7 @@ interface CostEstimateCardViewProps {
     valueType: 'string' | 'numeric' | 'boolean' | 'date';
     value: string | undefined;
   }) => void;
-  onAddGroup: () => void;
+  onAddGroup: () => void | Promise<string | undefined>;
   onAddSubGroup: (parentGroupId: string) => void;
   onAddItem: (groupId: string) => void;
   onAddComponent: (groupId: string, itemId: string) => void;
@@ -177,6 +183,9 @@ export const CostEstimateCardView = forwardRef<
     () => collectAllGroupIds(details.rootGroups)
   );
   const [detailSelection, setDetailSelection] = useState<DetailSelection>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useNewRootGroupFocus(details.rootGroups, setExpandedGroups, scrollContainerRef);
 
   const toggleGroup = useCallback((groupId: string) => {
     setExpandedGroups((prev) => {
@@ -234,37 +243,96 @@ export const CostEstimateCardView = forwardRef<
     [details]
   );
 
+  const schemaColumns: ColumnDef[] = useMemo(
+    () => resolveTreeViewSchemaColumns(details, BASE_COLUMNS),
+    [details]
+  );
+
+  const totals = useMemo(() => getCostEstimateTotals(details), [details]);
+
   return (
-    <VStack spacing={4} align="stretch">
-      {details.rootGroups.map((stage) => (
-        <StageCard
-          key={stage.id}
-          stage={stage}
-          currencySymbol={currencySymbol}
-          isExpanded={expandedGroups.has(stage.id)}
-          expandedGroups={expandedGroups}
-          isEditMode={isEditMode}
-          onToggle={() => toggleGroup(stage.id)}
-          onToggleGroup={toggleGroup}
-          onFieldChange={onFieldChange}
-          onFieldAutosave={onFieldAutosave}
-          onAddItem={onAddItem}
-          onAddSubGroup={onAddSubGroup}
-          onAddComponent={onAddComponent}
-          onAddOption={onAddOption}
-          onDeleteGroup={() => onDeleteGroup(stage.id)}
-          onDeleteItem={onDeleteItem}
-          onSelectOption={onSelectOption}
-          onOpenItemDetail={handleOpenItemDetail}
-          onOpenGroupDetail={handleOpenGroupDetail}
-        />
-      ))}
+    <Box
+      bg="white"
+      border="1px solid"
+      borderColor="neutral.200"
+      borderRadius="14px"
+      boxShadow="0 1px 2px rgba(20,33,47,.05), 0 1px 3px rgba(20,33,47,.04)"
+      overflow="hidden"
+      display="flex"
+      flexDirection="column"
+      h="100%"
+      minH={0}
+    >
+      <CardViewGrandTotalBar
+        variant="top"
+        net={totals.net}
+        gross={totals.gross}
+        currencySymbol={currencySymbol}
+      />
+
+      <Box
+        ref={scrollContainerRef}
+        flex="1"
+        minH={0}
+        overflowY="auto"
+        bg={ADD_ROW_SURFACE.bg}
+      >
+        <VStack spacing={4} align="stretch" px={{ base: 2, md: 3 }} py={3}>
+          {details.rootGroups.map((stage) => (
+            <StageCard
+              key={stage.id}
+              stage={stage}
+              currencySymbol={currencySymbol}
+              schemaColumns={schemaColumns}
+              isExpanded={expandedGroups.has(stage.id)}
+              expandedGroups={expandedGroups}
+              isEditMode={isEditMode}
+              onToggle={() => toggleGroup(stage.id)}
+              onToggleGroup={toggleGroup}
+              onFieldChange={onFieldChange}
+              onFieldAutosave={onFieldAutosave}
+              onAddItem={onAddItem}
+              onAddSubGroup={onAddSubGroup}
+              onAddComponent={onAddComponent}
+              onAddOption={onAddOption}
+              onDeleteGroup={onDeleteGroup}
+              onDeleteItem={onDeleteItem}
+              onSelectOption={onSelectOption}
+              onOpenItemDetail={handleOpenItemDetail}
+              onOpenGroupDetail={handleOpenGroupDetail}
+            />
+          ))}
+        </VStack>
+      </Box>
+
+      <CardViewGrandTotalBar
+        variant="bottom"
+        net={totals.net}
+        gross={totals.gross}
+        currencySymbol={currencySymbol}
+      />
 
       {isEditMode && (
-        <Flex justify="flex-start" pt={2}>
+        <Flex
+          flexShrink={0}
+          px={4}
+          py={3}
+          bg="neutral.50"
+          borderTop="1px solid"
+          borderColor="neutral.200"
+          justify="space-between"
+          align="center"
+        >
           <AddInlineButton onClick={onAddGroup}>
             Dodaj etap
           </AddInlineButton>
+
+          <HStack spacing={2}>
+            <Text fontSize="xs" color="neutral.500">
+              {details.rootGroups.length}{' '}
+              {details.rootGroups.length === 1 ? 'etap' : 'etapów'}
+            </Text>
+          </HStack>
         </Flex>
       )}
 
@@ -275,6 +343,7 @@ export const CostEstimateCardView = forwardRef<
           isOpen={true}
           onClose={handleCloseDetail}
           isEditMode={isEditMode}
+          schemaColumns={schemaColumns}
           additionalFields={additionalFields}
           onFieldChange={onFieldChange}
           onFieldAutosave={onFieldAutosave}
@@ -293,12 +362,13 @@ export const CostEstimateCardView = forwardRef<
           onClose={handleCloseDetail}
           isEditMode={isEditMode}
           isSubStage={detailSelection.isSubStage}
+          schemaColumns={schemaColumns}
           additionalFields={additionalFields}
           onFieldChange={onFieldChange}
           onFieldAutosave={onFieldAutosave}
         />
       )}
-    </VStack>
+    </Box>
   );
 });
 

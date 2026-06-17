@@ -33,9 +33,16 @@ export const HEADER_COLUMN_BORDER = {
 export interface SearchInputProps {
   value: string;
   onChange: (q: string) => void;
+  placeholder?: string;
+  ariaLabel?: string;
 }
 
-export const SearchInput: React.FC<SearchInputProps> = ({ value, onChange }) => {
+export const SearchInput: React.FC<SearchInputProps> = ({
+  value,
+  onChange,
+  placeholder = 'Szukaj w kosztorysie...',
+  ariaLabel = 'Szukaj w kosztorysie',
+}) => {
   const [local, setLocal] = useState(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,14 +74,14 @@ export const SearchInput: React.FC<SearchInputProps> = ({ value, onChange }) => 
       <Input
         value={local}
         onChange={handleChange}
-        placeholder="Szukaj w kosztorysie..."
+        placeholder={placeholder}
         borderRadius="8px"
         fontSize="xs"
         bg="white"
         borderColor="neutral.200"
         _focus={{ borderColor: 'primary.400', boxShadow: '0 0 0 2px rgba(47,108,236,0.12)' }}
         pr={local ? '28px' : undefined}
-        aria-label="Szukaj w kosztorysie"
+        aria-label={ariaLabel}
       />
       {local && (
         <Box

@@ -169,6 +169,7 @@ export interface CostFormValues {
   name: string;
   description?: string;
   net?: number | string;
+  gross?: number | string;
   number?: string;
   contractorId?: string | null;
   date?: string;
@@ -180,6 +181,7 @@ export interface CreateCostRequest {
   name: string;
   description?: string;
   net?: number;
+  gross?: number;
   number?: string;
   contractorId?: string | null;
   date?: string;

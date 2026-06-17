@@ -2,6 +2,7 @@
 import { useParams } from "react-router-dom";
 import { Box, Spinner, Text } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
+import { BackToProjectButton } from "../components/common";
 import { ProjectDashboard } from "../features/dashboard/components/ProjectDashboard";
 import { AuthContext } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
@@ -39,7 +40,8 @@ export default function ProjectBudgetPage() {
 
   return (
     <MainLayout>
-      <Box>
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <BackToProjectButton />
         <ProjectDashboard tenantId={tenantId} projectId={projectId} projectName={projectName} />
       </Box>
     </MainLayout>

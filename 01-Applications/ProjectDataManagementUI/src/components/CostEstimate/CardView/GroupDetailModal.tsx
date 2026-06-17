@@ -18,6 +18,8 @@ import type {
 } from '../../../types/costEstimate.types.new';
 import { isTemporaryId } from '../../../types/costEstimate.types.new';
 import { PrototypeTextInput } from '../PrototypeInputs';
+import { getBaseFieldPlaceholder, getFieldLabelByKey } from '../../../utils/costEstimateFieldSchema';
+import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 import {
   getAdditionalFieldValue,
   getAdditionalFieldAutosaveValueType,
@@ -45,6 +47,7 @@ interface GroupDetailModalProps {
   onClose: () => void;
   isEditMode: boolean;
   isSubStage: boolean;
+  schemaColumns: ColumnDef[];
   additionalFields?: CostEstimateAdditionalFieldWeb[];
   onFieldChange: (
     groupId: string,
@@ -68,11 +71,13 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   onClose,
   isEditMode,
   isSubStage,
+  schemaColumns,
   additionalFields,
   onFieldChange,
   onFieldAutosave,
 }) => {
-  const groupName = group.name || (isSubStage ? 'Podetap' : 'Bez nazwy');
+  const label = (fieldKey: string): string => getFieldLabelByKey(schemaColumns, fieldKey);
+  const placeholder = (fieldKey: string): string => getBaseFieldPlaceholder(label(fieldKey));
 
   const triggerGroupNameAutosave = useCallback(
     (value: string | undefined) => {
@@ -128,10 +133,11 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
         <DetailModalSection title="Informacje podstawowe">
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Nazwa
+              {label('name')}
             </FormLabel>
             <PrototypeTextInput
-              value={groupName}
+              showBorder
+              value={group.name ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
                 onFieldChange(group.id, null, 'name', val);
@@ -140,7 +146,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
               isDisabled={!isEditMode}
               isStage={!isSubStage}
               isGroup={isSubStage}
-              placeholder={isSubStage ? 'Nazwa podetapu...' : 'Nazwa etapu...'}
+              placeholder={placeholder('name')}
             />
           </FormControl>
         </DetailModalSection>
@@ -148,27 +154,44 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
         <DetailModalSection title="Wartości finansowe">
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Wartość netto
+              {label('netValue')}
             </FormLabel>
-            <Text fontSize="sm" fontWeight="bold" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+            <Text
+              fontSize="sm"
+              fontWeight="bold"
+              textAlign="right"
+              sx={{ fontVariantNumeric: 'tabular-nums' }}
+            >
               {fmtNum(group.totalNet)} zł
             </Text>
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Wartość VAT
+              {label('vatValue')}
             </FormLabel>
-            <Text fontSize="sm" fontWeight="semibold" color="neutral.600" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+            <Text
+              fontSize="sm"
+              fontWeight="semibold"
+              color="neutral.600"
+              textAlign="right"
+              sx={{ fontVariantNumeric: 'tabular-nums' }}
+            >
               {fmtNum(group.totalVat)} zł
             </Text>
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
-              Wartość brutto
+              {label('grossValue')}
             </FormLabel>
-            <Text fontSize="sm" fontWeight="semibold" color="neutral.600" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+            <Text
+              fontSize="sm"
+              fontWeight="semibold"
+              color="neutral.600"
+              textAlign="right"
+              sx={{ fontVariantNumeric: 'tabular-nums' }}
+            >
               {fmtNum(group.totalGross)} zł
             </Text>
           </FormControl>
@@ -182,6 +205,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                   {field.name}
                 </FormLabel>
                 <AdditionalFieldInput
+                  showBorder
                   field={field}
                   fieldValues={group.additionalFieldValues ?? []}
                   isDisabled={!isEditMode}

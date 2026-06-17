@@ -78,8 +78,7 @@ export const costEstimateApi = {
   },
 
   /**
-   * Update existing cost estimate with full hierarchy.
-   * Groups/items with id will be updated, without id will be created, missing will be deleted.
+   * Update cost estimate metadata (name and description).
    */
   updateCostEstimate: async (
     tenantId: string,

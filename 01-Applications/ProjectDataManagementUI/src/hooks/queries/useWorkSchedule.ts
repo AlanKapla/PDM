@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { workScheduleApi } from '../../api/workScheduleApi';
 import { projectApi, ResourceScope } from '../../api/projectApi';
 import type {
@@ -10,12 +11,49 @@ import type {
 
 export const workScheduleKeys = {
   all: ['work-schedule'] as const,
+  lists: (tenantId: string, projectId: string) =>
+    ['work-schedule', tenantId, projectId, 'list'] as const,
+  list: (tenantId: string, projectId: string, scope: ResourceScope) =>
+    ['work-schedule', tenantId, projectId, 'list', scope] as const,
   details: (tenantId: string, projectId: string, wsId: string) =>
     ['work-schedule', tenantId, projectId, 'details', wsId] as const,
   allWorks: (tenantId: string, projectId: string) =>
     ['work-schedule', tenantId, projectId, 'all-works'] as const,
   myAssignedWorks: () => ['work-schedule', 'my-assigned-works'] as const,
 };
+
+/** Invaliduje listy harmonogramów projektu oraz cache pozycji prac (all-works). */
+export function invalidateWorkScheduleLists(
+  queryClient: QueryClient,
+  tenantId: string,
+  projectId: string,
+): Promise<void[]> {
+  return Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: workScheduleKeys.lists(tenantId, projectId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: workScheduleKeys.allWorks(tenantId, projectId),
+    }),
+  ]);
+}
+
+export function useWorkSchedulesByScope(
+  tenantId: string | undefined,
+  projectId: string | undefined,
+  scope: ResourceScope,
+  enabled: boolean = true,
+) {
+  return useQuery<WorkScheduleSummaryWeb[]>({
+    queryKey: workScheduleKeys.list(tenantId ?? '', projectId ?? '', scope),
+    queryFn: async () => {
+      const response = await projectApi.getWorkSchedules(tenantId!, projectId!, scope);
+      return response.data;
+    },
+    enabled: Boolean(tenantId && projectId && enabled),
+    staleTime: 0,
+  });
+}
 
 export interface FlatWorkItem {
   workId: string;

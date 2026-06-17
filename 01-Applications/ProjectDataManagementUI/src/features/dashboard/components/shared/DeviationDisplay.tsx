@@ -1,33 +1,37 @@
 import React from 'react';
-import { useToken } from '@chakra-ui/react';
-import { PLN, PCT, DEVIATION_COLOR } from '../../utils/formatters';
-import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
+import { Text, VStack } from '@chakra-ui/react';
+import { PCT, DEVIATION_COLOR } from '../../utils/formatters';
+import { NetGrossAmount } from './NetGrossAmount';
 
 export interface DeviationDisplayProps {
   deviationNet: number | null;
+  deviationGross?: number | null;
   deviationPercent: number | null;
   isBudgetExceeded: boolean;
 }
 
-/** Wyświetla odchylenie budżetowe (kwota + procent). Ujemna wartość = przekroczenie (kolor czerwony). */
+/** Wyświetla odchylenie budżetowe (netto + brutto + procent). Ujemna wartość = przekroczenie (kolor czerwony). */
 export function DeviationDisplay({
   deviationNet,
+  deviationGross,
   deviationPercent,
   isBudgetExceeded,
 }: DeviationDisplayProps): React.ReactElement {
   const color = DEVIATION_COLOR(deviationNet, isBudgetExceeded);
-  const [neutral400] = useToken('colors', ['neutral.400']);
-  const currencySymbol = useDashboardCurrency();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-      <span style={{ fontSize: "sm", fontWeight: "medium", color }}>
-        {PLN(deviationNet, currencySymbol)}
-      </span>
-      <span style={{ fontSize: "xs", color: neutral400 }}>
+    <VStack align="flex-end" spacing={0}>
+      <NetGrossAmount
+        net={deviationNet}
+        gross={deviationGross ?? null}
+        size="sm"
+        align="right"
+        accentColor={color}
+      />
+      <Text fontSize="xs" color="neutral.400" lineHeight="1.25">
         {PCT(deviationPercent)}
-      </span>
-    </div>
+      </Text>
+    </VStack>
   );
 }
 

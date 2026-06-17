@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useState, useContext, useRef } from "react";
+﻿import React, { useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Heading,
@@ -30,28 +31,25 @@ import { Calendar, Clock, User, Trash2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
 import { AuthContext } from "../context/AuthContext";
-import { LoadingSpinner, EmptyState } from "../components/common";
+import { BackToProjectButton, LoadingSpinner, EmptyState } from "../components/common";
 import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
-import { useTabCache } from "../hooks/useTabCache";
-import { useProjectDetails, useProjectMembers } from "../hooks/queries";
+import {
+  useProjectDetails,
+  useProjectMembers,
+  useWorkSchedulesByScope,
+  invalidateWorkScheduleLists,
+} from "../hooks/queries";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
 import type { ProjectDetailsWeb, ProjectMemberWeb } from "../types/project.types";
 
-interface TabCacheResult<T> {
-  data: T | null;
-  loading: boolean;
-  fetch: () => Promise<void>;
-  setData: (data: T) => void;
-  clear: () => void;
-}
-
 interface ScheduleTabProps {
-  cache: TabCacheResult<WorkScheduleSummaryWeb[]>;
+  schedules: WorkScheduleSummaryWeb[];
+  isLoading: boolean;
   renderSchedulesList: (schedules: WorkScheduleSummaryWeb[], canDelete: boolean) => JSX.Element;
   onOpen: () => void;
   resourcePerms: ResourcePermissions;
@@ -60,8 +58,16 @@ interface ScheduleTabProps {
   showCreate: boolean;
 }
 
-const ScheduleTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, onOpen, canDelete, description, showCreate }) => {
-  if (cache.loading) {
+const ScheduleTab = React.memo<ScheduleTabProps>(({
+  schedules,
+  isLoading,
+  renderSchedulesList,
+  onOpen,
+  canDelete,
+  description,
+  showCreate,
+}) => {
+  if (isLoading) {
     return <LoadingSpinner message="Ładowanie harmonogramów..." />;
   }
 
@@ -79,7 +85,7 @@ const ScheduleTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, 
           </Button>
         )}
       </HStack>
-      {renderSchedulesList(cache.data || [], canDelete)}
+      {renderSchedulesList(schedules, canDelete)}
     </VStack>
   );
 });
@@ -87,6 +93,7 @@ const ScheduleTab = React.memo<ScheduleTabProps>(({ cache, renderSchedulesList, 
 export default function ProjectSchedules() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useContext(AuthContext);
   const { showError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -95,37 +102,28 @@ export default function ProjectSchedules() {
   const [isDeleting, setIsDeleting] = useState(false);
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  const [loading, setLoading] = useState(true);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const hasFetchedProjectData = useRef(false);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
   const resourcePerms = useResourcePermissions(projectId, "schedule");
+  const queriesReady = !resourcePerms.raw.loading && Boolean(user?.activeTenantId && projectId);
 
-  // Tab cache dla Moje harmonogramy
-  const mySchedulesCache = useTabCache<WorkScheduleSummaryWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      const res = await projectApi.getWorkSchedules(user.activeTenantId, projectId, ResourceScope.Mine);
-      return res.data;
-    },
-    `schedules-mine-${projectId}`
+  const allSchedulesQuery = useWorkSchedulesByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.All,
+    queriesReady && resourcePerms.tabs.showAll,
+  );
+  const mySchedulesQuery = useWorkSchedulesByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.Mine,
+    queriesReady && resourcePerms.tabs.showMine,
   );
 
-  // Tab cache dla Wszystkie harmonogramy
-  const allSchedulesCache = useTabCache<WorkScheduleSummaryWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      const res = await projectApi.getWorkSchedules(user.activeTenantId, projectId, ResourceScope.All);
-      return res.data;
-    },
-    `schedules-all-${projectId}`
-  );
-
-  // React Query — dane projektu i członkowie (współdzielony cache między stronami projektu)
   const { data: projectData } = useProjectDetails(
     user?.activeTenantId ?? undefined,
     projectId
@@ -138,39 +136,18 @@ export default function ProjectSchedules() {
   );
   const members: ProjectMemberWeb[] = membersData ?? [];
 
-  useEffect(() => {
-    if (resourcePerms.raw.loading) return;
-    if (hasFetchedProjectData.current) return;
-    
-    hasFetchedProjectData.current = true;
-    fetchProjectData();
-  }, [projectId, resourcePerms.raw.loading]);
+  const loading = resourcePerms.raw.loading || (
+    queriesReady && (
+      (resourcePerms.tabs.showAll && allSchedulesQuery.isPending) ||
+      (resourcePerms.tabs.showMine && mySchedulesQuery.isPending)
+    )
+  );
 
-  const fetchProjectData = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-    
-    if (!resourcePerms.tabs.showMine && !resourcePerms.tabs.showAll) {
-      setLoading(false);
+  const refreshData = (): void => {
+    if (!user?.activeTenantId || !projectId) {
       return;
     }
-
-    setLoading(true);
-    try {
-      // Pobierz wszystkie zakładki równolegle według uprawnień
-      const fetchPromises = [];
-      if (resourcePerms.tabs.showAll) {
-        fetchPromises.push(allSchedulesCache.fetch());
-      }
-      if (resourcePerms.tabs.showMine) {
-        fetchPromises.push(mySchedulesCache.fetch());
-      }
-      
-      await Promise.all(fetchPromises);
-    } catch (error) {
-      showError("Nie udało się pobrać danych");
-    } finally {
-      setLoading(false);
-    }
+    void invalidateWorkScheduleLists(queryClient, user.activeTenantId, projectId);
   };
 
   const handleDeleteClick = (schedule: WorkScheduleSummaryWeb, e: React.MouseEvent) => {
@@ -194,17 +171,9 @@ export default function ProjectSchedules() {
     }
   };
 
-  const refreshData = () => {
-    mySchedulesCache.clear();
-    allSchedulesCache.clear();
-    hasFetchedProjectData.current = false;
-    fetchProjectData();
-  };
-
-  // Oblicz indeksy tabów - zapobiega niepotrzebnemu wywoływaniu useEffect
   const allSchedulesTabIndex = resourcePerms.tabs.showAll ? 0 : -1;
-  const mySchedulesTabIndex = 
-    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 : 
+  const mySchedulesTabIndex =
+    resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 1 :
     !resourcePerms.tabs.showAll && resourcePerms.tabs.showMine ? 0 : -1;
 
   const renderSchedulesList = (schedules: WorkScheduleSummaryWeb[], canDelete: boolean): JSX.Element => {
@@ -346,6 +315,7 @@ export default function ProjectSchedules() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <BackToProjectButton />
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={Calendar} boxSize={8} color="level2.600" />
@@ -376,7 +346,7 @@ export default function ProjectSchedules() {
                   <HStack spacing={2}>
                     <Icon as={Calendar} boxSize={4} />
                     <Text>Wszystkie harmonogramy</Text>
-                    <Badge colorScheme="level2">{allSchedulesCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="level2">{allSchedulesQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -385,7 +355,7 @@ export default function ProjectSchedules() {
                   <HStack spacing={2}>
                     <Icon as={Calendar} boxSize={4} />
                     <Text>Moje harmonogramy</Text>
-                    <Badge colorScheme="primary">{mySchedulesCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="primary">{mySchedulesQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -395,7 +365,8 @@ export default function ProjectSchedules() {
               {resourcePerms.tabs.showAll && (
                 <TabPanel p={{ base: 2, md: 4 }}>
                   <ScheduleTab
-                    cache={allSchedulesCache}
+                    schedules={allSchedulesQuery.data ?? []}
+                    isLoading={allSchedulesQuery.isPending}
                     renderSchedulesList={renderSchedulesList}
                     onOpen={onOpen}
                     resourcePerms={resourcePerms}
@@ -408,7 +379,8 @@ export default function ProjectSchedules() {
               {resourcePerms.tabs.showMine && (
                 <TabPanel p={{ base: 2, md: 4 }}>
                   <ScheduleTab
-                    cache={mySchedulesCache}
+                    schedules={mySchedulesQuery.data ?? []}
+                    isLoading={mySchedulesQuery.isPending}
                     renderSchedulesList={renderSchedulesList}
                     onOpen={onOpen}
                     resourcePerms={resourcePerms}

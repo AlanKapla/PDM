@@ -1,5 +1,6 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Badge,
   Box,
@@ -40,9 +41,9 @@ import {
   X,
 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { projectApi, ResourceScope } from "../api/projectApi";
+import { ResourceScope } from "../api/projectApi";
 import { AuthContext } from "../context/AuthContext";
-import { LoadingSpinner, EmptyState } from "../components/common";
+import { BackToProjectButton, LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { CostModal } from "../features/dashboard/components/CostModal";
@@ -53,8 +54,7 @@ import type { ProjectCostListItemWeb, CostApprovalStatus } from "../types/projec
 import type { ParsedCostDto } from "../types/ai.types";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import type { ResourcePermissions } from "../hooks/useResourcePermissions";
-import { useTabCache } from "../hooks/useTabCache";
-import { useProjectDetails } from "../hooks/queries";
+import { useProjectDetails, useProjectCostsByScope, invalidateProjectCostLists } from "../hooks/queries";
 import { useProjectCostMutations } from "../hooks/useProjectCostMutations";
 
 // === TAB COMPONENTS ===
@@ -634,13 +634,9 @@ function PendingApprovalTab({
 
 export default function ProjectSimpleCosts() {
   const { projectId } = useParams<{ projectId: string }>();
+  const queryClient = useQueryClient();
   const { user } = useContext(AuthContext);
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
-
-  const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<any | null>(null);
-  const [projectName, setProjectName] = useState("");
-  const hasFetchedProjectData = useRef(false);
+  const { showError, showApiSuccess } = useToastNotification();
 
   const [deletingCostId, setDeletingCostId] = useState<string | null>(null);
   const [editingClosedCostId, setEditingClosedCostId] = useState<string | null>(null);
@@ -669,87 +665,57 @@ export default function ProjectSimpleCosts() {
     onClose: onDeleteAlertClose,
   } = useDisclosure();
 
-  // Tab cache dla wszystkich kosztów
-  const allCostsCache = useTabCache<ProjectCostListItemWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      const res = await projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.All);
-      return res.data;
-    },
-    `costs-all-${projectId}`
-  );
-
-  // Tab cache dla moich kosztów
-  const myCostsCache = useTabCache<ProjectCostListItemWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      const res = await projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.Mine);
-      return res.data;
-    },
-    `costs-mine-${projectId}`
-  );
-
-  // Tab cache dla kosztów do akceptacji
-  const pendingCostsCache = useTabCache<ProjectCostListItemWeb[]>(
-    async () => {
-      if (!user?.activeTenantId || !projectId) return [];
-      const res = await projectApi.getProjectCosts(user.activeTenantId, projectId, ResourceScope.PendingApproval);
-      return res.data;
-    },
-    `costs-pending-${projectId}`
-  );
-
   const resourcePerms = useResourcePermissions(projectId, "costs");
+  const queriesReady = !resourcePerms.raw.loading && Boolean(user?.activeTenantId && projectId);
+
+  const allCostsQuery = useProjectCostsByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.All,
+    queriesReady && resourcePerms.tabs.showAll,
+  );
+  const myCostsQuery = useProjectCostsByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.Mine,
+    queriesReady && resourcePerms.tabs.showMine,
+  );
+  const pendingCostsQuery = useProjectCostsByScope(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    ResourceScope.PendingApproval,
+    queriesReady && resourcePerms.tabs.showPendingApproval,
+  );
+
+  const { data: project } = useProjectDetails(
+    user?.activeTenantId ?? undefined,
+    projectId
+  );
+
+  const loading = resourcePerms.raw.loading || (
+    queriesReady && (
+      (resourcePerms.tabs.showAll && allCostsQuery.isPending) ||
+      (resourcePerms.tabs.showMine && myCostsQuery.isPending) ||
+      (resourcePerms.tabs.showPendingApproval && pendingCostsQuery.isPending)
+    )
+  );
 
   const { updateCost, deleteCost, submitCostForApproval, withdrawCostFromApproval, approveCost, rejectCost } = useProjectCostMutations(
     user?.activeTenantId ?? '',
     projectId ?? ''
   );
 
-  // React Query — dane projektu (współdzielony cache między stronami projektu)
-  const { data: projectData } = useProjectDetails(
-    user?.activeTenantId ?? undefined,
-    projectId
-  );
-  useEffect(() => {
-    if (projectData) {
-      setProject(projectData);
-      setProjectName(projectData.name);
+  const refreshData = (): void => {
+    if (!user?.activeTenantId || !projectId) {
+      return;
     }
-  }, [projectData]);
-
-  useEffect(() => {
-    if (resourcePerms.raw.loading) return;
-    if (hasFetchedProjectData.current) return;
-
-    hasFetchedProjectData.current = true;
-    fetchProjectData();
-  }, [projectId, resourcePerms.raw.loading]);
-
-  const fetchProjectData = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoading(true);
-    try {
-      const fetchPromises = [];
-      if (resourcePerms.tabs.showAll) fetchPromises.push(allCostsCache.fetch());
-      if (resourcePerms.tabs.showMine) fetchPromises.push(myCostsCache.fetch());
-      if (resourcePerms.tabs.showPendingApproval) fetchPromises.push(pendingCostsCache.fetch());
-
-      await Promise.all(fetchPromises);
-    } catch {
-      // błąd obsługiwany przez cache
-    } finally {
-      setLoading(false);
-    }
+    void invalidateProjectCostLists(queryClient, user.activeTenantId, projectId);
   };
 
-  const refreshData = () => {
-    allCostsCache.clear();
-    myCostsCache.clear();
-    pendingCostsCache.clear();
-    hasFetchedProjectData.current = false;
-    fetchProjectData();
+  const findCostById = (costId: string): ProjectCostListItemWeb | undefined => {
+    return allCostsQuery.data?.find((c) => c.id === costId)
+      ?? myCostsQuery.data?.find((c) => c.id === costId)
+      ?? pendingCostsQuery.data?.find((c) => c.id === costId);
   };
 
   // ── Modal handlers ────────────────────────────────────────
@@ -797,8 +763,7 @@ export default function ProjectSimpleCosts() {
     setEditingClosedCostId(costId);
     setSavingClosedCost(true);
     try {
-      // Znajdujemy koszt w cache aby pobrać wszystkie dane
-      const cost = allCostsCache.data?.find(c => c.id === costId) || myCostsCache.data?.find(c => c.id === costId);
+      const cost = findCostById(costId);
       if (!cost) {
         showError("Nie znaleziono kosztu");
         return;
@@ -894,12 +859,13 @@ export default function ProjectSimpleCosts() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <BackToProjectButton />
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={DollarSign} boxSize={8} color="red.600" />
             <VStack align="flex-start" spacing={0}>
               <Heading size="lg">Wydatki</Heading>
-              {projectName && <Text fontSize="sm" color="neutral.600">{projectName}</Text>}
+              {project && <Text fontSize="sm" color="neutral.600">{project.name}</Text>}
             </VStack>
           </HStack>
         </HStack>
@@ -920,7 +886,7 @@ export default function ProjectSimpleCosts() {
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
                     <Text>Wszystkie</Text>
-                    <Badge colorScheme="level2" ml={2}>{allCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="level2" ml={2}>{allCostsQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -929,7 +895,7 @@ export default function ProjectSimpleCosts() {
                   <HStack spacing={2}>
                     <Icon as={DollarSign} boxSize={4} />
                     <Text>Moje</Text>
-                    <Badge colorScheme="primary" ml={2}>{myCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="primary" ml={2}>{myCostsQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -938,7 +904,7 @@ export default function ProjectSimpleCosts() {
                   <HStack spacing={2}>
                     <Icon as={Clock} boxSize={4} />
                     <Text>Do akceptacji</Text>
-                    <Badge colorScheme="orange" ml={2}>{pendingCostsCache.data?.length || 0}</Badge>
+                    <Badge colorScheme="orange" ml={2}>{pendingCostsQuery.data?.length ?? 0}</Badge>
                   </HStack>
                 </Tab>
               )}
@@ -949,8 +915,8 @@ export default function ProjectSimpleCosts() {
               {resourcePerms.tabs.showAll && (
                 <TabPanel>
                   <AllCostsTab
-                    costs={allCostsCache.data || []}
-                    loading={allCostsCache.loading}
+                    costs={allCostsQuery.data ?? []}
+                    loading={allCostsQuery.isPending}
                     resourcePerms={resourcePerms}
                     deletingCostId={deletingCostId}
                     onAddCost={handleOpenAddModal}
@@ -963,8 +929,8 @@ export default function ProjectSimpleCosts() {
               {resourcePerms.tabs.showMine && (
                 <TabPanel>
                   <MyCostsTab
-                    costs={myCostsCache.data || []}
-                    loading={myCostsCache.loading}
+                    costs={myCostsQuery.data ?? []}
+                    loading={myCostsQuery.isPending}
                     deletingCostId={deletingCostId}
                     submittingCostId={submittingCostId}
                     withdrawingCostId={withdrawingCostId}
@@ -981,8 +947,8 @@ export default function ProjectSimpleCosts() {
               {resourcePerms.tabs.showPendingApproval && (
                 <TabPanel>
                   <PendingApprovalTab
-                    costs={pendingCostsCache.data || []}
-                    loading={pendingCostsCache.loading}
+                    costs={pendingCostsQuery.data ?? []}
+                    loading={pendingCostsQuery.isPending}
                     approvingCostId={approvingCostId}
                     rejectingCostId={rejectingCostId}
                     onApproveCost={handleApproveCost}

@@ -39,7 +39,7 @@ import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
 import CreateDirectoryModal from "../components/CreateDirectoryModal";
 import { AuthContext } from "../context/AuthContext";
-import { LoadingSpinner, EmptyState } from "../components/common";
+import { BackToProjectButton, LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
 import { formatDate } from "../utils/formatters";
@@ -1256,6 +1256,7 @@ export default function ProjectFiles() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+        <BackToProjectButton />
         <HStack justify="space-between" mb={8} flexWrap="wrap" gap={4}>
           <HStack spacing={3}>
             <Icon as={FileText} boxSize={8} color="level2.600" />

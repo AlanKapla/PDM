@@ -8,6 +8,7 @@ import { handleApiError } from "../../utils/handleApiError";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import type { ResourcePermissions } from "../../hooks/useResourcePermissions";
 import { AuthContext } from "../../context/AuthContext";
+import { collectExpandableStageIdsForSearch } from "./ganttRowUtils";
 
 // ─── Typy pomocnicze ──────────────────────────────────────────────────────────
 
@@ -107,6 +108,8 @@ interface GanttContextValue {
   showComments: boolean;
   showDependencies: boolean;
   mobileModal: MobileModal;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 
   // Operacje ładowania
   fetchSchedule: () => Promise<void>;
@@ -184,6 +187,8 @@ interface GanttProviderProps {
   preloadedSchedule?: WorkScheduleDetailsWeb;
   /** Uprawnienia Gantt — domyślnie GANTT_PERMISSIONS.full */
   ganttPermissions?: GanttPermissions;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
   children: React.ReactNode;
 }
 
@@ -193,6 +198,8 @@ export function GanttProvider({
   onAfterInitialLoad,
   preloadedSchedule,
   ganttPermissions: ganttPermissionsFromProps,
+  searchQuery: searchQueryFromProps = '',
+  onSearchChange,
   children,
 }: GanttProviderProps) {
   const { showSuccess, showError } = useToastNotification();
@@ -229,6 +236,10 @@ export function GanttProvider({
   const [showComments, setShowComments] = useState(true);
   const [showDependencies, setShowDependencies] = useState(true);
   const [mobileModal, setMobileModal] = useState<MobileModal>(null);
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  const isSearchControlled = onSearchChange !== undefined;
+  const searchQuery = isSearchControlled ? searchQueryFromProps : internalSearchQuery;
+  const setSearchQuery = isSearchControlled ? onSearchChange : setInternalSearchQuery;
 
   const canEdit = permissions?.mine.canEdit || permissions?.all.canEdit || permissions?.shared.canEdit;
 
@@ -368,6 +379,17 @@ export function GanttProvider({
   }, []);
 
   const collapseAll = useCallback(() => setExpandedStages(new Set()), []);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || !schedule?.stages) {
+      return;
+    }
+    const idsToExpand = collectExpandableStageIdsForSearch(schedule.stages, searchQuery);
+    if (idsToExpand.length === 0) {
+      return;
+    }
+    setExpandedStages((prev) => new Set([...prev, ...idsToExpand]));
+  }, [searchQuery, schedule?.stages]);
 
   const toggleWorkPeriods = useCallback((workId: string) => {
     setCollapsedWorks(prev => {
@@ -701,6 +723,8 @@ export function GanttProvider({
     showComments,
     showDependencies,
     mobileModal,
+    searchQuery,
+    setSearchQuery,
     fetchSchedule,
     refreshSchedule,
     setMode,
@@ -735,7 +759,7 @@ export function GanttProvider({
     syncWithEstimate,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [schedule, members, isLoading, isMutating, mode, canEdit, permissions, resolvedGanttPermissions, tenantId, projectId, workScheduleId,
-    expandedStages, collapsedWorks, showComments, showDependencies, mobileModal,
+    expandedStages, collapsedWorks, showComments, showDependencies, mobileModal, searchQuery, setSearchQuery,
     fetchSchedule, refreshSchedule, setMode, toggleStage, expandAll, collapseAll, toggleWorkPeriods, setShowComments, setShowDependencies,
     openMobileModal, closeMobileModal, renameSchedule, addStage, deleteStage, renameStage, reorderStages, moveStage,
     addWork, deleteWork, renameWork, reorderWorks, moveWork, setPeriods, setWorkColor, setWorkIsClosed,

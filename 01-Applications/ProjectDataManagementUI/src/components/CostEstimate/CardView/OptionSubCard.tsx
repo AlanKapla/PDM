@@ -4,19 +4,22 @@
  */
 
 import React, { useCallback } from 'react';
-import { Box, Flex, Text } from '@chakra-ui/react';
+import { Box, Flex } from '@chakra-ui/react';
 import { Trash2 } from 'lucide-react';
 import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
 import { GhostActionButton } from '../PrototypeActionButtons';
 import { OptionRadioButton } from './OptionRadioButton';
 import { getItemRowSurface } from '../TreeView/treeViewRowSurfaces';
 import { CardAmountSummary } from './CardAmountSummary';
+import { CardNameText } from './CardNameText';
+import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 
 interface OptionSubCardProps {
   option: CostEstimateItemWeb;
   groupId: string;
   parentItemId: string;
   currencySymbol: string;
+  schemaColumns: ColumnDef[];
   isEditMode: boolean;
   onDeleteItem: (itemId: string) => void;
   onSelectOption: (groupId: string, itemId: string, optionId: string) => void;
@@ -41,13 +44,13 @@ export const OptionSubCard: React.FC<OptionSubCardProps> = ({
   groupId,
   parentItemId,
   currencySymbol,
+  schemaColumns,
   isEditMode,
   onDeleteItem,
   onSelectOption,
   onOpenItemDetail,
 }) => {
   const isSelected = option.isSelected;
-  const optionName = option.name || 'Bez nazwy';
   const totalNet = option.netValue ?? 0;
   const totalGross = option.grossValue ?? 0;
   const rowSurface = getItemRowSurface(4);
@@ -91,15 +94,15 @@ export const OptionSubCard: React.FC<OptionSubCardProps> = ({
           />
         </Box>
 
-        <Text
+        <CardNameText
+          name={option.name}
+          schemaColumns={schemaColumns}
           flex={1}
           minW={0}
           fontSize="xs"
           fontWeight="semibold"
           noOfLines={2}
-        >
-          {optionName}
-        </Text>
+        />
 
         <CardAmountSummary
           net={totalNet}

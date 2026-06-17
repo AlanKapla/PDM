@@ -11,8 +11,9 @@
  * - Real-time calculations
  */
 
-import React, { useState, useMemo, useCallback, useContext, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useMemo, useCallback, useContext, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useProjectUnits, useAddProjectUnit } from '../../../hooks/useProjectUnits';
+import { useNewRootGroupFocus } from '../../../hooks/useNewRootGroupFocus';
 import {
   Box,
   Flex,
@@ -152,7 +153,7 @@ interface CostEstimateTreeViewProps {
     valueType: 'string' | 'numeric' | 'boolean' | 'date';
     value: string | undefined;
   }) => void;
-  onAddGroup: () => void;
+  onAddGroup: () => void | Promise<string | undefined>;
   onAddSubGroup: (parentGroupId: string) => void;
   onAddItem: (groupId: string) => void;
   onAddComponent: (groupId: string, itemId: string) => void;
@@ -232,6 +233,9 @@ export const CostEstimateTreeView = forwardRef<
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(details.rootGroups.map((g) => g.id))
   );
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useNewRootGroupFocus(details.rootGroups, setExpandedGroups, scrollContainerRef);
 
   // Sort / filter state (searchQuery is managed by parent)
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
@@ -672,6 +676,7 @@ export const CostEstimateTreeView = forwardRef<
       minH={0}
     >
       <Box
+        ref={scrollContainerRef}
         flex="1"
         minH={0}
         overflow="auto"
@@ -720,11 +725,16 @@ export const CostEstimateTreeView = forwardRef<
                       onFieldAutosave={onFieldAutosave}
                       onAddItem={() => onAddItem(group.id)}
                       onAddSubGroup={() => onAddSubGroup(group.id)}
+                      onAddItemFromRow={(groupId) => onAddItem(groupId)}
                       onAddSubGroupFromRow={(parentGroupId) => onAddSubGroup(parentGroupId)}
+                      onDeleteGroupFromRow={(groupId) => onDeleteGroup(groupId)}
                       onAddComponent={(itemId) => onAddComponent(group.id, itemId)}
                       onAddOption={(itemId) => onAddOption(group.id, itemId)}
+                      onAddComponentFromRow={(groupId, itemId) => onAddComponent(groupId, itemId)}
+                      onAddOptionFromRow={(groupId, itemId) => onAddOption(groupId, itemId)}
                       onDeleteGroup={() => onDeleteGroup(group.id)}
                       onDeleteItem={(itemId) => onDeleteItem(group.id, itemId)}
+                      onDeleteItemFromRow={(groupId, itemId) => onDeleteItem(groupId, itemId)}
                       onSelectOption={(gId, itemId, optionId) =>
                         onSelectOption(gId, itemId, optionId)
                       }

@@ -23,10 +23,7 @@ export function getGroupRowSurface(level: number): RowSurfaceColors {
   if (level === 0) {
     return SURFACES.groupL0;
   }
-  if (level === 1) {
-    return SURFACES.groupL1;
-  }
-  return SURFACES.default;
+  return SURFACES.groupL1;
 }
 
 export function getItemRowSurface(itemLevel: number): RowSurfaceColors {

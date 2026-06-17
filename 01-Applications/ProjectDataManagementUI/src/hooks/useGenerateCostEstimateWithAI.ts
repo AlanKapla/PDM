@@ -1,5 +1,6 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { costEstimateApi } from '../api/costEstimateApi';
+import { invalidateCostEstimateLists } from './queries/useCostEstimate';
 import type {
   AICostEstimateRequestDto,
   AICostEstimatePreviewDto,
@@ -19,6 +20,8 @@ import type {
  *  const id = await createFromPreview.mutateAsync({ name, description, preview });
  */
 export function useGenerateCostEstimateWithAI(tenantId: string, projectId: string) {
+  const queryClient = useQueryClient();
+
   const generatePreview = useMutation<AICostEstimatePreviewDto, Error, AICostEstimateRequestDto>({
     mutationFn: (request: AICostEstimateRequestDto) =>
       costEstimateApi.generateAIPreview(tenantId, projectId, request),
@@ -27,6 +30,9 @@ export function useGenerateCostEstimateWithAI(tenantId: string, projectId: strin
   const createFromPreview = useMutation<string, Error, CreateCostEstimateFromAIPreviewDto>({
     mutationFn: (body: CreateCostEstimateFromAIPreviewDto) =>
       costEstimateApi.createFromAIPreview(tenantId, projectId, body),
+    onSuccess: () => {
+      void invalidateCostEstimateLists(queryClient, tenantId, projectId);
+    },
   });
 
   return {

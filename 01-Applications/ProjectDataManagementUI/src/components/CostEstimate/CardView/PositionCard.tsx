@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { Box, Flex, HStack, VStack, Text, SimpleGrid, Collapse } from '@chakra-ui/react';
+import { Box, Flex, HStack, VStack, SimpleGrid, Collapse } from '@chakra-ui/react';
 import { Trash2 } from 'lucide-react';
 import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
 import { isTemporaryId } from '../../../types/costEstimate.types.new';
@@ -16,6 +16,8 @@ import { useCostEstimateItemFieldState } from '../../../hooks/useCostEstimateIte
 import { getItemRowSurface } from '../TreeView/treeViewRowSurfaces';
 import { CardAmountSummary, CardRowAside, CardRowDivider } from './CardAmountSummary';
 import { CardSumujControl } from './CardSumujControl';
+import { CardNameText } from './CardNameText';
+import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 
 interface AutosaveParams {
   entityType: 'group' | 'item';
@@ -34,6 +36,7 @@ interface PositionCardProps {
   item: CostEstimateItemWeb;
   groupId: string;
   currencySymbol: string;
+  schemaColumns: ColumnDef[];
   isEditMode: boolean;
   onFieldChange: (
     groupId: string,
@@ -66,6 +69,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
   item,
   groupId,
   currencySymbol,
+  schemaColumns,
   isEditMode,
   onFieldChange,
   onFieldAutosave,
@@ -82,7 +86,6 @@ export const PositionCard: React.FC<PositionCardProps> = ({
   const hasChildren = hasComponents || hasOptions;
   const [isChildrenExpanded, setIsChildrenExpanded] = useState(true);
 
-  const positionName = item.name || 'Bez nazwy';
   const isSelected = item.isSelected;
   const totalNet = item.netValue ?? 0;
   const totalGross = item.grossValue ?? 0;
@@ -156,15 +159,15 @@ export const PositionCard: React.FC<PositionCardProps> = ({
           )}
         </HStack>
 
-        <Text
+        <CardNameText
+          name={item.name}
+          schemaColumns={schemaColumns}
           flex={1}
           minW={0}
           fontSize="sm"
           fontWeight={isComponent || isOption ? 'semibold' : 'bold'}
           noOfLines={2}
-        >
-          {positionName}
-        </Text>
+        />
 
         <CardAmountSummary
           net={totalNet}
@@ -244,6 +247,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
                   item={comp}
                   groupId={groupId}
                   currencySymbol={currencySymbol}
+                  schemaColumns={schemaColumns}
                   isEditMode={isEditMode}
                   onFieldChange={onFieldChange}
                   onFieldAutosave={onFieldAutosave}
@@ -273,6 +277,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
                   groupId={groupId}
                   parentItemId={item.id}
                   currencySymbol={currencySymbol}
+                  schemaColumns={schemaColumns}
                   isEditMode={isEditMode}
                   onDeleteItem={onDeleteItem}
                   onSelectOption={onSelectOption}

@@ -3,7 +3,7 @@ import { Skeleton, VStack, HStack } from "@chakra-ui/react";
 import { useGantt } from "./GanttContext";
 import GanttLeftPanel from "./GanttLeftPanel";
 import GanttRightGrid from "./GanttRightGrid";
-import { buildFlatRows, isTodayDate } from "./ganttRowUtils";
+import { buildFlatRows, filterStagesBySearch, isTodayDate } from "./ganttRowUtils";
 import { G } from "./ganttTokens";
 import type { DateGroup, TimeScale } from "../../hooks/useTimelineData";
 
@@ -31,7 +31,7 @@ export default function GanttLayout({
   height = "calc(100vh - 140px)",
   autoScrollToToday = false,
 }: GanttLayoutProps) {
-  const { isLoading, schedule, expandedStages, collapsedWorks, mode, isMutating } = useGantt();
+  const { isLoading, schedule, expandedStages, collapsedWorks, mode, isMutating, searchQuery } = useGantt();
 
   const internalScrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = scrollContainerRefFromProps ?? internalScrollRef;
@@ -91,9 +91,14 @@ export default function GanttLayout({
     }
   }, [isMutating, scrollContainerRef]);
 
+  const filteredStages = useMemo(
+    () => filterStagesBySearch(schedule?.stages ?? [], searchQuery),
+    [schedule?.stages, searchQuery],
+  );
+
   const flatRows = useMemo(
-    () => buildFlatRows(schedule?.stages ?? [], expandedStages, mode, collapsedWorks),
-    [schedule, expandedStages, mode, collapsedWorks],
+    () => buildFlatRows(filteredStages, expandedStages, mode, collapsedWorks),
+    [filteredStages, expandedStages, mode, collapsedWorks],
   );
 
   /** Synchronizuje pozycję pionową lewego panelu z prawym */

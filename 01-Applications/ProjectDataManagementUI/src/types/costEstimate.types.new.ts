@@ -109,13 +109,11 @@ export interface CreateCostEstimateDto {
 }
 
 /**
- * DTO dla aktualizacji kosztorysu z pełną strukturą
+ * DTO dla aktualizacji metadanych kosztorysu (nazwa i opis).
  */
 export interface UpdateCostEstimateDto {
   name: string;
   description?: string;
-  status: CostEstimateStatus;
-  rootGroups: CostEstimateGroupDto[];
 }
 
 // ========== ADDITIONAL FIELDS (NEW ARCHITECTURE) ==========
@@ -672,8 +670,6 @@ export function convertDetailsWebToUpdateDto(details: CostEstimateDetailsWeb): U
   return {
     name: details.name,
     description: details.description,
-    status: details.status,
-    rootGroups: details.rootGroups.map(convertGroupWebToDto)
   };
 }
 

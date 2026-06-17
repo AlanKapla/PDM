@@ -9,6 +9,7 @@ import {
   sanitizeDecimalInput,
 } from '../../utils/additionalFieldHelpers';
 import { PrototypeTextInput, PrototypeNumberInput, PrototypeDateInput } from './PrototypeInputs';
+import { getInputTextAlign } from '../../utils/costEstimateFieldSchema';
 
 interface AdditionalFieldInputProps {
   field: Pick<CostEstimateAdditionalFieldWeb, 'id' | 'name' | 'fieldType'>;
@@ -18,6 +19,8 @@ interface AdditionalFieldInputProps {
   w?: string;
   /** W TreeView — input bez białego tła przy hover/focus */
   blendWithRow?: boolean;
+  /** W modalach formularza — widoczna ramka od razu */
+  showBorder?: boolean;
   valueAlign?: 'left' | 'right';
 }
 
@@ -28,9 +31,11 @@ export const AdditionalFieldInput: React.FC<AdditionalFieldInputProps> = ({
   onChange,
   w = 'full',
   blendWithRow = false,
-  valueAlign = 'left',
+  showBorder = false,
+  valueAlign,
 }) => {
   const inputKind = getAdditionalFieldInputKind(field.fieldType);
+  const resolvedValueAlign = valueAlign ?? getInputTextAlign(field.id, field.fieldType);
 
   if (inputKind === 'number') {
     const currentValue = getAdditionalFieldValueAsString(fieldValues, field.id) ?? '';
@@ -47,6 +52,7 @@ export const AdditionalFieldInput: React.FC<AdditionalFieldInputProps> = ({
         placeholder={field.name}
         w={w}
         blendWithRow={blendWithRow}
+        showBorder={showBorder}
       />
     );
   }
@@ -80,7 +86,8 @@ export const AdditionalFieldInput: React.FC<AdditionalFieldInputProps> = ({
         isDisabled={isDisabled}
         w={w}
         blendWithRow={blendWithRow}
-        textAlign={valueAlign}
+        showBorder={showBorder}
+        textAlign={resolvedValueAlign}
       />
     );
   }
@@ -96,7 +103,8 @@ export const AdditionalFieldInput: React.FC<AdditionalFieldInputProps> = ({
       placeholder={field.name}
       w={w}
       blendWithRow={blendWithRow}
-      textAlign={valueAlign}
+      showBorder={showBorder}
+      textAlign={resolvedValueAlign}
     />
   );
 };

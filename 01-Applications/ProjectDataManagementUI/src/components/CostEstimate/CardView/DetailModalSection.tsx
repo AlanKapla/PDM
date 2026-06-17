@@ -15,7 +15,7 @@ export const DetailModalSection: React.FC<DetailModalSectionProps> = ({
       border="1px solid"
       borderColor="neutral.200"
       borderRadius="12px"
-      bg="neutral.25"
+      bg="white"
       px={5}
       py={4}
     >

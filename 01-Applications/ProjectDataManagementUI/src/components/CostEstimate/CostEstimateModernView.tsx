@@ -48,7 +48,7 @@ interface CostEstimateModernViewProps {
     valueType: 'string' | 'numeric' | 'boolean' | 'date';
     value: string | undefined;
   }) => void;
-  onAddGroup: () => void;
+  onAddGroup: () => void | Promise<string | undefined>;
   onAddSubGroup: (parentGroupId: string) => void;
   onAddItem: (groupId: string) => void;
   onAddComponent: (groupId: string, itemId: string) => void;
@@ -146,7 +146,14 @@ export const CostEstimateModernView = forwardRef<
 
   if (isMobile) {
     return (
-      <Box>
+      <Box
+        display="flex"
+        flexDirection="column"
+        flex={fillHeight ? 1 : undefined}
+        h={fillHeight ? '100%' : undefined}
+        minH={fillHeight ? 0 : undefined}
+        maxH={fillHeight ? undefined : 'calc(100dvh - 200px)'}
+      >
         <CostEstimateCardView
           ref={cardViewRef}
           details={filteredDetails}
@@ -179,8 +186,9 @@ export const CostEstimateModernView = forwardRef<
       {effectiveViewMode === 'tree' ? (
         <Box
           flex={fillHeight ? 1 : undefined}
-          minH={fillHeight ? 0 : undefined}
-          maxH={fillHeight ? '100%' : 'calc(100dvh - 380px)'}
+          minH={fillHeight ? 0 : 'calc(100dvh - 200px)'}
+          h={fillHeight ? '100%' : 'calc(100dvh - 200px)'}
+          maxH={fillHeight ? '100%' : 'calc(100dvh - 200px)'}
           display="flex"
           flexDirection="column"
         >
@@ -214,23 +222,32 @@ export const CostEstimateModernView = forwardRef<
           />
         </Box>
       ) : (
-        <CostEstimateCardView
-          ref={cardViewRef}
-          details={details}
-          currencySymbol={currencySymbol}
-          isEditMode={isEditMode}
-          onFieldChange={onFieldChange}
-          onFieldAutosave={onFieldAutosave}
-          onAddGroup={onAddGroup}
-          onAddSubGroup={onAddSubGroup}
-          onAddItem={onAddItem}
-          onAddComponent={onAddComponent}
-          onAddOption={onAddOption}
-          onDeleteGroup={onDeleteGroup}
-          onDeleteItem={onDeleteItem}
-          onSelectOption={onSelectOption}
-          onUploadFiles={onUploadFiles}
-        />
+        <Box
+          flex={fillHeight ? 1 : undefined}
+          minH={fillHeight ? 0 : 'calc(100dvh - 200px)'}
+          h={fillHeight ? '100%' : 'calc(100dvh - 200px)'}
+          maxH={fillHeight ? '100%' : 'calc(100dvh - 200px)'}
+          display="flex"
+          flexDirection="column"
+        >
+          <CostEstimateCardView
+            ref={cardViewRef}
+            details={details}
+            currencySymbol={currencySymbol}
+            isEditMode={isEditMode}
+            onFieldChange={onFieldChange}
+            onFieldAutosave={onFieldAutosave}
+            onAddGroup={onAddGroup}
+            onAddSubGroup={onAddSubGroup}
+            onAddItem={onAddItem}
+            onAddComponent={onAddComponent}
+            onAddOption={onAddOption}
+            onDeleteGroup={onDeleteGroup}
+            onDeleteItem={onDeleteItem}
+            onSelectOption={onSelectOption}
+            onUploadFiles={onUploadFiles}
+          />
+        </Box>
       )}
     </Box>
   );

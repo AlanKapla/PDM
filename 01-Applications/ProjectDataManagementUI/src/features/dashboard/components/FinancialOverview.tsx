@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useToken } from '@chakra-ui/react';
 import type { ProjectFinancialSummaryWeb } from '../types/projectDashboard.types';
-import { PLN, PROG } from '../utils/formatters';
+import { PROG } from '../utils/formatters';
 import { KpiCard } from './shared/KpiCard';
+import { NetGrossAmount } from './shared/NetGrossAmount';
 import { MiniProgressBar } from './shared/MiniProgressBar';
 import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
 import { BudgetReserveModal } from './BudgetReserveModal';
 import { DEVIATION_COLOR } from '../utils/formatters';
-import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
 export interface FinancialOverviewProps {
   data: ProjectFinancialSummaryWeb;
@@ -27,7 +27,6 @@ export function FinancialOverview({
   onRefetch,
 }: FinancialOverviewProps): React.ReactElement {
   const [showBudgetModal, setShowBudgetModal] = useState(false);
-  const currencySymbol = useDashboardCurrency();
   const [
     neutral200, amber400, level1500, neutral400,
     action50, action600, level250, level2600, level2100, red400,
@@ -53,15 +52,22 @@ export function FinancialOverview({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-        <KpiCard label="Budżet łączny" value={PLN(data.totalBudgetNet, currencySymbol)} small />
-        <KpiCard label="Koszty łączne" value={PLN(data.totalCostsNet, currencySymbol)} small />
+        <KpiCard label="Budżet łączny" netValue={data.totalBudgetNet} grossValue={data.totalBudgetGross} small />
+        <KpiCard label="Koszty łączne" netValue={data.totalCostsNet} grossValue={data.totalCostsGross} small />
         <KpiCard
           label="Pozostało do wydania"
-          value={PLN(data.deviationNet, currencySymbol)}
+          netValue={data.deviationNet}
+          grossValue={data.deviationGross}
           accent={deviationColor}
           small
         />
-        <KpiCard label="Koszty główne" value={PLN(data.additionalCostsNet, currencySymbol)} accent={amber400} small />
+        <KpiCard
+          label="Koszty główne"
+          netValue={data.additionalCostsNet}
+          grossValue={data.additionalCostsGross}
+          accent={amber400}
+          small
+        />
       </div>
 
       <MiniProgressBar
@@ -77,15 +83,23 @@ export function FinancialOverview({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
         <div style={{ background: action50, borderRadius: 8, padding: '10px 12px' }}>
           <div style={{ fontSize: '0.75rem', color: neutral400, marginBottom: 2 }}>Budżet kosztorysów</div>
-          <div style={{ fontSize: '1rem', fontWeight: 500, color: action600 }}>
-            {PLN(data.estimateBudgetNet, currencySymbol)}
-          </div>
+          <NetGrossAmount
+            net={data.estimateBudgetNet}
+            gross={data.estimateBudgetGross}
+            size="sm"
+            align="left"
+            accentColor={action600}
+          />
         </div>
         <div style={{ background: level250, borderRadius: 8, padding: '10px 12px' }}>
           <div style={{ fontSize: '0.75rem', color: neutral400, marginBottom: 2 }}>Budżet główny</div>
-          <div style={{ fontSize: '1rem', fontWeight: 500, color: level2600 }}>
-            {PLN(data.projectReserveBudgetNet, currencySymbol)}
-          </div>
+          <NetGrossAmount
+            net={data.projectReserveBudgetNet}
+            gross={data.projectReserveBudgetGross}
+            size="sm"
+            align="left"
+            accentColor={level2600}
+          />
         </div>
       </div>
 

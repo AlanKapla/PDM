@@ -11,26 +11,42 @@ interface PrototypeInputProps extends Omit<InputProps, 'variant'> {
   isStage?: boolean;
   /** W TreeView — bez białego tła przy hover/focus, spójnie z tłem wiersza */
   blendWithRow?: boolean;
+  /** W modalach formularza — widoczna ramka i białe tło od razu */
+  showBorder?: boolean;
 }
 
-const getInlineInputInteractionStyles = (blendWithRow: boolean) => ({
-  _hover: blendWithRow
-    ? { bg: 'transparent', borderColor: 'neutral.200' }
-    : { bg: 'white', borderColor: 'neutral.200' },
-  _focus: blendWithRow
-    ? {
-        bg: 'transparent',
-        borderColor: 'primary.500',
-        boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
-        outline: 'none',
-      }
-    : {
+const getInlineInputInteractionStyles = (blendWithRow: boolean, showBorder: boolean) => {
+  if (showBorder) {
+    return {
+      _hover: { bg: 'white', borderColor: 'neutral.300' },
+      _focus: {
         bg: 'white',
         borderColor: 'primary.500',
         boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
         outline: 'none',
       },
-});
+    };
+  }
+
+  return {
+    _hover: blendWithRow
+      ? { bg: 'transparent', borderColor: 'neutral.200' }
+      : { bg: 'white', borderColor: 'neutral.200' },
+    _focus: blendWithRow
+      ? {
+          bg: 'transparent',
+          borderColor: 'primary.500',
+          boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
+          outline: 'none',
+        }
+      : {
+          bg: 'white',
+          borderColor: 'primary.500',
+          boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
+          outline: 'none',
+        },
+  };
+};
 
 /**
  * Inline text input with prototype styling
@@ -42,15 +58,16 @@ export const PrototypeTextInput: React.FC<PrototypeInputProps> = ({
   isGroup = false,
   isStage = false,
   blendWithRow = false,
+  showBorder = false,
   ...props
 }) => {
-  const interactionStyles = getInlineInputInteractionStyles(blendWithRow);
+  const interactionStyles = getInlineInputInteractionStyles(blendWithRow, showBorder);
 
   return (
     <Input
       border="1px solid"
-      borderColor="transparent"
-      bg="transparent"
+      borderColor={showBorder ? 'neutral.200' : 'transparent'}
+      bg={showBorder ? 'white' : 'transparent'}
       borderRadius="8px"
       px="10px"
       py="7px"
@@ -72,18 +89,19 @@ export const PrototypeTextInput: React.FC<PrototypeInputProps> = ({
  */
 export const PrototypeNumberInput: React.FC<PrototypeInputProps> = ({
   blendWithRow = false,
+  showBorder = false,
   sx,
   ...props
 }) => {
-  const interactionStyles = getInlineInputInteractionStyles(blendWithRow);
+  const interactionStyles = getInlineInputInteractionStyles(blendWithRow, showBorder);
 
   return (
     <Input
       type="text"
       inputMode="decimal"
       border="1px solid"
-      borderColor="transparent"
-      bg="transparent"
+      borderColor={showBorder ? 'neutral.200' : 'transparent'}
+      bg={showBorder ? 'white' : 'transparent'}
       borderRadius="8px"
       px="10px"
       py="7px"
@@ -105,16 +123,17 @@ export const PrototypeNumberInput: React.FC<PrototypeInputProps> = ({
  */
 export const PrototypeDateInput: React.FC<PrototypeInputProps> = ({
   blendWithRow = false,
+  showBorder = false,
   ...props
 }) => {
-  const interactionStyles = getInlineInputInteractionStyles(blendWithRow);
+  const interactionStyles = getInlineInputInteractionStyles(blendWithRow, showBorder);
 
   return (
     <Input
       type="date"
       border="1px solid"
-      borderColor="transparent"
-      bg="transparent"
+      borderColor={showBorder ? 'neutral.200' : 'transparent'}
+      bg={showBorder ? 'white' : 'transparent'}
       borderRadius="8px"
       px="10px"
       py="7px"
