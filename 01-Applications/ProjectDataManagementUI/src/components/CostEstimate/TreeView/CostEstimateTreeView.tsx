@@ -568,30 +568,24 @@ export const CostEstimateTreeView = forwardRef<
   // Summary row renderer
   // ---------------------------------------------------------------------------
 
-  const renderSummaryRow = (variant: 'top' | 'bottom') => {
-    const isTop = variant === 'top';
-    const bg = isTop ? 'neutral.25' : 'neutral.50';
+  const renderSummaryRow = () => {
+    const bg = 'neutral.25';
 
     return (
     <Flex
       align="center"
       minH="52px"
-      borderTop={isTop ? '1px solid' : '2px solid'}
-      borderBottom={isTop ? '1px solid' : undefined}
+      borderTop="1px solid"
+      borderBottom="1px solid"
       borderColor="neutral.300"
       bg={bg}
       minW={`${totalColumnsWidth}px`}
       role="row"
       position="sticky"
-      top={isTop ? `${TREE_VIEW_HEADER_HEIGHT}px` : undefined}
-      bottom={isTop ? undefined : 0}
+      top={`${TREE_VIEW_HEADER_HEIGHT}px`}
       zIndex={9}
       flexShrink={0}
-      boxShadow={
-        isTop
-          ? '0 2px 4px rgba(20,33,47,0.06)'
-          : '0 -4px 6px -1px rgba(20,33,47,0.08)'
-      }
+      boxShadow="0 2px 4px rgba(20,33,47,0.06)"
     >
       {/* Sticky Name cell */}
       <Box
@@ -694,7 +688,7 @@ export const CostEstimateTreeView = forwardRef<
             actionsColWidth={colWidths['actions'] ?? 120}
           />
 
-          {renderSummaryRow('top')}
+          {renderSummaryRow()}
 
           <Box flex="1" minH={0}>
             <DndContext
@@ -754,8 +748,6 @@ export const CostEstimateTreeView = forwardRef<
               </SortableContext>
             </DndContext>
           </Box>
-
-          {renderSummaryRow('bottom')}
         </Box>
       </Box>
 

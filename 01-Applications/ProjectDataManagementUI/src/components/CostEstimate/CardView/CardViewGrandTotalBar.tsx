@@ -3,7 +3,6 @@ import { Flex, Text, useBreakpointValue } from '@chakra-ui/react';
 import { CardAmountSummary, type CardAmountSummarySize } from './CardAmountSummary';
 
 interface CardViewGrandTotalBarProps {
-  variant: 'top' | 'bottom';
   net: number;
   gross: number;
   currencySymbol: string;
@@ -11,13 +10,10 @@ interface CardViewGrandTotalBarProps {
 
 /** Pasek „Razem” — płaski, na krawędzi kontenera (jak wiersz podsumowania w tree view). */
 export function CardViewGrandTotalBar({
-  variant,
   net,
   gross,
   currencySymbol,
 }: CardViewGrandTotalBarProps): React.ReactElement {
-  const isTop: boolean = variant === 'top';
-  const bg: string = isTop ? 'neutral.25' : 'neutral.50';
   const summarySize = useBreakpointValue<CardAmountSummarySize>({ base: 'md', md: 'lg' }) ?? 'md';
 
   return (
@@ -29,15 +25,10 @@ export function CardViewGrandTotalBar({
       px={{ base: 3, md: 4 }}
       py={3}
       minH="52px"
-      bg={bg}
-      borderTop={isTop ? undefined : '2px solid'}
-      borderBottom={isTop ? '1px solid' : undefined}
+      bg="neutral.25"
+      borderBottom="1px solid"
       borderColor="neutral.300"
-      boxShadow={
-        isTop
-          ? '0 2px 4px rgba(20,33,47,0.06)'
-          : '0 -4px 6px -1px rgba(20,33,47,0.08)'
-      }
+      boxShadow="0 2px 4px rgba(20,33,47,0.06)"
     >
       <Text
         fontSize="xs"

@@ -264,7 +264,6 @@ export const CostEstimateCardView = forwardRef<
       minH={0}
     >
       <CardViewGrandTotalBar
-        variant="top"
         net={totals.net}
         gross={totals.gross}
         currencySymbol={currencySymbol}
@@ -304,13 +303,6 @@ export const CostEstimateCardView = forwardRef<
           ))}
         </VStack>
       </Box>
-
-      <CardViewGrandTotalBar
-        variant="bottom"
-        net={totals.net}
-        gross={totals.gross}
-        currencySymbol={currencySymbol}
-      />
 
       {isEditMode && (
         <Flex
