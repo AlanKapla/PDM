@@ -94,6 +94,10 @@ export default function Projects() {
   };
 
   const handleCreateProject = async () => {
+    if (!permissions.canCreateProject) {
+      return;
+    }
+
     if (!newProjectName.trim()) {
       showError("Sprawdź formularz", "Nazwa projektu jest wymagana");
       return;
@@ -214,8 +218,8 @@ export default function Projects() {
         ) : projects.length === 0 ? (
           <EmptyState 
             icon={FolderKanban}
-            title={permissions.canCreateProject ? "Nie masz jeszcze żadnych projektów" : "Brak projektów w tej organizacji"}
-            description={permissions.canCreateProject ? "Stwórz swój pierwszy projekt, aby zacząć pracę" : undefined}
+            title={permissions.canCreateProject ? "Nie masz jeszcze żadnych projektów" : "Nie zostałeś dodany do żadnego projektu"}
+            description={permissions.canCreateProject ? "Stwórz swój pierwszy projekt, aby zacząć pracę" : "Poczekaj na zaproszenie od administratora organizacji lub projektu."}
             action={
               permissions.canCreateProject && activeTenantId && (
                 <Button leftIcon={<Icon as={Plus} />} colorScheme="primary" onClick={createModal.onOpen}>
@@ -278,7 +282,8 @@ export default function Projects() {
         )}
       </Box>
 
-      {/* Modal tworzenia projektu */}
+      {/* Modal tworzenia projektu — tylko dla admina tenanta */}
+      {permissions.canCreateProject && (
       <Modal isOpen={createModal.isOpen} onClose={createModal.onClose} size={{ base: "full", md: "md" }}>
         <ModalOverlay />
         <ModalContent mx={{ base: 0, md: "auto" }}>
@@ -315,6 +320,7 @@ export default function Projects() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+      )}
     </MainLayout>
   );
 }

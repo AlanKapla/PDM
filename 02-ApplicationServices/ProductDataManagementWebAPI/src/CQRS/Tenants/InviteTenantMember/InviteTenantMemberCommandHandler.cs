@@ -111,53 +111,96 @@ namespace CQRS.Tenants.InviteTenantMember
 
             string tenantName = tenant.Name;
 
-            if (existingUser is null)
-            {
-                string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
-                string path = frontendSettings.Value.HomePath.TrimStart('/');
-                string acceptUrl = $"{baseUrl}/{path}";
+            await SendInvitationEmailAsync(
+                normalizedEmail,
+                tenantName,
+                existingUser is not null,
+                cancellationToken);
 
-                string htmlBody = EmailTemplateLoader.Load("tenant-invitation.html", new Dictionary<string, string>
-                {
-                    { "tenantName", tenantName },
-                    { "acceptUrl", acceptUrl }
-                });
-
-                await emailSender.SendEmailAsync(new EmailMessageDto
-                {
-                    To = normalizedEmail,
-                    Subject = $"Zaproszenie do {tenantName}",
-                    TextBody = $"Zostałeś zaproszony do {tenantName}. Aby zaakceptować zaproszenie, utwórz konto klikając w link: {acceptUrl}",
-                    HtmlBody = htmlBody
-                }, cancellationToken);
-            }
-            else
+            if (existingUser is not null)
             {
-                NotificationDto notification = new NotificationDto
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = request.TenantId,
-                    ProjectId = null,
-                    UserId = existingUser.Id,
-                    AzureAdB2CObjectId = existingUser.AzureAdB2CObjectId,
-                    Type = DtoNotificationType.Info,
-                    Title = "Zaproszenie do organizacji",
-                    Message = $"Zostałeś zaproszony do {tenantName}",
-                    CreatedAt = DateTime.UtcNow,
-                    IsRead = false,
-                    Metadata = new Dictionary<string, object?>
-                    {
-                        { "invitationId", invitation.Id },
-                        { "tenantId", request.TenantId },
-                        { "tenantName", tenantName }
-                    }
-                };
-                
-                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
-                await notificationSender.EnqueueAsync(payload, cancellationToken);
+                await SendInAppNotificationAsync(
+                    existingUser,
+                    request.TenantId,
+                    tenantName,
+                    invitation.Id,
+                    cancellationToken);
             }
 
             return Unit.Value;
+        }
+
+        private async Task SendInvitationEmailAsync(
+            string email,
+            string tenantName,
+            bool userExistsInSystem,
+            CancellationToken cancellationToken)
+        {
+            string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
+            string path = userExistsInSystem
+                ? "tenants/invitations"
+                : frontendSettings.Value.HomePath.TrimStart('/');
+            string acceptUrl = $"{baseUrl}/{path}";
+
+            string bodyText = userExistsInSystem
+                ? $"Zostałeś zaproszony do organizacji <strong style=\"color:#1a1a1a;\">{tenantName}</strong> na platformie Brickly. Zaloguj się i zaakceptuj zaproszenie w aplikacji."
+                : $"Zostałeś zaproszony do organizacji <strong style=\"color:#1a1a1a;\">{tenantName}</strong> na platformie Brickly. Utwórz konto, aby uzyskać dostęp i zacząć współpracę z zespołem.";
+
+            string ctaLabel = userExistsInSystem ? "Zobacz zaproszenie" : "Utwórz konto i dołącz";
+
+            string textBody = userExistsInSystem
+                ? $"Zostałeś zaproszony do {tenantName}. Zaloguj się i zaakceptuj zaproszenie: {acceptUrl}"
+                : $"Zostałeś zaproszony do {tenantName}. Aby zaakceptować zaproszenie, utwórz konto klikając w link: {acceptUrl}";
+
+            string htmlBody = EmailTemplateLoader.Load("tenant-invitation.html", new Dictionary<string, string>
+            {
+                { "tenantName", tenantName },
+                { "acceptUrl", acceptUrl },
+                { "bodyText", bodyText },
+                { "ctaLabel", ctaLabel }
+            });
+
+            await emailSender.SendEmailAsync(new EmailMessageDto
+            {
+                To = email,
+                Subject = $"Zaproszenie do {tenantName}",
+                TextBody = textBody,
+                HtmlBody = htmlBody
+            }, cancellationToken);
+        }
+
+        private async Task SendInAppNotificationAsync(
+            User existingUser,
+            Guid tenantId,
+            string tenantName,
+            Guid invitationId,
+            CancellationToken cancellationToken)
+        {
+            NotificationDto notification = new NotificationDto
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                ProjectId = null,
+                UserId = existingUser.Id,
+                AzureAdB2CObjectId = existingUser.AzureAdB2CObjectId,
+                Type = DtoNotificationType.Info,
+                Title = "Zaproszenie do organizacji",
+                Message = $"Zostałeś zaproszony do {tenantName}",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
+                Metadata = new Dictionary<string, object?>
+                {
+                    { "invitationId", invitationId },
+                    { "tenantId", tenantId },
+                    { "tenantName", tenantName }
+                }
+            };
+
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(
+                notification,
+                notificationRepo,
+                cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
         }
     }
 }

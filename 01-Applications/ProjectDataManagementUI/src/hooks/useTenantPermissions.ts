@@ -32,7 +32,7 @@ export function useTenantPermissions() {
     // Tylko admin może zarządzać członkami
     canManageMembers: isAdmin,
 
-    // Wszyscy członkowie mogą tworzyć projekty
-    canCreateProject: true,
+    // Tylko admin może tworzyć projekty
+    canCreateProject: isAdmin,
   };
 }

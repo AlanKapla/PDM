@@ -146,6 +146,6 @@ public sealed class InviteTenantMemberCommandHandlerTests
         result.Should().Be(Unit.Value);
         _invitationRepoMock.Verify(r => r.Insert(It.IsAny<TenantInvitation>()), Times.Once);
         _notificationSenderMock.Verify(s => s.EnqueueAsync(It.IsAny<NotificationPayloadDto>(), It.IsAny<CancellationToken>()), Times.Once);
-        _emailSenderMock.Verify(s => s.SendEmailAsync(It.IsAny<EmailMessageDto>(), It.IsAny<CancellationToken>()), Times.Never);
+        _emailSenderMock.Verify(s => s.SendEmailAsync(It.IsAny<EmailMessageDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }
