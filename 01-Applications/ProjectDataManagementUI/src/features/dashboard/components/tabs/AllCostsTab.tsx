@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useToken, Table, Thead, Tbody, Tfoot, Tr, Th, Td, IconButton } from '@chakra-ui/react';
+import { useToken, Table, Thead, Tbody, Tfoot, Tr, Th, Td, IconButton, Box, SimpleGrid } from '@chakra-ui/react';
 import { Pencil, Trash2, Sparkles } from 'lucide-react';
 import { AICostImportModal } from '../../../../components/CostTracker/AICostImportModal';
 import type { ParsedCostDto } from '../../../../types/ai.types';
@@ -8,6 +8,9 @@ import { KpiCard } from '../shared/KpiCard';
 import { NetGrossAmount } from '../shared/NetGrossAmount';
 import { CostModal } from '../CostModal';
 import AppModal from '../../../../components/ui/AppModal';
+import { CostTimeSeriesChart } from '../charts/CostTimeSeriesChart';
+import { CostSourceTypeChart } from '../charts/CostSourceTypeChart';
+import { TopContractorsChart } from '../charts/TopContractorsChart';
 
 export interface AllCostsTabProps {
   costs: TrackedCostWeb[];
@@ -76,20 +79,23 @@ export function AllCostsTab({
 
   return (
     <div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
+      <SimpleGrid columns={{ base: 2, md: 5 }} spacing={2} mb={4}>
         <KpiCard label="Łączne koszty" netValue={totalNet} grossValue={totalGross} />
         <KpiCard label="Liczba pozycji" value={String(costs.length)} />
         <KpiCard label="Z harmonogramu" value={String(countSchedule)} />
         <KpiCard label="Z kosztorysu" value={String(countEstimate)} />
         <KpiCard label="Koszty główne" netValue={totalAdditionalNet} grossValue={totalAdditionalGross} />
-      </div>
+      </SimpleGrid>
+
+      {costs.length > 0 && (
+        <Box mb={4} display="flex" flexDirection="column" gap={3}>
+          <CostTimeSeriesChart costs={costs} />
+          <Box display="grid" gridTemplateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={3}>
+            <CostSourceTypeChart costs={costs} />
+            <TopContractorsChart costs={costs} limit={10} title="Top 10 wykonawców" />
+          </Box>
+        </Box>
+      )}
 
       <div
         style={{

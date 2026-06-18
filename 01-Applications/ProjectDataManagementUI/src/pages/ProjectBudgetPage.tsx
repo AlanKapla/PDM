@@ -15,8 +15,10 @@ export default function ProjectBudgetPage() {
 
   const tenantId = user?.activeTenantId;
 
-  const { data: projectData } = useProjectDetails(tenantId ?? undefined, projectId);
-  const projectName = projectData?.name ?? '';
+  const { data: projectData, isLoading: projectLoading } = useProjectDetails(
+    tenantId ?? undefined,
+    projectId
+  );
 
   if (!tenantId || !projectId) {
     return (
@@ -28,7 +30,7 @@ export default function ProjectBudgetPage() {
     );
   }
 
-  if (permissionsLoading) {
+  if (permissionsLoading || projectLoading) {
     return (
       <MainLayout>
         <Box display="flex" justifyContent="center" alignItems="center" h="50vh">
@@ -40,9 +42,13 @@ export default function ProjectBudgetPage() {
 
   return (
     <MainLayout>
-      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh" w="100%" maxW="100%">
         <BackToProjectButton />
-        <ProjectDashboard tenantId={tenantId} projectId={projectId} projectName={projectName} />
+        <ProjectDashboard
+          tenantId={tenantId}
+          projectId={projectId}
+          projectName={projectData?.name}
+        />
       </Box>
     </MainLayout>
   );

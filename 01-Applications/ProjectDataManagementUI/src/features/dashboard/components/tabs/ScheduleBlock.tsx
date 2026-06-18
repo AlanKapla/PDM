@@ -7,7 +7,10 @@ import { TimelineStatusBadge } from '../shared/TimelineStatusBadge';
 import { KpiCard } from '../shared/KpiCard';
 import { NetGrossAmount } from '../shared/NetGrossAmount';
 import { Badge } from '../shared/Badge';
-import { MiniGantt } from './MiniGantt';
+import { StageGanttLite } from '../charts/StageGanttLite';
+import { ScheduleProgressBarChart } from '../charts/ScheduleProgressBarChart';
+import { StageDelaysChart } from '../charts/StageDelaysChart';
+import { flattenAllStages, buildDelayedStages } from '../../utils/chartAggregations';
 import { StageAccordion } from './StageAccordion';
 
 export interface ScheduleBlockProps {
@@ -95,7 +98,23 @@ export function ScheduleBlock({
         )}
 
         {summary.timeline != null && (
-          <MiniGantt stages={summary.stages} timeline={summary.timeline} />
+          <>
+            <ScheduleProgressBarChart
+              summaries={[summary]}
+              title={`Postęp: ${summary.workScheduleName}`}
+            />
+            <StageGanttLite
+              stages={summary.stages}
+              timeline={summary.timeline}
+              scheduleName={summary.workScheduleName}
+            />
+            <StageDelaysChart
+              stages={buildDelayedStages(
+                flattenAllStages([summary])
+              )}
+              title={`Opóźnienia: ${summary.workScheduleName}`}
+            />
+          </>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { SimpleGrid } from '@chakra-ui/react';
 import type { ProjectFinancialSummaryWeb, ProjectTimelineSummaryWeb } from '../types/projectDashboard.types';
 import { FinancialOverview } from './FinancialOverview';
 import { TimelineOverview } from './TimelineOverview';
@@ -20,7 +21,12 @@ export function OverviewSection({
   onRefetch,
 }: OverviewSectionProps): React.ReactElement {
   return (
-    <div className="dashboard-overview-grid">
+    <SimpleGrid
+      columns={{ base: 1, lg: 2 }}
+      spacing={4}
+      mb={6}
+      w="100%"
+    >
       <FinancialOverview
         data={financialData}
         tenantId={tenantId}
@@ -28,7 +34,7 @@ export function OverviewSection({
         onRefetch={onRefetch}
       />
       <TimelineOverview data={timelineData} />
-    </div>
+    </SimpleGrid>
   );
 }
 

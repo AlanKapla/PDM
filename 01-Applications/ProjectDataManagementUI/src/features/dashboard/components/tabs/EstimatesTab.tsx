@@ -1,9 +1,11 @@
 import React from 'react';
-import { useToken } from '@chakra-ui/react';
+import { Box, SimpleGrid, Text } from '@chakra-ui/react';
 import type { CostEstimateSummaryWeb } from '../../types/projectDashboard.types';
 import { PROG } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { EstimateBlock } from './EstimateBlock';
+import { EstimateBudgetBarChart } from '../charts/EstimateBudgetBarChart';
+import { EstimateDeviationChart } from '../charts/EstimateDeviationChart';
 
 export interface EstimatesTabProps {
   summaries: CostEstimateSummaryWeb[];
@@ -22,10 +24,6 @@ export function EstimatesTab({
   projectId,
   onRefetch,
 }: EstimatesTabProps): React.ReactElement {
-  const [orange50, orange600, orange800, neutral400] = useToken('colors', [
-    'orange.50', 'orange.600', 'orange.800', 'neutral.400',
-  ]);
-
   const totalBudgetNet = summaries.reduce((sum, s) => sum + (s.budgetNet ?? 0), 0);
   const totalBudgetGross = summaries.reduce((sum, s) => sum + (s.budgetGross ?? 0), 0);
   const totalCostsNet = summaries.reduce((sum, s) => sum + (s.costsNet ?? 0), 0);
@@ -36,15 +34,8 @@ export function EstimatesTab({
   const totalOverBudget = summaries.reduce((sum, s) => sum + (s.itemsOverBudgetCount ?? 0), 0);
 
   return (
-    <div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
+    <Box>
+      <SimpleGrid columns={{ base: 2, md: 4, lg: 7 }} spacing={2} mb={4}>
         <KpiCard label="Budżet łączny" netValue={totalBudgetNet} grossValue={totalBudgetGross} />
         <KpiCard label="Koszty łączne" netValue={totalCostsNet} grossValue={totalCostsGross} />
         <KpiCard label="Pokrycie budżetu" value={PROG(coverage)} />
@@ -53,38 +44,39 @@ export function EstimatesTab({
         <KpiCard
           label="Bez kosztów"
           value={String(totalWithoutCosts)}
-          accent={totalWithoutCosts > 0 ? orange800 : undefined}
+          accent={totalWithoutCosts > 0 ? 'orange.800' : undefined}
         />
         <KpiCard
           label="Przekroczonych"
           value={String(totalOverBudget)}
-          accent={totalOverBudget > 0 ? orange800 : undefined}
+          accent={totalOverBudget > 0 ? 'orange.800' : undefined}
         />
-      </div>
+      </SimpleGrid>
 
       {totalWithoutCosts > 0 && (
-        <div
-          style={{
-            background: orange50,
-            border: `0.5px solid ${orange600}`,
-            borderRadius: 8,
-            padding: '10px 14px',
-            marginBottom: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontSize: "xs",
-            color: orange800,
-          }}
+        <Box
+          bg="orange.50"
+          border="0.5px solid"
+          borderColor="orange.600"
+          borderRadius="md"
+          px={3}
+          py={2}
+          mb={3}
+          fontSize="xs"
+          color="orange.800"
         >
-          <span>⚠</span>
-          <span>
-            {totalWithoutCosts} pozycji kosztorysu nie ma przypisanych kosztów — budżet niezweryfikowany.
-          </span>
-        </div>
+          ⚠ {totalWithoutCosts} pozycji kosztorysu nie ma przypisanych kosztów — budżet niezweryfikowany.
+        </Box>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {summaries.length > 0 && (
+        <Box mb={4} display="flex" flexDirection="column" gap={3}>
+          <EstimateBudgetBarChart summaries={summaries} title="Budżet vs koszty — wszystkie kosztorysy" />
+          <EstimateDeviationChart summaries={summaries} />
+        </Box>
+      )}
+
+      <Box display="flex" flexDirection="column" gap={2}>
         {summaries.map((summary) => (
           <EstimateBlock
             key={summary.costEstimateId}
@@ -95,12 +87,12 @@ export function EstimatesTab({
           />
         ))}
         {summaries.length === 0 && (
-          <div style={{ fontSize: "sm", color: neutral400, fontStyle: 'italic', padding: 12 }}>
+          <Text fontSize="sm" color="neutral.400" fontStyle="italic" p={3}>
             Brak powiązanych kosztorysów
-          </div>
+          </Text>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 

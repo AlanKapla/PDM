@@ -1,34 +1,29 @@
 import React, { useState } from 'react';
-import { Spinner, Alert, AlertIcon, Box } from '@chakra-ui/react';
+import { Alert, AlertIcon, Box, Spinner, TabPanel } from '@chakra-ui/react';
 import { useProjectDashboard } from '../hooks/useProjectDashboard';
 import '../dashboard.css';
-import { OverviewSection } from './OverviewSection';
 import { DashboardHeader } from './DashboardHeader';
-import { DashboardTabs } from './DashboardTabs';
-import type { DashboardTab } from './DashboardTabs';
-import { EstimatesTab } from './tabs/EstimatesTab';
+import { DashboardMainTabs, DASHBOARD_TAB_INDEX } from './DashboardMainTabs';
+import { DashboardPageHeader } from './DashboardPageHeader';
+import { GeneralTab } from './tabs/GeneralTab';
+import { FinanceTab } from './tabs/FinanceTab';
 import { SchedulesTab } from './tabs/SchedulesTab';
-import { AdditionalCostsTab } from './tabs/AdditionalCostsTab';
-import { AllCostsTab } from './tabs/AllCostsTab';
+import { CostsTab } from './tabs/CostsTab';
 import { DashboardCurrencyProvider } from '../context/DashboardCurrencyContext';
 
 export interface ProjectDashboardProps {
   tenantId: string;
   projectId: string;
-  projectName: string;
+  projectName?: string;
 }
 
-/**
- * Główny komponent dashboardu projektu.
- * Zarządza stanem zakładek i pobieraniem danych.
- */
 export function ProjectDashboard({
   tenantId,
   projectId,
   projectName,
 }: ProjectDashboardProps): React.ReactElement {
   const { data, isLoading, error, refetch } = useProjectDashboard(tenantId, projectId);
-  const [activeTab, setActiveTab] = useState<DashboardTab>('all');
+  const [tabIndex, setTabIndex] = useState<number>(DASHBOARD_TAB_INDEX.general);
 
   if (isLoading) {
     return (
@@ -51,63 +46,57 @@ export function ProjectDashboard({
 
   return (
     <DashboardCurrencyProvider currencySymbol={data.selectedCurrencySymbol ?? 'zł'}>
-      <Box px={{ base: 3, md: 5 }} py={4} maxW={1400}>
-        <DashboardHeader data={data} projectName={projectName} />
-        <OverviewSection
-          financialData={data.financialSummary}
-          timelineData={data.timelineSummary}
+      <Box className="dashboard-page" w="100%" maxW="100%">
+        <DashboardPageHeader
+          projectName={projectName}
           tenantId={tenantId}
           projectId={projectId}
           onRefetch={refetch}
         />
 
-        <DashboardTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
+        <DashboardHeader data={data} />
+
+        <DashboardMainTabs
+          tabIndex={tabIndex}
+          onTabChange={setTabIndex}
           estimatesCount={data.costEstimateSummaries.length}
           schedulesCount={data.scheduleSummaries.length}
-          additionalCount={data.projectAdditionalCosts?.costsCount ?? 0}
-          allCostsCount={data.allCosts?.length ?? 0}
-        />
-
-        {activeTab === 'estimates' && (
-          <EstimatesTab
-            summaries={data.costEstimateSummaries}
-            tenantId={tenantId}
-            projectId={projectId}
-            onRefetch={refetch}
-          />
-        )}
-
-        {activeTab === 'schedules' && (
-          <SchedulesTab
-            summaries={data.scheduleSummaries}
-            financialSummary={data.financialSummary}
-            timelineSummary={data.timelineSummary}
-            tenantId={tenantId}
-            projectId={projectId}
-            onRefetch={refetch}
-          />
-        )}
-
-        {activeTab === 'additional' && data.projectAdditionalCosts && (
-          <AdditionalCostsTab
-            data={data.projectAdditionalCosts}
-            financialSummary={data.financialSummary}
-            tenantId={tenantId}
-            projectId={projectId}
-            onRefetch={refetch}
-          />
-        )}
-
-        {activeTab === 'all' && (
-          <AllCostsTab
-            costs={data.allCosts ?? []}
-            tenantId={tenantId}
-            projectId={projectId}
-            onRefetch={refetch}
-          />
-        )}
+          costsCount={data.allCosts?.length ?? 0}
+        >
+          <TabPanel px={{ base: 2, md: 4 }} pt={4}>
+            <GeneralTab
+              data={data}
+              tenantId={tenantId}
+              projectId={projectId}
+              onRefetch={refetch}
+              onShowFinanceTab={() => setTabIndex(DASHBOARD_TAB_INDEX.finance)}
+            />
+          </TabPanel>
+          <TabPanel px={{ base: 2, md: 4 }} pt={4}>
+            <FinanceTab
+              data={data}
+              tenantId={tenantId}
+              projectId={projectId}
+              onRefetch={refetch}
+            />
+          </TabPanel>
+          <TabPanel px={{ base: 2, md: 4 }} pt={4}>
+            <SchedulesTab
+              data={data}
+              tenantId={tenantId}
+              projectId={projectId}
+              onRefetch={refetch}
+            />
+          </TabPanel>
+          <TabPanel px={{ base: 2, md: 4 }} pt={4}>
+            <CostsTab
+              costs={data.allCosts ?? []}
+              tenantId={tenantId}
+              projectId={projectId}
+              onRefetch={refetch}
+            />
+          </TabPanel>
+        </DashboardMainTabs>
       </Box>
     </DashboardCurrencyProvider>
   );

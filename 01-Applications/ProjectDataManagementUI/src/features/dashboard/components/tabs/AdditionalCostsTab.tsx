@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useToken } from '@chakra-ui/react';
+import { useToken, Box, Text } from '@chakra-ui/react';
 import { Sparkles } from 'lucide-react';
 import type { ProjectAdditionalCostsWeb, ProjectFinancialSummaryWeb, TrackedCostWeb } from '../../types/projectDashboard.types';
 import type { ParsedCostDto } from '../../../../types/ai.types';
@@ -10,6 +10,7 @@ import { CostTable } from '../shared/CostTable';
 import { CostModal } from '../CostModal';
 import AppModal from '../../../../components/ui/AppModal';
 import { AICostImportModal } from '../../../../components/CostTracker/AICostImportModal';
+import { CostSourcesDonut } from '../charts/CostSourcesDonut';
 
 export interface AdditionalCostsTabProps {
   data: ProjectAdditionalCostsWeb;
@@ -95,6 +96,14 @@ export function AdditionalCostsTab({
       <div style={{ fontSize: "xs", color: neutral400, marginTop: 3, marginBottom: 16 }}>
         {PROG(coveragePercent)} wykorzystania budżetu głównego
       </div>
+
+      <Box mb={4} maxW="400px">
+        <CostSourcesDonut
+          title="Budżet główny vs koszty główne"
+          reserveBudget={reserveNet}
+          additionalCosts={data.totalNet}
+        />
+      </Box>
 
       <div
         style={{

@@ -1,85 +1,77 @@
 import React from 'react';
-import { useToken } from '@chakra-ui/react';
-import type { ScheduleSummaryWeb, ProjectFinancialSummaryWeb, ProjectTimelineSummaryWeb } from '../../types/projectDashboard.types';
+import { Box, SimpleGrid, Text } from '@chakra-ui/react';
+import type { ProjectDashboardWeb } from '../../types/projectDashboard.types';
 import { DAYS } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
+import { SchedulesSection } from '../SchedulesSection';
 import { ScheduleBlock } from './ScheduleBlock';
 
 export interface SchedulesTabProps {
-  summaries: ScheduleSummaryWeb[];
-  financialSummary: ProjectFinancialSummaryWeb;
-  timelineSummary: ProjectTimelineSummaryWeb;
+  data: ProjectDashboardWeb;
   tenantId: string;
   projectId: string;
   onRefetch: () => void;
 }
 
-/**
- * Zakładka harmonogramów — lista harmonogramów projektu.
- * Źródło danych: ScheduleSummaryWeb[].
- */
 export function SchedulesTab({
-  summaries,
-  financialSummary,
-  timelineSummary,
+  data,
   tenantId,
   projectId,
   onRefetch,
 }: SchedulesTabProps): React.ReactElement {
-  const [orange800, level1700, neutral400] = useToken('colors', [
-    'orange.800', 'level1.700', 'neutral.400',
-  ]);
-
+  const { scheduleSummaries, timelineSummary, financialSummary } = data;
   const scs = financialSummary.scheduleCostSummary;
 
   return (
-    <div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
+    <Box w="100%">
+      <SimpleGrid columns={{ base: 2, md: 4, lg: 8 }} spacing={3} mb={6}>
         <KpiCard
           label="Łączne koszty harmonogramów"
           netValue={scs?.totalSchedulesCostsNet ?? null}
           grossValue={scs?.totalSchedulesCostsGross ?? null}
+          colorScheme="orange"
         />
-        <KpiCard label="Harmonogramów" value={String(summaries.length)} />
-        <KpiCard label="Zakresów łącznie" value={String(timelineSummary.totalWorkCount)} />
+        <KpiCard label="Harmonogramów" value={String(scheduleSummaries.length)} colorScheme="level2" />
+        <KpiCard label="Zakresów łącznie" value={String(timelineSummary.totalWorkCount)} colorScheme="primary" />
         <KpiCard
           label="Opóźnione zakresy"
           value={String(timelineSummary.delayedCount)}
-          accent={timelineSummary.delayedCount > 0 ? orange800 : undefined}
+          colorScheme={timelineSummary.delayedCount > 0 ? 'red' : 'gray'}
         />
-        <KpiCard label="W toku" value={String(timelineSummary.inProgressCount)} />
-        <KpiCard label="Nie rozpoczęto" value={String(timelineSummary.notStartedCount)} />
-        <KpiCard label="Ukończono" value={String(timelineSummary.completedCount)} accent={level1700} />
+        <KpiCard label="W toku" value={String(timelineSummary.inProgressCount)} colorScheme="primary" />
+        <KpiCard label="Nie rozpoczęto" value={String(timelineSummary.notStartedCount)} colorScheme="gray" />
+        <KpiCard label="Ukończono" value={String(timelineSummary.completedCount)} colorScheme="green" />
         <KpiCard
           label="Czas projektu"
           value={timelineSummary.totalPlannedDays != null ? DAYS(timelineSummary.totalPlannedDays) : '—'}
+          colorScheme="purple"
         />
-      </div>
+      </SimpleGrid>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {summaries.map((summary) => (
-          <ScheduleBlock
-            key={summary.workScheduleId}
-            summary={summary}
-            tenantId={tenantId}
-            projectId={projectId}
-            onRefetch={onRefetch}
-          />
-        ))}
-        {summaries.length === 0 && (
-          <div style={{ fontSize: "sm", color: neutral400, fontStyle: 'italic', padding: 12 }}>
-            Brak powiązanych harmonogramów
-          </div>
-        )}
-      </div>
-    </div>
+      <SchedulesSection data={data} />
+
+      <Box mt={2}>
+        <Text fontSize="md" fontWeight="semibold" color="neutral.800" mb={3}>
+          Harmonogramy
+        </Text>
+        <Box display="flex" flexDirection="column" gap={2}>
+          {scheduleSummaries.map((summary) => (
+            <ScheduleBlock
+              key={summary.workScheduleId}
+              summary={summary}
+              tenantId={tenantId}
+              projectId={projectId}
+              onRefetch={onRefetch}
+            />
+          ))}
+          {scheduleSummaries.length === 0 && (
+            <Text fontSize="sm" color="neutral.400" fontStyle="italic" p={3}>
+              Brak powiązanych harmonogramów
+            </Text>
+          )}
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
