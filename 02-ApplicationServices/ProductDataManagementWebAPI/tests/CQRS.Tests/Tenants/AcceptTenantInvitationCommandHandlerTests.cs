@@ -16,7 +16,7 @@ namespace CQRS.Tests.Tenants;
 public sealed class AcceptTenantInvitationCommandHandlerTests
 {
     private readonly Mock<IRepository<TenantInvitation>> _invitationRepoMock = new();
-    private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
+    private readonly Mock<IProjectMembershipProvisioner> _membershipProvisionerMock = new();
     private readonly Mock<IPermissionsVersionService> _permissionsVersionServiceMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly AcceptTenantInvitationCommandHandler _handler;
@@ -29,24 +29,37 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
             .Setup(s => s.BumpVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        _membershipProvisionerMock
+            .Setup(s => s.EnsureTenantMemberAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _membershipProvisionerMock
+            .Setup(s => s.ProvisionProjectMemberAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<bool>(),
+                It.IsAny<IReadOnlyList<ProjectModule>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _handler = new AcceptTenantInvitationCommandHandler(
             _invitationRepoMock.Object,
-            _tenantMemberRepoMock.Object,
+            _membershipProvisionerMock.Object,
             _permissionsVersionServiceMock.Object,
             _currentUserMock.Object);
     }
-
-    // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private static AcceptTenantInvitationCommand ValidCommand() => new AcceptTenantInvitationCommand
     {
         Token = "valid-token"
     };
 
-    private static TenantInvitation BuildInvitation(string token) => new TenantInvitation
+    private static TenantInvitation BuildInvitation(string token, Guid? projectId = null) => new TenantInvitation
     {
         Id = Guid.NewGuid(),
         TenantId = Guid.NewGuid(),
+        ProjectId = projectId,
         Token = token,
         IsActive = true,
         Status = InvitationStatus.Pending,
@@ -56,12 +69,9 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
         ExpiresAt = DateTime.UtcNow.AddDays(7)
     };
 
-    // ─── Handle ───────────────────────────────────────────────────────────────
-
     [Fact]
     public async Task Handle_WhenInvitationNotFound_ThrowsNotFoundApiException()
     {
-        // Arrange
         _invitationRepoMock
             .Setup(r => r.GetFirstBySearch(
                 It.IsAny<Expression<Func<TenantInvitation, bool>>>(),
@@ -70,17 +80,14 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
 
         AcceptTenantInvitationCommand command = ValidCommand();
 
-        // Act
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         await act.Should().ThrowAsync<NotFoundApiException>();
     }
 
     [Fact]
-    public async Task Handle_WhenMemberDoesNotExist_InsertsNewMemberAndReturnsUnit()
+    public async Task Handle_WhenTenantOnlyInvitation_EnsuresTenantMemberAndReturnsUnit()
     {
-        // Arrange
         TenantInvitation invitation = BuildInvitation("valid-token");
 
         _invitationRepoMock
@@ -89,34 +96,34 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
                 It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
             .ReturnsAsync(invitation);
 
-        _tenantMemberRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantMember, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantMember>, IIncludableQueryable<TenantMember, object>>[]>()))
-            .ReturnsAsync((TenantMember?)null);
-
         AcceptTenantInvitationCommand command = ValidCommand();
 
-        // Act
         Unit result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         result.Should().Be(Unit.Value);
-        _tenantMemberRepoMock.Verify(r => r.Insert(It.IsAny<TenantMember>()), Times.Once);
+        _membershipProvisionerMock.Verify(
+            s => s.EnsureTenantMemberAsync(invitation.TenantId, _currentUserMock.Object.Id, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _membershipProvisionerMock.Verify(
+            s => s.ProvisionProjectMemberAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<bool>(),
+                It.IsAny<IReadOnlyList<ProjectModule>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        _permissionsVersionServiceMock.Verify(
+            s => s.BumpVersionAsync(_currentUserMock.Object.Id, It.IsAny<CancellationToken>()),
+            Times.Once);
         _invitationRepoMock.Verify(r => r.Update(It.Is<TenantInvitation>(i => i.Status == InvitationStatus.Accepted && !i.IsActive)), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_WhenMemberIsInactive_ReactivatesMemberAndReturnsUnit()
+    public async Task Handle_WhenProjectInvitation_ProvisionsTenantAndProjectMember()
     {
-        // Arrange
-        TenantInvitation invitation = BuildInvitation("valid-token");
-        TenantMember inactiveMember = new TenantMember
-        {
-            TenantId = invitation.TenantId,
-            UserId = _currentUserMock.Object.Id,
-            IsActive = false
-        };
+        Guid projectId = Guid.NewGuid();
+        TenantInvitation invitation = BuildInvitation("valid-token", projectId);
 
         _invitationRepoMock
             .Setup(r => r.GetFirstBySearch(
@@ -124,22 +131,22 @@ public sealed class AcceptTenantInvitationCommandHandlerTests
                 It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
             .ReturnsAsync(invitation);
 
-        _tenantMemberRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantMember, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantMember>, IIncludableQueryable<TenantMember, object>>[]>()))
-            .ReturnsAsync(inactiveMember);
-
         AcceptTenantInvitationCommand command = ValidCommand();
 
-        // Act
         Unit result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         result.Should().Be(Unit.Value);
-        inactiveMember.IsActive.Should().BeTrue();
-        _tenantMemberRepoMock.Verify(r => r.Update(inactiveMember), Times.Once);
-        _tenantMemberRepoMock.Verify(r => r.Insert(It.IsAny<TenantMember>()), Times.Never);
+        _membershipProvisionerMock.Verify(
+            s => s.EnsureTenantMemberAsync(invitation.TenantId, _currentUserMock.Object.Id, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _membershipProvisionerMock.Verify(
+            s => s.ProvisionProjectMemberAsync(
+                invitation.TenantId,
+                projectId,
+                _currentUserMock.Object.Id,
+                invitation.IsAdmin,
+                It.IsAny<IReadOnlyList<ProjectModule>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }
-

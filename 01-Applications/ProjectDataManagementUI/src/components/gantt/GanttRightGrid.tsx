@@ -232,8 +232,7 @@ export default function GanttRightGrid({
       if (!d) return;
 
       const sIdx = Math.min(d.startColIdx, d.endColIdx);
-      // endDate włączywny — minimum sIdx + 1, bo backend wymaga EndDate > StartDate
-      const eIdx = Math.max(d.startColIdx, d.endColIdx, sIdx + 1);
+      const eIdx = Math.max(d.startColIdx, d.endColIdx);
       if (eIdx >= dates.length) return;
 
       const startDate = toLocalDateStr(dates[sIdx]);

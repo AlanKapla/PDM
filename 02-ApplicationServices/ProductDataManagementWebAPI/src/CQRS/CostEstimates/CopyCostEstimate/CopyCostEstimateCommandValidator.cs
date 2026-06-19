@@ -90,7 +90,8 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                     var userProjectMemberships = await projectMemberRepo.GetBySearch(
                         pm => pm.TenantId == command.TenantId
                             && command.TargetProjectIds.Contains(pm.ProjectId)
-                            && pm.UserId == currentUser.Id,
+                            && pm.UserId == currentUser.Id
+                            && pm.IsActive,
                         q => q.Include(pm => pm.Project).Include(pm => pm.ModulePermissions));
 
                     var membershipsList = userProjectMemberships.ToList();

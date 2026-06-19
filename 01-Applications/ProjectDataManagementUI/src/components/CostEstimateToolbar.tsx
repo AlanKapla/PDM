@@ -174,14 +174,6 @@ export default function CostEstimateToolbar({
             Widok
           </MenuButton>
           <MenuList minW="200px">
-            {!isMobile && (
-              <>
-                <Box px={2} py={1} onClick={(e) => e.stopPropagation()}>
-                  {columnVisibility}
-                </Box>
-                <MenuDivider />
-              </>
-            )}
             <MenuItem icon={<ChevronsDown size={16} />} onClick={onExpandAll}>
               Rozwiń wszystko
             </MenuItem>
@@ -218,6 +210,8 @@ export default function CostEstimateToolbar({
             </MenuItem>
           </MenuList>
         </Menu>
+
+        {!isMobile && viewMode === "tree" && columnVisibility}
 
         <SearchInput value={searchQuery} onChange={onSearchChange} />
       </HStack>

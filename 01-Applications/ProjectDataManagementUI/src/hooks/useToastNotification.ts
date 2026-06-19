@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { useToast as useChakraToast, useBreakpointValue } from "@chakra-ui/react";
 import type { UseToastOptions } from "@chakra-ui/react";
-import { successMessages, type SuccessMessageKey } from '../utils/errorMessages';
+import { successMessages, type SuccessMessageKey } from "../utils/errorMessages";
+import { handleApiError } from "../utils/handleApiError";
 
 interface ToastOptions extends Omit<UseToastOptions, 'title' | 'description'> {
   title?: string;
@@ -80,12 +81,30 @@ export const useToastNotification = () => {
     [toast, position]
   );
 
+  const showApiError = useCallback(
+    (error: unknown, options?: ToastOptions) => {
+      const { title, description, toastStatus = "error" } = handleApiError(error);
+
+      toast({
+        title,
+        description,
+        status: toastStatus,
+        duration: toastStatus === "info" ? 4000 : 5000,
+        isClosable: true,
+        position,
+        ...options,
+      });
+    },
+    [toast, position]
+  );
+
   return {
     showSuccess,
     showError,
     showWarning,
     showInfo,
     showApiSuccess,
+    showApiError,
     toast, // dla bardziej zaawansowanych przypadków
   };
 };

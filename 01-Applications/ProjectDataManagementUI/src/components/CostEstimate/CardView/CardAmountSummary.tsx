@@ -6,6 +6,7 @@ export type CardAmountSummarySize = 'sm' | 'md' | 'lg';
 
 interface CardAmountSummaryProps {
   net: number;
+  vat: number;
   gross: number;
   currencySymbol: string;
   size?: CardAmountSummarySize;
@@ -14,15 +15,16 @@ interface CardAmountSummaryProps {
 
 const SIZE_CONFIG: Record<
   CardAmountSummarySize,
-  { label: string; net: string; gross: string; gap: number; colMinW: string }
+  { label: string; net: string; vat: string; gross: string; gap: number; colMinW: string }
 > = {
-  sm: { label: '2xs', net: 'sm', gross: 'xs', gap: 3, colMinW: '68px' },
-  md: { label: '2xs', net: 'sm', gross: 'xs', gap: 4, colMinW: '76px' },
-  lg: { label: 'xs', net: 'md', gross: 'sm', gap: 5.5, colMinW: '84px' },
+  sm: { label: '2xs', net: 'sm', vat: 'xs', gross: 'xs', gap: 3, colMinW: '68px' },
+  md: { label: '2xs', net: 'sm', vat: 'xs', gross: 'xs', gap: 4, colMinW: '76px' },
+  lg: { label: 'xs', net: 'md', vat: 'sm', gross: 'sm', gap: 5.5, colMinW: '84px' },
 };
 
 export function CardAmountSummary({
   net,
+  vat,
   gross,
   currencySymbol,
   size = 'md',
@@ -30,6 +32,7 @@ export function CardAmountSummary({
 }: CardAmountSummaryProps): React.ReactElement {
   const cfg = SIZE_CONFIG[size];
   const netLabel = formatCurrency(net, currencySymbol);
+  const vatLabel = formatCurrency(vat, currencySymbol);
   const grossLabel = formatCurrency(gross, currencySymbol);
 
   if (layout === 'stacked') {
@@ -54,6 +57,28 @@ export function CardAmountSummary({
             sx={{ fontVariantNumeric: 'tabular-nums' }}
           >
             {netLabel}
+          </Text>
+        </HStack>
+        <HStack spacing={2} justify="flex-end">
+          <Text
+            fontSize={cfg.label}
+            fontWeight="semibold"
+            color="neutral.500"
+            textTransform="uppercase"
+            letterSpacing="0.04em"
+            flexShrink={0}
+          >
+            VAT
+          </Text>
+          <Text
+            fontWeight="medium"
+            fontSize={cfg.vat}
+            color="neutral.600"
+            lineHeight="1.25"
+            textAlign="right"
+            sx={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {vatLabel}
           </Text>
         </HStack>
         <HStack spacing={2} justify="flex-end">
@@ -100,6 +125,25 @@ export function CardAmountSummary({
           sx={{ fontVariantNumeric: 'tabular-nums' }}
         >
           {netLabel}
+        </Text>
+      </Box>
+      <Box minW={cfg.colMinW}>
+        <Text
+          fontSize={cfg.label}
+          fontWeight="semibold"
+          color="neutral.500"
+          textTransform="uppercase"
+          letterSpacing="0.04em"
+        >
+          VAT
+        </Text>
+        <Text
+          fontWeight="semibold"
+          fontSize={cfg.vat}
+          color="neutral.600"
+          sx={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {vatLabel}
         </Text>
       </Box>
       <Box minW={cfg.colMinW}>

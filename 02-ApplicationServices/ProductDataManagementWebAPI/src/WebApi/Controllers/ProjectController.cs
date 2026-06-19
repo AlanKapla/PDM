@@ -5,10 +5,13 @@ using CQRS.Projects.AddProjectUnit;
 using CQRS.Projects.CreateProject;
 using CQRS.Projects.DeleteProjectUnit;
 using CQRS.Projects.GetProjectDetails;
+using CQRS.Projects.GetProjectInvitations;
 using CQRS.Projects.GetProjectMembers;
 using CQRS.Projects.GetProjectsDictionary;
 using CQRS.Projects.GetProjectUnits;
 using CQRS.Projects.GetTenantProjects;
+using CQRS.Projects.InviteProjectMember;
+using CQRS.Projects.RemoveProjectInvitation;
 using CQRS.Projects.RemoveProjectMember;
 using CQRS.Projects.ReorderProjectUnits;
 using CQRS.Projects.SetProjectCurrency;
@@ -96,6 +99,51 @@ namespace WebApi.Controllers
             [FromBody] AddProjectMemberCommand command)
         {
             command = command with { TenantId = tenantId, ProjectId = projectId };  
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPost("{projectId}/invitations")]
+        [Authorize(Policy = PermissionCodes.ProjectMembers)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<IActionResult> InviteProjectMember(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] InviteProjectMemberCommand command)
+        {
+            command = command with { TenantId = tenantId, ProjectId = projectId };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpGet("{projectId}/invitations")]
+        [Authorize(Policy = PermissionCodes.ProjectMembers)]
+        public async Task<IActionResult> GetProjectInvitations(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            GetProjectInvitationsQuery query = new GetProjectInvitationsQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+            IEnumerable<ProjectInvitationWeb> result = await Send(query);
+            return Ok(result);
+        }
+
+        [HttpDelete("{projectId}/invitations/{invitationId}")]
+        [Authorize(Policy = PermissionCodes.ProjectMembers)]
+        public async Task<IActionResult> RemoveProjectInvitation(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid invitationId)
+        {
+            RemoveProjectInvitationCommand command = new RemoveProjectInvitationCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                InvitationId = invitationId
+            };
             await Send(command);
             return NoContent();
         }

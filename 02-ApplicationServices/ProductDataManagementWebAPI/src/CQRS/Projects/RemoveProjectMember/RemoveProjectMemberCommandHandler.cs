@@ -25,6 +25,7 @@ namespace CQRS.Projects.RemoveProjectMember
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
         private readonly IUserService userService;
+        private readonly IPermissionsVersionService permissionsVersionService;
 
         public RemoveProjectMemberCommandHandler(
             IReadRepository<Project> projectRepo,
@@ -32,7 +33,8 @@ namespace CQRS.Projects.RemoveProjectMember
             INotificationSender notificationSender,
             ICurrentUser currentUser,
             IReadRepository<Notification> notificationRepo,
-            IUserService userService)
+            IUserService userService,
+            IPermissionsVersionService permissionsVersionService)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
@@ -40,6 +42,7 @@ namespace CQRS.Projects.RemoveProjectMember
             this.currentUser = currentUser;
             this.notificationRepo = notificationRepo;
             this.userService = userService;
+            this.permissionsVersionService = permissionsVersionService;
         }
 
         public async Task<Unit> Handle(RemoveProjectMemberCommand request, CancellationToken cancellationToken)
@@ -51,14 +54,17 @@ namespace CQRS.Projects.RemoveProjectMember
             ProjectMember projectMember = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == request.ProjectId
                     && pm.TenantId == request.TenantId
-                    && pm.UserId == request.UserId)
+                    && pm.UserId == request.UserId
+                    && pm.IsActive)
                 ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
             ProjectMemberUserInfo? targetUser = await userService.GetProjectMemberAsync(
                 request.TenantId, request.ProjectId, request.UserId, cancellationToken);
 
-            await projectMemberRepo.Delete(projectMember);
+            projectMember.IsActive = false;
+            await projectMemberRepo.Update(projectMember);
             await userService.InvalidateProjectMembersCacheAsync(request.TenantId, request.ProjectId, cancellationToken);
+            await permissionsVersionService.BumpVersionAsync(request.UserId, cancellationToken);
 
             NotificationDto notification = new NotificationDto
             {

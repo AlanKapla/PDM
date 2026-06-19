@@ -3,8 +3,14 @@
  * Inline editing with transparent → hover → focus states
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Input, type InputProps } from '@chakra-ui/react';
+import {
+  formatDecimalInput,
+  parseNumericInput,
+  resolveNumericInputDisplayValue,
+  sanitizeNumericInput,
+} from '../../utils/numericInputUtils';
 
 interface PrototypeInputProps extends Omit<InputProps, 'variant'> {
   isGroup?: boolean;
@@ -18,8 +24,14 @@ interface PrototypeInputProps extends Omit<InputProps, 'variant'> {
 const getInlineInputInteractionStyles = (blendWithRow: boolean, showBorder: boolean) => {
   if (showBorder) {
     return {
-      _hover: { bg: 'white', borderColor: 'neutral.300' },
+      _hover: { bg: 'white', borderColor: 'neutral.300', boxShadow: 'none' },
       _focus: {
+        bg: 'white',
+        borderColor: 'primary.500',
+        boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
+        outline: 'none',
+      },
+      _focusVisible: {
         bg: 'white',
         borderColor: 'primary.500',
         boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
@@ -28,43 +40,79 @@ const getInlineInputInteractionStyles = (blendWithRow: boolean, showBorder: bool
     };
   }
 
+  if (blendWithRow) {
+    return {
+      _hover: { bg: 'transparent', borderColor: 'neutral.200', boxShadow: 'none' },
+      _focus: {
+        bg: 'transparent',
+        borderColor: 'neutral.200',
+        boxShadow: 'none',
+        outline: 'none',
+      },
+      _focusVisible: {
+        bg: 'transparent',
+        borderColor: 'neutral.200',
+        boxShadow: 'none',
+        outline: 'none',
+      },
+    };
+  }
+
   return {
-    _hover: blendWithRow
-      ? { bg: 'transparent', borderColor: 'neutral.200' }
-      : { bg: 'white', borderColor: 'neutral.200' },
-    _focus: blendWithRow
-      ? {
-          bg: 'transparent',
-          borderColor: 'primary.500',
-          boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
-          outline: 'none',
-        }
-      : {
-          bg: 'white',
-          borderColor: 'primary.500',
-          boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
-          outline: 'none',
-        },
+    _hover: { bg: 'white', borderColor: 'neutral.200', boxShadow: 'none' },
+    _focus: {
+      bg: 'white',
+      borderColor: 'primary.500',
+      boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
+      outline: 'none',
+    },
+    _focusVisible: {
+      bg: 'white',
+      borderColor: 'primary.500',
+      boxShadow: '0 0 0 3px rgba(47, 108, 236, 0.12)',
+      outline: 'none',
+    },
   };
 };
+
+/** Wyłącza globalny outline/box-shadow — uzupełnienie reguły .ce-tree-view w index.css */
+const TREE_ROW_INPUT_FOCUS_SX = {
+  '&:focus': {
+    outline: 'none !important',
+    boxShadow: 'none !important',
+  },
+  '&:focus-visible': {
+    outline: 'none !important',
+    boxShadow: 'none !important',
+  },
+} as const;
 
 /**
  * Inline text input with prototype styling
  * - Transparent background
  * - Border appears on hover
- * - Focus with brand shadow
+ * - Focus with thin border (tree) or brand shadow (modals)
  */
 export const PrototypeTextInput: React.FC<PrototypeInputProps> = ({
   isGroup = false,
   isStage = false,
   blendWithRow = false,
   showBorder = false,
+  minW,
+  maxW,
+  w,
   ...props
 }) => {
   const interactionStyles = getInlineInputInteractionStyles(blendWithRow, showBorder);
+  const resolvedMinW = minW ?? (blendWithRow ? 0 : '60px');
+  const resolvedMaxW = maxW ?? (blendWithRow ? '100%' : '440px');
+  const resolvedW = w ?? (blendWithRow ? 'full' : undefined);
+  const focusSx = blendWithRow ? TREE_ROW_INPUT_FOCUS_SX : undefined;
 
   return (
     <Input
+      {...props}
+      variant={blendWithRow && !showBorder ? 'unstyled' : 'outline'}
       border="1px solid"
       borderColor={showBorder ? 'neutral.200' : 'transparent'}
       bg={showBorder ? 'white' : 'transparent'}
@@ -74,12 +122,14 @@ export const PrototypeTextInput: React.FC<PrototypeInputProps> = ({
       fontSize={isStage ? 'md' : 'sm'}
       fontWeight={isGroup || isStage ? 'bold' : 'normal'}
       color="inherit"
-      minW="60px"
-      maxW="440px"
+      minW={resolvedMinW}
+      maxW={resolvedMaxW}
+      w={resolvedW}
       transition="all 0.1s"
+      sx={focusSx}
       _hover={interactionStyles._hover}
       _focus={interactionStyles._focus}
-      {...props}
+      _focusVisible={interactionStyles._focusVisible}
     />
   );
 };
@@ -91,14 +141,73 @@ export const PrototypeNumberInput: React.FC<PrototypeInputProps> = ({
   blendWithRow = false,
   showBorder = false,
   sx,
+  value,
+  onChange,
+  onFocus,
+  onBlur,
   ...props
 }) => {
   const interactionStyles = getInlineInputInteractionStyles(blendWithRow, showBorder);
+  const focusSx = blendWithRow ? TREE_ROW_INPUT_FOCUS_SX : undefined;
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const resolvedValue: string | number | undefined = Array.isArray(value)
+    ? value[0]
+    : value;
+
+  const displayValue = draft !== null ? draft : resolveNumericInputDisplayValue(resolvedValue);
+
+  const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+    setDraft(resolveNumericInputDisplayValue(resolvedValue));
+    onFocus?.(event);
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitized = sanitizeNumericInput(event.target.value);
+    setDraft(sanitized);
+    const syntheticEvent = {
+      ...event,
+      target: { ...event.target, value: sanitized },
+      currentTarget: { ...event.currentTarget, value: sanitized },
+    } as React.ChangeEvent<HTMLInputElement>;
+    onChange?.(syntheticEvent);
+  };
+
+  const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    const raw = draft ?? resolveNumericInputDisplayValue(resolvedValue);
+    const parsed = parseNumericInput(raw);
+    if (parsed !== null) {
+      const formatted = formatDecimalInput(parsed);
+      if (formatted !== raw) {
+        const syntheticEvent = {
+          ...event,
+          target: { ...event.target, value: formatted },
+          currentTarget: { ...event.currentTarget, value: formatted },
+        } as React.ChangeEvent<HTMLInputElement>;
+        onChange?.(syntheticEvent);
+      }
+    } else if (raw.trim() === '' && resolvedValue !== '' && resolvedValue !== undefined && resolvedValue !== null) {
+      const syntheticEvent = {
+        ...event,
+        target: { ...event.target, value: '' },
+        currentTarget: { ...event.currentTarget, value: '' },
+      } as React.ChangeEvent<HTMLInputElement>;
+      onChange?.(syntheticEvent);
+    }
+    setDraft(null);
+    onBlur?.(event);
+  };
 
   return (
     <Input
       type="text"
       inputMode="decimal"
+      {...props}
+      value={displayValue}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      variant={blendWithRow && !showBorder ? 'unstyled' : 'outline'}
       border="1px solid"
       borderColor={showBorder ? 'neutral.200' : 'transparent'}
       bg={showBorder ? 'white' : 'transparent'}
@@ -110,44 +219,18 @@ export const PrototypeNumberInput: React.FC<PrototypeInputProps> = ({
       textAlign="right"
       w="full"
       transition="all 0.1s"
-      sx={{ fontVariantNumeric: 'tabular-nums', ...sx }}
+      sx={{ fontVariantNumeric: 'tabular-nums', ...focusSx, ...sx }}
       _hover={interactionStyles._hover}
       _focus={interactionStyles._focus}
-      {...props}
+      _focusVisible={interactionStyles._focusVisible}
     />
   );
 };
 
 /**
- * Inline date input (natywny date picker) w stylu prototype.
+ * Inline date input — re-eksport z osobnego pliku (stabilniejszy HMR).
  */
-export const PrototypeDateInput: React.FC<PrototypeInputProps> = ({
-  blendWithRow = false,
-  showBorder = false,
-  ...props
-}) => {
-  const interactionStyles = getInlineInputInteractionStyles(blendWithRow, showBorder);
-
-  return (
-    <Input
-      type="date"
-      border="1px solid"
-      borderColor={showBorder ? 'neutral.200' : 'transparent'}
-      bg={showBorder ? 'white' : 'transparent'}
-      borderRadius="8px"
-      px="10px"
-      py="7px"
-      fontSize="sm"
-      color="inherit"
-      minW="60px"
-      w="full"
-      transition="all 0.1s"
-      _hover={interactionStyles._hover}
-      _focus={interactionStyles._focus}
-      {...props}
-    />
-  );
-};
+export { PrototypeDateInput } from './PrototypeDateInput';
 
 /**
  * Prototype-styled badge/tag for hierarchy levels

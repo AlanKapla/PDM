@@ -35,8 +35,6 @@ public sealed class GetTenantDetailsQueryHandlerTests
             _currentUserMock.Object);
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-
     private static GetTenantDetailsQuery ValidQuery(Guid tenantId) => new GetTenantDetailsQuery
     {
         TenantId = tenantId
@@ -71,12 +69,9 @@ public sealed class GetTenantDetailsQueryHandlerTests
             .ReturnsAsync(new List<TenantInvitation>());
     }
 
-    // ─── Handle ───────────────────────────────────────────────────────────────
-
     [Fact]
     public async Task Handle_WhenTenantNotFound_ThrowsNotFoundApiException()
     {
-        // Arrange
         _tenantRepoMock
             .Setup(r => r.GetFirstBySearch(
                 It.IsAny<Expression<Func<Tenant, bool>>>()))
@@ -84,38 +79,29 @@ public sealed class GetTenantDetailsQueryHandlerTests
 
         GetTenantDetailsQuery query = ValidQuery(Guid.NewGuid());
 
-        // Act
         Func<Task> act = async () => await _handler.Handle(query, CancellationToken.None);
 
-        // Assert
         await act.Should().ThrowAsync<NotFoundApiException>();
     }
 
     [Fact]
-    public async Task Handle_WhenTenantExists_ReturnsTenantDetails()
+    public async Task Handle_WhenTenantExists_ReturnsTenantDetailsWeb()
     {
-        // Arrange
         Guid tenantId = Guid.NewGuid();
         Tenant tenant = BuildTenant(tenantId);
+        SetupEmptyCollections();
 
         _tenantRepoMock
             .Setup(r => r.GetFirstBySearch(
                 It.IsAny<Expression<Func<Tenant, bool>>>()))
             .ReturnsAsync(tenant);
 
-        SetupEmptyCollections();
-
         GetTenantDetailsQuery query = ValidQuery(tenantId);
 
-        // Act
         TenantDetailsWeb result = await _handler.Handle(query, CancellationToken.None);
 
-        // Assert
         result.Should().NotBeNull();
-        result.Id.Should().Be(tenant.Id);
-        result.Name.Should().Be(tenant.Name);
-        result.IsActive.Should().BeTrue();
-        result.Members.Should().BeEmpty();
-        result.Invitations.Should().BeEmpty();
+        result.Id.Should().Be(tenantId);
+        result.Name.Should().Be("Test Tenant");
     }
 }

@@ -10,6 +10,7 @@ import {
   getAdditionalFieldValueAsString,
 } from './additionalFieldHelpers';
 import { MIN_COL_WIDTHS } from './costEstimateFieldSchema';
+import { deriveItemFinancialState } from './costEstimateItemFinancial';
 
 const HEADER_CHAR_WIDTH = 7.2;
 const CELL_CHAR_WIDTH = 8;
@@ -114,12 +115,18 @@ function getItemFieldText(item: CostEstimateItemWeb, fieldKey: string): string {
         : '';
     case 'unitPriceGross':
       return fmtNum(item.unitPriceGross);
-    case 'netValue':
-      return fmtNum(item.netValue);
-    case 'grossValue':
-      return fmtNum(item.grossValue);
-    case 'vatValue':
-      return fmtNum(item.vatValue);
+    case 'netValue': {
+      const derived = deriveItemFinancialState(item);
+      return fmtNum(derived.netValue);
+    }
+    case 'grossValue': {
+      const derived = deriveItemFinancialState(item);
+      return fmtNum(derived.grossValue);
+    }
+    case 'vatValue': {
+      const derived = deriveItemFinancialState(item);
+      return fmtNum(derived.vatValue);
+    }
     case 'isSelected':
     case 'isStageWork':
       return '✓';

@@ -17,3 +17,10 @@ export const PROJECT_MODULE_LABELS: Record<ProjectModule, string> = {
   [ProjectModule.Schedule]: "Harmonogramy",
   [ProjectModule.DashboardTracker]: "Śledzenie kosztów",
 };
+
+/** Domyślny preset modułów przy zaproszeniu e-mailem do projektu */
+export const DEFAULT_INVITE_PROJECT_MODULES: ProjectModule[] = [
+  ProjectModule.Files,
+  ProjectModule.Estimates,
+  ProjectModule.Schedule,
+];

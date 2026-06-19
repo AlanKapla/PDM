@@ -1,5 +1,5 @@
 import { axiosClient } from "./axiosClient";
-import type { ProjectCostListItemWeb, SetProjectCurrencyRequest } from "../types/project.types";
+import type { ProjectCostListItemWeb, SetProjectCurrencyRequest, ProjectInvitationWeb, InviteProjectMemberRequest } from "../types/project.types";
 import type { WorkScheduleDetailsWeb, GenerateScheduleFromEstimateAIRequest } from "../types/workSchedule.types";
 
 export interface ProjectUnitDto {
@@ -79,6 +79,43 @@ export const projectApi = {
     return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/members`, {
       tenantId, projectId, userId, modules
     });
+  },
+
+  inviteProjectMember: async (
+    tenantId: string,
+    projectId: string,
+    request: InviteProjectMemberRequest
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/invitations`, request);
+  },
+
+  getProjectInvitations: async (
+    tenantId: string,
+    projectId: string
+  ): Promise<ProjectInvitationWeb[]> => {
+    const response = await axiosClient.get<ProjectInvitationWeb[]>(
+      `/tenants/${tenantId}/projects/${projectId}/invitations`
+    );
+    return response.data;
+  },
+
+  revokeProjectInvitation: async (
+    tenantId: string,
+    projectId: string,
+    invitationId: string
+  ) => {
+    return axiosClient.delete(
+      `/tenants/${tenantId}/projects/${projectId}/invitations/${invitationId}`
+    );
+  },
+
+  getActiveProjectInvitations: async (): Promise<ProjectInvitationWeb[]> => {
+    const response = await axiosClient.get<ProjectInvitationWeb[]>("/projects/invitations");
+    return response.data;
+  },
+
+  acceptProjectInvitation: async (token: string) => {
+    return axiosClient.post("/projects/invitations/accept", { token });
   },
 
   // Usuń członka z projektu

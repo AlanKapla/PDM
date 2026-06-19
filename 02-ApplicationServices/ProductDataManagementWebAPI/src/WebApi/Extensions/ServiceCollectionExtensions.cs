@@ -286,6 +286,7 @@ namespace WebApi.Extensions
                 .AddRepository<PermissionsVersionProfile>()
                 .AddWriteRepository<TenantMember>()
                 .AddRepository<TenantInvitation>()
+                .AddWriteRepository<TenantInvitationModulePermission>()
                 .AddReadOnlyRepository<UserSession>()
                 .AddRepository<Contractor>();
 
@@ -383,6 +384,7 @@ namespace WebApi.Extensions
             services.AddScoped<IWorkScheduleAIGeneratorService, WorkScheduleAIGeneratorService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
+            services.AddScoped<IProjectMembershipProvisioner, ProjectMembershipProvisioner>();
             services.AddSingleton<ICacheService, CacheService>();
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
             services.AddScoped<IFileAccessGuard, FileAccessGuard>();

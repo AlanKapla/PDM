@@ -23,6 +23,8 @@ import type {
 import { CostEstimateFieldType, isTemporaryId } from '../../../types/costEstimate.types.new';
 import { PrototypeTextInput, PrototypeNumberInput } from '../PrototypeInputs';
 import { getBaseFieldPlaceholder, getFieldLabelByKey, getInputTextAlign } from '../../../utils/costEstimateFieldSchema';
+import { formatDecimalInput, formatVatPercent } from '../../../utils/numericInputUtils';
+import { deriveItemFinancialState } from '../../../utils/costEstimateItemFinancial';
 import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 import { useCostEstimateItemFieldState } from '../../../hooks/useCostEstimateItemFieldState';
 import {
@@ -115,7 +117,8 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
   const isStageWork = item.isStageWork;
   const unitPriceNet = item.unitPriceNet;
   const vatRate = item.vatRate;
-  const unitPriceGross = item.unitPriceGross;
+  const derived = deriveItemFinancialState(item);
+  const unitPriceGross = derived.unitPriceGross;
   const canHaveOptions = isComponent || (!isComponent && !isOption && !hasComponents);
   const canHaveComponents = !isOption && !isComponent && !hasOptions;
   const showOptionsTable = hasOptions || (isEditMode && canHaveOptions);
@@ -200,10 +203,10 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             </FormLabel>
             <PrototypeNumberInput
               showBorder
-              value={quantity !== undefined && quantity !== null ? String(quantity) : ''}
+              value={quantity ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
-                onFieldChange(groupId, item.id, 'quantity', val === '' ? null : parseFloat(val));
+                onFieldChange(groupId, item.id, 'quantity', val === '' ? null : val);
                 triggerBaseFieldAutosave('quantity', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || sourceFieldsLocked}
@@ -300,10 +303,10 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             </FormLabel>
             <PrototypeNumberInput
               showBorder
-              value={unitPriceNet !== undefined && unitPriceNet !== null ? String(unitPriceNet) : ''}
+              value={unitPriceNet ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
-                onFieldChange(groupId, item.id, 'unitPriceNet', val === '' ? null : parseFloat(val));
+                onFieldChange(groupId, item.id, 'unitPriceNet', val === '' ? null : val);
                 triggerBaseFieldAutosave('unitPriceNet', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || sourceFieldsLocked}
@@ -317,13 +320,11 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             </FormLabel>
             <PrototypeNumberInput
               showBorder
-              value={vatRate !== undefined && vatRate !== null ? String(Math.round(vatRate * 100)) : ''}
+              value={vatRate !== undefined && vatRate !== null ? formatVatPercent(vatRate) : ''}
               onChange={(e) => {
                 const val = e.target.value;
-                const raw = parseFloat(val.replace(',', '.'));
-                const decimal = isNaN(raw) ? val : String(raw / 100);
-                onFieldChange(groupId, item.id, 'vatRate', decimal);
-                triggerBaseFieldAutosave('vatRate', 'numeric', decimal);
+                onFieldChange(groupId, item.id, 'vatRate', val === '' ? null : val);
+                triggerBaseFieldAutosave('vatRate', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || sourceFieldsLocked}
               placeholder={placeholder('vatRate')}
@@ -336,10 +337,10 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             </FormLabel>
             <PrototypeNumberInput
               showBorder
-              value={unitPriceGross !== undefined && unitPriceGross !== null ? String(unitPriceGross) : ''}
+              value={unitPriceGross ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
-                onFieldChange(groupId, item.id, 'unitPriceGross', val === '' ? null : parseFloat(val));
+                onFieldChange(groupId, item.id, 'unitPriceGross', val === '' ? null : val);
                 triggerBaseFieldAutosave('unitPriceGross', 'numeric', val || undefined);
               }}
               isDisabled={!isEditMode || flags.unitPriceGrossComputed}
@@ -351,51 +352,33 @@ export const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
             <FormLabel fontSize="sm" fontWeight="medium">
               {label('netValue')}
             </FormLabel>
-            <PrototypeNumberInput
-              showBorder
-              value={item.netValue !== undefined && item.netValue !== null ? String(item.netValue) : ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onFieldChange(groupId, item.id, 'netValue', val === '' ? null : parseFloat(val));
-                triggerBaseFieldAutosave('netValue', 'numeric', val || undefined);
-              }}
-              isDisabled={!isEditMode || flags.netValueComputed}
-              placeholder={placeholder('netValue')}
-            />
+            <Text fontSize="sm" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+              {derived.netValue !== undefined && derived.netValue !== null
+                ? formatDecimalInput(derived.netValue)
+                : '—'}
+            </Text>
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
               {label('vatValue')}
             </FormLabel>
-            <PrototypeNumberInput
-              showBorder
-              value={item.vatValue !== undefined && item.vatValue !== null ? String(item.vatValue) : ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onFieldChange(groupId, item.id, 'vatValue', val === '' ? null : parseFloat(val));
-                triggerBaseFieldAutosave('vatValue', 'numeric', val || undefined);
-              }}
-              isDisabled={!isEditMode || flags.vatValueComputed}
-              placeholder={placeholder('vatValue')}
-            />
+            <Text fontSize="sm" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+              {derived.vatValue !== undefined && derived.vatValue !== null
+                ? formatDecimalInput(derived.vatValue)
+                : '—'}
+            </Text>
           </FormControl>
 
           <FormControl>
             <FormLabel fontSize="sm" fontWeight="medium">
               {label('grossValue')}
             </FormLabel>
-            <PrototypeNumberInput
-              showBorder
-              value={item.grossValue !== undefined && item.grossValue !== null ? String(item.grossValue) : ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onFieldChange(groupId, item.id, 'grossValue', val === '' ? null : parseFloat(val));
-                triggerBaseFieldAutosave('grossValue', 'numeric', val || undefined);
-              }}
-              isDisabled={!isEditMode || flags.grossValueComputed}
-              placeholder={placeholder('grossValue')}
-            />
+            <Text fontSize="sm" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+              {derived.grossValue !== undefined && derived.grossValue !== null
+                ? formatDecimalInput(derived.grossValue)
+                : '—'}
+            </Text>
           </FormControl>
         </DetailModalSection>
 

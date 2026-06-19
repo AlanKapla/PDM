@@ -1,8 +1,11 @@
 import { AxiosError } from "axios";
-import { 
-  defaultErrorMessage, 
+import {
+  defaultErrorMessage,
   apiExceptionReasonMessages,
-  httpStatusMessages 
+  httpStatusMessages,
+  extractValidationErrorMessages,
+  resolveKnownApiMessage,
+  type ApiToastStatus,
 } from "./errorMessages";
 
 // Struktura ApiException z backendu
@@ -16,6 +19,33 @@ interface ApiExceptionResponse {
 export interface ApiErrorResult {
   title: string;
   description?: string;
+  toastStatus?: ApiToastStatus;
+}
+
+function resolveApiMessageDetails(message: string): Pick<ApiErrorResult, "title" | "description" | "toastStatus"> | null {
+  const errorTexts = extractValidationErrorMessages(message);
+
+  for (const text of errorTexts) {
+    const resolved = resolveKnownApiMessage(text);
+    if (resolved) {
+      return {
+        title: resolved.title,
+        description: resolved.description,
+        toastStatus: resolved.toastStatus,
+      };
+    }
+  }
+
+  return null;
+}
+
+function formatValidationDescription(message: string): string | undefined {
+  const errors = extractValidationErrorMessages(message);
+  if (errors.length === 0) {
+    return message || undefined;
+  }
+
+  return errors.join(" ");
 }
 
 /**
@@ -43,12 +73,23 @@ export const handleApiError = (error: unknown): ApiErrorResult => {
   // Obsługa struktury ApiException z backendu
   if (data && 'error' in data && typeof data.error === 'string') {
     const { error: errorCode, message } = data;
-    
-    // Tytuł z kategorii błędu, opis ze szczegółowego message
+
+    if (message) {
+      const resolved = resolveApiMessageDetails(message);
+      if (resolved) {
+        return resolved;
+      }
+    }
+
     const title = apiExceptionReasonMessages[errorCode] || errorCode;
+    const description = errorCode === "ValidationError" && message
+      ? formatValidationDescription(message)
+      : message || undefined;
+
     return {
       title,
-      description: message || undefined
+      description,
+      toastStatus: "error",
     };
   }
 

@@ -44,13 +44,14 @@ namespace CQRS.Projects.GetProjectDetails
 
             // STEP 3: Members count + current user's membership in two targeted queries (no full member load)
             int membersCount = await projectMemberRepo.CountAsync(
-                pm => pm.ProjectId == request.ProjectId && pm.TenantId == request.TenantId,
+                pm => pm.ProjectId == request.ProjectId && pm.TenantId == request.TenantId && pm.IsActive,
                 cancellationToken);
 
             ProjectMember? projectMembership = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == request.ProjectId
                     && pm.TenantId == request.TenantId
-                    && pm.UserId == currentUser.Id,
+                    && pm.UserId == currentUser.Id
+                    && pm.IsActive,
                 include => include.Include(pm => pm.ModulePermissions));
 
             // STEP 4/5: Get user's permissions

@@ -174,17 +174,19 @@ namespace Business.Implementation.Services
                 valueNet,
                 item.VatRate,
                 item.VatValue);
+            decimal? unitPriceGross = CostEstimateItemFinancialCalculator.CalculateUnitPriceGross(
+                item.UnitPriceNet,
+                item.VatRate,
+                item.GrossValue,
+                item.Quantity,
+                item.UnitPriceGross);
             decimal? valueGross = CostEstimateItemFinancialCalculator.CalculateValueGross(
                 valueNet,
                 totalVat,
                 item.VatRate,
-                item.GrossValue);
-            decimal? unitPriceGross = CostEstimateItemFinancialCalculator.CalculateUnitPriceGross(
-                item.UnitPriceNet,
-                item.VatRate,
-                valueGross,
+                unitPriceGross,
                 item.Quantity,
-                item.UnitPriceGross);
+                item.GrossValue);
 
             item.NetValue = valueNet;
             item.GrossValue = valueGross;

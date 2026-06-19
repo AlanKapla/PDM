@@ -25,33 +25,51 @@ export const GhostActionButton: React.FC<GhostActionButtonProps> = ({
   variant = 'default',
   isDisabled,
   blendWithRow = false,
+  onMouseDown,
   ...props
 }) => {
   const buttonOpacity = isDisabled ? 0.4 : 1;
 
+  const handleMouseDown = (event: React.MouseEvent<HTMLButtonElement>): void => {
+    // Mouse clicks should not leave focus on the trigger — otherwise Chakra
+    // Tooltips open after add actions and can jump to the top-left on re-render.
+    event.preventDefault();
+    onMouseDown?.(event);
+  };
+
+  const iconButton = (
+    <IconButton
+      aria-label={label}
+      icon={icon}
+      isDisabled={isDisabled}
+      size="sm"
+      variant="ghost"
+      color="gray.400"
+      opacity={buttonOpacity}
+      transition="color 0.12s"
+      borderRadius="8px"
+      w="32px"
+      h="32px"
+      minW="32px"
+      _hover={
+        blendWithRow
+          ? { bg: 'transparent', color: 'gray.600' }
+          : {}
+      }
+      _active={blendWithRow ? { bg: 'transparent' } : undefined}
+      onMouseDown={handleMouseDown}
+      {...props}
+    />
+  );
+
+  // Add buttons already expose short labels (P+, E+, …) — no tooltip after click.
+  if (variant === 'add') {
+    return iconButton;
+  }
+
   return (
-    <Tooltip label={label} placement="top" hasArrow>
-      <IconButton
-        aria-label={label}
-        icon={icon}
-        isDisabled={isDisabled}
-        size="sm"
-        variant="ghost"
-        color="gray.400"
-        opacity={buttonOpacity}
-        transition="color 0.12s"
-        borderRadius="8px"
-        w="32px"
-        h="32px"
-        minW="32px"
-        _hover={
-          blendWithRow
-            ? { bg: 'transparent', color: 'gray.600' }
-            : {}
-        }
-        _active={blendWithRow ? { bg: 'transparent' } : undefined}
-        {...props}
-      />
+    <Tooltip label={label} placement="top" hasArrow closeOnClick closeOnMouseDown>
+      {iconButton}
     </Tooltip>
   );
 };
@@ -67,6 +85,7 @@ export const AddInlineButton: React.FC<{
   return (
     <Button
       onClick={onClick}
+      onMouseDown={(event) => event.preventDefault()}
       variant="ghost"
       colorScheme="primary"
       leftIcon={<Plus size={15} />}

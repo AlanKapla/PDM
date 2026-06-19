@@ -94,6 +94,7 @@ import {
   invalidateCostEstimateLists,
 } from '../hooks/queries';
 import { recalculateCostEstimateDetails } from '../utils/recalculateCostEstimateDetails';
+import { isPartialNumericInput, parseNumericInput, parseVatPercentInput, roundToDecimals } from '../utils/numericInputUtils';
 import { removeItemFromCostEstimateTree } from '../utils/costEstimateUtils';
 import { upsertAdditionalFieldValue, resolveAdditionalFieldType, cloneAdditionalFieldValues } from '../utils/additionalFieldHelpers';
 import type {
@@ -1178,6 +1179,7 @@ export const CostEstimateEditPage: React.FC = () => {
                   relationType: 0,
                   order: itemOrder,
                   name: '',
+                  quantity: 1,
                   isSelected: true,
                   isStageWork: false,
                   additionalFieldValues: [],
@@ -1331,6 +1333,17 @@ export const CostEstimateEditPage: React.FC = () => {
         return undefined;
       };
       const parentItem = findItem(details.rootGroups);
+      const shouldClearParentFinancialInputs =
+        relationType === 2 && parentItem?.relationType === 0;
+      const parentFinancialFieldsSnapshot = shouldClearParentFinancialInputs
+        ? {
+            quantity: parentItem?.quantity,
+            unit: parentItem?.unit,
+            unitPriceNet: parentItem?.unitPriceNet,
+            unitPriceGross: parentItem?.unitPriceGross,
+            vatRate: parentItem?.vatRate,
+          }
+        : null;
       const childCollection = relationType === 1 
         ? (parentItem?.options || []) 
         : (parentItem?.components || []);
@@ -1345,6 +1358,7 @@ export const CostEstimateEditPage: React.FC = () => {
         relationType,
         order: childOrder,
         name: '',
+        quantity: 1,
         isSelected: relationType !== 1, // opcje domyślnie odznaczone
         isStageWork: false,
         additionalFieldValues: [],
@@ -1362,9 +1376,25 @@ export const CostEstimateEditPage: React.FC = () => {
               if (item.id === parentItemId) {
                 if (relationType === 1) {
                   return { ...item, options: [...(item.options || []), tempChild] };
-                } else {
-                  return { ...item, components: [...(item.components || []), tempChild] };
                 }
+
+                const updatedItem: CostEstimateItemWeb = {
+                  ...item,
+                  components: [...(item.components || []), tempChild],
+                };
+
+                if (shouldClearParentFinancialInputs) {
+                  return {
+                    ...updatedItem,
+                    quantity: undefined,
+                    unit: undefined,
+                    unitPriceNet: undefined,
+                    unitPriceGross: undefined,
+                    vatRate: undefined,
+                  };
+                }
+
+                return updatedItem;
               }
               // Sprawdź komponenty (opcje mogą być dodawane do komponentów)
               if (item.components?.some(c => c.id === parentItemId)) {
@@ -1472,9 +1502,25 @@ export const CostEstimateEditPage: React.FC = () => {
                 if (item.id === parentItemId) {
                   if (relationType === 1) {
                     return { ...item, options: (item.options || []).filter(opt => opt.id !== tempId) };
-                  } else {
-                    return { ...item, components: (item.components || []).filter(comp => comp.id !== tempId) };
                   }
+
+                  const restoredItem: CostEstimateItemWeb = {
+                    ...item,
+                    components: (item.components || []).filter(comp => comp.id !== tempId),
+                  };
+
+                  if (parentFinancialFieldsSnapshot) {
+                    return {
+                      ...restoredItem,
+                      quantity: parentFinancialFieldsSnapshot.quantity,
+                      unit: parentFinancialFieldsSnapshot.unit,
+                      unitPriceNet: parentFinancialFieldsSnapshot.unitPriceNet,
+                      unitPriceGross: parentFinancialFieldsSnapshot.unitPriceGross,
+                      vatRate: parentFinancialFieldsSnapshot.vatRate,
+                    };
+                  }
+
+                  return restoredItem;
                 }
                 // Sprawdź komponenty
                 if (item.components?.some(c => c.id === parentItemId)) {
@@ -1976,13 +2022,24 @@ export const CostEstimateEditPage: React.FC = () => {
             }
             return '';
           }
-          // Obsługa pól numerycznych — parsuj string → number
-          if (field === 'quantity' || field === 'unitPriceNet' || field === 'vatRate' || field === 'netValue' || field === 'vatValue' || field === 'grossValue' || field === 'unitPriceGross') {
+          // Obsługa pól numerycznych — parsuj string → number (z obsługą `,` jako separatora)
+          if (field === 'quantity' || field === 'unitPriceNet' || field === 'netValue' || field === 'vatValue' || field === 'grossValue' || field === 'unitPriceGross') {
             if (typeof raw === 'string') {
-              const parsed = parseFloat(raw.replace(',', '.'));
-              return isNaN(parsed) ? null : parsed;
+              if (isPartialNumericInput(raw)) {
+                return undefined;
+              }
+              return parseNumericInput(raw);
             }
-            return raw;
+            return typeof raw === 'number' ? roundToDecimals(raw) : raw;
+          }
+          if (field === 'vatRate') {
+            if (typeof raw === 'string') {
+              if (isPartialNumericInput(raw)) {
+                return undefined;
+              }
+              return parseVatPercentInput(raw);
+            }
+            return typeof raw === 'number' ? roundToDecimals(raw, 4) : raw;
           }
           // Obsługa pól boolean
           if (field === 'isSelected' || field === 'isStageWork') {
@@ -2022,8 +2079,11 @@ export const CostEstimateEditPage: React.FC = () => {
           if (isBaseItemField(fieldId)) {
             // Bazowe pole pozycji — aktualizuj bezpośrednią właściwość
             const parsed = parseBaseValue(fieldId, value);
-            const isClear = parsed === null || parsed === undefined;
-            switch (fieldId) {
+            const isPartialNumeric =
+              typeof value === 'string' && isPartialNumericInput(value);
+            if (!isPartialNumeric) {
+              const isClear = parsed === null || parsed === undefined;
+              switch (fieldId) {
               case 'name': item.name = parsed === null ? '' : String(parsed); break;
               case 'quantity':
                 item.quantity = parsed as number | undefined ?? undefined;
@@ -2063,6 +2123,7 @@ export const CostEstimateEditPage: React.FC = () => {
               case 'vatValue': item.vatValue = parsed as number | undefined ?? undefined; break;
               case 'grossValue': item.grossValue = parsed as number | undefined ?? undefined; break;
               case 'unitPriceGross': item.unitPriceGross = parsed as number | undefined ?? undefined; break;
+              }
             }
           } else {
             // Pole dodatkowe pozycji — aktualizuj additionalFieldValues

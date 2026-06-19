@@ -85,6 +85,7 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
   onOpenGroupDetail,
 }) => {
   const totalNet = subGroup.totalNet ?? 0;
+  const totalVat = subGroup.totalVat ?? 0;
   const totalGross = subGroup.totalGross ?? 0;
   const hasSubGroups = (subGroup.childGroups?.length ?? 0) > 0;
   const hasItems = (subGroup.items?.length ?? 0) > 0;
@@ -138,6 +139,7 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
 
         <CardAmountSummary
           net={totalNet}
+          vat={totalVat}
           gross={totalGross}
           currencySymbol={currencySymbol}
           size="md"
@@ -292,6 +294,7 @@ export const StageCard: React.FC<StageCardProps> = ({
   onOpenGroupDetail,
 }) => {
   const totalNet = stage.totalNet ?? 0;
+  const totalVat = stage.totalVat ?? 0;
   const totalGross = stage.totalGross ?? 0;
   const hasSubGroups = (stage.childGroups?.length ?? 0) > 0;
   const hasItems = (stage.items?.length ?? 0) > 0;
@@ -353,6 +356,7 @@ export const StageCard: React.FC<StageCardProps> = ({
 
         <CardAmountSummary
           net={totalNet}
+          vat={totalVat}
           gross={totalGross}
           currencySymbol={currencySymbol}
           size="lg"

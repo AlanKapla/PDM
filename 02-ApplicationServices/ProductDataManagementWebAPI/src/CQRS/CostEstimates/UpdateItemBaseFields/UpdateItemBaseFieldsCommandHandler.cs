@@ -246,11 +246,12 @@ namespace CQRS.CostEstimates.UpdateItemBaseFields
                 effectiveNet,
                 item.VatRate,
                 item.VatValue);
-            decimal? effectiveGross = CostEstimateItemFinancialCalculator.CalculateValueGross(
-                effectiveNet,
-                effectiveVat,
+            decimal? effectiveUnitPriceGross = CostEstimateItemFinancialCalculator.CalculateUnitPriceGross(
+                item.UnitPriceNet,
                 item.VatRate,
-                item.GrossValue);
+                item.GrossValue,
+                item.Quantity,
+                item.UnitPriceGross);
 
             if ((request.NetValue.HasValue || request.ClearNetValue)
                 && CostEstimateItemFinancialCalculator.IsNetValueComputed(item.UnitPriceNet, item.Quantity))
@@ -270,21 +271,19 @@ namespace CQRS.CostEstimates.UpdateItemBaseFields
                 && CostEstimateItemFinancialCalculator.IsGrossValueComputed(
                     effectiveNet,
                     effectiveVat,
-                    item.VatRate))
+                    item.VatRate,
+                    effectiveUnitPriceGross,
+                    item.Quantity))
             {
                 throw new ValidationApiException(
                     "Gross value is calculated from net value and VAT and cannot be edited.");
             }
 
             if ((request.UnitPriceGross.HasValue || request.ClearUnitPriceGross)
-                && CostEstimateItemFinancialCalculator.IsUnitPriceGrossComputed(
-                    item.UnitPriceNet,
-                    item.VatRate,
-                    effectiveGross,
-                    item.Quantity))
+                && item.VatRate.HasValue)
             {
                 throw new ValidationApiException(
-                    "Unit gross price is calculated automatically and cannot be edited.");
+                    "Unit gross price is calculated automatically when VAT rate is set and cannot be edited.");
             }
         }
     }

@@ -31,12 +31,32 @@ namespace Business.Implementation.Helpers
             return totalVatField;
         }
 
+        public static decimal? CalculateGrossValueFromUnitPriceGross(
+            decimal? unitPriceGross,
+            decimal? quantity)
+        {
+            if (unitPriceGross.HasValue && quantity.HasValue)
+            {
+                return unitPriceGross.Value * quantity.Value;
+            }
+
+            return null;
+        }
+
         public static decimal? CalculateValueGross(
             decimal? valueNet,
             decimal? totalVat,
             decimal? vatRate,
+            decimal? unitPriceGross,
+            decimal? quantity,
             decimal? valueGrossField)
         {
+            decimal? fromUnitPriceGross = CalculateGrossValueFromUnitPriceGross(unitPriceGross, quantity);
+            if (fromUnitPriceGross.HasValue)
+            {
+                return fromUnitPriceGross.Value;
+            }
+
             if (valueNet.HasValue && totalVat.HasValue)
             {
                 return valueNet.Value + totalVat.Value;
@@ -62,12 +82,17 @@ namespace Business.Implementation.Helpers
                 return unitPriceNet.Value * (1m + vatRate.Value);
             }
 
+            if (unitPriceGrossField.HasValue)
+            {
+                return unitPriceGrossField.Value;
+            }
+
             if (valueGross.HasValue && quantity.HasValue && quantity.Value != 0m)
             {
                 return valueGross.Value / quantity.Value;
             }
 
-            return unitPriceGrossField;
+            return null;
         }
 
         public static bool IsNetValueComputed(decimal? unitPriceNet, decimal? quantity)
@@ -83,20 +108,20 @@ namespace Business.Implementation.Helpers
         public static bool IsGrossValueComputed(
             decimal? valueNet,
             decimal? totalVat,
-            decimal? vatRate)
+            decimal? vatRate,
+            decimal? unitPriceGross,
+            decimal? quantity)
         {
-            return (valueNet.HasValue && totalVat.HasValue)
+            return CalculateGrossValueFromUnitPriceGross(unitPriceGross, quantity).HasValue
+                || (valueNet.HasValue && totalVat.HasValue)
                 || (valueNet.HasValue && vatRate.HasValue);
         }
 
         public static bool IsUnitPriceGrossComputed(
             decimal? unitPriceNet,
-            decimal? vatRate,
-            decimal? valueGross,
-            decimal? quantity)
+            decimal? vatRate)
         {
-            return (unitPriceNet.HasValue && vatRate.HasValue)
-                || (valueGross.HasValue && quantity.HasValue && quantity.Value != 0m);
+            return unitPriceNet.HasValue && vatRate.HasValue;
         }
     }
 }

@@ -1,12 +1,4 @@
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
-using Entities.Models.Base;
+﻿using Entities.Models.Base;
 using Entities.Models.CostTrackers;
 
 namespace Entities.Models.CostEstimates
@@ -52,7 +44,7 @@ namespace Entities.Models.CostEstimates
         public string? Unit { get; set; }
 
         /// <summary>
-        /// Cena jednostkowa netto
+        /// Cena netto
         /// </summary>
         public decimal? UnitPriceNet { get; set; }
 
@@ -62,7 +54,7 @@ namespace Entities.Models.CostEstimates
         public decimal? VatRate { get; set; }
 
         /// <summary>
-        /// Cena jednostkowa brutto — obliczana: UnitPriceNet * (1 + VatRate)
+        /// Cena brutto — obliczana: UnitPriceNet * (1 + VatRate)
         /// </summary>
         public decimal? UnitPriceGross { get; set; }
 

@@ -25,6 +25,7 @@ import {
   ChevronsUp,
   GitBranch,
   Eye,
+  EyeOff,
   Zap,
   Maximize2,
   Minimize2,
@@ -57,6 +58,8 @@ export default function GanttToolbar({
   timeScale,
   onTimeScaleChange,
   onScrollToToday,
+  hideWeekends,
+  onToggleWeekends,
   searchQuery,
   onSearchChange,
   isFullscreen,
@@ -245,6 +248,14 @@ export default function GanttToolbar({
             </MenuItem>
             <MenuItem icon={<CalendarDays size={16} />} onClick={onScrollToToday}>
               Dziś
+            </MenuItem>
+            <MenuItem
+              icon={hideWeekends ? <Eye size={16} /> : <EyeOff size={16} />}
+              onClick={onToggleWeekends}
+              fontWeight={hideWeekends ? "semibold" : "normal"}
+              color={hideWeekends ? "action.600" : undefined}
+            >
+              {hideWeekends ? "Pokaż weekendy" : "Ukryj weekendy"}
             </MenuItem>
             <MenuDivider />
             <MenuItem

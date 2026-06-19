@@ -202,7 +202,7 @@ export function GanttProvider({
   onSearchChange,
   children,
 }: GanttProviderProps) {
-  const { showSuccess, showError } = useToastNotification();
+  const { showError } = useToastNotification();
   const { user } = useContext(AuthContext);
   const isPreloaded = !!preloadedSchedule;
   const resolvedGanttPermissions: GanttPermissions = ganttPermissionsFromProps ?? GANTT_PERMISSIONS.full;
@@ -268,7 +268,7 @@ export function GanttProvider({
     delay: number,
     apiFn: () => Promise<unknown>,
     rollbackState: WorkScheduleDetailsWeb,
-    options: { onSuccess?: () => Promise<void>; successMessage?: string } = {}
+    options: { onSuccess?: () => Promise<void> } = {}
   ) => {
     const existing = pendingDebounces.current.get(key);
     const savedRollback = existing ? existing.rollbackState : rollbackState;
@@ -279,7 +279,6 @@ export function GanttProvider({
       setIsMutating(prev => new Set([...prev, key]));
       try {
         await apiFn();
-        if (options.successMessage) showSuccess(options.successMessage);
         await options.onSuccess?.();
       } catch (err) {
         set(savedRollback);
@@ -291,7 +290,7 @@ export function GanttProvider({
     }, delay);
 
     pendingDebounces.current.set(key, { timer, rollbackState: savedRollback });
-  }, [showSuccess, showError]);
+  }, [showError]);
 
   // ─── Fetch / refresh ────────────────────────────────────────────────────────
   const fetchSchedule = useCallback(async () => {
@@ -380,6 +379,14 @@ export function GanttProvider({
 
   const collapseAll = useCallback(() => setExpandedStages(new Set()), []);
 
+  const expandStages = useCallback((stageIds: Array<string | null | undefined>) => {
+    const ids = stageIds.filter((id): id is string => Boolean(id));
+    if (ids.length === 0) {
+      return;
+    }
+    setExpandedStages((prev) => new Set([...prev, ...ids]));
+  }, []);
+
   useEffect(() => {
     if (!searchQuery.trim() || !schedule?.stages) {
       return;
@@ -426,19 +433,28 @@ export function GanttProvider({
         ? updateStageInTree(s.stages, parentStageId, st => ({ ...st, childStages: [...(st.childStages ?? []), newStage] }))
         : [...s.stages, newStage],
     }));
+    expandStages([tempId, parentStageId]);
     runDebounced(`addStage-${tempId}`, 50,
-      () => workScheduleApi.addStage(tenantId, projectId, workScheduleId, { name, order, parentStageId: parentStageId ?? null }),
+      async () => {
+        const res = await workScheduleApi.addStage(tenantId, projectId, workScheduleId, { name, order, parentStageId: parentStageId ?? null });
+        setExpandedStages((prev) => {
+          const next = new Set(prev);
+          next.delete(tempId);
+          next.add(res.data);
+          return next;
+        });
+        return res;
+      },
       prev,
-      { onSuccess: silentRefresh, successMessage: "Etap dodany" });
-  }, [tenantId, projectId, workScheduleId, silentRefresh, runDebounced]);
+      { onSuccess: silentRefresh });
+  }, [tenantId, projectId, workScheduleId, silentRefresh, runDebounced, expandStages]);
 
   const deleteStage = useCallback(async (stageId: string) => {
     const prev = scheduleRef.current!;
     set(s => ({ ...s!, stages: removeStageFromTree(s.stages, stageId) }));
     runDebounced(`deleteStage-${stageId}`, 200,
       () => workScheduleApi.deleteStage(tenantId, projectId, workScheduleId, stageId),
-      prev,
-      { successMessage: "Etap usunięty" });
+      prev);
   }, [tenantId, projectId, workScheduleId, runDebounced]);
 
   const renameStage = useCallback(async (stageId: string, name: string) => {
@@ -461,7 +477,7 @@ export function GanttProvider({
     runDebounced(`moveStage-${stageId}`, 50,
       () => workScheduleApi.moveStage(tenantId, projectId, workScheduleId, stageId, parentStageId),
       prev,
-      { onSuccess: silentRefresh, successMessage: "Etap przeniesiony" });
+      { onSuccess: silentRefresh });
   }, [tenantId, projectId, workScheduleId, silentRefresh, runDebounced]);
 
   const addWork = useCallback(async (stageId: string, name: string, colorRgb: string) => {
@@ -476,11 +492,12 @@ export function GanttProvider({
       ...s,
       stages: updateStageInTree(s.stages, stageId, st => ({ ...st, works: [...st.works, tempWork] })),
     }));
+    expandStages([stageId]);
     runDebounced(`addWork-${tempWork.id}`, 50,
       () => workScheduleApi.addWork(tenantId, projectId, workScheduleId, stageId, { name, order, colorRgb }),
       prev,
-      { onSuccess: silentRefresh, successMessage: "Zakres pracy dodany" });
-  }, [tenantId, projectId, workScheduleId, silentRefresh, runDebounced]);
+      { onSuccess: silentRefresh });
+  }, [tenantId, projectId, workScheduleId, silentRefresh, runDebounced, expandStages]);
 
   const deleteWork = useCallback(async (stageId: string, workId: string) => {
     const prev = scheduleRef.current!;
@@ -490,8 +507,7 @@ export function GanttProvider({
     }));
     runDebounced(`deleteWork-${workId}`, 200,
       () => workScheduleApi.deleteWork(tenantId, projectId, workScheduleId, stageId, workId),
-      prev,
-      { successMessage: "Zakres pracy usunięty" });
+      prev);
   }, [tenantId, projectId, workScheduleId, runDebounced]);
 
   const renameWork = useCallback(async (stageId: string, workId: string, name: string) => {
@@ -529,7 +545,7 @@ export function GanttProvider({
     runDebounced(`moveWork-${workId}`, 50,
       () => workScheduleApi.moveWork(tenantId, projectId, workScheduleId, stageId, workId, targetStageId, targetOrder),
       prev,
-      { onSuccess: silentRefresh, successMessage: "Zakres pracy przeniesiony" });
+      { onSuccess: silentRefresh });
   }, [tenantId, projectId, workScheduleId, silentRefresh, runDebounced]);
 
   const setPeriods = useCallback(async (stageId: string, workId: string, periods: Array<{ startDate: string; endDate: string; isClosed: boolean }>) => {
@@ -695,7 +711,6 @@ export function GanttProvider({
     try {
       await workScheduleApi.syncWithEstimate(tenantId, projectId, workScheduleId);
       await fetchSchedule();
-      showSuccess("Synchronizacja zakończona");
     } catch (err) {
       const { title, description } = handleApiError(err);
       showError(title, description);
@@ -703,7 +718,7 @@ export function GanttProvider({
     } finally {
       endMutation(key);
     }
-  }, [tenantId, projectId, workScheduleId, fetchSchedule, showSuccess, showError]);
+  }, [tenantId, projectId, workScheduleId, fetchSchedule, showError]);
 
   // ─── Wartość kontekstu ────────────────────────────────────────────────────────
   const value: GanttContextValue = useMemo(() => ({

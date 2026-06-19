@@ -8,6 +8,17 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 
+const TREE_ROW_INPUT_FOCUS_SX = {
+  '&:focus': {
+    outline: 'none !important',
+    boxShadow: 'none !important',
+  },
+  '&:focus-visible': {
+    outline: 'none !important',
+    boxShadow: 'none !important',
+  },
+} as const;
+
 interface UnitComboboxProps {
   value: string;
   units: string[];
@@ -104,17 +115,32 @@ export const UnitCombobox: React.FC<UnitComboboxProps> = ({
         placeholder={placeholder}
         size="sm"
         fontSize="xs"
+        variant={blendWithRow ? 'unstyled' : 'outline'}
         bg="transparent"
         border="none"
         borderRadius="6px"
         px={1}
+        sx={blendWithRow ? TREE_ROW_INPUT_FOCUS_SX : undefined}
+        _hover={
+          !isDisabled
+            ? blendWithRow
+              ? {
+                  bg: 'transparent',
+                  border: '1px solid',
+                  borderColor: 'neutral.200',
+                  boxShadow: 'none',
+                }
+              : { bg: 'white', boxShadow: 'none' }
+            : undefined
+        }
         _focus={
           blendWithRow
             ? {
                 bg: 'transparent',
                 border: '1px solid',
-                borderColor: 'primary.300',
-                boxShadow: '0 0 0 2px rgba(47,108,236,0.12)',
+                borderColor: 'neutral.200',
+                boxShadow: 'none',
+                outline: 'none',
               }
             : {
                 bg: 'white',
@@ -123,12 +149,21 @@ export const UnitCombobox: React.FC<UnitComboboxProps> = ({
                 boxShadow: '0 0 0 2px rgba(47,108,236,0.12)',
               }
         }
-        _hover={
-          !isDisabled
-            ? blendWithRow
-              ? { bg: 'transparent' }
-              : { bg: 'white' }
-            : undefined
+        _focusVisible={
+          blendWithRow
+            ? {
+                bg: 'transparent',
+                border: '1px solid',
+                borderColor: 'neutral.200',
+                boxShadow: 'none',
+                outline: 'none',
+              }
+            : {
+                bg: 'white',
+                border: '1px solid',
+                borderColor: 'primary.300',
+                boxShadow: '0 0 0 2px rgba(47,108,236,0.12)',
+              }
         }
         cursor={isDisabled ? 'not-allowed' : 'text'}
         autoComplete="off"

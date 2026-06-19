@@ -1,4 +1,4 @@
-import { useContext, useCallback, useState, useEffect } from "react";
+import { useContext, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Box, useBreakpointValue, useColorModeValue } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
@@ -40,6 +40,9 @@ export default function WorkScheduleView() {
     hideWeekends,
     toggleWeekends,
     scrollContainerRef,
+    scrollToToday,
+    navigatePrev,
+    navigateNext,
   } = useTimelineData({ isMobile });
 
   const columnWidth = COLUMN_WIDTHS[timeScale];
@@ -64,41 +67,12 @@ export default function WorkScheduleView() {
     }
   };
 
-  /** Przewija siatkę do today-3 dni — wywoływane przez GanttProvider po pierwszym załadowaniu */
-  const scrollToTodayMinus3 = useCallback(() => {
-    const now = new Date();
-    const target = new Date(now);
-    target.setDate(target.getDate() - 3);
-    const targetIdx = dates.findIndex(
-      d => d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth() && d.getDate() === target.getDate(),
-    );
-    const scrollIdx = targetIdx >= 0 ? targetIdx : dates.findIndex(
-      d => d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate(),
-    );
-    if (scrollIdx >= 0 && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollLeft = scrollIdx * columnWidth;
-    }
-  }, [dates, columnWidth, scrollContainerRef]);
-
-  /** Przewija siatkę do kolumny z dzisiejszą datą (przycisk w toolbarze) */
-  const scrollToToday = useCallback(() => {
-    const now = new Date();
-    const todayIdx = dates.findIndex(
-      d => d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate(),
-    );
-    if (todayIdx >= 0 && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollLeft =
-        todayIdx * columnWidth - scrollContainerRef.current.clientWidth / 2 + columnWidth / 2;
-    }
-  }, [dates, columnWidth, scrollContainerRef]);
-
   const scheduleContent = (
     <GanttProvider
       tenantId={tenantId}
       projectId={resolvedProjectId}
       workScheduleId={resolvedWorkScheduleId}
       permissions={permissions}
-      onAfterInitialLoad={scrollToTodayMinus3}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
     >
@@ -133,6 +107,8 @@ export default function WorkScheduleView() {
             hideWeekends={hideWeekends}
             scrollContainerRef={scrollContainerRef}
             height={isFullscreen ? "100%" : "calc(100vh - 140px)"}
+            onNavigatePrev={navigatePrev}
+            onNavigateNext={navigateNext}
           />
         )}
 

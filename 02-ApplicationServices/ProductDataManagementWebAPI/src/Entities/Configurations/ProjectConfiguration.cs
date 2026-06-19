@@ -33,6 +33,9 @@ namespace Entities.Configurations
         {
             builder.HasKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId });
 
+            builder.Property(pm => pm.IsActive)
+                .HasDefaultValue(true);
+
             builder.HasOne(pm => pm.Project)
                    .WithMany(p => p.Members)
                    .HasForeignKey(pm => pm.ProjectId)

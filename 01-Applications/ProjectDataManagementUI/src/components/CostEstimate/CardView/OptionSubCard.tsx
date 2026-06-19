@@ -9,6 +9,7 @@ import { Trash2 } from 'lucide-react';
 import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new';
 import { GhostActionButton } from '../PrototypeActionButtons';
 import { OptionRadioButton } from './OptionRadioButton';
+import { deriveItemFinancialState } from '../../../utils/costEstimateItemFinancial';
 import { getItemRowSurface } from '../TreeView/treeViewRowSurfaces';
 import { CardAmountSummary } from './CardAmountSummary';
 import { CardNameText } from './CardNameText';
@@ -51,8 +52,10 @@ export const OptionSubCard: React.FC<OptionSubCardProps> = ({
   onOpenItemDetail,
 }) => {
   const isSelected = option.isSelected;
-  const totalNet = option.netValue ?? 0;
-  const totalGross = option.grossValue ?? 0;
+  const derived = deriveItemFinancialState(option);
+  const totalNet = derived.netValue ?? 0;
+  const totalVat = derived.vatValue ?? 0;
+  const totalGross = derived.grossValue ?? 0;
   const rowSurface = getItemRowSurface(4);
 
   const handleSelect = useCallback(() => {
@@ -106,6 +109,7 @@ export const OptionSubCard: React.FC<OptionSubCardProps> = ({
 
         <CardAmountSummary
           net={totalNet}
+          vat={totalVat}
           gross={totalGross}
           currencySymbol={currencySymbol}
           size="sm"

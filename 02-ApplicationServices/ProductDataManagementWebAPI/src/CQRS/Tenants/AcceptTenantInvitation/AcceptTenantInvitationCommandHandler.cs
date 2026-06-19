@@ -1,8 +1,10 @@
 ﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using Entities.Enums;
 using Entities.Models.Tenants;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.AcceptTenantInvitation
@@ -10,48 +12,52 @@ namespace CQRS.Tenants.AcceptTenantInvitation
     public sealed class AcceptTenantInvitationCommandHandler : IRequestHandler<AcceptTenantInvitationCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
-        private readonly IRepository<TenantMember> tenantMemberRepo;
+        private readonly IProjectMembershipProvisioner membershipProvisioner;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
         public AcceptTenantInvitationCommandHandler(
             IRepository<TenantInvitation> invitationRepo,
-            IRepository<TenantMember> tenantMemberRepo,
+            IProjectMembershipProvisioner membershipProvisioner,
             IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.invitationRepo = invitationRepo;
-            this.tenantMemberRepo = tenantMemberRepo;
+            this.membershipProvisioner = membershipProvisioner;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
 
         public async Task<Unit> Handle(AcceptTenantInvitationCommand request, CancellationToken cancellationToken)
         {
-            TenantInvitation invitation = await invitationRepo.GetFirstBySearch(i => i.Token == request.Token && i.IsActive)
+            TenantInvitation invitation = await invitationRepo.GetFirstBySearch(
+                i => i.Token == request.Token && i.IsActive,
+                q => q.Include(x => x.ModulePermissions))
                 ?? throw new NotFoundApiException("TenantInvitation", request.Token);
 
-            TenantMember? existing = await tenantMemberRepo.GetFirstBySearch(m => m.TenantId == invitation.TenantId && m.UserId == currentUser.Id);
-            if (existing is null)
-            {
-                TenantMember member = new TenantMember
-                {
-                    TenantId = invitation.TenantId,
-                    UserId = currentUser.Id,
-                    IsAdmin = false,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await tenantMemberRepo.Insert(member);
-            }
-            else if (!existing.IsActive)
-            {
-                existing.IsActive = true;
-                existing.IsAdmin = false;
-                await tenantMemberRepo.Update(existing);
-            }
+            await membershipProvisioner.EnsureTenantMemberAsync(
+                invitation.TenantId,
+                currentUser.Id,
+                cancellationToken);
 
-            await permissionsVersionService.BumpVersionAsync(currentUser.Id, cancellationToken);
+            if (invitation.ProjectId.HasValue)
+            {
+                List<ProjectModule> modules = invitation.ModulePermissions
+                    .Select(p => p.Module)
+                    .ToList();
+
+                await membershipProvisioner.ProvisionProjectMemberAsync(
+                    invitation.TenantId,
+                    invitation.ProjectId.Value,
+                    currentUser.Id,
+                    invitation.IsAdmin,
+                    modules,
+                    cancellationToken);
+            }
+            else
+            {
+                await permissionsVersionService.BumpVersionAsync(currentUser.Id, cancellationToken);
+            }
 
             invitation.Status = InvitationStatus.Accepted;
             invitation.AcceptedAt = DateTime.UtcNow;

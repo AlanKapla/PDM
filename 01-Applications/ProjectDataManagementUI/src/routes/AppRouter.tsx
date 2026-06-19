@@ -8,6 +8,7 @@ import TenantDetails from "../pages/TenantDetails";
 import CollaboratingTenants from "../pages/CollaboratingTenants";
 import ManagedTenants from "../pages/ManagedTenants";
 import ActiveInvitations from "../pages/ActiveInvitations";
+import AcceptInvitationPage from "../pages/AcceptInvitationPage";
 import AuthCallback from "../pages/AuthCallback";
 import LoggedOut from "../pages/LoggedOut";
 import Projects from "../pages/Projects";
@@ -91,6 +92,15 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ActiveInvitations />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/invitations/accept"
+        element={
+          <ProtectedRoute>
+            <AcceptInvitationPage />
           </ProtectedRoute>
         }
       />

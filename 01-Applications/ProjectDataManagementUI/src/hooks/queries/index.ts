@@ -2,6 +2,7 @@ export { useProjectDetails, projectKeys } from './useProjectDetails';
 export { useProjects } from './useProjects';
 export { useProjectMembers } from './useProjectMembers';
 export { useMyTenants, useActiveInvitations, tenantKeys } from './useTenants';
+export { useActiveProjectInvitations, useProjectInvitations, projectInvitationKeys } from './useProjectInvitations';
 export {
   useCostTrackerByProject,
   useCostTrackerByEstimate,

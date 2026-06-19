@@ -57,7 +57,7 @@ public sealed class ToggleProjectStatusCommandHandler : IRequestHandler<TogglePr
         await projectRepo.Update(project);
 
         IEnumerable<ProjectMember> projectMembers = await projectMemberRepo.GetBySearch(
-            pm => pm.ProjectId == request.ProjectId && pm.TenantId == request.TenantId);
+            pm => pm.ProjectId == request.ProjectId && pm.TenantId == request.TenantId && pm.IsActive);
 
         string actionText = request.IsActive ? "aktywowany" : "zdezaktywowany";
         NotificationType notificationType = request.IsActive ? NotificationType.Info : NotificationType.Warning;

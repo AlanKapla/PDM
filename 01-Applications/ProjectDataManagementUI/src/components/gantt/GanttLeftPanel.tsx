@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, Plus, Trash2, MoreHorizontal, ArrowRight, GripVertical, X, MessageCircle, Users, Link2 } from "lucide-react";
 import { Button, IconButton } from "@chakra-ui/react";
+import ConfirmDialog from "../common/ConfirmDialog";
+import { AddInlineButton } from "../CostEstimate/PrototypeActionButtons";
 import { useGantt } from "./GanttContext";
 import GanttInlineName from "./GanttInlineName";
 import GanttAssigneesPopover from "./GanttAssigneesPopover";
@@ -9,6 +11,7 @@ import GanttCommentPopover from "./GanttCommentPopover";
 import GanttDepsPopover from "./GanttDepsPopover";
 import { G } from "./ganttTokens";
 import { stageProgress, workCheckState, fmtCompactDate, getStageRange, type FlatRow } from "./ganttRowUtils";
+import { getStageDeleteDialogCopy } from "./ganttStageDeleteDialog";
 import type { WorkScheduleStageWeb, WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
 import { WorkDependencyType } from "../../types/workSchedule.types";
 
@@ -52,6 +55,7 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
     reorderStages,
     reorderWorks,
     ganttPermissions,
+    isMutating,
   } = useGantt();
 
   // Mapa workId → nazwa — budowana raz ze wszystkich etapów harmonogramu
@@ -75,6 +79,7 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
   };
 
   const isEditing = mode === "edit";
+  const [stageToDelete, setStageToDelete] = useState<{ stage: WorkScheduleStageWeb; depth: number } | null>(null);
   const [addingWorkFor, setAddingWorkFor] = useState<string | null>(null);
   const [newWorkName, setNewWorkName] = useState("");
   const [newWorkColor, setNewWorkColor] = useState(WORK_COLORS[0]);
@@ -269,6 +274,19 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
     setAssigneesFor({ stageId, work, anchor: e.currentTarget.getBoundingClientRect() });
   };
 
+  const handleConfirmDeleteStage = async () => {
+    if (!stageToDelete) {
+      return;
+    }
+    const { stage } = stageToDelete;
+    setStageToDelete(null);
+    await deleteStage(stage.id);
+  };
+
+  const stageDeleteDialogCopy = stageToDelete
+    ? getStageDeleteDialogCopy(stageToDelete.depth)
+    : null;
+
   /* ── renderery per rodzaj wiersza ── */
 
   const renderStageHeader = (row: FlatRow) => {
@@ -354,26 +372,15 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
         })()}
 
         {isEditing && (
-          <>
-            <IconButton
-              size="xs"
-              variant="ghost"
-              colorScheme="gray"
-              aria-label="Dodaj podetap"
-              title="Dodaj podetap"
-              icon={<Plus size={12} />}
-              onClick={() => addStage("Nowy podetap", stage.id)}
-            />
-            <IconButton
-              size="xs"
-              variant="ghost"
-              colorScheme="gray"
-              aria-label="Usuń etap"
-              title="Usuń etap"
-              icon={<Trash2 size={13} />}
-              onClick={() => deleteStage(stage.id)}
-            />
-          </>
+          <IconButton
+            size="xs"
+            variant="ghost"
+            colorScheme="gray"
+            aria-label="Usuń etap"
+            title="Usuń etap"
+            icon={<Trash2 size={13} />}
+            onClick={() => setStageToDelete({ stage, depth })}
+          />
         )}
       </div>
     );
@@ -733,15 +740,14 @@ const noPeriods = (work.periods ?? []).length === 0;
             />
           </form>
         ) : (
-          <Button
-            size="xs"
-            variant="ghost"
-            colorScheme="gray"
-            leftIcon={<Plus size={14} />}
-            onClick={() => setAddingWorkFor(stage.id)}
-          >
-            zakres
-          </Button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <AddInlineButton onClick={() => setAddingWorkFor(stage.id)}>
+              Dodaj zakres
+            </AddInlineButton>
+            <AddInlineButton onClick={() => addStage("Nowy podetap", stage.id)}>
+              Dodaj podetap
+            </AddInlineButton>
+          </div>
         )}
       </div>
     );
@@ -1059,6 +1065,16 @@ const noPeriods = (work.periods ?? []).length === 0;
         </div>,
         document.body,
       )}
+
+      <ConfirmDialog
+        isOpen={stageToDelete !== null}
+        onClose={() => setStageToDelete(null)}
+        onConfirm={handleConfirmDeleteStage}
+        title={stageDeleteDialogCopy?.title ?? "Usuń etap"}
+        message={stageDeleteDialogCopy?.message ?? ""}
+        confirmText={stageDeleteDialogCopy?.confirmText ?? "Usuń"}
+        isLoading={stageToDelete ? isMutating.has(`deleteStage-${stageToDelete.stage.id}`) : false}
+      />
     </>
   );
 }

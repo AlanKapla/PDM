@@ -41,7 +41,8 @@ namespace CQRS.Projects.UpdateProject
             ProjectMember? projectMember = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == project.Id
                     && pm.TenantId == request.TenantId
-                    && pm.UserId == currentUser.Id,
+                    && pm.UserId == currentUser.Id
+                    && pm.IsActive,
                 include => include.Include(pm => pm.ModulePermissions));
 
             // Creator info
@@ -52,7 +53,7 @@ namespace CQRS.Projects.UpdateProject
 
             // Members count
             int membersCount = await projectMemberRepo.CountAsync(
-                pm => pm.ProjectId == project.Id && pm.TenantId == request.TenantId,
+                pm => pm.ProjectId == project.Id && pm.TenantId == request.TenantId && pm.IsActive,
                 cancellationToken);
 
             // User's permissions for this project

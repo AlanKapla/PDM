@@ -48,7 +48,8 @@ namespace CQRS.Projects.AddProjectMember
             ProjectMember? existingMember = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == command.ProjectId
                     && pm.TenantId == command.TenantId
-                    && pm.UserId == command.UserId);
+                    && pm.UserId == command.UserId
+                    && pm.IsActive);
 
             return existingMember == null;
         }

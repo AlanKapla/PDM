@@ -4,6 +4,7 @@ using Business.Interfaces.WebModels.Tenants;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Tenants.GetTenantDetails
@@ -50,7 +51,8 @@ namespace CQRS.Tenants.GetTenantDetails
                 i => i.TenantId == request.TenantId
                      && i.IsActive
                      && i.Status == InvitationStatus.Pending
-                     && i.ExpiresAt > DateTime.UtcNow);
+                     && i.ExpiresAt > DateTime.UtcNow,
+                q => q.Include(x => x.Project).Include(x => x.ModulePermissions));
 
             List<Guid> inviterUserIds = invitations.Select(i => i.InvitedByUserId).ToList();
             IEnumerable<User> inviterUsers = await userRepo.GetBySearch(u => inviterUserIds.Contains(u.Id));
@@ -85,7 +87,11 @@ namespace CQRS.Tenants.GetTenantDetails
                         InvitationId = i.Id,
                         TenantId = i.TenantId,
                         TenantName = tenant.Name,
+                        ProjectId = i.ProjectId,
+                        ProjectName = i.Project?.Name,
                         Email = i.Email,
+                        IsAdmin = i.IsAdmin,
+                        Modules = i.ModulePermissions.Select(p => p.Module).ToList(),
                         InvitedByUserEmail = inviter?.Email ?? string.Empty,
                         InvitedByUserName = inviter is null
                             ? string.Empty

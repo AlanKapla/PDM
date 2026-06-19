@@ -16,10 +16,12 @@ import type { CostEstimateItemWeb } from '../../../types/costEstimate.types.new'
 import { CostEstimateFieldType, isTemporaryId } from '../../../types/costEstimate.types.new';
 import { PrototypeTextInput, PrototypeNumberInput } from '../PrototypeInputs';
 import { getBaseFieldPlaceholder, getFieldLabelByKey, getInputTextAlign } from '../../../utils/costEstimateFieldSchema';
+import { formatDecimalInput, formatVatPercent, parseNumericInput } from '../../../utils/numericInputUtils';
 import type { ColumnDef } from '../TreeView/costEstimateColumnTypes';
 import { GhostActionButton, AddInlineButton } from '../PrototypeActionButtons';
 import { OptionRadioButton } from './OptionRadioButton';
 import { getCostEstimateItemFieldState, areItemSourceFieldsLocked } from '../../../utils/costEstimateItemFlags';
+import { deriveItemFinancialState } from '../../../utils/costEstimateItemFinancial';
 
 interface AutosaveParams {
   entityType: 'group' | 'item';
@@ -67,7 +69,7 @@ function fmtValue(val: number | undefined | null): string {
   if (val === undefined || val === null) {
     return '—';
   }
-  return val.toFixed(2);
+  return formatDecimalInput(val);
 }
 
 function ChildTableRow({
@@ -84,6 +86,7 @@ function ChildTableRow({
   const fieldState = getCostEstimateItemFieldState(child);
   const sourceLocked = areItemSourceFieldsLocked(fieldState);
   const { flags } = fieldState;
+  const derived = deriveItemFinancialState(child);
 
   const label = (fieldKey: string): string => getFieldLabelByKey(schemaColumns, fieldKey);
   const placeholder = (fieldKey: string): string => getBaseFieldPlaceholder(label(fieldKey));
@@ -137,10 +140,10 @@ function ChildTableRow({
       <Td px={2} py={2} minW="80px" isNumeric>
         <PrototypeNumberInput
           showBorder
-          value={child.quantity !== undefined && child.quantity !== null ? String(child.quantity) : ''}
+          value={child.quantity ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            onFieldChange(groupId, child.id, 'quantity', val === '' ? null : parseFloat(val));
+            onFieldChange(groupId, child.id, 'quantity', val === '' ? null : val);
             triggerBaseFieldAutosave('quantity', 'numeric', val || undefined);
           }}
           isDisabled={!isEditMode || sourceLocked}
@@ -166,14 +169,10 @@ function ChildTableRow({
       <Td px={2} py={2} minW="96px" isNumeric>
         <PrototypeNumberInput
           showBorder
-          value={
-            child.unitPriceNet !== undefined && child.unitPriceNet !== null
-              ? String(child.unitPriceNet)
-              : ''
-          }
+          value={child.unitPriceNet ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            onFieldChange(groupId, child.id, 'unitPriceNet', val === '' ? null : parseFloat(val));
+            onFieldChange(groupId, child.id, 'unitPriceNet', val === '' ? null : val);
             triggerBaseFieldAutosave('unitPriceNet', 'numeric', val || undefined);
           }}
           isDisabled={!isEditMode || sourceLocked}
@@ -186,15 +185,13 @@ function ChildTableRow({
           showBorder
           value={
             child.vatRate !== undefined && child.vatRate !== null
-              ? String(Math.round(child.vatRate * 100))
+              ? formatVatPercent(child.vatRate)
               : ''
           }
           onChange={(e) => {
             const val = e.target.value;
-            const raw = parseFloat(val.replace(',', '.'));
-            const decimal = isNaN(raw) ? val : String(raw / 100);
-            onFieldChange(groupId, child.id, 'vatRate', decimal);
-            triggerBaseFieldAutosave('vatRate', 'numeric', decimal);
+            onFieldChange(groupId, child.id, 'vatRate', val === '' ? null : val);
+            triggerBaseFieldAutosave('vatRate', 'numeric', val || undefined);
           }}
           isDisabled={!isEditMode || sourceLocked}
           placeholder={placeholder('vatRate')}
@@ -204,15 +201,15 @@ function ChildTableRow({
       <Td px={2} py={2} minW="88px" isNumeric>
         {flags.netValueComputed || !isEditMode ? (
           <Text fontSize="sm" textAlign="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-            {fmtValue(child.netValue)}
+            {fmtValue(derived.netValue)}
           </Text>
         ) : (
           <PrototypeNumberInput
           showBorder
-            value={child.netValue !== undefined && child.netValue !== null ? String(child.netValue) : ''}
+            value={child.netValue ?? ''}
             onChange={(e) => {
               const val = e.target.value;
-              onFieldChange(groupId, child.id, 'netValue', val === '' ? null : parseFloat(val));
+              onFieldChange(groupId, child.id, 'netValue', val === '' ? null : parseNumericInput(val));
               triggerBaseFieldAutosave('netValue', 'numeric', val || undefined);
             }}
             placeholder={placeholder('netValue')}
@@ -221,19 +218,23 @@ function ChildTableRow({
       </Td>
 
       <Td px={2} py={2} minW="88px" isNumeric>
+        <Text fontSize="sm" textAlign="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          {fmtValue(derived.vatValue)}
+        </Text>
+      </Td>
+
+      <Td px={2} py={2} minW="88px" isNumeric>
         {flags.grossValueComputed || !isEditMode ? (
           <Text fontSize="sm" textAlign="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-            {fmtValue(child.grossValue)}
+            {fmtValue(derived.grossValue)}
           </Text>
         ) : (
           <PrototypeNumberInput
           showBorder
-            value={
-              child.grossValue !== undefined && child.grossValue !== null ? String(child.grossValue) : ''
-            }
+            value={child.grossValue ?? ''}
             onChange={(e) => {
               const val = e.target.value;
-              onFieldChange(groupId, child.id, 'grossValue', val === '' ? null : parseFloat(val));
+              onFieldChange(groupId, child.id, 'grossValue', val === '' ? null : parseNumericInput(val));
               triggerBaseFieldAutosave('grossValue', 'numeric', val || undefined);
             }}
             placeholder={placeholder('grossValue')}
@@ -342,6 +343,9 @@ export function DetailModalChildrenTable({
                 </Th>
                 <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
                   {label('netValue')}
+                </Th>
+                <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
+                  {label('vatValue')}
                 </Th>
                 <Th px={2} isNumeric fontSize="xs" textTransform="uppercase" color="neutral.500">
                   {label('grossValue')}

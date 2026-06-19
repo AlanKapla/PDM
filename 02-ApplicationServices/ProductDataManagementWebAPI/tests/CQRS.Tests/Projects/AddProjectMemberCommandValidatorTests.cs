@@ -149,12 +149,12 @@ public sealed class AddProjectMemberCommandValidatorTests
     // === Async rule: UserMustNotBeProjectMember ===
 
     [Fact]
-    public async Task Validate_WhenUserIsAlreadyProjectMember_HasValidationError()
+    public async Task Validate_WhenUserIsAlreadyActiveProjectMember_HasValidationError()
     {
         // Arrange
         _projectMemberRepoMock
             .Setup(r => r.GetFirstBySearch(It.IsAny<Expression<Func<ProjectMember, bool>>>()))
-            .ReturnsAsync(new ProjectMember());
+            .ReturnsAsync(new ProjectMember { IsActive = true });
 
         AddProjectMemberCommand command = ValidCommand();
 

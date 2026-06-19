@@ -8,13 +8,6 @@ import {
   Badge,
   useColorModeValue,
   useDisclosure,
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
-  Button,
   Spinner,
   Menu,
   MenuButton,
@@ -22,10 +15,12 @@ import {
   MenuItem,
 } from "@chakra-ui/react";
 import { ChevronDown, ChevronRight, Plus, Trash2, MoreVertical, Move, Pencil, Calendar } from "lucide-react";
-import { useRef } from "react";
+import ConfirmDialog from "../common/ConfirmDialog";
+import { AddInlineButton } from "../CostEstimate/PrototypeActionButtons";
 import { useGantt } from "./GanttContext";
 import MobileWorkRow from "./MobileWorkRow";
 import { fmtCompactDate, getStageRange } from "./ganttRowUtils";
+import { getStageDeleteDialogCopy } from "./ganttStageDeleteDialog";
 import type { WorkScheduleStageWeb } from "../../types/workSchedule.types";
 
 interface MobileStageRowProps {
@@ -34,10 +29,10 @@ interface MobileStageRowProps {
 }
 
 export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
-  const { mode, expandedStages, toggleStage, deleteStage, isMutating, openMobileModal, canEdit } = useGantt();
+  const { mode, expandedStages, toggleStage, deleteStage, addStage, isMutating, openMobileModal, canEdit } = useGantt();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
-  const cancelRef = useRef<HTMLButtonElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const deleteDialogCopy = getStageDeleteDialogCopy(depth);
 
   const isExpanded = expandedStages.has(stage.id);
   const isEditing = mode === "edit";
@@ -155,35 +150,28 @@ export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
               px={3}
               py={1}
             >
-              <Button
-                size="xs"
-                leftIcon={<Plus size={12} />}
-                variant="ghost"
-                colorScheme="green"
-                onClick={() => openMobileModal({ type: "workForm", stageId: stage.id })}
-              >
-                Zakres pracy
-              </Button>
+              <HStack spacing={2} flexWrap="wrap">
+                <AddInlineButton onClick={() => openMobileModal({ type: "workForm", stageId: stage.id })}>
+                  Dodaj zakres
+                </AddInlineButton>
+                <AddInlineButton onClick={() => addStage("Nowy podetap", stage.id)}>
+                  Dodaj podetap
+                </AddInlineButton>
+              </HStack>
             </Box>
           )}
         </>
       )}
 
-      {/* Dialog potwierdzenia usunięcia */}
-      <AlertDialog isOpen={isDeleteOpen} leastDestructiveRef={cancelRef} onClose={onDeleteClose}>
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>Usuń etap</AlertDialogHeader>
-            <AlertDialogBody>
-              Czy na pewno chcesz usunąć etap <strong>{stage.name}</strong>?
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onDeleteClose}>Anuluj</Button>
-              <Button colorScheme="red" onClick={handleDeleteConfirm} ml={3}>Usuń</Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={onDeleteClose}
+        onConfirm={handleDeleteConfirm}
+        title={deleteDialogCopy.title}
+        message={deleteDialogCopy.message}
+        confirmText={deleteDialogCopy.confirmText}
+        isLoading={isDeleting}
+      />
     </>
   );
 }

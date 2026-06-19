@@ -65,3 +65,71 @@ export const successMessages = {
 } as const;
 
 export type SuccessMessageKey = keyof typeof successMessages;
+
+export type ApiToastStatus = "error" | "warning" | "info";
+
+export interface KnownApiMessageResolution {
+  pattern: RegExp;
+  title: string;
+  description?: string;
+  toastStatus: ApiToastStatus;
+}
+
+/** Mapowanie znanych komunikatów API (EN/PL) na przyjazne komunikaty UI. */
+export const knownApiMessageResolutions: KnownApiMessageResolution[] = [
+  {
+    pattern: /already a member of this project/i,
+    title: "Użytkownik jest już w projekcie",
+    description: "Ta osoba jest już członkiem tego projektu.",
+    toastStatus: "info",
+  },
+  {
+    pattern: /already an active member of this project/i,
+    title: "Użytkownik jest już w projekcie",
+    description: "Ta osoba jest już członkiem tego projektu.",
+    toastStatus: "info",
+  },
+  {
+    pattern: /already a member of this tenant/i,
+    title: "Użytkownik jest już w organizacji",
+    description: "Ta osoba jest już członkiem tej organizacji.",
+    toastStatus: "info",
+  },
+  {
+    pattern: /już aktywnym członkiem tej organizacji/i,
+    title: "Użytkownik jest już w organizacji",
+    description: "Ta osoba jest już członkiem tej organizacji.",
+    toastStatus: "info",
+  },
+];
+
+export function extractValidationErrorMessages(raw: string): string[] {
+  if (!raw.trim()) {
+    return [];
+  }
+
+  const errors: string[] = [];
+  const regex = /Error:\s*([^,]+?)(?:,\s*Severity:|$)/gi;
+  let match: RegExpExecArray | null = regex.exec(raw);
+
+  while (match !== null) {
+    errors.push(match[1].trim());
+    match = regex.exec(raw);
+  }
+
+  if (errors.length === 0) {
+    return [raw.trim()];
+  }
+
+  return errors;
+}
+
+export function resolveKnownApiMessage(message: string): KnownApiMessageResolution | null {
+  for (const resolution of knownApiMessageResolutions) {
+    if (resolution.pattern.test(message)) {
+      return resolution;
+    }
+  }
+
+  return null;
+}

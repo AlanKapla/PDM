@@ -1,5 +1,5 @@
 import type { ColumnDef } from '../components/CostEstimate/TreeView/costEstimateColumnTypes';
-import { getColumnFieldKey } from '../components/CostEstimate/TreeView/costEstimateColumnTypes';
+import { dedupeFinancialSchemaColumns, getColumnFieldKey } from '../components/CostEstimate/TreeView/costEstimateColumnTypes';
 import type {
   CostEstimateFieldSchemaWeb,
   CostEstimateAdditionalFieldWeb,
@@ -13,9 +13,9 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   actions: 'Dodaj komponent, opcję, usuń element',
   quantity: 'Ilość jednostek',
   unit: 'Jednostka miary (szt, m², godz...)',
-  unitPriceNet: 'Cena jednostkowa netto',
+  unitPriceNet: 'Cena netto',
   vatRate: 'Stawka VAT (%)',
-  unitPriceGross: 'Cena jednostkowa brutto = netto × (1 + VAT)',
+  unitPriceGross: 'Cena brutto = netto × (1 + VAT)',
   netValue: 'Wartość netto = ilość × cena netto',
   grossValue: 'Wartość brutto = wartość netto + VAT',
   vatValue: 'Wartość VAT = wartość netto × stawka VAT',
@@ -230,17 +230,19 @@ export function resolveTreeViewSchemaColumns(
   if (details.fieldSchemas && details.fieldSchemas.length > 0) {
     const fromApi = buildColumnsFromSchema(details.fieldSchemas);
     if (fromApi.length === 0) {
-      return fallbackBaseColumns;
+      return dedupeFinancialSchemaColumns(fallbackBaseColumns);
     }
-    return mergeMissingBaseColumns(fromApi, fallbackBaseColumns);
+    return dedupeFinancialSchemaColumns(mergeMissingBaseColumns(fromApi, fallbackBaseColumns));
   }
 
   const additionalColumns = buildAdditionalFieldColumns(details.additionalFields);
   if (additionalColumns.length > 0) {
-    return mergeMissingBaseColumns([...fallbackBaseColumns, ...additionalColumns], fallbackBaseColumns);
+    return dedupeFinancialSchemaColumns(
+      mergeMissingBaseColumns([...fallbackBaseColumns, ...additionalColumns], fallbackBaseColumns),
+    );
   }
 
-  return fallbackBaseColumns;
+  return dedupeFinancialSchemaColumns(fallbackBaseColumns);
 }
 
 export const MIN_COL_WIDTHS: Record<string, number> = {

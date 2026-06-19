@@ -41,6 +41,7 @@ namespace CQRS.Helpers
             int matchCount = await repository.CountAsync(
                 pm => pm.ProjectId == projectId &&
                       pm.TenantId == tenantId &&
+                      pm.IsActive &&
                       requestedIds.Contains(pm.UserId), ct);
 
             return matchCount == requestedIds.Count;

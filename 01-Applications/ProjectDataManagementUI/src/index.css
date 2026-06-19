@@ -30,6 +30,22 @@
 }
 
 /*
+  Tree view — inline inputy w wąskich komórkach z overflow:hidden.
+  Globalny outline jest obcinany i wygląda jak ucięta „gruba ramka”.
+  Fokus sygnalizuje kursor tekstowy + subtelny hover border.
+*/
+.ce-tree-view input:focus,
+.ce-tree-view input:focus-visible,
+.ce-tree-view textarea:focus,
+.ce-tree-view textarea:focus-visible,
+.ce-tree-view select:focus,
+.ce-tree-view select:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+
+/*
   Skip link — WCAG 2.4.1 "Bypass Blocks"
   Ukryty poza ekranem, widoczny po sfokusowaniu klawiaturą.
 */

@@ -10,6 +10,11 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import {
+  isPartialNumericInput,
+  parseNumericInput,
+  roundToDecimals,
+} from '../utils/numericInputUtils';
+import {
   upsertGroupAdditionalField,
   upsertItemAdditionalField,
   updateItemBaseFields,
@@ -114,8 +119,18 @@ function parseBaseFieldValue(
   }
   switch (valueType) {
     case 'numeric': {
-      const parsed = parseFloat(value.replace(',', '.'));
-      return { [name]: isNaN(parsed) ? null : parsed };
+      if (name === 'vatRate') {
+        if (value !== undefined && isPartialNumericInput(value)) {
+          return {};
+        }
+        const percent = value === undefined ? null : parseNumericInput(value);
+        return { [name]: percent === null ? null : roundToDecimals(percent / 100, 4) };
+      }
+      if (value !== undefined && isPartialNumericInput(value)) {
+        return {};
+      }
+      const parsed = value === undefined ? null : parseNumericInput(value);
+      return { [name]: parsed };
     }
     case 'boolean':
       return { [name]: value === 'true' || value === '1' };
@@ -150,8 +165,8 @@ function buildAdditionalFieldPayload(
 
   switch (valueType) {
     case 'numeric': {
-      const parsed = parseFloat(value.replace(',', '.'));
-      return { additionalFieldId, decimalValue: isNaN(parsed) ? null : parsed };
+      const parsed = value === undefined ? null : parseNumericInput(value);
+      return { additionalFieldId, decimalValue: parsed };
     }
     case 'boolean':
       return { additionalFieldId, boolValue: value === 'true' || value === '1' };
@@ -216,6 +231,10 @@ export function useFieldAutosave({
   const saveField = useCallback(
     async (fieldInfo: FieldInfo, value: string | undefined) => {
       if (!params || !enabled) return;
+
+      if (fieldInfo.valueType === 'numeric' && value !== undefined && isPartialNumericInput(value)) {
+        return;
+      }
 
       const { tenantId, projectId, costEstimateId } = params;
 

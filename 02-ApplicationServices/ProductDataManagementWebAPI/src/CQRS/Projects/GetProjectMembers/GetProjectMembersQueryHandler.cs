@@ -24,7 +24,7 @@ namespace CQRS.Projects.GetProjectMembers
                 request.TenantId, request.ProjectId, cancellationToken);
 
             IEnumerable<ProjectMember> memberEntities = await projectMemberRepo.GetBySearch(
-                pm => pm.TenantId == request.TenantId && pm.ProjectId == request.ProjectId,
+                pm => pm.TenantId == request.TenantId && pm.ProjectId == request.ProjectId && pm.IsActive,
                 q => q.Include(pm => pm.ModulePermissions));
 
             Dictionary<Guid, ProjectMember> entityDict = memberEntities.ToDictionary(pm => pm.UserId);

@@ -13,17 +13,20 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
     {
         private readonly IRepository<CostEstimateItem> itemRepository;
         private readonly ICostEstimateCacheService cacheService;
+        private readonly ICostEstimateRecalculationService recalculationService;
         private readonly ICostEstimateAccessService ceAccessService;
         private readonly ICurrentUser currentUser;
 
         public AddCostEstimateItemCommandHandler(
             IRepository<CostEstimateItem> itemRepository,
             ICostEstimateCacheService cacheService,
+            ICostEstimateRecalculationService recalculationService,
             ICostEstimateAccessService ceAccessService,
             ICurrentUser currentUser)
         {
             this.itemRepository = itemRepository;
             this.cacheService = cacheService;
+            this.recalculationService = recalculationService;
             this.ceAccessService = ceAccessService;
             this.currentUser = currentUser;
         }
@@ -48,6 +51,8 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
             {
                 throw new NotFoundApiException(nameof(CostEstimateGroup), request.GroupId.ToString());
             }
+
+            Guid? parentPositionIdToClear = null;
 
             if (request.ParentItemId.HasValue)
             {
@@ -87,6 +92,12 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
                         "Only main positions (RelationType=None) can have Components. " +
                         "Components and Options cannot have their own Components.");
                 }
+
+                if (request.RelationType == ItemRelationType.Component &&
+                    parentItem.RelationType == ItemRelationType.None)
+                {
+                    parentPositionIdToClear = parentItem.Id;
+                }
             }
 
             CostEstimateItem item = new CostEstimateItem
@@ -97,6 +108,7 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
                 ParentItemId = request.ParentItemId,
                 RelationType = request.RelationType,
                 Order = request.Order,
+                Quantity = 1m,
                 IsSelected = true,
                 IsStageWork = false,
                 CreatedAt = DateTime.UtcNow,
@@ -105,10 +117,40 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
 
             await itemRepository.Insert(item);
 
+            if (parentPositionIdToClear.HasValue)
+            {
+                CostEstimateItem parentPositionToClear = await itemRepository.GetFirstBySearch(
+                    i => i.Id == parentPositionIdToClear.Value
+                        && i.CostEstimateId == request.CostEstimateId)
+                    ?? throw new NotFoundApiException(
+                        nameof(CostEstimateItem),
+                        parentPositionIdToClear.Value.ToString());
+
+                ClearParentFinancialInputFields(parentPositionToClear);
+                parentPositionToClear.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await itemRepository.SaveChangesAsync(cancellationToken);
+
             await cacheService.InvalidateItemsAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
+            if (parentPositionIdToClear.HasValue)
+            {
+                await recalculationService.RecalculateAsync(
+                    request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
+            }
+
             return item.Id;
+        }
+
+        private static void ClearParentFinancialInputFields(CostEstimateItem item)
+        {
+            item.Quantity = null;
+            item.Unit = null;
+            item.UnitPriceNet = null;
+            item.UnitPriceGross = null;
+            item.VatRate = null;
         }
     }
 }

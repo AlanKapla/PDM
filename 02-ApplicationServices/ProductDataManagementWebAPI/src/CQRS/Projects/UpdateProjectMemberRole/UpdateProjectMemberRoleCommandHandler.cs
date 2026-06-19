@@ -55,7 +55,8 @@ namespace CQRS.Projects.UpdateProjectMemberRole
             ProjectMember projectMember = await projectMemberRepo.GetFirstBySearch(
                 m => m.ProjectId == request.ProjectId
                     && m.TenantId == request.TenantId
-                    && m.UserId == request.UserId)
+                    && m.UserId == request.UserId
+                    && m.IsActive)
                 ?? throw new NotFoundApiException(nameof(ProjectMember), $"Project: {request.ProjectId}, User: {request.UserId}");
 
             ProjectMemberUserInfo? targetUser = await userService.GetProjectMemberAsync(

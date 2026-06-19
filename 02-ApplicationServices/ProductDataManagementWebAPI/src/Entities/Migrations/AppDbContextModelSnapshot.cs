@@ -1117,6 +1117,11 @@ namespace Entities.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("bit");
 
@@ -1297,6 +1302,12 @@ namespace Entities.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1316,6 +1327,8 @@ namespace Entities.Migrations
 
                     b.HasIndex("InvitedByUserId");
 
+                    b.HasIndex("ProjectId");
+
                     b.HasIndex("Token")
                         .IsUnique();
 
@@ -1323,7 +1336,22 @@ namespace Entities.Migrations
 
                     b.HasIndex("TenantId", "Status");
 
+                    b.HasIndex("TenantId", "Email", "ProjectId");
+
                     b.ToTable("TenantInvitations");
+                });
+
+            modelBuilder.Entity("Entities.Models.Tenants.TenantInvitationModulePermission", b =>
+                {
+                    b.Property<Guid>("InvitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Module")
+                        .HasColumnType("int");
+
+                    b.HasKey("InvitationId", "Module");
+
+                    b.ToTable("TenantInvitationModulePermissions");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenants.TenantMember", b =>
@@ -2474,6 +2502,11 @@ namespace Entities.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Entities.Models.Projects.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Entities.Models.Tenants.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
@@ -2482,7 +2515,20 @@ namespace Entities.Migrations
 
                     b.Navigation("InvitedByUser");
 
+                    b.Navigation("Project");
+
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Entities.Models.Tenants.TenantInvitationModulePermission", b =>
+                {
+                    b.HasOne("Entities.Models.Tenants.TenantInvitation", "Invitation")
+                        .WithMany("ModulePermissions")
+                        .HasForeignKey("InvitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invitation");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenants.TenantMember", b =>
@@ -2802,6 +2848,11 @@ namespace Entities.Migrations
                     b.Navigation("Members");
 
                     b.Navigation("Projects");
+                });
+
+            modelBuilder.Entity("Entities.Models.Tenants.TenantInvitation", b =>
+                {
+                    b.Navigation("ModulePermissions");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenants.TenantMember", b =>

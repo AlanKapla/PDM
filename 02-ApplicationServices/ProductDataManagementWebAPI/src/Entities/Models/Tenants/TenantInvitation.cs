@@ -1,4 +1,5 @@
 ﻿using Entities.Models.Base;
+using Entities.Models.Projects;
 using Entities.Models.Users;
 
 namespace Entities.Models.Tenants
@@ -7,6 +8,8 @@ namespace Entities.Models.Tenants
     {
         public Guid TenantId { get; set; }
         public virtual Tenant Tenant { get; set; } = default!;
+        public Guid? ProjectId { get; set; }
+        public virtual Project? Project { get; set; }
         public string Email { get; set; } = string.Empty; // email adresata zaproszenia
         public string Token { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
@@ -16,6 +19,9 @@ namespace Entities.Models.Tenants
         public DateTime? AcceptedAt { get; set; }
         public bool IsActive { get; set; }
         public InvitationStatus Status { get; set; }
+        public bool IsAdmin { get; set; }
+        public virtual ICollection<TenantInvitationModulePermission> ModulePermissions { get; set; } =
+            new List<TenantInvitationModulePermission>();
     }
 
     public enum InvitationStatus

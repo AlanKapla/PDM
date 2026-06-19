@@ -89,6 +89,29 @@ export interface ProjectMemberWeb {
   modules: number[];
 }
 
+export interface ProjectInvitationWeb {
+  invitationId: string;
+  tenantId: string;
+  tenantName: string;
+  projectId: string;
+  projectName: string;
+  email: string;
+  isAdmin: boolean;
+  modules: number[];
+  invitedByUserEmail: string;
+  invitedByUserName: string;
+  createdAt: string;
+  expiresAt: string | null;
+  status: import('./auth.types').InvitationStatus;
+  token: string;
+}
+
+export interface InviteProjectMemberRequest {
+  email: string;
+  modules: number[];
+  isAdmin?: boolean;
+}
+
 export interface ProjectFilePackageWeb {
   id: string;
   name: string;

@@ -168,7 +168,11 @@ export interface TenantInvitationWeb {
   invitationId: string;
   tenantId: string;
   tenantName: string;
+  projectId?: string | null;
+  projectName?: string | null;
   email: string;
+  isAdmin: boolean;
+  modules: number[];
   invitedByUserEmail: string;
   invitedByUserName: string;
   createdAt: string;

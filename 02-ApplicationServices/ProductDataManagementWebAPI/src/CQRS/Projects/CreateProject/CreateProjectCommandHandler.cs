@@ -98,6 +98,7 @@ namespace CQRS.Projects.CreateProject
                 ProjectId = project.Id,
                 UserId = currentUser.Id,
                 IsAdmin = true,
+                IsActive = true,
                 JoinedAt = DateTime.UtcNow
             };
 

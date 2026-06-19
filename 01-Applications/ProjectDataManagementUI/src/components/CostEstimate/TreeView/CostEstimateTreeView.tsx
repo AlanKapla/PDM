@@ -55,9 +55,18 @@ import { AuthContext } from '../../../context/AuthContext';
 // Column definition types
 // ---------------------------------------------------------------------------
 
-import { getColumnFieldKey, isAlwaysVisibleColumn, type ColumnDef, type SortConfig } from './costEstimateColumnTypes';
+import {
+  getColumnFieldKey,
+  isAlwaysVisibleColumn,
+  ensureBasicFinancialColumnsVisible,
+  isNetValueColumn,
+  isGrossValueColumn,
+  isVatValueColumn,
+  type ColumnDef,
+  type SortConfig,
+} from './costEstimateColumnTypes';
 export type { ColumnDef, SortConfig } from './costEstimateColumnTypes';
-export { getColumnFieldKey, isAlwaysVisibleColumn };
+export { getColumnFieldKey, isAlwaysVisibleColumn, isNetValueColumn, isGrossValueColumn, isVatValueColumn };
 
 // ---------------------------------------------------------------------------
 // Base column definitions — fallback gdy API nie zwróci schematu
@@ -69,9 +78,9 @@ export const BASE_COLUMNS: ColumnDef[] = getSchemaColumns({
     { id: 'actions', costEstimateId: '', fieldName: 'Akcje', fieldKey: 'actions', fieldType: 112, isBasicField: true, isAdditionalField: false, order: 1, createdAt: '' },
     { id: 'quantity', costEstimateId: '', fieldName: 'Ilość', fieldKey: 'quantity', fieldType: 101, isBasicField: true, isAdditionalField: false, order: 2, createdAt: '' },
     { id: 'unit', costEstimateId: '', fieldName: 'Jednostka', fieldKey: 'unit', fieldType: 102, isBasicField: true, isAdditionalField: false, order: 3, createdAt: '' },
-    { id: 'unitPriceNet', costEstimateId: '', fieldName: 'Cena jednostkowa netto', fieldKey: 'unitPriceNet', fieldType: 103, isBasicField: true, isAdditionalField: false, order: 4, createdAt: '' },
+    { id: 'unitPriceNet', costEstimateId: '', fieldName: 'Cena netto', fieldKey: 'unitPriceNet', fieldType: 103, isBasicField: true, isAdditionalField: false, order: 4, createdAt: '' },
     { id: 'vatRate', costEstimateId: '', fieldName: 'Stawka VAT', fieldKey: 'vatRate', fieldType: 104, isBasicField: true, isAdditionalField: false, order: 5, createdAt: '' },
-    { id: 'unitPriceGross', costEstimateId: '', fieldName: 'Cena jednostkowa brutto', fieldKey: 'unitPriceGross', fieldType: 105, isBasicField: true, isAdditionalField: false, order: 6, createdAt: '' },
+    { id: 'unitPriceGross', costEstimateId: '', fieldName: 'Cena brutto', fieldKey: 'unitPriceGross', fieldType: 105, isBasicField: true, isAdditionalField: false, order: 6, createdAt: '' },
     { id: 'netValue', costEstimateId: '', fieldName: 'Wartość netto', fieldKey: 'netValue', fieldType: 106, isBasicField: true, isAdditionalField: false, order: 7, createdAt: '' },
     { id: 'grossValue', costEstimateId: '', fieldName: 'Wartość brutto', fieldKey: 'grossValue', fieldType: 107, isBasicField: true, isAdditionalField: false, order: 8, createdAt: '' },
     { id: 'vatValue', costEstimateId: '', fieldName: 'Wartość VAT', fieldKey: 'vatValue', fieldType: 108, isBasicField: true, isAdditionalField: false, order: 9, createdAt: '' },
@@ -103,9 +112,12 @@ export function loadVisibleCols(userId: string, costEstimateId: string, columns:
     const raw = sessionStorage.getItem(VISIBLE_COLS_KEY(userId, costEstimateId));
     if (raw) {
       const parsed: string[] = JSON.parse(raw) as string[];
-      return ensureAlwaysVisibleCols(
-        new Set(parsed.filter((id) => allColIds.includes(id))),
-        columns
+      return ensureBasicFinancialColumnsVisible(
+        ensureAlwaysVisibleCols(
+          new Set(parsed.filter((id) => allColIds.includes(id))),
+          columns,
+        ),
+        columns,
       );
     }
   } catch { /* ignore */ }
@@ -621,7 +633,7 @@ export const CostEstimateTreeView = forwardRef<
           const w = col.width ?? '100px';
           const fieldKey = getColumnFieldKey(col);
 
-          if (fieldKey === 'netValue') {
+          if (isNetValueColumn(col)) {
             return (
               <Flex key={col.id} flex="0 0 auto" w={w} justify="flex-end" pr={2}>
                 <Text fontSize="sm" fontWeight="bold" color="neutral.800"
@@ -632,12 +644,23 @@ export const CostEstimateTreeView = forwardRef<
             );
           }
 
-          if (fieldKey === 'grossValue') {
+          if (isGrossValueColumn(col)) {
             return (
               <Flex key={col.id} flex="0 0 auto" w={w} justify="flex-end" pr={2}>
                 <Text fontSize="sm" fontWeight="bold" color="neutral.800"
                   sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {formatCurrency(totals.gross, currencySymbol)}
+                </Text>
+              </Flex>
+            );
+          }
+
+          if (isVatValueColumn(col)) {
+            return (
+              <Flex key={col.id} flex="0 0 auto" w={w} justify="flex-end" pr={2}>
+                <Text fontSize="sm" fontWeight="bold" color="neutral.800"
+                  sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCurrency(totals.vat, currencySymbol)}
                 </Text>
               </Flex>
             );
@@ -657,6 +680,7 @@ export const CostEstimateTreeView = forwardRef<
 
   return (
     <Box
+      className="ce-tree-view"
       bg="white"
       border="1px solid"
       borderColor="neutral.200"

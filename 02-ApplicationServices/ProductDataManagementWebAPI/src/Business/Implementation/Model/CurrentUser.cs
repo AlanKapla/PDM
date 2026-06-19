@@ -240,13 +240,13 @@ namespace Business.Implementation.Model
 
             // Check if user is Tenant Admin (has admin rights in project's tenant)
             TenantMember? tenantMembership = await tenantMemberRepo.GetFirstBySearch(
-                tm => tm.TenantId == projectEntity.TenantId && tm.UserId == _id);
+                tm => tm.TenantId == projectEntity.TenantId && tm.UserId == _id && tm.IsActive);
 
             bool isTenantAdmin = tenantMembership?.IsAdmin ?? false;
 
             // Check project membership with ModulePermissions
             var membership = await projectMemberRepo.GetFirstBySearch(
-                pm => pm.ProjectId == projectId && pm.UserId == _id,
+                pm => pm.ProjectId == projectId && pm.UserId == _id && pm.IsActive,
                 q => q.Include(pm => pm.ModulePermissions));
 
             var permissions = new HashSet<string>();

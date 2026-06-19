@@ -19,6 +19,11 @@ import {
   Tr,
   Th,
   Td,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
 } from "@chakra-ui/react";
 import { Users, UserPlus, Trash2, Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
@@ -30,76 +35,88 @@ import { BackToProjectButton, LoadingSpinner, EmptyState } from "../components/c
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { handleApiError } from "../utils/handleApiError";
-import { useProjectDetails, useProjectMembers, projectKeys } from "../hooks/queries";
+import {
+  useProjectDetails,
+  useProjectMembers,
+  projectKeys,
+  useProjectInvitations,
+  projectInvitationKeys,
+} from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatDate } from "../utils/formatters";
+import { formatDate, formatDateShort } from "../utils/formatters";
 import { projectApi } from "../api/projectApi";
 import type { ProjectMemberWeb } from "../types/project.types";
+import { getInvitationStatusColor, getInvitationStatusName } from "../types/auth.types";
+import { PROJECT_MODULE_LABELS } from "../types/projectModulePermissions";
+import { ProjectModule } from "../types/projectModulePermissions";
 
-export default function ProjectMembers() {
+export default function ProjectMembers(): React.ReactElement {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useAuth();
   const permissions = useProjectPermissions(projectId);
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const { showError, showApiSuccess } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
+  const { isOpen: isRevokeInviteOpen, onOpen: onRevokeInviteOpen, onClose: onRevokeInviteClose } = useDisclosure();
 
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
   const [memberToEdit, setMemberToEdit] = useState<ProjectMemberWeb | null>(null);
+  const [invitationToRevoke, setInvitationToRevoke] = useState<string | null>(null);
+  const [revokingInvitationId, setRevokingInvitationId] = useState<string | null>(null);
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
-  const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  // React Query — dane projektu i członkowie (współdzielony cache między stronami projektu)
-  const { data: project, isLoading: loadingProject } = useProjectDetails(
-    user?.activeTenantId ?? undefined,
-    projectId
+  const tenantId = user?.activeTenantId ?? undefined;
+  const { data: project, isLoading: loadingProject } = useProjectDetails(tenantId, projectId);
+  const { data: membersData, isLoading: loadingMembers } = useProjectMembers(tenantId, projectId);
+  const { data: invitations = [], isLoading: loadingInvitations } = useProjectInvitations(
+    tenantId ?? "",
+    projectId ?? "",
+    !!tenantId && !!projectId && permissions.isAdmin
   );
-  const { data: membersData, isLoading: loadingMembers } = useProjectMembers(
-    user?.activeTenantId ?? undefined,
-    projectId
-  );
+
   const members = membersData ?? [];
-  const loading = loadingProject || loadingMembers;
+  const loading = loadingProject || loadingMembers || loadingInvitations;
 
   const queryClient = useQueryClient();
 
-  const handleEditMember = (member: ProjectMemberWeb) => {
+  const invalidateCaches = (): void => {
+    if (!tenantId || !projectId) {
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: projectKeys.members(tenantId, projectId) });
+    queryClient.invalidateQueries({ queryKey: projectKeys.detail(tenantId, projectId) });
+    queryClient.invalidateQueries({ queryKey: projectInvitationKeys.byProject(tenantId, projectId) });
+  };
+
+  const handleEditMember = (member: ProjectMemberWeb): void => {
     setMemberToEdit(member);
     onEditOpen();
   };
 
-  const handleEditClose = () => {
+  const handleEditClose = (): void => {
     setMemberToEdit(null);
     onEditClose();
   };
 
-  const handleRemoveMemberClick = (userId: string, name: string) => {
+  const handleRemoveMemberClick = (userId: string, name: string): void => {
     setMemberToRemove({ userId, name });
     onRemoveModalOpen();
   };
 
-  const handleRemoveMember = async () => {
-    if (!memberToRemove || !user?.activeTenantId || !projectId) return;
+  const handleRemoveMember = async (): Promise<void> => {
+    if (!memberToRemove || !tenantId || !projectId) {
+      return;
+    }
 
     setRemovingMember(memberToRemove.userId);
     try {
-      await projectApi.removeProjectMember(
-        user.activeTenantId,
-        projectId,
-        memberToRemove.userId
-      );
-
-      showApiSuccess('memberRemoved');
-      queryClient.invalidateQueries({
-        queryKey: projectKeys.members(user.activeTenantId!, projectId!)
-      });
-      queryClient.invalidateQueries({
-        queryKey: projectKeys.detail(user.activeTenantId!, projectId!)
-      });
+      await projectApi.removeProjectMember(tenantId, projectId, memberToRemove.userId);
+      showApiSuccess("memberRemoved");
+      invalidateCaches();
       onRemoveModalClose();
     } catch (error) {
       const { title, description } = handleApiError(error);
@@ -109,6 +126,34 @@ export default function ProjectMembers() {
       setMemberToRemove(null);
     }
   };
+
+  const handleRevokeInvitationClick = (invitationId: string): void => {
+    setInvitationToRevoke(invitationId);
+    onRevokeInviteOpen();
+  };
+
+  const handleRevokeInvitation = async (): Promise<void> => {
+    if (!invitationToRevoke || !tenantId || !projectId) {
+      return;
+    }
+
+    setRevokingInvitationId(invitationToRevoke);
+    try {
+      await projectApi.revokeProjectInvitation(tenantId, projectId, invitationToRevoke);
+      showApiSuccess("inviteCancelled");
+      invalidateCaches();
+      onRevokeInviteClose();
+    } catch (error) {
+      const { title, description } = handleApiError(error);
+      showError(title, description);
+    } finally {
+      setRevokingInvitationId(null);
+      setInvitationToRevoke(null);
+    }
+  };
+
+  const formatModuleLabels = (modules: number[]): string =>
+    modules.map((m) => PROJECT_MODULE_LABELS[m as ProjectModule]).join(", ");
 
   if (loading) {
     return (
@@ -134,115 +179,188 @@ export default function ProjectMembers() {
           </Box>
         ) : (
           <>
-        <HStack justify="space-between" mb={{ base: 6, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
-          <HStack spacing={{ base: 2, md: 3 }}>
-            <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="primary.600" />
-            <VStack align="flex-start" spacing={0}>
-              <Heading size={{ base: "md", md: "lg" }}>Członkowie projektu</Heading>
-              {project && <Text fontSize={{ base: "xs", md: "sm" }} color="neutral.600">{project.name}</Text>}
-            </VStack>
-          </HStack>
-          {permissions.isAdmin && (
-            <Button
-              leftIcon={<UserPlus size={16} />}
-              colorScheme="primary"
-              onClick={onOpen}
-              size={{ base: "sm", md: "md" }}
-              fontSize={{ base: "xs", md: "sm" }}
-            >
-              Dodaj członka
-            </Button>
-          )}
-        </HStack>
+            <HStack justify="space-between" mb={{ base: 6, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
+              <HStack spacing={{ base: 2, md: 3 }}>
+                <Icon as={Users} boxSize={{ base: 6, md: 8 }} color="primary.600" />
+                <VStack align="flex-start" spacing={0}>
+                  <Heading size={{ base: "md", md: "lg" }}>Członkowie projektu</Heading>
+                  {project && <Text fontSize={{ base: "xs", md: "sm" }} color="neutral.600">{project.name}</Text>}
+                </VStack>
+              </HStack>
+              <Button
+                leftIcon={<UserPlus size={16} />}
+                colorScheme="primary"
+                onClick={onOpen}
+                size={{ base: "sm", md: "md" }}
+                fontSize={{ base: "xs", md: "sm" }}
+              >
+                Dodaj członka
+              </Button>
+            </HStack>
 
-        {members.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="Brak członków"
-            description="Ten projekt nie ma jeszcze żadnych członków"
-          />
-        ) : (
-          <Box 
-            bg="white" 
-            rounded="lg" 
-            borderWidth="1px" 
-            borderColor="neutral.200"
-            overflowX="auto"
-            fontSize={{ base: "xs", md: "sm" }}
-          >
-            <Table variant="simple" size={{ base: "sm", md: "md" }}>
-              <Thead>
-                <Tr>
-                  <Th fontSize={{ base: "xs", md: "sm" }}>Imię i nazwisko</Th>
-                  <Th fontSize={{ base: "xs", md: "sm" }}>Rola</Th>
-                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
-                  <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
-                  <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {members.map((member) => (
-                  <Tr key={member.userId}>
-                    <Td fontSize={{ base: "xs", md: "sm" }}>
-                      {member.firstName} {member.lastName}
-                      {user?.id === member.userId && (
-                        <Badge ml={2} colorScheme="green" fontSize="xs">
-                          Ty
-                        </Badge>
-                      )}
-                    </Td>
-                    <Td fontSize={{ base: "xs", md: "sm" }}>
-                      <Badge colorScheme={member.isAdmin ? "purple" : "gray"} fontSize="xs">
-                        {member.isAdmin ? "Admin" : "Członek"}
-                      </Badge>
-                    </Td>
-                    <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>{member.email}</Td>
-                    <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>{formatDate(member.joinedAt)}</Td>
-                    <Td fontSize={{ base: "xs", md: "sm" }}>
-                      {permissions.isAdmin && (
-                        <HStack spacing={1}>
-                          <Tooltip label={user?.id === member.userId ? "Nie możesz edytować własnych uprawnień" : member.isAdmin && !permissions.isAdmin ? "Nie możesz edytować uprawnień admina" : "Edytuj uprawnienia"}>
-                            <IconButton
-                              aria-label="Edytuj uprawnienia"
-                              icon={<Settings size={16} />}
-                              size="sm"
-                              colorScheme="primary"
-                              variant="ghost"
-                              isDisabled={user?.id === member.userId || (member.isAdmin && !permissions.isAdmin)}
-                              onClick={() => handleEditMember(member)}
-                            />
-                          </Tooltip>
-                          {member.email.toLowerCase() !== user?.email.toLowerCase() && (
-                            <Tooltip label="Usuń członka">
-                              <IconButton
-                                aria-label="Usuń członka"
-                                icon={<Trash2 size={16} />}
-                                size="sm"
-                                colorScheme="red"
-                                variant="ghost"
-                                onClick={() => handleRemoveMemberClick(member.userId, `${member.firstName} ${member.lastName}`)}
-                              />
-                            </Tooltip>
-                          )}
-                        </HStack>
-                      )}
-                    </Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
-        )}
-        </>
+            <Box bg="white" rounded="lg" borderWidth="1px" borderColor="neutral.200">
+              <Tabs>
+                <TabList px={{ base: 3, md: 4 }} pt={2}>
+                  <Tab>
+                    <HStack spacing={2}>
+                      <Text>Członkowie</Text>
+                      <Badge>{members.length}</Badge>
+                    </HStack>
+                  </Tab>
+                  <Tab>
+                    <HStack spacing={2}>
+                      <Text>Zaproszenia</Text>
+                      <Badge>{invitations.length}</Badge>
+                    </HStack>
+                  </Tab>
+                </TabList>
+
+                <TabPanels>
+                  <TabPanel p={0}>
+                    {members.length === 0 ? (
+                      <Box p={{ base: 3, md: 4 }}>
+                        <EmptyState
+                          icon={Users}
+                          title="Brak członków"
+                          description="Ten projekt nie ma jeszcze żadnych członków"
+                        />
+                      </Box>
+                    ) : (
+                      <Box overflowX="auto" fontSize={{ base: "xs", md: "sm" }}>
+                        <Table variant="simple" size={{ base: "sm", md: "md" }}>
+                          <Thead>
+                            <Tr>
+                              <Th fontSize={{ base: "xs", md: "sm" }}>Imię i nazwisko</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }}>Rola</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Email</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Data dołączenia</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {members.map((member) => (
+                              <Tr key={member.userId}>
+                                <Td fontSize={{ base: "xs", md: "sm" }}>
+                                  {member.firstName} {member.lastName}
+                                  {user?.id === member.userId && (
+                                    <Badge ml={2} colorScheme="green" fontSize="xs">Ty</Badge>
+                                  )}
+                                </Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }}>
+                                  <Badge colorScheme={member.isAdmin ? "purple" : "gray"} fontSize="xs">
+                                    {member.isAdmin ? "Admin" : "Członek"}
+                                  </Badge>
+                                </Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>{member.email}</Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>{formatDate(member.joinedAt)}</Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }}>
+                                  <HStack spacing={1}>
+                                    <Tooltip label={user?.id === member.userId ? "Nie możesz edytować własnych uprawnień" : member.isAdmin && !permissions.isAdmin ? "Nie możesz edytować uprawnień admina" : "Edytuj uprawnienia"}>
+                                      <IconButton
+                                        aria-label="Edytuj uprawnienia"
+                                        icon={<Settings size={16} />}
+                                        size="sm"
+                                        colorScheme="primary"
+                                        variant="ghost"
+                                        isDisabled={user?.id === member.userId || (member.isAdmin && !permissions.isAdmin)}
+                                        onClick={() => handleEditMember(member)}
+                                      />
+                                    </Tooltip>
+                                    {member.email.toLowerCase() !== user?.email.toLowerCase() && (
+                                      <Tooltip label="Usuń członka">
+                                        <IconButton
+                                          aria-label="Usuń członka"
+                                          icon={<Trash2 size={16} />}
+                                          size="sm"
+                                          colorScheme="red"
+                                          variant="ghost"
+                                          onClick={() => handleRemoveMemberClick(member.userId, `${member.firstName} ${member.lastName}`)}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                  </HStack>
+                                </Td>
+                              </Tr>
+                            ))}
+                          </Tbody>
+                        </Table>
+                      </Box>
+                    )}
+                  </TabPanel>
+
+                  <TabPanel p={0}>
+                    {invitations.length === 0 ? (
+                      <Box p={{ base: 3, md: 4 }}>
+                        <Text color="neutral.500" textAlign="center">
+                          Brak aktywnych zaproszeń
+                        </Text>
+                      </Box>
+                    ) : (
+                      <Box overflowX="auto" fontSize={{ base: "xs", md: "sm" }}>
+                        <Table variant="simple" size={{ base: "sm", md: "md" }}>
+                          <Thead>
+                            <Tr>
+                              <Th fontSize={{ base: "xs", md: "sm" }}>Email</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>Zaproszony przez</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Moduły</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Organizacja</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>Wygasa</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }}>Status</Th>
+                              <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {invitations.map((invitation) => (
+                              <Tr key={invitation.invitationId}>
+                                <Td fontSize={{ base: "xs", md: "sm" }}>{invitation.email}</Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", lg: "table-cell" }}>
+                                  {invitation.invitedByUserName}
+                                </Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>
+                                  {formatModuleLabels(invitation.modules)}
+                                </Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>
+                                  {invitation.tenantName}
+                                </Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }} display={{ base: "none", md: "table-cell" }}>
+                                  {invitation.expiresAt ? formatDateShort(invitation.expiresAt) : "—"}
+                                </Td>
+                                <Td fontSize={{ base: "xs", md: "sm" }}>
+                                  <Badge colorScheme={getInvitationStatusColor(invitation.status)} fontSize="xs">
+                                    {getInvitationStatusName(invitation.status)}
+                                  </Badge>
+                                </Td>
+                                <Td>
+                                  <IconButton
+                                    aria-label="Anuluj zaproszenie"
+                                    icon={<Trash2 size={16} />}
+                                    size="sm"
+                                    colorScheme="red"
+                                    variant="ghost"
+                                    isLoading={revokingInvitationId === invitation.invitationId}
+                                    onClick={() => handleRevokeInvitationClick(invitation.invitationId)}
+                                  />
+                                </Td>
+                              </Tr>
+                            ))}
+                          </Tbody>
+                        </Table>
+                      </Box>
+                    )}
+                  </TabPanel>
+                </TabPanels>
+              </Tabs>
+            </Box>
+          </>
         )}
 
         <AddProjectMemberModal
           isOpen={isOpen}
           onClose={onClose}
           projectId={projectId || ""}
-          tenantId={user?.activeTenantId || ""}
+          tenantId={tenantId || ""}
           projectName={project?.name || ""}
-          onMemberAdded={() => queryClient.invalidateQueries({ queryKey: projectKeys.members(user?.activeTenantId ?? '', projectId ?? '') })}
+          onMemberAdded={invalidateCaches}
         />
 
         <DeleteAlertDialog
@@ -253,11 +371,18 @@ export default function ProjectMembers() {
           isLoading={removingMember !== null}
         />
 
+        <DeleteAlertDialog
+          isOpen={isRevokeInviteOpen}
+          onClose={onRevokeInviteClose}
+          onConfirm={handleRevokeInvitation}
+          isLoading={revokingInvitationId !== null}
+        />
+
         {memberToEdit && (
           <EditProjectMemberModal
             isOpen={isEditOpen}
             onClose={handleEditClose}
-            tenantId={user?.activeTenantId || ""}
+            tenantId={tenantId || ""}
             projectId={projectId || ""}
             member={memberToEdit}
           />

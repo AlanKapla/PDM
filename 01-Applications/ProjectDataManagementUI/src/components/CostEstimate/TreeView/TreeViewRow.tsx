@@ -38,10 +38,20 @@ import type {
   CostEstimateItemWeb,
   CostEstimateAdditionalFieldWeb,
 } from '../../../types/costEstimate.types.new';
-import { AdditionalFieldType, CostEstimateFieldType, isTemporaryId } from '../../../types/costEstimate.types.new';
+import { AdditionalFieldType, isTemporaryId } from '../../../types/costEstimate.types.new';
 import type { ColumnDef, SortConfig } from './CostEstimateTreeView';
-import { getColumnFieldKey } from './costEstimateColumnTypes';
+import {
+  getColumnFieldKey,
+  getFinancialValueColumnKind,
+  isGrossValueColumn,
+  isNetValueColumn,
+  isVatValueColumn,
+} from './costEstimateColumnTypes';
 import { computeItemFieldFlags, areItemAdditionalFieldsLocked } from '../../../utils/costEstimateItemFlags';
+import {
+  deriveItemFinancialState,
+  getDerivedFinancialColumnValue,
+} from '../../../utils/costEstimateItemFinancial';
 import {
   getAdditionalFieldValue,
   getAdditionalFieldValueAsString,
@@ -51,6 +61,7 @@ import {
 import { getColumnCellJustify } from '../../../utils/calcTreeViewColumnWidths';
 import { getBaseFieldPlaceholder } from '../../../utils/costEstimateFieldSchema';
 import { formatCurrency } from '../../../utils/formatters';
+import { formatVatPercent } from '../../../utils/numericInputUtils';
 import { AdditionalFieldInput } from '../AdditionalFieldInput';
 import {
   PrototypeTextInput,
@@ -79,16 +90,6 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function isNetValueColumn(col: ColumnDef): boolean {
-  const fieldKey = getColumnFieldKey(col);
-  return fieldKey === 'netValue' || col.schemaFieldType === CostEstimateFieldType.NetValue;
-}
-
-function isGrossValueColumn(col: ColumnDef): boolean {
-  const fieldKey = getColumnFieldKey(col);
-  return fieldKey === 'grossValue' || col.schemaFieldType === CostEstimateFieldType.GrossValue;
-}
-
 const TREE_INDENT_STEP = 28;
 
 /** Etap (level 0) bez wcięcia; podetap zagnieżdżony wcięty jak pozycja na tej głębokości. */
@@ -102,11 +103,65 @@ function getTreeIndentPx(level: number): number {
 interface GroupTotalValueCellProps {
   value: number | undefined | null;
   level: number;
-  variant: 'net' | 'gross';
+  variant: 'net' | 'vat' | 'gross';
   width: string;
   justify: FlexProps['justify'];
   currencySymbol: string;
 }
+
+function getFinancialTextColor(variant: 'net' | 'vat' | 'gross', isPositive: boolean): string {
+  if (variant === 'net') {
+    return isPositive ? 'neutral.800' : 'neutral.400';
+  }
+  if (variant === 'vat') {
+    return isPositive ? 'neutral.700' : 'neutral.400';
+  }
+  return isPositive ? 'neutral.600' : 'neutral.300';
+}
+
+interface ItemFinancialValueCellProps {
+  value: number | undefined | null;
+  variant: 'net' | 'vat' | 'gross';
+  width: string;
+  justify: FlexProps['justify'];
+  textAlign: 'left' | 'right';
+  currencySymbol: string;
+}
+
+/** Read-only computed net / VAT / gross for position rows — above row background layer */
+const ItemFinancialValueCell: React.FC<ItemFinancialValueCellProps> = ({
+  value,
+  variant,
+  width,
+  justify,
+  textAlign,
+  currencySymbol,
+}) => {
+  const hasValue = value !== undefined && value !== null;
+  const isPositive = (value ?? 0) > 0;
+
+  return (
+    <Flex
+      flex="0 0 auto"
+      w={width}
+      justify={justify}
+      align="center"
+      pr={1}
+      position="relative"
+      zIndex={1}
+    >
+      <Text
+        fontSize="sm"
+        w="full"
+        textAlign={textAlign}
+        color={getFinancialTextColor(variant, isPositive)}
+        sx={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {hasValue ? formatCurrency(value, currencySymbol) : '—'}
+      </Text>
+    </Flex>
+  );
+};
 
 /** Read-only sum cell for etap / podetap — aligned with item inputs and summary row */
 const GroupTotalValueCell: React.FC<GroupTotalValueCellProps> = ({
@@ -133,11 +188,15 @@ const GroupTotalValueCell: React.FC<GroupTotalValueCellProps> = ({
       <Text
         fontSize="sm"
         fontWeight={level === 0 ? 'bold' : 'semibold'}
-        color={variant === 'net'
-          ? (isPositive ? 'neutral.800' : 'neutral.400')
-          : (isPositive ? 'neutral.600' : 'neutral.300')}
+        color={getFinancialTextColor(variant, isPositive)}
         sx={{ fontVariantNumeric: 'tabular-nums' }}
-        aria-label={variant === 'net' ? 'Suma netto etapu' : 'Suma brutto etapu'}
+        aria-label={
+          variant === 'net'
+            ? 'Suma netto etapu'
+            : variant === 'vat'
+              ? 'Suma VAT etapu'
+              : 'Suma brutto etapu'
+        }
       >
         {hasValue ? formatCurrency(value, currencySymbol) : '—'}
       </Text>
@@ -225,6 +284,13 @@ export interface TreeViewRowProps {
 /** Minimalna szerokość obszaru z przyciskami „Dodaj pozycję / podetap”. */
 const ADD_ROW_CONTROLS_MIN_WIDTH = 300;
 
+/** Pokaż pełny tag hierarchii tylko gdy w kolumnie nazwy jest na to miejsce. */
+const TREE_VIEW_NAME_TAG_MIN_CONTENT_WIDTH = 200;
+
+function shouldShowHierarchyTag(nameColWidth: number, indentPx: number): boolean {
+  return nameColWidth - indentPx >= TREE_VIEW_NAME_TAG_MIN_CONTENT_WIDTH;
+}
+
 function getLeadingStickyWidth(nameColWidth: number, actionsColWidth: number): number {
   return nameColWidth + actionsColWidth;
 }
@@ -290,6 +356,7 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
   const hasSubGroups = (group.childGroups?.length ?? 0) > 0;
   const groupTagLevel = level === 0 ? 0 : 1;
   const indentSize = getTreeIndentPx(level);
+  const showHierarchyTag = shouldShowHierarchyTag(nameColWidth, indentSize);
 
   const { bg: rowSurfaceBg, hoverBg: rowSurfaceHoverBg } = getGroupRowSurface(level);
 
@@ -583,6 +650,20 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
           );
         }
 
+        if (isVatValueColumn(col)) {
+          return (
+            <GroupTotalValueCell
+              key={col.id}
+              value={group.totalVat}
+              level={level}
+              variant="vat"
+              width={w}
+              justify={cellJustify}
+              currencySymbol={currencySymbol}
+            />
+          );
+        }
+
         // All other columns are item-only → render empty cell
         return <EmptyCell key={col.id} width={w} />;
       });
@@ -611,36 +692,49 @@ export const TreeViewRow: React.FC<TreeViewRowProps> = ({
           width={`${nameColWidth}px`}
           gap={2}
           pl={indentSize > 0 ? `${indentSize}px` : undefined}
+          minW={0}
+          overflow="hidden"
         >
           {isEditMode && (
-            <Box {...attributes} {...listeners}>
+            <Box flexShrink={0} {...attributes} {...listeners}>
               <DragHandle isDragging={isDragging} blendWithRow />
             </Box>
           )}
 
-          <ChevronButton
-            isExpanded={isExpanded}
-            onClick={onToggle}
-            isLeaf={group.items.length === 0 && !hasSubGroups}
-            blendWithRow
-          />
+          <Box flexShrink={0}>
+            <ChevronButton
+              isExpanded={isExpanded}
+              onClick={onToggle}
+              isLeaf={group.items.length === 0 && !hasSubGroups}
+              blendWithRow
+            />
+          </Box>
 
-          <PrototypeTag level={groupTagLevel} />
-          <PrototypeDot level={groupTagLevel} />
+          {showHierarchyTag ? (
+            <Box flexShrink={0}>
+              <PrototypeTag level={groupTagLevel} />
+            </Box>
+          ) : (
+            <Box flexShrink={0}>
+              <PrototypeDot level={groupTagLevel} />
+            </Box>
+          )}
 
-          <PrototypeTextInput
-            value={group.name ?? ''}
-            onChange={(e) => {
-              const v = e.target.value;
-              onFieldChange(group.id, null, 'name', v);
-              triggerGroupBaseAutosave('name', 'string', v);
-            }}
-            isGroup
-            isStage={level === 0}
-            isDisabled={!isEditMode}
-            placeholder={level === 0 ? 'Nazwa etapu' : 'Nazwa podetapu'}
-            blendWithRow
-          />
+          <Box flex={1} minW={0}>
+            <PrototypeTextInput
+              value={group.name ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onFieldChange(group.id, null, 'name', v);
+                triggerGroupBaseAutosave('name', 'string', v);
+              }}
+              isGroup
+              isStage={level === 0}
+              isDisabled={!isEditMode}
+              placeholder={level === 0 ? 'Nazwa etapu' : 'Nazwa podetapu'}
+              blendWithRow
+            />
+          </Box>
         </TreeViewStickyCell>
 
         {/* Actions (sticky, right after name) */}
@@ -941,6 +1035,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
   isAddingUnit,
 }) => {
   const indentSize = getTreeIndentPx(level);
+  const showHierarchyTag = shouldShowHierarchyTag(nameColWidth, indentSize);
   const isComponent = item.relationType === 2;
   const isOption = item.relationType === 1;
   const hasComponents = (item.components?.length ?? 0) > 0;
@@ -1231,106 +1326,38 @@ const ItemRow: React.FC<ItemRowProps> = ({
 
   const renderBaseFieldCells = () => {
     const flags = computeItemFieldFlags(item);
+    const derived = deriveItemFinancialState(item);
     return baseColumns
-      .filter((c) => c.id !== 'name')
+      .filter((c) => {
+        const fieldKey = getColumnFieldKey(c);
+        return fieldKey !== 'name' && fieldKey !== 'actions';
+      })
       .map((col) => {
         const w = col.width ?? '100px';
         const cellJustify = getColumnCellJustify(col.textAlign);
+        const fieldKey = getColumnFieldKey(col);
+        const financialKind = getFinancialValueColumnKind(col);
 
-        // Group-only or not applicable columns show — for items that are not applicable
-        // All base columns except 'name' apply to items (groups show them empty)
-        // Financial fields are editable when not computed from other fields
-
-        if (isNetValueColumn(col)) {
-          const showCurrency = !isEditMode || flags.netValueComputed;
+        if (financialKind) {
+          const value = getDerivedFinancialColumnValue(derived, financialKind);
           return (
-            <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
-              {showCurrency ? (
-                <Text
-                  fontSize="sm"
-                  w="full"
-                  textAlign={cellJustify === 'flex-start' ? 'left' : 'right'}
-                  sx={{ fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {item.netValue !== undefined && item.netValue !== null
-                    ? formatCurrency(item.netValue, currencySymbol)
-                    : '—'}
-                </Text>
-              ) : (
-                <PrototypeNumberInput
-                  value={item.netValue !== undefined && item.netValue !== null ? String(item.netValue) : ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    onFieldChange(groupId, item.id, 'netValue', v);
-                    triggerBaseAutosave('netValue', 'numeric', v);
-                  }}
-                  isDisabled={!isEditMode || flags.netValueComputed}
-                  placeholder={getBaseFieldPlaceholder(col.label)}
-                  w="full"
-                  blendWithRow
-                />
-              )}
-            </Flex>
+            <ItemFinancialValueCell
+              key={col.id}
+              value={value}
+              variant={financialKind}
+              width={w}
+              justify={cellJustify}
+              textAlign={cellJustify === 'flex-start' ? 'left' : 'right'}
+              currencySymbol={currencySymbol}
+            />
           );
         }
 
-        if (isGrossValueColumn(col)) {
-          const showCurrency = !isEditMode || flags.grossValueComputed;
-          return (
-            <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
-              {showCurrency ? (
-                <Text
-                  fontSize="sm"
-                  w="full"
-                  textAlign={cellJustify === 'flex-start' ? 'left' : 'right'}
-                  sx={{ fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {item.grossValue !== undefined && item.grossValue !== null
-                    ? formatCurrency(item.grossValue, currencySymbol)
-                    : '—'}
-                </Text>
-              ) : (
-                <PrototypeNumberInput
-                  value={item.grossValue !== undefined && item.grossValue !== null ? String(item.grossValue) : ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    onFieldChange(groupId, item.id, 'grossValue', v);
-                    triggerBaseAutosave('grossValue', 'numeric', v);
-                  }}
-                  isDisabled={!isEditMode || flags.grossValueComputed}
-                  placeholder={getBaseFieldPlaceholder(col.label)}
-                  w="full"
-                  blendWithRow
-                />
-              )}
-            </Flex>
-          );
-        }
-
-        if (col.id === 'vatValue') {
+        if (fieldKey === 'unitPriceGross') {
           return (
             <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
               <PrototypeNumberInput
-                value={item.vatValue !== undefined && item.vatValue !== null ? String(item.vatValue) : ''}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  onFieldChange(groupId, item.id, 'vatValue', v);
-                  triggerBaseAutosave('vatValue', 'numeric', v);
-                }}
-                isDisabled={!isEditMode || flags.vatValueComputed}
-                placeholder={getBaseFieldPlaceholder(col.label)}
-                w="full"
-                blendWithRow
-              />
-            </Flex>
-          );
-        }
-
-        if (col.id === 'unitPriceGross') {
-          return (
-            <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
-              <PrototypeNumberInput
-                value={item.unitPriceGross !== undefined && item.unitPriceGross !== null ? String(item.unitPriceGross) : ''}
+                value={derived.unitPriceGross ?? ''}
                 onChange={(e) => {
                   const v = e.target.value;
                   onFieldChange(groupId, item.id, 'unitPriceGross', v);
@@ -1345,11 +1372,11 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        if (col.id === 'quantity') {
+        if (fieldKey === 'quantity') {
           return (
             <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
               <PrototypeNumberInput
-                value={item.quantity !== undefined && item.quantity !== null ? String(item.quantity) : ''}
+                value={item.quantity ?? ''}
                 onChange={(e) => {
                   const v = e.target.value;
                   onFieldChange(groupId, item.id, 'quantity', v);
@@ -1364,9 +1391,9 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        if (col.id === 'unit') {
+        if (fieldKey === 'unit') {
           return (
-            <Flex key="unit" flex="0 0 auto" w={w} justify={cellJustify} pr={2}>
+            <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={2}>
               <UnitCombobox
                 value={item.unit ?? ''}
                 units={projectUnits}
@@ -1388,11 +1415,11 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        if (col.id === 'unitPriceNet') {
+        if (fieldKey === 'unitPriceNet') {
           return (
             <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
               <PrototypeNumberInput
-                value={item.unitPriceNet !== undefined && item.unitPriceNet !== null ? String(item.unitPriceNet) : ''}
+                value={item.unitPriceNet ?? ''}
                 onChange={(e) => {
                   const v = e.target.value;
                   onFieldChange(groupId, item.id, 'unitPriceNet', v);
@@ -1407,11 +1434,10 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        if (col.id === 'vatRate') {
-          // Display as percentage (0.23 → "23")
+        if (fieldKey === 'vatRate') {
           const displayVat =
             item.vatRate !== undefined && item.vatRate !== null
-              ? String(Math.round(item.vatRate * 100))
+              ? formatVatPercent(item.vatRate)
               : '';
           return (
             <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} pr={1}>
@@ -1419,11 +1445,8 @@ const ItemRow: React.FC<ItemRowProps> = ({
                 value={displayVat}
                 onChange={(e) => {
                   const v = e.target.value;
-                  // Convert % to decimal for storage
-                  const raw = parseFloat(v.replace(',', '.'));
-                  const decimal = isNaN(raw) ? v : String(raw / 100);
-                  onFieldChange(groupId, item.id, 'vatRate', decimal);
-                  triggerBaseAutosave('vatRate', 'numeric', decimal);
+                  onFieldChange(groupId, item.id, 'vatRate', v === '' ? null : v);
+                  triggerBaseAutosave('vatRate', 'numeric', v || undefined);
                 }}
                 isDisabled={!isEditMode || flags.financialFieldsLockedByComponents || hasSelectedOption}
                 placeholder={getBaseFieldPlaceholder(col.label)}
@@ -1434,13 +1457,13 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        if (col.id === 'isSelected') {
+        if (fieldKey === 'isSelected') {
           // Options show radio button in the name column; here show empty cell
           if (isOption) {
-            return <EmptyCell key="isSelected" width={w} />;
+            return <EmptyCell key={col.id} width={w} />;
           }
           return (
-            <Flex key="isSelected" flex="0 0 auto" w={w} justify={cellJustify} align="center">
+            <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} align="center">
               <Checkbox
                 isChecked={item.isSelected}
                 onChange={(e) => {
@@ -1457,10 +1480,10 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        if (col.id === 'isStageWork') {
-          if (isOption || isComponent) return <EmptyCell key="isStageWork" width={w} />;
+        if (fieldKey === 'isStageWork') {
+          if (isOption || isComponent) return <EmptyCell key={col.id} width={w} />;
           return (
-            <Flex key="isStageWork" flex="0 0 auto" w={w} justify={cellJustify} align="center">
+            <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} align="center">
               <Checkbox
                 isChecked={item.isStageWork}
                 onChange={(e) => {
@@ -1477,10 +1500,14 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        if (col.id === 'files') {
+        if (fieldKey === 'files') {
           return (
-            <Flex key="files" flex="0 0 auto" w={w} justify={cellJustify} align="center">
-              <Tooltip label={hasFiles ? `${item.files?.length ?? 0} plik(ów)` : 'Dodaj plik'}>
+            <Flex key={col.id} flex="0 0 auto" w={w} justify={cellJustify} align="center">
+              <Tooltip
+                label={hasFiles ? `${item.files?.length ?? 0} plik(ów)` : 'Dodaj plik'}
+                closeOnClick
+                closeOnMouseDown
+              >
                 <IconButton
                   aria-label="Pliki"
                   icon={hasFiles ? <FileText size={13} aria-hidden="true" /> : <Upload size={13} aria-hidden="true" />}
@@ -1497,7 +1524,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
           );
         }
 
-        return null;
+        return <EmptyCell key={col.id} width={w} />;
       });
   };
 
@@ -1506,7 +1533,28 @@ const ItemRow: React.FC<ItemRowProps> = ({
   // -------------------------------------------------------------------------
 
   const renderAdditionalCells = () => {
+    const derived = deriveItemFinancialState(item);
+
     return additionalColumns.map((col) => {
+      const financialKind = getFinancialValueColumnKind(col);
+      if (financialKind) {
+        const w = col.width ?? '130px';
+        const cellJustify = getColumnCellJustify(col.textAlign);
+        const value = getDerivedFinancialColumnValue(derived, financialKind);
+
+        return (
+          <ItemFinancialValueCell
+            key={col.id}
+            value={value}
+            variant={financialKind}
+            width={w}
+            justify={cellJustify}
+            textAlign={cellJustify === 'flex-start' ? 'left' : 'right'}
+            currencySymbol={currencySymbol}
+          />
+        );
+      }
+
       const fieldDef = additionalFieldDefs.find((f) => f.id === col.id);
       if (!fieldDef) {
         return <Box key={col.id} flex="0 0 auto" w={col.width ?? '130px'} />;
@@ -1568,6 +1616,7 @@ const ItemRow: React.FC<ItemRowProps> = ({
         minW={`${totalColumnsWidth}px`}
         borderBottom={isLast && (!hasChildren || !isChildrenExpanded) ? 'none' : '1px solid'}
         borderColor="neutral.100"
+        color="neutral.800"
         _hover={treeViewRowHoverStyles(rowSurfaceHoverBg)}
         px={3.5}
         py={2}
@@ -1582,21 +1631,32 @@ const ItemRow: React.FC<ItemRowProps> = ({
           width={`${nameColWidth}px`}
           gap={2}
           pl={`${indentSize}px`}
+          minW={0}
+          overflow="hidden"
         >
           {isEditMode && !isOption && (
-            <Box {...attributes} {...listeners}>
+            <Box flexShrink={0} {...attributes} {...listeners}>
               <DragHandle isDragging={isDragging} blendWithRow />
             </Box>
           )}
           {hasChildren && !isOption && (
-            <ChevronButton
-              isExpanded={isChildrenExpanded}
-              onClick={toggleChildrenExpanded}
-              blendWithRow
-            />
+            <Box flexShrink={0}>
+              <ChevronButton
+                isExpanded={isChildrenExpanded}
+                onClick={toggleChildrenExpanded}
+                blendWithRow
+              />
+            </Box>
           )}
-          <PrototypeTag level={itemLevel} />
-          <PrototypeDot level={itemLevel} size={itemLevel >= 3 ? 7 : 8} />
+          {showHierarchyTag ? (
+            <Box flexShrink={0}>
+              <PrototypeTag level={itemLevel} />
+            </Box>
+          ) : (
+            <Box flexShrink={0}>
+              <PrototypeDot level={itemLevel} size={itemLevel >= 3 ? 7 : 8} />
+            </Box>
+          )}
 
           {/* Radio button for options — next to name */}
           {isOption && (
@@ -1622,24 +1682,25 @@ const ItemRow: React.FC<ItemRowProps> = ({
             </Box>
           )}
 
-          <PrototypeTextInput
-            value={item.name ?? ''}
-            onChange={(e) => {
-              const v = e.target.value;
-              onFieldChange(groupId, item.id, 'name', v);
-              triggerBaseAutosave('name', 'string', v);
-            }}
-            isDisabled={!isEditMode || hasSelectedOption}
-            placeholder={
-              isComponent
-                ? 'Nazwa komponentu'
-                : isOption
-                ? 'Nazwa opcji'
-                : 'Nazwa pozycji'
-            }
-            w="full"
-            blendWithRow
-          />
+          <Box flex={1} minW={0}>
+            <PrototypeTextInput
+              value={item.name ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onFieldChange(groupId, item.id, 'name', v);
+                triggerBaseAutosave('name', 'string', v);
+              }}
+              isDisabled={!isEditMode || hasSelectedOption}
+              placeholder={
+                isComponent
+                  ? 'Nazwa komponentu'
+                  : isOption
+                  ? 'Nazwa opcji'
+                  : 'Nazwa pozycji'
+              }
+              blendWithRow
+            />
+          </Box>
         </TreeViewStickyCell>
 
         {/* Actions (sticky, right after name) */}

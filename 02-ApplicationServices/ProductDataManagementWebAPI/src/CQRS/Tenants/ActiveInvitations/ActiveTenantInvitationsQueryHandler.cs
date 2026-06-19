@@ -25,7 +25,10 @@ namespace CQRS.Tenants.ActiveInvitations
             string email = currentUser.Email.Trim().ToLowerInvariant();
             IEnumerable<TenantInvitation> invites = await invitationRepo.GetBySearch(
                 i => i.IsActive && i.Email.ToLower() == email && i.Status == InvitationStatus.Pending && i.ExpiresAt > DateTime.UtcNow,
-                q => q.Include(x => x.InvitedByUser).Include(x => x.Tenant)
+                q => q.Include(x => x.InvitedByUser)
+                    .Include(x => x.Tenant)
+                    .Include(x => x.Project)
+                    .Include(x => x.ModulePermissions)
             );
 
             if (!invites.Any())
@@ -38,7 +41,11 @@ namespace CQRS.Tenants.ActiveInvitations
                 InvitationId = i.Id,
                 TenantId = i.TenantId,
                 TenantName = i.Tenant?.Name ?? string.Empty,
+                ProjectId = i.ProjectId,
+                ProjectName = i.Project?.Name,
                 Email = i.Email,
+                IsAdmin = i.IsAdmin,
+                Modules = i.ModulePermissions.Select(p => p.Module).ToList(),
                 InvitedByUserEmail = i.InvitedByUser?.Email ?? string.Empty,
                 InvitedByUserName = i.InvitedByUser is null ? string.Empty : $"{i.InvitedByUser.FirstName} {i.InvitedByUser.LastName}",
                 CreatedAt = i.CreatedAt,

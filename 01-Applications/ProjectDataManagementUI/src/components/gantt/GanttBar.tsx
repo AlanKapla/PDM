@@ -2,7 +2,6 @@ import React, { useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useGantt } from "./GanttContext";
 import { usePeriodsValidation } from "./usePeriodsValidation";
-import { useToastNotification } from "../../hooks/useToastNotification";
 import { G } from "./ganttTokens";
 import { toLocalDateStr, fmtShortDate } from "./ganttRowUtils";
 import type { WorkScheduleStageWorkWeb, WorkScheduleStageWorkPeriodWeb } from "../../types/workSchedule.types";
@@ -109,7 +108,6 @@ function GanttBar({
 
   const { mode, setPeriods: savePeriods } = useGantt();
   const { validate } = usePeriodsValidation();
-  const { showError } = useToastNotification();
 
   const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null);
   const [showHandles, setShowHandles] = useState(false);
@@ -254,7 +252,7 @@ function GanttBar({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [isEditing, startIdx, endIdx, columnWidth, dates, firstPeriod, lastPeriod, work, stageId, savePeriods, validate, showError],
+    [isEditing, startIdx, endIdx, columnWidth, dates, firstPeriod, lastPeriod, work, stageId, savePeriods, validate],
   );
 
   // Obsługuje zarówno kliknięcie (otwiera popover) jak i przeciąganie (przesuwa pasek)

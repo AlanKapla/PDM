@@ -31,8 +31,6 @@ public sealed class RemoveTenantInvitationCommandHandlerTests
             _loggerMock.Object);
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-
     private static RemoveTenantInvitationCommand ValidCommand(Guid tenantId, Guid invitationId) =>
         new RemoveTenantInvitationCommand
         {
@@ -60,12 +58,9 @@ public sealed class RemoveTenantInvitationCommandHandlerTests
         ExpiresAt = DateTime.UtcNow.AddDays(7)
     };
 
-    // ─── Handle ───────────────────────────────────────────────────────────────
-
     [Fact]
     public async Task Handle_WhenTenantNotFound_ThrowsNotFoundApiException()
     {
-        // Arrange
         _tenantRepoMock
             .Setup(r => r.GetFirstBySearch(
                 It.IsAny<Expression<Func<Tenant, bool>>>()))
@@ -73,17 +68,14 @@ public sealed class RemoveTenantInvitationCommandHandlerTests
 
         RemoveTenantInvitationCommand command = ValidCommand(Guid.NewGuid(), Guid.NewGuid());
 
-        // Act
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         await act.Should().ThrowAsync<NotFoundApiException>();
     }
 
     [Fact]
     public async Task Handle_WhenInvitationNotFound_ThrowsNotFoundApiException()
     {
-        // Arrange
         Guid tenantId = Guid.NewGuid();
         Tenant tenant = BuildTenant(tenantId);
 
@@ -100,17 +92,14 @@ public sealed class RemoveTenantInvitationCommandHandlerTests
 
         RemoveTenantInvitationCommand command = ValidCommand(tenantId, Guid.NewGuid());
 
-        // Act
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         await act.Should().ThrowAsync<NotFoundApiException>();
     }
 
     [Fact]
     public async Task Handle_WhenInvitationExists_RevokesInvitationAndReturnsUnit()
     {
-        // Arrange
         Guid tenantId = Guid.NewGuid();
         Guid invitationId = Guid.NewGuid();
         Tenant tenant = BuildTenant(tenantId);
@@ -129,10 +118,8 @@ public sealed class RemoveTenantInvitationCommandHandlerTests
 
         RemoveTenantInvitationCommand command = ValidCommand(tenantId, invitationId);
 
-        // Act
         Unit result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         result.Should().Be(Unit.Value);
         invitation.IsActive.Should().BeFalse();
         invitation.Status.Should().Be(InvitationStatus.Revoked);

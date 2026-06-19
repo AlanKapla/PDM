@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 
 export type TimeScale = "days" | "weeks" | "months";
 
@@ -13,23 +13,57 @@ interface UseTimelineDataOptions {
   isMobile?: boolean;
 }
 
+export const VISIBLE_MONTH_COUNT = 3;
+
+const COLUMN_WIDTHS = {
+  days: 34,
+  weeks: 26,
+  months: 18,
+} as const;
+
+function getDefaultWindowBounds(): { minDate: Date; maxDate: Date } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const minDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  const maxDate = new Date(minDate.getFullYear(), minDate.getMonth() + VISIBLE_MONTH_COUNT, 0);
+
+  return { minDate, maxDate };
+}
+
+function getWindowBounds(weekOffset: number): { minDate: Date; maxDate: Date } {
+  const { minDate: baseMin, maxDate: baseMax } = getDefaultWindowBounds();
+  const shiftDays = weekOffset * 7;
+
+  const minDate = new Date(baseMin);
+  minDate.setDate(minDate.getDate() + shiftDays);
+  const maxDate = new Date(baseMax);
+  maxDate.setDate(maxDate.getDate() + shiftDays);
+
+  return { minDate, maxDate };
+}
+
+function alignToMonday(date: Date): Date {
+  const aligned = new Date(date);
+  const day = aligned.getDay();
+  aligned.setDate(aligned.getDate() - (day === 0 ? 6 : day - 1));
+  return aligned;
+}
+
 /**
  * Wspólna logika timeline'u dla widoków harmonogramów.
- * Zarządza skalą czasu, ukrywaniem weekendów,
- * generowaniem dat/grup oraz automatycznym scrollem do "dzisiaj".
+ * Zarządza skalą czasu, oknem 3 miesięcy, ukrywaniem weekendów
+ * oraz generowaniem dat/grup.
  */
 export function useTimelineData(options?: UseTimelineDataOptions) {
   const { isMobile = false } = options || {};
 
-  // ─── Stan ────────────────────────────────────────────
   const [timeScale, setTimeScale] = useState<TimeScale>("weeks");
   const [hideWeekends, setHideWeekends] = useState(false);
+  const [visibleWeekOffset, setVisibleWeekOffset] = useState(0);
 
-  // ─── Refy do scrollowania ────────────────────────────
   const todayColumnRef = useRef<HTMLTableCellElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // ─── Helpery ─────────────────────────────────────────
 
   const isToday = useCallback((date: Date): boolean => {
     const today = new Date();
@@ -78,39 +112,24 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     return end;
   }, []);
 
-  // ─── Scroll do dzisiejszej daty ──────────────────────
-
-  const scrollToToday = useCallback(() => {
-    if (todayColumnRef.current) {
-      todayColumnRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-    }
+  const navigatePrev = useCallback(() => {
+    setVisibleWeekOffset((offset) => offset - 1);
   }, []);
 
-  // ─── Generowanie dat i grup ──────────────────────────
+  const navigateNext = useCallback(() => {
+    setVisibleWeekOffset((offset) => offset + 1);
+  }, []);
+
+  const resetToToday = useCallback(() => {
+    setVisibleWeekOffset(0);
+  }, []);
 
   const { allDates, allDateGroups } = useMemo(() => {
     const dates: Date[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let minDate: Date;
-    let maxDate: Date;
-
-    // Stały zakres: 5 lat wstecz i 5 lat wprzód — w praktyce nieskończony
-    minDate = new Date(today.getFullYear() - 5, 0, 1);
-    maxDate = new Date(today.getFullYear() + 5, 11, 31);
-
-    const current = new Date(minDate);
+    const { minDate, maxDate } = getWindowBounds(visibleWeekOffset);
 
     if (timeScale === "weeks") {
-      // Wyrównaj do poniedziałku
-      const day = current.getDay();
-      current.setDate(current.getDate() - (day === 0 ? 6 : day - 1));
-
+      const current = alignToMonday(minDate);
       const dateGroups: DateGroup[] = [];
       let groupStartIdx = 0;
 
@@ -135,20 +154,20 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
       return { allDates: dates, allDateGroups: dateGroups };
     }
 
-    // "days" i "months" — ta sama siatka z miesięcznymi grupami
+    const current = new Date(minDate);
     const dateGroups: DateGroup[] = [];
     let groupStartIdx = 0;
 
     while (current <= maxDate) {
-      const monthStart = new Date(current);
-      const daysInMonth = new Date(
-        current.getFullYear(),
-        current.getMonth() + 1,
-        0
-      ).getDate();
+      const monthStart = new Date(current.getFullYear(), current.getMonth(), 1);
+      const monthLast = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+      const effectiveEnd = monthLast <= maxDate ? monthLast : maxDate;
 
-      for (let day = 1; day <= daysInMonth; day++) {
-        dates.push(new Date(current.getFullYear(), current.getMonth(), day));
+      let count = 0;
+      while (current <= effectiveEnd) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+        count += 1;
       }
 
       dateGroups.push({
@@ -156,17 +175,14 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
           month: "long",
           year: "numeric",
         }),
-        count: daysInMonth,
+        count,
         startIdx: groupStartIdx,
       });
-      groupStartIdx += daysInMonth;
-      current.setMonth(current.getMonth() + 1);
+      groupStartIdx += count;
     }
 
     return { allDates: dates, allDateGroups: dateGroups };
-  }, [timeScale]);
-
-  // ─── Filtrowanie weekendów ───────────────────────────
+  }, [timeScale, visibleWeekOffset]);
 
   const { dates, dateGroups } = useMemo(() => {
     if (!hideWeekends) return { dates: allDates, dateGroups: allDateGroups };
@@ -187,28 +203,64 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     return { dates: filtered, dateGroups: groups };
   }, [allDates, allDateGroups, hideWeekends, isWeekend]);
 
+  const datesRef = useRef(dates);
+  datesRef.current = dates;
+
+  const scrollToTodayColumn = useCallback(() => {
+    const now = new Date();
+    const columnWidth = COLUMN_WIDTHS[timeScale];
+    const todayIdx = datesRef.current.findIndex(
+      (d) =>
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate(),
+    );
+
+    if (todayIdx < 0 || !scrollContainerRef.current) {
+      return;
+    }
+
+    const el = scrollContainerRef.current;
+    el.scrollLeft = todayIdx * columnWidth - el.clientWidth / 2 + columnWidth / 2;
+  }, [timeScale]);
+
+  const scrollToToday = useCallback(() => {
+    setVisibleWeekOffset(0);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToTodayColumn();
+      });
+    });
+  }, [scrollToTodayColumn]);
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = 0;
+    }
+  }, [visibleWeekOffset, timeScale]);
+
   return {
-    // Stan
     timeScale,
     setTimeScale,
     hideWeekends,
     setHideWeekends,
     toggleWeekends: useCallback(() => setHideWeekends((h) => !h), []),
+    visibleWeekOffset,
 
-    // Wygenerowane dane
     dates,
     dateGroups,
 
-    // Helpery
     isToday,
     isWeekend,
     formatTimelineDate,
     isWorkInPeriod,
     getPeriodEnd,
 
-    // Scroll do "dzisiaj"
     todayColumnRef,
     scrollContainerRef,
     scrollToToday,
+    navigatePrev,
+    navigateNext,
+    resetToToday,
   };
 }

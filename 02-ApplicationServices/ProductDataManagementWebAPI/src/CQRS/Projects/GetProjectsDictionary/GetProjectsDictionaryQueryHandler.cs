@@ -45,6 +45,7 @@ namespace CQRS.Projects.GetProjectsDictionary
                 IEnumerable<ProjectMember> userProjectMemberships = await projectMemberRepo.GetBySearch(
                     pm => pm.TenantId == tenantId
                         && pm.UserId == currentUser.Id
+                        && pm.IsActive
                         && (pm.IsAdmin || pm.Project.IsActive),
                     q => q.Include(pm => pm.Project));
 

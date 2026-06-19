@@ -40,7 +40,7 @@ namespace CQRS.Projects.GetTenantProjects
 
             // Load ALL project members in single query (for memberships + counts)
             IEnumerable<ProjectMember> allProjectMembers = await projectMemberRepo.GetBySearch(
-                pm => projectIds.Contains(pm.ProjectId) && pm.TenantId == request.TenantId,
+                pm => projectIds.Contains(pm.ProjectId) && pm.TenantId == request.TenantId && pm.IsActive,
                 include => include.Include(pm => pm.ModulePermissions));
 
             Dictionary<Guid, ProjectMember> membershipDict = allProjectMembers

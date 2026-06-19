@@ -1,5 +1,5 @@
 import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Navigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -44,7 +44,7 @@ import { hasActiveTenant } from "../utils/tenantUtils";
 type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access";
 
 /** Trasy dostępne bez aktywnej organizacji (np. profil, zaproszenia). */
-const TENANT_OPTIONAL_ROUTES = ["/profile", "/tenants/invitations", "/tenants/collaborating"] as const;
+const TENANT_OPTIONAL_ROUTES = ["/profile", "/tenants/invitations", "/tenants/collaborating", "/invitations/accept"] as const;
 
 function isTenantOptionalRoute(pathname: string): boolean {
   return TENANT_OPTIONAL_ROUTES.includes(pathname as (typeof TENANT_OPTIONAL_ROUTES)[number]);
@@ -156,7 +156,7 @@ function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitation
                   <HStack key={inv.invitationId} p={5} spacing={4} align="center">
                     <VStack align="start" spacing={1} flex={1} minW={0}>
                       <Text fontWeight="semibold" fontSize="md" noOfLines={1}>
-                        {inv.tenantName}
+                        {inv.projectName ? `${inv.projectName} (${inv.tenantName})` : inv.tenantName}
                       </Text>
                       <Text fontSize="sm" color={mutedText} noOfLines={1}>
                         Zaproszono przez: {inv.invitedByUserName} ({inv.invitedByUserEmail})
@@ -423,6 +423,7 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
   const location = useLocation();
   const [screen, setScreen] = useState<AccessScreen>("loading");
   const [pendingInvitations, setPendingInvitations] = useState<TenantInvitationWeb[]>([]);
+  const [hasProjectOnlyInvites, setHasProjectOnlyInvites] = useState(false);
   const isOptionalRoute = isTenantOptionalRoute(location.pathname);
 
   // Stable ref to refreshUser to avoid stale closures without re-triggering the effect
@@ -466,6 +467,7 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
           if (!cancelled) {
             if (pending.length > 0) {
               setPendingInvitations(pending);
+              setHasProjectOnlyInvites(false);
               setScreen("invitations");
             } else {
               setScreen("no-access");
@@ -502,6 +504,10 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
   }
 
   if (screen === "invitations") {
+    if (hasProjectOnlyInvites) {
+      return <Navigate to="/tenants/invitations" replace />;
+    }
+
     return (
       <PendingInvitationsScreen
         invitations={pendingInvitations}

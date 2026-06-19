@@ -294,7 +294,7 @@ function ContractorsTabPanel({ tenantId }: { tenantId: string }) {
 export default function TenantDetails() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
   const { user } = useAuth();
 
   const [tenant, setTenant] = useState<TenantDetailsType | null>(null);
@@ -405,8 +405,7 @@ export default function TenantDetails() {
         showError("Błąd", "Nie udało się wysłać zaproszenia");
       }
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setSendingInvite(false);
     }
@@ -946,6 +945,12 @@ export default function TenantDetails() {
                             >
                               Wygasa
                             </Th>
+                            <Th
+                              fontSize={{ base: "xs", md: "sm" }}
+                              display={{ base: "none", md: "table-cell" }}
+                            >
+                              Projekt
+                            </Th>
                             <Th fontSize={{ base: "xs", md: "sm" }}>Status</Th>
                             <Th fontSize={{ base: "xs", md: "sm" }}>Akcje</Th>
                           </Tr>
@@ -978,6 +983,12 @@ export default function TenantDetails() {
                                 {invitation.expiresAt
                                   ? formatDateShort(invitation.expiresAt)
                                   : "Brak"}
+                              </Td>
+                              <Td
+                                fontSize={{ base: "xs", md: "sm" }}
+                                display={{ base: "none", md: "table-cell" }}
+                              >
+                                {invitation.projectName ?? "—"}
                               </Td>
                               <Td fontSize={{ base: "xs", md: "sm" }}>
                                 <Badge

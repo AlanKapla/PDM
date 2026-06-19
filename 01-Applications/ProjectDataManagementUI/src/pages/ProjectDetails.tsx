@@ -819,7 +819,6 @@ export default function ProjectDetails() {
             tenantId={project.tenantId}
             projectId={project.id}
             projectName={project.name}
-            isAdmin={permissions.isAdmin}
             onMemberAdded={() => {
               fetchMembers();
               fetchProjectDetails();

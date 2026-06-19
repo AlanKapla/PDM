@@ -13,6 +13,7 @@ import type {
 } from '../types/costEstimate.types.new';
 import { AdditionalFieldType } from '../types/costEstimate.types.new';
 import type { FieldValueType } from '../hooks/useFieldAutosave';
+import { sanitizeNumericInput } from './numericInputUtils';
 
 export type AdditionalFieldInputKind = 'text' | 'number' | 'boolean' | 'date';
 
@@ -20,14 +21,7 @@ export type AdditionalFieldInputKind = 'text' | 'number' | 'boolean' | 'date';
  * Filtruje wpisywany tekst do dozwolonych znaków liczbowych (cyfry + jeden separator , lub .).
  */
 export function sanitizeDecimalInput(raw: string): string {
-  let sanitized = raw.replace(/[^\d.,]/g, '');
-  const separatorIndex = sanitized.search(/[.,]/);
-  if (separatorIndex >= 0) {
-    const before = sanitized.slice(0, separatorIndex + 1);
-    const after = sanitized.slice(separatorIndex + 1).replace(/[.,]/g, '');
-    sanitized = before + after;
-  }
-  return sanitized;
+  return sanitizeNumericInput(raw);
 }
 
 /**

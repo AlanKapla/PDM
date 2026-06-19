@@ -35,6 +35,7 @@ namespace CQRS.ProjectCosts.Shared
                     IEnumerable<ProjectMember> members = await projectMemberRepository.GetBySearch(
                         pm => pm.ProjectId == projectId
                               && pm.TenantId == tenantId
+                              && pm.IsActive
                               && userIds.Contains(pm.UserId));
 
                     HashSet<Guid> memberUserIds = members.Select(m => m.UserId).ToHashSet();

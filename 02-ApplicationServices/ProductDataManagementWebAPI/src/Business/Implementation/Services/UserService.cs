@@ -50,6 +50,7 @@ namespace Business.Implementation.Services
                     var members = (await projectMemberRepository.GetBySearch(
                         pm => pm.TenantId == tenantId &&
                               pm.ProjectId == projectId &&
+                              pm.IsActive &&
                               pm.TenantMember.IsActive,
                         q => q.Include(pm => pm.TenantMember)
                                   .ThenInclude(tm => tm.User))).ToList();

@@ -59,7 +59,7 @@ export const TreeViewRowBackground: React.FC<TreeViewRowBackgroundProps> = ({ bg
     position: 'absolute',
     inset: 0,
     bg,
-    zIndex: 0,
+    zIndex: -1,
     pointerEvents: 'none',
     'aria-hidden': true,
   });

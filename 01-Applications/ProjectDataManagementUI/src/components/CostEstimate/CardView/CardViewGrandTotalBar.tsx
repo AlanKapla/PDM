@@ -4,6 +4,7 @@ import { CardAmountSummary, type CardAmountSummarySize } from './CardAmountSumma
 
 interface CardViewGrandTotalBarProps {
   net: number;
+  vat: number;
   gross: number;
   currencySymbol: string;
 }
@@ -11,6 +12,7 @@ interface CardViewGrandTotalBarProps {
 /** Pasek „Razem” — płaski, na krawędzi kontenera (jak wiersz podsumowania w tree view). */
 export function CardViewGrandTotalBar({
   net,
+  vat,
   gross,
   currencySymbol,
 }: CardViewGrandTotalBarProps): React.ReactElement {
@@ -43,6 +45,7 @@ export function CardViewGrandTotalBar({
 
       <CardAmountSummary
         net={net}
+        vat={vat}
         gross={gross}
         currencySymbol={currencySymbol}
         size={summarySize}

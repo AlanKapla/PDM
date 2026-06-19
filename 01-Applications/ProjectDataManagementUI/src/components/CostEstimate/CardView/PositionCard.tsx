@@ -12,6 +12,9 @@ import { isTemporaryId } from '../../../types/costEstimate.types.new';
 import { GhostActionButton, ChevronButton } from '../PrototypeActionButtons';
 import { OptionSubCard } from './OptionSubCard';
 import { OptionRadioButton } from './OptionRadioButton';
+import {
+  deriveItemFinancialState,
+} from '../../../utils/costEstimateItemFinancial';
 import { useCostEstimateItemFieldState } from '../../../hooks/useCostEstimateItemFieldState';
 import { getItemRowSurface } from '../TreeView/treeViewRowSurfaces';
 import { CardAmountSummary, CardRowAside, CardRowDivider } from './CardAmountSummary';
@@ -87,8 +90,10 @@ export const PositionCard: React.FC<PositionCardProps> = ({
   const [isChildrenExpanded, setIsChildrenExpanded] = useState(true);
 
   const isSelected = item.isSelected;
-  const totalNet = item.netValue ?? 0;
-  const totalGross = item.grossValue ?? 0;
+  const derived = deriveItemFinancialState(item);
+  const totalNet = derived.netValue ?? 0;
+  const totalVat = derived.vatValue ?? 0;
+  const totalGross = derived.grossValue ?? 0;
   const itemLevel = isComponent ? 3 : isOption ? 4 : 2;
   const rowSurface = getItemRowSurface(itemLevel);
 
@@ -171,6 +176,7 @@ export const PositionCard: React.FC<PositionCardProps> = ({
 
         <CardAmountSummary
           net={totalNet}
+          vat={totalVat}
           gross={totalGross}
           currencySymbol={currencySymbol}
           size="sm"

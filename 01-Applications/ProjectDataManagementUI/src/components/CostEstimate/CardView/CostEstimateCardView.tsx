@@ -265,6 +265,7 @@ export const CostEstimateCardView = forwardRef<
     >
       <CardViewGrandTotalBar
         net={totals.net}
+        vat={totals.vat}
         gross={totals.gross}
         currencySymbol={currencySymbol}
       />

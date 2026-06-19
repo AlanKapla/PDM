@@ -12,12 +12,14 @@ using Business.Interfaces.Configurations;
 using Business.Interfaces.DTO;
 using DtoNotificationType = Business.Interfaces.DTO.NotificationType;
 using Business.Interfaces.Model;
+using Microsoft.EntityFrameworkCore;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
     public sealed class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
+        private readonly IRepository<TenantInvitationModulePermission> modulePermissionRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<Tenant> tenantRepo;
@@ -30,6 +32,7 @@ namespace CQRS.Tenants.InviteTenantMember
 
         public InviteTenantMemberCommandHandler(
             IRepository<TenantInvitation> invitationRepo,
+            IRepository<TenantInvitationModulePermission> modulePermissionRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<User> userRepo,
             IReadRepository<Tenant> tenantRepo,
@@ -41,6 +44,7 @@ namespace CQRS.Tenants.InviteTenantMember
             IReadRepository<Notification> notificationRepo)
         {
             this.invitationRepo = invitationRepo;
+            this.modulePermissionRepo = modulePermissionRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.userRepo = userRepo;
             this.tenantRepo = tenantRepo;
@@ -64,15 +68,8 @@ namespace CQRS.Tenants.InviteTenantMember
                      && i.Email == normalizedEmail
                      && i.IsActive
                      && i.Status == InvitationStatus.Pending
-                     && i.ExpiresAt > DateTime.UtcNow);
-
-            if (existingInvitation is not null)
-            {
-                throw new ConflictApiException(
-                    nameof(TenantInvitation),
-                    normalizedEmail,
-                    "Aktywne zaproszenie dla tego adresu email już istnieje.");
-            }
+                     && i.ExpiresAt > DateTime.UtcNow,
+                q => q.Include(x => x.ModulePermissions));
 
             User? existingUser = await userRepo.GetFirstBySearch(u => u.Email == normalizedEmail && u.IsActive);
 
@@ -93,28 +90,63 @@ namespace CQRS.Tenants.InviteTenantMember
                 }
             }
 
+            string tenantName = tenant.Name;
+
+            if (existingInvitation is not null)
+            {
+                await InvitationHelper.ClearProjectScopeAsync(
+                    existingInvitation,
+                    modulePermissionRepo,
+                    cancellationToken);
+
+                await InvitationHelper.ExtendPendingInvitationAsync(
+                    invitationRepo,
+                    existingInvitation,
+                    cancellationToken);
+
+                await SendInvitationEmailAsync(
+                    normalizedEmail,
+                    tenantName,
+                    existingUser is not null,
+                    existingInvitation.Token,
+                    cancellationToken);
+
+                if (existingUser is not null)
+                {
+                    await SendInAppNotificationAsync(
+                        existingUser,
+                        request.TenantId,
+                        tenantName,
+                        existingInvitation.Id,
+                        cancellationToken);
+                }
+
+                return Unit.Value;
+            }
+
             string token = tokenGenerator.GenerateToken();
             TenantInvitation invitation = new TenantInvitation
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
+                ProjectId = null,
                 Email = normalizedEmail,
                 Token = token,
                 CreatedAt = DateTime.UtcNow,
                 InvitedByUserId = currentUser.Id,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                ExpiresAt = InvitationHelper.NewExpiryUtc(),
                 IsActive = true,
-                Status = InvitationStatus.Pending
+                Status = InvitationStatus.Pending,
+                IsAdmin = false
             };
 
             await invitationRepo.Insert(invitation);
-
-            string tenantName = tenant.Name;
 
             await SendInvitationEmailAsync(
                 normalizedEmail,
                 tenantName,
                 existingUser is not null,
+                token,
                 cancellationToken);
 
             if (existingUser is not null)
@@ -134,13 +166,13 @@ namespace CQRS.Tenants.InviteTenantMember
             string email,
             string tenantName,
             bool userExistsInSystem,
+            string token,
             CancellationToken cancellationToken)
         {
             string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
-            string path = userExistsInSystem
-                ? "tenants/invitations"
-                : frontendSettings.Value.HomePath.TrimStart('/');
-            string acceptUrl = $"{baseUrl}/{path}";
+            string acceptUrl = userExistsInSystem
+                ? $"{baseUrl}/invitations/accept?token={Uri.EscapeDataString(token)}&type=tenant"
+                : $"{baseUrl}/{frontendSettings.Value.HomePath.TrimStart('/')}";
 
             string bodyText = userExistsInSystem
                 ? $"Zostałeś zaproszony do organizacji <strong style=\"color:#1a1a1a;\">{tenantName}</strong> na platformie Brickly. Zaloguj się i zaakceptuj zaproszenie w aplikacji."

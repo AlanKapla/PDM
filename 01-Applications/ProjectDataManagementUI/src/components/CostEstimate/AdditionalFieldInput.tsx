@@ -8,7 +8,8 @@ import {
   getAdditionalFieldDateInputValue,
   sanitizeDecimalInput,
 } from '../../utils/additionalFieldHelpers';
-import { PrototypeTextInput, PrototypeNumberInput, PrototypeDateInput } from './PrototypeInputs';
+import { PrototypeTextInput, PrototypeNumberInput } from './PrototypeInputs';
+import { PrototypeDateInput } from './PrototypeDateInput';
 import { getInputTextAlign } from '../../utils/costEstimateFieldSchema';
 
 interface AdditionalFieldInputProps {

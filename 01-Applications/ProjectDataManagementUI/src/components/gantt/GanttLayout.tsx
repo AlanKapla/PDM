@@ -3,6 +3,7 @@ import { Skeleton, VStack, HStack } from "@chakra-ui/react";
 import { useGantt } from "./GanttContext";
 import GanttLeftPanel from "./GanttLeftPanel";
 import GanttRightGrid from "./GanttRightGrid";
+import { GanttTimelineNavigation } from "./GanttTimelineNavigation";
 import { buildFlatRows, filterStagesBySearch, isTodayDate } from "./ganttRowUtils";
 import { G } from "./ganttTokens";
 import type { DateGroup, TimeScale } from "../../hooks/useTimelineData";
@@ -18,6 +19,8 @@ interface GanttLayoutProps {
   height?: string;
   /** Automatyczny scroll do dzisiejszej kolumny po zamontowaniu */
   autoScrollToToday?: boolean;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
 }
 
 const SKELETON_ROWS = 6;
@@ -30,6 +33,8 @@ export default function GanttLayout({
   scrollContainerRef: scrollContainerRefFromProps,
   height = "calc(100vh - 140px)",
   autoScrollToToday = false,
+  onNavigatePrev,
+  onNavigateNext,
 }: GanttLayoutProps) {
   const { isLoading, schedule, expandedStages, collapsedWorks, mode, isMutating, searchQuery } = useGantt();
 
@@ -152,7 +157,13 @@ export default function GanttLayout({
       </div>
 
       {/* Prawy panel — przewijana siatka */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", position: "relative" }}>
+        {onNavigatePrev && onNavigateNext && (
+          <GanttTimelineNavigation
+            onNavigatePrev={onNavigatePrev}
+            onNavigateNext={onNavigateNext}
+          />
+        )}
         <GanttRightGrid
           flatRows={flatRows}
           dates={dates}

@@ -28,7 +28,7 @@ import {
 import { useLocation, Link as RouterLink } from "react-router-dom";
 import { useContext } from "react";
 import { InvitationStatus } from "../types/auth.types";
-import { useActiveInvitations } from "../hooks/queries";
+import { useActiveInvitations, useActiveProjectInvitations } from "../hooks/queries";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
@@ -38,9 +38,12 @@ export function SidebarContent() {
   const { data: invitations = [] } = useActiveInvitations({
     refetchInterval: 30000,
   });
-  const invitationsCount = invitations.filter(
-    (inv) => inv.status === InvitationStatus.Pending
-  ).length;
+  const { data: projectInvitations = [] } = useActiveProjectInvitations({
+    refetchInterval: 30000,
+  });
+  const invitationsCount =
+    invitations.filter((inv) => inv.status === InvitationStatus.Pending).length +
+    projectInvitations.filter((inv) => inv.status === InvitationStatus.Pending).length;
 
   const activeBg = useColorModeValue("primary.100", "primary.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");

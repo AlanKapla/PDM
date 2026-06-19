@@ -54,7 +54,7 @@ public sealed class GetProjectInfoTool : AgentToolBase
         }
 
         int memberCount = await _memberRepo.CountAsync(
-            m => m.ProjectId == projectId,
+            m => m.ProjectId == projectId && m.IsActive,
             cancellationToken);
 
         object result = new
