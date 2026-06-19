@@ -53,7 +53,7 @@ export default function ProjectAdditionalCostsSection({
   onCostMutated,
   estimates,
 }: ProjectAdditionalCostsSectionProps) {
-  const { showSuccess, showError } = useToastNotification();
+  const {showSuccess, showError, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -76,8 +76,7 @@ export default function ProjectAdditionalCostsSection({
       setDeletingCost(null);
       onCostMutated();
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
     } finally {
       setIsDeleting(false);
     }

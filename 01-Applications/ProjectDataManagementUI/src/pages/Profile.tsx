@@ -37,7 +37,7 @@ export default function Profile() {
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState("");
 
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiError } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const cardText = useColorModeValue("gray.700", "gray.300");
@@ -94,12 +94,8 @@ export default function Profile() {
       await refreshUser();
       showSuccess("Profil zaktualizowany", "Twoje dane zostały zapisane");
       setIsEditing(false);
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ??
-        error?.response?.data?.detail ??
-        "Nie udało się zaktualizować profilu";
-      showError("Błąd", message);
+    } catch (error) {
+      showApiError(error);
     } finally {
       setSaving(false);
     }

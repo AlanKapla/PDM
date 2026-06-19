@@ -70,7 +70,7 @@ export default function CostFormDrawer({
   costEstimateItemId,
   title,
 }: CostFormDrawerProps) {
-  const { showSuccess, showError } = useToastNotification();
+  const {showSuccess, showError, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
   const { canEdit: isProjectAdmin } = useProjectPermissions(projectId);
   const { canEdit: isTenantAdmin } = useTenantPermissions();
@@ -193,8 +193,7 @@ export default function CostFormDrawer({
       handleClose();
       onSuccess();
     } catch (err) {
-      const { title: errTitle, description } = handleApiError(err);
-      showError(errTitle, description);
+      showApiError(err);
     } finally {
       setIsSubmitting(false);
     }

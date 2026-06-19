@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatDecimalInput,
   formatVatPercent,
+  isInProgressNumericInput,
   isPartialNumericInput,
   parseNumericInput,
   parseVatPercentInput,
@@ -20,6 +21,12 @@ describe('numericInputUtils', () => {
     expect(isPartialNumericInput('12,')).toBe(true);
     expect(isPartialNumericInput('12.')).toBe(true);
     expect(isPartialNumericInput('12,5')).toBe(false);
+  });
+
+  it('isInProgressNumericInput treats empty as cleared, not in-progress', () => {
+    expect(isInProgressNumericInput('')).toBe(false);
+    expect(isInProgressNumericInput('12,')).toBe(true);
+    expect(isInProgressNumericInput('12,5')).toBe(false);
   });
 
   it('parseNumericInput parses and rounds to 2 decimals', () => {

@@ -41,7 +41,7 @@ export default function CreateDirectChatModal({
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { showError, showSuccess } = useToastNotification();
+  const { showError, showSuccess, showApiError } = useToastNotification();
   const { user } = useContext(AuthContext);
   const activeTenantId = user?.activeTenantId ?? null;
 
@@ -62,8 +62,8 @@ export default function CreateDirectChatModal({
         }
         const groups = await chatApi.getContacts(activeTenantId);
         setContactGroups(groups);
-      } catch {
-        showError("Nie udało się załadować listy kontaktów.");
+      } catch (error) {
+        showApiError(error);
       } finally {
         setLoading(false);
       }
@@ -104,13 +104,8 @@ export default function CreateDirectChatModal({
       showSuccess("Rozmowa utworzona");
       onCreated(result.id);
       onClose();
-    } catch (err: any) {
-      const status = err?.response?.status;
-      if (status === 403) {
-        showError("Brak wspólnego projektu z wybranym użytkownikiem.");
-      } else {
-        showError("Nie udało się utworzyć rozmowy.");
-      }
+    } catch (err) {
+      showApiError(err);
     } finally {
       setSubmitting(false);
     }

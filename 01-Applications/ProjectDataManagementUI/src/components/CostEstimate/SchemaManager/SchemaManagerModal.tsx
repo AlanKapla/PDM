@@ -10,10 +10,10 @@ import {
   HStack,
   Button,
   Text,
-  useToast,
   Box,
 } from '@chakra-ui/react';
 import { Plus, Save } from 'lucide-react';
+import { useToastNotification } from '../../../hooks/useToastNotification';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -47,7 +47,7 @@ export const SchemaManagerModal: React.FC<SchemaManagerModalProps> = ({
   onSchemaUpdated,
   isReadOnly = false,
 }) => {
-  const toast = useToast();
+  const { showSuccess, showApiError } = useToastNotification();
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
   const [localFields, setLocalFields] = useState<CostEstimateFieldSchemaWeb[]>(
     () => [...fieldSchemas].sort((a, b) => a.order - b.order)
@@ -91,20 +91,10 @@ export const SchemaManagerModal: React.FC<SchemaManagerModalProps> = ({
         fields.map((f) => (f.id === fieldId ? { ...f, fieldName: newName } : f))
       );
 
-      toast({
-        title: 'Nazwa zmieniona',
-        status: 'success',
-        duration: 2000,
-      });
-
+      showSuccess('Nazwa zmieniona');
       onSchemaUpdated();
-    } catch {
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się zmienić nazwy pola',
-        status: 'error',
-        duration: 3000,
-      });
+    } catch (error) {
+      showApiError(error);
     }
   };
 
@@ -114,21 +104,10 @@ export const SchemaManagerModal: React.FC<SchemaManagerModalProps> = ({
 
       setLocalFields((fields) => fields.filter((f) => f.id !== fieldId));
 
-      toast({
-        title: 'Pole usunięte',
-        status: 'success',
-        duration: 2000,
-      });
-
+      showSuccess('Pole usunięte');
       onSchemaUpdated();
-    } catch (error: unknown) {
-      const apiError = error as { response?: { data?: { message?: string } } };
-      toast({
-        title: 'Błąd',
-        description: apiError?.response?.data?.message || 'Nie udało się usunąć pola',
-        status: 'error',
-        duration: 3000,
-      });
+    } catch (error) {
+      showApiError(error);
     }
   };
 
@@ -138,20 +117,10 @@ export const SchemaManagerModal: React.FC<SchemaManagerModalProps> = ({
       const fieldIds = localFields.map((f) => f.id);
       await reorderAdditionalFields(tenantId, projectId, costEstimateId, fieldIds);
 
-      toast({
-        title: 'Kolejność zapisana',
-        status: 'success',
-        duration: 2000,
-      });
-
+      showSuccess('Kolejność zapisana');
       onSchemaUpdated();
-    } catch {
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się zapisać kolejności pól',
-        status: 'error',
-        duration: 3000,
-      });
+    } catch (error) {
+      showApiError(error);
     } finally {
       setIsSaving(false);
     }

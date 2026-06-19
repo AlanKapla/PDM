@@ -269,7 +269,7 @@ export interface CostEstimateItemWeb {
   relationType: number;       // ItemRelationType: None=0, Option=1, Component=2 — wymagane
   order: number;
   name: string;               // NOWE — direct property
-  quantity?: number;          // NOWE — direct property
+  quantity?: number | null;   // null = pole wyczyszczone przez użytkownika
   unit?: string;              // NOWE
   unitPriceNet?: number;      // NOWE
   vatRate?: number;           // NOWE
@@ -278,7 +278,7 @@ export interface CostEstimateItemWeb {
   grossValue?: number;        // Obliczona wartość brutto
   vatValue?: number;          // Obliczona wartość VAT
   isSelected: boolean;        // NOWE — default true
-  isStageWork: boolean;       // NOWE — default false
+  isStageWork: boolean;       // NOWE — domyślnie true dla pozycji głównych (None)
   additionalFieldValues: CostEstimateAdditionalFieldValueWeb[]; // NOWE
   options?: CostEstimateItemWeb[];      // Kolekcja opcji (zagnieżdżonych pozycji)
   components?: CostEstimateItemWeb[];   // Kolekcja komponentów (składników pozycji)
@@ -620,7 +620,7 @@ export function convertItemWebToDto(item: CostEstimateItemWeb): CostEstimateItem
     relationType: item.relationType ?? 0,
     order: item.order,
     name: item.name,
-    quantity: item.quantity,
+    quantity: item.quantity ?? undefined,
     unit: item.unit,
     unitPriceNet: item.unitPriceNet,
     vatRate: item.vatRate,

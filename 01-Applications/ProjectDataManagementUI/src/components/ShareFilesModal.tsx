@@ -47,7 +47,7 @@ export default function ShareFilesModal({
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const {showSuccess, showError, showWarning, showInfo, toast, showApiError } = useToastNotification();
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -154,8 +154,7 @@ export default function ShareFilesModal({
       onFilesShared();
       onClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setLoading(false);
     }

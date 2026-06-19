@@ -284,7 +284,7 @@ export default function WorkScheduleFormModal({
   initialCostEstimateId,
   initialCostEstimateName,
 }: WorkScheduleFormModalProps) {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
   const navigate = useNavigate();
   const [scheduleName, setScheduleName] = useState("");
   const [stages, setStages] = useState<StageFormData[]>([]);
@@ -759,13 +759,11 @@ export default function WorkScheduleFormModal({
       .map(([id, { shiftedBy }]) => `„${allWorks.find(w => w.tempId === id)?.name ?? id}" o ${shiftedBy} dni`)
       .join(', ');
 
-    toast({
-      title: 'Daty przesunięte kaskadowo',
-      description: `Przesunięto: ${shiftLines}`,
-      status: 'info',
-      duration: 6000,
-      isClosable: true,
-    });
+    showInfo(
+      'Daty przesunięte kaskadowo',
+      `Przesunięto: ${shiftLines}`,
+      { duration: 6000 }
+    );
   };
 
   const removeDependency = (tempId: string) => {
@@ -891,43 +889,23 @@ export default function WorkScheduleFormModal({
 
   const handleSubmit = async () => {
     if (!scheduleName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa harmonogramu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa harmonogramu jest wymagana");
       return;
     }
 
     if (scheduleName.length > 200) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa harmonogramu nie może przekraczać 200 znaków",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa harmonogramu nie może przekraczać 200 znaków");
       return;
     }
 
     if (scheduleMode === 'linked' && !selectedCostEstimateId) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Wybierz kosztorys, z którego ma zostać wygenerowany harmonogram",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Wybierz kosztorys, z którego ma zostać wygenerowany harmonogram");
       return;
     }
 
     const validationError = validateStagesTree(stages);
     if (validationError) {
-      toast({
-        title: "Błąd walidacji",
-        description: validationError,
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", validationError);
       return;
     }
 
@@ -956,20 +934,14 @@ export default function WorkScheduleFormModal({
           setOverallStartDate(today.toISOString().split("T")[0]);
           setOverallEndDate(defaultEnd.toISOString().split("T")[0]);
 
-          toast({
-            title: "Harmonogram utworzony",
-            description: "Teraz możesz wygenerować harmonogram z AI, aby automatycznie ustawić okresy i zależności.",
-            status: "success",
-            duration: 5000,
-          });
+          showSuccess(
+            "Harmonogram utworzony",
+            "Teraz możesz wygenerować harmonogram z AI, aby automatycznie ustawić okresy i zależności.",
+            { duration: 5000 }
+          );
         } else {
           // Dla zwykłego create — istniejący flow
-          toast({
-            title: "Sukces",
-            description: "Harmonogram został utworzony",
-            status: "success",
-            duration: 3000,
-          });
+          showSuccess("Sukces", "Harmonogram został utworzony");
           onSuccess?.();
           onClose();
           if (newId) {
@@ -978,23 +950,12 @@ export default function WorkScheduleFormModal({
         }
       } else {
         await projectApi.updateWorkSchedule(tenantId, projectId, schedule!.id, command);
-        toast({
-          title: "Sukces",
-          description: "Harmonogram został zaktualizowany",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", "Harmonogram został zaktualizowany");
         onSuccess?.();
         onClose();
       }
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 3000,
-      });
+      showApiError(error);
     } finally {
       setSubmitting(false);
     }
@@ -1005,22 +966,12 @@ export default function WorkScheduleFormModal({
 
     // Walidacja dat
     if (!overallStartDate || !overallEndDate) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Podaj datę rozpoczęcia i zakończenia harmonogramu",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Podaj datę rozpoczęcia i zakończenia harmonogramu");
       return;
     }
 
     if (new Date(overallStartDate) >= new Date(overallEndDate)) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Data rozpoczęcia musi być wcześniejsza niż data zakończenia",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Data rozpoczęcia musi być wcześniejsza niż data zakończenia");
       return;
     }
 
@@ -1045,12 +996,7 @@ export default function WorkScheduleFormModal({
     } catch (error) {
       const { title, description } = handleApiError(error);
       setAiGenerationError(description || title);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-      });
+      showApiError(error);
     } finally {
       setIsGenerating(false);
     }

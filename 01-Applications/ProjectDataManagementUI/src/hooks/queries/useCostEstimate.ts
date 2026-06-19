@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
+import { reportApiError } from '../../utils/apiErrorToastBridge';
 import {
   costEstimateApi,
   getAdditionalFields,
@@ -240,11 +241,11 @@ export function useReorderCostEstimateItems(
 
       return { previousDetails };
     },
-    onError: (_err, _params, context) => {
-      // Rollback na błędzie
+    onError: (err, _params, context) => {
       if (context?.previousDetails) {
         queryClient.setQueryData(queryKey, context.previousDetails);
       }
+      reportApiError(err);
     },
     onSettled: () => {
       // Refetch w tle by zsynchronizować z backendem
@@ -322,10 +323,11 @@ export function useReorderCostEstimateItemChildren(
 
       return { previousDetails };
     },
-    onError: (_err, _params, context) => {
+    onError: (err, _params, context) => {
       if (context?.previousDetails) {
         queryClient.setQueryData(queryKey, context.previousDetails);
       }
+      reportApiError(err);
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
@@ -385,10 +387,11 @@ export function useReorderCostEstimateGroups(
 
       return { previousDetails };
     },
-    onError: (_err, _params, context) => {
+    onError: (err, _params, context) => {
       if (context?.previousDetails) {
         queryClient.setQueryData(queryKey, context.previousDetails);
       }
+      reportApiError(err);
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });

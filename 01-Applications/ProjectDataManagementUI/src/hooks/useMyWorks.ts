@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { projectApi } from "../api/projectApi";
 import { workScheduleApi } from "../api/workScheduleApi";
 import { useToastNotification } from "./useToastNotification";
+import { getApiErrorMessage } from "../utils/apiErrorUtils";
 import { updateWorkInTree } from "../utils/myWorksTree";
 import type { UserAssignedWorksByTenantWeb } from "../types/workSchedule.types";
 
@@ -10,7 +11,7 @@ export const useMyWorks = () => {
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { showError } = useToastNotification();
+  const { showApiError } = useToastNotification();
 
   const reload = useCallback(async () => {
     try {
@@ -18,17 +19,14 @@ export const useMyWorks = () => {
       setError(null);
       const res = await projectApi.getMyAssignedWorks();
       setData((res.data as UserAssignedWorksByTenantWeb[]) ?? []);
-    } catch (err: any) {
-      setError(err?.message ?? "Błąd pobierania przypisanych prac");
+    } catch (err) {
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
-
-  // ─── Zamknij / otwórz zakres pracy ─────────────────────────────────────────
-  // Optimistic update — zmiana widoczna natychmiast, cofnięcie przy błędzie.
 
   const setWorkIsClosed = useCallback(async (
     tenantId: string,
@@ -47,15 +45,13 @@ export const useMyWorks = () => {
     try {
       setMutating(true);
       await workScheduleApi.setWorkIsClosed(tenantId, projectId, workScheduleId, stageId, workId, isClosed);
-    } catch (err: any) {
-      showError("Błąd zapisu", "Nie udało się zmienić statusu zakresu pracy");
+    } catch (err) {
+      showApiError(err);
       reload();
     } finally {
       setMutating(false);
     }
-  }, [reload, showError]);
-
-  // ─── Zamknij / otwórz pojedynczy okres pracy ────────────────────────────────
+  }, [reload, showApiError]);
 
   const setPeriodIsClosed = useCallback(async (
     tenantId: string,
@@ -79,16 +75,13 @@ export const useMyWorks = () => {
     try {
       setMutating(true);
       await workScheduleApi.setPeriodIsClosed(tenantId, projectId, workScheduleId, stageId, workId, periodId, isClosed);
-    } catch (err: any) {
-      showError("Błąd zapisu", "Nie udało się zmienić statusu okresu");
+    } catch (err) {
+      showApiError(err);
       reload();
     } finally {
       setMutating(false);
     }
-  }, [reload, showError]);
-
-  // ─── Dodaj komentarz ────────────────────────────────────────────────────────
-  // Brak optimistic update dla komentarzy — odśwież po sukcesie.
+  }, [reload, showApiError]);
 
   const addComment = useCallback(async (
     tenantId: string,
@@ -102,12 +95,12 @@ export const useMyWorks = () => {
       setMutating(true);
       await workScheduleApi.addComment(tenantId, projectId, workScheduleId, stageId, workId, content);
       await reload();
-    } catch (err: any) {
-      showError("Błąd", "Nie udało się dodać komentarza");
+    } catch (err) {
+      showApiError(err);
     } finally {
       setMutating(false);
     }
-  }, [reload, showError]);
+  }, [reload, showApiError]);
 
   return {
     data,

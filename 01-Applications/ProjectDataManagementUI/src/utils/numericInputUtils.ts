@@ -84,6 +84,15 @@ export function isPartialNumericInput(value: string): boolean {
   return PARTIAL_NUMERIC_PATTERN.test(trimmed);
 }
 
+/** Czy użytkownik wpisuje wartość w trakcie — puste pole traktowane jako wyczyszczenie, nie wpisywanie. */
+export function isInProgressNumericInput(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return false;
+  }
+  return isPartialNumericInput(trimmed);
+}
+
 /** Parsuje kompletną wartość numeryczną; `,` traktowane jak `.`, wynik zaokrąglony do 2 miejsc. */
 export function parseNumericInput(value: string): number | null {
   const trimmed = value.trim();

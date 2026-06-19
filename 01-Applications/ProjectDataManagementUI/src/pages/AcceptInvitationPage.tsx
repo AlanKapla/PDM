@@ -14,7 +14,6 @@ import { acceptTenantInvitation } from "../services/tenantService";
 import { useActiveInvitations, tenantKeys } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { handleApiError } from "../utils/handleApiError";
 import { changeActiveTenant } from "../services/tenantService";
 import { InvitationStatus } from "../types/auth.types";
 
@@ -22,7 +21,7 @@ export default function AcceptInvitationPage(): React.ReactElement {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { showError, showApiSuccess } = useToastNotification();
+  const {showError, showApiSuccess, showApiError } = useToastNotification();
   const token = searchParams.get("token") ?? "";
   const type = searchParams.get("type") ?? "tenant";
   const [accepting, setAccepting] = useState(false);
@@ -49,8 +48,8 @@ export default function AcceptInvitationPage(): React.ReactElement {
 
     setAccepting(true);
     try {
-      const success = await acceptTenantInvitation(token);
-      if (success && invitation) {
+      await acceptTenantInvitation(token);
+      if (invitation) {
         await changeActiveTenant(invitation.tenantId);
         queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
         queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
@@ -61,14 +60,11 @@ export default function AcceptInvitationPage(): React.ReactElement {
         } else {
           navigate("/dashboard", { replace: true });
         }
-
-        return;
+      } else {
+        showError("Nie udało się zaakceptować zaproszenia", "Zaproszenie może być nieaktualne lub wygasłe");
       }
-
-      showError("Nie udało się zaakceptować zaproszenia", "Zaproszenie może być nieaktualne lub wygasłe");
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setAccepting(false);
     }

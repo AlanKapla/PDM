@@ -123,20 +123,29 @@ uploadFiles: async (
 
 ```typescript
 // axiosClient automatycznie rzuca dla status >= 400
-// Obsługa w hooku:
+// Obsługa w hooku lub komponencie:
+import { useToastNotification } from '../hooks/useToastNotification';
+
+const { showApiError } = useToastNotification();
+
 try {
-    const result = await projectApi.create(tenantId, data);
-    return result;
-} catch (err) {
-    if (axios.isAxiosError(err)) {
-        const message = err.response?.data?.message ?? 'Błąd serwera';
-        setError(message);
-    } else {
-        setError('Nieoczekiwany błąd');
-    }
-    return null;
+  const result = await projectApi.create(tenantId, data);
+  return result;
+} catch (error) {
+  showApiError(error); // mapuje ApiException z backendu na toast PL
+  return null;
 }
 ```
+
+Dla komunikatów inline (bez toastu):
+
+```typescript
+import { getApiErrorMessage } from '../utils/apiErrorUtils';
+
+const message = getApiErrorMessage(queryError);
+```
+
+Kontrakt błędu API: `{ error, message, objectType?, objectId? }` — mapowany przez `handleApiError`.
 
 ## Routing URL — konwencje
 

@@ -1,26 +1,14 @@
 import { AxiosError } from "axios";
+import type { ApiErrorResult, ApiExceptionResponse } from "../types/apiError.types";
 import {
   defaultErrorMessage,
   apiExceptionReasonMessages,
   httpStatusMessages,
   extractValidationErrorMessages,
   resolveKnownApiMessage,
-  type ApiToastStatus,
 } from "./errorMessages";
 
-// Struktura ApiException z backendu
-interface ApiExceptionResponse {
-  error: string; // ApiExceptionReason (ValidationError, NotFound, etc.)
-  message: string;
-  objectType?: string;
-  objectId?: string;
-}
-
-export interface ApiErrorResult {
-  title: string;
-  description?: string;
-  toastStatus?: ApiToastStatus;
-}
+export type { ApiErrorResult } from "../types/apiError.types";
 
 function resolveApiMessageDetails(message: string): Pick<ApiErrorResult, "title" | "description" | "toastStatus"> | null {
   const errorTexts = extractValidationErrorMessages(message);
@@ -56,7 +44,7 @@ export const handleApiError = (error: unknown): ApiErrorResult => {
   if (!(error instanceof AxiosError)) {
     return {
       title: "Błąd",
-      description: defaultErrorMessage
+      description: defaultErrorMessage,
     };
   }
 
@@ -64,14 +52,13 @@ export const handleApiError = (error: unknown): ApiErrorResult => {
   if (!response) {
     return {
       title: "Brak połączenia",
-      description: "Nie udało się połączyć z serwerem"
+      description: "Nie udało się połączyć z serwerem",
     };
   }
 
   const data = response.data as ApiExceptionResponse | null;
 
-  // Obsługa struktury ApiException z backendu
-  if (data && 'error' in data && typeof data.error === 'string') {
+  if (data && "error" in data && typeof data.error === "string") {
     const { error: errorCode, message } = data;
 
     if (message) {
@@ -93,16 +80,14 @@ export const handleApiError = (error: unknown): ApiErrorResult => {
     };
   }
 
-  // Fallback na kod HTTP
   if (httpStatusMessages[response.status]) {
     return {
-      title: httpStatusMessages[response.status]
+      title: httpStatusMessages[response.status],
     };
   }
 
-  // Ostateczny fallback
   return {
     title: "Błąd",
-    description: defaultErrorMessage
+    description: defaultErrorMessage,
   };
 };

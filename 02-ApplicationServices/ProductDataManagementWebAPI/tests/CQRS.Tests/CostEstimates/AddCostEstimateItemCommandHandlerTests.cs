@@ -166,6 +166,10 @@ public sealed class AddCostEstimateItemCommandHandlerTests
         result.Should().NotBeEmpty();
         _itemRepoMock.Verify(r => r.Insert(It.IsAny<CostEstimateItem>()), Times.Once);
         _itemRepoMock.Verify(
+            r => r.Insert(It.Is<CostEstimateItem>(i =>
+                i.RelationType == ItemRelationType.Component && i.IsStageWork == false)),
+            Times.Once);
+        _itemRepoMock.Verify(
             r => r.GetFirstBySearch(
                 It.IsAny<System.Linq.Expressions.Expression<Func<CostEstimateItem, bool>>>(),
                 It.IsAny<Func<IQueryable<CostEstimateItem>, Microsoft.EntityFrameworkCore.Query.IIncludableQueryable<CostEstimateItem, object>>[]>()),
@@ -186,6 +190,40 @@ public sealed class AddCostEstimateItemCommandHandlerTests
                 costEstimate.ProjectId,
                 costEstimate.Id,
                 It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenAddingMainPosition_SetsIsStageWorkTrue()
+    {
+        // Arrange
+        CostEstimate costEstimate = BuildCostEstimate();
+        CostEstimateGroup group = BuildGroup(costEstimate.Id);
+
+        AddCostEstimateItemCommand command = new AddCostEstimateItemCommand
+        {
+            TenantId = costEstimate.TenantId,
+            ProjectId = costEstimate.ProjectId,
+            CostEstimateId = costEstimate.Id,
+            GroupId = group.Id,
+            RelationType = ItemRelationType.None,
+            Order = 0
+        };
+
+        SetupAccessAndGroups(costEstimate, group);
+
+        _itemRepoMock
+            .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        // Act
+        Guid result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeEmpty();
+        _itemRepoMock.Verify(
+            r => r.Insert(It.Is<CostEstimateItem>(i =>
+                i.RelationType == ItemRelationType.None && i.IsStageWork)),
             Times.Once);
     }
 

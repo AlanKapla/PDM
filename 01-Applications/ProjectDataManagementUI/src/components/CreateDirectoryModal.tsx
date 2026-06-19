@@ -38,7 +38,7 @@ export default function CreateDirectoryModal({
   const [parentId, setParentId] = useState<string>(defaultParentId);
   const [nameError, setNameError] = useState("");
 
-  const { showError } = useToastNotification();
+  const {showError, showApiError } = useToastNotification();
   const createDirectory = useCreateDirectory();
 
   const handleClose = () => {
@@ -77,8 +77,7 @@ export default function CreateDirectoryModal({
       onSuccess();
       onClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     }
   };
 

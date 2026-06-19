@@ -22,7 +22,6 @@ import {
 } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { handleApiError } from "../utils/handleApiError";
 import { InvitationStatus } from "../types/auth.types";
 import type { TenantInvitationWeb } from "../types/auth.types";
 import { PROJECT_MODULE_LABELS, ProjectModule } from "../types/projectModulePermissions";
@@ -32,7 +31,7 @@ export default function ActiveInvitations(): React.ReactElement {
   const queryClient = useQueryClient();
   const { data: tenantInvitations = [], isLoading: loadingTenant } = useActiveInvitations();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const { showError, showApiSuccess } = useToastNotification();
+  const {showError, showApiSuccess, showApiError } = useToastNotification();
 
   const pendingTenant = tenantInvitations.filter(
     (inv) => inv.status === InvitationStatus.Pending && !inv.projectId
@@ -50,18 +49,13 @@ export default function ActiveInvitations(): React.ReactElement {
   const handleAcceptTenant = async (invitationId: string, token: string, tenantId: string): Promise<void> => {
     setAcceptingId(invitationId);
     try {
-      const success = await acceptTenantInvitation(token);
-      if (success) {
-        await changeActiveTenant(tenantId);
-        queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
-        queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
-        showApiSuccess("inviteAccepted");
-      } else {
-        showError("Nie udało się zaakceptować zaproszenia", "Zaproszenie może być nieaktualne lub wygasłe");
-      }
+      await acceptTenantInvitation(token);
+      await changeActiveTenant(tenantId);
+      queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
+      showApiSuccess("inviteAccepted");
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setAcceptingId(null);
     }
@@ -70,11 +64,7 @@ export default function ActiveInvitations(): React.ReactElement {
   const handleAcceptProject = async (inv: TenantInvitationWeb): Promise<void> => {
     setAcceptingId(inv.invitationId);
     try {
-      const success = await acceptTenantInvitation(inv.token);
-      if (!success) {
-        showError("Nie udało się zaakceptować zaproszenia", "Zaproszenie może być nieaktualne lub wygasłe");
-        return;
-      }
+      await acceptTenantInvitation(inv.token);
       await changeActiveTenant(inv.tenantId);
       queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
       queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
@@ -83,8 +73,7 @@ export default function ActiveInvitations(): React.ReactElement {
         navigate(`/projects/${inv.projectId}`);
       }
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setAcceptingId(null);
     }

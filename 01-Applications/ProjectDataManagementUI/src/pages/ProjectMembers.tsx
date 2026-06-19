@@ -54,7 +54,7 @@ export default function ProjectMembers(): React.ReactElement {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useAuth();
   const permissions = useProjectPermissions(projectId);
-  const { showError, showApiSuccess } = useToastNotification();
+  const {showError, showApiSuccess, showApiError } = useToastNotification();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   const { isOpen: isRevokeInviteOpen, onOpen: onRevokeInviteOpen, onClose: onRevokeInviteClose } = useDisclosure();
@@ -119,8 +119,7 @@ export default function ProjectMembers(): React.ReactElement {
       invalidateCaches();
       onRemoveModalClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
@@ -144,8 +143,7 @@ export default function ProjectMembers(): React.ReactElement {
       invalidateCaches();
       onRevokeInviteClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setRevokingInvitationId(null);
       setInvitationToRevoke(null);

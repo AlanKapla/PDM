@@ -69,4 +69,41 @@ describe("handleApiError", () => {
     expect(result.description).toBe("Invalid email format");
     expect(result.toastStatus).toBe("error");
   });
+
+  it("maps Forbidden to polish title with API message", () => {
+    const error = createAxiosError(
+      { error: "Forbidden", message: "You do not have permission to edit this resource." },
+      403,
+    );
+
+    const result = handleApiError(error);
+
+    expect(result.title).toBe("Brak uprawnień");
+    expect(result.description).toBe("You do not have permission to edit this resource.");
+  });
+
+  it("maps NotFound", () => {
+    const error = createAxiosError({ error: "NotFound", message: "Project not found." }, 404);
+    expect(handleApiError(error).title).toBe("Nie znaleziono");
+  });
+
+  it("maps Conflict", () => {
+    const error = createAxiosError({ error: "Conflict", message: "Version mismatch." }, 409);
+    expect(handleApiError(error).title).toBe("Konflikt danych");
+  });
+
+  it("handles network error without response", () => {
+    const error = new AxiosError("Network Error");
+    const result = handleApiError(error);
+    expect(result.title).toBe("Brak połączenia");
+  });
+
+  it("falls back to HTTP status when body has no error field", () => {
+    const error = createAxiosError({ message: "oops" }, 503);
+    expect(handleApiError(error).title).toBe("Usługa niedostępna");
+  });
+
+  it("handles non-axios errors", () => {
+    expect(handleApiError(new Error("x")).title).toBe("Błąd");
+  });
 });

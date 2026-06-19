@@ -20,13 +20,12 @@ import { changeActiveTenant } from "../services/tenantService";
 import { useMyTenants, tenantKeys } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { handleApiError } from "../utils/handleApiError";
 import type { UserTenant } from "../types/auth.types";
 import { getTenantRoleName, getTenantRoleColor } from "../constants/roleCodes";
 
 export default function CollaboratingTenants() {
   const { user, refreshUser } = useAuth();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const {showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
   const { data: tenants = [], isLoading: loading } = useMyTenants();
   const [activeTenantId, setActiveTenantId] = useState<string>("");
@@ -54,8 +53,7 @@ export default function CollaboratingTenants() {
       await refreshUser();
       showApiSuccess('tenantSwitched');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setChangingTenant(false);
     }

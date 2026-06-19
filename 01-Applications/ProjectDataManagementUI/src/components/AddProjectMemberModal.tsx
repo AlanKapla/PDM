@@ -91,8 +91,7 @@ export default function AddProjectMemberModal({
       setTenantMembers(members.filter((m) => m.isActive));
       setProjectMembers(projectMembersRes.data);
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setLoading(false);
     }

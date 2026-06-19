@@ -13,10 +13,10 @@ import {
   Input,
   Select,
   VStack,
-  useToast,
   FormHelperText,
 } from '@chakra-ui/react';
 import { addAdditionalField } from '../../../api/costEstimateApi';
+import { useToastNotification } from '../../../hooks/useToastNotification';
 import type { AdditionalFieldType } from '../../../types/costEstimate.types.new';
 
 interface AddFieldModalProps {
@@ -45,19 +45,14 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
   projectId,
   onFieldAdded,
 }) => {
-  const toast = useToast();
+  const { showSuccess, showError, showApiError } = useToastNotification();
   const [label, setLabel] = useState('');
   const [fieldType, setFieldType] = useState<AdditionalFieldType>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (): Promise<void> => {
     if (!label.trim()) {
-      toast({
-        title: 'Błąd',
-        description: 'Nazwa pola jest wymagana',
-        status: 'error',
-        duration: 3000,
-      });
+      showError('Błąd', 'Nazwa pola jest wymagana');
       return;
     }
 
@@ -68,23 +63,13 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
         fieldType,
       });
 
-      toast({
-        title: 'Pole dodane',
-        description: `Pomyślnie dodano pole "${label.trim()}"`,
-        status: 'success',
-        duration: 2000,
-      });
+      showSuccess('Pole dodane', `Pomyślnie dodano pole "${label.trim()}"`);
 
       setLabel('');
       setFieldType(0);
       onFieldAdded();
-    } catch (error: any) {
-      toast({
-        title: 'Błąd',
-        description: error?.response?.data?.message || 'Nie udało się dodać pola',
-        status: 'error',
-        duration: 3000,
-      });
+    } catch (error) {
+      showApiError(error);
     } finally {
       setIsSubmitting(false);
     }

@@ -10,6 +10,7 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import {
+  isInProgressNumericInput,
   isPartialNumericInput,
   parseNumericInput,
   roundToDecimals,
@@ -232,7 +233,7 @@ export function useFieldAutosave({
     async (fieldInfo: FieldInfo, value: string | undefined) => {
       if (!params || !enabled) return;
 
-      if (fieldInfo.valueType === 'numeric' && value !== undefined && isPartialNumericInput(value)) {
+      if (fieldInfo.valueType === 'numeric' && value !== undefined && isInProgressNumericInput(value)) {
         return;
       }
 

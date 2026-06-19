@@ -75,7 +75,7 @@ export default function WorkDetailsModal({
   workDateRanges,
   onWorkUpdated,
 }: WorkDetailsModalProps) {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
   const [periods, setPeriods] = useState<any[]>([]);
   const [comments, setComments] = useState<CommentFormData[]>([]);
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
@@ -184,7 +184,7 @@ export default function WorkDetailsModal({
         }
       }
       if (violations.length > 0) {
-        toast({ title: 'Naruszenie zależności', description: violations.join('\n'), status: 'warning', duration: 8000, isClosable: true });
+        showWarning('Naruszenie zależności', violations.join('\n'), { duration: 8000 });
       }
     }
 
@@ -257,8 +257,7 @@ export default function WorkDetailsModal({
       onWorkUpdated?.();
       onClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setSubmitting(false);
     }

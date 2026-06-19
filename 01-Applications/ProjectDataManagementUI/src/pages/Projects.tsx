@@ -25,7 +25,7 @@ import {
 import { FolderKanban, User, Calendar, Plus, Building2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
-import { handleApiError } from "../utils/handleApiError";
+import { getApiErrorMessage } from "../utils/apiErrorUtils";
 import { projectApi } from "../api/projectApi";
 import type { ProjectDetailsWeb } from "../types/project.types";
 import type { UserTenant } from "../types/auth.types";
@@ -65,16 +65,14 @@ export default function Projects() {
     isLoading: tenantsLoading,
   } = useMyTenants();
 
-  const error = projectsError
-    ? "Nie udało się pobrać projektów"
-    : null;
+  const error = projectsError ? getApiErrorMessage(projectsError) : null;
 
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
   const [switching, setSwitching] = useState(false);
   
   const createModal = useModal();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const {showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
   const permissions = useTenantPermissions();
 
   const handleTenantSwitch = async (newTenantId: string) => {
@@ -86,8 +84,7 @@ export default function Projects() {
       await refreshUser();
       showApiSuccess('tenantSwitched');
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
     } finally {
       setSwitching(false);
     }
@@ -121,8 +118,7 @@ export default function Projects() {
         queryKey: projectKeys.list(activeTenantId!)
       });
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setCreating(false);
     }

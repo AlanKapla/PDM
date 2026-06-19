@@ -23,7 +23,6 @@ import { Building2, Plus, Trash2, Eye } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import { formatDateShort } from "../utils/formatters";
 import { getAdminTenants, createTenant, removeTenantMember } from "../services/tenantService";
-import { handleApiError } from "../utils/handleApiError";
 import { tenantApi } from "../api/tenantApi";
 import type { TenantBasic, TenantDetails } from "../types/auth.types";
 import { InvitationStatus, getInvitationStatusName, getInvitationStatusColor } from "../types/auth.types";
@@ -43,7 +42,7 @@ export default function ManagedTenants() {
   
   const { isOpen: isRemoveModalOpen, onOpen: onRemoveModalOpen, onClose: onRemoveModalClose } = useDisclosure();
   
-  const { showApiSuccess, showError } = useToastNotification();
+  const {showApiSuccess, showError, showApiError } = useToastNotification();
 
   // Pobierz tylko tenanty gdzie user jest adminem
   useEffect(() => {
@@ -52,6 +51,7 @@ export default function ManagedTenants() {
         const tenantsData = await getAdminTenants();
         setTenants(tenantsData);
       } catch (error) {
+        showApiError(error);
       } finally {
         setLoading(false);
       }
@@ -68,18 +68,12 @@ export default function ManagedTenants() {
     setCreatingTenant(true);
     try {
       const newTenant = await createTenant(newTenantName);
-
-      if (newTenant) {
-        setTenants([...tenants, newTenant]);
-        setNewTenantName("");
-        setIsCreatingTenant(false);
-        showApiSuccess('created');
-      } else {
-        showError("Błąd", "Nie udało się utworzyć organizacji");
-      }
+      setTenants([...tenants, newTenant]);
+      setNewTenantName("");
+      setIsCreatingTenant(false);
+      showApiSuccess('created');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setCreatingTenant(false);
     }
@@ -99,16 +93,10 @@ export default function ManagedTenants() {
     onRemoveModalClose();
     
     try {
-      const success = await removeTenantMember(tenantId, userId);
-      
-      if (success) {
-        showApiSuccess('memberRemoved');
-      } else {
-        showError("Nie udało się usunąć członka", "Spróbuj ponownie lub skontaktuj się z administratorem");
-      }
+      await removeTenantMember(tenantId, userId);
+      showApiSuccess('memberRemoved');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setRemovingMemberId(null);
       setMemberToRemove(null);

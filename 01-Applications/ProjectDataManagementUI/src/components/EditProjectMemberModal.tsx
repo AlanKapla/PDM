@@ -35,7 +35,7 @@ export default function EditProjectMemberModal({
   projectId,
   member,
 }: EditProjectMemberModalProps) {
-  const { showError, showApiSuccess } = useToastNotification();
+  const {showError, showApiSuccess, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
 
   const [selectedModules, setSelectedModules] = useState<Set<number>>(new Set(member.modules ?? []));
@@ -59,8 +59,7 @@ export default function EditProjectMemberModal({
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(tenantId, projectId) });
       onClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setSaving(false);
     }

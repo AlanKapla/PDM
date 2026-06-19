@@ -29,7 +29,6 @@ import {
 import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp, Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
-import { handleApiError } from "../utils/handleApiError";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
@@ -58,7 +57,7 @@ export default function ProjectDetails() {
   const { isOpen: isUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
-  const { showSuccess, showError, showWarning, showApiSuccess } = useToastNotification();
+  const {showSuccess, showError, showWarning, showApiSuccess, showApiError } = useToastNotification();
 
   const {
     data: projectData,
@@ -240,8 +239,7 @@ export default function ProjectDetails() {
 
       await fetchProjectCosts();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setAddingNewCost(false);
     }
@@ -315,8 +313,7 @@ export default function ProjectDetails() {
       setDocumentFile(null);
       await fetchProjectCosts();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError("Błąd", "Nie udało się zaktualizować kosztu");
+      showApiError(error);
     } finally {
       setSavingCost(false);
     }
@@ -343,8 +340,7 @@ export default function ProjectDetails() {
 
       await fetchProjectCosts();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError("Błąd", "Nie udało się usunąć kosztu");
+      showApiError(error);
     } finally {
       setDeletingCostId(null);
     }
@@ -488,7 +484,7 @@ export default function ProjectDetails() {
       await fetchProjectDetails();
       await fetchMembers();
     } catch (error) {
-      const { title, description } = handleApiError(error);
+      showApiError(error);
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
@@ -516,8 +512,7 @@ export default function ProjectDetails() {
       // Odśwież dane projektu
       await fetchProjectDetails();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setTogglingStatus(false);
     }
@@ -546,8 +541,7 @@ export default function ProjectDetails() {
       });
       await fetchProjectDetails();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setUpdatingName(false);
     }

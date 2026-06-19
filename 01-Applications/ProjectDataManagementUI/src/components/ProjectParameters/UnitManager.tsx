@@ -29,7 +29,6 @@ import {
   useReorderProjectUnits,
 } from "../../hooks/useProjectUnits";
 import { useToastNotification } from "../../hooks/useToastNotification";
-import { handleApiError } from "../../utils/handleApiError";
 import type { ProjectUnitDto } from "../../api/projectApi";
 
 interface UnitManagerProps {
@@ -58,7 +57,7 @@ export default function UnitManager({
   const updateMutation = useUpdateProjectUnit(tenantId, projectId);
   const deleteMutation = useDeleteProjectUnit(tenantId, projectId);
   const reorderMutation = useReorderProjectUnits(tenantId, projectId);
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiError } = useToastNotification();
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -131,8 +130,7 @@ export default function UnitManager({
       }
       closeModal();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title ?? "Błąd", description ?? "Nie udało się zapisać jednostki");
+      showApiError(error);
     }
   }, [formData, modalMode, editingUnit, addMutation, updateMutation, showSuccess, showError, closeModal]);
 
@@ -148,8 +146,7 @@ export default function UnitManager({
       showSuccess("Sukces", `Jednostka „${deleteTarget.code}” została usunięta`);
       setDeleteTarget(null);
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title ?? "Błąd", description ?? "Nie udało się usunąć jednostki");
+      showApiError(error);
     }
   }, [deleteTarget, deleteMutation, showSuccess, showError]);
 
@@ -164,8 +161,8 @@ export default function UnitManager({
       [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
       try {
         await reorderMutation.mutateAsync(ids);
-      } catch {
-        showError("Błąd", "Nie udało się zmienić kolejności");
+      } catch (error) {
+        showApiError(error);
       }
     },
     [sortedUnits, reorderMutation, showError]
@@ -178,8 +175,8 @@ export default function UnitManager({
       [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
       try {
         await reorderMutation.mutateAsync(ids);
-      } catch {
-        showError("Błąd", "Nie udało się zmienić kolejności");
+      } catch (error) {
+        showApiError(error);
       }
     },
     [sortedUnits, reorderMutation, showError]

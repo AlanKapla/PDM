@@ -227,7 +227,7 @@ const FileManagerModal: React.FC<{
   onSave: (filesToUpload: File[]) => Promise<void>;
   readOnly?: boolean;
 }> = ({ isOpen, onClose, initialFiles, onSave, readOnly }) => {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const {showSuccess, showError, showWarning, showInfo, toast, showApiError } = useToastNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [displayFiles, setDisplayFiles] = useState<DisplayFile[]>([]);
@@ -370,8 +370,7 @@ const FileManagerModal: React.FC<{
 
       onClose();
     } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setIsSaving(false);
       setSaveProgress(0);

@@ -4,7 +4,7 @@ import type { WorkScheduleDetailsWeb, WorkScheduleStageWeb, WorkScheduleStageWor
 import type { ProjectMemberWeb } from "../../types/project.types";
 import { workScheduleApi } from "../../api/workScheduleApi";
 import { projectApi } from "../../api/projectApi";
-import { handleApiError } from "../../utils/handleApiError";
+import { getApiErrorMessage } from "../../utils/apiErrorUtils";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import type { ResourcePermissions } from "../../hooks/useResourcePermissions";
 import { AuthContext } from "../../context/AuthContext";
@@ -202,7 +202,7 @@ export function GanttProvider({
   onSearchChange,
   children,
 }: GanttProviderProps) {
-  const { showError } = useToastNotification();
+  const {showError, showApiError } = useToastNotification();
   const { user } = useContext(AuthContext);
   const isPreloaded = !!preloadedSchedule;
   const resolvedGanttPermissions: GanttPermissions = ganttPermissionsFromProps ?? GANTT_PERMISSIONS.full;
@@ -282,8 +282,7 @@ export function GanttProvider({
         await options.onSuccess?.();
       } catch (err) {
         set(savedRollback);
-        const { title, description } = handleApiError(err);
-        showError(title, description);
+        showApiError(err);
       } finally {
         setIsMutating(prev => { const s = new Set(prev); s.delete(key); return s; });
       }
@@ -305,10 +304,9 @@ export function GanttProvider({
         setTimeout(() => onAfterInitialLoadRef.current?.(), 150);
       }
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
       if (isFirstLoad.current) {
-        setInitialError(`${title}: ${description}`);
+        setInitialError(getApiErrorMessage(err));
       }
     } finally {
       setIsLoading(false);
@@ -651,8 +649,7 @@ export function GanttProvider({
           comments: w.comments.filter(c => c.id !== tempId),
         })),
       }));
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
     }
   }, [user, tenantId, projectId, workScheduleId, showError]);
 
@@ -697,8 +694,7 @@ export function GanttProvider({
       set(res.data);
       return res.data;
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
       throw err;
     } finally {
       endMutation(key);
@@ -712,8 +708,7 @@ export function GanttProvider({
       await workScheduleApi.syncWithEstimate(tenantId, projectId, workScheduleId);
       await fetchSchedule();
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
       throw err;
     } finally {
       endMutation(key);

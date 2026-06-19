@@ -45,7 +45,7 @@ export default function CreateCostEstimateModal({
   projectId,
   onCostEstimateCreated,
 }: CreateCostEstimateModalProps) {
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiError } = useToastNotification();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,11 +85,8 @@ export default function CreateCostEstimateModal({
 
       handleClose();
       onCostEstimateCreated();
-    } catch (error: any) {
-      showError(
-        "Błąd tworzenia",
-        error?.response?.data?.message || "Nie udało się utworzyć kosztorysu"
-      );
+    } catch (error) {
+      showApiError(error);
     } finally {
       setIsSubmitting(false);
     }

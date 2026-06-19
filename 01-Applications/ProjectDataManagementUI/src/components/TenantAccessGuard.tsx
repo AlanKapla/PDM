@@ -41,7 +41,7 @@ import { useToastNotification } from "../hooks/useToastNotification";
 import { formatDateShort } from "../utils/formatters";
 import { hasActiveTenant } from "../utils/tenantUtils";
 
-type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access";
+type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access" | "error";
 
 /** Trasy dostępne bez aktywnej organizacji (np. profil, zaproszenia). */
 const TENANT_OPTIONAL_ROUTES = ["/profile", "/tenants/invitations", "/tenants/collaborating", "/invitations/accept"] as const;
@@ -62,7 +62,7 @@ interface PendingInvitationsScreenProps {
 function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitationsScreenProps) {
   const [accepting, setAccepting] = useState<string | null>(null);
   const [localInvitations, setLocalInvitations] = useState(invitations);
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
 
   useEffect(() => {
     // Synchronizujemy lokalny stan z propsami, aby uniknąć niespójności UI
@@ -78,34 +78,14 @@ function PendingInvitationsScreen({ invitations, onAccepted }: PendingInvitation
   const handleAccept = async (inv: TenantInvitationWeb) => {
     setAccepting(inv.invitationId);
     try {
-      const success = await acceptTenantInvitation(inv.token);
-      if (success) {
-        toast({
-          title: "Zaproszenie zaakceptowane",
-          description: `Dołączyłeś do organizacji "${inv.tenantName}"`,
-          status: "success",
-          duration: 4000,
-          isClosable: true,
-        });
-        await onAccepted(inv.tenantId);
-      } else {
-        toast({
-          title: "Nie udało się zaakceptować zaproszenia",
-          description: "Zaproszenie może być nieaktualne lub wygasłe.",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
-        setLocalInvitations((prev) => prev.filter((i) => i.invitationId !== inv.invitationId));
-      }
-    } catch {
-      toast({
-        title: "Wystąpił błąd połączenia",
-        description: "Sprawdź połączenie internetowe i spróbuj ponownie.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      await acceptTenantInvitation(inv.token);
+      showSuccess(
+        "Zaproszenie zaakceptowane",
+        `Dołączyłeś do organizacji "${inv.tenantName}"`,
+      );
+      await onAccepted(inv.tenantId);
+    } catch (error) {
+      showApiError(error);
     } finally {
       setAccepting(null);
     }
@@ -209,7 +189,7 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
   const [orgName, setOrgName] = useState("");
   const [creating, setCreating] = useState(false);
   const [nameError, setNameError] = useState("");
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
 
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
@@ -239,35 +219,15 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
     setCreating(true);
     try {
       const tenant = await createTenant(trimmed);
-      if (tenant) {
-        // Activate the newly created tenant
-        await changeActiveTenant(tenant.id);
-        toast({
-          title: "Organizacja utworzona",
-          description: `Organizacja „${trimmed}” została pomyślnie utworzona.`,
-          status: "success",
-          duration: 4000,
-          isClosable: true,
-        });
-        onClose();
-        await onOrganizationCreated();
-      } else {
-        toast({
-          title: "Nie udało się utworzyć organizacji",
-          description: "Spróbuj ponownie lub skontaktuj się z pomocą techniczną.",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
-      }
-    } catch {
-      toast({
-        title: "Wystąpił błąd",
-        description: "Sprawdź połączenie internetowe i spróbuj ponownie.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      await changeActiveTenant(tenant.id);
+      showSuccess(
+        "Organizacja utworzona",
+        `Organizacja „${trimmed}” została pomyślnie utworzona.`,
+      );
+      onClose();
+      await onOrganizationCreated();
+    } catch (error) {
+      showApiError(error);
     } finally {
       setCreating(false);
     }
@@ -420,10 +380,12 @@ function NoTenantAccessScreen({ onOrganizationCreated }: NoTenantAccessScreenPro
  */
 export default function TenantAccessGuard({ children }: { children: ReactNode }) {
   const { user, refreshUser } = useContext(AuthContext);
+  const { showApiError } = useToastNotification();
   const location = useLocation();
   const [screen, setScreen] = useState<AccessScreen>("loading");
   const [pendingInvitations, setPendingInvitations] = useState<TenantInvitationWeb[]>([]);
   const [hasProjectOnlyInvites, setHasProjectOnlyInvites] = useState(false);
+  const [checkRetryKey, setCheckRetryKey] = useState(0);
   const isOptionalRoute = isTenantOptionalRoute(location.pathname);
 
   // Stable ref to refreshUser to avoid stale closures without re-triggering the effect
@@ -474,8 +436,10 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
             }
           }
         }
-      } catch {
-        if (!cancelled) setScreen("no-access");
+      } catch (error) {
+        if (!cancelled) {
+          setScreen("error");
+        }
       }
     };
 
@@ -486,7 +450,7 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
     };
     // Zależy tylko od id i activeTenantId — nie od referencji refreshUser
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.activeTenantId]);
+  }, [user?.id, user?.activeTenantId, checkRetryKey]);
 
   if (isOptionalRoute) {
     return <>{children}</>;
@@ -498,6 +462,22 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
         <VStack spacing={4}>
           <Spinner size="xl" color="primary.500" thickness="4px" />
           <Text color="gray.500">Sprawdzanie dostępu...</Text>
+        </VStack>
+      </Flex>
+    );
+  }
+
+  if (screen === "error") {
+    return (
+      <Flex justify="center" align="center" minH="100vh" p={4}>
+        <VStack spacing={4} maxW="md" textAlign="center">
+          <Text fontWeight="semibold">Nie udało się sprawdzić dostępu</Text>
+          <Text color="gray.500">
+            Wystąpił błąd podczas ładowania danych organizacji. Sprawdź połączenie i spróbuj ponownie.
+          </Text>
+          <Button colorScheme="primary" onClick={() => setCheckRetryKey((key) => key + 1)}>
+            Spróbuj ponownie
+          </Button>
         </VStack>
       </Flex>
     );
@@ -515,9 +495,8 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
           try {
             await changeActiveTenant(tenantId);
             await refreshUserRef.current();
-            // user.activeTenantId now set → effect re-runs → setScreen("allowed")
-          } catch {
-            // changeActiveTenant failed — re-check from scratch
+          } catch (error) {
+            showApiError(error);
             await refreshUserRef.current();
           }
         }}

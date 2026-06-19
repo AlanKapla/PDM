@@ -33,7 +33,7 @@ export function AICostImportModal({
 }: AICostImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
 
-  const { showError } = useToastNotification();
+  const {showError, showApiError } = useToastNotification();
 
   const { mutateAsync: parseDocument, isPending: isParsing } = useAICostDocumentParser({
     tenantId,
@@ -52,8 +52,7 @@ export function AICostImportModal({
       onParsed(result, file);
       handleClose();
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
     }
   };
 

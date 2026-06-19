@@ -1,110 +1,65 @@
 import { tenantApi } from "../api/tenantApi";
-import type { UserTenant, TenantBasic, TenantDetails, ActiveTenant } from "../types/auth.types";
+import type { UserTenant, TenantBasic, TenantDetails } from "../types/auth.types";
 
 /**
- * Service layer for tenant operations
- * Converted to axios - returns response.data instead of response.ok/json()
+ * Service layer for tenant operations.
+ * Błędy API propagują do wywołującego — obsługa UX w hooku/komponencie przez showApiError.
  */
 
 export const getUserTenants = async (): Promise<UserTenant[]> => {
-  try {
-    const response = await tenantApi.getUserTenants();
-    return response.data;
-  } catch (error) {
-    return [];
-  }
+  const response = await tenantApi.getUserTenants();
+  return response.data;
 };
 
 export const getAdminTenants = async (): Promise<TenantBasic[]> => {
-  try {
-    const response = await tenantApi.getAdminTenants();
-    return response.data;
-  } catch (error) {
-    return [];
-  }
+  const response = await tenantApi.getAdminTenants();
+  return response.data;
 };
 
-export const getTenantDetails = async (tenantId: string): Promise<TenantDetails | null> => {
-  try {
-    const response = await tenantApi.getTenantDetails(tenantId);
-    return response.data;
-  } catch (error) {
-    return null;
-  }
+export const getTenantDetails = async (tenantId: string): Promise<TenantDetails> => {
+  const response = await tenantApi.getTenantDetails(tenantId);
+  return response.data;
 };
 
 export const changeActiveTenant = async (tenantId: string): Promise<void> => {
   await tenantApi.changeActiveTenant(tenantId);
 };
 
-export const createTenant = async (name: string): Promise<UserTenant | null> => {
-  try {
-    const response = await tenantApi.createTenant(name);
-    return response.data;
-  } catch (error) {
-    return null;
-  }
+export const createTenant = async (name: string): Promise<UserTenant> => {
+  const response = await tenantApi.createTenant(name);
+  return response.data;
 };
 
-export const updateTenant = async (tenantId: string, name: string): Promise<UserTenant | null> => {
-  try {
-    const response = await tenantApi.updateTenant(tenantId, name);
-    return response.data;
-  } catch (error) {
-    return null;
-  }
+export const updateTenant = async (tenantId: string, name: string): Promise<UserTenant> => {
+  const response = await tenantApi.updateTenant(tenantId, name);
+  return response.data;
 };
 
-export const inviteTenantMember = async (tenantId: string, email: string): Promise<boolean> => {
-  try {
-    await tenantApi.inviteMember(tenantId, email);
-    return true;
-  } catch (error) {
-    return false;
-  }
+export const inviteTenantMember = async (tenantId: string, email: string): Promise<void> => {
+  await tenantApi.inviteMember(tenantId, email);
 };
 
-export const acceptTenantInvitation = async (token: string): Promise<boolean> => {
-  try {
-    await tenantApi.acceptInvitation(token);
-    return true;
-  } catch (error) {
-    return false;
-  }
+export const acceptTenantInvitation = async (token: string): Promise<void> => {
+  await tenantApi.acceptInvitation(token);
 };
 
-export const removeTenantMember = async (tenantId: string, userId: string): Promise<boolean> => {
-  try {
-    await tenantApi.removeMember(tenantId, userId);
-    return true;
-  } catch (error) {
-    return false;
-  }
+export const removeTenantMember = async (tenantId: string, userId: string): Promise<void> => {
+  await tenantApi.removeMember(tenantId, userId);
 };
 
-export const removeTenantInvitation = async (tenantId: string, invitationId: string): Promise<boolean> => {
-  try {
-    await tenantApi.removeInvitation(tenantId, invitationId);
-    return true;
-  } catch (error) {
-    return false;
-  }
+export const removeTenantInvitation = async (tenantId: string, invitationId: string): Promise<void> => {
+  await tenantApi.removeInvitation(tenantId, invitationId);
 };
 
 export const getActiveInvitations = async () => {
-  try {
-    const response = await tenantApi.getActiveInvitations();
-    return response.data;
-  } catch (error) {
-    return [];
-  }
+  const response = await tenantApi.getActiveInvitations();
+  return response.data;
 };
 
-export const updateTenantMemberAdmin = async (tenantId: string, userId: string, isAdmin: boolean): Promise<boolean> => {
-  try {
-    await tenantApi.updateTenantMemberAdmin(tenantId, userId, isAdmin);
-    return true;
-  } catch (error) {
-    return false;
-  }
+export const updateTenantMemberAdmin = async (
+  tenantId: string,
+  userId: string,
+  isAdmin: boolean,
+): Promise<void> => {
+  await tenantApi.updateTenantMemberAdmin(tenantId, userId, isAdmin);
 };

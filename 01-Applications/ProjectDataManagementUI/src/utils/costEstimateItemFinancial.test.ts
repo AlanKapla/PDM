@@ -6,7 +6,23 @@ describe('costEstimateItemFinancial', () => {
   it('resolveCalculationQuantity defaults to 1 when price is set', () => {
     expect(resolveCalculationQuantity({ unitPriceNet: 100 })).toBe(1);
     expect(resolveCalculationQuantity({ quantity: 3, unitPriceNet: 100 })).toBe(3);
+    expect(resolveCalculationQuantity({ quantity: null, unitPriceNet: 100 })).toBeUndefined();
     expect(resolveCalculationQuantity({})).toBeUndefined();
+  });
+
+  it('deriveItemFinancialState keeps net/vat/gross empty when quantity is cleared', () => {
+    const derived = deriveItemFinancialState({
+      quantity: null,
+      unitPriceNet: 100,
+      vatRate: 0.23,
+      netValue: 100,
+      vatValue: 23,
+      grossValue: 123,
+    } as CostEstimateItemWeb);
+
+    expect(derived.netValue).toBeUndefined();
+    expect(derived.vatValue).toBeUndefined();
+    expect(derived.grossValue).toBeUndefined();
   });
 
   it('deriveItemFinancialState computes net/vat/gross from unit price and default quantity', () => {

@@ -94,7 +94,13 @@ import {
   invalidateCostEstimateLists,
 } from '../hooks/queries';
 import { recalculateCostEstimateDetails } from '../utils/recalculateCostEstimateDetails';
-import { isPartialNumericInput, parseNumericInput, parseVatPercentInput, roundToDecimals } from '../utils/numericInputUtils';
+import {
+  isInProgressNumericInput,
+  isPartialNumericInput,
+  parseNumericInput,
+  parseVatPercentInput,
+  roundToDecimals,
+} from '../utils/numericInputUtils';
 import { removeItemFromCostEstimateTree } from '../utils/costEstimateUtils';
 import { upsertAdditionalFieldValue, resolveAdditionalFieldType, cloneAdditionalFieldValues } from '../utils/additionalFieldHelpers';
 import type {
@@ -325,7 +331,7 @@ export const CostEstimateEditPage: React.FC = () => {
   const userId = user?.id ?? 'anonymous';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const { showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
 
   // ---- Uprawnienia do zasobu ----
   const resourcePerms = useResourcePermissions(projectId, "estimates");
@@ -590,10 +596,7 @@ export const CostEstimateEditPage: React.FC = () => {
       showApiSuccess('nameUpdated');
       onEditMetaClose();
     } catch (err) {
-      showError(
-        'Błąd zapisu',
-        err instanceof Error ? err.message : 'Nie udało się zapisać kosztorysu'
-      );
+      showApiError(err);
     } finally {
       setIsSavingMeta(false);
     }
@@ -607,7 +610,7 @@ export const CostEstimateEditPage: React.FC = () => {
     queryClient,
     onEditMetaClose,
     showApiSuccess,
-    showError,
+    showApiError,
   ]);
 
   // ========== POPSTATE (przycisk wstecz/dalej przeglądarki) ==========
@@ -663,7 +666,7 @@ export const CostEstimateEditPage: React.FC = () => {
         for (const item of group.items) {
           if (item.options?.some((o) => o.isSelected) && !parentValuesBackupRef.current.has(item.id)) {
             parentValuesBackupRef.current.set(item.id, {
-              quantity: item.quantity,
+              quantity: item.quantity ?? undefined,
               unit: item.unit,
               unitPriceNet: item.unitPriceNet,
               vatRate: item.vatRate,
@@ -811,7 +814,7 @@ export const CostEstimateEditPage: React.FC = () => {
       scheduleAutoRecalculate();
     },
     onSaveError: (_fieldInfo, error) => {
-      showError('Błąd zapisu', 'Nie udało się zapisać zmiany pola');
+      showApiError(error);
     },
     enabled: canAnyEdit,
   });
@@ -825,8 +828,8 @@ export const CostEstimateEditPage: React.FC = () => {
       setIsSyncing(true);
       await projectApi.syncWorkScheduleWithEstimate(user.activeTenantId, projectId, details.workScheduleId);
       showApiSuccess('syncDone');
-    } catch {
-      showError('Błąd synchronizacji', 'Nie udało się zsynchronizować harmonogramu');
+    } catch (error) {
+      showApiError(error);
     } finally {
       setIsSyncing(false);
     }
@@ -859,14 +862,11 @@ export const CostEstimateEditPage: React.FC = () => {
       setHasChanges(false);
       setLastSavedAt(new Date());
     } catch (err) {
-      showError(
-        'Błąd przeliczania',
-        'Nie udało się przeliczyć kosztorysu. Spróbuj ponownie.'
-      );
+      showApiError(err);
     } finally {
       setIsRecalculating(false);
     }
-  }, [user?.activeTenantId, projectId, estimateId, flushPendingChanges, queryClient, loadCostEstimate, showError]);
+  }, [user?.activeTenantId, projectId, estimateId, flushPendingChanges, queryClient, loadCostEstimate, showApiError]);
 
   // Handler dla autosave wywoływany z tabeli
   const handleFieldAutosave = useCallback((params: {
@@ -998,10 +998,10 @@ export const CostEstimateEditPage: React.FC = () => {
     } catch (err) {
       // Usuń tymczasową grupę przy błędzie
       setDetails(prev => prev ? { ...prev, rootGroups: prev.rootGroups.filter(g => g.id !== tempId) } : prev);
-      showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać etapu');
+      showApiError(err);
       return undefined;
     }
-  }, [user?.activeTenantId, projectId, estimateId, details, showError]);
+  }, [user?.activeTenantId, projectId, estimateId, details, showApiError]);
 
   const handleDeleteGroup = useCallback((groupId: string) => {
     setGroupToDelete(groupId);
@@ -1032,9 +1032,9 @@ export const CostEstimateEditPage: React.FC = () => {
     } catch (err) {
       // Przywróć stan przed usunięciem gdy API zwróci błąd
       setDetails(prevDetails);
-      showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć etapu');
+      showApiError(err);
     }
-  }, [user?.activeTenantId, projectId, estimateId, details, groupToDelete, showError]);
+  }, [user?.activeTenantId, projectId, estimateId, details, groupToDelete, showApiError]);
 
   const handleAddSubGroup = useCallback(
     async (parentGroupId: string): Promise<string | undefined> => {
@@ -1140,11 +1140,11 @@ export const CostEstimateEditPage: React.FC = () => {
             .map(g => ({ ...g, childGroups: removeTempGroup(g.childGroups || []) }));
         
         setDetails(prev => prev ? { ...prev, rootGroups: removeTempGroup(prev.rootGroups) } : prev);
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać podetapu');
+        showApiError(err);
         return undefined;
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, showError],
+    [user?.activeTenantId, projectId, estimateId, details, showApiError],
   );
 
   const handleAddItem = useCallback(
@@ -1181,7 +1181,7 @@ export const CostEstimateEditPage: React.FC = () => {
                   name: '',
                   quantity: 1,
                   isSelected: true,
-                  isStageWork: false,
+                  isStageWork: true,
                   additionalFieldValues: [],
                   fieldValues: buildDefaultItemFieldValues(details.schema, 0),
                   options: [],
@@ -1242,11 +1242,11 @@ export const CostEstimateEditPage: React.FC = () => {
           });
         
         setDetails(prev => prev ? { ...prev, rootGroups: removeTempItem(prev.rootGroups) } : prev);
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać pozycji');
+        showApiError(err);
         return undefined;
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, showError],
+    [user?.activeTenantId, projectId, estimateId, details, showApiError],
   );
 
   const handleDeleteItem = useCallback(
@@ -1281,10 +1281,10 @@ export const CostEstimateEditPage: React.FC = () => {
         if (prevDetails) {
           setDetails(prevDetails);
         }
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć pozycji');
+        showApiError(err);
       }
     },
-    [user?.activeTenantId, projectId, estimateId, showError],
+    [user?.activeTenantId, projectId, estimateId, showApiError],
   );
 
   const confirmDeleteItem = useCallback(async () => {
@@ -1545,11 +1545,11 @@ export const CostEstimateEditPage: React.FC = () => {
           });
         
         setDetails(prev => prev ? { ...prev, rootGroups: removeTempChild(prev.rootGroups) } : prev);
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać elementu');
+        showApiError(err);
         return undefined;
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, showError],
+    [user?.activeTenantId, projectId, estimateId, details, showApiError],
   );
 
   // ========== PODSUMOWANIA Z SZABLONU ==========
@@ -1721,7 +1721,7 @@ export const CostEstimateEditPage: React.FC = () => {
       // Przy zaznaczaniu: zapisz oryginalne wartości rodzica (jeśli jeszcze nie są zapisane)
       if (newIsSelected && !parentValuesBackupRef.current.has(itemId)) {
         parentValuesBackupRef.current.set(itemId, {
-          quantity: parentItem.quantity,
+          quantity: parentItem.quantity ?? undefined,
           unit: parentItem.unit,
           unitPriceNet: parentItem.unitPriceNet,
           vatRate: parentItem.vatRate,
@@ -1874,13 +1874,13 @@ export const CostEstimateEditPage: React.FC = () => {
           optionId,
           newIsSelected,
         );
-      } catch {
+      } catch (error) {
         // Rollback przy błędzie
         setDetails(prevDetails);
-        showError('Błąd zapisu', 'Nie udało się zapisać wyboru opcji');
+        showApiError(error);
       }
     },
-    [details, user?.activeTenantId, projectId, estimateId, showError]
+    [details, user?.activeTenantId, projectId, estimateId, showApiError]
   );
 
   /**
@@ -1902,10 +1902,10 @@ export const CostEstimateEditPage: React.FC = () => {
         // Odśwież dane
         loadCostEstimate();
       } catch (err) {
-        showError('Błąd', 'Nie udało się zmienić widoczności kolumny');
+        showApiError(err);
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, loadCostEstimate, showError]
+    [user?.activeTenantId, projectId, estimateId, details, loadCostEstimate, showApiError]
   );
 
   /**
@@ -1924,10 +1924,10 @@ export const CostEstimateEditPage: React.FC = () => {
         // Odśwież dane
         loadCostEstimate();
       } catch (err) {
-        showError('Błąd', 'Nie udało się dodać kolumny');
+        showApiError(err);
       }
     },
-    [user?.activeTenantId, projectId, estimateId, loadCostEstimate, showError]
+    [user?.activeTenantId, projectId, estimateId, loadCostEstimate, showApiError]
   );
 
   // ========== MODERN VIEW HANDLERS ==========
@@ -2080,13 +2080,13 @@ export const CostEstimateEditPage: React.FC = () => {
             // Bazowe pole pozycji — aktualizuj bezpośrednią właściwość
             const parsed = parseBaseValue(fieldId, value);
             const isPartialNumeric =
-              typeof value === 'string' && isPartialNumericInput(value);
+              typeof value === 'string' && isInProgressNumericInput(value);
             if (!isPartialNumeric) {
               const isClear = parsed === null || parsed === undefined;
               switch (fieldId) {
               case 'name': item.name = parsed === null ? '' : String(parsed); break;
               case 'quantity':
-                item.quantity = parsed as number | undefined ?? undefined;
+                item.quantity = parsed === null ? null : (parsed as number | undefined);
                 if (isClear) {
                   // quantity wyczyszczone → czyść wszystkie zależne pola kalkulowane
                   item.netValue = undefined;
@@ -2666,7 +2666,7 @@ export const CostEstimateEditPage: React.FC = () => {
                                         showApiSuccess('deleted');
                                         loadCostEstimate();
                                       } catch (err) {
-                                        showError('Błąd usuwania', 'Nie udało się usunąć pliku');
+                                        showApiError(err);
                                       }
                                     }}
                                   />
@@ -2725,7 +2725,7 @@ export const CostEstimateEditPage: React.FC = () => {
                               loadCostEstimate();
                             }
                           } catch (err) {
-                            showError('Błąd uploadu', 'Nie udało się przesłać plików');
+                            showApiError(err);
                           }
                         }
                         e.target.value = '';

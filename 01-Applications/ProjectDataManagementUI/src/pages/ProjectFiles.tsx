@@ -978,7 +978,7 @@ const FilesTab: React.FC<FilesTabProps> = ({
 export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useContext(AuthContext);
-  const { showError, showWarning, showApiSuccess } = useToastNotification();
+  const {showError, showWarning, showApiSuccess, showApiError } = useToastNotification();
   const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
@@ -1234,8 +1234,7 @@ export default function ProjectFiles() {
         ),
       });
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setSubmittingComment(null);
     }

@@ -11,6 +11,7 @@ import {
   deleteTrackedCost,
   updateTrackerBudget,
 } from '../services/dashboardApi';
+import { getApiErrorMessage } from '../../../utils/apiErrorUtils';
 
 export interface UseTrackedCostMutationsParams {
   tenantId: string;
@@ -57,7 +58,7 @@ export function useTrackedCostMutations({
         onSuccess?.();
         return result;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Błąd tworzenia kosztu';
+        const msg = getApiErrorMessage(err);
         setError(msg);
         throw err;
       } finally {
@@ -79,7 +80,7 @@ export function useTrackedCostMutations({
         onSuccess?.();
         return result;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Błąd aktualizacji kosztu';
+        const msg = getApiErrorMessage(err);
         setError(msg);
         throw err;
       } finally {
@@ -97,7 +98,7 @@ export function useTrackedCostMutations({
         await deleteTrackedCost(tenantId, projectId, costId);
         onSuccess?.();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Błąd usuwania kosztu';
+        const msg = getApiErrorMessage(err);
         setError(msg);
         throw err;
       } finally {
@@ -117,7 +118,7 @@ export function useTrackedCostMutations({
         await updateTrackerBudget(tenantId, projectId, data);
         onSuccess?.();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Błąd aktualizacji budżetu';
+        const msg = getApiErrorMessage(err);
         setError(msg);
         throw err;
       } finally {

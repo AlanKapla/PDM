@@ -92,7 +92,7 @@ export default function GenerateCostEstimateWithAIModal({
   projectId,
   onCostEstimateCreated,
 }: GenerateCostEstimateWithAIModalProps) {
-  const { showError } = useToastNotification();
+  const {showError, showApiError } = useToastNotification();
 
   const [step, setStep] = useState<AIModalStep>(1);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -114,8 +114,7 @@ export default function GenerateCostEstimateWithAIModal({
           setStep(3);
         },
         onError: (error: Error) => {
-          const { title, description } = handleApiError(error);
-          showError(title, description);
+          showApiError(error);
           setStep(1);
         },
       });
@@ -137,8 +136,7 @@ export default function GenerateCostEstimateWithAIModal({
           handleClose();
         },
         onError: (error: Error) => {
-          const { title, description } = handleApiError(error);
-          showError(title, description);
+          showApiError(error);
         },
       }
     );

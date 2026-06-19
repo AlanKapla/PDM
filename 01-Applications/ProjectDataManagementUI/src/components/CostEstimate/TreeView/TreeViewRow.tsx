@@ -1360,8 +1360,8 @@ const ItemRow: React.FC<ItemRowProps> = ({
                 value={derived.unitPriceGross ?? ''}
                 onChange={(e) => {
                   const v = e.target.value;
-                  onFieldChange(groupId, item.id, 'unitPriceGross', v);
-                  triggerBaseAutosave('unitPriceGross', 'numeric', v);
+                  onFieldChange(groupId, item.id, 'unitPriceGross', v === '' ? null : v);
+                  triggerBaseAutosave('unitPriceGross', 'numeric', v || undefined);
                 }}
                 isDisabled={!isEditMode || flags.unitPriceGrossComputed}
                 placeholder={getBaseFieldPlaceholder(col.label)}
@@ -1379,8 +1379,8 @@ const ItemRow: React.FC<ItemRowProps> = ({
                 value={item.quantity ?? ''}
                 onChange={(e) => {
                   const v = e.target.value;
-                  onFieldChange(groupId, item.id, 'quantity', v);
-                  triggerBaseAutosave('quantity', 'numeric', v);
+                  onFieldChange(groupId, item.id, 'quantity', v === '' ? null : v);
+                  triggerBaseAutosave('quantity', 'numeric', v || undefined);
                 }}
                 isDisabled={!isEditMode || flags.financialFieldsLockedByComponents || hasSelectedOption}
                 placeholder={getBaseFieldPlaceholder(col.label)}
@@ -1422,8 +1422,8 @@ const ItemRow: React.FC<ItemRowProps> = ({
                 value={item.unitPriceNet ?? ''}
                 onChange={(e) => {
                   const v = e.target.value;
-                  onFieldChange(groupId, item.id, 'unitPriceNet', v);
-                  triggerBaseAutosave('unitPriceNet', 'numeric', v);
+                  onFieldChange(groupId, item.id, 'unitPriceNet', v === '' ? null : v);
+                  triggerBaseAutosave('unitPriceNet', 'numeric', v || undefined);
                 }}
                 isDisabled={!isEditMode || flags.financialFieldsLockedByComponents || hasSelectedOption}
                 placeholder={getBaseFieldPlaceholder(col.label)}

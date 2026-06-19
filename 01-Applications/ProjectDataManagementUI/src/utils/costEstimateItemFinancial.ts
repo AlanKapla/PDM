@@ -19,6 +19,9 @@ type FinancialInput = Pick<
 
 /** Ilość do obliczeń — domyślnie 1 gdy podano cenę, a ilość nie jest ustawiona. */
 export function resolveCalculationQuantity(item: FinancialInput): number | undefined {
+  if (item.quantity === null) {
+    return undefined;
+  }
   if (item.quantity != null) {
     return item.quantity;
   }
@@ -42,23 +45,28 @@ function deriveLeafFinancialState(
   item: FinancialInput,
   lockedByChildren: boolean,
 ): ItemFinancialDerivedState {
+  const quantityCleared = item.quantity === null;
   const qty = resolveCalculationQuantity(item);
   const unitNet = item.unitPriceNet ?? undefined;
   const vat = item.vatRate ?? undefined;
 
-  const netValueComputed = !lockedByChildren && unitNet != null && qty != null;
-  const netValue: number | undefined = netValueComputed
-    ? roundToDecimals(unitNet * qty)
-    : item.netValue !== undefined && item.netValue !== null
-      ? roundToDecimals(item.netValue)
-      : undefined;
+  const netValueComputed = !lockedByChildren && !quantityCleared && unitNet != null && qty != null;
+  const netValue: number | undefined = quantityCleared
+    ? undefined
+    : netValueComputed
+      ? roundToDecimals(unitNet * qty)
+      : item.netValue !== undefined && item.netValue !== null
+        ? roundToDecimals(item.netValue)
+        : undefined;
 
-  const vatValueComputed = !lockedByChildren && netValue != null && vat != null;
-  const vatValue: number | undefined = vatValueComputed
-    ? roundToDecimals(netValue * vat)
-    : item.vatValue !== undefined && item.vatValue !== null
-      ? roundToDecimals(item.vatValue)
-      : undefined;
+  const vatValueComputed = !lockedByChildren && !quantityCleared && netValue != null && vat != null;
+  const vatValue: number | undefined = quantityCleared
+    ? undefined
+    : vatValueComputed
+      ? roundToDecimals(netValue * vat)
+      : item.vatValue !== undefined && item.vatValue !== null
+        ? roundToDecimals(item.vatValue)
+        : undefined;
 
   let unitPriceGross: number | undefined;
   const unitPriceGrossComputed = !lockedByChildren && unitNet != null && vat != null;
@@ -77,14 +85,19 @@ function deriveLeafFinancialState(
     unitPriceGross = undefined;
   }
 
-  const grossFromUnitPrice = calculateGrossFromUnitPriceGross(unitPriceGross, qty);
+  const grossFromUnitPrice = quantityCleared
+    ? undefined
+    : calculateGrossFromUnitPriceGross(unitPriceGross, qty);
   const grossValueComputed =
     !lockedByChildren &&
+    !quantityCleared &&
     (grossFromUnitPrice != null ||
       (netValue != null && vatValue != null) ||
       (netValue != null && vat != null));
   let grossValue: number | undefined;
-  if (!lockedByChildren && grossFromUnitPrice != null) {
+  if (quantityCleared) {
+    grossValue = undefined;
+  } else if (!lockedByChildren && grossFromUnitPrice != null) {
     grossValue = roundToDecimals(grossFromUnitPrice);
   } else if (!lockedByChildren && netValue != null && vatValue != null) {
     grossValue = roundToDecimals(netValue + vatValue);

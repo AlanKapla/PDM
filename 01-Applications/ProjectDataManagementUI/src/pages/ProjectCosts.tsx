@@ -347,7 +347,7 @@ export default function ProjectCosts() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useContext(AuthContext);
-  const { showError, showSuccess } = useToastNotification();
+  const {showError, showSuccess, showApiError } = useToastNotification();
 
   const [costEstimateToCopy, setCostEstimateToCopy] = useState<CostEstimateListItemWeb | null>(null);
   const [costEstimateToShare, setCostEstimateToShare] = useState<CostEstimateListItemWeb | null>(null);
@@ -422,8 +422,7 @@ export default function ProjectCosts() {
       setCostEstimateToDelete(null);
       refreshData();
     } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setIsDeleting(false);
     }

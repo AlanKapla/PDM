@@ -74,7 +74,7 @@ export default function UploadFilesModal({
   const [uploading, setUploading] = useState(false);
   const [packageNameError, setPackageNameError] = useState("");
   const [parentDirectoryId, setParentDirectoryId] = useState<string>("");
-  const { showSuccess, showError } = useToastNotification();
+  const {showSuccess, showError, showApiError } = useToastNotification();
 
   useEffect(() => {
     if (isOpen) {
@@ -169,8 +169,7 @@ export default function UploadFilesModal({
         onFilesUploaded();
         onClose();
       } catch (error) {
-        const { title, description } = handleApiError(error);
-        showError(title, description);
+        showApiError(error);
       } finally {
         setUploading(false);
       }
@@ -241,8 +240,7 @@ export default function UploadFilesModal({
       onFilesUploaded();
       onClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setUploading(false);
     }

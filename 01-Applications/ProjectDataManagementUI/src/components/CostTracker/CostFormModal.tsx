@@ -94,7 +94,7 @@ export default function CostFormModal({
   projectId,
   costEstimateSummaries,
 }: CostFormModalProps) {
-  const { showSuccess, showError } = useToastNotification();
+  const {showSuccess, showError, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
   const { canEdit: isProjectAdmin } = useProjectPermissions(projectId);
   const { canEdit: isTenantAdmin } = useTenantPermissions();
@@ -227,8 +227,7 @@ export default function CostFormModal({
       handleClose();
       onSuccess();
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
     } finally {
       setIsSubmitting(false);
     }

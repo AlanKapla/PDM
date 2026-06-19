@@ -45,7 +45,6 @@ import { getInvitationStatusName, getInvitationStatusColor } from "../types/auth
 import { getTenantRoleName, getTenantRoleColor } from "../constants/roleCodes";
 import { useAuth } from "../context/AuthContext";
 
-import { handleApiError } from "../utils/handleApiError";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { useContractors, useCreateContractor, useUpdateContractor, useDeleteContractor } from "../hooks/queries";
 import { useModal } from "../hooks/useModal";
@@ -81,7 +80,7 @@ const emptyContractorForm: ContractorFormValues = {
 
 function ContractorsTabPanel({ tenantId }: { tenantId: string }) {
   const { canEdit } = useTenantPermissions();
-  const { showSuccess, showError } = useToastNotification();
+  const {showSuccess, showError, showApiError } = useToastNotification();
   const { data: contractors = [], isLoading } = useContractors(tenantId || undefined);
   const createMutation = useCreateContractor(tenantId);
   const updateMutation = useUpdateContractor(tenantId);
@@ -326,17 +325,11 @@ export default function TenantDetails() {
 
       try {
         const tenantData = await getTenantDetails(tenantId);
-
-        if (!tenantData) {
-          showError("Błąd", "Nie znaleziono organizacji");
-          navigate("/tenants/managed");
-          return;
-        }
-
         setTenant(tenantData);
         setEditedName(tenantData.name);
       } catch (error) {
-        showError("Błąd", "Nie udało się załadować danych organizacji");
+        showApiError(error);
+        navigate("/tenants/managed");
       } finally {
         setLoading(false);
       }
@@ -356,18 +349,11 @@ export default function TenantDetails() {
     setUpdatingName(true);
     try {
       const updated = await updateTenant(tenantId, editedName);
-
-      if (updated) {
-        // Aktualizuj tylko nazwę w istniejącym stanie (nie zastępuj całego obiektu)
-        setTenant(prev => prev ? { ...prev, name: updated.name } : null);
-        setIsEditingName(false);
-        showApiSuccess('tenantUpdated');
-      } else {
-        showError("Błąd", "Nie udało się zaktualizować nazwy");
-      }
+      setTenant((prev) => (prev ? { ...prev, name: updated.name } : null));
+      setIsEditingName(false);
+      showApiSuccess('tenantUpdated');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setUpdatingName(false);
     }
@@ -389,21 +375,12 @@ export default function TenantDetails() {
 
     setSendingInvite(true);
     try {
-      const success = await inviteTenantMember(tenantId, inviteEmail);
-
-      if (success) {
-        // Odśwież dane tenanta aby pobrać nowe zaproszenie
-        const updated = await getTenantDetails(tenantId);
-        if (updated) {
-          setTenant(updated);
-        }
-
-        setIsInviting(false);
-        setInviteEmail("");
-        showApiSuccess('inviteSent');
-      } else {
-        showError("Błąd", "Nie udało się wysłać zaproszenia");
-      }
+      await inviteTenantMember(tenantId, inviteEmail);
+      const updated = await getTenantDetails(tenantId);
+      setTenant(updated);
+      setIsInviting(false);
+      setInviteEmail("");
+      showApiSuccess('inviteSent');
     } catch (error) {
       showApiError(error);
     } finally {
@@ -415,24 +392,18 @@ export default function TenantDetails() {
     if (!tenantId || !deletingMemberId) return;
 
     try {
-      const success = await removeTenantMember(tenantId, deletingMemberId);
-
-      if (success) {
-        setTenant((prev) =>
-          prev
-            ? {
-              ...prev,
-              members: prev.members.filter((m) => m.userId !== deletingMemberId),
-            }
-            : null
-        );
-        showApiSuccess('memberRemoved');
-      } else {
-        showError("Błąd", "Nie udało się usunąć członka");
-      }
+      await removeTenantMember(tenantId, deletingMemberId);
+      setTenant((prev) =>
+        prev
+          ? {
+            ...prev,
+            members: prev.members.filter((m) => m.userId !== deletingMemberId),
+          }
+          : null
+      );
+      showApiSuccess('memberRemoved');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setDeletingMemberId(null);
       onMemberDeleteClose();
@@ -443,24 +414,18 @@ export default function TenantDetails() {
     if (!tenantId || !deletingInvitationId) return;
 
     try {
-      const success = await removeTenantInvitation(tenantId, deletingInvitationId);
-
-      if (success) {
-        setTenant((prev) =>
-          prev
-            ? {
-              ...prev,
-              invitations: prev.invitations.filter((i) => i.invitationId !== deletingInvitationId),
-            }
-            : null
-        );
-        showApiSuccess('inviteCancelled');
-      } else {
-        showError("Błąd", "Nie udało się usunąć zaproszenia");
-      }
+      await removeTenantInvitation(tenantId, deletingInvitationId);
+      setTenant((prev) =>
+        prev
+          ? {
+            ...prev,
+            invitations: prev.invitations.filter((i) => i.invitationId !== deletingInvitationId),
+          }
+          : null
+      );
+      showApiSuccess('inviteCancelled');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setDeletingInvitationId(null);
       onInvitationDeleteClose();
@@ -489,8 +454,7 @@ export default function TenantDetails() {
       );
       showApiSuccess('roleUpdated');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     }
   };
 
