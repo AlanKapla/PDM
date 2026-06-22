@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useToast as useChakraToast, useBreakpointValue } from "@chakra-ui/react";
+import { useToast as useChakraToast } from "@chakra-ui/react";
 import type { UseToastOptions } from "@chakra-ui/react";
 import { successMessages, type SuccessMessageKey } from "../utils/errorMessages";
 import { handleApiError } from "../utils/handleApiError";
@@ -9,14 +9,23 @@ interface ToastOptions extends Omit<UseToastOptions, 'title' | 'description'> {
   description?: string;
 }
 
+const TOAST_DEFAULTS: Pick<UseToastOptions, "position" | "isClosable"> = {
+  position: "top-right",
+  isClosable: true,
+};
+
 export const useToastNotification = () => {
-  const toast = useChakraToast();
-  // Na mobile toasty u góry (nie zakrywają dolnej nawigacji), na desktop – prawy górny róg.
-  // Dodatkowy fallback gwarantuje przewidywalną pozycję także wtedy, gdy breakpoint nie jest jeszcze wyliczony.
-  const position = (useBreakpointValue<UseToastOptions["position"]>(
-    { base: "top", md: "top-right" },
-    { fallback: "top-right" }
-  ) ?? "top-right") as UseToastOptions["position"];
+  const chakraToast = useChakraToast();
+
+  const toast = useCallback(
+    (options?: UseToastOptions) => {
+      chakraToast({
+        ...TOAST_DEFAULTS,
+        ...options,
+      });
+    },
+    [chakraToast]
+  );
 
   const showSuccess = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -24,11 +33,9 @@ export const useToastNotification = () => {
       description,
       status: "success",
       duration: 3000,
-      isClosable: true,
-      position,
       ...options,
     });
-  }, [toast, position]);
+  }, [toast]);
 
   const showError = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -36,11 +43,9 @@ export const useToastNotification = () => {
       description,
       status: "error",
       duration: 5000,
-      isClosable: true,
-      position,
       ...options,
     });
-  }, [toast, position]);
+  }, [toast]);
 
   const showWarning = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -48,11 +53,9 @@ export const useToastNotification = () => {
       description,
       status: "warning",
       duration: 4000,
-      isClosable: true,
-      position,
       ...options,
     });
-  }, [toast, position]);
+  }, [toast]);
 
   const showInfo = useCallback((title: string, description?: string, options?: ToastOptions) => {
     toast({
@@ -60,11 +63,9 @@ export const useToastNotification = () => {
       description,
       status: "info",
       duration: 3000,
-      isClosable: true,
-      position,
       ...options,
     });
-  }, [toast, position]);
+  }, [toast]);
 
   const showApiSuccess = useCallback(
     (key: SuccessMessageKey, descriptionOverride?: string) => {
@@ -74,11 +75,9 @@ export const useToastNotification = () => {
         description: descriptionOverride ?? description,
         status: "success",
         duration: 3000,
-        isClosable: true,
-        position,
       });
     },
-    [toast, position]
+    [toast]
   );
 
   const showApiError = useCallback(
@@ -90,12 +89,10 @@ export const useToastNotification = () => {
         description,
         status: toastStatus,
         duration: toastStatus === "info" ? 4000 : 5000,
-        isClosable: true,
-        position,
         ...options,
       });
     },
-    [toast, position]
+    [toast]
   );
 
   return {
@@ -105,7 +102,7 @@ export const useToastNotification = () => {
     showInfo,
     showApiSuccess,
     showApiError,
-    toast, // dla bardziej zaawansowanych przypadków
+    toast,
   };
 };
 

@@ -21,7 +21,6 @@ import {
   Text,
   VStack,
   useColorModeValue,
-  useToast,
 } from "@chakra-ui/react";
 import { Bell, Info, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,6 +31,7 @@ import {
   useMarkAllAsRead,
   notificationKeys,
 } from "../hooks/queries";
+import { useToastNotification } from "../hooks/useToastNotification";
 import { notificationHubService } from "../services/notificationHubService";
 import { type NotificationWeb, NotificationType } from "../types/notification.types";
 import { formatDateCompact, parseApiDateTime } from "../utils/formatters";
@@ -39,7 +39,7 @@ import { formatDateCompact, parseApiDateTime } from "../utils/formatters";
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
-  const toast = useToast();
+  const { showSuccess, showError, showWarning, showInfo } = useToastNotification();
   const queryClient = useQueryClient();
 
   const { data: unreadCount = 0 } = useUnreadCounter();
@@ -63,6 +63,39 @@ export default function NotificationBell() {
   const unreadBg = useColorModeValue("primary.50", "primary.900");
   const messageTextColor = useColorModeValue("gray.700", "gray.300");
 
+  const getToastStatus = (type: NotificationType): "success" | "warning" | "error" | "info" => {
+    switch (type) {
+      case NotificationType.Success: return "success";
+      case NotificationType.Warning: return "warning";
+      case NotificationType.Error: return "error";
+      default: return "info";
+    }
+  };
+
+  const showNotificationToast = (
+    title: string,
+    description: string,
+    type: NotificationType
+  ) => {
+    const toastStatus = getToastStatus(type);
+    const options = { duration: 5000 };
+
+    switch (toastStatus) {
+      case "success":
+        showSuccess(title, description, options);
+        break;
+      case "warning":
+        showWarning(title, description, options);
+        break;
+      case "error":
+        showError(title, description, options);
+        break;
+      default:
+        showInfo(title, description, options);
+        break;
+    }
+  };
+
   // SignalR - nasłuchuj na nowe powiadomienia
   useEffect(() => {
     const unsubscribeNew = notificationHubService.onNotificationReceived((payload) => {
@@ -74,14 +107,11 @@ export default function NotificationBell() {
       // Invaliduj listy żeby nowe powiadomienie pojawiło się
       queryClient.invalidateQueries({ queryKey: notificationKeys.all });
 
-      toast({
-        title: payload.notification.title,
-        description: payload.notification.message,
-        status: getToastStatus(payload.notification.type),
-        duration: 5000,
-        isClosable: true,
-        position: "top-right",
-      });
+      showNotificationToast(
+        payload.notification.title,
+        payload.notification.message,
+        payload.notification.type
+      );
     });
 
     const unsubscribeSync = notificationHubService.onNotificationSynced(() => {
@@ -92,7 +122,7 @@ export default function NotificationBell() {
       unsubscribeNew();
       unsubscribeSync();
     };
-  }, [queryClient, toast]);
+  }, [queryClient, showSuccess, showWarning, showError, showInfo]);
 
   const handleMarkAsRead = (notificationId: string) => {
     markAsReadMutation.mutate(notificationId);
@@ -102,13 +132,10 @@ export default function NotificationBell() {
     markAllAsReadMutation.mutate(undefined, {
       onSuccess: (result) => {
         if (result.markedCount > 0) {
-          toast({
-            title: "Oznaczono wszystkie jako przeczytane",
-            description: `Oznaczono ${result.markedCount} powiadomień`,
-            status: "success",
-            duration: 3000,
-            isClosable: true,
-          });
+          showSuccess(
+            "Oznaczono wszystkie jako przeczytane",
+            `Oznaczono ${result.markedCount} powiadomień`
+          );
         }
       },
     });
@@ -129,15 +156,6 @@ export default function NotificationBell() {
       case NotificationType.Warning: return "orange";
       case NotificationType.Error: return "red";
       default: return "blue";
-    }
-  };
-
-  const getToastStatus = (type: NotificationType): "success" | "warning" | "error" | "info" => {
-    switch (type) {
-      case NotificationType.Success: return "success";
-      case NotificationType.Warning: return "warning";
-      case NotificationType.Error: return "error";
-      default: return "info";
     }
   };
 

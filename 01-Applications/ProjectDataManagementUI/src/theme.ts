@@ -73,6 +73,12 @@ const theme = extendTheme({
         variant: "subtle",
       },
     },
+    Toast: {
+      defaultProps: {
+        position: "top-right",
+        isClosable: true,
+      },
+    },
   },
 });
 
