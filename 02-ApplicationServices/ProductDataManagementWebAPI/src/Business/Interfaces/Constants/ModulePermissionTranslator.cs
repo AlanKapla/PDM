@@ -14,6 +14,7 @@ public static class ModulePermissionTranslator
             ProjectModule.Costs => new HashSet<string> { PermissionCodes.ProjectCosts },
             ProjectModule.Schedule => new HashSet<string> { PermissionCodes.ProjectSchedule },
             ProjectModule.DashboardTracker => new HashSet<string> { PermissionCodes.ProjectDashboardTracker },
+            ProjectModule.TechnicalDocumentation => new HashSet<string> { PermissionCodes.ProjectTechnicalDocumentation },
             _ => new HashSet<string>()
         };
     }

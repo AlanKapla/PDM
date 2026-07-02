@@ -8,7 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Business.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Resources\Agents\**\*.md" />
+    <EmbeddedResource Include="Resources\Agents\**\*.json" />
   </ItemGroup>
 
   <ItemGroup>

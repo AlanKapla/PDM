@@ -26,7 +26,7 @@ import {
   Input,
   Tooltip,
 } from "@chakra-ui/react";
-import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp, Settings } from "lucide-react";
+import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp, Settings, ScanLine } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
 import UploadFilesModal from "../components/UploadFilesModal";
@@ -38,7 +38,7 @@ import { projectApi, ResourceScope } from "../api/projectApi";
 import { tenantApi } from "../api/tenantApi";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
-import { useProjectDetails, useProjectMembers, projectKeys } from '../hooks/queries';
+import { useProjectDetails, useProjectMembers, projectKeys, useTechnicalDocumentationCount } from '../hooks/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ProjectDetailsWeb } from "../types/project.types";
 import { DeleteAlertDialog } from "../components/ui";
@@ -71,6 +71,12 @@ export default function ProjectDetails() {
     isLoading: isLoadingMembers,
     refetch: refetchMembers,
   } = useProjectMembers(user?.activeTenantId ?? undefined, projectId);
+
+  const { data: technicalDocumentationCount } = useTechnicalDocumentationCount(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    permissions.canViewTechnicalDocumentation && !permissions.loading
+  );
 
   const queryClient = useQueryClient();
 
@@ -713,6 +719,32 @@ export default function ProjectDetails() {
                     <VStack spacing={3}>
                       <Icon as={FileText} boxSize={8} color="level2.600" />
                       <Text fontWeight="bold" fontSize="md">Pliki</Text>
+                    </VStack>
+                  </Box>
+                )}
+
+                {permissions.canViewTechnicalDocumentation && (
+                  <Box
+                    as="button"
+                    aria-label={`Dokumentacja techniczna${technicalDocumentationCount !== undefined ? `, ${technicalDocumentationCount} pozycji` : ''}`}
+                    bg={cardBg}
+                    p={6}
+                    rounded="lg"
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                    shadow="sm"
+                    _hover={{ bg: hoverBg, transform: "translateY(-2px)", shadow: "md" }}
+                    transition="all 0.2s"
+                    onClick={() => navigate(`/projects/${projectId}/technical-documentation`)}
+                  >
+                    <VStack spacing={3}>
+                      <Icon as={ScanLine} boxSize={8} color="teal.600" aria-hidden="true" />
+                      <Text fontWeight="bold" fontSize="md">Dokumentacja techniczna</Text>
+                      {technicalDocumentationCount !== undefined && (
+                        <Badge colorScheme="teal" borderRadius="full">
+                          {technicalDocumentationCount}
+                        </Badge>
+                      )}
                     </VStack>
                   </Box>
                 )}

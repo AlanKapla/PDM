@@ -2,6 +2,10 @@
 using Business.AIAgent.Registration;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
+using Business.Implementation.Services.AI;
+using Business.Implementation.Services.AI.TechnicalDocumentation;
+using Business.Implementation.Services.AI.TechnicalDocumentation.Pipeline;
+using Business.Interfaces.Services.TechnicalDocumentation;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
@@ -23,6 +27,7 @@ using Entities.Models.Projects;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
+using Entities.Models.TechnicalDocumentation;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -333,6 +338,11 @@ namespace WebApi.Extensions
                 .AddRepository<TrackedCost>()
                 .AddRepository<BaseCostAttachment>();
 
+            services
+                .AddReadRepository<ProjectTechnicalDocumentation>()
+                .AddWriteRepository<ProjectTechnicalDocumentation>()
+                .AddReadRepository<ProjectTechnicalDocumentationFile>()
+                .AddWriteRepository<ProjectTechnicalDocumentationFile>();
 
             return services;
         }
@@ -401,6 +411,47 @@ namespace WebApi.Extensions
             services.AddScoped<IDocumentParserService, DocumentParserService>();
             services.AddScoped<ICostEstimateAIGeneratorService, CostEstimateAIGeneratorService>();
 
+            services.AddScoped<IQueuedTechnicalDocumentationSender, QueuedTechnicalDocumentationSender>();
+            services.AddScoped<IPdfToImageConverterService, PdfToImageConverterService>();
+            services.AddScoped<ITechnicalDocumentationImagePreprocessor, TechnicalDocumentationImagePreprocessor>();
+            services.AddScoped<DrawingThematicGroupResolver>();
+            services.AddScoped<IDrawingClassificationAgent, DrawingClassificationAgentService>();
+            services.AddSingleton<IExtractionFocusRouter, ExtractionFocusRouter>();
+            services.AddScoped<IArchitecturalExtractionAgent, ArchitecturalExtractionAgentService>();
+            services.AddScoped<IExtractionAgentB, ExtractionAgentBService>();
+            services.AddScoped<IUniversalExtractionAgent, UniversalExtractionAgentService>();
+            services.AddScoped<IComparatorAgent, ComparatorAgentService>();
+            services.AddScoped<IAggregationAgent, AggregationAgentService>();
+            services.AddScoped<IMaterialCalculationAgent, MaterialCalculationAgentService>();
+            services.AddScoped<IMaterialOrchestrationService, MaterialOrchestrationService>();
+            services.AddScoped<IAuditAgent, AuditAgentService>();
+            services.AddScoped<IDetailsValidationAgent, DetailsValidationAgentService>();
+            services.AddScoped<IGroupExtractionAgentService, GroupExtractionAgentService>();
+            services.AddScoped<IExtractionVerificationAgentService, ExtractionVerificationAgentService>();
+            services.AddScoped<IConsolidationAgentService, ConsolidationAgentService>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, GroupExtractionPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, VerificationPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, ConsolidationPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, AuditPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, OutputPipelineAgent>();
+            services.AddScoped<LegacyTechnicalDocumentationPipelineRunner>();
+            services.AddScoped<GroupTechnicalDocumentationPipelineRunner>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, IngestionPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, ClassificationPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, GroupingPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, ImageExtractionPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, CrossReferencePipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, RoomsPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, OpeningsPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, MaterialsCalculationPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, ReportPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineAgent, DetailsValidationPipelineAgent>();
+            services.AddScoped<ITechnicalDocumentationPipelineRunner, TechnicalDocumentationPipelineRunner>();
+            services.AddScoped<ITechnicalDocumentationOrchestratorService, TechnicalDocumentationOrchestratorService>();
+            services.AddScoped<ITechnicalDocumentationProcessingService, TechnicalDocumentationProcessingService>();
+            services.AddScoped<ITechnicalDocumentationDispatcher, SignalRTechnicalDocumentationDispatcher>();
+            services.AddHostedService<TechnicalDocumentationWorker>();
+
             return services;
         }
 
@@ -437,6 +488,7 @@ namespace WebApi.Extensions
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
             services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
             services.Configure<RedisSettings>(config.GetSection(RedisSettings.SectionName));
+            services.Configure<TechnicalDocumentationOptions>(config.GetSection(TechnicalDocumentationOptions.SectionName));
             return services;
         }
 
@@ -504,6 +556,9 @@ namespace WebApi.Extensions
                 .AddScoped<IRepository<T>, Repository<T>>();
 
         public static IServiceCollection AddReadOnlyRepository<T>(this IServiceCollection services) where T : BaseEntity
+            => services.AddScoped<IReadRepository<T>, ReadRepository<T>>();
+
+        public static IServiceCollection AddReadRepository<T>(this IServiceCollection services) where T : BaseEntity
             => services.AddScoped<IReadRepository<T>, ReadRepository<T>>();
 
         public static IServiceCollection AddWriteRepository<T>(this IServiceCollection services) where T : class

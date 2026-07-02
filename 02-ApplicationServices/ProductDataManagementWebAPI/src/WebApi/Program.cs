@@ -76,6 +76,9 @@ internal class Program
         app.MapHub<WebApi.Hubs.AIHub>("/api/hubs/ai")
             .RequireCors("AllowFrontend");
 
+        app.MapHub<WebApi.Hubs.TechnicalDocumentationHub>("/api/hubs/technical-documentation")
+            .RequireCors("AllowFrontend");
+
         app.MapChatHub()
             .RequireCors("AllowFrontend");
 

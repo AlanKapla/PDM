@@ -21,6 +21,8 @@ import ProjectFiles from "../pages/ProjectFiles";
 import ProjectParameters from "../pages/ProjectParameters";
 import ProjectCosts from "../pages/ProjectCosts";
 import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
+import ProjectTechnicalDocumentationPage from "../pages/ProjectTechnicalDocumentationPage";
+import ProjectTechnicalDocumentationDetailsPage from "../pages/ProjectTechnicalDocumentationDetailsPage";
 import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
@@ -196,6 +198,24 @@ export default function AppRouter() {
       />
 
       <Route
+        path="/projects/:projectId/technical-documentation"
+        element={
+          <ProtectedRoute>
+            <ProjectTechnicalDocumentationPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/technical-documentation/:docId"
+        element={
+          <ProtectedRoute>
+            <ProjectTechnicalDocumentationDetailsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/projects/:projectId/parameters"
         element={
           <ProtectedRoute>
@@ -245,6 +265,24 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/technical-documentation"
+        element={
+          <ProtectedRoute>
+            <ProjectTechnicalDocumentationPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/technical-documentation/:docId"
+        element={
+          <ProtectedRoute>
+            <ProjectTechnicalDocumentationDetailsPage />
           </ProtectedRoute>
         }
       />

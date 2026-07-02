@@ -12,5 +12,31 @@ public interface IAICompletionService
         float? temperature = null,
         bool jsonMode = false);
 
-    Task<string> CompleteWithImageAsync(string systemPrompt, byte[] imageBytes, string mediaType, CancellationToken cancellationToken);
+    Task<string> CompleteWithImageAsync(
+        string systemPrompt,
+        byte[] imageBytes,
+        string mediaType,
+        CancellationToken cancellationToken,
+        int maxOutputTokens = 4096,
+        float? temperature = null,
+        bool jsonMode = false);
+
+    Task<string> CompleteWithImageAndTextAsync(
+        string systemPrompt,
+        string userText,
+        byte[] imageBytes,
+        string mediaType,
+        CancellationToken cancellationToken,
+        int maxOutputTokens = 4096,
+        float? temperature = null,
+        bool jsonMode = false);
+
+    Task<string> CompleteWithImagesAsync(
+        string systemPrompt,
+        string? userText,
+        IReadOnlyList<(byte[] ImageBytes, string MediaType)> images,
+        CancellationToken cancellationToken,
+        int maxOutputTokens = 8192,
+        float? temperature = null,
+        bool jsonMode = false);
 }

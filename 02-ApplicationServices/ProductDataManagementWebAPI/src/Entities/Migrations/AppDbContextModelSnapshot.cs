@@ -1185,6 +1185,104 @@ namespace Entities.Migrations
                     b.UseTphMappingStrategy();
                 });
 
+            modelBuilder.Entity("Entities.Models.TechnicalDocumentation.ProjectTechnicalDocumentation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AutoRetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("TenantId", "ProjectId");
+
+                    b.ToTable("ProjectTechnicalDocumentations", (string)null);
+                });
+
+            modelBuilder.Entity("Entities.Models.TechnicalDocumentation.ProjectTechnicalDocumentationFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BlobName")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TechnicalDocumentationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TechnicalDocumentationId");
+
+                    b.HasIndex("TenantId", "ProjectId", "TechnicalDocumentationId");
+
+                    b.ToTable("ProjectTechnicalDocumentationFiles", (string)null);
+                });
+
             modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2483,6 +2581,34 @@ namespace Entities.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("Entities.Models.TechnicalDocumentation.ProjectTechnicalDocumentation", b =>
+                {
+                    b.HasOne("Entities.Models.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.Projects.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Entities.Models.TechnicalDocumentation.ProjectTechnicalDocumentationFile", b =>
+                {
+                    b.HasOne("Entities.Models.TechnicalDocumentation.ProjectTechnicalDocumentation", "TechnicalDocumentation")
+                        .WithMany("Files")
+                        .HasForeignKey("TechnicalDocumentationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TechnicalDocumentation");
+                });
+
             modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>
                 {
                     b.HasOne("Entities.Models.Tenants.Tenant", "Tenant")
@@ -2836,6 +2962,11 @@ namespace Entities.Migrations
             modelBuilder.Entity("Entities.Models.Projects.ProjectMember", b =>
                 {
                     b.Navigation("ModulePermissions");
+                });
+
+            modelBuilder.Entity("Entities.Models.TechnicalDocumentation.ProjectTechnicalDocumentation", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("Entities.Models.Tenants.Contractor", b =>

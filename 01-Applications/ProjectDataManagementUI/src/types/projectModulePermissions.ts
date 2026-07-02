@@ -5,6 +5,7 @@ export const ProjectModule = {
   Costs: 4,
   Schedule: 5,
   DashboardTracker: 6,
+  TechnicalDocumentation: 7,
 } as const;
 
 export type ProjectModule = (typeof ProjectModule)[keyof typeof ProjectModule];
@@ -16,6 +17,7 @@ export const PROJECT_MODULE_LABELS: Record<ProjectModule, string> = {
   [ProjectModule.Costs]: "Wydatki",
   [ProjectModule.Schedule]: "Harmonogramy",
   [ProjectModule.DashboardTracker]: "Śledzenie kosztów",
+  [ProjectModule.TechnicalDocumentation]: "Dokumentacja techniczna",
 };
 
 /** Domyślny preset modułów przy zaproszeniu e-mailem do projektu */

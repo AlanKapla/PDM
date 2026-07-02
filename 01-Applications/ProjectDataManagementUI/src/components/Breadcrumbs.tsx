@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import {
   useProjectDetails,
   useCostEstimateDetails,
+  useTechnicalDocumentationDetails,
 } from "../hooks/queries";
 
 interface BreadcrumbSegment {
@@ -39,7 +40,14 @@ export default function Breadcrumbs() {
     params.estimateId
   );
 
+  const { data: technicalDocumentationDetails } = useTechnicalDocumentationDetails(
+    user?.activeTenantId ?? undefined,
+    params.projectId,
+    params.docId
+  );
+
   const costEstimateName = costEstimateDetails?.name ?? "";
+  const technicalDocumentationName = technicalDocumentationDetails?.name ?? "";
 
   // Generuj breadcrumbs po załadowaniu nazwy projektu
   useEffect(() => {
@@ -80,6 +88,21 @@ export default function Breadcrumbs() {
             segments.push({ label: "Pliki", path: `/projects/${params.projectId}/files`, isCurrentPage: true });
           } else if (pathSegments[2] === "costs") {
             segments.push({ label: "Wydatki", path: `/projects/${params.projectId}/costs`, isCurrentPage: true });
+          } else if (pathSegments[2] === "technical-documentation") {
+            if (params.docId) {
+              segments.push({
+                label: "Dokumentacja techniczna",
+                path: `/projects/${params.projectId}/technical-documentation`,
+              });
+              const docLabel = technicalDocumentationName || "Dokumentacja";
+              segments.push({ label: docLabel, path: location.pathname, isCurrentPage: true });
+            } else {
+              segments.push({
+                label: "Dokumentacja techniczna",
+                path: `/projects/${params.projectId}/technical-documentation`,
+                isCurrentPage: true,
+              });
+            }
           } else if (pathSegments[2] === "dashboard") {
             segments.push({ label: "Dashboard", path: `/projects/${params.projectId}/dashboard`, isCurrentPage: true });
           } else if (pathSegments[2] === "parameters") {
@@ -110,7 +133,7 @@ export default function Breadcrumbs() {
     };
 
     generateBreadcrumbs();
-  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, projectName, costEstimateName]);
+  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, params.docId, projectName, costEstimateName, technicalDocumentationName]);
 
   if (breadcrumbs.length <= 1) {
     return null;

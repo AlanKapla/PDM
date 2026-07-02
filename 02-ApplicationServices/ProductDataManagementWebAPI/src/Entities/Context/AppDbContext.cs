@@ -12,6 +12,7 @@ using Entities.Models.WorkSchedules;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
+using Entities.Models.TechnicalDocumentation;
 
 namespace Entities.Context
 {
@@ -59,6 +60,9 @@ namespace Entities.Context
         public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<BaseCostAttachment> CostAttachments => Set<BaseCostAttachment>();
+
+        public DbSet<ProjectTechnicalDocumentation> ProjectTechnicalDocumentations => Set<ProjectTechnicalDocumentation>();
+        public DbSet<ProjectTechnicalDocumentationFile> ProjectTechnicalDocumentationFiles => Set<ProjectTechnicalDocumentationFile>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

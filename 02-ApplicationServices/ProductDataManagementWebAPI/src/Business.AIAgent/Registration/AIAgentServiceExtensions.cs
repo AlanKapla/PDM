@@ -28,6 +28,7 @@ public static class AIAgentServiceExtensions
         services.AddScoped<ToolCallExecutor>();
         services.AddScoped<IAgentRunner, AgentRunner>();
         services.AddScoped<IToolRegistry, ToolRegistry>();
+        services.AddScoped<ICompletionTokenUsageRecorder, ScopedCompletionTokenUsageRecorder>();
         services.AddScoped<IAICompletionService, AzureAICompletionService>();
 
         // Domain tools — registered as IAgentTool so ToolRegistry can discover all

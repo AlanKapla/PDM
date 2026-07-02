@@ -1,0 +1,1559 @@
+{
+  "project": {
+    "name": "Budynek Mieszkalny Jednorodzinny",
+    "investor": "Dominika i Alan Kapła",
+    "address": "ul. Szlachecka 2/1B, 07-200 Wyszków",
+    "location": "Rybienko Nowe, gm. Wyszków, dz. nr ew. 74/48",
+    "designer": "Lech Ślepowroński, upr.bud. nr 5583/61",
+    "collaborator": "inż. Paweł Siemieniewski",
+    "date": "Listopad 2022",
+    "phase": "Projekt architektoniczno-budowlany",
+    "buildingType": "Budynek mieszkalny jednorodzinny"
+  },
+  "totalAreaM2": 250.06,
+  "rooms": [
+    {
+      "floor": "Parter",
+      "floorOrder": 0,
+      "totalAreaM2": 153.76,
+      "items": [
+        {
+          "number": "11",
+          "name": "Wiatrołap",
+          "areaM2": 8.37,
+          "category": "komunikacja"
+        },
+        {
+          "number": "12",
+          "name": "Spiżarnia",
+          "areaM2": 3.68,
+          "category": "usługowe"
+        },
+        {
+          "number": "13",
+          "name": "Kuchnia",
+          "areaM2": 15.40,
+          "category": "usługowe"
+        },
+        {
+          "number": "14",
+          "name": "Salon",
+          "areaM2": 40.74,
+          "category": "mieszkalne",
+          "notes": "ANTRESOLA — BRAK STROPU"
+        },
+        {
+          "number": "15",
+          "name": "Komunikacja",
+          "areaM2": 5.26,
+          "category": "komunikacja"
+        },
+        {
+          "number": "16",
+          "name": "WC",
+          "areaM2": 2.16,
+          "category": "sanitarne"
+        },
+        {
+          "number": "17",
+          "name": "Sypialnia",
+          "areaM2": 15.38,
+          "category": "mieszkalne"
+        },
+        {
+          "number": "18",
+          "name": "Garderoba",
+          "areaM2": 6.14,
+          "category": "usługowe"
+        },
+        {
+          "number": "19",
+          "name": "Łazienka",
+          "areaM2": 8.46,
+          "category": "sanitarne"
+        },
+        {
+          "number": "110",
+          "name": "Kotłownia",
+          "areaM2": 6.21,
+          "category": "gospodarcze"
+        },
+        {
+          "number": "111",
+          "name": "Garaż",
+          "areaM2": 42.00,
+          "category": "gospodarcze"
+        }
+      ]
+    },
+    {
+      "floor": "Poddasze",
+      "floorOrder": 99,
+      "totalAreaM2": 96.30,
+      "areaNotes": "Powierzchnia użytkowa liczona do 180cm",
+      "items": [
+        {
+          "number": "21",
+          "name": "Klatka schodowa",
+          "areaM2": 6.32,
+          "category": "komunikacja"
+        },
+        {
+          "number": "22",
+          "name": "Przedpokój",
+          "areaM2": 18.51,
+          "category": "komunikacja"
+        },
+        {
+          "number": "23",
+          "name": "Pokój",
+          "areaM2": 12.25,
+          "category": "mieszkalne"
+        },
+        {
+          "number": "24",
+          "name": "Pralnia",
+          "areaM2": 7.35,
+          "category": "usługowe"
+        },
+        {
+          "number": "25",
+          "name": "Łazienka",
+          "areaM2": 9.07,
+          "category": "sanitarne"
+        },
+        {
+          "number": "26",
+          "name": "Pokój",
+          "areaM2": 15.01,
+          "category": "mieszkalne"
+        },
+        {
+          "number": "27",
+          "name": "Pokój",
+          "areaM2": 12.40,
+          "category": "mieszkalne"
+        },
+        {
+          "number": "28",
+          "name": "Pokój",
+          "areaM2": 15.31,
+          "category": "mieszkalne"
+        }
+      ]
+    }
+  ],
+  "roof": {
+    "pitchDegrees": 35,
+    "areaM2": 328.0,
+    "coveringType": "Dachówka ceramiczna lub betonowa",
+    "sourceDrawing": "A-04",
+    "roofWindows": [
+      {
+        "type": "Okno dachowe PCV",
+        "widthCm": 78,
+        "heightCm": 140,
+        "count": 2,
+        "location": "dach główny",
+        "sourceDrawing": "A-04"
+      },
+      {
+        "type": "Okno dachowe",
+        "widthCm": 78,
+        "heightCm": 140,
+        "count": 1,
+        "location": "dach nad garażem",
+        "sourceDrawing": "A-04"
+      }
+    ],
+    "ventilation": {
+      "type": "Kominek wentylacyjny — odpowietrzenie kanalizacji",
+      "count": 1,
+      "sourceDrawing": "A-04"
+    },
+    "drainage": {
+      "downpipeDiameterMm": 100,
+      "minSlopePct": 0.5,
+      "notes": "Rynny mocować ze spadkiem w kierunku rur spustowych min. 0.5%"
+    },
+    "layers": [
+      {
+        "zone": "D — dach od wewnątrz",
+        "sequence": [ "Dachówka", "Łaty", "Kontrłaty", "Membrana dachowa", "Deskowanie pełne", "Folia paroprzepuszczalna", "Wełna min. 18cm lub 15cm", "min. 10cm wełna", "Stelarz metalowy na wieszakach", "Płyta G-K" ]
+      },
+      {
+        "zone": "E — pokrycie zewnętrzne",
+        "sequence": [ "Dachówka", "Łaty", "Kontrłaty", "Membrana dachowa", "Deskowanie pełne", "Krokwie 10x20cm", "Wełna min. 18cm lub 15cm", "Płyta OSB 22mm", "Styropian 3cm", "Tynk elewacyjny cienkowarstwowy" ]
+      }
+    ]
+  },
+  "timberStructure": {
+    "woodClass": "C24 — drewno sosnowe klasy min. C24",
+    "sourceDrawing": "K-04",
+    "totalVolumeM3": 16.42,
+    "notes": "DODAĆ ZAPAS DO KAŻDEGO ELEMENTU OK. 15-25CM",
+    "groups": [
+      {
+        "name": "Krokwie dachu nad garażem",
+        "section": "8x20",
+        "rows": [
+          {
+            "count": 2,
+            "lengthM": 1.27,
+            "rowSumMb": 2.54
+          },
+          {
+            "count": 2,
+            "lengthM": 2.31,
+            "rowSumMb": 4.62
+          },
+          {
+            "count": 2,
+            "lengthM": 3.35,
+            "rowSumMb": 6.70
+          },
+          {
+            "count": 1,
+            "lengthM": 4.29,
+            "rowSumMb": 4.29
+          },
+          {
+            "count": 8,
+            "lengthM": 4.32,
+            "rowSumMb": 34.56
+          },
+          {
+            "count": 1,
+            "lengthM": 6.50,
+            "rowSumMb": 6.50
+          }
+        ],
+        "groupSumMb": 68.81,
+        "groupVolumeM3": 1.101
+      },
+      {
+        "name": "Krokwie dachu głównego",
+        "section": "10x20",
+        "rows": [
+          {
+            "count": 1,
+            "lengthM": 1.56,
+            "rowSumMb": 1.56
+          },
+          {
+            "count": 1,
+            "lengthM": 1.66,
+            "rowSumMb": 1.66
+          },
+          {
+            "count": 1,
+            "lengthM": 3.29,
+            "rowSumMb": 3.29
+          },
+          {
+            "count": 2,
+            "lengthM": 4.35,
+            "rowSumMb": 8.70
+          },
+          {
+            "count": 1,
+            "lengthM": 5.44,
+            "rowSumMb": 5.44
+          },
+          {
+            "count": 1,
+            "lengthM": 5.45,
+            "rowSumMb": 5.45
+          },
+          {
+            "count": 1,
+            "lengthM": 5.53,
+            "rowSumMb": 5.53
+          },
+          {
+            "count": 1,
+            "lengthM": 5.56,
+            "rowSumMb": 5.56
+          },
+          {
+            "count": 1,
+            "lengthM": 5.69,
+            "rowSumMb": 5.69
+          },
+          {
+            "count": 2,
+            "lengthM": 6.57,
+            "rowSumMb": 13.14
+          },
+          {
+            "count": 1,
+            "lengthM": 6.64,
+            "rowSumMb": 6.64
+          },
+          {
+            "count": 1,
+            "lengthM": 6.76,
+            "rowSumMb": 6.76
+          },
+          {
+            "count": 36,
+            "lengthM": 7.26,
+            "rowSumMb": 261.36
+          },
+          {
+            "count": 1,
+            "lengthM": 7.71,
+            "rowSumMb": 7.71
+          },
+          {
+            "count": 1,
+            "lengthM": 7.84,
+            "rowSumMb": 7.84
+          },
+          {
+            "count": 1,
+            "lengthM": 8.45,
+            "rowSumMb": 8.45
+          },
+          {
+            "count": 1,
+            "lengthM": 8.73,
+            "rowSumMb": 8.73
+          },
+          {
+            "count": 29,
+            "lengthM": 8.92,
+            "rowSumMb": 258.68
+          },
+          {
+            "count": 1,
+            "lengthM": 9.32,
+            "rowSumMb": 9.32
+          },
+          {
+            "count": 1,
+            "lengthM": 9.87,
+            "rowSumMb": 9.87
+          },
+          {
+            "count": 2,
+            "lengthM": 9.90,
+            "rowSumMb": 19.80
+          }
+        ],
+        "groupSumMb": 667.05,
+        "groupVolumeM3": 13.341
+      },
+      {
+        "name": "Murłaty i słupki",
+        "section": "14x14",
+        "rows": [
+          {
+            "count": 3,
+            "lengthM": 1.04,
+            "rowSumMb": 3.12
+          },
+          {
+            "count": 7,
+            "lengthM": 1.19,
+            "rowSumMb": 8.33
+          },
+          {
+            "count": 2,
+            "lengthM": 2.63,
+            "rowSumMb": 5.26
+          },
+          {
+            "count": 2,
+            "lengthM": 3.58,
+            "rowSumMb": 7.16
+          },
+          {
+            "count": 1,
+            "lengthM": 10.66,
+            "rowSumMb": 10.66
+          },
+          {
+            "count": 1,
+            "lengthM": 10.83,
+            "rowSumMb": 10.83
+          },
+          {
+            "count": 1,
+            "lengthM": 16.70,
+            "rowSumMb": 16.70
+          }
+        ],
+        "groupSumMb": 62.06,
+        "groupVolumeM3": 1.216
+      },
+      {
+        "name": "Płatwie",
+        "section": "14x18",
+        "rows": [
+          {
+            "count": 2,
+            "lengthM": 2.36,
+            "rowSumMb": 4.72
+          },
+          {
+            "count": 1,
+            "lengthM": 3.60,
+            "rowSumMb": 3.60
+          },
+          {
+            "count": 1,
+            "lengthM": 7.37,
+            "rowSumMb": 7.37
+          },
+          {
+            "count": 1,
+            "lengthM": 16.70,
+            "rowSumMb": 16.70
+          }
+        ],
+        "groupSumMb": 30.03,
+        "groupVolumeM3": 0.757
+      }
+    ]
+  },
+  "walls": {
+    "sourceDrawings": [ "A-02", "A-03", "A-05", "A-06" ],
+    "external": {
+      "thicknessCm": 44,
+      "layers": [
+        {
+          "material": "Pustaki/bloczki murowe",
+          "thicknessCm": 24
+        },
+        {
+          "material": "Styropian EPS 100",
+          "thicknessCm": 10
+        },
+        {
+          "material": "Tynk elewacyjny cienkowarstwowy",
+          "thicknessCm": null
+        }
+      ],
+      "finishes": [
+        {
+          "zone": "ściany",
+          "material": "tynk elewacyjny",
+          "color": "biały",
+          "sourceDrawings": [ "A-07", "A-08", "A-09", "A-10" ]
+        },
+        {
+          "zone": "ściany",
+          "material": "tynk elewacyjny",
+          "color": "szary",
+          "sourceDrawings": [ "A-07", "A-08", "A-09", "A-10" ]
+        },
+        {
+          "zone": "cokół",
+          "material": "tynk mozaikowy",
+          "color": "szary",
+          "sourceDrawings": [ "A-07", "A-08", "A-09", "A-10" ]
+        }
+      ]
+    },
+    "internal": {
+      "loadBearing": {
+        "thicknessCm": 24,
+        "material": "pustaki/bloczki"
+      },
+      "partition": {
+        "thicknessCm": 12,
+        "material": "pustaki/bloczki"
+      }
+    },
+    "collarWall": {
+      "thicknessCm": 24,
+      "heightCm": 115,
+      "timber": {
+        "section": "14x14",
+        "material": "drewno C24"
+      },
+      "ringBeam": {
+        "widthCm": 20,
+        "heightCm": 25,
+        "reinforcement": "wieniec żelbetowy stężający"
+      }
+    },
+    "ringBeams": [
+      {
+        "location": "nad parterem",
+        "widthCm": 24,
+        "heightCm": 25,
+        "reinforcement": "4#12 + strzemiona"
+      },
+      {
+        "location": "ściany działowe",
+        "widthCm": 12,
+        "heightCm": 25,
+        "reinforcement": "wg projektu"
+      },
+      {
+        "location": "ściany szczytowe",
+        "widthCm": 20,
+        "heightCm": 25,
+        "reinforcement": "min. 20x25cm"
+      }
+    ],
+    "columns": [
+      {
+        "symbol": "S-1",
+        "widthCm": 24,
+        "heightCm": 24,
+        "reinforcement": "4#12 + strzemiona #8 co 18cm",
+        "sourceDrawing": "K-06"
+      },
+      {
+        "symbol": "S-2",
+        "widthCm": 24,
+        "heightCm": 24,
+        "reinforcement": "4#12 + strzemiona #8 co 18cm",
+        "sourceDrawing": "K-06"
+      },
+      {
+        "symbol": "S-4 (kolankowe)",
+        "widthCm": 12,
+        "heightCm": 30,
+        "reinforcement": "4#12",
+        "sourceDrawing": "A-03, K-06"
+      }
+    ]
+  },
+  "floors": {
+    "sourceDrawings": [ "A-05", "A-06", "K-02", "K-03" ],
+    "slabThicknessCm": 18,
+    "concreteClass": "C20/25 (B25)",
+    "reinforcement": {
+      "bottom": {
+        "sourceDrawing": "K-02",
+        "totalMassKg": 1170.30,
+        "basicGrid": "#10 co 18cm",
+        "bars": [
+          {
+            "pos": 1,
+            "count": 59,
+            "diameterMm": 10,
+            "lengthM": 12.00,
+            "totalLengthM": 708.00,
+            "massKg": 436.84
+          },
+          {
+            "pos": 2,
+            "count": 28,
+            "diameterMm": 10,
+            "lengthM": 4.37,
+            "totalLengthM": 122.36,
+            "massKg": 75.50
+          },
+          {
+            "pos": 3,
+            "count": 6,
+            "diameterMm": 10,
+            "lengthM": 9.53,
+            "totalLengthM": 57.18,
+            "massKg": 35.28
+          },
+          {
+            "pos": 4,
+            "count": 48,
+            "diameterMm": 10,
+            "lengthM": 5.79,
+            "totalLengthM": 277.92,
+            "massKg": 171.48
+          },
+          {
+            "pos": 5,
+            "count": 47,
+            "diameterMm": 10,
+            "lengthM": 2.76,
+            "totalLengthM": 129.72,
+            "massKg": 80.04
+          },
+          {
+            "pos": 6,
+            "count": 12,
+            "diameterMm": 10,
+            "lengthM": 9.84,
+            "totalLengthM": 118.08,
+            "massKg": 72.86
+          },
+          {
+            "pos": 7,
+            "count": 21,
+            "diameterMm": 10,
+            "lengthM": 6.44,
+            "totalLengthM": 135.24,
+            "massKg": 83.44
+          },
+          {
+            "pos": 8,
+            "count": 31,
+            "diameterMm": 10,
+            "lengthM": 3.67,
+            "totalLengthM": 113.77,
+            "massKg": 70.20
+          },
+          {
+            "pos": 9,
+            "count": 34,
+            "diameterMm": 10,
+            "lengthM": 5.44,
+            "totalLengthM": 184.96,
+            "massKg": 114.12
+          },
+          {
+            "pos": 10,
+            "count": 5,
+            "diameterMm": 10,
+            "lengthM": 2.40,
+            "totalLengthM": 12.00,
+            "massKg": 7.40
+          },
+          {
+            "pos": 12,
+            "count": 5,
+            "diameterMm": 10,
+            "lengthM": 2.10,
+            "totalLengthM": 10.50,
+            "massKg": 6.48
+          },
+          {
+            "pos": 13,
+            "count": 5,
+            "diameterMm": 10,
+            "lengthM": 1.80,
+            "totalLengthM": 9.00,
+            "massKg": 5.55
+          },
+          {
+            "pos": 14,
+            "count": 5,
+            "diameterMm": 10,
+            "lengthM": 1.50,
+            "totalLengthM": 7.50,
+            "massKg": 4.63
+          },
+          {
+            "pos": 15,
+            "count": 5,
+            "diameterMm": 10,
+            "lengthM": 1.20,
+            "totalLengthM": 6.00,
+            "massKg": 3.70
+          },
+          {
+            "pos": 16,
+            "count": 5,
+            "diameterMm": 10,
+            "lengthM": 0.90,
+            "totalLengthM": 4.50,
+            "massKg": 2.78
+          }
+        ]
+      },
+      "top": {
+        "sourceDrawing": "K-03",
+        "totalMassKg": 604.73,
+        "notes": "Rysunki zbrojenia nie zawierają prętów dodatkowych np. prętów rozdzielczych oraz tzw. kobyłek",
+        "bars": [
+          {
+            "pos": 1,
+            "count": 94,
+            "diameterMm": 10,
+            "lengthM": 4.63,
+            "totalLengthM": 435.22,
+            "massKg": 268.53
+          },
+          {
+            "pos": 2,
+            "count": 25,
+            "diameterMm": 10,
+            "lengthM": 1.12,
+            "totalLengthM": 28.00,
+            "massKg": 17.28
+          },
+          {
+            "pos": 3,
+            "count": 30,
+            "diameterMm": 10,
+            "lengthM": 1.24,
+            "totalLengthM": 37.20,
+            "massKg": 22.95
+          },
+          {
+            "pos": 4,
+            "count": 38,
+            "diameterMm": 10,
+            "lengthM": 2.40,
+            "totalLengthM": 91.20,
+            "massKg": 56.27
+          },
+          {
+            "pos": 5,
+            "count": 17,
+            "diameterMm": 10,
+            "lengthM": 2.00,
+            "totalLengthM": 34.00,
+            "massKg": 20.98
+          },
+          {
+            "pos": 6,
+            "count": 18,
+            "diameterMm": 10,
+            "lengthM": 1.34,
+            "totalLengthM": 24.12,
+            "massKg": 14.88
+          },
+          {
+            "pos": 7,
+            "count": 27,
+            "diameterMm": 10,
+            "lengthM": 2.26,
+            "totalLengthM": 61.02,
+            "massKg": 37.65
+          },
+          {
+            "pos": 8,
+            "count": 18,
+            "diameterMm": 10,
+            "lengthM": 1.30,
+            "totalLengthM": 23.40,
+            "massKg": 14.44
+          },
+          {
+            "pos": 9,
+            "count": 20,
+            "diameterMm": 10,
+            "lengthM": 3.30,
+            "totalLengthM": 66.00,
+            "massKg": 40.72
+          },
+          {
+            "pos": 10,
+            "count": 11,
+            "diameterMm": 10,
+            "lengthM": 7.96,
+            "totalLengthM": 87.56,
+            "massKg": 54.02
+          },
+          {
+            "pos": 11,
+            "count": 77,
+            "diameterMm": 10,
+            "lengthM": 1.20,
+            "totalLengthM": 92.40,
+            "massKg": 57.01
+          }
+        ]
+      }
+    },
+    "zones": [
+      {
+        "zone": "A — salon, pokoje",
+        "sourceDrawing": "A-05",
+        "layers": [
+          {
+            "material": "Gres/klepka",
+            "thicknessCm": 2
+          },
+          {
+            "material": "Szlichta betonowa",
+            "thicknessCm": 5
+          },
+          {
+            "material": "Folia",
+            "thicknessCm": null
+          },
+          {
+            "material": "Styropian EPS 100",
+            "thicknessCm": 15
+          },
+          {
+            "material": "Izolacja przeciwwilgociowa",
+            "thicknessCm": null
+          },
+          {
+            "material": "Chudy beton",
+            "thicknessCm": 10
+          },
+          {
+            "material": "Piasek zagęszczony",
+            "thicknessCm": null
+          }
+        ]
+      },
+      {
+        "zone": "B — kuchnia, łazienki / strop",
+        "sourceDrawing": "A-05",
+        "layers": [
+          {
+            "material": "Gres/klepka",
+            "thicknessCm": 2
+          },
+          {
+            "material": "Szlichta betonowa",
+            "thicknessCm": 5
+          },
+          {
+            "material": "Folia",
+            "thicknessCm": null
+          },
+          {
+            "material": "Styropian EPS 100",
+            "thicknessCm": 10
+          },
+          {
+            "material": "Strop żelbetowy",
+            "thicknessCm": 18
+          },
+          {
+            "material": "Tynk gipsowy",
+            "thicknessCm": null
+          }
+        ]
+      },
+      {
+        "zone": "A — garaż (wg A-06)",
+        "sourceDrawing": "A-06",
+        "layers": [
+          {
+            "material": "Gres techniczny",
+            "thicknessCm": 2
+          },
+          {
+            "material": "Szlichta betonowa",
+            "thicknessCm": 10
+          },
+          {
+            "material": "Folia",
+            "thicknessCm": null
+          },
+          {
+            "material": "Styropian EPS 100",
+            "thicknessCm": 10
+          },
+          {
+            "material": "Izolacja przeciwwilgociowa",
+            "thicknessCm": null
+          },
+          {
+            "material": "Chudy beton",
+            "thicknessCm": 10
+          },
+          {
+            "material": "Piasek zagęszczony",
+            "thicknessCm": null
+          }
+        ]
+      },
+      {
+        "zone": "F — taras/dojście",
+        "sourceDrawing": "A-05",
+        "layers": [
+          {
+            "material": "Kostka betonowa",
+            "thicknessCm": 6
+          },
+          {
+            "material": "Podsypka piaskowo-cementowa",
+            "thicknessCm": null
+          },
+          {
+            "material": "Podbudowa betonowa",
+            "thicknessCm": null
+          },
+          {
+            "material": "Piasek zagęszczony",
+            "thicknessCm": null
+          },
+          {
+            "material": "Grunt rodzimy",
+            "thicknessCm": null
+          }
+        ]
+      }
+    ]
+  },
+  "foundations": {
+    "sourceDrawings": [ "K-01", "K-06", "A-05" ],
+    "concreteClass": "C20/25 (B25)",
+    "steelSpecification": "BST500S #10, #12; Al-S13S Ø6,8",
+    "coverageMm": 50,
+    "foundationLevelM": -1.0,
+    "foundationBottomLevelM": -1.32,
+    "footings": [
+      {
+        "symbol": "Ł-1",
+        "widthM": 0.60,
+        "heightM": 0.40,
+        "segments": [
+          {
+            "id": "ściana N",
+            "lengthM": 8.62
+          },
+          {
+            "id": "ściana S",
+            "lengthM": 8.62
+          },
+          {
+            "id": "ściana W",
+            "lengthM": 8.08
+          },
+          {
+            "id": "ściana E (bez garażu)",
+            "lengthM": 5.00
+          },
+          {
+            "id": "poprzeczna oś 2",
+            "lengthM": 8.62
+          },
+          {
+            "id": "poprzeczna oś 3",
+            "lengthM": 5.00
+          },
+          {
+            "id": "podłużna środkowa",
+            "lengthM": 5.76
+          },
+          {
+            "id": "ława schodów zewn.",
+            "lengthM": 1.52
+          }
+        ],
+        "totalLengthM": 51.22
+      },
+      {
+        "symbol": "Ł-2",
+        "widthM": 0.70,
+        "heightM": 0.40,
+        "segments": [
+          {
+            "id": "ściana N garażu",
+            "lengthM": 5.24
+          },
+          {
+            "id": "ściana E garażu",
+            "lengthM": 6.60
+          },
+          {
+            "id": "ściana S garażu",
+            "lengthM": 5.24
+          },
+          {
+            "id": "poprzeczna wewn. garażu",
+            "lengthM": 3.56
+          }
+        ],
+        "totalLengthM": 20.64
+      }
+    ],
+    "totalFootingLengthM": 71.86,
+    "pads": [
+      {
+        "symbol": "Stopa S1",
+        "bM": 1.30,
+        "lM": 1.00,
+        "heightM": 0.45,
+        "count": 2,
+        "sourceDrawing": "K-01"
+      },
+      {
+        "symbol": "Stopa S2",
+        "bM": 1.00,
+        "lM": 1.00,
+        "heightM": 0.45,
+        "count": 2,
+        "sourceDrawing": "K-01"
+      }
+    ],
+    "foundationWall": {
+      "material": "Bloczek betonowy",
+      "thicknessCm": 24,
+      "sourceDrawing": "A-05"
+    },
+    "connectionDetails": [
+      {
+        "title": "Zbrojenie słupów w ścianie kolankowej",
+        "reinforcement": "4#12 pręty podłużne; zakład dl=30 średnic; pręt startowy 4#12 25cm",
+        "sourceDrawing": "K-06"
+      },
+      {
+        "title": "Połączenie ław wewnętrznych",
+        "reinforcement": "Pręt łącznikowy naroża #12; zakład 45cm",
+        "sourceDrawing": "K-06"
+      },
+      {
+        "title": "Połączenie naroża ław i wieńców",
+        "reinforcement": "Pręt łącznikowy naroża #12; zakład 45cm",
+        "sourceDrawing": "K-06"
+      }
+    ]
+  },
+  "thermalInsulation": {
+    "sourceDrawings": [ "A-05", "A-06" ],
+    "elements": [
+      {
+        "element": "Ściany zewnętrzne",
+        "material": "Styropian EPS 100",
+        "thicknessCm": 10,
+        "system": "ETICS"
+      },
+      {
+        "element": "Podłoga na gruncie strefa A",
+        "material": "Styropian EPS 100",
+        "thicknessCm": 15
+      },
+      {
+        "element": "Podłoga na gruncie strefa B",
+        "material": "Styropian EPS 100",
+        "thicknessCm": 10
+      },
+      {
+        "element": "Podłoga garaż",
+        "material": "Styropian EPS 100",
+        "thicknessCm": 10
+      },
+      {
+        "element": "Dach — między krokwiami",
+        "material": "Wełna mineralna",
+        "thicknessCm": 18,
+        "notes": "min. 18cm lub 15cm"
+      },
+      {
+        "element": "Dach — warstwa dodatkowa",
+        "material": "Wełna mineralna",
+        "thicknessCm": 10,
+        "notes": "min. 10cm; stelarz metalowy na wieszakach"
+      },
+      {
+        "element": "Strop poddasza od wewnątrz",
+        "material": "Wełna mineralna",
+        "thicknessCm": 18,
+        "notes": "min. 18cm lub 15cm + min. 5cm"
+      }
+    ]
+  },
+  "joinery": {
+    "sourceDrawings": [ "A-02", "A-03", "A-04", "A-07", "A-08", "A-09", "A-10" ],
+    "notes": "Wymiary otworów okiennych i drzwiowych podane w stanie surowym",
+    "exterior": {
+      "doors": [
+        {
+          "type": "Drzwi wejściowe",
+          "count": 1,
+          "location": "elewacja NE",
+          "sourceDrawing": "A-07"
+        },
+        {
+          "type": "Brama garażowa",
+          "count": 1,
+          "location": "elewacja NE",
+          "sourceDrawing": "A-07"
+        },
+        {
+          "type": "Drzwi tarasowe",
+          "count": 4,
+          "location": "elewacja SW — duże przeszklenia",
+          "sourceDrawing": "A-08"
+        },
+        {
+          "type": "Drzwi boczne",
+          "count": 1,
+          "location": "elewacja SE",
+          "sourceDrawing": "A-09"
+        }
+      ],
+      "windows": [
+        {
+          "type": "Okno ścienne",
+          "location": "elewacja SW",
+          "count": 4,
+          "sourceDrawing": "A-08"
+        },
+        {
+          "type": "Okno ścienne",
+          "location": "elewacja NE",
+          "count": 2,
+          "sourceDrawing": "A-07"
+        },
+        {
+          "type": "Okno ścienne",
+          "location": "elewacja SE",
+          "count": 3,
+          "sourceDrawing": "A-09"
+        },
+        {
+          "type": "Okno ścienne",
+          "location": "elewacja NW",
+          "count": 3,
+          "sourceDrawing": "A-10"
+        },
+        {
+          "type": "Okno dachowe PCV 78x140cm",
+          "location": "dach główny",
+          "count": 2,
+          "widthCm": 78,
+          "heightCm": 140,
+          "sourceDrawing": "A-04"
+        },
+        {
+          "type": "Okno dachowe 78x140cm",
+          "location": "dach nad garażem",
+          "count": 1,
+          "widthCm": 78,
+          "heightCm": 140,
+          "sourceDrawing": "A-04"
+        }
+      ]
+    },
+    "interior": {
+      "doors": [
+        {
+          "type": "Drzwi wewnętrzne",
+          "floor": "Parter",
+          "countEstimated": 10
+        },
+        {
+          "type": "Drzwi wewnętrzne",
+          "floor": "Poddasze",
+          "countEstimated": 6
+        }
+      ]
+    }
+  },
+  "installations": {
+    "ventilation": {
+      "type": "Wentylacja mechaniczna (rekuperacja)",
+      "notes": "Zaprojektowano system wentylacji mechanicznej (rekuperacji) wg odrębnego opracowania",
+      "sourceDrawings": [ "A-02", "A-03" ]
+    },
+    "plumbing": {
+      "floors": [ "Parter — łazienka 19, WC 16, kuchnia 13, kotłownia 110", "Poddasze — łazienka 25, pralnia 24" ],
+      "sewage": {
+        "type": "Szambo jednokomorowe",
+        "sourceDrawing": "A-01"
+      },
+      "waterSupply": {
+        "type": "Przyłącze wodociągowe W",
+        "notes": "wg odrębnego opracowania",
+        "sourceDrawing": "A-01"
+      }
+    },
+    "electrical": {
+      "type": "Przyłącze elektroenergetyczne E",
+      "notes": "wg odrębnego opracowania",
+      "sourceDrawing": "A-01"
+    },
+    "heating": {
+      "type": "Kotłownia własna",
+      "roomNumber": "110",
+      "areaM2": 6.21,
+      "notes": "Rodzaj ogrzewania do wyboru inwestora"
+    }
+  },
+  "validatedDrawings": [
+    {
+      "sheetNumber": "A-01",
+      "drawingType": "zagospodarowanie_terenu",
+      "title": "Zagospodarowanie terenu",
+      "scale": 500,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-02",
+      "drawingType": "rzut_parteru",
+      "title": "Rzut parteru",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-03",
+      "drawingType": "rzut_poddasza",
+      "title": "Rzut poddasza",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-04",
+      "drawingType": "rzut_dachu",
+      "title": "Rzut dachu",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-05",
+      "drawingType": "przekroj",
+      "title": "Przekrój pionowy A-A",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-06",
+      "drawingType": "przekroj",
+      "title": "Przekrój pionowy B-B",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-07",
+      "drawingType": "elewacja",
+      "title": "Elewacja frontowa (NE)",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-08",
+      "drawingType": "elewacja",
+      "title": "Elewacja ogrodowa (SW)",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-09",
+      "drawingType": "elewacja",
+      "title": "Elewacja boczna 1 (SE)",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "A-10",
+      "drawingType": "elewacja",
+      "title": "Elewacja boczna 2 (NW)",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "K-01",
+      "drawingType": "rzut_fundamentow",
+      "title": "Rzut fundamentów",
+      "scale": 50,
+      "validated": true
+    },
+    {
+      "sheetNumber": "K-02",
+      "drawingType": "zbrojenie_stropu_dolne",
+      "title": "Zbrojenie dolne stropu",
+      "scale": 75,
+      "validated": true,
+      "hasMaterialTable": true
+    },
+    {
+      "sheetNumber": "K-03",
+      "drawingType": "zbrojenie_stropu_gorne",
+      "title": "Zbrojenie górne stropu",
+      "scale": 75,
+      "validated": true,
+      "hasMaterialTable": true
+    },
+    {
+      "sheetNumber": "K-04",
+      "drawingType": "rzut_wiezby_dachowej",
+      "title": "Rzut więźby dachowej",
+      "scale": 50,
+      "validated": true,
+      "hasMaterialTable": true
+    },
+    {
+      "sheetNumber": "K-05",
+      "drawingType": "aksonometria_wiezby",
+      "title": "Aksonometria więźby",
+      "scale": 100,
+      "validated": true
+    },
+    {
+      "sheetNumber": "K-06",
+      "drawingType": "detale_konstrukcyjne",
+      "title": "Detale konstrukcyjne",
+      "scale": 100,
+      "validated": true
+    }
+  ],
+  "drawingDependencies": [
+    {
+      "from": "A-02",
+      "to": "A-05",
+      "relation": "Linia przekroju A-A widoczna na rzucie parteru"
+    },
+    {
+      "from": "A-02",
+      "to": "A-06",
+      "relation": "Linia przekroju B-B widoczna na rzucie parteru"
+    },
+    {
+      "from": "A-02",
+      "to": "K-01",
+      "relation": "Układ ścian parteru → układ fundamentów"
+    },
+    {
+      "from": "A-02",
+      "to": "K-02",
+      "relation": "Rzut parteru → zbrojenie dolne stropu nad parterem"
+    },
+    {
+      "from": "A-02",
+      "to": "K-03",
+      "relation": "Rzut parteru → zbrojenie górne stropu nad parterem"
+    },
+    {
+      "from": "A-04",
+      "to": "K-04",
+      "relation": "Rzut dachu → rzut więźby dachowej"
+    },
+    {
+      "from": "A-04",
+      "to": "K-05",
+      "relation": "Rzut dachu → aksonometria więźby"
+    },
+    {
+      "from": "A-05",
+      "to": "K-01",
+      "relation": "Przekrój A-A → poziom posadowienia -1.0m ppt, beton B25"
+    },
+    {
+      "from": "A-05",
+      "to": "K-02",
+      "relation": "Przekrój A-A → grubość stropu 18cm"
+    },
+    {
+      "from": "K-01",
+      "to": "K-06",
+      "relation": "Rzut fundamentów → detale połączeń ław i wieńców"
+    }
+  ],
+  "materialSchedule": {
+    "calculatedAt": "2022-11-01T00:00:00Z",
+    "groups": {
+      "foundations": {
+        "concrete": [
+          {
+            "element": "Ławy Ł-1 (51.22m × 0.60m × 0.40m)",
+            "netM3": 12.29,
+            "wastePercent": 5,
+            "grossM3": 12.91,
+            "sourceType": "calculated",
+            "sourceDrawing": "K-01"
+          },
+          {
+            "element": "Ławy Ł-2 (20.64m × 0.70m × 0.40m)",
+            "netM3": 5.78,
+            "wastePercent": 5,
+            "grossM3": 6.07,
+            "sourceType": "calculated",
+            "sourceDrawing": "K-01"
+          },
+          {
+            "element": "Stopy fund. 4szt (1.3×1.0 + 1.0×1.0)",
+            "netM3": 2.34,
+            "wastePercent": 5,
+            "grossM3": 2.46,
+            "sourceType": "calculated",
+            "sourceDrawing": "K-01"
+          },
+          {
+            "element": "Chudy beton podkład gr.10cm",
+            "netM3": 19.50,
+            "wastePercent": 5,
+            "grossM3": 20.48,
+            "sourceType": "calculated",
+            "sourceDrawing": "A-05"
+          }
+        ],
+        "steel": [
+          {
+            "element": "Zbrojenie ław + łączniki naroży",
+            "netKg": 514.8,
+            "wastePercent": 10,
+            "grossKg": 566.3,
+            "sourceType": "calculated",
+            "sourceDrawing": "K-01, K-06"
+          },
+          {
+            "element": "Zbrojenie stóp fundamentowych",
+            "netKg": 221.6,
+            "wastePercent": 10,
+            "grossKg": 243.8,
+            "sourceType": "calculated",
+            "sourceDrawing": "K-01"
+          },
+          {
+            "element": "Zbrojenie słupów S-1/S-2 (14szt)",
+            "netKg": 240.3,
+            "wastePercent": 10,
+            "grossKg": 264.3,
+            "sourceType": "calculated",
+            "sourceDrawing": "K-06"
+          }
+        ],
+        "masonry": [
+          {
+            "element": "Bloczek betonowy fundamentowy 24cm",
+            "unit": "m2",
+            "netM2": 120.0,
+            "wastePercent": 5,
+            "grossM2": 126.0,
+            "sourceType": "estimated",
+            "sourceDrawing": "A-05"
+          }
+        ],
+        "insulation": [
+          {
+            "element": "Izolacja przeciwwilgociowa pozioma",
+            "netM2": 195.0,
+            "wastePercent": 10,
+            "grossM2": 214.5,
+            "sourceType": "estimated",
+            "sourceDrawing": "A-05"
+          },
+          {
+            "element": "Piasek zagęszczony",
+            "netM3": 48.8,
+            "wastePercent": 5,
+            "grossM3": 51.2,
+            "sourceType": "estimated",
+            "sourceDrawing": "A-05"
+          }
+        ]
+      },
+      "slabs": {
+        "concrete": [
+          {
+            "element": "Strop żelbetowy gr.18cm (~152.5m²)",
+            "netM3": 27.5,
+            "wastePercent": 5,
+            "grossM3": 28.9,
+            "sourceType": "calculated",
+            "sourceDrawing": "A-05, K-02"
+          }
+        ],
+        "steel": [
+          {
+            "element": "Zbrojenie dolne stropu #10",
+            "netKg": 1170.30,
+            "wastePercent": 0,
+            "grossKg": 1170.30,
+            "sourceType": "read",
+            "sourceDrawing": "K-02"
+          },
+          {
+            "element": "Zbrojenie górne stropu #10",
+            "netKg": 604.73,
+            "wastePercent": 0,
+            "grossKg": 604.73,
+            "sourceType": "read",
+            "sourceDrawing": "K-03"
+          }
+        ]
+      },
+      "roof": {
+        "timber": [
+          {
+            "element": "Krokwie 8x20 nad garażem",
+            "netM3": 1.101,
+            "wastePercent": 10,
+            "grossM3": 1.211,
+            "sourceType": "read",
+            "sourceDrawing": "K-04"
+          },
+          {
+            "element": "Krokwie 10x20 dach główny",
+            "netM3": 13.341,
+            "wastePercent": 10,
+            "grossM3": 14.675,
+            "sourceType": "read",
+            "sourceDrawing": "K-04"
+          },
+          {
+            "element": "Murłaty i słupki 14x14",
+            "netM3": 1.216,
+            "wastePercent": 10,
+            "grossM3": 1.338,
+            "sourceType": "read",
+            "sourceDrawing": "K-04"
+          },
+          {
+            "element": "Płatwie 14x18",
+            "netM3": 0.757,
+            "wastePercent": 10,
+            "grossM3": 0.833,
+            "sourceType": "read",
+            "sourceDrawing": "K-04"
+          }
+        ],
+        "covering": [
+          {
+            "element": "Dachówka",
+            "netM2": 328.0,
+            "wastePercent": 15,
+            "grossM2": 377.2,
+            "sourceType": "read",
+            "sourceDrawing": "A-04"
+          },
+          {
+            "element": "Membrana dachowa paroprzep.",
+            "netM2": 328.0,
+            "wastePercent": 15,
+            "grossM2": 377.2,
+            "sourceType": "calculated",
+            "sourceDrawing": "A-05"
+          },
+          {
+            "element": "Deskowanie pełne OSB gr.18mm",
+            "netM2": 328.0,
+            "wastePercent": 10,
+            "grossM2": 360.8,
+            "sourceType": "calculated",
+            "sourceDrawing": "A-05"
+          },
+          {
+            "element": "Wełna mineralna min.18cm",
+            "netM2": 328.0,
+            "wastePercent": 10,
+            "grossM2": 360.8,
+            "sourceType": "calculated",
+            "sourceDrawing": "A-05"
+          }
+        ]
+      },
+      "site": {
+        "plotAreaM2": 720.0,
+        "buildingFootprintM2": 194.55,
+        "pavedAreaM2": 93.5,
+        "greenAreaM2": 431.95,
+        "buildingCoverageRatio": 0.27,
+        "cubatureM3": 1350.0,
+        "sourceDrawing": "A-01"
+      }
+    },
+    "totals": {
+      "concreteM3": 88.12,
+      "steelKg": 2849.73,
+      "timberM3": 16.42,
+      "insulationM2": 1580.0
+    }
+  },
+  "auditResult": {
+    "warnings": [
+      "Długość ściany E garażu (6.60m) i poprzecznej wewnętrznej garażu (3.56m) odczytana z proporcji rzutu — brak bezpośredniego wymiaru w łańcuchu K-01",
+      "Ilość drzwi wewnętrznych (parter 10szt, poddasze 6szt) — szacunek z rzutów, brak zestawienia stolarki",
+      "Zbrojenie ław: brak tabeli zbrojenia fundamentów w projekcie — wartości obliczone z geometrii i detali K-06",
+      "Kleszcze więźby: brak wyraźnej pozycji sumarycznej w tabeli K-04 — pominięte w totalVolumeM3"
+    ],
+    "missingMaterials": [
+      "Zestawienie stolarki okiennej i drzwiowej — wymiary otworów w stanie surowym nie podane na rzutach",
+      "Opis instalacji elektrycznej — wg odrębnego opracowania (brak rysunków E w zestawie)",
+      "Opis instalacji wod-kan — wg odrębnego opracowania (brak rysunków W w zestawie)",
+      "Opis rekuperacji — wg odrębnego opracowania (brak rysunków W w zestawie)"
+    ],
+    "assumptions": [
+      "Wysokość słupów S-1/S-2: przyjęto 2.70m (od ławy do wieńca) na podstawie rzędnych z A-05",
+      "Ilość słupów: 14szt łącznie (8× S-1/S-2 w budynku głównym + 6× słupki kolankowe 12×30cm)",
+      "Pow. stropu do zbrojenia: ~152.5m² (pow. zabudowy 194.55m² minus garaż 42.0m²)"
+    ]
+  },
+  "processedAt": "2024-01-01T00:00:00Z",
+  "tokenUsage": 0
+}

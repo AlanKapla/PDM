@@ -26,6 +26,7 @@ public static class PermissionCodes
     public const string ProjectCosts = "PROJECT.COSTS";
     public const string ProjectSchedule = "PROJECT.SCHEDULE";
     public const string ProjectDashboardTracker = "PROJECT.DASHBOARD_TRACKER";
+    public const string ProjectTechnicalDocumentation = "PROJECT.TECHNICAL_DOCUMENTATION";
 
     // PROJECT – ADMIN ONLY
     public const string ProjectAdmin = "PROJECT.ADMIN";
@@ -38,6 +39,7 @@ public static class PermissionCodes
         ProjectView,
         ProjectSettings, ProjectMembers, ProjectFiles, ProjectEstimates,
         ProjectCosts, ProjectSchedule, ProjectDashboardTracker,
+        ProjectTechnicalDocumentation,
         ProjectAdmin
     };
 }

@@ -6,6 +6,7 @@ import { DemoProvider } from "./context/DemoContext";
 import CookieBanner from "./components/CookieBanner";
 import { AppErrorBoundary } from "./components/common/AppErrorBoundary";
 import { ApiErrorToastBridge } from "./components/common/ApiErrorToastBridge";
+import { TechnicalDocumentationToastBridge } from "./components/common/TechnicalDocumentationToastBridge";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <DemoProvider>
             <BrowserRouter>
               <ApiErrorToastBridge />
+              <TechnicalDocumentationToastBridge />
               <AppRouter />
               <CookieBanner />
             </BrowserRouter>

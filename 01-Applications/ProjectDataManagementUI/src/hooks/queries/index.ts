@@ -61,4 +61,12 @@ export {
   useDeleteContractor,
   contractorKeys,
 } from './useContractors';
+export {
+  technicalDocumentationKeys,
+  useTechnicalDocumentationCount,
+  useTechnicalDocumentationList,
+  useTechnicalDocumentationDetails,
+  useCreateTechnicalDocumentation,
+  useRetryTechnicalDocumentation,
+} from './useTechnicalDocumentation';
 

@@ -32,6 +32,8 @@ export function useProjectPermissions(projectId: string | undefined) {
       canViewEstimates: false,
       canViewCosts: false,
       canViewSchedule: false,
+      canViewTechnicalDocumentation: false,
+      canWriteTechnicalDocumentation: false,
       hasAnyResourceAccess: false,
       isAdmin: false,
       canViewAllResources: false,
@@ -61,13 +63,23 @@ export function useProjectPermissions(projectId: string | undefined) {
     // Schedule
     canViewSchedule: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectSchedule),
 
+    // Technical documentation
+    canViewTechnicalDocumentation:
+      canViewAllResources ||
+      hasPermission(permissions, PermissionCodes.ProjectTechnicalDocumentation),
+
+    canWriteTechnicalDocumentation:
+      canViewAllResources ||
+      hasPermission(permissions, PermissionCodes.ProjectTechnicalDocumentation),
+
     // Derived
     hasAnyResourceAccess:
       canViewAllResources ||
       hasPermission(permissions, PermissionCodes.ProjectFiles) ||
       hasPermission(permissions, PermissionCodes.ProjectEstimates) ||
       hasPermission(permissions, PermissionCodes.ProjectCosts) ||
-      hasPermission(permissions, PermissionCodes.ProjectSchedule),
+      hasPermission(permissions, PermissionCodes.ProjectSchedule) ||
+      hasPermission(permissions, PermissionCodes.ProjectTechnicalDocumentation),
 
     isAdmin,
     canViewAllResources,

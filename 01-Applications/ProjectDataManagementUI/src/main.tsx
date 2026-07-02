@@ -103,8 +103,8 @@ async function initializeApp() {
   }
 }
 
-// Register Service Worker for PWA
-if ("serviceWorker" in navigator) {
+// Register Service Worker for PWA (production only — SW interferes with Vite HMR in dev)
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")

@@ -7,5 +7,6 @@ public enum ProjectModule
     Estimates = 3,
     Costs = 4,
     Schedule = 5,
-    DashboardTracker = 6
+    DashboardTracker = 6,
+    TechnicalDocumentation = 7
 }

@@ -3,6 +3,7 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
 import { notificationHubService } from "../services/notificationHubService";
+import { technicalDocumentationHubService } from "../services/technicalDocumentationHubService";
 import type { UserProfile } from "../types/auth.types";
 
 interface AuthContextType {
@@ -119,6 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         // 1. Uruchom połączenie NAJPIERW (żeby nie tracić eventów)
         await notificationHubService.startConnection();
+        await technicalDocumentationHubService.startConnection();
       } catch (error) {
         // Jeśli init failed, loguj w DEV i spróbuj ponownie za 5s
         if (import.meta.env.DEV) {
@@ -222,6 +224,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // ✅ Zatrzymaj SignalR przed wylogowaniem
     try {
       await notificationHubService.stopConnection();
+      await technicalDocumentationHubService.stopConnection();
     } catch (error) {
     }
     

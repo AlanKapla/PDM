@@ -53,6 +53,7 @@ export const PermissionCodes = {
   ProjectCosts: "PROJECT.COSTS",
   ProjectSchedule: "PROJECT.SCHEDULE",
   ProjectDashboardTracker: "PROJECT.DASHBOARD_TRACKER",
+  ProjectTechnicalDocumentation: "PROJECT.TECHNICAL_DOCUMENTATION",
 } as const;
 
 export type PermissionCode = typeof PermissionCodes[keyof typeof PermissionCodes];

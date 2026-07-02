@@ -19,6 +19,7 @@ public static class SuperAdminFallbackPermissions
         PermissionCodes.ProjectEstimates,
         PermissionCodes.ProjectCosts,
         PermissionCodes.ProjectSchedule,
-        PermissionCodes.ProjectDashboardTracker
+        PermissionCodes.ProjectDashboardTracker,
+        PermissionCodes.ProjectTechnicalDocumentation
     };
 }

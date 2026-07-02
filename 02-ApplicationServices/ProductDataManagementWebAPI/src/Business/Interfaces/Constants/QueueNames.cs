@@ -6,5 +6,6 @@
         public const string NotificationMarkAsRead = "notification-mark-as-read";
         public const string EmailSend = "email-send";
         public const string MessageSend = "message-send";
+        public const string TechnicalDocumentationProcess = "technical-documentation-process";
     }
 }
