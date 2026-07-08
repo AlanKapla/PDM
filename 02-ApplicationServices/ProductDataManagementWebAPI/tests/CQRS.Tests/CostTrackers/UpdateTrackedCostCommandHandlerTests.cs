@@ -7,6 +7,7 @@ using CQRS.CostTrackers.UpdateTrackedCost;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using Entities.Models.WorkSchedules;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -19,6 +20,8 @@ namespace CQRS.Tests.CostTrackers;
 public sealed class UpdateTrackedCostCommandHandlerTests
 {
     private readonly Mock<IReadRepository<TrackedCost>> _trackedCostRepoMock = new();
+    private readonly Mock<IRepository<ProjectCost>> _projectCostRepoMock = new();
+    private readonly Mock<IReadRepository<ProjectCostCategory>> _categoryRepoMock = new();
     private readonly Mock<IReadRepository<CostEstimateItem>> _costEstimateItemRepoMock = new();
     private readonly Mock<IReadRepository<WorkScheduleStageWork>> _stageWorkRepoMock = new();
     private readonly Mock<ICostTrackerFinancialService> _financialServiceMock = new();
@@ -48,6 +51,8 @@ public sealed class UpdateTrackedCostCommandHandlerTests
 
         _handler = new UpdateTrackedCostCommandHandler(
             _trackedCostRepoMock.Object,
+            _projectCostRepoMock.Object,
+            _categoryRepoMock.Object,
             _costEstimateItemRepoMock.Object,
             _stageWorkRepoMock.Object,
             _financialServiceMock.Object,
@@ -95,8 +100,9 @@ public sealed class UpdateTrackedCostCommandHandlerTests
             .ReturnsAsync(true);
 
         _trackedCostRepoMock
-            .As<IRepository<TrackedCost>>()
-            .Setup(r => r.GetFirstBySearch(It.IsAny<Expression<Func<TrackedCost, bool>>>()))
+            .Setup(r => r.GetFirstBySearch(
+                It.IsAny<Expression<Func<TrackedCost, bool>>>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(cost);
 
         UpdateTrackedCostCommand command = ValidCommand(tenantId, projectId, cost.Id);

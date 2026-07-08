@@ -16,6 +16,7 @@ namespace CQRS.Tests.CostTrackers;
 public sealed class DeleteTrackedCostCommandHandlerTests
 {
     private readonly Mock<IRepository<TrackedCost>> _trackedCostRepoMock = new();
+    private readonly Mock<IRepository<ProjectCost>> _projectCostRepoMock = new();
     private readonly Mock<IRepository<BaseCostAttachment>> _attachmentRepoMock = new();
     private readonly Mock<IBlobStorageService> _blobStorageServiceMock = new();
     private readonly Mock<IContractorService> _contractorServiceMock = new();
@@ -29,6 +30,7 @@ public sealed class DeleteTrackedCostCommandHandlerTests
 
         _handler = new DeleteTrackedCostCommandHandler(
             _trackedCostRepoMock.Object,
+            _projectCostRepoMock.Object,
             _attachmentRepoMock.Object,
             _blobStorageServiceMock.Object,
             _contractorServiceMock.Object,

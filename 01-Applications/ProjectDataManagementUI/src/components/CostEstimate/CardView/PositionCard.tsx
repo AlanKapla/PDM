@@ -141,99 +141,109 @@ export const PositionCard: React.FC<PositionCardProps> = ({
       _hover={{ bg: rowSurface.hoverBg }}
       onClick={handleCardClick}
     >
-      <Flex align="center" gap={{ base: 1.5, md: 2.5 }} px={{ base: 2.5, md: 3.5 }} py={{ base: 2, md: 2.75 }} className="trow">
-        <HStack spacing={1.5} flexShrink={0}>
-          {hasChildren && !isOption && (
-            <Box onClick={(e) => e.stopPropagation()}>
-              <ChevronButton
-                isExpanded={isChildrenExpanded}
-                onClick={() => setIsChildrenExpanded((prev) => !prev)}
-                blendWithRow
-              />
-            </Box>
-          )}
+      <Flex align="center" gap={{ base: 1.5, md: 2.5 }} px={{ base: 2.5, md: 3.5 }} py={{ base: 2, md: 2.75 }} className="trow" flexWrap={{ base: 'wrap', md: 'nowrap' }}>
+        <Flex align="center" gap={{ base: 1.5, md: 2.5 }} flex={{ base: '1 1 100%', md: 1 }} minW={0}>
+          <HStack spacing={1.5} flexShrink={0}>
+            {hasChildren && !isOption && (
+              <Box onClick={(e) => e.stopPropagation()}>
+                <ChevronButton
+                  isExpanded={isChildrenExpanded}
+                  onClick={() => setIsChildrenExpanded((prev) => !prev)}
+                  blendWithRow
+                />
+              </Box>
+            )}
 
-          {isOption && (
-            <Box onClick={(e) => e.stopPropagation()}>
-              <OptionRadioButton
-                isSelected={isSelected}
-                isDisabled={!isEditMode}
-                onSelect={handleRadio}
-              />
-            </Box>
-          )}
-        </HStack>
+            {isOption && (
+              <Box onClick={(e) => e.stopPropagation()}>
+                <OptionRadioButton
+                  isSelected={isSelected}
+                  isDisabled={!isEditMode}
+                  onSelect={handleRadio}
+                />
+              </Box>
+            )}
+          </HStack>
 
-        <CardNameText
-          name={item.name}
-          schemaColumns={schemaColumns}
-          flex={1}
+          <CardNameText
+            name={item.name}
+            schemaColumns={schemaColumns}
+            flex={1}
+            minW={0}
+            fontSize="sm"
+            fontWeight={isComponent || isOption ? 'semibold' : 'bold'}
+            noOfLines={{ md: 2 }}
+          />
+        </Flex>
+
+        <Flex
+          align="center"
+          justify={{ base: 'space-between', md: 'flex-end' }}
+          gap={{ base: 1.5, md: 2.5 }}
+          flex={{ base: '1 1 100%', md: '0 0 auto' }}
           minW={0}
-          fontSize="sm"
-          fontWeight={isComponent || isOption ? 'semibold' : 'bold'}
-          noOfLines={2}
-        />
+        >
+          <CardAmountSummary
+            net={totalNet}
+            vat={totalVat}
+            gross={totalGross}
+            currencySymbol={currencySymbol}
+            size="sm"
+            layout="stacked"
+          />
 
-        <CardAmountSummary
-          net={totalNet}
-          vat={totalVat}
-          gross={totalGross}
-          currencySymbol={currencySymbol}
-          size="sm"
-          layout="stacked"
-        />
+          {(!isOption || isEditMode) && (
+            <CardRowAside>
+              {!isOption && (
+                <CardSumujControl
+                  isChecked={isSelected}
+                  isDisabled={!isEditMode}
+                  onChange={(checked) => {
+                    onFieldChange(groupId, item.id, 'isSelected', checked);
+                    triggerBaseFieldAutosave('isSelected', 'boolean', checked ? 'true' : 'false');
+                  }}
+                />
+              )}
 
-        {(!isOption || isEditMode) && (
-          <CardRowAside>
-            {!isOption && (
-              <CardSumujControl
-                isChecked={isSelected}
-                isDisabled={!isEditMode}
-                onChange={(checked) => {
-                  onFieldChange(groupId, item.id, 'isSelected', checked);
-                  triggerBaseFieldAutosave('isSelected', 'boolean', checked ? 'true' : 'false');
-                }}
-              />
-            )}
-
-            {isEditMode && (
-              <>
-                {!isOption && <CardRowDivider />}
-                <HStack spacing={0.5}>
-                  {!isOption && (
-                    <>
-                      {!isComponent && !hasOptions && (
-                        <GhostActionButton
-                          label="Dodaj komponent"
-                          icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">K+</Box>}
-                          variant="add"
-                          onClick={() => onAddComponent(groupId, item.id)}
-                          blendWithRow
-                        />
-                      )}
-                      {(isComponent || (!isComponent && !hasComponents)) && (
-                        <GhostActionButton
-                          label="Dodaj opcję"
-                          icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">O+</Box>}
-                          variant="add"
-                          onClick={() => onAddOption(groupId, item.id)}
-                          blendWithRow
-                        />
-                      )}
-                    </>
-                  )}
-                  <GhostActionButton
-                    label="Usuń"
-                    icon={<Trash2 size={14} />}
-                    variant="delete"
-                    onClick={() => onDeleteItem(item.id)}
-                    blendWithRow
-                  />
-                </HStack>
-              </>
-            )}
-          </CardRowAside>
-        )}
+              {isEditMode && (
+                <>
+                  {!isOption && <CardRowDivider />}
+                  <HStack spacing={0.5}>
+                    {!isOption && (
+                      <>
+                        {!isComponent && !hasOptions && (
+                          <GhostActionButton
+                            label="Dodaj komponent"
+                            icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">K+</Box>}
+                            variant="add"
+                            onClick={() => onAddComponent(groupId, item.id)}
+                            blendWithRow
+                          />
+                        )}
+                        {(isComponent || (!isComponent && !hasComponents)) && (
+                          <GhostActionButton
+                            label="Dodaj opcję"
+                            icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">O+</Box>}
+                            variant="add"
+                            onClick={() => onAddOption(groupId, item.id)}
+                            blendWithRow
+                          />
+                        )}
+                      </>
+                    )}
+                    <GhostActionButton
+                      label="Usuń"
+                      icon={<Trash2 size={14} />}
+                      variant="delete"
+                      onClick={() => onDeleteItem(item.id)}
+                      blendWithRow
+                    />
+                  </HStack>
+                </>
+              )}
+            </CardRowAside>
+          )}
+        </Flex>
       </Flex>
 
       <Collapse in={isChildrenExpanded} animateOpacity unmountOnExit={false}>

@@ -92,6 +92,15 @@ namespace Entities.Configurations.Costs
 
             builder.HasIndex(tc => tc.CostEstimateItemId);
             builder.HasIndex(tc => tc.WorkScheduleStageWorkId);
+
+            builder.Property(x => x.CategoryId).IsRequired(false);
+
+            builder.HasOne(x => x.Category)
+                .WithMany()
+                .HasForeignKey(x => x.CategoryId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.HasIndex(x => x.CategoryId);
         }
     }
 }

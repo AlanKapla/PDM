@@ -1,10 +1,14 @@
-import React from 'react';
-import { Box, SimpleGrid, Text } from '@chakra-ui/react';
-import type { ProjectDashboardWeb } from '../../types/projectDashboard.types';
+import React, { useState } from 'react';
+import { Box, Text } from '@chakra-ui/react';
+import { useNavigate } from 'react-router-dom';
+import type { ProjectDashboardWeb, TrackedCostWeb } from '../../types/projectDashboard.types';
 import { PROG } from '../../utils/formatters';
+import { EstimateProgressList } from '../EstimateProgressList';
+import { RecentCostsList } from '../RecentCostsList';
+import { CostModal } from '../CostModal';
+import { CostCategoryPieChart } from '../charts/CostCategoryPieChart';
 import { KpiCard } from '../shared/KpiCard';
-import { FinanceSection } from '../FinanceSection';
-import { EstimateBlock } from './EstimateBlock';
+import { useProjectPermissions } from '../../../../hooks/useProjectPermissions';
 
 export interface FinanceTabProps {
   data: ProjectDashboardWeb;
@@ -19,81 +23,93 @@ export function FinanceTab({
   projectId,
   onRefetch,
 }: FinanceTabProps): React.ReactElement {
-  const summaries = data.costEstimateSummaries;
-  const totalBudgetNet = summaries.reduce((sum, s) => sum + (s.budgetNet ?? 0), 0);
-  const totalCostsNet = summaries.reduce((sum, s) => sum + (s.costsNet ?? 0), 0);
-  const coverage = totalBudgetNet > 0 ? (totalCostsNet / totalBudgetNet) * 100 : null;
-  const totalWithoutCosts = summaries.reduce((sum, s) => sum + (s.itemsWithoutCostsCount ?? 0), 0);
-  const totalOverBudget = summaries.reduce((sum, s) => sum + (s.itemsOverBudgetCount ?? 0), 0);
+  const navigate = useNavigate();
+  const { canViewEstimates } = useProjectPermissions(projectId);
+  const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
+
+  const costs = data.allCosts ?? [];
+  const fs = data.financialSummary;
+
+  const costsFromListNet = costs.reduce((sum, c) => sum + (c.net ?? 0), 0);
+  const costsFromListGross = costs.reduce((sum, c) => sum + (c.gross ?? 0), 0);
+  const totalCostsNet = fs.totalCostsNet || costsFromListNet || null;
+  const totalCostsGross = fs.totalCostsGross || costsFromListGross || null;
+  const deviationColorScheme =
+    fs.deviationNet != null && fs.deviationNet < 0
+      ? 'red'
+      : fs.deviationNet != null && fs.deviationNet > 0
+        ? 'green'
+        : 'gray';
+
+  const handleSelectEstimate = (estimateId: string): void => {
+    if (!canViewEstimates) {
+      return;
+    }
+    navigate(`/projects/${projectId}/cost-estimates/${estimateId}`);
+  };
 
   return (
     <Box w="100%">
-      <SimpleGrid columns={{ base: 2, md: 3, lg: 6 }} spacing={3} mb={6}>
+      <Box className="dashboard-kpi-grid" mb={6}>
         <KpiCard
           label="Budżet łączny"
-          netValue={data.financialSummary.totalBudgetNet}
-          grossValue={data.financialSummary.totalBudgetGross}
+          netValue={fs.totalBudgetNet}
+          grossValue={fs.totalBudgetGross}
           colorScheme="primary"
         />
         <KpiCard
           label="Koszty łączne"
-          netValue={data.financialSummary.totalCostsNet}
-          grossValue={data.financialSummary.totalCostsGross}
+          netValue={totalCostsNet}
+          grossValue={totalCostsGross}
           colorScheme="orange"
         />
         <KpiCard
-          label="Pokrycie budżetu"
-          value={PROG(data.financialSummary.coveredPercent)}
-          colorScheme="level1"
+          label="Pozostało do wydania"
+          netValue={fs.deviationNet}
+          grossValue={fs.deviationGross}
+          colorScheme={deviationColorScheme}
         />
-        <KpiCard label="Kosztorysów" value={String(summaries.length)} colorScheme="level2" />
-        <KpiCard label="Pokrycie kosztorysów" value={PROG(coverage)} colorScheme="primary" />
-        <KpiCard
-          label="Przekroczonych"
-          value={String(totalOverBudget)}
-          colorScheme={totalOverBudget > 0 ? 'red' : 'gray'}
-        />
-      </SimpleGrid>
+        <KpiCard label="Pokrycie budżetu" value={PROG(fs.coveredPercent)} colorScheme="level1" />
+      </Box>
 
-      {totalWithoutCosts > 0 && (
-        <Box
-          bg="orange.50"
-          border="0.5px solid"
-          borderColor="orange.600"
-          borderRadius="md"
-          px={3}
-          py={2}
-          mb={4}
-          fontSize="xs"
-          color="orange.800"
-        >
-          ⚠ {totalWithoutCosts} pozycji kosztorysu nie ma przypisanych kosztów — budżet niezweryfikowany.
-        </Box>
-      )}
+      <Box mb={6}>
+        <CostCategoryPieChart costByCategory={data.costByCategory ?? []} />
+      </Box>
 
-      <FinanceSection data={data} showAllEstimates />
-
-      <Box mt={6}>
+      <Box as="section" aria-label="Kosztorysy" mb={6}>
         <Text fontSize="md" fontWeight="semibold" color="neutral.800" mb={3}>
           Kosztorysy
         </Text>
-        <Box display="flex" flexDirection="column" gap={2}>
-          {summaries.map((summary) => (
-            <EstimateBlock
-              key={summary.costEstimateId}
-              summary={summary}
-              tenantId={tenantId}
-              projectId={projectId}
-              onRefetch={onRefetch}
-            />
-          ))}
-          {summaries.length === 0 && (
-            <Text fontSize="sm" color="neutral.400" fontStyle="italic" p={3}>
-              Brak powiązanych kosztorysów
-            </Text>
-          )}
-        </Box>
+        <EstimateProgressList
+          summaries={data.costEstimateSummaries}
+          onSelect={handleSelectEstimate}
+          canOpen={canViewEstimates}
+        />
       </Box>
+
+      {costs.length > 0 && (
+        <Box as="section" aria-label="Ostatnie koszty">
+          <Text fontSize="md" fontWeight="semibold" color="neutral.800" mb={3}>
+            Ostatnie koszty
+          </Text>
+          <RecentCostsList costs={costs} onSelect={setEditingCost} />
+        </Box>
+      )}
+
+      {editingCost && (
+        <CostModal
+          type="tracked"
+          tenantId={tenantId}
+          projectId={projectId}
+          mode="edit"
+          cost={editingCost}
+          onSuccess={() => {
+            onRefetch();
+            setEditingCost(null);
+          }}
+          onClose={() => setEditingCost(null)}
+        />
+      )}
     </Box>
   );
 }

@@ -11,12 +11,6 @@ import { AuthContext } from "../context/AuthContext";
 import { useResourcePermissions } from "../hooks/useResourcePermissions";
 import { useTimelineData } from "../hooks/useTimelineData";
 
-const COLUMN_WIDTHS = {
-  days: 34,
-  weeks: 26,
-  months: 18,
-} as const;
-
 export default function WorkScheduleView() {
   const { projectId, workScheduleId } = useParams<{ projectId: string; workScheduleId: string }>();
   const navigate = useNavigate();
@@ -43,9 +37,9 @@ export default function WorkScheduleView() {
     scrollToToday,
     navigatePrev,
     navigateNext,
+    columnWidth,
+    setZoomFactor,
   } = useTimelineData({ isMobile });
-
-  const columnWidth = COLUMN_WIDTHS[timeScale];
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -106,6 +100,7 @@ export default function WorkScheduleView() {
             columnWidth={columnWidth}
             hideWeekends={hideWeekends}
             scrollContainerRef={scrollContainerRef}
+            setZoomFactor={setZoomFactor}
             height={isFullscreen ? "100%" : "calc(100vh - 140px)"}
             onNavigatePrev={navigatePrev}
             onNavigateNext={navigateNext}

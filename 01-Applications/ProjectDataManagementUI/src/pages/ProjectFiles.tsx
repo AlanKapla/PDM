@@ -278,7 +278,7 @@ interface FileRowProps {
   onOpenManageShare: (file: any) => void;
   newComments: Map<string, string>;
   onCommentChange: (commentKey: string, value: string) => void;
-  onSubmitComment: (fileId: string, versionId: string) => void;
+  onSubmitComment: (keyFileId: string, apiFileId: string, versionId: string) => void;
   submittingComment: string | null;
 }
 
@@ -507,7 +507,7 @@ const FileRow: React.FC<FileRowProps> = ({
                             newComment={newComments.get(commentKey) || ""}
                             onCommentChange={(val) => onCommentChange(commentKey, val)}
                             onSubmitComment={() =>
-                              onSubmitComment(isShared ? file.projectFileId : file.id, version.id)
+                              onSubmitComment(file.id, version.projectFileId ?? file.id, version.id)
                             }
                             isSubmitting={submittingComment === commentKey}
                           />
@@ -549,7 +549,7 @@ interface PackageFilesProps {
   onOpenManageShare: (file: any) => void;
   newComments: Map<string, string>;
   onCommentChange: (commentKey: string, value: string) => void;
-  onSubmitComment: (fileId: string, versionId: string) => void;
+  onSubmitComment: (keyFileId: string, apiFileId: string, versionId: string) => void;
   submittingComment: string | null;
 }
 
@@ -658,7 +658,7 @@ interface DirectoryNodeProps {
   onOpenManageShare: (file: any) => void;
   newComments: Map<string, string>;
   onCommentChange: (commentKey: string, value: string) => void;
-  onSubmitComment: (fileId: string, versionId: string) => void;
+  onSubmitComment: (keyFileId: string, apiFileId: string, versionId: string) => void;
   submittingComment: string | null;
   onCreateDirectory?: (parentId: string | undefined) => void;
   onUploadFiles?: (catalogId: string) => void;
@@ -847,7 +847,7 @@ interface FilesTabProps {
   onOpenManageShare: (file: any) => void;
   newComments: Map<string, string>;
   onCommentChange: (commentKey: string, value: string) => void;
-  onSubmitComment: (fileId: string, versionId: string) => void;
+  onSubmitComment: (keyFileId: string, apiFileId: string, versionId: string) => void;
   submittingComment: string | null;
   onShareFilesModalOpen?: () => void;
   onUploadModalOpen?: () => void;
@@ -1194,10 +1194,10 @@ export default function ProjectFiles() {
     onManageShareModalClose();
   };
 
-  const handleAddComment = async (fileId: string, versionId: string) => {
+  const handleAddComment = async (keyFileId: string, apiFileId: string, versionId: string) => {
     if (!user?.activeTenantId || !projectId) return;
 
-    const commentKey = `${fileId}-${versionId}`;
+    const commentKey = `${keyFileId}-${versionId}`;
     const comment = newComments.get(commentKey);
 
     if (!comment || comment.trim() === "") {
@@ -1210,7 +1210,7 @@ export default function ProjectFiles() {
       await projectApi.addFileVersionComment(
         user.activeTenantId,
         projectId,
-        fileId,
+        apiFileId,
         versionId,
         comment.trim()
       );
@@ -1228,7 +1228,7 @@ export default function ProjectFiles() {
         queryKey: fileKeys.versionComments(
           user.activeTenantId,
           projectId,
-          fileId,
+          keyFileId,
           versionId,
           scope
         ),

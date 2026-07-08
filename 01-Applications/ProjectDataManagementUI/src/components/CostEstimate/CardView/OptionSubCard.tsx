@@ -87,46 +87,56 @@ export const OptionSubCard: React.FC<OptionSubCardProps> = ({
       _hover={{ bg: rowSurface.hoverBg }}
       onClick={handleCardClick}
     >
-      <Flex align="center" gap={2.5}>
-        <Box flexShrink={0} onClick={(e) => e.stopPropagation()}>
-          <OptionRadioButton
-            isSelected={isSelected}
-            isDisabled={!isEditMode}
-            onSelect={handleSelect}
-            size="sm"
-          />
-        </Box>
-
-        <CardNameText
-          name={option.name}
-          schemaColumns={schemaColumns}
-          flex={1}
-          minW={0}
-          fontSize="xs"
-          fontWeight="semibold"
-          noOfLines={2}
-        />
-
-        <CardAmountSummary
-          net={totalNet}
-          vat={totalVat}
-          gross={totalGross}
-          currencySymbol={currencySymbol}
-          size="sm"
-          layout="stacked"
-        />
-
-        {isEditMode && (
+      <Flex align="center" gap={2.5} flexWrap={{ base: 'wrap', md: 'nowrap' }}>
+        <Flex align="center" gap={2.5} flex={{ base: '1 1 100%', md: 1 }} minW={0}>
           <Box flexShrink={0} onClick={(e) => e.stopPropagation()}>
-            <GhostActionButton
-              label="Usuń"
-              icon={<Trash2 size={13} />}
-              variant="delete"
-              onClick={() => onDeleteItem(option.id)}
-              blendWithRow
+            <OptionRadioButton
+              isSelected={isSelected}
+              isDisabled={!isEditMode}
+              onSelect={handleSelect}
+              size="sm"
             />
           </Box>
-        )}
+
+          <CardNameText
+            name={option.name}
+            schemaColumns={schemaColumns}
+            flex={1}
+            minW={0}
+            fontSize="xs"
+            fontWeight="semibold"
+            noOfLines={{ md: 2 }}
+          />
+        </Flex>
+
+        <Flex
+          align="center"
+          justify={{ base: 'space-between', md: 'flex-end' }}
+          gap={2.5}
+          flex={{ base: '1 1 100%', md: '0 0 auto' }}
+          minW={0}
+        >
+          <CardAmountSummary
+            net={totalNet}
+            vat={totalVat}
+            gross={totalGross}
+            currencySymbol={currencySymbol}
+            size="sm"
+            layout="stacked"
+          />
+
+          {isEditMode && (
+            <Box flexShrink={0} onClick={(e) => e.stopPropagation()}>
+              <GhostActionButton
+                label="Usuń"
+                icon={<Trash2 size={13} />}
+                variant="delete"
+                onClick={() => onDeleteItem(option.id)}
+                blendWithRow
+              />
+            </Box>
+          )}
+        </Flex>
       </Flex>
     </Box>
   );

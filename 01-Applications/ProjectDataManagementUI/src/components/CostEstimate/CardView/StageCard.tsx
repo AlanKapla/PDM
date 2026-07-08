@@ -113,64 +113,75 @@ const SubStageSection: React.FC<SubStageSectionProps> = ({
         bg={subStageSurface.bg}
         transition="background 0.12s"
         _hover={{ bg: subStageSurface.hoverBg }}
+        flexWrap={{ base: 'wrap', md: 'nowrap' }}
       >
-        <Box
-          transition="transform 0.18s"
-          transform={isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'}
-          color="neutral.600"
-          cursor="pointer"
-          flexShrink={0}
-          onClick={onToggle}
-        >
-          <ChevronDown size={15} />
-        </Box>
+        <Flex align="center" gap={2.5} flex={{ base: '1 1 100%', md: 1 }} minW={0}>
+          <Box
+            transition="transform 0.18s"
+            transform={isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'}
+            color="neutral.600"
+            cursor="pointer"
+            flexShrink={0}
+            onClick={onToggle}
+          >
+            <ChevronDown size={15} />
+          </Box>
 
-        <CardNameText
-          name={subGroup.name}
-          schemaColumns={schemaColumns}
-          flex={1}
+          <CardNameText
+            name={subGroup.name}
+            schemaColumns={schemaColumns}
+            flex={1}
+            minW={0}
+            fontSize="sm"
+            fontWeight="bold"
+            noOfLines={{ md: 2 }}
+            cursor="pointer"
+            onClick={handleOpenDetail}
+          />
+        </Flex>
+
+        <Flex
+          align="center"
+          justify={{ base: 'space-between', md: 'flex-end' }}
+          gap={2.5}
+          flex={{ base: '1 1 100%', md: '0 0 auto' }}
           minW={0}
-          fontSize="sm"
-          fontWeight="bold"
-          noOfLines={2}
-          cursor="pointer"
-          onClick={handleOpenDetail}
-        />
+        >
+          <CardAmountSummary
+            net={totalNet}
+            vat={totalVat}
+            gross={totalGross}
+            currencySymbol={currencySymbol}
+            size="md"
+            layout="stacked"
+          />
 
-        <CardAmountSummary
-          net={totalNet}
-          vat={totalVat}
-          gross={totalGross}
-          currencySymbol={currencySymbol}
-          size="md"
-          layout="stacked"
-        />
-
-        {isEditMode && (
-          <HStack spacing={0.5} flexShrink={0} pl={2} ml={1} borderLeft="1px solid" borderColor="neutral.200">
-            <GhostActionButton
-              label="Dodaj pozycję"
-              icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">P+</Box>}
-              variant="add"
-              onClick={() => onAddItem(subGroup.id)}
-              blendWithRow
-            />
-            <GhostActionButton
-              label="Dodaj podetap"
-              icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">E+</Box>}
-              variant="add"
-              onClick={() => onAddSubGroup(subGroup.id)}
-              blendWithRow
-            />
-            <GhostActionButton
-              label="Usuń podetap"
-              icon={<Trash2 size={14} />}
-              variant="delete"
-              onClick={() => onDeleteGroup(subGroup.id)}
-              blendWithRow
-            />
-          </HStack>
-        )}
+          {isEditMode && (
+            <HStack spacing={0.5} flexShrink={0} pl={2} ml={1} borderLeft="1px solid" borderColor="neutral.200">
+              <GhostActionButton
+                label="Dodaj pozycję"
+                icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">P+</Box>}
+                variant="add"
+                onClick={() => onAddItem(subGroup.id)}
+                blendWithRow
+              />
+              <GhostActionButton
+                label="Dodaj podetap"
+                icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">E+</Box>}
+                variant="add"
+                onClick={() => onAddSubGroup(subGroup.id)}
+                blendWithRow
+              />
+              <GhostActionButton
+                label="Usuń podetap"
+                icon={<Trash2 size={14} />}
+                variant="delete"
+                onClick={() => onDeleteGroup(subGroup.id)}
+                blendWithRow
+              />
+            </HStack>
+          )}
+        </Flex>
       </Flex>
 
       <Collapse in={isExpanded} animateOpacity>
@@ -324,77 +335,88 @@ export const StageCard: React.FC<StageCardProps> = ({
         className="trow"
         transition="background 0.12s"
         _hover={{ bg: stageSurface.hoverBg }}
+        flexWrap={{ base: 'wrap', md: 'nowrap' }}
       >
-        <Flex
-          w="30px"
-          h="30px"
-          borderRadius="9px"
-          align="center"
-          justify="center"
-          color="neutral.600"
-          bg="transparent"
-          transition="transform 0.18s"
-          transform={isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'}
-          cursor="pointer"
-          flexShrink={0}
-          onClick={onToggle}
-        >
-          <ChevronDown size={18} />
+        <Flex align="center" gap={{ base: 2, md: 3.5 }} flex={{ base: '1 1 100%', md: 1 }} minW={0}>
+          <Flex
+            w="30px"
+            h="30px"
+            borderRadius="9px"
+            align="center"
+            justify="center"
+            color="neutral.600"
+            bg="transparent"
+            transition="transform 0.18s"
+            transform={isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'}
+            cursor="pointer"
+            flexShrink={0}
+            onClick={onToggle}
+          >
+            <ChevronDown size={18} />
+          </Flex>
+
+          <CardNameText
+            name={stage.name}
+            schemaColumns={schemaColumns}
+            flex={1}
+            minW={0}
+            fontSize="md"
+            fontWeight="bold"
+            noOfLines={{ md: 2 }}
+            cursor="pointer"
+            onClick={handleOpenDetail}
+          />
         </Flex>
 
-        <CardNameText
-          name={stage.name}
-          schemaColumns={schemaColumns}
-          flex={1}
+        <Flex
+          align="center"
+          justify={{ base: 'space-between', md: 'flex-end' }}
+          gap={{ base: 2, md: 3.5 }}
+          flex={{ base: '1 1 100%', md: '0 0 auto' }}
           minW={0}
-          fontSize="md"
-          fontWeight="bold"
-          noOfLines={2}
-          cursor="pointer"
-          onClick={handleOpenDetail}
-        />
+        >
+          <CardAmountSummary
+            net={totalNet}
+            vat={totalVat}
+            gross={totalGross}
+            currencySymbol={currencySymbol}
+            size="lg"
+            layout="stacked"
+          />
 
-        <CardAmountSummary
-          net={totalNet}
-          vat={totalVat}
-          gross={totalGross}
-          currencySymbol={currencySymbol}
-          size="lg"
-          layout="stacked"
-        />
-
-        {isEditMode && (
-          <HStack
-            spacing={0.5}
-            flexShrink={0}
-            pl={{ base: 0, md: 3 }}
-            ml={{ base: 0, md: 1 }}
-            borderLeft={{ base: 'none', md: '1px solid' }}
-            borderColor="neutral.200"
-          >
-            <GhostActionButton
-              label="Dodaj pozycję"
-              icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">P+</Box>}
-              variant="add"
-              onClick={() => onAddItem(stage.id)}
-              blendWithRow
-            />
-            <GhostActionButton
-              label="Dodaj podetap"
-              icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">E+</Box>}
-              variant="add"
-              onClick={() => onAddSubGroup(stage.id)}
-              blendWithRow
-            />
-            <GhostActionButton
-              label="Usuń etap"
-              icon={<Trash2 size={15} />}
-              variant="delete"
-              onClick={() => onDeleteGroup(stage.id)}
-              blendWithRow
-            />
-          </HStack>
-        )}
+          {isEditMode && (
+            <HStack
+              spacing={0.5}
+              flexShrink={0}
+              pl={{ base: 0, md: 3 }}
+              ml={{ base: 0, md: 1 }}
+              borderLeft={{ base: 'none', md: '1px solid' }}
+              borderColor="neutral.200"
+            >
+              <GhostActionButton
+                label="Dodaj pozycję"
+                icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">P+</Box>}
+                variant="add"
+                onClick={() => onAddItem(stage.id)}
+                blendWithRow
+              />
+              <GhostActionButton
+                label="Dodaj podetap"
+                icon={<Box as="span" fontSize="sm" fontWeight="bold" lineHeight="1">E+</Box>}
+                variant="add"
+                onClick={() => onAddSubGroup(stage.id)}
+                blendWithRow
+              />
+              <GhostActionButton
+                label="Usuń etap"
+                icon={<Trash2 size={15} />}
+                variant="delete"
+                onClick={() => onDeleteGroup(stage.id)}
+                blendWithRow
+              />
+            </HStack>
+          )}
+        </Flex>
       </Flex>
 
       <Collapse in={isExpanded} animateOpacity>

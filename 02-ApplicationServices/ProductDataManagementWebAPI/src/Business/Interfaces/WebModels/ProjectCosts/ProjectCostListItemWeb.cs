@@ -13,6 +13,9 @@ namespace Business.Interfaces.WebModels.ProjectCosts
         public required string Name { get; init; }
         public Guid? ContractorId { get; init; }
         public string? ContractorName { get; init; }
+        public Guid? CategoryId { get; init; }
+        public string? CategoryName { get; init; }
+        public string? CategoryColor { get; init; }
         public string? Number { get; init; }
         public DateTime? Date { get; init; }
         public string? Description { get; init; }

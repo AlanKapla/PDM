@@ -45,9 +45,9 @@ namespace Business.Implementation.Services
             ILookup<Guid, WorkScheduleStageWork> worksByStageId = allStageWorks.ToLookup(w => w.WorkScheduleStageId);
 
             HashSet<Guid> workIds = allStageWorks.Select(w => w.Id).ToHashSet();
-            ILookup<Guid, TrackedCost> costsByStageWorkId = allCosts.OfType<TrackedCost>()
-                .Where(tc => tc.WorkScheduleStageWorkId.HasValue && workIds.Contains(tc.WorkScheduleStageWorkId!.Value))
-                .ToLookup(tc => tc.WorkScheduleStageWorkId!.Value);
+            ILookup<Guid, BaseCost> costsByStageWorkId = allCosts
+                .Where(c => c.WorkScheduleStageWorkId.HasValue && workIds.Contains(c.WorkScheduleStageWorkId!.Value))
+                .ToLookup(c => c.WorkScheduleStageWorkId!.Value);
 
             return schedules
                 .Select(schedule => BuildScheduleSummaryWeb(
@@ -66,7 +66,7 @@ namespace Business.Implementation.Services
             WorkSchedule schedule,
             List<WorkScheduleStage> stages,
             ILookup<Guid, WorkScheduleStageWork> worksByStageId,
-            ILookup<Guid, TrackedCost> costsByStageWorkId,
+            ILookup<Guid, BaseCost> costsByStageWorkId,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             HashSet<Guid> closedWorkIds,
             Dictionary<Guid, CostEstimateItem> ceItemsById,
@@ -150,7 +150,7 @@ namespace Business.Implementation.Services
             WorkScheduleStage stage,
             Dictionary<Guid, List<WorkScheduleStage>> childrenByParentId,
             ILookup<Guid, WorkScheduleStageWork> worksByStageId,
-            ILookup<Guid, TrackedCost> costsByStageWorkId,
+            ILookup<Guid, BaseCost> costsByStageWorkId,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             HashSet<Guid> closedWorkIds,
             Dictionary<Guid, CostEstimateItem> ceItemsById,
@@ -169,7 +169,7 @@ namespace Business.Implementation.Services
                 .OrderBy(w => w.Order)
                 .Select(w =>
                 {
-                    List<TrackedCost> resolvedCosts = costsByStageWorkId[w.Id].ToList();
+                    List<BaseCost> resolvedCosts = costsByStageWorkId[w.Id].ToList();
                     bool isWorkClosed = closedWorkIds.Contains(w.Id);
                     CostEstimateItem? linkedItem = w.CostEstimateItemId.HasValue
                         && ceItemsById.TryGetValue(w.CostEstimateItemId.Value, out CostEstimateItem? ci) ? ci : null;

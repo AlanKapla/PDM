@@ -16,6 +16,7 @@ namespace Business.Implementation.Services
         private readonly IScheduleSummaryBuilder scheduleSummaryBuilder;
         private readonly IProjectTimelineAggregator timelineAggregator;
         private readonly ICostEstimateCacheService ceCacheService;
+        private readonly IReadRepository<ProjectCostCategory> categoryRepo;
 
         public ProjectDashboardAssembler(
             ICurrentUser currentUser,
@@ -26,12 +27,14 @@ namespace Business.Implementation.Services
             IContractorService contractorService,
             IScheduleSummaryBuilder scheduleSummaryBuilder,
             IProjectTimelineAggregator timelineAggregator,
-            ICostEstimateCacheService ceCacheService)
+            ICostEstimateCacheService ceCacheService,
+            IReadRepository<ProjectCostCategory> categoryRepo)
             : base(currentUser, trackedCostRepository, attachmentService, financialService, timelineService, contractorService)
         {
             this.scheduleSummaryBuilder = scheduleSummaryBuilder;
             this.timelineAggregator = timelineAggregator;
             this.ceCacheService = ceCacheService;
+            this.categoryRepo = categoryRepo;
         }
 
         public async Task<ProjectDashboardWeb> AssembleAsync(
@@ -45,15 +48,16 @@ namespace Business.Implementation.Services
             Dictionary<Guid, string> contractorNames = await LoadContractorNamesAsync(
                 data.AllCosts, project.TenantId, cancellationToken);
 
-            // W5: jednorazowe mapowanie TrackedCost -> TrackedCostWeb, reużywane wszędzie poniżej.
-            Dictionary<Guid, TrackedCostWeb> trackedCostWebsById = data.AllCosts.OfType<TrackedCost>()
-                .ToDictionary(tc => tc.Id, tc => MapTrackedCostToWeb(tc, data.AttachmentsByCostId[tc.Id]));
+            await LoadCategoryInfoAsync(
+                data.AllCosts, project.Id, categoryRepo, cancellationToken);
 
-            Dictionary<Guid, TrackedCostWeb> projectCostWebsById = data.AllCosts.OfType<ProjectCost>()
-                .ToDictionary(pc => pc.Id, pc => MapProjectCostToWeb(pc, data.AttachmentsByCostId[pc.Id]));
+            // Jednorazowe mapowanie każdego kosztu (TrackedCost i ProjectCost) -> TrackedCostWeb, reużywane wszędzie poniżej.
+            // Klasyfikacja (IsAdditional / SourceType) wynika z powiązań kosztu, niezależnie od typu encji.
+            Dictionary<Guid, TrackedCostWeb> costWebsById = data.AllCosts
+                .ToDictionary(c => c.Id, c => MapCostToWeb(c, data.AttachmentsByCostId[c.Id]));
 
             ProjectAdditionalCostsWeb projectAdditionalCosts = BuildProjectAdditionalCosts(
-                data.AllCosts, trackedCostWebsById, projectCostWebsById);
+                data.AllCosts, costWebsById);
 
             List<BaseCost> estimateScopedCosts = data.AllCosts
                 .Where(c => data.CostEstimateContext.TryGetValue(c.Id, out (Guid? CostEstimateId, Guid? CostEstimateItemId) ctx) && ctx.CostEstimateId.HasValue)
@@ -85,9 +89,12 @@ namespace Business.Implementation.Services
                 BuildScheduleWorkPathContext(scheduleSummaries);
 
             List<TrackedCostWeb> allCostWebs = BuildAllCosts(
-                data.AllCosts, trackedCostWebsById, projectCostWebsById,
+                data.AllCosts, costWebsById,
                 scheduleWorkItemContext, estimateItemContext,
                 estimateItemPathContext, scheduleWorkPathContext);
+
+            List<CostByCategoryWeb> costByCategory = await BuildCostByCategoryAsync(
+                data.AllCosts, project.Id, cancellationToken);
 
             return new ProjectDashboardWeb
             {
@@ -101,25 +108,74 @@ namespace Business.Implementation.Services
                 CostEstimateSummaries = estimateSummaries,
                 ScheduleSummaries = scheduleSummaries,
                 ProjectAdditionalCosts = projectAdditionalCosts,
-                AllCosts = allCostWebs
+                AllCosts = allCostWebs,
+                CostByCategory = costByCategory
             };
+        }
+
+        private async Task<List<CostByCategoryWeb>> BuildCostByCategoryAsync(
+            List<BaseCost> allCosts,
+            Guid projectId,
+            CancellationToken cancellationToken)
+        {
+            const string uncategorizedLabel = "Bez kategorii";
+
+            IEnumerable<ProjectCostCategory> projectCategories = await categoryRepo.GetBySearch(
+                c => c.ProjectId == projectId);
+
+            Dictionary<Guid, ProjectCostCategory> categoryDict = projectCategories.ToDictionary(c => c.Id);
+
+            IEnumerable<IGrouping<Guid?, BaseCost>> groups = allCosts.GroupBy(c => c.CategoryId);
+
+            List<CostByCategoryWeb> result = new List<CostByCategoryWeb>();
+
+            foreach (IGrouping<Guid?, BaseCost> group in groups)
+            {
+                decimal net = group.Sum(c => c.Net ?? 0);
+                decimal? gross = group.Any(c => c.Gross.HasValue)
+                    ? group.Sum(c => c.Gross ?? 0)
+                    : null;
+
+                if (group.Key is null)
+                {
+                    result.Add(new CostByCategoryWeb
+                    {
+                        CategoryId = null,
+                        CategoryName = uncategorizedLabel,
+                        Color = null,
+                        Net = net,
+                        Gross = gross,
+                        CostsCount = group.Count()
+                    });
+                    continue;
+                }
+
+                ProjectCostCategory? category = categoryDict.GetValueOrDefault(group.Key.Value);
+                string categoryName = category?.Name ?? uncategorizedLabel;
+
+                result.Add(new CostByCategoryWeb
+                {
+                    CategoryId = group.Key,
+                    CategoryName = categoryName,
+                    Color = category?.Color,
+                    Net = net,
+                    Gross = gross,
+                    CostsCount = group.Count()
+                });
+            }
+
+            return result.OrderByDescending(c => c.Net).ToList();
         }
 
         private static ProjectAdditionalCostsWeb BuildProjectAdditionalCosts(
             List<BaseCost> allCosts,
-            Dictionary<Guid, TrackedCostWeb> trackedCostWebsById,
-            Dictionary<Guid, TrackedCostWeb> projectCostWebsById)
+            Dictionary<Guid, TrackedCostWeb> costWebsById)
         {
-            List<TrackedCostWeb> additionalTrackedWebs = allCosts.OfType<TrackedCost>()
-                .Where(tc => !tc.CostEstimateItemId.HasValue && !tc.WorkScheduleStageWorkId.HasValue)
-                .Select(tc => trackedCostWebsById[tc.Id])
+            // Koszt dodatkowy = niepowiązany z kosztorysem ani harmonogramem, niezależnie czy to TrackedCost czy ProjectCost.
+            List<TrackedCostWeb> all = allCosts
+                .Where(c => !c.CostEstimateItemId.HasValue && !c.WorkScheduleStageWorkId.HasValue)
+                .Select(c => costWebsById[c.Id])
                 .ToList();
-
-            List<TrackedCostWeb> projectCostWebs = allCosts.OfType<ProjectCost>()
-                .Select(pc => projectCostWebsById[pc.Id])
-                .ToList();
-
-            List<TrackedCostWeb> all = additionalTrackedWebs.Concat(projectCostWebs).ToList();
 
             decimal? totalNet = all.Any(c => c.Net.HasValue) ? all.Sum(c => c.Net ?? 0) : null;
             decimal? totalGross = all.Any(c => c.Gross.HasValue) ? all.Sum(c => c.Gross ?? 0) : null;
@@ -173,12 +229,12 @@ namespace Business.Implementation.Services
                     .Where(c => data.CostEstimateContext.TryGetValue(c.Id, out (Guid? CostEstimateId, Guid? CostEstimateItemId) ctx) && ctx.CostEstimateId == costEstimate.Id)
                     .ToList();
 
-                ILookup<Guid, TrackedCost> costsByItemId = estimateCosts.OfType<TrackedCost>()
-                    .Where(tc => data.CostEstimateContext.TryGetValue(tc.Id, out (Guid? CostEstimateId, Guid? CostEstimateItemId) ctx) && ctx.CostEstimateItemId.HasValue)
-                    .ToLookup(tc => data.CostEstimateContext[tc.Id].CostEstimateItemId!.Value);
+                ILookup<Guid, BaseCost> costsByItemId = estimateCosts
+                    .Where(c => data.CostEstimateContext.TryGetValue(c.Id, out (Guid? CostEstimateId, Guid? CostEstimateItemId) ctx) && ctx.CostEstimateItemId.HasValue)
+                    .ToLookup(c => data.CostEstimateContext[c.Id].CostEstimateItemId!.Value);
 
-                List<TrackedCost> additionalCostsList = estimateCosts.OfType<TrackedCost>()
-                    .Where(tc => !data.CostEstimateContext.TryGetValue(tc.Id, out (Guid? CostEstimateId, Guid? CostEstimateItemId) ctx) || !ctx.CostEstimateItemId.HasValue)
+                List<BaseCost> additionalCostsList = estimateCosts
+                    .Where(c => !data.CostEstimateContext.TryGetValue(c.Id, out (Guid? CostEstimateId, Guid? CostEstimateItemId) ctx) || !ctx.CostEstimateItemId.HasValue)
                     .ToList();
 
                 List<TrackerGroupWeb> groups = BuildTrackerGroups(
@@ -186,7 +242,7 @@ namespace Business.Implementation.Services
                     costsByItemId, data.AttachmentsByCostId, stageWorksByItemId, closedLinkedWorkIds, referenceDate);
 
                 List<TrackedCostWeb> additionalCostWebs = additionalCostsList
-                    .Select(tc => MapTrackedCostToWeb(tc, data.AttachmentsByCostId[tc.Id]))
+                    .Select(c => MapCostToWeb(c, data.AttachmentsByCostId[c.Id]))
                     .ToList();
 
                 Guid? linkedWorkScheduleId = workScheduleIdByEstimateId.TryGetValue(costEstimate.Id, out Guid wsId) ? wsId : null;
@@ -201,21 +257,21 @@ namespace Business.Implementation.Services
 
         private static List<TrackedCostWeb> BuildAllCosts(
             List<BaseCost> allCosts,
-            Dictionary<Guid, TrackedCostWeb> trackedCostWebsById,
-            Dictionary<Guid, TrackedCostWeb> projectCostWebsById,
+            Dictionary<Guid, TrackedCostWeb> costWebsById,
             Dictionary<Guid, (string ScheduleName, string StageName, string WorkItemName)> scheduleWorkItemContext,
             Dictionary<Guid, (string EstimateName, string GroupName, string ItemName)> estimateItemContext,
             Dictionary<Guid, string> estimateItemPathContext,
             Dictionary<Guid, string> scheduleWorkPathContext)
         {
-            List<TrackedCostWeb> trackedCostWebs = allCosts.OfType<TrackedCost>().Select(tc =>
+            // Wzbogacamy każdy koszt (TrackedCost i ProjectCost) o kontekst kosztorysu/harmonogramu tak samo.
+            return allCosts.Select(c =>
             {
-                TrackedCostWeb web = trackedCostWebsById[tc.Id];
+                TrackedCostWeb web = costWebsById[c.Id];
 
-                scheduleWorkItemContext.TryGetValue(tc.Id, out (string ScheduleName, string StageName, string WorkItemName) schedCtx);
-                estimateItemContext.TryGetValue(tc.Id, out (string EstimateName, string GroupName, string ItemName) estCtx);
-                estimateItemPathContext.TryGetValue(tc.Id, out string? estimatePath);
-                scheduleWorkPathContext.TryGetValue(tc.Id, out string? workPath);
+                scheduleWorkItemContext.TryGetValue(c.Id, out (string ScheduleName, string StageName, string WorkItemName) schedCtx);
+                estimateItemContext.TryGetValue(c.Id, out (string EstimateName, string GroupName, string ItemName) estCtx);
+                estimateItemPathContext.TryGetValue(c.Id, out string? estimatePath);
+                scheduleWorkPathContext.TryGetValue(c.Id, out string? workPath);
 
                 return web with
                 {
@@ -229,12 +285,6 @@ namespace Business.Implementation.Services
                     WorkScheduleWorkPath = workPath
                 };
             }).ToList();
-
-            List<TrackedCostWeb> projectCostWebs = allCosts.OfType<ProjectCost>()
-                .Select(pc => projectCostWebsById[pc.Id])
-                .ToList();
-
-            return trackedCostWebs.Concat(projectCostWebs).ToList();
         }
 
         private static Dictionary<Guid, (string EstimateName, string GroupName, string ItemName)> BuildEstimateItemContext(

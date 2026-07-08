@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, Plus, Trash2, MoreHorizontal, ArrowRight, GripVertical, X, MessageCircle, Users, Link2 } from "lucide-react";
 import { Button, IconButton } from "@chakra-ui/react";
@@ -30,9 +30,11 @@ interface GanttLeftPanelProps {
   flatRows: FlatRow[];
   leftBodyRef: React.RefObject<HTMLDivElement>;
   scrollbarH: number;
+  /** Raportuje zmierzone (rzeczywiste) wysokości wierszy — potrzebne gdy nazwy zawijają się w wielu liniach */
+  onRowsMeasured?: (heights: Map<string, number>) => void;
 }
 
-export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: GanttLeftPanelProps) {
+export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH, onRowsMeasured }: GanttLeftPanelProps) {
   const {
     mode,
     members,
@@ -287,6 +289,40 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
     ? getStageDeleteDialogCopy(stageToDelete.depth)
     : null;
 
+  /* ── Pomiar rzeczywistej wysokości wierszy ──────────────────────────────────
+     Nazwy etapów/zakresów zawijają się w wielu liniach, więc wysokość wiersza
+     nie jest stała. Mierzymy realne wysokości i raportujemy w górę, aby prawa
+     siatka użyła identycznych wysokości (zachowanie synchronizacji scrolla). */
+  const measureRows = useCallback(() => {
+    const container = leftBodyRef.current;
+    if (!container || !onRowsMeasured) {
+      return;
+    }
+    const elements = container.querySelectorAll<HTMLElement>("[data-gantt-row-id]");
+    const heights = new Map<string, number>();
+    elements.forEach((el) => {
+      const id = el.getAttribute("data-gantt-row-id");
+      if (id) {
+        heights.set(id, el.offsetHeight);
+      }
+    });
+    onRowsMeasured(heights);
+  }, [leftBodyRef, onRowsMeasured]);
+
+  useLayoutEffect(() => {
+    measureRows();
+  });
+
+  useEffect(() => {
+    const container = leftBodyRef.current;
+    if (!container || !onRowsMeasured) {
+      return;
+    }
+    const observer = new ResizeObserver(() => measureRows());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [leftBodyRef, onRowsMeasured, measureRows]);
+
   /* ── renderery per rodzaj wiersza ── */
 
   const renderStageHeader = (row: FlatRow) => {
@@ -294,93 +330,101 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
     const { done, total } = stageProgress(stage);
     const isExpanded = expandedStages.has(stage.id);
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const range = getStageRange(stage);
+    const hasBottomRow = total > 0 || range !== null || isEditing;
 
     return (
       <div
         key={row.id}
+        data-gantt-row-id={row.id}
         className="gantt-row"
         style={{
-          height: row.height,
+          minHeight: row.height,
           display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: `0 10px 0 ${10 + depth * G.DEPTH_INDENT}px`,
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 4,
+          padding: `6px 10px 6px ${10 + depth * G.DEPTH_INDENT}px`,
           background: G.stageBg,
           borderBottom: `1px solid ${G.border}`,
           userSelect: "none",
         }}
       >
-        {isEditing && (
-          <div
-            onMouseDown={e => handleRowGripMouseDown(e, row)}
-            style={{ cursor: "grab", color: G.text3, width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 4 }}
-            title="Przeciągnij, aby zmienić kolejność"
-          >
-            <GripVertical size={14} />
-          </div>
-        )}
-        <IconButton
-          size="xs"
-          variant="ghost"
-          colorScheme="gray"
-          aria-label={isExpanded ? "Zwiń etap" : "Rozwiń etap"}
-          icon={isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          onClick={() => toggleStage(stage.id)}
-        />
-
-        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
-          <GanttInlineName
-            value={stage.name}
-            isEditing={isEditing}
-            fontWeight={600}
-            fontSize="13px"
-            color={G.text}
-            onCommit={name => renameStage(stage.id, name)}
-          />
-        </div>
-
-        {total > 0 && (
-          <div
-            style={{
-              flexShrink: 0,
-              padding: "1px 6px",
-              borderRadius: 10,
-              background: pct === 100 ? G.greenLight : G.accentLight,
-              color: pct === 100 ? G.green : G.accent,
-              fontSize: 10,
-              fontWeight: 700,
-            }}
-          >
-            {done}/{total}
-          </div>
-        )}
-
-        {/* Zakres dat etapu */}
-        {(() => {
-          const range = getStageRange(stage);
-          if (!range) return null;
-          return (
-            <span style={{
-              fontSize: 10, fontFamily: "monospace", fontWeight: 500,
-              color: pct === 100 ? G.green : G.text2,
-              whiteSpace: "nowrap", flexShrink: 0,
-              padding: "0 4px", background: "#f0ede8", borderRadius: 4,
-            }}>
-              {fmtCompactDate(range.start)}–{fmtCompactDate(range.end)}
-            </span>
-          );
-        })()}
-
-        {isEditing && (
+        {/* Górny rząd — nazwa etapu */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          {isEditing && (
+            <div
+              onMouseDown={e => handleRowGripMouseDown(e, row)}
+              style={{ cursor: "grab", color: G.text3, width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+              title="Przeciągnij, aby zmienić kolejność"
+            >
+              <GripVertical size={14} />
+            </div>
+          )}
           <IconButton
             size="xs"
             variant="ghost"
             colorScheme="gray"
-            aria-label="Usuń etap"
-            title="Usuń etap"
-            icon={<Trash2 size={13} />}
-            onClick={() => setStageToDelete({ stage, depth })}
+            aria-label={isExpanded ? "Zwiń etap" : "Rozwiń etap"}
+            icon={isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            onClick={() => toggleStage(stage.id)}
           />
+          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", minHeight: 24 }}>
+            <GanttInlineName
+              value={stage.name}
+              isEditing={isEditing}
+              fontWeight={600}
+              fontSize="13px"
+              color={G.text}
+              wrap
+              onCommit={name => renameStage(stage.id, name)}
+            />
+          </div>
+        </div>
+
+        {/* Dolny rząd — postęp, daty, akcje */}
+        {hasBottomRow && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", paddingLeft: 32 }}>
+            {total > 0 && (
+              <div
+                style={{
+                  flexShrink: 0,
+                  padding: "1px 6px",
+                  borderRadius: 10,
+                  background: pct === 100 ? G.greenLight : G.accentLight,
+                  color: pct === 100 ? G.green : G.accent,
+                  fontSize: 10,
+                  fontWeight: 700,
+                }}
+              >
+                {done}/{total}
+              </div>
+            )}
+            {range && (
+              <span style={{
+                fontSize: 10, fontFamily: "monospace", fontWeight: 500,
+                color: pct === 100 ? G.green : G.text2,
+                whiteSpace: "nowrap", flexShrink: 0,
+                padding: "0 4px", background: "#f0ede8", borderRadius: 4,
+              }}>
+                {fmtCompactDate(range.start)}–{fmtCompactDate(range.end)}
+              </span>
+            )}
+            {isEditing && (
+              <>
+                <div style={{ flex: 1, minWidth: 0 }} />
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  colorScheme="gray"
+                  aria-label="Usuń etap"
+                  title="Usuń etap"
+                  icon={<Trash2 size={13} />}
+                  onClick={() => setStageToDelete({ stage, depth })}
+                />
+              </>
+            )}
+          </div>
         )}
       </div>
     );
@@ -394,8 +438,9 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH }: Ga
     return (
       <div
         key={row.id}
+        data-gantt-row-id={row.id}
         style={{
-          height: row.height,
+          minHeight: row.height,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -438,10 +483,10 @@ const noPeriods = (work.periods ?? []).length === 0;
     return (
       <div
         key={row.id}
+        data-gantt-row-id={row.id}
         className="gantt-row"
         style={{
-          height: row.height,
-          overflow: "hidden",
+          minHeight: row.height,
           display: "flex",
           flexDirection: "column",
           background: work.isClosed ? G.closedBg : G.surface,
@@ -449,7 +494,9 @@ const noPeriods = (work.periods ?? []).length === 0;
         }}
       >
         {/* Nagłówek wiersza pracy */}
-        <div style={{ height: G.ROW_H, display: "flex", alignItems: "center", gap: 5, padding: `0 8px 0 ${8 + depth * G.DEPTH_INDENT}px` }}>
+        <div style={{ minHeight: G.ROW_H, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, padding: `6px 8px 6px ${8 + depth * G.DEPTH_INDENT}px` }}>
+        {/* Górny rząd — nazwa zakresu */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 5 }}>
         {/* Uchwyt przeciągania */}
         {isEditing && (
           <div
@@ -504,17 +551,21 @@ const noPeriods = (work.periods ?? []).length === 0;
         />
 
         {/* Nazwa */}
-        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", minHeight: 24 }}>
           <GanttInlineName
             value={work.name}
             isEditing={isEditing}
             fontSize="13px"
             color={work.isClosed ? G.text3 : G.text}
             textDecoration={work.isClosed ? "line-through" : "none"}
+            wrap
             onCommit={name => renameWork(stage.id, work.id, name)}
           />
         </div>
+        </div>{/* koniec górnego rzędu */}
 
+        {/* Dolny rząd — daty, zależności, komentarze, osoby, akcje */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", paddingLeft: 33 }}>
         {/* Zakres dat — lepsza widoczność (BUG 3) */}
         {periods.length > 0 && (
           <span style={{
@@ -572,6 +623,8 @@ const noPeriods = (work.periods ?? []).length === 0;
           </div>
         )}
 
+        <div style={{ flex: 1, minWidth: 0 }} />
+
         {/* Avatary */}
         {assignees.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -610,6 +663,7 @@ const noPeriods = (work.periods ?? []).length === 0;
             setWorkMenuFor({ stageId: stage.id, work, anchor: rect });
           }}
         />
+        </div>{/* koniec dolnego rzędu */}
         </div>{/* koniec nagłówka wiersza pracy */}
 
         {/* Lista okresów */}
@@ -678,8 +732,9 @@ const noPeriods = (work.periods ?? []).length === 0;
     return (
       <div
         key={row.id}
+        data-gantt-row-id={row.id}
         style={{
-          height: row.height,
+          minHeight: row.height,
           display: "flex",
           alignItems: "center",
           padding: `0 10px 0 ${10 + depth * G.DEPTH_INDENT}px`,

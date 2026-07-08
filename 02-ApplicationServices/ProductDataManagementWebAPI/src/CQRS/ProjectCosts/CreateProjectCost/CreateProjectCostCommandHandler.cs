@@ -3,7 +3,9 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.Shared;
+using CQRS.Projects.Shared;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -13,12 +15,14 @@ namespace CQRS.ProjectCosts.CreateProjectCost
     public sealed class CreateProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<CreateProjectCostCommand, ProjectCostListItemWeb>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
+        private readonly IReadRepository<ProjectCostCategory> categoryRepo;
         private readonly ICurrentUser currentUser;
         private readonly IContractorService contractorService;
         private readonly ILogger<CreateProjectCostCommandHandler> logger;
 
         public CreateProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
+            IReadRepository<ProjectCostCategory> categoryRepo,
             IBlobStorageService blobStorageService,
             IRepository<BaseCostAttachment> attachmentRepository,
             IContractorService contractorService,
@@ -28,6 +32,7 @@ namespace CQRS.ProjectCosts.CreateProjectCost
             : base(blobStorageService, attachmentRepository, baseLogger)
         {
             this.projectCostRepo = projectCostRepo;
+            this.categoryRepo = categoryRepo;
             this.contractorService = contractorService;
             this.currentUser = currentUser;
             this.logger = logger;
@@ -35,6 +40,9 @@ namespace CQRS.ProjectCosts.CreateProjectCost
 
         public async Task<ProjectCostListItemWeb> Handle(CreateProjectCostCommand request, CancellationToken cancellationToken)
         {
+            await ProjectCostCategoryValidation.ValidateCategoryBelongsToProjectAsync(
+                request.CategoryId, request.ProjectId, categoryRepo, cancellationToken);
+
             ProjectCost projectCost = BuildProjectCostEntity(request);
 
             // Upload the blob BEFORE any DB write so a failed upload throws without
@@ -65,7 +73,20 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 contractorName = names.GetValueOrDefault(projectCost.ContractorId.Value);
             }
 
-            return MapToWeb(projectCost, pendingAttachment, contractorName);
+            string? categoryName = null;
+            string? categoryColor = null;
+            if (projectCost.CategoryId.HasValue)
+            {
+                ProjectCostCategory? category = await categoryRepo.GetFirstBySearch(
+                    c => c.Id == projectCost.CategoryId.Value && c.ProjectId == request.ProjectId);
+                if (category is not null)
+                {
+                    categoryName = category.Name;
+                    categoryColor = category.Color;
+                }
+            }
+
+            return MapToWeb(projectCost, pendingAttachment, contractorName, categoryName, categoryColor);
         }
 
         private ProjectCost BuildProjectCostEntity(CreateProjectCostCommand request)
@@ -77,6 +98,7 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 UserId = currentUser.Id,
                 Name = request.Name,
                 ContractorId = request.ContractorId,
+                CategoryId = request.CategoryId,
                 Number = request.Number,
                 Date = request.Date?.Date,
                 Description = request.Description,
@@ -87,7 +109,12 @@ namespace CQRS.ProjectCosts.CreateProjectCost
             };
         }
 
-        private ProjectCostListItemWeb MapToWeb(ProjectCost projectCost, BaseCostAttachment? attachment, string? contractorName)
+        private ProjectCostListItemWeb MapToWeb(
+            ProjectCost projectCost,
+            BaseCostAttachment? attachment,
+            string? contractorName,
+            string? categoryName,
+            string? categoryColor)
         {
             return new ProjectCostListItemWeb
             {
@@ -97,6 +124,9 @@ namespace CQRS.ProjectCosts.CreateProjectCost
                 Name = projectCost.Name,
                 ContractorId = projectCost.ContractorId,
                 ContractorName = contractorName,
+                CategoryId = projectCost.CategoryId,
+                CategoryName = categoryName,
+                CategoryColor = categoryColor,
                 Number = projectCost.Number,
                 Date = projectCost.Date,
                 Description = projectCost.Description,

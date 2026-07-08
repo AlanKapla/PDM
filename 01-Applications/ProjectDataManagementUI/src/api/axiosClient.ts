@@ -17,6 +17,12 @@ function requireEnvVar(key: string): string {
 
 const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
 
+// Zapobiega wielokrotnym równoległym wywołaniom loginRedirect.
+// Bez tego kilka równoczesnych żądań API może zawiesić flagę MSAL
+// `interaction_in_progress` w localStorage i trwale zablokować aplikację
+// na ekranie "Sprawdzanie sesji...".
+let interactiveRedirectTriggered = false;
+
 export const axiosClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   withCredentials: false, // Changed to false - using Bearer tokens instead of cookies
@@ -58,7 +64,10 @@ axiosClient.interceptors.request.use(
         // Tylko InteractionRequiredAuthError oznacza, że użytkownik musi się zalogować interaktywnie.
         // Inne błędy (np. sieciowe) nie powinny wymuszać przekierowania do logowania.
         if (error instanceof InteractionRequiredAuthError) {
-          await msalInstance.loginRedirect(silentRequest);
+          if (!interactiveRedirectTriggered) {
+            interactiveRedirectTriggered = true;
+            await msalInstance.loginRedirect(silentRequest);
+          }
           return Promise.reject(new Error("Token acquisition required - redirecting to login"));
         }
         // Dla innych błędów odrzuć żądanie bez przekierowania

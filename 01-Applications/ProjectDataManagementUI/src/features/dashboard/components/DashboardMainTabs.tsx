@@ -8,6 +8,7 @@ import {
   TabPanels,
   Tabs,
   Text,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import { Calendar, DollarSign, LayoutDashboard, Receipt } from 'lucide-react';
 
@@ -51,6 +52,7 @@ export function DashboardMainTabs({
   children,
 }: DashboardMainTabsProps): React.ReactElement {
   const counts = { estimatesCount, schedulesCount, costsCount };
+  const showTabBadges = useBreakpointValue({ base: false, md: true }) ?? true;
 
   return (
     <Tabs
@@ -68,9 +70,9 @@ export function DashboardMainTabs({
           return (
             <Tab key={key} fontWeight="bold" whiteSpace="nowrap" flex={{ base: '1 1 auto', md: 1 }}>
               <HStack spacing={2}>
-                <Icon as={icon} boxSize={4} />
+                <Icon as={icon} boxSize={4} aria-hidden="true" />
                 <Text>{label}</Text>
-                {count != null && (
+                {showTabBadges && count != null && (
                   <Badge colorScheme={badgeColor} ml={1} borderRadius="full">
                     {count}
                   </Badge>

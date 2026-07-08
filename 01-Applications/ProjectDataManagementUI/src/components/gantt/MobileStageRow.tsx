@@ -60,14 +60,14 @@ export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
         bg={bgStage}
         ml={`${depth * 12}px`}
       >
-        <HStack px={3} py={2} spacing={2} justify="space-between">
-          <HStack spacing={2} flex={1} minW={0} onClick={() => toggleStage(stage.id)} cursor="pointer">
-            <Box color="primary.500" flexShrink={0}>
+        <HStack px={3} py={2} spacing={2} justify="space-between" align="start">
+          <HStack spacing={2} flex={1} minW={0} align="start" onClick={() => toggleStage(stage.id)} cursor="pointer">
+            <Box color="primary.500" flexShrink={0} mt="2px">
               {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </Box>
             <VStack align="start" spacing={0} flex={1} minW={0}>
-              <HStack spacing={2} w="full">
-                <Text fontWeight="semibold" fontSize="sm" noOfLines={1} flex={1}>
+              <HStack spacing={2} w="full" align="start">
+                <Text fontWeight="semibold" fontSize="sm" flex={1}>
                   {stage.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
                 </Text>
                 <Badge colorScheme="gray" variant="subtle" fontSize="2xs">

@@ -44,6 +44,7 @@ export async function createTrackedCost(
   if (data.gross != null) formData.append('gross', String(data.gross));
   if (data.number != null) formData.append('number', data.number);
   if (data.contractorId != null) formData.append('contractorId', data.contractorId);
+  if (data.categoryId != null) formData.append('categoryId', data.categoryId);
   if (data.date != null) formData.append('date', data.date);
   if (data.newFiles) {
     data.newFiles.forEach((file) => formData.append('newFiles', file));
@@ -74,6 +75,7 @@ export async function updateTrackedCost(
   if (data.gross != null) formData.append('gross', String(data.gross));
   if (data.number != null) formData.append('number', data.number);
   if (data.contractorId != null) formData.append('contractorId', data.contractorId);
+  if (data.categoryId != null) formData.append('categoryId', data.categoryId);
   if (data.date != null) formData.append('date', data.date);
   if (data.costEstimateItemId != null) formData.append('costEstimateItemId', data.costEstimateItemId);
   if (data.workScheduleStageWorkId != null) formData.append('workScheduleStageWorkId', data.workScheduleStageWorkId);

@@ -44,7 +44,7 @@ export function KpiCard({
   if (small) {
     const smallBorderColor = colorScheme ? `${colorScheme}.300` : 'neutral.100';
     const smallBgColor = colorScheme ? `${colorScheme}.50` : 'neutral.50';
-    const smallLabelColor = colorScheme ? `${colorScheme}.600` : 'neutral.500';
+    const smallLabelColor = colorScheme ? `${colorScheme}.600` : 'neutral.600';
     const smallValueColor = accent ?? (colorScheme ? `${colorScheme}.700` : 'gray.800');
 
     return (
@@ -83,7 +83,7 @@ export function KpiCard({
           {label}
         </Text>
         {sub && (
-          <Text fontSize="xs" color="neutral.400" lineHeight="shorter" mt={0.5}>
+          <Text fontSize="xs" color="neutral.600" lineHeight="shorter" mt={0.5}>
             {sub}
           </Text>
         )}
@@ -132,7 +132,7 @@ export function KpiCard({
         {label}
       </Text>
       {sub && (
-        <Text fontSize="xs" color="neutral.400" lineHeight="shorter" mt={1}>
+        <Text fontSize="xs" color="neutral.600" lineHeight="shorter" mt={1}>
           {sub}
         </Text>
       )}

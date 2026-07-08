@@ -3,7 +3,9 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.Shared;
+using CQRS.Projects.Shared;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -14,6 +16,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
     public sealed class UpdateProjectCostCommandHandler : ProjectCostHandlerBase, IRequestHandler<UpdateProjectCostCommand, ProjectCostListItemWeb>
     {
         private readonly IRepository<ProjectCost> projectCostRepo;
+        private readonly IReadRepository<ProjectCostCategory> categoryRepo;
         private readonly IProjectCostAccessService accessService;
         private readonly ICurrentUser currentUser;
         private readonly IContractorService contractorService;
@@ -21,6 +24,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
 
         public UpdateProjectCostCommandHandler(
             IRepository<ProjectCost> projectCostRepo,
+            IReadRepository<ProjectCostCategory> categoryRepo,
             IProjectCostAccessService accessService,
             IBlobStorageService blobStorageService,
             IRepository<BaseCostAttachment> attachmentRepository,
@@ -31,6 +35,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             : base(blobStorageService, attachmentRepository, baseLogger)
         {
             this.projectCostRepo = projectCostRepo;
+            this.categoryRepo = categoryRepo;
             this.accessService = accessService;
             this.contractorService = contractorService;
             this.currentUser = currentUser;
@@ -48,6 +53,9 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             {
                 throw new ForbiddenApiException("You do not have permission to update this cost.");
             }
+
+            await ProjectCostCategoryValidation.ValidateCategoryBelongsToProjectAsync(
+                request.CategoryId, request.ProjectId, categoryRepo, cancellationToken);
 
             ApplyFieldUpdates(request, projectCost);
             await HandleDocumentOperationsAsync(request, projectCost, cancellationToken);
@@ -67,7 +75,20 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                 contractorName = names.GetValueOrDefault(projectCost.ContractorId.Value);
             }
 
-            return MapToWeb(projectCost, contractorName);
+            string? categoryName = null;
+            string? categoryColor = null;
+            if (projectCost.CategoryId.HasValue)
+            {
+                ProjectCostCategory? category = await categoryRepo.GetFirstBySearch(
+                    c => c.Id == projectCost.CategoryId.Value && c.ProjectId == request.ProjectId);
+                if (category is not null)
+                {
+                    categoryName = category.Name;
+                    categoryColor = category.Color;
+                }
+            }
+
+            return MapToWeb(projectCost, contractorName, categoryName, categoryColor);
         }
 
         private async Task<ProjectCost> GetAndValidateProjectCostAsync(
@@ -85,6 +106,7 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
         {
             projectCost.Name = request.Name;
             projectCost.ContractorId = request.ContractorId;
+            projectCost.CategoryId = request.CategoryId;
             projectCost.Number = request.Number;
             projectCost.Date = request.Date?.Date;
             projectCost.Description = request.Description;
@@ -93,7 +115,11 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
             projectCost.UpdatedAt = DateTime.UtcNow;
         }
 
-        private ProjectCostListItemWeb MapToWeb(ProjectCost projectCost, string? contractorName)
+        private ProjectCostListItemWeb MapToWeb(
+            ProjectCost projectCost,
+            string? contractorName,
+            string? categoryName,
+            string? categoryColor)
         {
             return new ProjectCostListItemWeb
             {
@@ -103,6 +129,9 @@ namespace CQRS.ProjectCosts.UpdateProjectCost
                 Name = projectCost.Name,
                 ContractorId = projectCost.ContractorId,
                 ContractorName = contractorName,
+                CategoryId = projectCost.CategoryId,
+                CategoryName = categoryName,
+                CategoryColor = categoryColor,
                 Number = projectCost.Number,
                 Date = projectCost.Date,
                 Description = projectCost.Description,

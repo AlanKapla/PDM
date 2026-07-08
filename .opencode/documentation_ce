@@ -55,7 +55,7 @@ Komponent może mieć własne opcje. Do każdego komponentu można załączać p
 
 Opcja to wariant pozycji lub komponentu, np. „sofa ze sklepu A", „sofa czerwona", „sofa biała". Mają te same pola finansowe. Dodatkowo mają pole **IsSelected** (bool).
 
-Wyboru opcji dokonuje się przyciskiem radio po lewej stronie nazwy. Można wybrać 0 lub 1 opcję. Gdy opcja jest zaznaczona, jej wartości finansowe nadpisują (bez trwałego czyszczenia) pola pozycji lub komponentu. Odznaczenie przywraca oryginalne wartości. Do każdej opcji można załączać pliki.
+Wyboru opcji dokonuje się przyciskiem radio po lewej stronie nazwy. Można wybrać 0 lub 1 opcję. Gdy opcja jest zaznaczona, jej wartości finansowe nadpisują (bez trwałego czyszczenia) pola pozycji lub komponentu. Odznaczenie przywraca oryginalne wartości. Do każdej opcji można załączać pliki. Radio button do zaznaczenia opcji powinien byc obok nazwy opcji
 
 ---
 
@@ -141,3 +141,40 @@ W przeciwnym razie → UnitPriceGross moze byc wpisane z palca i nie jest zablok
 12 nie dziala obsługa dodawania/pokazywania/edycji pol dodatkowych
 13 kolumna nazwa ma byc zafrezowana podczas scrolowania lewo/prawo
 14 ma byc możliwosc sortowania po każdym polu
+
+
+
+
+1 Dodaje dodatkowe kolumny, request sie wysyła, jednak nie widać po dodaniu dodanej kolumny w modalu ani w kosztorysie
+dodaj do kosztorysu pole template gdzie beda pola podstawowe i dodatkowe, na tej podstaie renderuj kosztorys i modal z polami dodatkowymi
+
+2 Brak mozliwosci po stronie ui dodania jednostek. Jednosatki powinny byc mozliwe do wyboru w kosztorysie w polu jednostka, jesli user nie znajdzie wybranej jednostki, moze ją dodać do jednostek projektu lub wpisac z palca w pole
+
+3 Nagłowki drzewa powinny działać tak samo: szerokość kolumny jest dostosowana do ilości znaków w nagłowku, można ustawiać
+szerokość nagłowka, można sortować po każdej kolumnie (sortujemy najpierw opcje, potem pozycje, potem etapy)
+
+4 Search input jest zawsze widoczny i nie jest scrolowany
+
+5 Ustawianie kolejności poprzez drag and drop: opcje wewnatrz pozycji/komponentu, komponenty wewnatrz pozycji, pozycje wenatrz etapu, podetapy wewnatrz etapu
+
+6 W widoku karty w kaflach pokazujemy tylko nazwę, wartośc netto i brutto i checbox do sumowania i radio button dla opcji, aby zobaczyc reszte pól nalezy wejsc w szczegóły wiersza za pomoca kliknięcia w kartę, karty są klikalne i otwierają szczegóły etapu/pozycji/opcji/koponentu w modalu
+
+7 Opcje w trybie karty mają być pokazane jako mniejsze kafle wewnątrz pozycji/komponentu, jeden obok drugiego lub pod spodem jesli brakuje miejsca, maja mieć widoczny 
+
+8 W trybie mobilnym poakzujemy tryb kart ale reposnywany pod mobile
+
+9 w Trybie drzewa guziki dodaj podetap dodaj pozycje nachodzą na siebie
+
+10 nalezy usunąć badge z numerem etapu w trybie karta
+
+11 w trybie karta obowiązuje ta sama logika kalkulacji i wypełniania pól
+
+12 w rybie drzewa podsumowanie kosztorysu powinno być w kolumnie wartość netto i wartość brutto i nie powinno to ulegać , obednie jest w wartosc vat i sumuj
+
+13 pomiędzy toolbarem a drzewem/kartami kosztorysu powinny byc dwa badge z podsumowaniem wartosc netto i brutto kosztorysu
+
+14 nalezy dodać ukrywanie/odkrywanie kolumn, ustawienie to powinno byc zapsywane w session storage
+
+15 nazwy kolumn podstawowych i dodatkowych powinny miec mozliwość zmiany nazwy i kolejności, dla kosztorysu nalezy stworzyc nowa encje w bazie ze schemą, schema ma miec kolumny podstawowe i dodatkowe z ustawieniami: bool isBasicField, bool isAddtionalField, fieldtype, fieldname, UI na podstaiwe schemy i typu pola pobiera wartości  z etapów/pozycji i ich pol dodatkowych i podatawia w odpowiednie komórki na UI, nalezy rozszerzyc fieldtype o pola podstawowe, po dodaniu kosztoeysu nalezy dodac scheme z domyślymi nazwami i kolejnością
+
+16 w widoku drzewa wiersze kazdego poziomu powinny byc jednolite pod kątem koloru (teraz zakolorowany jest wiersz tylko do kolumny plik), komórki nie powinny miec zadnego podswietlenia czy innego koloru tła, wiersz po najechaniu ma się podswietlac w całości

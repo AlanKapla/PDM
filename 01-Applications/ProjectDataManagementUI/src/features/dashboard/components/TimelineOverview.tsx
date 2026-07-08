@@ -42,7 +42,6 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
       </Box>
 
       <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3} mb={3}>
-        <KpiCard label="Postęp ogólny" value={PROG(data.progressPercent)} colorScheme="green" small />
         <KpiCard
           label="Opóźnione"
           value={String(data.delayedCount)}
@@ -59,7 +58,7 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
       </Box>
 
       <MiniProgressBar percent={data.progressPercent} color={progressColor} height={8} />
-      <Text fontSize="xs" color="neutral.400" mt={1} mb={3}>
+      <Text fontSize="xs" color="neutral.600" mt={1} mb={3}>
         {PROG(data.progressPercent)} ukończenia
       </Text>
 
@@ -77,7 +76,7 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
         })}
       </Box>
 
-      <Text fontSize="xs" color="neutral.400">
+      <Text fontSize="xs" color="neutral.600">
         Harmonogramów: {data.workSchedulesCount}
         {data.activeSchedulesCount > 0 && (
           <Text as="span" ml={2}>

@@ -46,20 +46,6 @@ export function FinancialOverview({
 
       <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3} mb={3}>
         <KpiCard
-          label="Budżet łączny"
-          netValue={data.totalBudgetNet}
-          grossValue={data.totalBudgetGross}
-          colorScheme="primary"
-          small
-        />
-        <KpiCard
-          label="Koszty łączne"
-          netValue={data.totalCostsNet}
-          grossValue={data.totalCostsGross}
-          colorScheme="orange"
-          small
-        />
-        <KpiCard
           label="Pozostało do wydania"
           netValue={data.deviationNet}
           grossValue={data.deviationGross}
@@ -67,7 +53,7 @@ export function FinancialOverview({
           small
         />
         <KpiCard
-          label="Koszty główne"
+          label="Koszty dodatkowe"
           netValue={data.additionalCostsNet}
           grossValue={data.additionalCostsGross}
           colorScheme="amber"
@@ -81,7 +67,7 @@ export function FinancialOverview({
         exceeded={data.isBudgetExceeded}
         height={8}
       />
-      <Text fontSize="xs" color="neutral.400" mt={1} mb={3}>
+      <Text fontSize="xs" color="neutral.600" mt={1} mb={3}>
         {PROG(data.coveredPercent)} pokrycia budżetu
       </Text>
 
@@ -113,7 +99,7 @@ export function FinancialOverview({
         Edytuj budżet główny
       </Button>
 
-      <Text fontSize="xs" color="neutral.400">
+      <Text fontSize="xs" color="neutral.600">
         Kosztorysów: {data.costEstimatesCount}
         {data.costEstimatesOverBudgetCount > 0 && (
           <Text as="span" color="red.400" ml={2}>

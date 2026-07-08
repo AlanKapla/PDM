@@ -2,23 +2,28 @@
 using Business.Interfaces.WebModels.Projects;
 using CQRS.Projects.AddProjectMember;
 using CQRS.Projects.AddProjectUnit;
+using CQRS.Projects.AddProjectCostCategory;
 using CQRS.Projects.CreateProject;
 using CQRS.Projects.DeleteProjectUnit;
+using CQRS.Projects.DeleteProjectCostCategory;
 using CQRS.Projects.GetProjectDetails;
 using CQRS.Projects.GetProjectInvitations;
 using CQRS.Projects.GetProjectMembers;
 using CQRS.Projects.GetProjectsDictionary;
 using CQRS.Projects.GetProjectUnits;
+using CQRS.Projects.GetProjectCostCategories;
 using CQRS.Projects.GetTenantProjects;
 using CQRS.Projects.InviteProjectMember;
 using CQRS.Projects.RemoveProjectInvitation;
 using CQRS.Projects.RemoveProjectMember;
 using CQRS.Projects.ReorderProjectUnits;
+using CQRS.Projects.ReorderProjectCostCategories;
 using CQRS.Projects.SetProjectCurrency;
 using CQRS.Projects.ToggleProjectStatus;
 using CQRS.Projects.UpdateProject;
 using CQRS.Projects.UpdateProjectMemberRole;
 using CQRS.Projects.UpdateProjectUnit;
+using CQRS.Projects.UpdateProjectCostCategory;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -311,6 +316,109 @@ namespace WebApi.Controllers
                 TenantId = tenantId,
                 ProjectId = projectId,
                 UnitIds = unitIds
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpGet("{projectId}/cost-categories")]
+        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [ProducesResponseType(typeof(List<ProjectCostCategoryWeb>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetProjectCostCategories(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            GetProjectCostCategoriesQuery query = new GetProjectCostCategoriesQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+            List<ProjectCostCategoryWeb> result = await Send(query);
+            return Ok(result);
+        }
+
+        [HttpPost("{projectId}/cost-categories")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> AddProjectCostCategory(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] UpsertProjectCostCategoryWeb body)
+        {
+            AddProjectCostCategoryCommand command = new AddProjectCostCategoryCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Name = body.Name,
+                Code = body.Code,
+                Color = body.Color
+            };
+            Guid newId = await Send(command);
+            return CreatedAtAction(nameof(GetProjectCostCategories), new { tenantId, projectId }, newId);
+        }
+
+        [HttpPut("{projectId}/cost-categories/{categoryId:guid}")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateProjectCostCategory(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid categoryId,
+            [FromBody] UpsertProjectCostCategoryWeb body)
+        {
+            UpdateProjectCostCategoryCommand command = new UpdateProjectCostCategoryCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CategoryId = categoryId,
+                Name = body.Name,
+                Code = body.Code,
+                Order = body.Order,
+                Color = body.Color
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpDelete("{projectId}/cost-categories/{categoryId:guid}")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteProjectCostCategory(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid categoryId)
+        {
+            DeleteProjectCostCategoryCommand command = new DeleteProjectCostCategoryCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CategoryId = categoryId
+            };
+            await Send(command);
+            return NoContent();
+        }
+
+        [HttpPost("{projectId}/cost-categories/reorder")]
+        [Authorize(Policy = PermissionCodes.ProjectSettings)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ReorderProjectCostCategories(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromBody] List<Guid> categoryIds)
+        {
+            ReorderProjectCostCategoriesCommand command = new ReorderProjectCostCategoriesCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CategoryIds = categoryIds
             };
             await Send(command);
             return NoContent();

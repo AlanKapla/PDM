@@ -10,6 +10,21 @@ export interface ProjectUnitDto {
   order: number;
 }
 
+export interface ProjectCostCategoryDto {
+  id: string;
+  name: string;
+  code?: string;
+  order: number;
+  color?: string;
+}
+
+export interface UpsertProjectCostCategoryDto {
+  name: string;
+  code?: string;
+  order: number;
+  color?: string;
+}
+
 // Resource scope enum matching backend
 export enum ResourceScope {
   All = 0,
@@ -279,6 +294,10 @@ export const projectApi = {
     comment: string
   ) => {
     return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/file/${fileId}/versions/${versionId}/comments`, {
+      tenantId,
+      projectId,
+      fileId,
+      versionId,
       comment
     });
   },
@@ -467,6 +486,7 @@ export const projectApi = {
       name: string;
       number?: string | null;
       contractorId?: string | null;
+      categoryId?: string | null;
       date: Date;
       description?: string;
       net?: number | null;
@@ -480,6 +500,7 @@ export const projectApi = {
     formData.append("Name", data.name);
     if (data.number) formData.append("Number", data.number);
     if (data.contractorId) formData.append("ContractorId", data.contractorId);
+    if (data.categoryId) formData.append("CategoryId", data.categoryId);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
     if (data.net !== undefined && data.net !== null) formData.append("Net", data.net.toString());
@@ -501,6 +522,7 @@ export const projectApi = {
       name: string;
       number?: string | null;
       contractorId?: string | null;
+      categoryId?: string | null;
       date: Date;
       description?: string;
       net?: number | null;
@@ -519,6 +541,7 @@ export const projectApi = {
     formData.append("Name", data.name);
     if (data.number) formData.append("Number", data.number);
     if (data.contractorId) formData.append("ContractorId", data.contractorId);
+    if (data.categoryId) formData.append("CategoryId", data.categoryId);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
     if (data.net !== undefined && data.net !== null) formData.append("Net", data.net.toString());
@@ -666,6 +689,66 @@ export const projectApi = {
     await axiosClient.post(
       `/tenants/${tenantId}/projects/${projectId}/units/reorder`,
       unitIds
+    );
+  },
+
+  // Pobierz słownik kategorii kosztów projektu
+  getProjectCostCategories: async (
+    tenantId: string,
+    projectId: string
+  ): Promise<ProjectCostCategoryDto[]> => {
+    const response = await axiosClient.get<ProjectCostCategoryDto[]>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories`
+    );
+    return response.data;
+  },
+
+  // Dodaj nową kategorię kosztów do projektu
+  addProjectCostCategory: async (
+    tenantId: string,
+    projectId: string,
+    data: { name: string; code?: string; color?: string }
+  ): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories`,
+      data
+    );
+    return response.data;
+  },
+
+  // Aktualizuj kategorię kosztów projektu
+  updateProjectCostCategory: async (
+    tenantId: string,
+    projectId: string,
+    categoryId: string,
+    data: UpsertProjectCostCategoryDto
+  ): Promise<void> => {
+    await axiosClient.put(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories/${categoryId}`,
+      data
+    );
+  },
+
+  // Usuń kategorię kosztów projektu
+  deleteProjectCostCategory: async (
+    tenantId: string,
+    projectId: string,
+    categoryId: string
+  ): Promise<void> => {
+    await axiosClient.delete(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories/${categoryId}`
+    );
+  },
+
+  // Zmień kolejność kategorii kosztów projektu
+  reorderProjectCostCategories: async (
+    tenantId: string,
+    projectId: string,
+    categoryIds: string[]
+  ): Promise<void> => {
+    await axiosClient.post(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories/reorder`,
+      categoryIds
     );
   },
 };

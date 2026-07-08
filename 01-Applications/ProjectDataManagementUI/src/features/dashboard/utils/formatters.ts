@@ -35,7 +35,7 @@ export function PLN(
     new Intl.NumberFormat('pl-PL', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(v) + ' ' + currencySymbol
+    }).format(v) + '\u00A0' + currencySymbol
   );
 }
 

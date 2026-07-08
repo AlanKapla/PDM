@@ -1,6 +1,7 @@
 import { type RefObject, useMemo, useRef, useState, useCallback } from "react";
 import GanttPeriodsPopover, { type PeriodsSaveResult } from "./GanttPeriodsPopover";
 import GanttBar from "./GanttBar";
+import { GanttStageAggregateBar } from "./GanttStageAggregateBar";
 import { G } from "./ganttTokens";
 import { isWeekendDate, isTodayDate, makeDateColMap, toLocalDateStr, groupConsecutivePeriods, type FlatRow } from "./ganttRowUtils";
 import { useGantt } from "./GanttContext";
@@ -26,6 +27,7 @@ interface GanttRightGridProps {
   columnWidth: number;
   scrollRef: RefObject<HTMLDivElement>;
   onScroll: () => void;
+  isPanning: boolean;
 }
 
 export default function GanttRightGrid({
@@ -36,8 +38,9 @@ export default function GanttRightGrid({
   columnWidth,
   scrollRef,
   onScroll,
+  isPanning,
 }: GanttRightGridProps) {
-  const { setPeriods, setPeriodIsClosed, mode, schedule, setDependencies, showDependencies } = useGantt();
+  const { setPeriods, setPeriodIsClosed, mode, schedule, setDependencies, showDependencies, expandedStages } = useGantt();
   const isEditing = mode === "edit";
   const colMap = useMemo(() => makeDateColMap(dates), [dates]);
 
@@ -202,7 +205,7 @@ export default function GanttRightGrid({
     e: React.MouseEvent<HTMLDivElement>,
     row: FlatRow,
   ) => {
-    if (!isEditing || !row.work) return;
+    if (!isEditing || !row.work || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
 
     const colIdx = getColIdx(e.clientX);
@@ -377,7 +380,12 @@ export default function GanttRightGrid({
       <div
         ref={scrollRef}
         onScroll={handleBodyScroll}
-        style={{ flex: 1, overflow: "auto", minWidth: 0 }}
+        style={{
+          flex: 1,
+          overflow: "auto",
+          minWidth: 0,
+          cursor: isPanning ? "grabbing" : "default",
+        }}
       >
       {/* Ciało siatki */}
       <div
@@ -447,6 +455,8 @@ export default function GanttRightGrid({
             : row.work?.isClosed ? G.closedBg
             : G.surface;
 
+          const isStageCollapsed = row.kind === "stageHeader" && !expandedStages.has(row.stage.id);
+
           return (
             <div
               key={row.id}
@@ -456,10 +466,29 @@ export default function GanttRightGrid({
                 display: "flex",
                 borderBottom: `1px solid ${G.border}`,
                 background: rowBg,
-                cursor: isEditing && row.kind === "work" ? "crosshair" : "default",
+                cursor: isPanning
+                  ? "grabbing"
+                  : isEditing && row.kind === "work"
+                    ? "crosshair"
+                    : "default",
               }}
-              onMouseDown={row.kind === "work" ? e => handleWorkRowMouseDown(e, row) : undefined}
+              onMouseDown={(e) => {
+                if (row.kind === "work") {
+                  handleWorkRowMouseDown(e, row);
+                }
+              }}
             >
+              {/* Zbiorczy pasek etapu — gdy etap jest zwinięty */}
+              {isStageCollapsed && (
+                <GanttStageAggregateBar
+                  stage={row.stage}
+                  dates={dates}
+                  colMap={colMap}
+                  columnWidth={columnWidth}
+                  rowHeight={row.height}
+                />
+              )}
+
               {/* Paski dla zakresów pracy — kolejne okresy scalane w jeden pasek */}
               {row.kind === "work" && row.work &&
                 groupConsecutivePeriods(row.work.periods ?? []).map(group => {

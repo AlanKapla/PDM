@@ -14,6 +14,7 @@ namespace CQRS.ProjectCosts.CreateProjectCost
         public required Guid ProjectId { get; init; }
         public required string Name { get; init; }
         public Guid? ContractorId { get; init; }
+        public Guid? CategoryId { get; init; }
         public string? Number { get; init; }
         public DateTime? Date { get; init; }
         public string? Description { get; init; }

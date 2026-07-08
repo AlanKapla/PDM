@@ -101,12 +101,9 @@ export function StageGanttLite({
 
   return (
     <Box mb={2}>
-      <HStack mb={2}>
-        <Box w="140px" flexShrink={0} />
-        <HStack flex={1} justify="space-between" fontSize="xs" color={neutral400}>
-          {rangeStart != null && <Text>{DATE(timeline?.plannedStart ?? items[0]?.plannedStart)}</Text>}
-          {rangeEnd != null && <Text>{DATE(timeline?.plannedEnd ?? items[items.length - 1]?.plannedEnd)}</Text>}
-        </HStack>
+      <HStack justify="space-between" fontSize="xs" color={neutral400} mb={2}>
+        {rangeStart != null && <Text>{DATE(timeline?.plannedStart ?? items[0]?.plannedStart)}</Text>}
+        {rangeEnd != null && <Text>{DATE(timeline?.plannedEnd ?? items[items.length - 1]?.plannedEnd)}</Text>}
       </HStack>
 
       {items.map((item) => {
@@ -115,18 +112,23 @@ export function StageGanttLite({
         const label = flatStages ? `${item.scheduleName} › ${item.stageName}` : item.stageName;
 
         return (
-          <HStack key={item.stageId} mb={1} h="22px" align="center">
-            <Text
-              w="140px"
-              flexShrink={0}
-              fontSize="xs"
-              color={neutral600}
-              noOfLines={1}
-              pr={2}
-            >
-              {label}
-            </Text>
-            <Box flex={1} position="relative" h="10px" bg={neutral50} borderRadius="sm">
+          <Box key={item.stageId} mb={2}>
+            <HStack justify="space-between" align="flex-start" spacing={2} mb={1}>
+              <Text
+                flex={1}
+                minW={0}
+                fontSize="xs"
+                fontWeight="medium"
+                color={neutral600}
+                title={label}
+              >
+                {label}
+              </Text>
+              <Box flexShrink={0}>
+                <TimelineStatusBadge status={item.timelineStatus} small />
+              </Box>
+            </HStack>
+            <Box position="relative" h="10px" bg={neutral50} borderRadius="sm">
               {bar && (
                 <Box
                   position="absolute"
@@ -138,10 +140,7 @@ export function StageGanttLite({
                 />
               )}
             </Box>
-            <Box w="120px" flexShrink={0} pl={2}>
-              <TimelineStatusBadge status={item.timelineStatus} small />
-            </Box>
-          </HStack>
+          </Box>
         );
       })}
 

@@ -211,6 +211,9 @@ export interface ProjectCostListItemWeb {
   number: string | null;
   contractorId: string | null;
   contractorName: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryColor: string | null;
   date: string;
   description?: string;
   net: number | null;
@@ -231,6 +234,7 @@ export interface CreateProjectCostCommand {
   name: string;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date: string;
   description?: string;
   net?: number | null;
@@ -245,6 +249,7 @@ export interface UpdateProjectCostCommand {
   name: string;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date: string;
   description?: string;
   net?: number | null;

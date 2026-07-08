@@ -6,6 +6,11 @@ export interface SuggestedContractor {
   address?: string;
 }
 
+export interface SuggestedCostCategory {
+  name: string;
+  code?: string;
+}
+
 export interface ParsedCostDto {
   /** Nazwa kosztu — co zostało zakupione */
   name: string;
@@ -31,6 +36,14 @@ export interface ParsedCostDto {
   contractorFound: boolean;
   /** Sugestia nowego kontrahenta gdy nie znaleziono w bazie */
   suggestedContractor?: SuggestedContractor;
+  /** GUID kategorii — wypełniony gdy categoryFound = true */
+  categoryId?: string;
+  /** Nazwa kategorii z dokumentu */
+  categoryName?: string;
+  /** Czy kategoria znaleziona w słowniku projektu */
+  categoryFound: boolean;
+  /** Sugestia nowej kategorii gdy nie znaleziono w słowniku */
+  suggestedCategory?: SuggestedCostCategory;
   /** Pewność AI 0–1 */
   confidence: number;
   /** Surowy tekst z dokumentu (debug) */

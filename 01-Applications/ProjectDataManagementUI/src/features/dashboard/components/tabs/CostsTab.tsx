@@ -3,7 +3,6 @@ import {
   Box,
   Flex,
   IconButton,
-  SimpleGrid,
   Table,
   Tbody,
   Td,
@@ -13,6 +12,7 @@ import {
   Thead,
   Tr,
   useToken,
+  VisuallyHidden,
 } from '@chakra-ui/react';
 import { Trash2 } from 'lucide-react';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
@@ -23,9 +23,12 @@ import AppModal from '../../../../components/ui/AppModal';
 import { CostTimeSeriesChart } from '../charts/CostTimeSeriesChart';
 import { CostSourceTypeChart } from '../charts/CostSourceTypeChart';
 import { TopContractorsChart } from '../charts/TopContractorsChart';
+import { CostCategoryPieChart } from '../charts/CostCategoryPieChart';
+import type { CostByCategoryWeb } from '../../types/projectDashboard.types';
 
 export interface CostsTabProps {
   costs: TrackedCostWeb[];
+  costByCategory?: CostByCategoryWeb[];
   tenantId: string;
   projectId: string;
   onRefetch: () => void;
@@ -83,8 +86,71 @@ function scopeLabel(cost: TrackedCostWeb): string {
   return '—';
 }
 
+interface CostTableRowProps {
+  cost: TrackedCostWeb;
+  onEdit: (cost: TrackedCostWeb) => void;
+  onDelete: (cost: TrackedCostWeb) => void;
+}
+
+function CostTableRow({ cost, onEdit, onDelete }: CostTableRowProps): React.ReactElement {
+  return (
+    <Tr cursor="pointer" _hover={{ bg: 'neutral.50' }} onClick={() => onEdit(cost)}>
+      <Td>
+        <Box
+          as="button"
+          type="button"
+          textAlign="left"
+          w="100%"
+          bg="transparent"
+          aria-label={`Otwórz koszt ${cost.name}`}
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            onEdit(cost);
+          }}
+        >
+          <Text as="span" display="block" fontWeight="medium">
+            {cost.name}
+          </Text>
+          {cost.number && (
+            <Text as="span" display="block" fontSize="xs" color="neutral.600">
+              {cost.number}
+            </Text>
+          )}
+        </Box>
+      </Td>
+      <Td>{sourceLabel(cost)}</Td>
+      <Td color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
+        {scopeLabel(cost)}
+      </Td>
+      <Td color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
+        {cost.contractorName ?? '—'}
+      </Td>
+      <Td isNumeric>
+        <NetGrossAmount
+          net={cost.net}
+          gross={cost.gross}
+          size="sm"
+          align="right"
+          accentColor="orange.600"
+        />
+      </Td>
+      <Td whiteSpace="nowrap" onClick={(e) => e.stopPropagation()}>
+        <IconButton
+          size="xs"
+          variant="ghost"
+          colorScheme="red"
+          aria-label="Usuń koszt"
+          icon={<Trash2 size={12} aria-hidden="true" />}
+          onClick={() => onDelete(cost)}
+        />
+      </Td>
+    </Tr>
+  );
+}
+
 export function CostsTab({
   costs,
+  costByCategory = [],
   tenantId,
   projectId,
   onRefetch,
@@ -128,17 +194,18 @@ export function CostsTab({
 
   return (
     <Box w="100%">
-      <SimpleGrid columns={{ base: 2, md: 5 }} spacing={3} mb={6}>
+      <Box className="dashboard-kpi-grid" mb={6}>
         <KpiCard label="Łączne koszty" netValue={totalNet} grossValue={totalGross} colorScheme="orange" />
         <KpiCard label="Liczba pozycji" value={String(costs.length)} colorScheme="primary" />
         <KpiCard label="Z harmonogramu" value={String(countSchedule)} colorScheme="level2" />
         <KpiCard label="Z kosztorysu" value={String(countEstimate)} colorScheme="level1" />
         <KpiCard label="Koszty główne" netValue={totalAdditionalNet} grossValue={totalAdditionalGross} colorScheme="amber" />
-      </SimpleGrid>
+      </Box>
 
       {costs.length > 0 && (
         <Box mb={4} display="flex" flexDirection="column" gap={3}>
           <CostTimeSeriesChart costs={costs} />
+          <CostCategoryPieChart costByCategory={costByCategory} />
           <Box display="grid" gridTemplateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={3}>
             <CostSourceTypeChart costs={costs} />
             <TopContractorsChart costs={costs} limit={10} title="Top 10 wykonawców" />
@@ -161,10 +228,10 @@ export function CostsTab({
         <Box className="dashboard-table-wrap">
           {costs.length === 0 ? (
             <Box py={8} textAlign="center">
-              <Text fontSize="sm" color="neutral.500" mb={1}>
+              <Text fontSize="sm" color="neutral.600" mb={1}>
                 Brak kosztów w tym projekcie.
               </Text>
-              <Text fontSize="xs" color="neutral.400" fontStyle="italic">
+              <Text fontSize="xs" color="neutral.600" fontStyle="italic">
                 Użyj przycisku „Dodaj koszt” u góry strony, aby dodać pierwszy koszt.
               </Text>
             </Box>
@@ -177,52 +244,19 @@ export function CostsTab({
                   <Th display={{ base: 'none', md: 'table-cell' }}>Etap / Zakres</Th>
                   <Th display={{ base: 'none', md: 'table-cell' }}>Wykonawca</Th>
                   <Th isNumeric>Kwota</Th>
-                  <Th w="48px" />
+                  <Th w="48px">
+                    <VisuallyHidden>Akcje</VisuallyHidden>
+                  </Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {costs.map((cost) => (
-                  <Tr
+                  <CostTableRow
                     key={cost.id}
-                    cursor="pointer"
-                    _hover={{ bg: 'neutral.50' }}
-                    onClick={() => setEditingCost(cost)}
-                  >
-                    <Td>
-                      <Text fontWeight="medium">{cost.name}</Text>
-                      {cost.number && (
-                        <Text fontSize="xs" color="neutral.400">
-                          {cost.number}
-                        </Text>
-                      )}
-                    </Td>
-                    <Td>{sourceLabel(cost)}</Td>
-                    <Td color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
-                      {scopeLabel(cost)}
-                    </Td>
-                    <Td color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
-                      {cost.contractorName ?? '—'}
-                    </Td>
-                    <Td isNumeric>
-                      <NetGrossAmount
-                        net={cost.net}
-                        gross={cost.gross}
-                        size="sm"
-                        align="right"
-                        accentColor="orange.600"
-                      />
-                    </Td>
-                    <Td whiteSpace="nowrap" onClick={(e) => e.stopPropagation()}>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="red"
-                        aria-label="Usuń koszt"
-                        icon={<Trash2 size={12} aria-hidden="true" />}
-                        onClick={() => setConfirmDeleteCost(cost)}
-                      />
-                    </Td>
-                  </Tr>
+                    cost={cost}
+                    onEdit={setEditingCost}
+                    onDelete={setConfirmDeleteCost}
+                  />
                 ))}
               </Tbody>
               <Tfoot>

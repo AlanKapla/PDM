@@ -2,6 +2,7 @@
 using Business.Interfaces.WebModels.CostEstimates;
 using Business.Interfaces.WebModels.CostTrackers;
 using Entities.Models.CostEstimates;
+using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
 
 namespace Business.Implementation.Services
@@ -165,7 +166,7 @@ namespace Business.Implementation.Services
         public CostEstimateSummaryWeb ComputeEstimateSummary(
             CostEstimate costEstimate,
             IReadOnlyCollection<CostEstimateItem> budgetItems,
-            ILookup<Guid, TrackedCost> costsByItemId,
+            ILookup<Guid, BaseCost> costsByItemId,
             decimal? additionalCostsNet,
             decimal? additionalCostsGross,
             int additionalCostsCount)
@@ -173,7 +174,7 @@ namespace Business.Implementation.Services
             decimal? budgetNet = costEstimate.TotalNet;
             decimal? budgetGross = costEstimate.TotalGross;
 
-            List<TrackedCost> allItemCosts = budgetItems.SelectMany(i => costsByItemId[i.Id]).ToList();
+            List<BaseCost> allItemCosts = budgetItems.SelectMany(i => costsByItemId[i.Id]).ToList();
 
             decimal? itemCostsNet = allItemCosts.Any(c => c.Net.HasValue)
                 ? allItemCosts.Sum(c => c.Net ?? 0)
@@ -209,14 +210,14 @@ namespace Business.Implementation.Services
 
             int itemsOverBudget = budgetItems.Count(i =>
             {
-                List<TrackedCost> perItemCostsList = costsByItemId[i.Id].ToList();
+                List<BaseCost> perItemCostsList = costsByItemId[i.Id].ToList();
                 decimal? perItemCostsNet = perItemCostsList.Any(c => c.Net.HasValue) ? perItemCostsList.Sum(c => c.Net ?? 0) : null;
                 return ComputeItemStatus(i.NetValue, perItemCostsNet, perItemCostsList.Count) == FinancialStatus.OverBudget;
             });
 
             int itemsNearLimit = budgetItems.Count(i =>
             {
-                List<TrackedCost> perItemCostsList = costsByItemId[i.Id].ToList();
+                List<BaseCost> perItemCostsList = costsByItemId[i.Id].ToList();
                 decimal? perItemCostsNet = perItemCostsList.Any(c => c.Net.HasValue) ? perItemCostsList.Sum(c => c.Net ?? 0) : null;
                 return ComputeItemStatus(i.NetValue, perItemCostsNet, perItemCostsList.Count) == FinancialStatus.NearLimit;
             });

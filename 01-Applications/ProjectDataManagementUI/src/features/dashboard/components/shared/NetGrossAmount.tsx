@@ -63,6 +63,7 @@ function AmountRow({
         fontSize={amountSize}
         color={amountColor}
         lineHeight="1.25"
+        whiteSpace="nowrap"
         sx={{ fontVariantNumeric: 'tabular-nums' }}
       >
         {amount}

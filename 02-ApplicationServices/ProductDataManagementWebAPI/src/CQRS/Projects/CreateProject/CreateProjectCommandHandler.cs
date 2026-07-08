@@ -29,10 +29,25 @@ namespace CQRS.Projects.CreateProject
             ("r-g",  "Roboczogodzina",       (string?)null),
         };
 
+        private static readonly (string Code, string Name)[] DefaultCostCategories = new[]
+        {
+            ("mat", "Materiały budowlane"),
+            ("rob", "Robocizna"),
+            ("sprzet", "Sprzęt i maszyny"),
+            ("transport", "Transport i logistyka"),
+            ("uslugi", "Usługi zewnętrzne"),
+            ("admin", "Administracja i biuro"),
+            ("media", "Energia i media"),
+            ("podwyk", "Podwykonawcy"),
+            ("narz", "Narzędzia i wyposażenie"),
+            ("inne", "Inne"),
+        };
+
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
         private readonly IRepository<ProjectCurrency> currencyRepo;
         private readonly IRepository<ProjectUnit> projectUnitRepo;
+        private readonly IRepository<ProjectCostCategory> projectCostCategoryRepo;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
@@ -41,6 +56,7 @@ namespace CQRS.Projects.CreateProject
             IRepository<ProjectMember> projectMemberRepo,
             IRepository<ProjectCurrency> currencyRepo,
             IRepository<ProjectUnit> projectUnitRepo,
+            IRepository<ProjectCostCategory> projectCostCategoryRepo,
             IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
@@ -48,6 +64,7 @@ namespace CQRS.Projects.CreateProject
             this.projectMemberRepo = projectMemberRepo;
             this.currencyRepo = currencyRepo;
             this.projectUnitRepo = projectUnitRepo;
+            this.projectCostCategoryRepo = projectCostCategoryRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
@@ -91,6 +108,19 @@ namespace CQRS.Projects.CreateProject
                 });
             }
             await projectUnitRepo.SaveChangesAsync(cancellationToken);
+
+            int categoryOrder = 1;
+            foreach ((string code, string name) in DefaultCostCategories)
+            {
+                await projectCostCategoryRepo.Insert(new ProjectCostCategory
+                {
+                    ProjectId = project.Id,
+                    Code = code,
+                    Name = name,
+                    Order = categoryOrder++
+                });
+            }
+            await projectCostCategoryRepo.SaveChangesAsync(cancellationToken);
 
             ProjectMember projectMember = new ProjectMember
             {

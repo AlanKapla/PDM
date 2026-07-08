@@ -7,6 +7,7 @@ using CQRS.CostTrackers.CreateTrackedCost;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using Entities.Models.WorkSchedules;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -19,6 +20,7 @@ namespace CQRS.Tests.CostTrackers;
 public sealed class CreateTrackedCostCommandHandlerTests
 {
     private readonly Mock<IReadRepository<TrackedCost>> _trackedCostRepoMock = new();
+    private readonly Mock<IReadRepository<ProjectCostCategory>> _categoryRepoMock = new();
     private readonly Mock<IReadRepository<CostEstimateItem>> _costEstimateItemRepoMock = new();
     private readonly Mock<IReadRepository<WorkScheduleStageWork>> _stageWorkRepoMock = new();
     private readonly Mock<ICostTrackerFinancialService> _financialServiceMock = new();
@@ -48,6 +50,7 @@ public sealed class CreateTrackedCostCommandHandlerTests
 
         _handler = new CreateTrackedCostCommandHandler(
             _trackedCostRepoMock.Object,
+            _categoryRepoMock.Object,
             _costEstimateItemRepoMock.Object,
             _stageWorkRepoMock.Object,
             _financialServiceMock.Object,

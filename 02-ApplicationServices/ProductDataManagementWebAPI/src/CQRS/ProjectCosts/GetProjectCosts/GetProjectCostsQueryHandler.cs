@@ -5,6 +5,7 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.ProjectCosts;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -13,6 +14,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
     public sealed class GetProjectCostsQueryHandler : IRequestHandler<GetProjectCostsQuery, IEnumerable<ProjectCostListItemWeb>>
     {
         private readonly IReadRepository<ProjectCost> projectCostRepo;
+        private readonly IReadRepository<ProjectCostCategory> categoryRepo;
         private readonly IReadRepository<BaseCostAttachment> attachmentRepository;
         private readonly IUserService userService;
         private readonly IBlobStorageService blobStorageService;
@@ -24,6 +26,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
 
         public GetProjectCostsQueryHandler(
             IReadRepository<ProjectCost> projectCostRepo,
+            IReadRepository<ProjectCostCategory> categoryRepo,
             IReadRepository<BaseCostAttachment> attachmentRepository,
             IUserService userService,
             IBlobStorageService blobStorageService,
@@ -31,6 +34,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             ICurrentUser currentUser)
         {
             this.projectCostRepo = projectCostRepo;
+            this.categoryRepo = categoryRepo;
             this.attachmentRepository = attachmentRepository;
             this.userService = userService;
             this.blobStorageService = blobStorageService;
@@ -62,8 +66,23 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             Dictionary<Guid, string> contractorNames = await contractorService.GetNamesByIdsAsync(
                 contractorIds, request.TenantId, cancellationToken);
 
+            List<Guid> categoryIds = costList
+                .Where(pc => pc.CategoryId.HasValue)
+                .Select(pc => pc.CategoryId!.Value)
+                .Distinct()
+                .ToList();
+
+            Dictionary<Guid, ProjectCostCategory> categoriesById = (await categoryRepo.GetBySearch(
+                c => c.ProjectId == request.ProjectId && categoryIds.Contains(c.Id)))
+                .ToDictionary(c => c.Id);
+
             return costList
-                .Select(pc => MapToWeb(pc, attachmentsByCostId[pc.Id].FirstOrDefault(), membersDict, contractorNames))
+                .Select(pc => MapToWeb(
+                    pc,
+                    attachmentsByCostId[pc.Id].FirstOrDefault(),
+                    membersDict,
+                    contractorNames,
+                    categoriesById))
                 .OrderByDescending(c => c.Date)
                 .ThenByDescending(c => c.CreatedAt)
                 .ToList();
@@ -115,7 +134,8 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             ProjectCost pc,
             BaseCostAttachment? attachment,
             Dictionary<Guid, ProjectMemberUserInfo> membersDict,
-            Dictionary<Guid, string> contractorNames)
+            Dictionary<Guid, string> contractorNames,
+            Dictionary<Guid, ProjectCostCategory> categoriesById)
         {
             string? previewSasUrl = null;
             string? downloadSasUrl = null;
@@ -148,6 +168,10 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                 ? contractorNames.GetValueOrDefault(pc.ContractorId.Value)
                 : null;
 
+            ProjectCostCategory? category = pc.CategoryId.HasValue
+                ? categoriesById.GetValueOrDefault(pc.CategoryId.Value)
+                : null;
+
             return new ProjectCostListItemWeb
             {
                 Id = pc.Id,
@@ -156,6 +180,9 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                 Name = pc.Name,
                 ContractorId = pc.ContractorId,
                 ContractorName = contractorName,
+                CategoryId = pc.CategoryId,
+                CategoryName = category?.Name,
+                CategoryColor = category?.Color,
                 Number = pc.Number,
                 Date = pc.Date,
                 Description = pc.Description,

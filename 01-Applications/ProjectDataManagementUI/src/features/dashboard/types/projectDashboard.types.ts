@@ -78,6 +78,9 @@ export interface TrackedCostWeb {
   vatRate: number | null;
   contractorId: string | null;
   contractorName: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryColor: string | null;
   date: string | null;
   number: string | null;
   attachments: TrackedCostAttachmentWeb[];
@@ -260,6 +263,16 @@ export interface ProjectDashboardWeb {
   scheduleSummaries: ScheduleSummaryWeb[];
   projectAdditionalCosts: ProjectAdditionalCostsWeb;
   allCosts: TrackedCostWeb[];
+  costByCategory: CostByCategoryWeb[];
+}
+
+export interface CostByCategoryWeb {
+  categoryId: string | null;
+  categoryName: string;
+  color: string | null;
+  net: number;
+  gross: number | null;
+  costsCount: number;
 }
 
 // --- Request types ---
@@ -273,6 +286,7 @@ export interface CreateTrackedCostRequest {
   gross?: number | null;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date?: string | null;
   newFiles?: File[];
 }
@@ -284,6 +298,7 @@ export interface UpdateTrackedCostRequest {
   gross?: number | null;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date?: string | null;
   newFiles?: File[];
   existingAttachmentIds?: string[];

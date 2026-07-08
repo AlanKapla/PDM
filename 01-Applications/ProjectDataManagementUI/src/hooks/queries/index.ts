@@ -61,4 +61,11 @@ export {
   useDeleteContractor,
   contractorKeys,
 } from './useContractors';
+export {
+  useProjectCostCategories,
+  useAddProjectCostCategory,
+  useUpdateProjectCostCategory,
+  useDeleteProjectCostCategory,
+  useReorderProjectCostCategories,
+} from '../useProjectCostCategories';
 

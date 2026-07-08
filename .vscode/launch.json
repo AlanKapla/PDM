@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "LLM Fundamentals: wszystkie lekcje (dry-run)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/04-DataServices/llm-fundamentals/main.py",
+      "cwd": "${workspaceFolder}/04-DataServices",
+      "console": "integratedTerminal",
+      "env": {
+        "LLM_DRY_RUN": "true"
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "LLM Fundamentals: lekcja 1",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/04-DataServices/llm-fundamentals/main.py",
+      "args": ["--lesson", "1"],
+      "cwd": "${workspaceFolder}/04-DataServices",
+      "console": "integratedTerminal",
+      "env": {
+        "LLM_DRY_RUN": "true"
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "LLM Fundamentals: live API (.env)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/04-DataServices/llm-fundamentals/main.py",
+      "cwd": "${workspaceFolder}/04-DataServices",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/04-DataServices/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "LLM Fundamentals: pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["llm-fundamentals/tests", "-v"],
+      "cwd": "${workspaceFolder}/04-DataServices",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

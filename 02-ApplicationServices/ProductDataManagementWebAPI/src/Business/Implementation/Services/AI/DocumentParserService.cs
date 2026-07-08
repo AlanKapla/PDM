@@ -27,6 +27,7 @@ public sealed class DocumentParserService : IDocumentParserService
           "contractorName": "pełna nazwa firmy/osoby wystawiającej",
           "contractorNip": "NIP bez kresek",
           "contractorAddress": "pełny adres (ulica, kod, miasto)",
+          "categoryName": "kategoria wydatku (np. Materiały budowlane, Robocizna, Transport)",
           "confidence": liczba od 0 do 1 (pewność odczytu)
         }
         Jeśli nie możesz odczytać danego pola, ustaw null.
@@ -115,6 +116,10 @@ public sealed class DocumentParserService : IDocumentParserService
                 ? caProp.GetString()
                 : null;
 
+            string? categoryName = root.TryGetProperty("categoryName", out JsonElement catProp) && catProp.ValueKind == JsonValueKind.String
+                ? catProp.GetString()
+                : null;
+
             double confidence = root.TryGetProperty("confidence", out JsonElement confProp) && confProp.ValueKind == JsonValueKind.Number
                 ? confProp.GetDouble()
                 : 0;
@@ -143,6 +148,8 @@ public sealed class DocumentParserService : IDocumentParserService
                 ContractorAddress = contractorAddress,
                 ContractorFound = false,
                 SuggestedContractor = suggestedContractor,
+                CategoryName = categoryName,
+                CategoryFound = false,
                 Confidence = confidence,
                 RawText = raw
             };

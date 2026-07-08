@@ -6,6 +6,7 @@ export interface CreateProjectCostRequest {
   name: string;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date: Date;
   description?: string;
   net?: number | null;
@@ -17,6 +18,7 @@ export interface UpdateProjectCostRequest {
   name: string;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date: Date;
   description?: string;
   net?: number | null;

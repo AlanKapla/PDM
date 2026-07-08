@@ -588,6 +588,9 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasDefaultValueSql("NEWSEQUENTIALID()");
 
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("ContractorId")
                         .HasColumnType("uniqueidentifier");
 
@@ -650,6 +653,8 @@ namespace Entities.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
 
                     b.HasIndex("ContractorId");
 
@@ -1864,6 +1869,42 @@ namespace Entities.Migrations
                     b.HasDiscriminator().HasValue("ProjectCost");
                 });
 
+            modelBuilder.Entity("Entities.Models.Projects.ProjectCostCategory", b =>
+                {
+                    b.HasBaseType("Entities.Models.Projects.ProjectParams");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.HasIndex("ProjectId", "Code")
+                        .IsUnique()
+                        .HasFilter("[ProjectCostCategory_Code] IS NOT NULL");
+
+                    b.ToTable("ProjectParams", t =>
+                        {
+                            t.Property("Code")
+                                .HasColumnName("ProjectCostCategory_Code");
+
+                            t.Property("Name")
+                                .HasColumnName("ProjectCostCategory_Name");
+                        });
+
+                    b.HasDiscriminator().HasValue("CostCategory");
+                });
+
             modelBuilder.Entity("Entities.Models.Projects.ProjectCurrency", b =>
                 {
                     b.HasBaseType("Entities.Models.Projects.ProjectParams");
@@ -1913,6 +1954,9 @@ namespace Entities.Migrations
 
                             t.Property("Name")
                                 .HasColumnName("ProjectUnit_Name");
+
+                            t.Property("Order")
+                                .HasColumnName("ProjectUnit_Order");
 
                             t.Property("Symbol")
                                 .HasColumnName("ProjectUnit_Symbol");
@@ -2165,6 +2209,11 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.Costs.BaseCost", b =>
                 {
+                    b.HasOne("Entities.Models.Projects.ProjectCostCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Entities.Models.Tenants.Contractor", "Contractor")
                         .WithMany("Costs")
                         .HasForeignKey("ContractorId")
@@ -2195,6 +2244,8 @@ namespace Entities.Migrations
                     b.HasOne("Entities.Models.WorkSchedules.WorkScheduleStageWork", "WorkScheduleStageWork")
                         .WithMany()
                         .HasForeignKey("WorkScheduleStageWorkId1");
+
+                    b.Navigation("Category");
 
                     b.Navigation("Contractor");
 

@@ -27,6 +27,8 @@ import { FileUp, Eye, Sparkles, X } from 'lucide-react';
 import AppModal from '../../../components/ui/AppModal';
 import ContractorPicker from '../../../components/ContractorPicker';
 import ContractorQuickAddModal from '../../../components/ContractorQuickAddModal';
+import { CostCategoryPicker } from '../../../components/CostCategoryPicker';
+import { CostCategoryQuickAddModal } from '../../../components/CostCategoryQuickAddModal';
 import CostLinkSection from '../../../components/CostTracker/CostLinkSection';
 import { AICostImportModal } from '../../../components/CostTracker/AICostImportModal';
 import type { ParsedCostDto } from '../../../types/ai.types';
@@ -83,6 +85,7 @@ interface CostFormState {
   net: string;
   gross: string;
   contractorId: string | null;
+  categoryId: string | null;
   date: string;
   number: string;
   newFiles: File[];
@@ -132,6 +135,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
     () => (mode === 'create' && props.aiPrefill ? props.aiPrefill.parsedData : null)
   );
   const [isAiContractorCreateOpen, setIsAiContractorCreateOpen] = useState(false);
+  const [isAiCategoryCreateOpen, setIsAiCategoryCreateOpen] = useState(false);
 
   const handleAIParsed = (parsed: ParsedCostDto, file: File) => {
     setAiParsedInfo(parsed);
@@ -141,6 +145,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
       net: parsed.net != null ? String(parsed.net) : '',
       gross: parsed.gross != null ? String(parsed.gross) : '',
       contractorId: parsed.contractorFound ? (parsed.contractorId ?? null) : null,
+      categoryId: parsed.categoryFound ? (parsed.categoryId ?? null) : null,
       date: parsed.date ? parsed.date.substring(0, 10) : '',
       number: parsed.number ?? '',
       newFiles: props.type === 'tracked' ? [file] : [],
@@ -160,6 +165,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         net: p.net != null ? String(p.net) : '',
         gross: p.gross != null ? String(p.gross) : '',
         contractorId: p.contractorFound ? (p.contractorId ?? null) : null,
+        categoryId: p.categoryFound ? (p.categoryId ?? null) : null,
         date: p.date ? p.date.substring(0, 10) : '',
         number: p.number ?? '',
         newFiles: props.type === 'tracked' ? [file] : [],
@@ -176,6 +182,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         net: c.net != null ? String(c.net) : '',
         gross: c.gross != null ? String(c.gross) : '',
         contractorId: c.contractorId ?? null,
+        categoryId: c.categoryId ?? null,
         date: c.date ? c.date.substring(0, 10) : '',
         number: c.number ?? '',
         newFiles: [],
@@ -192,6 +199,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         net: c.net != null && c.net !== 0 ? String(c.net) : '',
         gross: c.gross != null && c.gross !== 0 ? String(c.gross) : '',
         contractorId: c.contractorId ?? null,
+        categoryId: c.categoryId ?? null,
         date: c.date ? c.date.split('T')[0] : '',
         number: c.number ?? '',
         newFiles: [],
@@ -206,6 +214,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
       net: '',
       gross: '',
       contractorId: null,
+      categoryId: null,
       date: props.type === 'project' ? new Date().toISOString().split('T')[0] : '',
       number: '',
       newFiles: [],
@@ -301,6 +310,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date || null,
             newFiles: form.newFiles.length > 0 ? form.newFiles : undefined,
             ...(trackedProps.workItemType === WorkItemType.LinkedWorkItem
@@ -324,6 +334,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date || null,
             newFiles: form.newFiles.length > 0 ? form.newFiles : undefined,
             existingAttachmentIds: form.existingAttachmentIds,
@@ -347,6 +358,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             name: form.name,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date ? new Date(form.date) : new Date(),
             description: form.description || undefined,
             net: form.net !== '' ? parseFloat(form.net) : null,
@@ -359,6 +371,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             name: form.name,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date ? new Date(form.date) : new Date(),
             description: form.description || undefined,
             net: form.net !== '' ? parseFloat(form.net) : null,
@@ -501,6 +514,47 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 </VStack>
               </Alert>
             )}
+          </FormControl>
+
+          <FormControl>
+            <HStack mb={1} spacing={2} align="center">
+              <FormLabel mb={0}>Kategoria</FormLabel>
+              {aiParsedInfo?.categoryFound && form.categoryId && (
+                <Badge colorScheme="purple" fontSize="2xs" px={1.5} py={0.5}>
+                  ⚡ AI znalazł
+                </Badge>
+              )}
+            </HStack>
+            <CostCategoryPicker
+              tenantId={tenantId}
+              projectId={projectId}
+              value={form.categoryId}
+              onChange={(id) => setForm((p) => ({ ...p, categoryId: id }))}
+              canQuickAdd={canQuickAdd}
+            />
+            {aiParsedInfo &&
+              !aiParsedInfo.categoryFound &&
+              aiParsedInfo.suggestedCategory &&
+              !form.categoryId && (
+                <Alert status="warning" mt={2} fontSize="sm" role="alert">
+                  <AlertIcon />
+                  <VStack align="flex-start" flex={1} spacing={1}>
+                    <Text fontSize="sm">
+                      AI sugeruje: <strong>{aiParsedInfo.suggestedCategory.name}</strong>
+                      {aiParsedInfo.suggestedCategory.code && (
+                        <> · Kod: {aiParsedInfo.suggestedCategory.code}</>
+                      )}
+                    </Text>
+                    <Button
+                      size="xs"
+                      colorScheme="purple"
+                      onClick={() => setIsAiCategoryCreateOpen(true)}
+                    >
+                      Utwórz kategorię
+                    </Button>
+                  </VStack>
+                </Alert>
+              )}
           </FormControl>
 
           <FormControl>
@@ -775,6 +829,22 @@ export function CostModal(props: CostModalProps): React.ReactElement {
           onCreated={(id) => {
             setForm((p) => ({ ...p, contractorId: id }));
             setIsAiContractorCreateOpen(false);
+          }}
+        />
+      )}
+      {isAiCategoryCreateOpen && aiParsedInfo?.suggestedCategory && (
+        <CostCategoryQuickAddModal
+          isOpen
+          tenantId={tenantId}
+          projectId={projectId}
+          onClose={() => setIsAiCategoryCreateOpen(false)}
+          initialValues={{
+            name: aiParsedInfo.suggestedCategory.name,
+            code: aiParsedInfo.suggestedCategory.code,
+          }}
+          onCreated={(id) => {
+            setForm((p) => ({ ...p, categoryId: id }));
+            setIsAiCategoryCreateOpen(false);
           }}
         />
       )}

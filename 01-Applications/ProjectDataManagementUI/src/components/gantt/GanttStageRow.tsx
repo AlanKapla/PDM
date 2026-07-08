@@ -33,7 +33,10 @@ import {
 } from "@dnd-kit/sortable";
 import { useGantt } from "./GanttContext";
 import GanttWorkRow from "./GanttWorkRow";
+import { GanttTruncatedName } from "./GanttTruncatedName";
+import { GanttStageAggregateBar } from "./GanttStageAggregateBar";
 import { getStageDeleteDialogCopy } from "./ganttStageDeleteDialog";
+import { makeDateColMap } from "./ganttRowUtils";
 import type { WorkScheduleStageWeb } from "../../types/workSchedule.types";
 
 // ─── Stałe ────────────────────────────────────────────────────────────────────
@@ -250,15 +253,15 @@ export default function GanttStageRow({
                   isDisabled={isRenaming}
                 />
               ) : (
-                <Text
-                  fontSize="sm"
+                <GanttTruncatedName
+                  label={stage.name}
                   fontWeight="semibold"
-                  noOfLines={1}
-                  onClick={handleDoubleClick}
-                  title={isEditing ? "Kliknij aby zmienić nazwę" : stage.name}
-                >
-                  {stage.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
-                </Text>
+                  fontSize="sm"
+                  cursor={isEditing ? "text" : "default"}
+                  onDoubleClick={handleDoubleClick}
+                  isEditingMode={isEditing}
+                  editHint="Kliknij aby zmienić nazwę"
+                />
               )}
             </Box>
 
@@ -304,20 +307,40 @@ export default function GanttStageRow({
           </Box>
         </Td>
 
-        {/* Komórki timeline (puste dla wiersza etapu) */}
-        {dates.map((_, idx) => (
+        {/* Komórki timeline — zbiorczy pasek gdy zwinięty, puste gdy rozwinięty */}
+        {!isExpanded ? (
           <Td
-            key={idx}
-            width={`${columnWidth}px`}
-            minW={`${columnWidth}px`}
+            colSpan={dates.length}
             p={0}
+            position="relative"
+            height={`${rowHeight}px`}
             bg={isHovered ? bgStageHover : bgStage}
             borderBottomWidth="1px"
             borderBottomColor={borderColor}
-            borderRightWidth="1px"
-            borderRightColor={borderColor}
-          />
-        ))}
+          >
+            <GanttStageAggregateBar
+              stage={stage}
+              dates={dates}
+              colMap={makeDateColMap(dates)}
+              columnWidth={columnWidth}
+              rowHeight={rowHeight}
+            />
+          </Td>
+        ) : (
+          dates.map((_, idx) => (
+            <Td
+              key={idx}
+              width={`${columnWidth}px`}
+              minW={`${columnWidth}px`}
+              p={0}
+              bg={isHovered ? bgStageHover : bgStage}
+              borderBottomWidth="1px"
+              borderBottomColor={borderColor}
+              borderRightWidth="1px"
+              borderRightColor={borderColor}
+            />
+          ))
+        )}
       </Tr>
 
       {/* Rozwinięte dzieci */}

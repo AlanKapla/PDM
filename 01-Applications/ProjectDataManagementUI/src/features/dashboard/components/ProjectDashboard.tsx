@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, AlertIcon, Box, Spinner, TabPanel } from '@chakra-ui/react';
+import { Alert, AlertIcon, Box, Button, Spinner, TabPanel } from '@chakra-ui/react';
 import { useProjectDashboard } from '../hooks/useProjectDashboard';
 import '../dashboard.css';
+import { computeDashboardAlert } from '../utils/dashboardAlert';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardMainTabs, DASHBOARD_TAB_INDEX } from './DashboardMainTabs';
 import { DashboardPageHeader } from './DashboardPageHeader';
@@ -36,13 +37,18 @@ export function ProjectDashboard({
   if (error || !data) {
     return (
       <Box p={6}>
-        <Alert status="error">
+        <Alert status="error" mb={4}>
           <AlertIcon />
           {error ?? 'Nie udało się załadować dashboardu.'}
         </Alert>
+        <Button size="sm" onClick={() => refetch()}>
+          Spróbuj ponownie
+        </Button>
       </Box>
     );
   }
+
+  const alert = computeDashboardAlert(data);
 
   return (
     <DashboardCurrencyProvider currencySymbol={data.selectedCurrencySymbol ?? 'zł'}>
@@ -55,6 +61,13 @@ export function ProjectDashboard({
         />
 
         <DashboardHeader data={data} />
+
+        {alert && (
+          <Alert status={alert.status} borderRadius="md" mb={6} fontSize="sm">
+            <AlertIcon />
+            {alert.message}
+          </Alert>
+        )}
 
         <DashboardMainTabs
           tabIndex={tabIndex}
@@ -91,6 +104,7 @@ export function ProjectDashboard({
           <TabPanel px={{ base: 2, md: 4 }} pt={4}>
             <CostsTab
               costs={data.allCosts ?? []}
+              costByCategory={data.costByCategory ?? []}
               tenantId={tenantId}
               projectId={projectId}
               onRefetch={refetch}

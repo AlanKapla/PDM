@@ -38,6 +38,18 @@ namespace Business.Interfaces.WebModels.AI
         /// Sugestia nowego kontrahenta gdy ContractorFound = false
         public SuggestedContractorDto? SuggestedContractor { get; init; }
 
+        /// GUID kategorii — wypełniony tylko gdy CategoryFound = true
+        public Guid? CategoryId { get; init; }
+
+        /// Nazwa kategorii wyciągnięta z dokumentu lub dopasowana przez AI
+        public string? CategoryName { get; init; }
+
+        /// Czy kategoria znaleziona w słowniku projektu
+        public bool CategoryFound { get; init; }
+
+        /// Sugestia nowej kategorii gdy CategoryFound = false
+        public SuggestedCostCategoryDto? SuggestedCategory { get; init; }
+
         /// Pewność AI (0.0 – 1.0)
         public double Confidence { get; init; }
 
@@ -50,5 +62,11 @@ namespace Business.Interfaces.WebModels.AI
         public string Name { get; init; } = string.Empty;
         public string? Nip { get; init; }
         public string? Address { get; init; }
+    }
+
+    public sealed record SuggestedCostCategoryDto
+    {
+        public string Name { get; init; } = string.Empty;
+        public string? Code { get; init; }
     }
 }

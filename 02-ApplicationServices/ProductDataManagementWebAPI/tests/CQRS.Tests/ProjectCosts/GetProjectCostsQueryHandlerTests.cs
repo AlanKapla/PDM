@@ -5,6 +5,7 @@ using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.GetProjectCosts;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
 using Moq;
@@ -16,6 +17,7 @@ namespace CQRS.Tests.ProjectCosts;
 public sealed class GetProjectCostsQueryHandlerTests
 {
     private readonly Mock<IReadRepository<ProjectCost>> _projectCostRepoMock = new();
+    private readonly Mock<IReadRepository<ProjectCostCategory>> _categoryRepoMock = new();
     private readonly Mock<IReadRepository<BaseCostAttachment>> _attachmentRepoMock = new();
     private readonly Mock<IUserService> _userServiceMock = new();
     private readonly Mock<IBlobStorageService> _blobStorageServiceMock = new();
@@ -50,6 +52,7 @@ public sealed class GetProjectCostsQueryHandlerTests
 
         _handler = new GetProjectCostsQueryHandler(
             _projectCostRepoMock.Object,
+            _categoryRepoMock.Object,
             _attachmentRepoMock.Object,
             _userServiceMock.Object,
             _blobStorageServiceMock.Object,

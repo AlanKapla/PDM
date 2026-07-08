@@ -21,18 +21,18 @@ const COLUMN_WIDTHS = {
   months: 18,
 } as const;
 
-function getDefaultWindowBounds(): { minDate: Date; maxDate: Date } {
+function getDefaultWindowBounds(monthCount: number): { minDate: Date; maxDate: Date } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const minDate = new Date(today.getFullYear(), today.getMonth(), 1);
-  const maxDate = new Date(minDate.getFullYear(), minDate.getMonth() + VISIBLE_MONTH_COUNT, 0);
+  const maxDate = new Date(minDate.getFullYear(), minDate.getMonth() + monthCount, 0);
 
   return { minDate, maxDate };
 }
 
-function getWindowBounds(weekOffset: number): { minDate: Date; maxDate: Date } {
-  const { minDate: baseMin, maxDate: baseMax } = getDefaultWindowBounds();
+function getWindowBounds(weekOffset: number, monthCount: number): { minDate: Date; maxDate: Date } {
+  const { minDate: baseMin, maxDate: baseMax } = getDefaultWindowBounds(monthCount);
   const shiftDays = weekOffset * 7;
 
   const minDate = new Date(baseMin);
@@ -61,6 +61,11 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
   const [timeScale, setTimeScale] = useState<TimeScale>("weeks");
   const [hideWeekends, setHideWeekends] = useState(false);
   const [visibleWeekOffset, setVisibleWeekOffset] = useState(0);
+  const [visibleMonthCount, setVisibleMonthCount] = useState(VISIBLE_MONTH_COUNT);
+  // Mnożnik gęstości timeline'u sterowany przez Ctrl/Cmd + scroll (zoom in/out).
+  const [zoomFactor, setZoomFactor] = useState(1);
+
+  const columnWidth = COLUMN_WIDTHS[timeScale] * zoomFactor;
 
   const todayColumnRef = useRef<HTMLTableCellElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -124,9 +129,17 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     setVisibleWeekOffset(0);
   }, []);
 
+  const zoomIn = useCallback(() => {
+    setVisibleMonthCount((count) => Math.max(1, count - 1));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setVisibleMonthCount((count) => Math.min(24, count + 1));
+  }, []);
+
   const { allDates, allDateGroups } = useMemo(() => {
     const dates: Date[] = [];
-    const { minDate, maxDate } = getWindowBounds(visibleWeekOffset);
+    const { minDate, maxDate } = getWindowBounds(visibleWeekOffset, visibleMonthCount);
 
     if (timeScale === "weeks") {
       const current = alignToMonday(minDate);
@@ -144,7 +157,7 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
         }
 
         dateGroups.push({
-          label: `${weekStart.getDate()}.${weekStart.getMonth() + 1} - ${weekEnd.getDate()}.${weekEnd.getMonth() + 1}`,
+          label: `${weekStart.getDate()}.${weekStart.getMonth() + 1}.${weekStart.getFullYear()} - ${weekEnd.getDate()}.${weekEnd.getMonth() + 1}.${weekEnd.getFullYear()}`,
           count: 7,
           startIdx: groupStartIdx,
         });
@@ -182,7 +195,7 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     }
 
     return { allDates: dates, allDateGroups: dateGroups };
-  }, [timeScale, visibleWeekOffset]);
+  }, [timeScale, visibleWeekOffset, visibleMonthCount]);
 
   const { dates, dateGroups } = useMemo(() => {
     if (!hideWeekends) return { dates: allDates, dateGroups: allDateGroups };
@@ -208,7 +221,6 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
 
   const scrollToTodayColumn = useCallback(() => {
     const now = new Date();
-    const columnWidth = COLUMN_WIDTHS[timeScale];
     const todayIdx = datesRef.current.findIndex(
       (d) =>
         d.getFullYear() === now.getFullYear() &&
@@ -222,7 +234,7 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
 
     const el = scrollContainerRef.current;
     el.scrollLeft = todayIdx * columnWidth - el.clientWidth / 2 + columnWidth / 2;
-  }, [timeScale]);
+  }, [columnWidth]);
 
   const scrollToToday = useCallback(() => {
     setVisibleWeekOffset(0);
@@ -237,7 +249,7 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollLeft = 0;
     }
-  }, [visibleWeekOffset, timeScale]);
+  }, [visibleWeekOffset, timeScale, visibleMonthCount]);
 
   return {
     timeScale,
@@ -246,6 +258,13 @@ export function useTimelineData(options?: UseTimelineDataOptions) {
     setHideWeekends,
     toggleWeekends: useCallback(() => setHideWeekends((h) => !h), []),
     visibleWeekOffset,
+    visibleMonthCount,
+    setVisibleMonthCount,
+    zoomIn,
+    zoomOut,
+    zoomFactor,
+    setZoomFactor,
+    columnWidth,
 
     dates,
     dateGroups,

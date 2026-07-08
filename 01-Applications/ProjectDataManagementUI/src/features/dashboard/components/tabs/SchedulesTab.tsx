@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, SimpleGrid, Text } from '@chakra-ui/react';
+import { Box, Text } from '@chakra-ui/react';
 import type { ProjectDashboardWeb } from '../../types/projectDashboard.types';
 import { DAYS } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
@@ -15,20 +15,29 @@ export interface SchedulesTabProps {
 
 export function SchedulesTab({
   data,
-  tenantId,
   projectId,
-  onRefetch,
 }: SchedulesTabProps): React.ReactElement {
   const { scheduleSummaries, timelineSummary, financialSummary } = data;
   const scs = financialSummary.scheduleCostSummary;
 
+  const scheduleCostNet = scheduleSummaries.reduce(
+    (sum, s) => sum + (s.costsNet ?? s.totalCostsNet ?? 0),
+    0,
+  );
+  const scheduleCostGross = scheduleSummaries.reduce(
+    (sum, s) => sum + (s.costsGross ?? s.totalCostsGross ?? 0),
+    0,
+  );
+  const totalSchedulesCostsNet = scs?.totalSchedulesCostsNet || scheduleCostNet || null;
+  const totalSchedulesCostsGross = scs?.totalSchedulesCostsGross || scheduleCostGross || null;
+
   return (
     <Box w="100%">
-      <SimpleGrid columns={{ base: 2, md: 4, lg: 8 }} spacing={3} mb={6}>
+      <Box className="dashboard-kpi-grid" mb={6}>
         <KpiCard
           label="Łączne koszty harmonogramów"
-          netValue={scs?.totalSchedulesCostsNet ?? null}
-          grossValue={scs?.totalSchedulesCostsGross ?? null}
+          netValue={totalSchedulesCostsNet}
+          grossValue={totalSchedulesCostsGross}
           colorScheme="orange"
         />
         <KpiCard label="Harmonogramów" value={String(scheduleSummaries.length)} colorScheme="level2" />
@@ -46,11 +55,9 @@ export function SchedulesTab({
           value={timelineSummary.totalPlannedDays != null ? DAYS(timelineSummary.totalPlannedDays) : '—'}
           colorScheme="purple"
         />
-      </SimpleGrid>
+      </Box>
 
-      <SchedulesSection data={data} />
-
-      <Box mt={2}>
+      <Box as="section" aria-label="Harmonogramy" mb={6}>
         <Text fontSize="md" fontWeight="semibold" color="neutral.800" mb={3}>
           Harmonogramy
         </Text>
@@ -59,18 +66,18 @@ export function SchedulesTab({
             <ScheduleBlock
               key={summary.workScheduleId}
               summary={summary}
-              tenantId={tenantId}
               projectId={projectId}
-              onRefetch={onRefetch}
             />
           ))}
           {scheduleSummaries.length === 0 && (
-            <Text fontSize="sm" color="neutral.400" fontStyle="italic" p={3}>
+            <Text fontSize="sm" color="neutral.600" fontStyle="italic" p={3}>
               Brak powiązanych harmonogramów
             </Text>
           )}
         </Box>
       </Box>
+
+      <SchedulesSection data={data} />
     </Box>
   );
 }

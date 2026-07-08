@@ -12,7 +12,8 @@ namespace Entities.Configurations.Projects
 
             builder.HasDiscriminator<string>("ParamType")
                 .HasValue<ProjectCurrency>("Currency")
-                .HasValue<ProjectUnit>("Unit");
+                .HasValue<ProjectUnit>("Unit")
+                .HasValue<ProjectCostCategory>("CostCategory");
 
             builder.HasOne(x => x.Project)
                 .WithMany(p => p.Params)

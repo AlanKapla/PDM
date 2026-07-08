@@ -51,7 +51,7 @@ export function EstimateBudgetBarChart({
         hasMore && onShowAll ? (
           <Text fontSize="xs" color="primary.600" mt={2}>
             <Link onClick={onShowAll} cursor="pointer">
-              Pokaż wszystkie ({summaries.length}) w zakładce Kosztorysy →
+              Pokaż wszystkie ({summaries.length}) w zakładce Finanse →
             </Link>
           </Text>
         ) : undefined

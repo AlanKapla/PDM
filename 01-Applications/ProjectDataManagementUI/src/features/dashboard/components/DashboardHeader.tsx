@@ -3,7 +3,7 @@ import { Box, SimpleGrid, Text } from '@chakra-ui/react';
 import type { ProjectDashboardWeb } from '../types/projectDashboard.types';
 import { NetGrossAmount } from './shared/NetGrossAmount';
 import { DashboardSummaryCard } from './shared/DashboardSummaryCard';
-import { FINANCIAL_STATUS_CONFIG, TIMELINE_STATUS_CONFIG } from '../utils/formatters';
+import { FINANCIAL_STATUS_CONFIG, TIMELINE_STATUS_CONFIG, PROG } from '../utils/formatters';
 
 export interface DashboardHeaderProps {
   data: ProjectDashboardWeb;
@@ -11,9 +11,6 @@ export interface DashboardHeaderProps {
 
 export function DashboardHeader({ data }: DashboardHeaderProps): React.ReactElement {
   const { financialSummary, timelineSummary } = data;
-  const additionalNet = financialSummary.additionalCostsNet;
-  const additionalGross = financialSummary.additionalCostsGross;
-  const showAdditional = additionalNet != null && additionalNet > 0;
 
   const financialStatus = FINANCIAL_STATUS_CONFIG(financialSummary.financialStatus);
   const timelineStatus = TIMELINE_STATUS_CONFIG(timelineSummary.overallStatus);
@@ -22,7 +19,7 @@ export function DashboardHeader({ data }: DashboardHeaderProps): React.ReactElem
     <Box as="header" mb={6} w="100%">
       <SimpleGrid
         className="dashboard-summary-grid"
-        columns={{ base: 1, sm: 2, lg: showAdditional ? 5 : 4 }}
+        columns={{ base: 1, sm: 2, lg: 5 }}
         spacing={3}
         w="100%"
       >
@@ -46,17 +43,14 @@ export function DashboardHeader({ data }: DashboardHeaderProps): React.ReactElem
           />
         </DashboardSummaryCard>
 
-        {showAdditional && (
-          <DashboardSummaryCard label="Koszty dodatkowe" accentColor="amber.500">
-            <NetGrossAmount
-              net={additionalNet}
-              gross={additionalGross}
-              size="md"
-              align="left"
-              accentColor="amber.700"
-            />
-          </DashboardSummaryCard>
-        )}
+        <DashboardSummaryCard label="Postęp prac" accentColor="level1.500">
+          <Text fontSize={{ base: 'lg', md: 'xl' }} fontWeight="semibold" color="level1.700">
+            {PROG(timelineSummary.progressPercent)}
+          </Text>
+          <Text fontSize="xs" color="neutral.600" mt={1}>
+            {timelineSummary.completedCount} z {timelineSummary.totalWorkCount} zakończone
+          </Text>
+        </DashboardSummaryCard>
 
         <DashboardSummaryCard label="Status finansowy" accentColor={financialStatus.color}>
           <Box

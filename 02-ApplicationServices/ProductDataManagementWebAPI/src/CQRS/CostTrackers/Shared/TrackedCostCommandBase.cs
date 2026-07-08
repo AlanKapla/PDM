@@ -15,6 +15,7 @@ namespace CQRS.CostTrackers.Shared
         public decimal? Net { get; init; }
         public decimal? Gross { get; init; }
         public Guid? ContractorId { get; init; }
+        public Guid? CategoryId { get; init; }
         public DateTime? Date { get; init; }
         public IReadOnlyList<IFormFile>? NewFiles { get; init; }
 

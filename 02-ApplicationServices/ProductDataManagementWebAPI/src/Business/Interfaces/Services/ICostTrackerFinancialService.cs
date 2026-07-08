@@ -1,6 +1,7 @@
 ﻿using Business.Interfaces.WebModels.CostEstimates;
 using Business.Interfaces.WebModels.CostTrackers;
 using Entities.Models.CostEstimates;
+using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
 
 namespace Business.Interfaces.Services
@@ -49,7 +50,7 @@ namespace Business.Interfaces.Services
         CostEstimateSummaryWeb ComputeEstimateSummary(
             CostEstimate costEstimate,
             IReadOnlyCollection<CostEstimateItem> budgetItems,
-            ILookup<Guid, TrackedCost> costsByItemId,
+            ILookup<Guid, BaseCost> costsByItemId,
             decimal? additionalCostsNet,
             decimal? additionalCostsGross,
             int additionalCostsCount);

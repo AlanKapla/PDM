@@ -103,7 +103,6 @@ export default function MobileWorkRow({ work, stageId, depth }: MobileWorkRowPro
             fontWeight="medium"
             textDecoration={work.isClosed ? "line-through" : "none"}
             color={work.isClosed ? "gray.500" : "inherit"}
-            noOfLines={2}
           >
             {work.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
           </Text>
