@@ -1,14 +1,15 @@
 .footer {
-  background: var(--gray-900);
-  color: rgba(255, 255, 255, 0.75);
+  background: var(--color-dark);
+  color: rgba(255, 255, 255, 0.65);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .footer__inner {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 48px;
-  padding-top: 64px;
-  padding-bottom: 48px;
+  padding-top: 56px;
+  padding-bottom: 40px;
 }
 
 .footer__brand {
@@ -21,32 +22,20 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 20px;
-}
-
-.footer__logo span:first-child {
-  font-size: 22px;
 }
 
 .footer__logo-img {
-  height: 40px;
+  height: 36px;
   width: auto;
   display: block;
   filter: brightness(0) invert(1);
-}
-
-.footer__logo-text {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--white);
-  letter-spacing: -0.03em;
 }
 
 .footer__tagline {
   font-size: 14px;
   line-height: 1.65;
   max-width: 280px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .footer__contacts {
@@ -60,20 +49,20 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: var(--cobalt-300);
+  color: rgba(255, 255, 255, 0.65);
   transition: color 0.2s;
 }
 
 .footer__contact-link:hover {
-  color: var(--cobalt-200);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .footer__col-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255, 255, 255, 0.4);
   margin-bottom: 16px;
 }
 
@@ -86,19 +75,17 @@
 
 .footer__link {
   font-size: 14px;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255, 255, 255, 0.6);
   transition: color 0.2s;
 }
 
 .footer__link:hover {
-  color: var(--cobalt-300);
+  color: rgba(255, 255, 255, 0.9);
 }
 
-/* ---- Info strip (dane firmy + kontakt) ---- */
 .footer__info-strip {
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding: 28px 0;
-  background: rgba(0,0,0,0.15);
 }
 
 .footer__info-strip-inner {
@@ -119,7 +106,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255, 255, 255, 0.4);
   margin-bottom: 4px;
 }
 
@@ -128,7 +115,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .footer__info-link {
@@ -136,19 +123,18 @@
 }
 
 .footer__info-link:hover {
-  color: var(--cobalt-300);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .footer__info-divider {
   width: 1px;
   min-height: 70px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   align-self: stretch;
 }
 
-/* ---- Bottom bar ---- */
 .footer__bottom {
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding: 20px 0;
 }
 
@@ -157,11 +143,12 @@
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .footer__made {
   font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .footer__legal-links {
@@ -174,7 +161,7 @@
   background: none;
   border: none;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
   padding: 0;
   transition: color 0.2s;
@@ -182,11 +169,11 @@
 }
 
 .footer__legal-link:hover {
-  color: var(--cobalt-300);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .footer__legal-sep {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.25);
   font-size: 13px;
 }
 

@@ -47,12 +47,7 @@ export default function TargetUsers() {
         <div className="target__grid">
           {USERS.map(user => (
             <div key={user.title} className="target-card">
-              <div className="target-card__top">
-                <div className="target-card__icon" aria-hidden="true">
-                  <user.icon size={26} aria-hidden="true" />
-                </div>
-                <h3 className="target-card__title">{user.title}</h3>
-              </div>
+              <h3 className="target-card__title">{user.title}</h3>
               <p className="target-card__desc">{user.description}</p>
               <ul className="target-card__perks">
                 {user.perks.map(perk => (

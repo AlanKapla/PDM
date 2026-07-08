@@ -1,56 +1,26 @@
 /* ============================================
    BRICKLY LANDING PAGE – Global Styles
-   Kolorystyka: Cobalt Blue
    ============================================ */
 
 :root {
-  /* Cobalt palette */
-  --cobalt-50:  #EEF3FF;
-  --cobalt-100: #D8E4FF;
-  --cobalt-200: #B0C8FF;
-  --cobalt-300: #7AA4F7;
-  --cobalt-400: #4A7FEF;
-  --cobalt-500: #1B4FD8;   /* primary cobalt */
-  --cobalt-600: #1B4FD8;   /* cobalt core */
-  --cobalt-700: #163DB8;
-  --cobalt-800: #102D90;
-  --cobalt-900: #0A1E68;
+  --color-bg:           #FFFFFF;
+  --color-bg-alt:       #F8FAFC;
+  --color-text:         #0F172A;
+  --color-text-muted:   #475569;
+  --color-text-subtle:  #64748B;
+  --color-border:       #E2E8F0;
+  --color-accent:       #2563EB;
+  --color-accent-tint:  #EAF2FF;
+  --color-dark:         #0F172A;
 
-  /* Peach palette (tło strony) */
-  --peach-50:   #FFF5EE;
-  --peach-100:  #FFF0E6;
-  --peach-200:  #FFE4CC;
+  --font-sans:    'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Sora', system-ui, sans-serif;
 
-  /* Accent */
-  --accent:     #E07B39;
-  --accent-light: #FFF0E6;
+  --white: #FFFFFF;
 
-  /* Semantic color tokens */
-  --color-bg:           #FFF5EE;   /* tło strony */
-  --color-bg-alt:       #FFF0E6;   /* tło sekcji alt */
-  --color-primary:      #1B4FD8;   /* cobalt */
-  --color-primary-dark: #163DB8;   /* cobalt hover */
-  --color-text:         #111111;   /* tekst główny */
-  --color-text-muted:   #555555;   /* tekst drugorzędny */
-  --color-accent:       #E07B39;   /* akcenty */
-
-  /* Neutrals */
-  --white:      #FFFFFF;
-  --gray-50:    #FAF6F2;
-  --gray-100:   #F4EDE6;
-  --gray-200:   #E8DDD4;
-  --gray-600:   #555555;
-  --gray-800:   #222222;
-  --gray-900:   #111111;
-
-  /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-
-  /* Shadows */
-  --shadow-sm:  0 1px 3px rgba(0, 71, 171, 0.08);
-  --shadow-md:  0 4px 16px rgba(0, 71, 171, 0.12);
-  --shadow-lg:  0 8px 32px rgba(0, 71, 171, 0.18);
-  --shadow-xl:  0 16px 64px rgba(0, 71, 171, 0.22);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 32px rgba(15, 23, 42, 0.10);
 }
 
 /* ============================================
@@ -63,7 +33,7 @@
   left: 16px;
   z-index: 9999;
   padding: 12px 20px;
-  background: var(--cobalt-600);
+  background: var(--color-accent);
   color: var(--white);
   font-weight: 700;
   font-size: 15px;
@@ -95,7 +65,7 @@
    ============================================ */
 
 :focus-visible {
-  outline: 3px solid var(--cobalt-500);
+  outline: 3px solid var(--color-accent);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -129,12 +99,17 @@ html {
 }
 
 body {
+  background: var(--color-bg);
   font-family: var(--font-sans);
   color: var(--color-text);
-  background-color: var(--color-bg);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, .section-title {
+  font-family: var(--font-display);
+  font-weight: 800;
 }
 
 img {
@@ -178,8 +153,8 @@ button {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--cobalt-500);
-  background: var(--cobalt-50);
+  color: var(--color-accent);
+  background: var(--color-accent-tint);
   border-radius: 100px;
   padding: 6px 16px;
   margin-bottom: 16px;
@@ -187,8 +162,7 @@ button {
 
 .section-title {
   font-size: clamp(28px, 3.5vw, 44px);
-  font-weight: 800;
-  color: var(--cobalt-900);
+  color: var(--color-text);
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -214,26 +188,26 @@ button {
 }
 
 .btn-primary {
-  background: var(--cobalt-600);
+  background: var(--color-accent);
   color: var(--white);
-  box-shadow: 0 4px 16px rgba(0, 71, 171, 0.35);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
 }
 
 .btn-primary:hover {
-  background: var(--cobalt-700);
-  box-shadow: 0 6px 24px rgba(0, 71, 171, 0.45);
+  background: #1D4ED8;
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.35);
   transform: translateY(-1px);
 }
 
 .btn-outline {
   background: transparent;
-  color: var(--cobalt-600);
-  border: 2px solid var(--cobalt-300);
+  color: var(--color-accent);
+  border: 2px solid var(--color-border);
 }
 
 .btn-outline:hover {
-  border-color: var(--cobalt-600);
-  background: var(--cobalt-50);
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
 }
 
 .btn-ghost-white {

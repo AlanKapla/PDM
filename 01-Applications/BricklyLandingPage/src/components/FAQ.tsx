@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
 import './FAQ.css'
 
 const FAQ_ITEMS = [
@@ -52,6 +51,14 @@ interface FAQItemProps {
 
 function FAQItem({ question, answer }: FAQItemProps) {
   const [open, setOpen] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [maxHeight, setMaxHeight] = useState('0px')
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setMaxHeight(open ? `${contentRef.current.scrollHeight}px` : '0px')
+    }
+  }, [open, answer])
 
   return (
     <div className={`faq__item${open ? ' faq__item--open' : ''}`}>
@@ -62,9 +69,14 @@ function FAQItem({ question, answer }: FAQItemProps) {
         aria-expanded={open}
       >
         <span>{question}</span>
-        <ChevronDown size={18} className="faq__icon" aria-hidden="true" />
+        <span className="faq__toggle" aria-hidden="true">{open ? '−' : '+'}</span>
       </button>
-      <div className="faq__answer" hidden={!open}>
+      <div
+        className="faq__answer"
+        ref={contentRef}
+        style={{ maxHeight }}
+        aria-hidden={!open}
+      >
         <p>{answer}</p>
       </div>
     </div>
@@ -75,8 +87,10 @@ export default function FAQ() {
   return (
     <section id="faq" className="section">
       <div className="container">
-        <span className="section-label">Pytania i odpowiedzi</span>
-        <h2 className="section-title faq__title">Najczęstsze pytania</h2>
+        <div className="faq__header">
+          <span className="section-label">Pytania i odpowiedzi</span>
+          <h2 className="section-title">Najczęstsze pytania</h2>
+        </div>
         <div className="faq__list">
           {FAQ_ITEMS.map((item, i) => (
             <FAQItem key={i} question={item.question} answer={item.answer} />

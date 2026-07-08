@@ -10,12 +10,6 @@ const MICRO_BENEFITS = [
 export default function CallToAction() {
   return (
     <section id="cta" className="cta-section">
-      <div className="cta-section__bg">
-        <div className="cta-section__blob cta-section__blob--1" />
-        <div className="cta-section__blob cta-section__blob--2" />
-        <div className="cta-section__grid" />
-      </div>
-
       <div className="container cta-section__content">
         <div className="cta-section__badge">
           <span className="cta-section__badge-dot" aria-hidden="true" />

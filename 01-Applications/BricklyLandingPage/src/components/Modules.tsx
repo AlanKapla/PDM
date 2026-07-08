@@ -1,108 +1,4 @@
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import './Modules.css'
-
-/* ------------------------------------------------------------------ */
-/*  ScreenshotGallery — karuzela zrzutów ekranu dla pojedynczego     */
-/*  modułu. Przyjmuje tablicę nazw plików (bez rozszerzenia) i       */
-/*  ścieżkę bazową. Zdjęcia ładowane są jako module/N.png.           */
-/* ------------------------------------------------------------------ */
-
-interface ScreenshotGalleryProps {
-  /** Nazwy plików bez rozszerzenia, np. ['1', '2', '3'] */
-  screens: string[]
-  /** Ścieżka bazowa, np. /screenshots/module-01 */
-  basePath: string
-  /** Tekst alternatywny – zostanie uzupełniony o numer widoku */
-  alt: string
-}
-
-function ScreenshotGallery({ screens, basePath, alt }: ScreenshotGalleryProps) {
-  const [index, setIndex] = useState(0)
-  const total = screens.length
-
-  function handleGoPrev() {
-    setIndex((prev) => (prev === 0 ? total - 1 : prev - 1))
-  }
-
-  function handleGoNext() {
-    setIndex((prev) => (prev === total - 1 ? 0 : prev + 1))
-  }
-
-  function handleGoTo(i: number) {
-    setIndex(i)
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      handleGoPrev()
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      handleGoNext()
-    }
-  }
-
-  return (
-    <div
-      className="gallery"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      role="region"
-      aria-label={`Galeria: ${alt}`}
-    >
-      <div className="gallery__viewport">
-        <img
-          src={`${basePath}/${screens[index]}.png`}
-          alt={`${alt} — widok ${index + 1} z ${total}`}
-          className="gallery__img"
-          loading="lazy"
-        />
-      </div>
-
-      {total > 1 && (
-        <>
-          <button
-            type="button"
-            className="gallery__btn gallery__btn--prev"
-            onClick={handleGoPrev}
-            aria-label="Poprzedni zrzut ekranu"
-          >
-            <ChevronLeft size={20} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="gallery__btn gallery__btn--next"
-            onClick={handleGoNext}
-            aria-label="Następny zrzut ekranu"
-          >
-            <ChevronRight size={20} aria-hidden="true" />
-          </button>
-          <div className="gallery__dots" role="tablist" aria-label="Wybór zrzutu ekranu">
-            {screens.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={`gallery__dot${i === index ? ' gallery__dot--active' : ''}`}
-                onClick={() => handleGoTo(i)}
-                role="tab"
-                aria-selected={i === index}
-                aria-label={`Zrzut ekranu ${i + 1} z ${total}`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/*  Konfiguracja modułów                                              */
-/*                                                                     */
-/*  screens: tablica nazw plików (bez .png) w katalogu                */
-/*           public/screenshots/module-{number}/                       */
-/* ------------------------------------------------------------------ */
 
 interface Feature {
   number: string
@@ -246,10 +142,6 @@ const FEATURES: Feature[] = [
   },
 ]
 
-/* ------------------------------------------------------------------ */
-/*  Modules — główny komponent sekcji                                 */
-/* ------------------------------------------------------------------ */
-
 export default function Modules() {
   return (
     <section id="modules" className="section section--alt">
@@ -265,27 +157,10 @@ export default function Modules() {
           {FEATURES.map((feature) => (
             <div key={feature.number} className="feature-row">
               <div className="feature-row__number">{feature.number}</div>
-              <div className="feature-row__left">
-                <span className="feature-row__tag">{feature.tag}</span>
+              <span className="feature-row__tag">{feature.tag}</span>
+              <div className="feature-row__content">
                 <h3 className="feature-row__title">{feature.title}</h3>
                 <p className="feature-row__desc">{feature.description}</p>
-              </div>
-              <div className="feature-row__right">
-                <ul className="feature-row__highlights">
-                  {feature.highlights.map((h) => (
-                    <li key={h} className="feature-row__highlight">
-                      <span className="feature-row__dot" aria-hidden="true" />
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="feature-row__gallery">
-                <ScreenshotGallery
-                  screens={feature.screens}
-                  basePath={`/screenshots/module-${feature.number}`}
-                  alt={`${feature.tag}: ${feature.title}`}
-                />
               </div>
             </div>
           ))}
