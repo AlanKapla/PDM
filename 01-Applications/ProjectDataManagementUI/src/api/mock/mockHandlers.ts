@@ -16,6 +16,10 @@ function ok<T>(data: T): MockResponse {
   return [200, data];
 }
 
+function noContent(): MockResponse {
+  return [204, null];
+}
+
 /** Wyciągnij parametr z URL po indeksie segmentu */
 function urlSegment(url: string, index: number): string {
   const parts = url.split("/").filter(Boolean);
@@ -117,19 +121,44 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   // ============================================
   //  WORK SCHEDULES
   // ============================================
-  // GET /work-schedule/list?scope=...
-  const wsListMatch = pathOnly.match(/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/list$/);
-  if (wsListMatch && method === "get") {
-    const pid = extractProjectId(pathOnly);
-    const qs = url.includes("?") ? url.split("?")[1] || "" : "";
-    const scope = new URLSearchParams(qs).get("scope") || "all";
-    return ok(getWorkSchedules(pid, scope.toLowerCase()));
-  }
   // GET /work-schedule/details/{wsId}
   const wsDetailMatch = pathOnly.match(/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/details\/([^/]+)$/);
   if (wsDetailMatch && method === "get") {
     const wsId = wsDetailMatch[1];
     return ok(getWorkScheduleDetails(wsId));
+  }
+  // GET /work-schedule/{scope} — all|mine|shared|PendingApproval
+  const wsListMatch = pathOnly.match(/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/(all|mine|shared|PendingApproval)$/);
+  if (wsListMatch && method === "get") {
+    const pid = extractProjectId(pathOnly);
+    const scope = wsListMatch[1].toLowerCase();
+    return ok(getWorkSchedules(pid, scope));
+  }
+  // POST /work-schedule — create
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule$/.test(pathOnly) && method === "post") {
+    return [201, "ws-new-001"];
+  }
+  // PUT /work-schedule/{wsId}/dependencies — zwraca zaktualizowane szczegóły
+  const wsDepsMatch = pathOnly.match(/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/([^/]+)\/dependencies$/);
+  if (wsDepsMatch && method === "put") {
+    return ok(getWorkScheduleDetails(wsDepsMatch[1]));
+  }
+  // PUT/DELETE /work-schedule/{wsId} — rename / delete
+  const wsIdMatch = pathOnly.match(/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/([^/]+)$/);
+  if (wsIdMatch && (method === "put" || method === "delete")) {
+    return noContent();
+  }
+  // POST /work-schedule/{wsId}/sync-with-estimate
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/[^/]+\/sync-with-estimate$/.test(pathOnly) && method === "post") {
+    return noContent();
+  }
+  // POST /work-schedule/{wsId}/generate-from-ai
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/[^/]+\/generate-from-ai$/.test(pathOnly) && method === "post") {
+    return ok(getWorkScheduleDetails("ws-001"));
+  }
+  // Pozostałe mutacje harmonogramu (etapy, prace, okresy, komentarze) — 204
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/work-schedule\/[^/]+/.test(pathOnly) && method !== "get") {
+    return noContent();
   }
 
   // ============================================

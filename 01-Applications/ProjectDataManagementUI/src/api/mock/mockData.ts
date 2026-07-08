@@ -299,6 +299,9 @@ export function getWorkSchedules(projectId: string, scope?: string): WorkSchedul
   if (scope === "mine") {
     return all.filter(s => s.createdByUserId === uid);
   }
+  if (scope === "shared" || scope === "pendingapproval") {
+    return [];
+  }
   return all;
 }
 
